@@ -1,9 +1,14 @@
+import os
+import json
+import jsbeautifier
 import torch
+from .base_metric import BaseMetric
 
 
-class SemanticSegmentationMetric:
+class SemanticSegmentationMetric(BaseMetric):
 
     def __init__(self, num_classes: int, ignore_index: int):
+        super().__init__()
         self.num_classes = num_classes
         self.ignore_index= ignore_index
 
@@ -29,4 +34,21 @@ class SemanticSegmentationMetric:
         denominator = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
         score = numerator / denominator
         assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
+        # log score
+        self.buffer.append(score)
         return score
+
+    def summarize(self, output_path: str = None) -> torch.Tensor:
+        r"""This functions summarizes the semantic segmentation evaluation results on all examples
+        seen so far into a single floating point number.
+        """
+        scores = torch.stack(self.buffer, dim=0)
+        assert len(scores.shape) == 2 and scores.shape[1] == self.num_classes, f"{scores.shape=}"
+        class_IoUs = torch.nanmean(scores, dim=0)
+        assert class_IoUs.shape == (self.num_classes,), f"{class_IoUs.shape=}"
+        mIoU = torch.nanmean(class_IoUs)
+        assert mIoU.numel() == 1, f"{mIoU.shape=}"
+        if output_path is not None and os.path.isfile(output_path):
+            with open(output_path, mode='w') as f:
+                f.write(jsbeautifier.beautify(json.dumps(mIoU), jsbeautifier.default_options()))
+        return mIoU

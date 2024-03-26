@@ -1,7 +1,8 @@
 import torch
+from .base_metric import BaseMetric
 
 
-class NormalEstimationMetric:
+class NormalEstimationMetric(BaseMetric):
 
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""
@@ -21,4 +22,6 @@ class NormalEstimationMetric:
         cosine_map = cosine_map.masked_select(binary_mask)
         score = torch.rad2deg(torch.acos(cosine_map)).mean()
         assert score.numel() == 1, f"{score.numel()=}"
+        # log score
+        self.buffer.append(score)
         return score

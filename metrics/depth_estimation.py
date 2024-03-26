@@ -1,7 +1,8 @@
 import torch
+from .base_metric import BaseMetric
 
 
-class DepthEstimationMetric:
+class DepthEstimationMetric(BaseMetric):
 
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
@@ -12,4 +13,6 @@ class DepthEstimationMetric:
         denominator = mask.sum()
         score = numerator / denominator
         assert score.numel() == 1, f"{score.numel()=}"
+        # log score
+        self.buffer.append(score)
         return score
