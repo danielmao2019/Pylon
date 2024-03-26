@@ -1,7 +1,8 @@
 import torch
+from .base_criterion import BaseCriterion
 
 
-class NormalEstimationLoss:
+class NormalEstimationLoss(BaseCriterion):
 
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""
@@ -24,4 +25,6 @@ class NormalEstimationLoss:
             binary_mask, as_tuple=False
         ).size(0)
         assert loss.numel() == 1, f"{loss.shape=}"
+        # log loss
+        self.buffer.append(loss)
         return loss
