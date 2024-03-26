@@ -1,9 +1,11 @@
 import torch
+from .base_metric import BaseMetric
 
 
-class InstanceSegmentationMetric:
+class InstanceSegmentationMetric(BaseMetric):
 
     def __init__(self, ignore_index: int):
+        super().__init__()
         self.ignore_index = ignore_index
 
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
@@ -14,4 +16,6 @@ class InstanceSegmentationMetric:
         denominator = mask.sum()
         score = numerator / denominator
         assert score.numel() == 1, f"{score.numel()}"
+        # log score
+        self.buffer.append(score)
         return score
