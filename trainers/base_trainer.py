@@ -1,4 +1,5 @@
 from typing import List, Dict
+from abc import abstractmethod
 import os
 import glob
 import time
@@ -20,7 +21,7 @@ except:
     from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 
-class Trainer:
+class BaseTrainer:
 
     def __init__(self, config: dict):
         self.config = config
@@ -176,40 +177,37 @@ class Trainer:
     # iteration-level methods
     # ====================================================================================================
 
-    def _train_step_(self, example: Dict[str, torch.Tensor]) -> None:
+    @abstractmethod
+    def _set_gradients_(self, example: dict):
+        raise NotImplementedError("[ERROR] _set_gradients_ not implemented for base class.")
+
+    def _train_step_(self, example: dict) -> None:
         r"""
         Args:
-            example (Dict[str, torch.Tensor]): a dictionary containing the image and the multi-task
-                ground-truth label for the current input.
+            example (dict): a dictionary containing inputs and ground-truth labels.
         """
         # init time
         start_time = time.time()
         # copy to GPU
         example = utils.apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
         # do computation
-        self.optimizer.zero_grad()
         with torch.autocast(device_type='cuda', dtype=torch.float16):
-            outputs = self.model(example)
-            losses: Dict[str, torch.Tensor] = self.criterion(y_pred=outputs, y_true=example)
-        losses.sum().backward()
+            example['outputs'] = self.model(example['inputs'])
+            example['losses'] = self.criterion(y_pred=example['outputs'], y_true=example['labels'])
         # update logger
         self.logger.update_buffer({"learning_rate": self.scheduler.get_last_lr()})
-        self.logger.update_buffer({
-            'tot_loss': sum(losses.values()),
-            'avg_loss': sum(losses.values()) / len(losses.values()),
-        })
-        self.logger.update_buffer(dict(("loss_"+task, val) for task, val in losses.items()))
+        self.logger.update_buffer(utils.logging.log_losses(example['losses']))
         # update states
+        self._set_gradients_(example)
         self.optimizer.step()
         self.scheduler.step()
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
 
-    def _eval_step_(self, example: Dict[str, torch.Tensor]) -> None:
+    def _eval_step_(self, example: dict) -> None:
         r"""
         Args:
-            example (Dict[str, torch.Tensor]): a dictionary containing the image and the multi-task
-                ground-truth label for the current input.
+            example (dict): a dictionary containing inputs and ground-truth labels.
         """
         # init time
         start_time = time.time()
@@ -217,10 +215,10 @@ class Trainer:
         example = utils.apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
-            outputs = self.model(example)
-            scores: Dict[str, torch.Tensor] = self.metric(y_pred=outputs, y_true=example)
+            example['outputs'] = self.model(example['inputs'])
+            example['scores'] = self.metric(y_pred=example['outputs'], y_true=example['labels'])
         # update logger
-        self.logger.update_buffer(scores)
+        self.logger.update_buffer(utils.logging.log_scores(example['scores']))
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
 
