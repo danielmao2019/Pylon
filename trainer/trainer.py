@@ -135,6 +135,13 @@ class Trainer:
     def expected_files(self):
         return ["training_losses.pt", "validation_scores.json"]
 
+    def _load_checkpoint_(self, checkpoint: dict):
+        assert type(checkpoint) == dict, f"{type(checkpoint)}"
+        self.cum_epochs = checkpoint['epoch'] + 1
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+
     def _init_state_(self):
         self.logger.info("Initializing state...")
         # input checks
@@ -143,29 +150,27 @@ class Trainer:
         self.cum_epochs = 0
         self.tot_epochs = self.config['epochs']
         assert len(self.train_seeds) == self.tot_epochs, f"{len(self.train_seeds)=}, {self.tot_epochs=}"
-        # no need to resume if no checkpoint saved
-        if len(glob.glob(os.path.join(self.work_dir, "**", "checkpoint.pt"))) == 0:
-            return
         # determine where to resume from
-        load_idx: int = -1
+        load_idx: int = None
         for idx in range(self.tot_epochs):
-            cond = all([os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", filename))
+            epoch_finished = all([os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", filename))
                 for filename in self.expected_files
             ])
-            if not cond:
+            if not epoch_finished:
                 break
             if os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")):
                 load_idx = idx
+        if load_idx is None:
+            self.logger.info("Training from scratch.")
+            return
         # resume state
         checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{load_idx}", "checkpoint.pt")
         try:
+            self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
             checkpoint = torch.load(checkpoint_filepath)
-            self.cum_epochs = checkpoint['epoch'] + 1
-            self.model.load_state_dict(checkpoint['model_state_dict'])
-            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            self._load_checkpoint_(checkpoint)
         except Exception as e:
-            self.logger.error(f"Got {e} when loading from {checkpoint_filepath}. Starting over training.")
+            self.logger.error(f"[ERROR] Failed to load checkpoint at {checkpoint_filepath}: {e}")
 
     # ====================================================================================================
     # iteration-level methods
