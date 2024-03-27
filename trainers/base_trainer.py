@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Tuple, List, Any
 from abc import abstractmethod
 import os
 import glob
@@ -11,7 +11,7 @@ import wandb
 import experiments
 import utils
 
-from .utils import build_from_config, find_best_checkpoint
+from .utils import build_from_config
 
 try:
     # torch 2.x
@@ -254,22 +254,39 @@ class BaseTrainer:
         # log time
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
+    def _save_checkpoint_(self, output_path: str):
+        torch.save(obj={
+            'epoch': self.cum_epochs,
+            'model_state_dict': self.model.state_dict(),
+            'optimizer_state_dict': self.optimizer.state_dict(),
+            'scheduler_state_dict': self.scheduler.state_dict(),
+        }, f=output_path)
+
+    def _find_best_checkpoint_(self) -> str:
+        r"""
+        Returns:
+            best_checkpoint (str): the filepath to the checkpoint with the highest validation score.
+        """
+        avg_scores: List[Tuple[str, Any]] = []
+        for epoch_dir in sorted(glob.glob(os.path.join(self.work_dir, "epoch_*"))):
+            with open(os.path.join(epoch_dir, "validation_scores.json"), mode='r') as f:
+                scores = json.load(f)
+            avg_scores.append((epoch_dir, scores))
+        best_epoch_dir: str = max(avg_scores, key=lambda x: x[1]['reduced'])[0]
+        best_checkpoint: str = os.path.join(best_epoch_dir, "checkpoint.pt")
+        assert os.path.isfile(best_checkpoint), f"{best_checkpoint=}"
+        return best_checkpoint
+
     def _after_train_loop_(self) -> None:
         # initialize epoch root directory
         epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
         if not os.path.isdir(epoch_root):
             os.makedirs(epoch_root)
         # save training losses to disk
-        losses: Dict[str, torch.Tensor] = self.criterion.summarize()
-        torch.save(obj=losses, f=os.path.join(epoch_root, "training_losses.pt"))
+        self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
         # save checkpoint to disk
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
-        torch.save(obj={
-            'epoch': self.cum_epochs,
-            'model_state_dict': self.model.state_dict(),
-            'optimizer_state_dict': self.optimizer.state_dict(),
-            'scheduler_state_dict': self.scheduler.state_dict(),
-        }, f=latest_checkpoint)
+        self._save_checkpoint_(output_path=latest_checkpoint)
         # set latest checkpoint
         soft_link: str = os.path.join(self.work_dir, "checkpoint_latest.pt")
         if os.path.isfile(soft_link):
@@ -282,17 +299,15 @@ class BaseTrainer:
         if not os.path.isdir(epoch_root):
             os.makedirs(epoch_root)
         # save validation scores to disk
-        scores: Dict[str, float] = self.metric.summarize()
-        with open(os.path.join(epoch_root, "validation_scores.json"), mode='w') as f:
-            f.write(jsbeautifier.beautify(json.dumps(scores), jsbeautifier.default_options()))
+        self.metric.summarize(output_path=os.path.join(epoch_root, "validation_scores.json"))
         # set best checkpoint
-        checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-        best_checkpoint: str = find_best_checkpoint(checkpoints=checkpoints)
+        best_checkpoint: str = self._find_best_checkpoint_()
         soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
         if os.path.isfile(soft_link):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
         # cleanup checkpoints
+        checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
         checkpoints.remove(best_checkpoint)
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
         if latest_checkpoint in checkpoints:
@@ -308,7 +323,7 @@ class BaseTrainer:
         # init time
         start_time = time.time()
         # before test loop
-        best_idx: int = self._before_test_loop_()
+        best_checkpoint: str = self._before_test_loop_()
         # do test loop
         self.model.eval()
         self.metric.reset_buffer()
@@ -316,36 +331,28 @@ class BaseTrainer:
             self._eval_step_(example=example)
             self.logger.flush(prefix=f"Test epoch [Iteration {idx}/{len(self.test_dataloader)}].")
         # after test loop
-        self._after_test_loop_(best_idx=best_idx)
+        self._after_test_loop_(best_checkpoint=best_checkpoint)
         # log time
         self.logger.info(f"Test epoch time: {round(time.time() - start_time, 2)} seconds.")
 
-    def _before_test_loop_(self) -> int:
-        r"""
-        Returns:
-            best_idx (int): the index of the best checkpoint.
-        """
-        # find best model
-        best_idx = self.tot_epochs - 1
-        # load model
-        checkpoint = torch.load(os.path.join(self.work_dir, f"epoch_{best_idx}", "checkpoint.pt"))
+    def _before_test_loop_(self) -> str:
+        checkpoint_filepath = self._find_best_checkpoint_()
+        checkpoint = torch.load(checkpoint_filepath)
         self.model.load_state_dict(checkpoint['model_state_dict'])
-        return best_idx
+        return checkpoint_filepath
 
-    def _after_test_loop_(self, best_idx: int) -> None:
-        r"""
-        Args:
-            best_idx (int): the index of the best checkpoint.
-        """
+    def _after_test_loop_(self, best_checkpoint: str) -> None:
         # initialize test results directory
         test_root = os.path.join(self.work_dir, "test")
         if not os.path.isdir(test_root):
             os.makedirs(test_root)
         # save test results to disk
-        scores = self.metric.summarize()
-        scores['checkpoint_filepath'] = os.path.join(f"epoch_{best_idx}", "checkpoint.pt")
+        results = {
+            'scores': self.metric.summarize(),
+            'checkpoint_filepath': best_checkpoint,
+        }
         with open(os.path.join(test_root, "test_results.json"), mode='w') as f:
-            f.write(jsbeautifier.beautify(json.dumps(scores), jsbeautifier.default_options()))
+            f.write(jsbeautifier.beautify(json.dumps(results), jsbeautifier.default_options()))
 
     # ====================================================================================================
     # ====================================================================================================

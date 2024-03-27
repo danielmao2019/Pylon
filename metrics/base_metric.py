@@ -1,5 +1,8 @@
 from typing import List
 from abc import abstractmethod
+import os
+import json
+import jsbeautifier
 import torch
 
 
@@ -19,9 +22,12 @@ class BaseMetric:
         """
         raise NotImplementedError("__call__ method not implemented for base class.")
 
-    def summarize(self) -> torch.Tensor:
+    def summarize(self, output_path: str = None) -> torch.Tensor:
         r"""Default summarization: mean of scores across all examples in buffer.
         """
-        summary = torch.cat(self.buffer).mean()
-        assert summary.numel() == 1, f"{summary.shape=}"
-        return summary
+        mean_score = torch.cat(self.buffer).mean()
+        assert mean_score.numel() == 1, f"{mean_score.shape=}"
+        if output_path is not None and os.path.isfile(output_path):
+            with open(output_path, mode='w') as f:
+                f.write(jsbeautifier.beautify(json.dumps(mean_score), jsbeautifier.default_options()))
+        return mean_score

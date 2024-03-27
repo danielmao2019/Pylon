@@ -1,5 +1,6 @@
 from typing import List
 from abc import abstractmethod
+import os
 import torch
 
 
@@ -19,9 +20,11 @@ class BaseCriterion:
         """
         raise NotImplementedError("__call__ method not implemented for base class.")
 
-    def summarize(self) -> torch.Tensor:
+    def summarize(self, output_path: str = None) -> torch.Tensor:
         r"""Default summarization: trajectory of losses across all examples in buffer.
         """
         summary = torch.cat(self.buffer)
         assert len(summary.shape) == 1, f"{summary.shape=}"
+        if output_path is not None and os.path.isfile(output_path):
+            torch.save(obj=summary, f=output_path)
         return summary
