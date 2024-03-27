@@ -1,6 +1,12 @@
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Any
 import os
 import json
+
+
+def build_from_config(config: Dict[str, Any], **kwargs) -> Any:
+    assert type(config) == dict, f"{type(config)=}"
+    assert 'class' in config and 'args' in config, f"{config.keys()}"
+    return config['class'](**config['args'], **kwargs)
 
 
 def find_best_checkpoint(checkpoints: List[str]) -> str:
