@@ -8,10 +8,8 @@ import jsbeautifier
 import torch
 import wandb
 
-import experiments
 import utils
-
-from .utils import build_from_config
+from .utils import build_from_config, has_finished
 
 try:
     # torch 2.x
@@ -359,9 +357,7 @@ class BaseTrainer:
 
     def train(self):
         # skip if finished
-        if experiments.utils.has_finished(
-            work_dir=self.config['work_dir'], expected_epochs=self.config['epochs'], wait_time=60.0,
-        ):
+        if has_finished(work_dir=self.config['work_dir'], expected_epochs=self.config['epochs']):
             return
         # initialize modules
         self._init_work_dir_()
