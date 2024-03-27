@@ -10,7 +10,7 @@ import wandb
 import experiments
 import utils
 
-from .utils import echo_page_break, find_best_checkpoint
+from .utils import find_best_checkpoint
 
 try:
     # torch 2.x
@@ -38,15 +38,15 @@ class Trainer:
             os.makedirs(work_dir)
         self.work_dir = work_dir
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
-        # git
+        # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
-        echo_page_break(filepath=git_log, heading="git branch -a")
+        utils.logging.echo_page_break(filepath=git_log, heading="git branch -a")
         os.system(f"git branch -a >> {git_log}")
-        echo_page_break(filepath=git_log, heading="git status")
+        utils.logging.echo_page_break(filepath=git_log, heading="git status")
         os.system(f"git status >> {git_log}")
-        echo_page_break(filepath=git_log, heading="git log")
+        utils.logging.echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
-        # initialize logger
+        # training log
         self.logger = utils.logging.Logger(
             filepath=os.path.join(self.work_dir, f"train_val_{session_idx}.log"),
         )
