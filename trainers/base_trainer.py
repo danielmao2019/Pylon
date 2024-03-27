@@ -97,12 +97,12 @@ class BaseTrainer:
     def _init_criterion_(self):
         self.logger.info("Initializing criterion...")
         assert 'criterion' in self.config
-        self.criterion = build_from_config(self.config['task_criteria'])
+        self.criterion = build_from_config(self.config['criterion'])
 
     def _init_metric_(self):
         self.logger.info("Initializing metric...")
         assert 'metric' in self.config
-        self.metric = build_from_config(self.config['task_metrics'])
+        self.metric = build_from_config(self.config['metric'])
 
     def _init_optimizer_(self):
         r"""Requires self.model.
