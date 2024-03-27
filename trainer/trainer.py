@@ -10,7 +10,7 @@ import wandb
 import experiments
 import utils
 
-from .utils import find_best_checkpoint
+from .utils import build_from_config, find_best_checkpoint
 
 try:
     # torch 2.x
@@ -69,79 +69,67 @@ class Trainer:
 
     def _init_dataloaders_(self):
         self.logger.info("Initializing dataloaders...")
-        # input checks
-        assert set([
-            'train_dataset', 'train_dataloader', 'val_dataset', 'val_dataloader', 'test_dataset', 'test_dataloader',
-        ]).issubset(set(self.config.keys()))
         # initialize training dataloader
-        train_dataset = self.config['train_dataset']['class'](**self.config['train_dataset']['args'])
-        assert isinstance(train_dataset, torch.utils.data.Dataset), f"{type(train_dataset)=}"
-        train_dataloader = self.config['train_dataloader']['class'](
-            dataset=train_dataset, shuffle=True,
-            **self.config['train_dataloader']['args'],
+        assert 'train_dataset' in self.config and 'train_dataloader' in self.config
+        train_dataset: torch.utils.data.Dataset = build_from_config(self.config['train_dataset'])
+        self.train_dataloader: torch.utils.data.DataLoader = build_from_config(
+            dataset=train_dataset, shuffle=True, config=self.config['train_dataloader'],
         )
-        assert isinstance(train_dataloader, torch.utils.data.DataLoader), f"{type(train_dataloader)=}"
-        self.train_dataloader = train_dataloader
         # initialize validation dataloader
-        val_dataset = self.config['val_dataset']['class'](**self.config['val_dataset']['args'])
-        assert isinstance(val_dataset, torch.utils.data.Dataset), f"{type(val_dataset)=}"
-        val_dataloader = self.config['val_dataloader']['class'](
-            dataset=val_dataset, shuffle=False, batch_size=1,
-            **self.config['val_dataloader']['args'],
+        assert 'val_dataset' in self.config and 'val_dataloader' in self.config
+        val_dataset: torch.utils.data.Dataset = build_from_config(self.config['val_dataset'])
+        self.val_dataloader: torch.utils.data.DataLoader = build_from_config(
+            dataset=val_dataset, shuffle=False, batch_size=1, config=self.config['val_dataloader'],
         )
-        assert isinstance(val_dataloader, torch.utils.data.DataLoader), f"{type(val_dataloader)=}"
-        self.val_dataloader = val_dataloader
         # initialize test dataloader
-        test_dataset = self.config['test_dataset']['class'](**self.config['test_dataset']['args'])
-        assert isinstance(test_dataset, torch.utils.data.Dataset), f"{type(test_dataset)=}"
-        test_dataloader = self.config['test_dataloader']['class'](
-            dataset=test_dataset, shuffle=False, batch_size=1,
-            **self.config['test_dataloader']['args'],
+        assert 'test_dataset' in self.config and 'test_dataloader' in self.config
+        test_dataset: torch.utils.data.Dataset = build_from_config(self.config['test_dataset'])
+        self.test_dataloader: torch.utils.data.DataLoader = build_from_config(
+            dataset=test_dataset, shuffle=False, batch_size=1, config=self.config['test_dataloader'],
         )
-        assert isinstance(test_dataloader, torch.utils.data.DataLoader), f"{type(test_dataloader)=}"
-        self.test_dataloader = test_dataloader
 
     def _init_model_(self):
         self.logger.info("Initializing model...")
-        assert 'model' in self.config.keys()
-        model = self.config['model']['class'](**self.config['model']['args'])
-        assert isinstance(model, torch.nn.Module)
+        assert 'model' in self.config
+        model: torch.nn.Module = build_from_config(self.config['model'])
         model = model.cuda()
         self.model = model
 
     def _init_criterion_(self):
         self.logger.info("Initializing criterion...")
         assert 'criterion' in self.config
-        self.criterion = self.config['task_criteria']['class'](**self.config['task_criteria']['args'])
+        self.criterion = build_from_config(self.config['task_criteria'])
 
     def _init_metric_(self):
         self.logger.info("Initializing metric...")
         assert 'metric' in self.config
-        self.metric = self.config['task_metrics']['class'](**self.config['task_metrics']['args'])
+        self.metric = build_from_config(self.config['task_metrics'])
 
     def _init_optimizer_(self):
+        r"""Requires self.model.
+        """
         self.logger.info("Initializing optimizer...")
-        assert 'optimizer' in self.config.keys()
-        optimizer = self.config['optimizer']['class'](
-            params=self.model.parameters(), **self.config['optimizer']['args'],
+        assert 'optimizer' in self.config
+        assert hasattr(self, 'model') and isinstance(self.model, torch.nn.Module)
+        self.optimizer: torch.optim.Optimizer = build_from_config(
+            params=self.model.parameters(), config=self.config['optimizer'],
         )
-        assert isinstance(optimizer, torch.optim.Optimizer), f"{type(optimizer)=}"
-        self.optimizer = optimizer
 
     def _init_scheduler_(self):
+        r"""Requires self.train_dataloader and self.optimizer.
+        """
         self.logger.info("Initializing scheduler...")
-        assert 'scheduler' in self.config.keys()
+        assert 'scheduler' in self.config
+        assert hasattr(self, 'train_dataloader') and isinstance(self.train_dataloader, torch.utils.data.DataLoader)
+        assert hasattr(self, 'optimizer') and isinstance(self.optimizer, torch.optim.Optimizer)
         lr_lambda = self.config['scheduler']['args']['lr_lambda']
         if type(lr_lambda) == dict:
-            assert set(['class', 'args']).issubset(lr_lambda.keys())
-            assert lr_lambda['args'] == {}
-            lr_lambda = lr_lambda['class'](steps=len(self.train_dataloader))
+            lr_lambda = build_from_config(steps=len(self.train_dataloader), config=lr_lambda)
+        assert callable(lr_lambda)
         self.config['scheduler']['args']['lr_lambda'] = lr_lambda
-        scheduler = self.config['scheduler']['class'](
-            optimizer=self.optimizer, **self.config['scheduler']['args'],
+        self.scheduler: LRScheduler = build_from_config(
+            optimizer=self.optimizer, config=self.config['scheduler'],
         )
-        assert isinstance(scheduler, LRScheduler), f"{type(scheduler)=}"
-        self.scheduler = scheduler
 
     @property
     def expected_files(self):
