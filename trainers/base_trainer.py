@@ -9,7 +9,8 @@ import torch
 import wandb
 
 import utils
-from .utils import build_from_config, has_finished
+from utils import build_from_config
+from .utils import has_finished
 
 try:
     # torch 2.x
