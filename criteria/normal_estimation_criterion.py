@@ -2,7 +2,7 @@ import torch
 from .base_criterion import BaseCriterion
 
 
-class NormalEstimationLoss(BaseCriterion):
+class NormalEstimationCriterion(BaseCriterion):
 
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""
