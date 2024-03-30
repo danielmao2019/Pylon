@@ -1,7 +1,7 @@
 """
 TRAINERS.UTILS API
 """
-from utils.session import is_running, has_finished, has_failed
+from trainers.utils.session import is_running, has_finished, has_failed
 
 
 __all__ = (
