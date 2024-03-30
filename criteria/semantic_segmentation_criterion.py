@@ -2,7 +2,7 @@ import torch
 from .base_criterion import BaseCriterion
 
 
-class SemanticSegmentationLoss(BaseCriterion):
+class SemanticSegmentationCriterion(BaseCriterion):
 
     def __init__(self, num_classes: int, ignore_index: int):
         super().__init__()

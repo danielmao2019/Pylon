@@ -2,16 +2,16 @@
 CRITERIA API
 """
 from criteria.base_criterion import BaseCriterion
-from criteria.depth_estimation import DepthEstimationLoss
-from criteria.normal_estimation import NormalEstimationLoss
-from criteria.semantic_segmentation import SemanticSegmentationLoss
-from criteria.instance_segmentation import InstanceSegmentationLoss
+from criteria.depth_estimation_criterion import DepthEstimationCriterion
+from criteria.normal_estimation_criterion import NormalEstimationCriterion
+from criteria.semantic_segmentation_criterion import SemanticSegmentationCriterion
+from criteria.instance_segmentation_criterion import InstanceSegmentationCriterion
 
 
 __all__ = (
     'BaseCriterion',
-    'DepthEstimationLoss',
-    'NormalEstimationLoss',
-    'SemanticSegmentationLoss',
-    'InstanceSegmentationLoss',
+    'DepthEstimationCriterion',
+    'NormalEstimationCriterion',
+    'SemanticSegmentationCriterion',
+    'InstanceSegmentationCriterion',
 )
