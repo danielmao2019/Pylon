@@ -1,12 +1,12 @@
 from typing import List
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import os
 import json
 import jsbeautifier
 import torch
 
 
-class BaseMetric:
+class BaseMetric(ABC):
 
     def __init__(self):
         self.reset_buffer()
@@ -20,10 +20,10 @@ class BaseMetric:
         Returns:
             score (torch.Tensor): a scalar tensor for the score on the current batch.
         """
-        raise NotImplementedError("__call__ method not implemented for base class.")
+        raise NotImplementedError("[ERROR] __call__ not implemented for abstract base class.")
 
     def summarize(self, output_path: str = None) -> torch.Tensor:
-        r"""Default summarization: mean of scores across all examples in buffer.
+        r"""Default summary: mean of scores across all examples in buffer.
         """
         mean_score = torch.cat(self.buffer).mean()
         assert mean_score.numel() == 1, f"{mean_score.shape=}"

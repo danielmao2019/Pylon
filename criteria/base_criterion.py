@@ -1,10 +1,10 @@
 from typing import List
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import os
 import torch
 
 
-class BaseCriterion:
+class BaseCriterion(ABC):
 
     def __init__(self):
         self.reset_buffer()
@@ -18,10 +18,10 @@ class BaseCriterion:
         Returns:
             loss (torch.Tensor): a scalar tensor for the loss on the current batch.
         """
-        raise NotImplementedError("__call__ method not implemented for base class.")
+        raise NotImplementedError("[ERROR] __call__ not implemented for abstract base class.")
 
     def summarize(self, output_path: str = None) -> torch.Tensor:
-        r"""Default summarization: trajectory of losses across all examples in buffer.
+        r"""Default summary: trajectory of losses across all examples in buffer.
         """
         summary = torch.cat(self.buffer)
         assert len(summary.shape) == 1, f"{summary.shape=}"
