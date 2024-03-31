@@ -1,14 +1,13 @@
-from typing import Tuple, List, Dict, Callable
+from typing import Tuple, List, Dict, Callable, Any
 import os
 import torch
 import torchvision
 from PIL import Image
 
-import datasets
 from .base_dataset import BaseDataset
 
 
-class MultiTaskFacialLandmark(BaseDataset):
+class MultiTaskFacialLandmarkDataset(BaseDataset):
     __doc__ = r"""
 
     Download:
@@ -19,7 +18,8 @@ class MultiTaskFacialLandmark(BaseDataset):
     """
 
     SPLIT_OPTIONS = ['train', 'test']
-    TASK_NAMES = ['landmarks', 'gender', 'smile', 'glasses', 'pose']
+    INPUT_NAMES = ['image']
+    LABEL_NAMES = ['landmarks', 'gender', 'smile', 'glasses', 'pose']
 
     def __init__(
         self, data_root: str, split: str, indices: List[int] = None,
@@ -45,7 +45,7 @@ class MultiTaskFacialLandmark(BaseDataset):
         assert type(split) == str, f"{type(split)=}"
         assert split in self.SPLIT_OPTIONS, f"{split=}, {self.SPLIT_OPTIONS=}"
         # image
-        self.labels = []
+        self.labels: List[Dict[str, torch.Tensor]] = []
         with open(os.path.join(self.data_root, f"{split}ing.txt"), mode='r') as f:
             lines = f.readlines()
             for idx, line in enumerate(lines):
@@ -55,9 +55,9 @@ class MultiTaskFacialLandmark(BaseDataset):
                 landmarks = torch.tensor(list(map(float, [c for coord in zip(line[1:6], line[6:11]) for c in coord])), dtype=torch.float32)
                 attributes = dict(
                     (name, torch.tensor(int(val), dtype=torch.int8))
-                    for name, val in zip(self.TASK_NAMES[1:], line[11:15])
+                    for name, val in zip(self.LABEL_NAMES[1:], line[11:15])
                 )
-                labels = {}
+                labels: Dict[str, torch.Tensor] = {}
                 labels.update({'landmarks': landmarks})
                 labels.update(attributes)
                 self.labels.append(labels)
@@ -65,10 +65,13 @@ class MultiTaskFacialLandmark(BaseDataset):
     ####################################################################################################
     ####################################################################################################
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        idx = self.indices[idx] if self.indices is not None else idx
-        result = {'image': torchvision.transforms.ToTensor()(Image.open(self.image_filepaths[idx]))}
-        result.update(self.labels[idx])
-        # apply transforms
-        result = datasets.utils.apply_transforms(transforms=self.transforms, example=result)
-        return result
+    def _load_example_(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
+        inputs = {'image': torchvision.transforms.ToTensor()(Image.open(self.image_filepaths[idx]))}
+        labels = self.labels[idx]
+        meta_info = {
+            'image_filepath': os.path.relpath(path=self.image_filepaths[idx], start=self.data_root),
+            'image_resolution': tuple(inputs['image'].shape[-2:]),
+        }
+        return inputs, labels, meta_info
