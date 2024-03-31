@@ -8,22 +8,19 @@ class NormalEstimationCriterion(BaseCriterion):
         r"""
         Args:
             y_pred (torch.Tensor): the (unnormalized) output of the model.
-            y_true (torch.Tensor): the ground truth label for the normal vector.
+            y_true (torch.Tensor): the (unnormalized) ground truth for normal estimation.
+
         Returns:
             loss (torch.Tensor): a single-element tensor representing the loss for normal estimation.
         """
-        # convert model outputs to predictions
-        y_pred = y_pred / torch.norm(y_pred, p=2, dim=1, keepdim=True)
-        # sanity checks
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
         assert len(y_pred.shape) == len(y_true.shape) == 4, f"{y_pred.shape=}, {y_true.shape=}"
-        assert torch.all((torch.norm(y_pred, p=2, dim=1) - 1).abs() < 1e-05), f"{(torch.norm(y_pred, p=2, dim=1) - 1).abs().max()=}"
-        assert torch.all((torch.norm(y_true, p=2, dim=1) - 1).abs() < 1e-05), f"{(torch.norm(y_true, p=2, dim=1) - 1).abs().max()=}"
         # compute loss
-        binary_mask = (torch.sum(y_true, dim=1) != 0).float().unsqueeze(1)
-        loss = 1 - torch.sum((y_pred * y_true) * binary_mask) / torch.nonzero(
-            binary_mask, as_tuple=False
-        ).size(0)
+        valid_mask = torch.linalg.norm(y_true, dim=1) != 0
+        cosine_map = torch.nn.functional.cosine_similarity(y_pred, y_true, dim=1)
+        assert valid_mask.shape == cosine_map.shape
+        cosine_map = cosine_map.masked_select(valid_mask)
+        loss = -cosine_map.mean()
         assert loss.numel() == 1, f"{loss.shape=}"
         # log loss
         self.buffer.append(loss)
