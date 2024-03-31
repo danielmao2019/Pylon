@@ -6,12 +6,14 @@ def apply_transforms(
     transforms: Dict[str, Callable[[torch.Tensor], torch.Tensor]],
     example: Dict[str, torch.Tensor],
 ) -> Dict[str, torch.Tensor]:
-    common_keys = set(transforms.keys()) & set(example.keys())
-    for key in common_keys:
-        try:
-            example[key] = transforms[key](example[key])
-        except Exception as e:
-            raise RuntimeError(f"[ERROR] Applying transform for {key}: {e}")
+    assert set(example.keys()) == set(['inputs', 'labels', 'meta_info'])
+    for key1 in example:
+        for key2 in example[key1]:
+            if key2 in transforms:
+                try:
+                    example[key1][key2] = transforms[key2](example[key1][key2])
+                except Exception as e:
+                    raise RuntimeError(f"[ERROR] Apply transforms['{key2}'] on example['{key1}']['{key2}']: {e}")
     return example
 
 

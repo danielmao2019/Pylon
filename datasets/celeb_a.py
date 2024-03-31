@@ -1,14 +1,13 @@
-from typing import Tuple, List, Dict, Callable
+from typing import Tuple, List, Dict, Callable, Any
 import os
 import torch
 import torchvision
 from PIL import Image
 
-import datasets
 from .base_dataset import BaseDataset
 
 
-class CelebA(BaseDataset):
+class CelebADataset(BaseDataset):
     __doc__ = r"""
 
     Download: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
@@ -25,7 +24,8 @@ class CelebA(BaseDataset):
 
     TOTAL_SIZE = 202599
     SPLIT_OPTIONS = ['train', 'val', 'test']
-    TASK_NAMES = ['landmarks', '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
+    INPUT_NAMES = ['image']
+    LABEL_NAMES = ['landmarks', '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
                    'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young']
 
     def __init__(
@@ -67,7 +67,7 @@ class CelebA(BaseDataset):
             assert len(lines[0].strip().split()) == 10, f"{lines[0].strip().split()=}"
             lines = lines[1:]
             assert len(lines) == self.TOTAL_SIZE
-            self.landmark_labels = []
+            self.landmark_labels: List[torch.Tensor] = []
             for fp in self.image_filepaths:
                 idx = int(os.path.basename(fp).split('.')[0]) - 1
                 line = lines[idx].strip().split()
@@ -79,30 +79,31 @@ class CelebA(BaseDataset):
     def _init_attributes_labels_(self):
         with open(os.path.join(self.data_root, "list_attr_celeba.txt"), mode='r') as f:
             lines = f.readlines()
-            assert set(lines[0].strip().split()) == set(self.TASK_NAMES[1:])
+            assert set(lines[0].strip().split()) == set(self.LABEL_NAMES[1:])
             lines = lines[1:]
             assert len(lines) == self.TOTAL_SIZE
-            self.attribute_labels = []
+            self.attribute_labels: List[Dict[str, torch.Tensor]] = []
             for fp in self.image_filepaths:
                 idx = int(os.path.basename(fp).split('.')[0]) - 1
                 line = lines[idx].strip().split()
                 assert int(line[0].split('.')[0]) == idx + 1, f"{fp=}, {line[0]=}, {idx=}"
-                attributes = dict(
+                attributes: Dict[str, torch.Tensor] = dict(
                     (name, torch.tensor([1 if val == "1" else 0], dtype=torch.int8))
-                    for name, val in zip(self.TASK_NAMES[1:], line[1:])
+                    for name, val in zip(self.LABEL_NAMES[1:], line[1:])
                 )
                 self.attribute_labels.append(attributes)
 
     ####################################################################################################
     ####################################################################################################
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        idx = self.indices[idx] if self.indices is not None else idx
-        result = {
-            'image': torchvision.transforms.ToTensor()(Image.open(self.image_filepaths[idx])),
-            'landmarks': self.landmark_labels[idx],
+    def _load_example_(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
+        inputs = {'image': torchvision.transforms.ToTensor()(Image.open(self.image_filepaths[idx]))}
+        labels = {'landmarks': self.landmark_labels[idx]}
+        labels.update(self.attribute_labels[idx])
+        meta_info = {
+            'image_filepath': os.path.relpath(path=self.image_filepaths[idx], start=self.data_root),
+            'image_resolution': tuple(inputs['image'].shape[-2:]),
         }
-        result.update(self.attribute_labels[idx])
-        # apply transforms
-        result = datasets.utils.apply_transforms(transforms=self.transforms, example=result)
-        return result
+        return inputs, labels, meta_info

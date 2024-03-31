@@ -1,4 +1,4 @@
-from typing import List, Dict, Callable
+from typing import Tuple, List, Dict, Callable, Any
 import os
 import numpy
 import scipy
@@ -6,11 +6,10 @@ import torch
 import torchvision
 from PIL import Image
 
-import datasets
 from .base_dataset import BaseDataset
 
 
-class NYUD_MT(BaseDataset):
+class NYUv2Dataset(BaseDataset):
     __doc__ = r"""Reference: https://github.com/facebookresearch/astmt/blob/master/fblib/dataloaders/nyud.py
 
     Download: https://data.vision.ee.ethz.ch/kmaninis/share/MTL/NYUD_MT.tgz
@@ -31,7 +30,8 @@ class NYUD_MT(BaseDataset):
     IGNORE_INDEX = 250
     NUM_CLASSES = 41
     SPLIT_OPTIONS = ['train', 'val', 'test']
-    TASK_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
+    INPUT_NAMES = ['image']
+    LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
 
     def __init__(
         self, data_root: str, split: str, indices: List[int] = None,
@@ -87,55 +87,43 @@ class NYUD_MT(BaseDataset):
     ####################################################################################################
     ####################################################################################################
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
-        idx = self.indices[idx] if self.indices is not None else idx
-        result = {}
-        result.update(self._get_image_(idx))
-        # edge detection task is not being benchmarked
-        # result.update(self._get_edge_label_(idx))
-        result.update(self._get_depth_label_(idx))
-        result.update(self._get_normals_label_(idx))
-        result.update(self._get_segmentation_label_(idx))
-        # sanity check
-        for key in result:
-            assert result['image'].shape[-2:] == result[key].shape[-2:], \
-                f"{key=}, {result['image'].shape=}, {result[key].shape=}"
-        # define meta info
-        result['meta'] = {
-            'image_resolution': tuple(result['image'].shape[-2:]),
+    def _load_example_(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
+        inputs = self._get_image_(idx)
+        labels = {}
+        labels.update(self._get_edge_label_(idx))
+        labels.update(self._get_depth_label_(idx))
+        labels.update(self._get_normals_label_(idx))
+        labels.update(self._get_segmentation_label_(idx))
+        meta_info = {
+            'image_filepath': os.path.relpath(path=self.image_filepaths[idx], start=self.data_root),
+            'image_resolution': tuple(inputs['image'].shape[-2:]),
         }
-        # apply transforms
-        result = datasets.utils.apply_transforms(transforms=self.transforms, example=result)
-        return result
+        return inputs, labels, meta_info
 
     ####################################################################################################
     ####################################################################################################
 
     def _get_image_(self, idx: int) -> torch.Tensor:
         image = torchvision.transforms.ToTensor()(Image.open(self.image_filepaths[idx]))
-        assert 0 <= image.min() <= image.max() <= 1, f"{image.min()=}, {image.max()=}"
-        assert len(image.shape) == 3 and image.shape[0] == 3, f"{image.shape=}"
         return {'image': image}
 
     def _get_edge_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         edge = torch.tensor(data=numpy.array(Image.open(self.edge_fps[idx])), dtype=torch.float32)
         edge = edge.unsqueeze(0) / 255
-        assert len(edge.shape) == 3 and edge.shape[0] == 1, f"{edge.shape=}"
         return {'edge_detection': edge}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         depth = torch.tensor(scipy.io.loadmat(self.depth_fps[idx])['depth'], dtype=torch.float32)
         depth = depth.unsqueeze(0)
-        assert len(depth.shape) == 3 and depth.shape[0] == 1, f"{depth.shape=}"
         return {'depth_estimation': depth}
 
     def _get_normals_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         normals = torch.tensor(data=numpy.array(Image.open(self.normals_fps[idx])), dtype=torch.float32)
         normals = normals.permute(dims=(2, 0, 1)) / 255 * 2 - 1
-        assert len(normals.shape) == 3 and normals.shape[0] == 3, f"{normals.shape=}"
         return {'normal_estimation': normals}
 
     def _get_segmentation_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         segmentation = torch.tensor(data=scipy.io.loadmat(self.segmentation_fps[idx])['segmentation'], dtype=torch.int64)
-        assert len(segmentation.shape) == 2, f"{segmentation.shape=}"
         return {'semantic_segmentation': segmentation}

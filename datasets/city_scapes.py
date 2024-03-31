@@ -1,15 +1,14 @@
-from typing import Tuple, List, Dict, Callable
+from typing import Tuple, List, Dict, Callable, Any
 import os
 import glob
 import numpy
 import torch
 from PIL import Image
 
-import datasets
 from .base_dataset import BaseDataset
 
 
-class CityScapes(BaseDataset):
+class CityScapesDataset(BaseDataset):
     __doc__ = r"""Reference: https://github.com/SamsungLabs/MTL/blob/master/code/data/datasets/cityscapes.py
 
     Download:
@@ -40,7 +39,8 @@ class CityScapes(BaseDataset):
     DEPTH_MEAN = 0.0
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
-    TASK_NAMES = ['depth_estimation', 'semantic_segmentation', 'instance_segmentation']
+    INPUT_NAMES = ['image']
+    LABEL_NAMES = ['depth_estimation', 'semantic_segmentation', 'instance_segmentation']
 
     REMOVE_INDICES = {
         'train': [253, 926, 931, 1849, 1946, 1993, 2051, 2054, 2778],
@@ -107,34 +107,39 @@ class CityScapes(BaseDataset):
     ####################################################################################################
     ####################################################################################################
 
-    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+    def _load_example_(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
         r"""
         Returns:
-            result (Dict[str, torch.Tensor]): a data point dictionary in format
-                {
-                    'image': float32 tensor of shape (3, H, W).
-                    'depth_estimation': float32 tensor of shape (1, H, W).
-                    'semantic_segmentation': int64 tensor of shape (H, W).
-                    'instance_segmentation': float32 tensor of shape (2, H, W).
-                }
+            Dict[str, Dict[str, Any]]: data point at index `idx` in the following format:
+            inputs = {
+                'image': float32 tensor of shape (3, H, W).
+            }
+            labels = {
+                'depth_estimation': float32 tensor of shape (1, H, W).
+                'semantic_segmentation': int64 tensor of shape (H, W).
+                'instance_segmentation': float32 tensor of shape (2, H, W).
+            }
+            meta_info = {
+                'image_filepath': str object for image file path.
+                'image_resolution': 2-tuple object for image height and width.
+            }
         """
-        idx = self.indices[idx] if self.indices is not None else idx
-        result = {}
-        result.update(self._get_image_(idx))
-        result.update(self._get_depth_label_(idx))
-        result.update(self._get_segmentation_labels_(idx))
-        # sanity check
-        for key in result:
-            assert result['image'].shape[-2:] == result[key].shape[-2:], \
-                f"{key=}, {result['image'].shape=}, {result[key].shape=}"
-        # apply transforms
-        result = datasets.utils.apply_transforms(transforms=self.transforms, example=result)
-        return result
+        inputs = self._get_image_(idx)
+        labels = {}
+        labels.update(self._get_depth_label_(idx))
+        labels.update(self._get_segmentation_labels_(idx))
+        meta_info = {
+            'image_filepath': os.path.relpath(path=self.image_filepaths[idx], start=self.data_root),
+            'image_resolution': tuple(inputs['image'].shape[-2:]),
+        }
+        return inputs, labels, meta_info
 
     ####################################################################################################
     ####################################################################################################
 
-    def _get_image_(self, idx: int) -> torch.Tensor:
+    def _get_image_(self, idx: int) -> Dict[str, torch.Tensor]:
         image = numpy.array(Image.open(self.image_filepaths[idx]), dtype=numpy.uint8)
         image = image[:, :, ::-1]
         image = image.astype(numpy.float64)
@@ -142,14 +147,12 @@ class CityScapes(BaseDataset):
         image /= 255.0
         image = image.transpose(2, 0, 1)
         image = torch.from_numpy(image).type(torch.float32)
-        assert len(image.shape) == 3 and image.shape[0] == 3, f"{image.shape=}"
         return {'image': image}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         depth = torch.tensor(data=numpy.array(Image.open(self.depth_paths[idx])), dtype=torch.float32)
         depth = depth.unsqueeze(0)
         depth /= self.DEPTH_STD
-        assert len(depth.shape) == 3 and depth.shape[0] == 1, f"{depth.shape=}"
         return {'depth_estimation': depth}
 
     def _get_segmentation_labels_(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -182,13 +185,6 @@ class CityScapes(BaseDataset):
             instance_y[mask] = ymap[mask] - torch.mean(ymap[mask])
             instance_x[mask] = xmap[mask] - torch.mean(xmap[mask])
         instance = torch.stack([instance_y, instance_x], dim=0)
-        # output check
-        assert len(semantic.shape) == 2, f"{semantic.shape=}"
-        assert semantic.dtype == torch.int64, f"{semantic.dtype=}"
-        assert set(semantic.unique().tolist()).issubset(set(list(self.class_map.values()) + [self.IGNORE_INDEX])), \
-            f"{set(semantic.unique().tolist())}, {set(list(self.class_map.values()) + [self.IGNORE_INDEX])=}"
-        assert len(instance.shape) == 3 and instance.shape[0] == 2, f"{instance.shape=}"
-        assert instance.dtype == torch.float32, f"{instance.shape=}"
         # return result
         return {
             'semantic_segmentation': semantic,
