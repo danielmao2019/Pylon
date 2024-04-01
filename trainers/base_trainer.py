@@ -135,8 +135,13 @@ class BaseTrainer:
     def expected_files(self):
         return ["training_losses.pt", "validation_scores.json"]
 
-    def _load_checkpoint_(self, checkpoint: dict):
-        assert type(checkpoint) == dict, f"{type(checkpoint)}"
+    def _load_checkpoint_(self, checkpoint: dict) -> None:
+        r"""Default checkpoint loading method. Override to load more.
+
+        Args:
+            checkpoint (dict): the output of torch.load(checkpoint_filepath).
+        """
+        assert type(checkpoint) == dict, f"{type(checkpoint)=}"
         self.cum_epochs = checkpoint['epoch'] + 1
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -253,28 +258,18 @@ class BaseTrainer:
         # log time
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
-    def _save_checkpoint_(self, output_path: str):
+    def _save_checkpoint_(self, output_path: str) -> None:
+        r"""Default checkpoint saving method. Override to save more.
+
+        Args:
+            output_path (str): the file path to which the checkpoint will be saved.
+        """
         torch.save(obj={
             'epoch': self.cum_epochs,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
         }, f=output_path)
-
-    def _find_best_checkpoint_(self) -> str:
-        r"""
-        Returns:
-            best_checkpoint (str): the filepath to the checkpoint with the highest validation score.
-        """
-        avg_scores: List[Tuple[str, Any]] = []
-        for epoch_dir in sorted(glob.glob(os.path.join(self.work_dir, "epoch_*"))):
-            with open(os.path.join(epoch_dir, "validation_scores.json"), mode='r') as f:
-                scores = json.load(f)
-            avg_scores.append((epoch_dir, scores))
-        best_epoch_dir: str = max(avg_scores, key=lambda x: x[1]['reduced'])[0]
-        best_checkpoint: str = os.path.join(best_epoch_dir, "checkpoint.pt")
-        assert os.path.isfile(best_checkpoint), f"{best_checkpoint=}"
-        return best_checkpoint
 
     def _after_train_loop_(self) -> None:
         # initialize epoch root directory
@@ -291,6 +286,21 @@ class BaseTrainer:
         if os.path.isfile(soft_link):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
+
+    def _find_best_checkpoint_(self) -> str:
+        r"""
+        Returns:
+            best_checkpoint (str): the filepath to the checkpoint with the highest validation score.
+        """
+        avg_scores: List[Tuple[str, Any]] = []
+        for epoch_dir in sorted(glob.glob(os.path.join(self.work_dir, "epoch_*"))):
+            with open(os.path.join(epoch_dir, "validation_scores.json"), mode='r') as f:
+                scores = json.load(f)
+            avg_scores.append((epoch_dir, scores))
+        best_epoch_dir: str = max(avg_scores, key=lambda x: x[1]['reduced'])[0]
+        best_checkpoint: str = os.path.join(best_epoch_dir, "checkpoint.pt")
+        assert os.path.isfile(best_checkpoint), f"{best_checkpoint=}"
+        return best_checkpoint
 
     def _after_val_loop_(self) -> None:
         # initialize epoch root directory
