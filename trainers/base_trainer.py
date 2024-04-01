@@ -1,4 +1,4 @@
-from typing import Tuple, List, Any
+from typing import Tuple, List, Dict, Union, Any
 from abc import abstractmethod
 import os
 import glob
@@ -295,7 +295,7 @@ class BaseTrainer:
         avg_scores: List[Tuple[str, Any]] = []
         for epoch_dir in sorted(glob.glob(os.path.join(self.work_dir, "epoch_*"))):
             with open(os.path.join(epoch_dir, "validation_scores.json"), mode='r') as f:
-                scores = json.load(f)
+                scores: Dict[str, float] = json.load(f)
             avg_scores.append((epoch_dir, scores))
         best_epoch_dir: str = max(avg_scores, key=lambda x: x[1]['reduced'])[0]
         best_checkpoint: str = os.path.join(best_epoch_dir, "checkpoint.pt")
