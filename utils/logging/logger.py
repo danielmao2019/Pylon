@@ -2,6 +2,7 @@ import torch
 import logging
 import sys
 
+from ..io import serialize_tensor
 from ..ops import apply_tensor_op
 
 
@@ -46,16 +47,7 @@ class Logger:
     ####################################################################################################
 
     def update_buffer(self, data: dict):
-        def serialize(value):
-            if type(value) == torch.Tensor:
-                value = value.detach()
-                if value.numel() > 1:
-                    value = value.tolist()
-                else:
-                    value = value.item()
-            return value
-        data = apply_tensor_op(func=serialize, inputs=data)
-        self._info_buffer_.update(data)
+        self._info_buffer_.update(serialize_tensor(data))
 
     def flush(self, prefix: str = ""):
         string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self._info_buffer_.items()])
