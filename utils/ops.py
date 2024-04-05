@@ -3,18 +3,15 @@ import torch
 
 
 def apply_tensor_op(
-    func: Union[
-        Callable[[torch.Tensor], torch.Tensor],
-        Callable[[float], float],
-    ],
+    func: Callable[[torch.Tensor], torch.Tensor],
     inputs: Union[tuple, list, dict, torch.Tensor, float],
 ) -> dict:
-    if type(inputs) in [torch.Tensor, float]:
+    if type(inputs) == torch.Tensor:
         return func(inputs)
     elif type(inputs) == tuple:
-        return tuple(apply_tensor_op(func=func, inputs=x) for x in inputs)
+        return tuple(apply_tensor_op(func=func, inputs=tuple_elem) for tuple_elem in inputs)
     elif type(inputs) == list:
-        return list(apply_tensor_op(func=func, inputs=x) for x in inputs)
+        return list(apply_tensor_op(func=func, inputs=list_elem) for list_elem in inputs)
     elif type(inputs) == dict:
         return {key: apply_tensor_op(func=func, inputs=inputs[key]) for key in inputs.keys()}
     else:

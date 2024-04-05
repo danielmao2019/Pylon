@@ -1,8 +1,7 @@
 import os
-import json
-import jsbeautifier
 import torch
 from .base_metric import BaseMetric
+from utils.io import save_json
 
 
 class SemanticSegmentationMetric(BaseMetric):
@@ -42,13 +41,15 @@ class SemanticSegmentationMetric(BaseMetric):
         r"""This functions summarizes the semantic segmentation evaluation results on all examples
         seen so far into a single floating point number.
         """
+        if output_path is not None:
+            assert type(output_path) == str, f"{type(output_path)=}"
+            assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
         scores = torch.stack(self.buffer, dim=0)
         assert len(scores.shape) == 2 and scores.shape[1] == self.num_classes, f"{scores.shape=}"
         class_IoUs = torch.nanmean(scores, dim=0)
         assert class_IoUs.shape == (self.num_classes,), f"{class_IoUs.shape=}"
-        mIoU = torch.nanmean(class_IoUs)
-        assert mIoU.numel() == 1, f"{mIoU.shape=}"
-        if output_path is not None and os.path.isfile(output_path):
-            with open(output_path, mode='w') as f:
-                f.write(jsbeautifier.beautify(json.dumps(mIoU), jsbeautifier.default_options()))
-        return mIoU
+        result = torch.nanmean(class_IoUs)
+        assert result.numel() == 1, f"{result.shape=}"
+        if output_path is not None:
+            save_json(obj=result, filepath=output_path)
+        return result

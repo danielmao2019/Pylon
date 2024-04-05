@@ -25,6 +25,9 @@ class BaseCriterion(ABC):
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         r"""Default summary: trajectory of losses across all examples in buffer.
         """
+        if output_path is not None:
+            assert type(output_path) == str, f"{type(output_path)=}"
+            assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
         result: Dict[str, torch.Tensor] = {}
         if len(self.buffer) != 0:
             if type(self.buffer[0]) == torch.Tensor:
@@ -39,6 +42,6 @@ class BaseCriterion(ABC):
                     result[f"loss_{key}_trajectory"] = losses
             else:
                 raise TypeError(f"[ERROR] Unrecognized type {type(self.buffer[0])}.")
-        if output_path is not None and os.path.isfile(output_path):
+        if output_path is not None:
             torch.save(obj=result, f=output_path)
         return result
