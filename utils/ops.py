@@ -1,4 +1,4 @@
-from typing import List, Union, Callable
+from typing import List, Dict, Union, Callable, Any
 import torch
 
 
@@ -39,4 +39,20 @@ def apply_pairwise(
             result[i, j] = val
             if symmetric:
                 result[j, i] = val
+    return result
+
+
+def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
+    # input check
+    assert type(buffer) == list, f"{type(buffer)=}"
+    assert type(buffer[0]) == dict, f"{type(buffer[0])=}"
+    keys = buffer[0].keys()
+    for buffer_elem in buffer:
+        assert type(buffer_elem) == dict
+        assert buffer_elem.keys() == keys
+    # transpose buffer
+    result = {
+        key: [buffer_elem[key] for buffer_elem in buffer]
+        for key in keys
+    }
     return result

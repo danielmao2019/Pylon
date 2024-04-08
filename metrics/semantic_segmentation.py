@@ -32,7 +32,7 @@ class SemanticSegmentationMetric(BaseMetric):
         ).reshape((self.num_classes,) * 2)
         numerator = count.diag()
         denominator = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
-        score = numerator / denominator
+        score: torch.Tensor = numerator / denominator
         assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
         # log score
         self.buffer.append(score)
