@@ -1,7 +1,8 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 from abc import ABC, abstractmethod
 import os
 import torch
+from utils.ops import transpose_buffer
 
 
 class BaseCriterion(ABC):
@@ -10,7 +11,7 @@ class BaseCriterion(ABC):
         self.reset_buffer()
 
     def reset_buffer(self):
-        self.buffer: List[torch.Tensor] = []
+        self.buffer: List[Any] = []
 
     @abstractmethod
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
@@ -24,22 +25,20 @@ class BaseCriterion(ABC):
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         r"""Default summary: trajectory of losses across all examples in buffer.
         """
-        summary: Dict[str, torch.Tensor] = {}
+        result: Dict[str, torch.Tensor] = {}
         if len(self.buffer) != 0:
             if type(self.buffer[0]) == torch.Tensor:
-                summary['loss_trajectory'] = torch.cat(self.buffer)
-                assert len(summary['loss_trajectory'].shape) == 1, f"{summary.shape=}"
+                trajectory = torch.stack(self.buffer)
+                assert len(trajectory.shape) == 1
+                result['loss_trajectory'] = trajectory
             elif type(self.buffer[0]) == dict:
-                keys = self.buffer[0].keys()
-                for losses in self.buffer:
-                    assert losses.keys() == keys
-                    for key in keys:
-                        summary[f"loss_{key}_trajectory"] = summary.get(f"loss_{key}_trajectory", []) + [losses[key]]
-                for key in keys:
-                    summary[f"loss_{key}_trajectory"] = torch.cat(summary[f"loss_{key}_trajectory"])
-                    assert len(summary[f"loss_{key}_trajectory"].shape) == 1
+                buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+                for key in buffer:
+                    losses = torch.stack(buffer[key])
+                    assert len(losses.shape) == 1, f"{losses.shape=}"
+                    result[f"loss_{key}_trajectory"] = losses
             else:
                 raise TypeError(f"[ERROR] Unrecognized type {type(self.buffer[0])}.")
         if output_path is not None and os.path.isfile(output_path):
-            torch.save(obj=summary, f=output_path)
-        return summary
+            torch.save(obj=result, f=output_path)
+        return result

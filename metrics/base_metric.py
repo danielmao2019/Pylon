@@ -1,9 +1,10 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any
 from abc import ABC, abstractmethod
 import os
 import json
 import jsbeautifier
 import torch
+from utils.ops import transpose_buffer
 
 
 class BaseMetric(ABC):
@@ -12,7 +13,7 @@ class BaseMetric(ABC):
         self.reset_buffer()
 
     def reset_buffer(self):
-        self.buffer: List[torch.Tensor] = []
+        self.buffer: List[Any] = []
 
     @abstractmethod
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
@@ -38,27 +39,23 @@ class BaseMetric(ABC):
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         r"""Default summary: mean of scores across all examples in buffer.
         """
-        summary: Dict[str, torch.Tensor] = {}
+        result: Dict[str, torch.Tensor] = {}
         if len(self.buffer) != 0:
             if type(self.buffer[0]) == torch.Tensor:
-                score = torch.cat(self.buffer)
+                score = torch.stack(self.buffer)
                 assert len(score.shape) == 1
-                summary['score'] = score.mean()
-                summary['reduced'] = summary['score'].clone()
+                result['score'] = score.mean()
+                result['reduced'] = result['score'].clone()
             elif type(self.buffer[0]) == dict:
-                keys = self.buffer[0].keys()
-                for scores in self.buffer:
-                    assert scores.keys() == keys
-                    for key in keys:
-                        summary[f"score_{key}"] = summary.get(f"score_{key}", []) + [scores[key]]
-                for key in keys:
-                    score_key = torch.cat(summary[f"score_{key}"])
-                    assert len(score_key.shape) == 1
-                    summary[f"score_{key}"] = score_key.mean()
-                summary['reduced'] = self.reduce(summary)
+                buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+                for key in buffer:
+                    key_scores = torch.stack(buffer[key])
+                    assert len(key_scores.shape) == 1
+                    result[f"score_{key}"] = key_scores.mean()
+                result['reduced'] = self.reduce(result)
             else:
                 raise TypeError(f"[ERROR] Unrecognized type {type(self.buffer[0])}.")
         if output_path is not None and os.path.isfile(output_path):
             with open(output_path, mode='w') as f:
-                f.write(jsbeautifier.beautify(json.dumps(summary), jsbeautifier.default_options()))
-        return summary
+                f.write(jsbeautifier.beautify(json.dumps(result), jsbeautifier.default_options()))
+        return result
