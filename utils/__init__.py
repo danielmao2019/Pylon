@@ -1,18 +1,17 @@
 """
-UTILS API.
+UTILS API
 """
-from utils.builder import build_from_config
-from utils import determinism
 from utils import logging
+from utils import builder
+from utils import determinism
 from utils import gradients
-from utils.tensor_ops import apply_tensor_op, apply_pairwise
+from utils import ops
 
 
 __all__ = (
-    'build_from_config',
-    'determinism',
     'logging',
+    'builder',
+    'determinism',
     'gradients',
-    'apply_tensor_op',
-    'apply_pairwise',
+    'ops',
 )

@@ -1,7 +1,7 @@
 from typing import List
 import torch
 
-import utils
+from .ops import apply_pairwise
 
 
 NUMERICAL_STABILITY = 1.0e-07
@@ -47,7 +47,7 @@ def get_cosine_matrix(
     for g in grad_list:
         assert type(g) == torch.Tensor, f"{type(g)=}"
         assert len(g.shape) == 1
-    return utils.apply_pairwise(lot=grad_list, func=torch.nn.CosineSimilarity(dim=0), symmetric=True)
+    return apply_pairwise(lot=grad_list, func=torch.nn.CosineSimilarity(dim=0), symmetric=True)
 
 
 def get_entropy(
