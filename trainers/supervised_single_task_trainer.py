@@ -12,6 +12,10 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         self.optimizer.zero_grad()
         assert 'losses' in example
         losses = example['losses']
-        assert type(losses) == torch.Tensor
+        if type(losses) == dict:
+            losses = torch.stack(list(losses.values()), dim=0)
+            losses = losses.sum()
+        else:
+            assert type(losses) == torch.Tensor
         assert losses.numel() == 1
         losses.backward()
