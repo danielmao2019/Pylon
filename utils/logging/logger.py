@@ -2,7 +2,7 @@ import torch
 import logging
 import sys
 
-import utils
+from ..ops import apply_tensor_op
 
 
 class Logger:
@@ -54,7 +54,7 @@ class Logger:
                 else:
                     value = value.item()
             return value
-        data = utils.apply_tensor_op(func=serialize, inputs=data)
+        data = apply_tensor_op(func=serialize, inputs=data)
         self._info_buffer_.update(data)
 
     def flush(self, prefix: str = ""):

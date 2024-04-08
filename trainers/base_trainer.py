@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Union, Any
+from typing import Tuple, List, Dict, Any
 from abc import abstractmethod
 import os
 import glob
@@ -9,7 +9,8 @@ import torch
 import wandb
 
 import utils
-from utils import build_from_config
+from utils.builder import build_from_config
+from utils.ops import apply_tensor_op
 from .utils import has_finished
 
 try:
@@ -193,7 +194,7 @@ class BaseTrainer:
         # init time
         start_time = time.time()
         # copy to GPU
-        example = utils.apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
+        example = apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             example['outputs'] = self.model(example['inputs'])
@@ -216,7 +217,7 @@ class BaseTrainer:
         # init time
         start_time = time.time()
         # copy to GPU
-        example = utils.apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
+        example = apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             example['outputs'] = self.model(example['inputs'])
