@@ -7,6 +7,7 @@ from utils import determinism
 from utils import gradients
 from utils import io
 from utils import ops
+from utils import object_detection
 
 
 __all__ = (
@@ -16,4 +17,5 @@ __all__ = (
     'gradients',
     'io',
     'ops',
+    'object_detection',
 )
