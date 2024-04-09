@@ -1,9 +1,7 @@
-from typing import List, Dict, Callable, Any
 import os
 import numpy
 import torch
 from PIL import Image
-from utils.ops import transpose_buffer
 
 
 def load_image(filepath: str, dtype: torch.dtype) -> torch.Tensor:
@@ -19,18 +17,6 @@ def load_image(filepath: str, dtype: torch.dtype) -> torch.Tensor:
     if dtype == torch.float32:
         image = image.type(torch.float32) / 255
     return image
-
-
-def collate_fn(examples: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
-    result = transpose_buffer(examples)
-    for key1 in result:
-        result[key1] = transpose_buffer(result[key1])
-        for key2 in result[key1]:
-            try:
-                result[key1][key2] = torch.stack(result[key1][key2], dim=0)
-            except:
-                pass
-    return result
 
 
 import pycocotools.mask as maskUtils
