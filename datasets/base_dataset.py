@@ -1,8 +1,9 @@
-from typing import Tuple, List, Dict, Callable, Any
+from typing import Tuple, List, Dict, Any
 from abc import ABC, abstractmethod
 import os
 import torch
-from .utils import apply_transforms
+from transforms import BaseTransform
+from utils.builder import build_from_config
 
 
 class BaseDataset(torch.utils.data.Dataset, ABC):
@@ -16,7 +17,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self,
         data_root: str,
         split: str,
-        transforms: Dict[str, Callable[[torch.Tensor], torch.Tensor]] = None,
+        transforms: dict,
         indices: List[int] = None,
     ):
         super(BaseDataset, self).__init__()
@@ -32,7 +33,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self._init_images_(split=split)
         self._init_labels_(split=split)
         # init transforms
-        self._init_transforms_(transforms=transforms)
+        self._init_transform_(transforms)
         self.indices = indices
 
     @abstractmethod
@@ -43,16 +44,15 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     def _init_labels_(self, split: str) -> None:
         raise NotImplementedError("[ERROR] _init_labels_ not implemented for abstract base class.")
 
-    def _init_transforms_(self, transforms: Dict[str, Callable]) -> None:
+    def _init_transform_(self, transforms: dict):
         if transforms is None:
-            transforms = {}
-        assert type(transforms) == dict, f"{type(transforms)=}"
-        for key, val in transforms.items():
-            assert type(key) == str, f"{type(key)=}"
-            assert callable(val), f"{type(val)=}"
-        assert set(transforms.keys()).issubset(set(self.INPUT_NAMES + self.LABEL_NAMES)), \
-            f"{transforms.keys()=}, {self.INPUT_NAMES=}, {self.LABEL_NAMES=}"
-        self.transforms = transforms
+            transforms = {
+                'class': BaseTransform,
+                'args': {
+                    'transforms': {},
+                },
+            }
+        self.transforms = build_from_config(transforms)
 
     def __len__(self):
         if self.indices is None:
@@ -84,5 +84,5 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             'labels': labels,
             'meta_info': meta_info,
         }
-        example = apply_transforms(transforms=self.transforms, example=example)
+        example = self.transforms(example)
         return example
