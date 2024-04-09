@@ -115,13 +115,19 @@ class ObjectDetectionMetric(BaseMetric):
         self.buffer.append(scores)
         return scores
 
-    def summarize(self, output_path: str = None) -> Dict[str, Dict[str, Any]]:
+    @staticmethod
+    def reduce(scores: Dict[str, Dict[str, Any]]) -> torch.Tensor:
+        return scores['gt_overlaps_all@1000']['AR']
+
+    def summarize(self, output_path: str = None) -> Dict[str, Any]:
         if output_path is not None:
             assert type(output_path) == str, f"{type(output_path)=}"
             assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
+        result: Dict[str, Any] = {}
+        if len(self.buffer) == 0:
+            return result
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
         thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
-        result: Dict[str, Dict[str, Any]] = {}
         for key in buffer:
             key_scores = torch.cat(buffer[key], dim=0)
             assert len(key_scores.shape) == 1
@@ -131,6 +137,7 @@ class ObjectDetectionMetric(BaseMetric):
                 "recalls": recalls,
                 "thresholds": thresholds,
             }
+        result['reduced'] = self.reduce(result)
         if output_path is not None:
             save_json(obj=result, filepath=output_path)
         return result

@@ -1,3 +1,4 @@
+from typing import Dict
 import os
 import torch
 from .base_metric import BaseMetric
@@ -37,19 +38,22 @@ class SemanticSegmentationMetric(BaseMetric):
         self.buffer.append(score)
         return score
 
-    def summarize(self, output_path: str = None) -> torch.Tensor:
+    def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         r"""This functions summarizes the semantic segmentation evaluation results on all examples
         seen so far into a single floating point number.
         """
         if output_path is not None:
             assert type(output_path) == str, f"{type(output_path)=}"
             assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
-        scores = torch.stack(self.buffer, dim=0)
-        assert len(scores.shape) == 2 and scores.shape[1] == self.num_classes, f"{scores.shape=}"
-        class_IoUs = torch.nanmean(scores, dim=0)
-        assert class_IoUs.shape == (self.num_classes,), f"{class_IoUs.shape=}"
-        result = torch.nanmean(class_IoUs)
-        assert result.numel() == 1, f"{result.shape=}"
+        result: Dict[str, torch.Tensor] = {}
+        score = torch.stack(self.buffer, dim=0)
+        assert score.shape == (len(self.buffer), self.num_classes), f"{score.shape=}"
+        score = torch.nanmean(score, dim=0)
+        assert score.shape == (self.num_classes,), f"{score.shape=}"
+        score = torch.nanmean(score)
+        assert score.shape == (), f"{score.shape=}"
+        result['score'] = score
+        result['reduced'] = self.reduce(result)
         if output_path is not None:
             save_json(obj=result, filepath=output_path)
         return result
