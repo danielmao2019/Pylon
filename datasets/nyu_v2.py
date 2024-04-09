@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Callable, Any
+from typing import Tuple, List, Dict, Any
 import os
 import numpy
 import scipy
@@ -35,7 +35,7 @@ class NYUv2Dataset(BaseDataset):
 
     def __init__(
         self, data_root: str, split: str, indices: List[int] = None,
-        transforms: Dict[str, Callable[[torch.Tensor], torch.Tensor]] = None,
+        transforms: dict = None,
     ):
         super().__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
 

@@ -21,21 +21,6 @@ def load_image(filepath: str, dtype: torch.dtype) -> torch.Tensor:
     return image
 
 
-def apply_transforms(
-    transforms: Dict[str, Callable[[torch.Tensor], torch.Tensor]],
-    example: Dict[str, torch.Tensor],
-) -> Dict[str, torch.Tensor]:
-    assert set(example.keys()) == set(['inputs', 'labels', 'meta_info'])
-    for key1 in example:
-        for key2 in example[key1]:
-            if key2 in transforms:
-                try:
-                    example[key1][key2] = transforms[key2](example[key1][key2])
-                except Exception as e:
-                    raise RuntimeError(f"[ERROR] Apply transforms['{key2}'] on example['{key1}']['{key2}']: {e}")
-    return example
-
-
 def collate_fn(examples: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
     result = transpose_buffer(examples)
     for key1 in result:
