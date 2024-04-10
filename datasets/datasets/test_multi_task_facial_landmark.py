@@ -1,12 +1,12 @@
 import pytest
-from datasets import MultiTaskFacialLandmarkDataset
+from .multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
 import os
 import torch
 
 
 @pytest.mark.parametrize("dataset", [
-    (MultiTaskFacialLandmarkDataset(data_root="./datasets/data/multi-task-facial-landmark", split='train')),
-    (MultiTaskFacialLandmarkDataset(data_root="./datasets/data/multi-task-facial-landmark", split='train', indices=[0, 2, 4, 6, 8])),
+    (MultiTaskFacialLandmarkDataset(data_root="./datasets/datasets/soft_links/multi-task-facial-landmark", split='train')),
+    (MultiTaskFacialLandmarkDataset(data_root="./datasets/datasets/soft_links/multi-task-facial-landmark", split='train', indices=[0, 2, 4, 6, 8])),
 ])
 def test_multi_task_facial_landmark(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)

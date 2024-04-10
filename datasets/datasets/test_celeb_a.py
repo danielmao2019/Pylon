@@ -1,12 +1,12 @@
 import pytest
-from datasets import CelebADataset
+from .celeb_a_dataset import CelebADataset
 import os
 import torch
 
 
 @pytest.mark.parametrize("dataset", [
-    (CelebADataset(data_root="./datasets/data/celeb-a", split='train')),
-    (CelebADataset(data_root="./datasets/data/celeb-a", split='train', indices=[0, 2, 4, 6, 8])),
+    (CelebADataset(data_root="./datasets/datasets/soft_links/celeb-a", split='train')),
+    (CelebADataset(data_root="./datasets/datasets/soft_links/celeb-a", split='train', indices=[0, 2, 4, 6, 8])),
 ])
 def test_celeb_a(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
