@@ -5,7 +5,7 @@ from utils.ops import transpose_buffer
 
 class BaseCollator:
 
-    def __init__(self, collators: Optional[Dict[str, Dict[str, Callable[[List[torch.Tensor]], Any]]]] = None) -> None:
+    def __init__(self, collators: Optional[Dict[str, Dict[str, Callable[[List[Any]], Any]]]] = None) -> None:
         if collators is None:
             collators = {}
         self.collators = collators

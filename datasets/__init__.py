@@ -1,25 +1,27 @@
 """
 DATASETS API
 """
-from datasets.base_dataset import BaseDataset
-from datasets.diffusion_dataset_wrapper import DiffusionDatasetWrapper
-from datasets.bbox_diffusion_dataset_wrapper import BBoxDiffusionDatasetWrapper
+from datasets.datasets.base_dataset import BaseDataset
+from datasets.datasets.celeb_a_dataset import CelebADataset
+from datasets.datasets.multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
+from datasets.datasets.city_scapes_dataset import CityScapesDataset
+from datasets.datasets.nyu_v2_dataset import NYUv2Dataset
+from datasets import diffusers
 from datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
-from datasets.celeb_a import CelebADataset
-from datasets.multi_task_facial_landmark import MultiTaskFacialLandmarkDataset
-from datasets.city_scapes import CityScapesDataset
-from datasets.nyu_v2 import NYUv2Dataset
+from datasets import transforms
+from datasets import collators
 from datasets import utils
 
 
 __all__ = (
     'BaseDataset',
-    'DiffusionDatasetWrapper',
-    'BBoxDiffusionDatasetWrapper',
-    'ProjectionDatasetWrapper',
     'CelebADataset',
     'MultiTaskFacialLandmarkDataset',
     'CityScapesDataset',
     'NYUv2Dataset',
+    'diffusers',
+    'ProjectionDatasetWrapper',
+    'transforms',
+    'collators',
     'utils',
 )

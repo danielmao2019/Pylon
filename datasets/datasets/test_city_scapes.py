@@ -1,12 +1,12 @@
 import pytest
-from datasets import CityScapesDataset
+from .city_scapes_dataset import CityScapesDataset
 import os
 import torch
 
 
 @pytest.mark.parametrize("dataset", [
-    (CityScapesDataset(data_root="./datasets/data/city-scapes", split='train')),
-    (CityScapesDataset(data_root="./datasets/data/city-scapes", split='train', indices=[0, 2, 4, 6, 8])),
+    (CityScapesDataset(data_root="./datasets/datasets/soft_links/city-scapes", split='train')),
+    (CityScapesDataset(data_root="./datasets/datasets/soft_links/city-scapes", split='train', indices=[0, 2, 4, 6, 8])),
 ])
 def test_city_scapes(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)

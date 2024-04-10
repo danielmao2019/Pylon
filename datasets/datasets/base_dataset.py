@@ -2,7 +2,7 @@ from typing import Tuple, List, Dict, Any
 from abc import ABC, abstractmethod
 import os
 import torch
-from transforms import BaseTransform
+from ..transforms.base_transform import BaseTransform
 from utils.builder import build_from_config
 
 

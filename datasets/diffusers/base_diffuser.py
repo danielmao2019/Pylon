@@ -6,7 +6,7 @@ import torch
 from utils.builder import build_from_config
 
 
-class DiffusionDatasetWrapper(torch.utils.data.Dataset):
+class BaseDiffuser(torch.utils.data.Dataset):
 
     __doc__ = r"""This class defines a wrapper class on regular datasets for denoising training.
     Serves as an API bridge between datasets, models, and trainers.
@@ -18,7 +18,7 @@ class DiffusionDatasetWrapper(torch.utils.data.Dataset):
         num_steps: int,
         keys: List[Tuple[str, str]],
     ):
-        super(DiffusionDatasetWrapper, self).__init__()
+        super(BaseDiffuser, self).__init__()
         self.dataset = build_from_config(dataset)
         assert type(num_steps) == int, f"{type(num_steps)=}"
         self.num_steps = num_steps

@@ -1,12 +1,12 @@
 import pytest
-from datasets import NYUv2Dataset
+from .nyu_v2_dataset import NYUv2Dataset
 import os
 import torch
 
 
 @pytest.mark.parametrize("dataset", [
-    (NYUv2Dataset(data_root="./datasets/data/NYUD_MT", split='train')),
-    (NYUv2Dataset(data_root="./datasets/data/NYUD_MT", split='train', indices=[0, 2, 4, 6, 8])),
+    (NYUv2Dataset(data_root="./datasets/datasets/soft_links/NYUD_MT", split='train')),
+    (NYUv2Dataset(data_root="./datasets/datasets/soft_links/NYUD_MT", split='train', indices=[0, 2, 4, 6, 8])),
 ])
 def test_nyu_v2(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
