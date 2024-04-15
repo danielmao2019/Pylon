@@ -4,10 +4,8 @@ from .base_criterion import BaseCriterion
 
 class SemanticSegmentationCriterion(BaseCriterion):
 
-    def __init__(self, num_classes: int, ignore_index: int):
+    def __init__(self, ignore_index: int):
         super().__init__()
-        self.num_classes = num_classes
-        self.ignore_index= ignore_index
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='mean')
 
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
