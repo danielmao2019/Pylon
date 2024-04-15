@@ -47,7 +47,7 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
             size=(self.num_classes+1, mask.shape[1], mask.shape[2]), dtype=torch.float32
         ).scatter_(0, mask, 1)[:self.num_classes, :, :]
         # diffuse probability distribution
-        alpha_cumprod = self.sqrt_alphas_cumprod[time] ** 2
+        alpha_cumprod = self.alphas_cumprod[time]
         probs = alpha_cumprod * probs + (1 - alpha_cumprod) / self.num_classes
         # sample from diffused probability distribution
         probs = probs.permute(1, 2, 0)

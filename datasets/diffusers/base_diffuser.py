@@ -38,14 +38,22 @@ class BaseDiffuser(torch.utils.data.Dataset):
     def _init_noise_schedule_(self, s: float = 8e-3):
         r"""cosine schedule as proposed in https://openreview.net/forum?id=-NEXDKk8gZ
         """
-        x = torch.linspace(start=0, end=self.num_steps, steps=self.num_steps + 1, dtype=torch.float64)
-        alphas_cumprod = torch.cos(((x / self.num_steps) + s) / (1 + s) * math.pi * 0.5) ** 2
-        alphas_cumprod = alphas_cumprod / alphas_cumprod[0]
+        t = torch.linspace(start=0, end=self.num_steps, steps=self.num_steps + 1, dtype=torch.float32)
+        f = torch.cos(((t / self.num_steps) + s) / (1 + s) * math.pi * 0.5) ** 2
+        alphas_cumprod = f / f[0]
         betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])
-        betas = torch.clip(betas, 0, 0.999)
-        self.alphas = 1 - betas
-        self.sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
+        alphas = 1 - betas
+        assert torch.allclose(torch.cumprod(alphas, dim=0), alphas_cumprod[1:]), f"{(torch.cumprod(alphas, dim=0)-alphas_cumprod[1:]).abs().max()=}"
+        alphas_cumprod = alphas_cumprod[1:]
+        assert betas.shape == alphas.shape == alphas_cumprod.shape
+        # clamp
+        betas = torch.clamp(betas, min=0, max=0.999)
+        alphas = torch.clamp(alphas, min=0, max=0.999)
+        alphas_cumprod = torch.clamp(alphas_cumprod, min=0, max=0.999)
+        # register buffers
+        self.alphas = alphas
+        self.alphas_cumprod = alphas_cumprod
+        self.one_minus_alphas_cumprod = 1 - alphas_cumprod
 
     def __len__(self) -> int:
         return len(self.dataset)
@@ -54,22 +62,20 @@ class BaseDiffuser(torch.utils.data.Dataset):
         assert type(input) == torch.Tensor, f"{type(input)=}"
         time = torch.randint(low=0, high=self.num_steps, size=(), dtype=torch.int64)
         noise = torch.randn(size=input.shape, dtype=torch.float32, device=input.device)
-        diffused = self.sqrt_alphas_cumprod[time] * input + self.sqrt_one_minus_alphas_cumprod[time] * noise
+        diffused = self.alphas_cumprod[time].sqrt() * input + self.one_minus_alphas_cumprod[time].sqrt() * noise
         return diffused, time
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
         example = self.dataset[idx]
         for (key1, key2) in self.keys:
-            if key1 == 'inputs':
-                label = example['inputs'][key2]
-                example['labels'][key2] = label
-                noisy, time = self.forward_diffusion(label)
-                example['inputs'][key2] = noisy
-                example['inputs']['time'] = time
-            elif key1 == 'labels':
-                noisy, time = self.forward_diffusion(example['labels'][key2])
-                example['inputs'][key2] = noisy
-                example['inputs']['time'] = time
-            else:
-                raise ValueError(f"[ERROR] Unrecognized key {key1}.")
+            noisy, time = self.forward_diffusion(example[key1][key2])
+            example['inputs']['diffused_'+key2] = noisy
+            example['inputs']['time'] = time
+            example['labels']['original_'+key2] = example[key1].pop(key2)
+            for key in example['inputs']:
+                if key2 in key:
+                    assert key == f"diffused_{key2}"
+            for key in example['labels']:
+                if key2 in key:
+                    assert key == f"original_{key2}"
         return example
