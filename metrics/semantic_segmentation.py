@@ -29,7 +29,7 @@ class SemanticSegmentationMetric(BaseMetric):
         assert mask.sum() >= 1
         count = torch.bincount(
             y_true[mask] * self.num_classes + y_pred[mask], minlength=self.num_classes**2,
-        ).reshape((self.num_classes,) * 2)
+        ).view((self.num_classes,) * 2)
         numerator = count.diag()
         denominator = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
         score: torch.Tensor = numerator / denominator
