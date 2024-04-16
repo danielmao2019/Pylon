@@ -3,24 +3,33 @@
 from typing import Dict
 import torch
 from .base_criterion import BaseCriterion
+from utils.semantic_segmentation import to_one_hot_encoding
 
 
 class CCDMCriterion(BaseCriterion):
 
-    def __init__(self, num_classes: int, num_steps: int):
+    def __init__(self, num_classes: int, ignore_index: int, num_steps: int):
         super(CCDMCriterion, self).__init__()
         assert type(num_classes) == int
         self.num_classes = num_classes
+        assert type(ignore_index) == int, f"{type(ignore_index)=}"
+        self.ignore_index = ignore_index
         assert type(num_steps) == int, f"{type(num_steps)=}"
         self.num_steps = num_steps
         from datasets.diffusers import BaseDiffuser
         BaseDiffuser._init_noise_schedule_(self)
 
     def theta_post(self, diffused_mask: torch.Tensor, original_mask: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
+        # input checks
         assert len(diffused_mask) == len(original_mask) == len(time), f"{diffused_mask.shape=}, {original_mask=}, {time=}"
-        original_mask = original_mask.unsqueeze(1)
-        assert diffused_mask.shape[-2:] == original_mask.shape[-2:], f"{diffused_mask.shape=}, {original_mask.shape=}"
+        assert diffused_mask.dim() == original_mask.dim() + 1, f"{diffused_mask.shape=}, {original_mask.shape=}"
+        assert diffused_mask.dtype == original_mask.dtype == time.dtype == torch.int64, f"{diffused_mask.dtype=}, {original_mask.dtype=}, {time.dtype=}"
         assert 0 <= time.min() <= time.max() < self.num_steps, f"{time=}, {self.num_steps=}"
+        # transform original mask into one-hot encoding
+        original_mask = to_one_hot_encoding(original_mask, num_classes=self.num_classes, ignore_index=self.ignore_index)
+        assert diffused_mask.shape == original_mask.shape, f"{diffused_mask.shape=}, {original_mask.shape=}"
+        assert diffused_mask.shape[1] == original_mask.shape[1] == self.num_classes, f"{diffused_mask.shape=}, {original_mask.shape=}"
+        # compute theta post
         alphas_t = self.alphas[time][..., None, None, None]
         alphas_cumprod_tm1 = self.alphas_cumprod[time - 1][..., None, None, None]
         alphas_t[time == 0] = 0.0

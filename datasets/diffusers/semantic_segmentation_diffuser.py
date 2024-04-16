@@ -1,6 +1,7 @@
 from .base_diffuser import BaseDiffuser
 from typing import Tuple, List
 import torch
+from utils.semantic_segmentation import to_one_hot_encoding
 
 
 class SemanticSegmentationDiffuser(BaseDiffuser):
@@ -35,17 +36,12 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         """
         # input checks
         assert type(mask) == torch.Tensor, f"{type(mask)=}"
-        if mask.dim() == 2:
-            mask = mask.unsqueeze(0)
-        assert mask.dim() == 3, f"{mask.shape=}"
-        assert self.num_classes not in mask
-        mask[mask == self.ignore_index] = self.num_classes
+        assert mask.dim() == 2, f"{mask.shape=}"
+        assert mask.dtype == torch.int64, f"{mask.dtype=}"
         # sample time step
         time = torch.randint(low=0, high=self.num_steps, size=(), dtype=torch.int64)
         # initialize probability distribution from mask
-        probs = torch.zeros(
-            size=(self.num_classes+1, mask.shape[1], mask.shape[2]), dtype=torch.float32
-        ).scatter_(0, mask, 1)[:self.num_classes, :, :]
+        probs = to_one_hot_encoding(mask, num_classes=self.num_classes, ignore_index=self.ignore_index).type(torch.float32)
         # diffuse probability distribution
         alpha_cumprod = self.alphas_cumprod[time]
         probs = alpha_cumprod * probs + (1 - alpha_cumprod) / self.num_classes
@@ -53,6 +49,7 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         probs = probs.permute(1, 2, 0)
         sample = torch.distributions.one_hot_categorical.OneHotCategorical(probs=probs).sample()
         sample = sample.permute(2, 0, 1).type(torch.int64)
-        assert sample.shape == (self.num_classes, mask.shape[1], mask.shape[2]), f"{sample.shape=}, {mask.shape=}"
-        assert sample.dtype == mask.dtype, f"{sample.dtype=}, {mask.dtype=}"
+        # sanity check
+        assert sample.shape == (self.num_classes, mask.shape[0], mask.shape[1]), f"{sample.shape=}, {mask.shape=}"
+        assert sample.dtype == torch.int64, f"{sample.dtype=}, {mask.dtype=}"
         return sample, time
