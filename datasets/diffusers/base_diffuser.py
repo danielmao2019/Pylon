@@ -6,7 +6,7 @@ import torch
 from utils.builder import build_from_config
 
 
-class BaseDiffuser(torch.utils.data.Dataset):
+class BaseDiffuser(torch.utils.data.Dataset, torch.nn.Module):
 
     __doc__ = r"""This class defines a wrapper class on regular datasets for denoising training.
     Serves as an API bridge between datasets, models, and trainers.
@@ -35,7 +35,7 @@ class BaseDiffuser(torch.utils.data.Dataset):
             assert key_seq[0] in ['inputs', 'labels']
         self.keys = keys
 
-    def _init_noise_schedule_(self, s: float = 8e-3):
+    def _init_noise_schedule_(self, s: float = 8e-3) -> None:
         r"""cosine schedule as proposed in https://openreview.net/forum?id=-NEXDKk8gZ
         """
         t = torch.linspace(start=0, end=self.num_steps, steps=self.num_steps + 1, dtype=torch.float32)
@@ -51,9 +51,9 @@ class BaseDiffuser(torch.utils.data.Dataset):
         alphas = torch.clamp(alphas, min=0, max=0.999)
         alphas_cumprod = torch.clamp(alphas_cumprod, min=0, max=0.999)
         # register buffers
-        self.alphas = alphas
-        self.alphas_cumprod = alphas_cumprod
-        self.one_minus_alphas_cumprod = 1 - alphas_cumprod
+        self.register_buffer(name='alphas', tensor=alphas)
+        self.register_buffer(name='alphas_cumprod', tensor=alphas_cumprod)
+        self.register_buffer(name='one_minus_alphas_cumprod', tensor=1-alphas_cumprod)
 
     def __len__(self) -> int:
         return len(self.dataset)
