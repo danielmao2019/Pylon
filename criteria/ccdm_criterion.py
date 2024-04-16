@@ -30,8 +30,8 @@ class CCDMCriterion(BaseCriterion):
         assert diffused_mask.shape == original_mask.shape, f"{diffused_mask.shape=}, {original_mask.shape=}"
         assert diffused_mask.shape[1] == original_mask.shape[1] == self.num_classes, f"{diffused_mask.shape=}, {original_mask.shape=}"
         # compute theta post
-        alphas_t = self.alphas[time][..., None, None, None]
-        alphas_cumprod_tm1 = self.alphas_cumprod[time - 1][..., None, None, None]
+        alphas_t = self.alphas[time].view((len(time), 1, 1, 1))
+        alphas_cumprod_tm1 = self.alphas_cumprod[time - 1].view((len(time), 1, 1, 1))
         alphas_t[time == 0] = 0.0
         alphas_cumprod_tm1[time == 0] = 1.0
         theta = (
@@ -39,7 +39,6 @@ class CCDMCriterion(BaseCriterion):
             (alphas_cumprod_tm1 * original_mask + (1 - alphas_cumprod_tm1) / self.num_classes)
         )
         theta_post = theta / theta.sum(dim=1, keepdim=True)
-        assert not theta_post.isnan().any(), f"alphas_t in [{alphas_t.min()}, {alphas_t.max()}], alphas_cumprod_tm1 in {alphas_cumprod_tm1.min()}, {alphas_cumprod_tm1.max()}]."
         return theta_post
 
     def theta_post_prob(self, diffused_mask: torch.Tensor, pred_mask: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
@@ -79,9 +78,14 @@ class CCDMCriterion(BaseCriterion):
         assert set(['original_mask', 'diffused_mask', 'time']).issubset(set(y_true.keys())), f"{y_true.keys()=}"
         prob_xtm1_given_xt_x0 = self.theta_post(diffused_mask=y_true['diffused_mask'], original_mask=y_true['original_mask'], time=y_true['time'])
         prob_xtm1_given_xt_x0pred = self.theta_post_prob(diffused_mask=y_true['diffused_mask'], pred_mask=y_pred, time=y_true['time'])
+        mask = y_true['original_mask'] != self.ignore_index
+        mask = mask.unsqueeze(-3).expand(-1, self.num_classes, -1, -1)
+        assert mask.shape == prob_xtm1_given_xt_x0.shape == prob_xtm1_given_xt_x0pred.shape
+        prob_xtm1_given_xt_x0 = prob_xtm1_given_xt_x0[mask]
+        prob_xtm1_given_xt_x0pred = prob_xtm1_given_xt_x0pred[mask]
         loss = torch.nn.functional.kl_div(
-            torch.log(torch.clamp(prob_xtm1_given_xt_x0pred, min=1e-12)),
-            prob_xtm1_given_xt_x0,
+            input=torch.log(torch.clamp(prob_xtm1_given_xt_x0pred, min=1e-12)),
+            target=prob_xtm1_given_xt_x0, log_target=False,
             reduction='mean',
         )
         assert not loss.isnan(), f"{prob_xtm1_given_xt_x0pred.min()=}, {prob_xtm1_given_xt_x0pred.max()=}, {prob_xtm1_given_xt_x0.min()=}, {prob_xtm1_given_xt_x0.max()=}"
