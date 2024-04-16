@@ -8,6 +8,7 @@ from utils import gradients
 from utils import io
 from utils import ops
 from utils import object_detection
+from utils import semantic_segmentation
 
 
 __all__ = (
@@ -18,4 +19,5 @@ __all__ = (
     'io',
     'ops',
     'object_detection',
+    'semantic_segmentation',
 )
