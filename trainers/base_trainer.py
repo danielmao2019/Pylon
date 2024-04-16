@@ -8,6 +8,7 @@ import jsbeautifier
 import torch
 import wandb
 
+import criteria
 import utils
 from utils.builder import build_from_config
 from utils.ops import apply_tensor_op
@@ -95,14 +96,18 @@ class BaseTrainer:
     def _init_model_(self):
         self.logger.info("Initializing model...")
         assert 'model' in self.config
-        model: torch.nn.Module = build_from_config(self.config['model'])
+        model = build_from_config(self.config['model'])
+        assert isinstance(model, torch.nn.Module), f"{type(model)=}"
         model = model.cuda()
         self.model = model
 
     def _init_criterion_(self):
         self.logger.info("Initializing criterion...")
         assert 'criterion' in self.config
-        self.criterion = build_from_config(self.config['criterion'])
+        criterion = build_from_config(self.config['criterion'])
+        assert isinstance(criterion, criteria.BaseCriterion) and isinstance(criterion, torch.nn.Module), f"{type(criterion)=}"
+        criterion = criterion.cuda()
+        self.criterion = criterion
 
     def _init_metric_(self):
         self.logger.info("Initializing metric...")

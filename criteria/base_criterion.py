@@ -5,9 +5,10 @@ import torch
 from utils.ops import transpose_buffer
 
 
-class BaseCriterion(ABC):
+class BaseCriterion(ABC, torch.nn.Module):
 
     def __init__(self):
+        super(BaseCriterion, self).__init__()
         self.reset_buffer()
 
     def reset_buffer(self):
