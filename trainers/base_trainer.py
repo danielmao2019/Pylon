@@ -74,21 +74,24 @@ class BaseTrainer:
         # initialize training dataloader
         assert 'train_dataset' in self.config and 'train_dataloader' in self.config
         train_dataset: torch.utils.data.Dataset = build_from_config(self.config['train_dataset'])
-        self.config['train_dataloader']['args']['collate_fn'] = build_from_config(self.config['train_dataloader']['args']['collate_fn'])
+        if 'collate_fn' in self.config['train_dataloader']['args']:
+            self.config['train_dataloader']['args']['collate_fn'] = build_from_config(self.config['train_dataloader']['args']['collate_fn'])
         self.train_dataloader: torch.utils.data.DataLoader = build_from_config(
             dataset=train_dataset, shuffle=True, config=self.config['train_dataloader'],
         )
         # initialize validation dataloader
         assert 'val_dataset' in self.config and 'val_dataloader' in self.config
         val_dataset: torch.utils.data.Dataset = build_from_config(self.config['val_dataset'])
-        self.config['val_dataloader']['args']['collate_fn'] = build_from_config(self.config['val_dataloader']['args']['collate_fn'])
+        if 'collate_fn' in self.config['val_dataloader']['args']:
+            self.config['val_dataloader']['args']['collate_fn'] = build_from_config(self.config['val_dataloader']['args']['collate_fn'])
         self.val_dataloader: torch.utils.data.DataLoader = build_from_config(
             dataset=val_dataset, shuffle=False, batch_size=1, config=self.config['val_dataloader'],
         )
         # initialize test dataloader
         assert 'test_dataset' in self.config and 'test_dataloader' in self.config
         test_dataset: torch.utils.data.Dataset = build_from_config(self.config['test_dataset'])
-        self.config['test_dataloader']['args']['collate_fn'] = build_from_config(self.config['test_dataloader']['args']['collate_fn'])
+        if 'collate_fn' in self.config['test_dataloader']['args']:
+            self.config['test_dataloader']['args']['collate_fn'] = build_from_config(self.config['test_dataloader']['args']['collate_fn'])
         self.test_dataloader: torch.utils.data.DataLoader = build_from_config(
             dataset=test_dataset, shuffle=False, batch_size=1, config=self.config['test_dataloader'],
         )
