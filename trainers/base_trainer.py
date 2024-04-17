@@ -12,6 +12,7 @@ import criteria
 import utils
 from utils.builder import build_from_config
 from utils.ops import apply_tensor_op
+from utils.io import serialize_tensor
 from .utils import has_finished
 
 try:
@@ -367,7 +368,7 @@ class BaseTrainer:
             os.makedirs(test_root)
         # save test results to disk
         results = {
-            'scores': self.metric.summarize(),
+            'scores': serialize_tensor(self.metric.summarize()),
             'checkpoint_filepath': best_checkpoint,
         }
         with open(os.path.join(test_root, "test_results.json"), mode='w') as f:
