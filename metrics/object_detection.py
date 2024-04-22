@@ -50,22 +50,23 @@ class ObjectDetectionMetric(BaseMetric):
         pred_bboxes = pred_bboxes[:limit]
         # compute score
         overlaps = pairwise_iou(pred_bboxes, gt_bboxes)
+        assert overlaps.shape == (len(pred_bboxes), len(gt_bboxes)), f"{overlaps.shape=}"
+        assert torch.all(overlaps >= 0), f"{overlaps.min()=}, {overlaps.max()=}"
         result = torch.zeros(len(gt_bboxes))
         for j in range(min(len(pred_bboxes), len(gt_bboxes))):
             # find which proposal box maximally covers each gt box
             # and get the iou amount of coverage for each gt box
             max_overlaps, argmax_overlaps = overlaps.max(dim=0)
             # find which gt box is 'best' covered (i.e. 'best' = most iou)
-            gt_ovr, gt_ind = max_overlaps.max(dim=0)
-            assert gt_ovr >= 0
+            gt_ovr, true_idx = max_overlaps.max(dim=0)
             # find the proposal box that covers the best covered gt box
-            box_ind = argmax_overlaps[gt_ind]
+            pred_idx = argmax_overlaps[true_idx]
             # record the iou coverage of this gt box
-            result[j] = overlaps[box_ind, gt_ind]
+            result[j] = overlaps[pred_idx, true_idx]
             assert result[j] == gt_ovr
             # mark the proposal box and the gt box as used
-            overlaps[box_ind, :] = -1
-            overlaps[:, gt_ind] = -1
+            overlaps[pred_idx, :] = -1
+            overlaps[:, true_idx] = -1
         return result
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, List[torch.Tensor]]) -> torch.Tensor:
