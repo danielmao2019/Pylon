@@ -137,6 +137,7 @@ class ObjectDetectionMetric(BaseMetric):
                 "recalls": recalls,
                 "thresholds": thresholds,
             }
+        assert 'reduced' not in result, f"{result.keys()=}"
         result['reduced'] = self.reduce(result)
         if output_path is not None:
             save_json(obj=result, filepath=output_path)
