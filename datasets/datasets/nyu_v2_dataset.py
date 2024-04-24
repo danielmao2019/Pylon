@@ -1,12 +1,9 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import os
-import numpy
 import scipy
 import torch
-import torchvision
-from PIL import Image
-
 from .base_dataset import BaseDataset
+from utils.io import load_image
 
 
 class NYUv2Dataset(BaseDataset):
@@ -34,55 +31,60 @@ class NYUv2Dataset(BaseDataset):
     LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
 
     def __init__(
-        self, data_root: str, split: str, indices: List[int] = None,
-        transforms: dict = None,
-    ):
-        super().__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
+        self,
+        data_root: str,
+        split: str,
+        transforms: Optional[dict] = None,
+        indices: Optional[List[int]] = None,
+    ) -> None:
+        super(NYUv2Dataset, self).__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
 
     ####################################################################################################
     ####################################################################################################
 
-    def _init_images_(self, split: str) -> None:
-        # input check
-        assert type(split) == str, f"{type(split)=}"
-        assert split in self.SPLIT_OPTIONS, f"{split=}, {self.SPLIT_OPTIONS=}"
+    def _init_annotations_(self, split: str) -> None:
         if split == 'test':
-            self.image_filepaths = []
+            image_filepaths = []
             return
-        # initialize
-        self.image_filepaths = []
-        # define filepaths
+        # initialize image filepaths
+        image_filepaths: List[str] = []
         with open(os.path.join(os.path.join(self.data_root, "gt_sets", split + '.txt')), 'r') as f:
             lines = f.read().splitlines()
             for line in lines:
                 image_fp = os.path.join(self.data_root, "images", line + '.jpg')
                 assert os.path.isfile(image_fp), f"{image_fp=}"
-                self.image_filepaths.append(image_fp)
-
-    def _init_labels_(self, split: str) -> None:
-        self.edge_fps = []
-        self.segmentation_fps = []
-        self.normals_fps = []
-        self.depth_fps = []
-        for image_fp in self.image_filepaths:
+                image_filepaths.append(image_fp)
+        # initialize labels
+        depth_filepaths = []
+        normal_filepaths = []
+        semantic_filepaths = []
+        edge_filepaths = []
+        for image_fp in image_filepaths:
             name = os.path.basename(image_fp).split('.')[0]
-            # edge
-            edge_fp = os.path.join(self.data_root, "edge", name + '.png')
-            assert os.path.isfile(edge_fp), f"{edge_fp=}"
-            self.edge_fps.append(edge_fp)
-            # segmentation
-            segmentation_fp = os.path.join(self.data_root, "segmentation", name + '.mat')
-            assert os.path.isfile(segmentation_fp), f"{segmentation_fp=}"
-            self.segmentation_fps.append(segmentation_fp)
-            # normals
-            normals_fp = os.path.join(self.data_root, "normals", name + '.jpg')
-            assert os.path.isfile(normals_fp), f"{normals_fp=}"
-            self.normals_fps.append(normals_fp)
             # depth
             depth_fp = os.path.join(self.data_root, "depth", name + '.mat')
             assert os.path.isfile(depth_fp), f"{depth_fp=}"
-            self.depth_fps.append(depth_fp)
-        assert len(self.image_filepaths) == len(self.edge_fps) == len(self.segmentation_fps) == len(self.normals_fps) == len(self.depth_fps)
+            depth_filepaths.append(depth_fp)
+            # normals
+            normals_fp = os.path.join(self.data_root, "normals", name + '.jpg')
+            assert os.path.isfile(normals_fp), f"{normals_fp=}"
+            normal_filepaths.append(normals_fp)
+            # segmentation
+            semantic_fp = os.path.join(self.data_root, "segmentation", name + '.mat')
+            assert os.path.isfile(semantic_fp), f"{semantic_fp=}"
+            semantic_filepaths.append(semantic_fp)
+            # edge
+            edge_fp = os.path.join(self.data_root, "edge", name + '.png')
+            assert os.path.isfile(edge_fp), f"{edge_fp=}"
+            edge_filepaths.append(edge_fp)
+        assert len(image_filepaths) == len(edge_filepaths) == len(semantic_filepaths) == len(normal_filepaths) == len(depth_filepaths)
+        self.annotations: List[Dict[str, Any]] = [{
+            'image': image_filepaths[idx],
+            'edge': edge_filepaths[idx],
+            'semantic': semantic_filepaths[idx],
+            'normal': normal_filepaths[idx],
+            'depth': depth_filepaths[idx]
+        } for idx in range(len(image_filepaths))]
 
     ####################################################################################################
     ####################################################################################################
@@ -92,12 +94,12 @@ class NYUv2Dataset(BaseDataset):
     ]:
         inputs = self._get_image_(idx)
         labels = {}
-        labels.update(self._get_edge_label_(idx))
         labels.update(self._get_depth_label_(idx))
-        labels.update(self._get_normals_label_(idx))
+        labels.update(self._get_normal_label_(idx))
         labels.update(self._get_segmentation_label_(idx))
+        labels.update(self._get_edge_label_(idx))
         meta_info = {
-            'image_filepath': os.path.relpath(path=self.image_filepaths[idx], start=self.data_root),
+            'image_filepath': os.path.relpath(path=self.annotations[idx]['image'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),
         }
         return inputs, labels, meta_info
@@ -106,24 +108,24 @@ class NYUv2Dataset(BaseDataset):
     ####################################################################################################
 
     def _get_image_(self, idx: int) -> torch.Tensor:
-        image = torchvision.transforms.ToTensor()(Image.open(self.image_filepaths[idx]))
+        image = load_image(filepath=self.annotations[idx]['image'], dtype=torch.float32)
         return {'image': image}
 
-    def _get_edge_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        edge = torch.tensor(data=numpy.array(Image.open(self.edge_fps[idx])), dtype=torch.float32)
-        edge = edge.unsqueeze(0) / 255
-        return {'edge_detection': edge}
-
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        depth = torch.tensor(scipy.io.loadmat(self.depth_fps[idx])['depth'], dtype=torch.float32)
+        depth = torch.tensor(scipy.io.loadmat(self.annotations[idx]['depth'])['depth'], dtype=torch.float32)
         depth = depth.unsqueeze(0)
         return {'depth_estimation': depth}
 
-    def _get_normals_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        normals = torch.tensor(data=numpy.array(Image.open(self.normals_fps[idx])), dtype=torch.float32)
-        normals = normals.permute(dims=(2, 0, 1)) / 255 * 2 - 1
-        return {'normal_estimation': normals}
+    def _get_normal_label_(self, idx: int) -> Dict[str, torch.Tensor]:
+        normal = load_image(filepath=self.annotations[idx]['normal'], dtype=torch.float32)
+        normal = normal * 2 - 1
+        return {'normal_estimation': normal}
 
     def _get_segmentation_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        segmentation = torch.tensor(data=scipy.io.loadmat(self.segmentation_fps[idx])['segmentation'], dtype=torch.int64)
-        return {'semantic_segmentation': segmentation}
+        semantic = torch.tensor(data=scipy.io.loadmat(self.annotations[idx]['semantic'])['segmentation'], dtype=torch.int64)
+        return {'semantic_segmentation': semantic}
+
+    def _get_edge_label_(self, idx: int) -> Dict[str, torch.Tensor]:
+        edge = load_image(filepath=self.annotations[idx]['edge'], dtype=torch.float32)
+        edge = edge.unsqueeze(0)
+        return {'edge_detection': edge}

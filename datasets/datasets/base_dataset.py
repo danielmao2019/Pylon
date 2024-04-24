@@ -1,8 +1,8 @@
 from typing import Tuple, List, Dict, Any, Optional
 from abc import ABC, abstractmethod
-import os
 import torch
 from ..transforms.base_transform import BaseTransform
+from utils.input_checks import check_read_dir
 from utils.builder import build_from_config
 
 
@@ -19,30 +19,27 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         split: str,
         transforms: Optional[dict] = None,
         indices: Optional[List[int]] = None,
-    ):
+    ) -> None:
         super(BaseDataset, self).__init__()
+        # sanity checks
         assert self.SPLIT_OPTIONS is not None
         assert self.INPUT_NAMES is not None
         assert self.LABEL_NAMES is not None
         assert set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set(), f"{set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
-        # initialize data root directory
-        assert type(data_root) == str, f"{type(data_root)=}"
-        assert os.path.isdir(data_root), f"{data_root=}"
-        self.data_root = data_root
-        # init file paths
-        self._init_images_(split=split)
-        self._init_labels_(split=split)
-        # init transforms
+        # initialize data root
+        self.data_root = check_read_dir(data_root)
+        # initialize annotations
+        assert type(split) == str, f"{type(split)=}"
+        assert split in self.SPLIT_OPTIONS, f"{split=}, {self.SPLIT_OPTIONS=}"
+        self._init_annotations_(split=split)
+        if indices is not None:
+            self.annotations = [self.annotations[idx] for idx in indices]
+        # initialize transform
         self._init_transform_(transforms=transforms)
-        self.indices = indices
 
     @abstractmethod
-    def _init_images_(self, split: str) -> None:
-        raise NotImplementedError("[ERROR] _init_images_ not implemented for abstract base class.")
-
-    @abstractmethod
-    def _init_labels_(self, split: str) -> None:
-        raise NotImplementedError("[ERROR] _init_labels_ not implemented for abstract base class.")
+    def _init_annotations_(self, split: str) -> None:
+        raise NotImplementedError("[ERROR] _init_annotations_ not implemented for abstract base class.")
 
     def _init_transform_(self, transforms: Optional[dict]):
         if transforms is None:
@@ -55,10 +52,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self.transforms = build_from_config(transforms)
 
     def __len__(self):
-        if self.indices is None:
-            return len(self.image_filepaths)
-        else:
-            return len(self.indices)
+        return len(self.annotations)
 
     @abstractmethod
     def _load_example_(self, idx: int) -> Tuple[
@@ -77,7 +71,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         raise NotImplementedError("[ERROR] _load_example_ not implemented for abstract base class.")
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
-        idx = self.indices[idx] if self.indices is not None else idx
         inputs, labels, meta_info = self._load_example_(idx)
         example = {
             'inputs': inputs,
