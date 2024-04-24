@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
 import numpy
@@ -32,6 +32,7 @@ class CityScapesDataset(BaseDataset):
     no_instances = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23]
     void_classes = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
     valid_classes = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33]
+    class_map = dict(zip(valid_classes, range(19)))
     NUM_CLASSES = 19
 
     IMAGE_MEAN = numpy.array([123.675, 116.28, 103.53])
@@ -49,43 +50,45 @@ class CityScapesDataset(BaseDataset):
     }
 
     def __init__(
-        self, data_root: str, split: str, indices: List[int] = None,
-        transforms: dict = None,
-    ):
-        super().__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
-        self.class_map = dict(zip(self.valid_classes, range(19)))
-        self._filter_dataset_(remove_indices=self.REMOVE_INDICES[split])
+        self,
+        data_root: str,
+        split: str,
+        transforms: Optional[dict] = None,
+        indices: Optional[List[int]] = None,
+    ) -> None:
+        super(CityScapesDataset, self).__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
 
     ####################################################################################################
     ####################################################################################################
 
-    def _init_images_(self, split: str) -> None:
-        assert type(split) == str, f"{type(split)=}"
-        assert split in self.SPLIT_OPTIONS, f"{split=}, {self.SPLIT_OPTIONS=}"
+    def _init_annotations_(self, split: str) -> None:
+        # initialize image filepaths
         self.image_root = os.path.join(self.data_root, "leftImg8bit", split)
-        self.image_filepaths = sorted(glob.glob(os.path.join(self.image_root, "**", "*.png")))
+        image_filepaths: List[str] = sorted(glob.glob(os.path.join(self.image_root, "**", "*.png")))
         if split == 'test':
-            self.image_filepaths = []
-
-    def _init_labels_(self, split: str) -> None:
-        # input check
-        assert type(split) == str, f"{type(split)=}"
-        assert split in self.SPLIT_OPTIONS, f"{split=}, {self.SPLIT_OPTIONS=}"
+            image_filepaths = []
         # depth estimation labels
-        self.depth_root = os.path.join(self.data_root, "disparity", split)
-        self.depth_paths = [os.path.join(self.depth_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "disparity.png")
-                            for image_fp in self.image_filepaths]
+        depth_root = os.path.join(self.data_root, "disparity", split)
+        depth_paths = [os.path.join(depth_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "disparity.png")
+                            for image_fp in image_filepaths]
         # segmentation labels
-        self.segmentation_root = os.path.join(self.data_root, "gtFine", split)
-        self.semantic_paths = [os.path.join(self.segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_labelIds.png")
-                               for image_fp in self.image_filepaths]
-        self.instance_paths = [os.path.join(self.segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_instanceIds.png")
-                               for image_fp in self.image_filepaths]
+        segmentation_root = os.path.join(self.data_root, "gtFine", split)
+        semantic_paths = [os.path.join(segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_labelIds.png")
+                               for image_fp in image_filepaths]
+        instance_paths = [os.path.join(segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_instanceIds.png")
+                               for image_fp in image_filepaths]
+        self.annotations: List[Dict[str, Any]] = [{
+            'image': image_filepaths[idx],
+            'depth': depth_paths[idx],
+            'semantic': semantic_paths[idx],
+            'instance': instance_paths[idx],
+        } for idx in range(len(image_filepaths))]
+        self._filter_dataset_(remove_indices=self.REMOVE_INDICES[split])
 
     def _filter_dataset_(self, remove_indices: List[int], cache: bool = True) -> None:
         if not cache:
             remove_indices = []
-            for idx in range(len(self.image_filepaths)):
+            for idx in range(len(self.annotations)):
                 depth_estimation = self._get_depth_label_(idx)['depth_estimation']
                 segmentation = self._get_segmentation_labels_(idx)
                 semantic_segmentation = segmentation['semantic_segmentation']
@@ -99,10 +102,7 @@ class CityScapesDataset(BaseDataset):
                 if torch.all(instance_segmentation == self.IGNORE_INDEX):
                     remove_indices.append(idx)
                     continue
-        self.image_filepaths = [self.image_filepaths[idx] for idx in range(len(self.image_filepaths)) if idx not in remove_indices]
-        self.depth_paths = [self.depth_paths[idx] for idx in range(len(self.depth_paths)) if idx not in remove_indices]
-        self.semantic_paths = [self.semantic_paths[idx] for idx in range(len(self.semantic_paths)) if idx not in remove_indices]
-        self.instance_paths = [self.instance_paths[idx] for idx in range(len(self.instance_paths)) if idx not in remove_indices]
+        self.annotations = [self.annotations[idx] for idx in range(len(self.annotations)) if idx not in remove_indices]
 
     ####################################################################################################
     ####################################################################################################
@@ -131,7 +131,7 @@ class CityScapesDataset(BaseDataset):
         labels.update(self._get_depth_label_(idx))
         labels.update(self._get_segmentation_labels_(idx))
         meta_info = {
-            'image_filepath': os.path.relpath(path=self.image_filepaths[idx], start=self.data_root),
+            'image_filepath': os.path.relpath(path=self.annotations[idx]['image'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),
         }
         return inputs, labels, meta_info
@@ -140,7 +140,7 @@ class CityScapesDataset(BaseDataset):
     ####################################################################################################
 
     def _get_image_(self, idx: int) -> Dict[str, torch.Tensor]:
-        image = numpy.array(Image.open(self.image_filepaths[idx]), dtype=numpy.uint8)
+        image = numpy.array(Image.open(self.annotations[idx]['image']), dtype=numpy.uint8)
         image = image[:, :, ::-1]
         image = image.astype(numpy.float64)
         image -= self.IMAGE_MEAN
@@ -150,20 +150,20 @@ class CityScapesDataset(BaseDataset):
         return {'image': image}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        depth = torch.tensor(data=numpy.array(Image.open(self.depth_paths[idx])), dtype=torch.float32)
+        depth = torch.tensor(data=numpy.array(Image.open(self.annotations[idx]['depth'])), dtype=torch.float32)
         depth = depth.unsqueeze(0)
         depth /= self.DEPTH_STD
         return {'depth_estimation': depth}
 
     def _get_segmentation_labels_(self, idx: int) -> Dict[str, torch.Tensor]:
         # get semantic segmentation labels
-        semantic = torch.tensor(data=numpy.array(Image.open(self.semantic_paths[idx])), dtype=torch.int64)
+        semantic = torch.tensor(data=numpy.array(Image.open(self.annotations[idx]['semantic'])), dtype=torch.int64)
         for void in self.void_classes:
             semantic[semantic == void] = self.IGNORE_INDEX
         for valid in self.valid_classes:
             semantic[semantic == valid] = self.class_map[valid]
         # get instance segmentation labels
-        instance = torch.tensor(data=numpy.array(Image.open(self.instance_paths[idx])), dtype=torch.float32)
+        instance = torch.tensor(data=numpy.array(Image.open(self.annotations[idx]['instance'])), dtype=torch.float32)
         instance[semantic == self.IGNORE_INDEX] = self.IGNORE_INDEX
         for _no_instance in self.no_instances:
             instance[instance == _no_instance] = self.IGNORE_INDEX
