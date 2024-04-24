@@ -1,6 +1,7 @@
 """
 UTILS API
 """
+from utils import input_checks
 from utils import logging
 from utils import builder
 from utils import determinism
@@ -12,6 +13,7 @@ from utils import semantic_segmentation
 
 
 __all__ = (
+    'input_checks',
     'logging',
     'builder',
     'determinism',
