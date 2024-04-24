@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 from abc import ABC, abstractmethod
 import os
 import torch
@@ -17,8 +17,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self,
         data_root: str,
         split: str,
-        transforms: dict,
-        indices: List[int] = None,
+        transforms: Optional[dict] = None,
+        indices: Optional[List[int]] = None,
     ):
         super(BaseDataset, self).__init__()
         assert self.SPLIT_OPTIONS is not None
@@ -33,7 +33,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self._init_images_(split=split)
         self._init_labels_(split=split)
         # init transforms
-        self._init_transform_(transforms)
+        self._init_transform_(transforms=transforms)
         self.indices = indices
 
     @abstractmethod
@@ -44,7 +44,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     def _init_labels_(self, split: str) -> None:
         raise NotImplementedError("[ERROR] _init_labels_ not implemented for abstract base class.")
 
-    def _init_transform_(self, transforms: dict):
+    def _init_transform_(self, transforms: Optional[dict]):
         if transforms is None:
             transforms = {
                 'class': BaseTransform,
