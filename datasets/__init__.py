@@ -10,7 +10,6 @@ from datasets import diffusers
 from datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
 from datasets import transforms
 from datasets import collators
-from datasets import utils
 
 
 __all__ = (
@@ -23,5 +22,4 @@ __all__ = (
     'ProjectionDatasetWrapper',
     'transforms',
     'collators',
-    'utils',
 )

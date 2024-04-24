@@ -1,6 +1,7 @@
 """
 UTILS API
 """
+from utils import conversions
 from utils import input_checks
 from utils import logging
 from utils import builder
@@ -13,6 +14,7 @@ from utils import semantic_segmentation
 
 
 __all__ = (
+    'conversions',
     'input_checks',
     'logging',
     'builder',
