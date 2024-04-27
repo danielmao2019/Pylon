@@ -18,6 +18,12 @@ class SemanticSegmentationMetric(BaseMetric):
             score (torch.Tensor): 1D tensor of length num_classes representing the IoU scores for each class.
         """
         # input checks
+        assert type(y_pred) == torch.Tensor, f"{type(y_pred)=}"
+        assert y_pred.dim() == 4, f"{y_pred.shape=}"
+        assert y_pred.is_floating_point(), f"{y_pred.dtype=}"
+        assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
+        assert y_true.dim() == 3, f"{y_true.shape=}"
+        assert y_true.dtype == torch.int64, f"{y_true.dtype=}"
         assert y_pred.shape[0] == y_true.shape[0], f"{y_pred.shape=}, {y_true.shape=}"
         assert y_pred.shape[-2:] == y_true.shape[-2:], f"{y_pred.shape=}, {y_true.shape=}"
         # make prediction from output
