@@ -16,11 +16,17 @@ class BaseCollator:
             examples[key1] = transpose_buffer(examples[key1])
             for key2 in examples[key1]:
                 if (key1 not in self.collators) or (key2 not in self.collators[key1]):
-                    # apply default collate function: torch.stack
-                    try:
-                        examples[key1][key2] = torch.stack(examples[key1][key2], dim=0)
-                    except Exception as e:
-                        raise RuntimeError(f"[ERROR] Cannot stack tensors into batch at {key1=}, {key2=}: {e}")
+                    # no collate function given
+                    if all((elem is None or type(elem) == str) for elem in examples[key1][key2]):
+                        # handle str type
+                        pass
+                    else:
+                        # apply default collate function: torch.stack
+                        try:
+                            examples[key1][key2] = torch.stack(examples[key1][key2], dim=0)
+                        except Exception as e:
+                            raise RuntimeError(f"[ERROR] Cannot stack tensors into batch at {key1=}, {key2=}: {e}")
                 else:
+                    # apply given collate function
                     examples[key1][key2] = self.collators[key1][key2](examples[key1][key2])
         return examples
