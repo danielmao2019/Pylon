@@ -1,3 +1,4 @@
+from typing import Dict
 import torch
 from .base_criterion import BaseCriterion
 
@@ -8,7 +9,8 @@ class SemanticSegmentationCriterion(BaseCriterion):
         super().__init__()
         self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='mean')
 
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+        y_true = y_true['mask']
         # input checks
         assert type(y_pred) == torch.Tensor, f"{type(y_pred)=}"
         assert y_pred.dim() == 4, f"{y_pred.shape=}"
