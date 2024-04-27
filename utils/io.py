@@ -4,7 +4,9 @@ import json
 import jsbeautifier
 import numpy
 import torch
+import torchvision
 from PIL import Image
+from .input_checks import check_write_file
 from .ops import apply_tensor_op
 
 
@@ -28,6 +30,16 @@ def load_image(filepath: str, dtype: Optional[torch.dtype] = torch.float32) -> t
     if dtype == torch.float32:
         image = image / 255.
     return image
+
+
+def save_image(tensor: torch.Tensor, filepath: str) -> None:
+    check_write_file(filepath)
+    if tensor.dim() == 3 and tensor.shape[0] == 3 and tensor.dtype == torch.float32:
+        torchvision.utils.save_image(tensor=tensor, fp=filepath)
+    elif tensor.dim() == 2 and tensor.dtype == torch.uint8:
+        Image.fromarray(tensor.numpy()).save(filepath)
+    else:
+        raise TypeError(f"[ERROR] Unrecognized tensor format: shape={tensor.shape}, dtype={tensor.dtype}.")
 
 
 def serialize_tensor(obj: Any):
