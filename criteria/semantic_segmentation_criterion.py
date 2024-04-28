@@ -1,13 +1,17 @@
-from typing import Dict
+from typing import Tuple, Dict, Optional
 import torch
 from .base_criterion import BaseCriterion
 
 
 class SemanticSegmentationCriterion(BaseCriterion):
 
-    def __init__(self, ignore_index: int):
-        super().__init__()
-        self.criterion = torch.nn.CrossEntropyLoss(ignore_index=ignore_index, reduction='mean')
+    def __init__(self, ignore_index: int, weight: Optional[Tuple[float, ...]] = None) -> None:
+        super(SemanticSegmentationCriterion, self).__init__()
+        if weight is not None:
+            weight = torch.tensor(weight, dtype=torch.float32)
+        self.criterion = torch.nn.CrossEntropyLoss(
+            ignore_index=ignore_index, weight=weight, reduction='mean',
+        )
 
     def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         y_true = y_true['mask']
