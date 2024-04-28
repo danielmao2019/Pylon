@@ -55,13 +55,18 @@ class SemanticSegmentationMetric(BaseMetric):
         result: Dict[str, torch.Tensor] = {}
         score = torch.stack(self.buffer, dim=0)
         assert score.shape == (len(self.buffer), self.num_classes), f"{score.shape=}"
+        # log IoU per class
         score = torch.nanmean(score, dim=0)
         assert score.shape == (self.num_classes,), f"{score.shape=}"
+        result['IoU_per_class'] = score
+        # log IoU average
         score = torch.nanmean(score)
         assert score.shape == (), f"{score.shape=}"
-        result['score'] = score
+        result['IoU_average'] = score
+        # log reduction
         assert 'reduced' not in result, f"{result.keys()=}"
-        result['reduced'] = self.reduce(result)
+        result['reduced'] = result['IoU_average']
+        # save to disk
         if output_path is not None:
             save_json(obj=result, filepath=output_path)
         return result
