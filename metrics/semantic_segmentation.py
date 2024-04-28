@@ -31,16 +31,25 @@ class SemanticSegmentationMetric(BaseMetric):
         y_pred = torch.argmax(torch.nn.functional.softmax(y_pred, dim=1), dim=1)
         y_pred = y_pred.type(torch.int64)
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
-        # compute score
-        mask = y_true != self.ignore_index
-        assert mask.sum() >= 1
+        # compute confusion matrix
+        valid_mask = y_true != self.ignore_index
+        assert valid_mask.sum() >= 1
+        y_pred = y_pred[valid_mask]
+        y_true = y_true[valid_mask]
         count = torch.bincount(
-            y_true[mask] * self.num_classes + y_pred[mask], minlength=self.num_classes**2,
+            y_true * self.num_classes + y_pred, minlength=self.num_classes**2,
         ).view((self.num_classes,) * 2)
-        numerator = count.diag()
-        denominator = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
-        score: torch.Tensor = numerator / denominator
+        # compute intersection over union
+        intersection = count.diag()
+        union = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
+        score: torch.Tensor = intersection / union
         assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
+        # stabilize nan values
+        nan_mask = torch.ones(size=(self.num_classes,), dtype=torch.bool, device=count.device)
+        nan_mask[y_true.unique()] = False
+        assert torch.all(torch.logical_or(score[nan_mask] == 0, torch.isnan(score[nan_mask]))), \
+            f"{score.tolist()=}, {nan_mask.tolist()=}, {(score[nan_mask] == 0)=}, {torch.isnan(score[nan_mask])=}"
+        score[nan_mask] = float('nan')
         # log score
         self.buffer.append(score)
         return score
