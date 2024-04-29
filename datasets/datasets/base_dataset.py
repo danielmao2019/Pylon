@@ -17,7 +17,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self,
         data_root: str,
         split: str,
-        transforms: Optional[dict] = None,
+        transforms: Optional[list] = None,
         indices: Optional[List[int]] = None,
     ) -> None:
         super(BaseDataset, self).__init__()
@@ -41,12 +41,12 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
     def _init_annotations_(self, split: str) -> None:
         raise NotImplementedError("[ERROR] _init_annotations_ not implemented for abstract base class.")
 
-    def _init_transform_(self, transforms: Optional[dict]):
+    def _init_transform_(self, transforms: Optional[list]):
         if transforms is None:
             transforms = {
                 'class': BaseTransform,
                 'args': {
-                    'transforms': {},
+                    'transforms': [],
                 },
             }
         self.transforms = build_from_config(transforms)
