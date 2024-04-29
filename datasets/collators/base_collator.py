@@ -20,6 +20,9 @@ class BaseCollator:
                     if all((elem is None or type(elem) == str) for elem in examples[key1][key2]):
                         # handle str type
                         pass
+                    elif all(type(elem) == int for elem in examples[key1][key2]):
+                        # handle int type
+                        examples[key1][key2] = torch.tensor(examples[key1][key2], dtype=torch.int64)
                     else:
                         # apply default collate function: torch.stack
                         try:
