@@ -13,7 +13,6 @@ import utils
 from utils.builder import build_from_config
 from utils.ops import apply_tensor_op
 from utils.io import serialize_tensor
-from .utils import has_finished
 
 try:
     # torch 2.x
@@ -27,19 +26,20 @@ class BaseTrainer:
 
     def __init__(self, config: dict):
         self.config = config
-
-    # ====================================================================================================
-    # ====================================================================================================
-
-    def _init_work_dir_(self):
-        # input checks
+        # init work dir
         assert 'work_dir' in self.config.keys()
         assert type(self.config['work_dir']) == str, f"{type(self.config['work_dir'])=}"
-        # set work dir and session index
         work_dir = self.config['work_dir']
-        if not os.path.exists(work_dir):
-            os.makedirs(work_dir)
+        os.makedirs(work_dir, exist_ok=True)
         self.work_dir = work_dir
+        # init total epochs
+        assert 'epochs' in self.config.keys()
+        self.tot_epochs = self.config['epochs']
+
+    # ====================================================================================================
+    # ====================================================================================================
+
+    def _init_logger_(self):
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -68,6 +68,7 @@ class BaseTrainer:
         assert type(train_seeds) == list, f"{type(train_seeds)=}"
         for seed in train_seeds:
             assert type(seed) == int, f"{type(seed)=}"
+        assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
         self.train_seeds = train_seeds
 
     def _init_dataloaders_(self):
@@ -160,12 +161,8 @@ class BaseTrainer:
 
     def _init_state_(self):
         self.logger.info("Initializing state...")
-        # input checks
-        assert 'epochs' in self.config.keys()
         # init epoch numbers
         self.cum_epochs = 0
-        self.tot_epochs = self.config['epochs']
-        assert len(self.train_seeds) == self.tot_epochs, f"{len(self.train_seeds)=}, {self.tot_epochs=}"
         # determine where to resume from
         load_idx: int = None
         for idx in range(self.tot_epochs):
@@ -377,12 +374,39 @@ class BaseTrainer:
     # ====================================================================================================
     # ====================================================================================================
 
+    def is_running(self, wait_time: float) -> bool:
+        logs = glob.glob(os.path.join(self.work_dir, "train_val*.log"))
+        if len(logs) == 0:
+            return False
+        return time.time() - max([os.path.getmtime(fp) for fp in logs]) <= wait_time
+
+    def has_finished(self) -> bool:
+        # check train/val
+        for idx in range(self.tot_epochs):
+            epoch_finished = all([
+                os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", filename))
+                for filename in self.expected_files
+            ])
+            if not epoch_finished:
+                return False
+        # check test
+        if not os.path.isfile(os.path.join(self.work_dir, "test", "test_results.json")):
+            return False
+        return True
+
+    def has_failed(self, wait_time: float) -> bool:
+        return not self.is_running(wait_time=wait_time) and not self.has_finished()
+
+    # ====================================================================================================
+    # ====================================================================================================
+
     def train(self):
         # skip if finished
-        if has_finished(work_dir=self.config['work_dir'], expected_epochs=self.config['epochs']):
+        if self.has_finished():
+            print("Session already finished.")
             return
         # initialize modules
-        self._init_work_dir_()
+        self._init_logger_()
         self._init_determinism_()
         self._init_dataloaders_()
         self._init_model_()
