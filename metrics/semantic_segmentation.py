@@ -7,20 +7,20 @@ from utils.io import save_json
 
 class SemanticSegmentationMetric(BaseMetric):
 
-    def __init__(self, num_classes: int, ignore_index: int):
-        super().__init__()
+    def __init__(self, num_classes: int, ignore_index: int) -> None:
+        super(SemanticSegmentationMetric, self).__init__()
         self.num_classes = num_classes
         self.ignore_index= ignore_index
 
     def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         r"""
         Return:
-            score (torch.Tensor): 1D tensor of length num_classes representing the IoU scores for each class.
+            score (torch.Tensor): 1D tensor of length `self.num_classes` representing the IoU scores for each class.
         """
         y_true = y_true['mask']
         # input checks
         assert type(y_pred) == torch.Tensor, f"{type(y_pred)=}"
-        assert y_pred.dim() == 4, f"{y_pred.shape=}"
+        assert y_pred.dim() == 4 and y_pred.shape[1] == self.num_classes, f"{y_pred.shape=}"
         assert y_pred.is_floating_point(), f"{y_pred.dtype=}"
         assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
         assert y_true.dim() == 3, f"{y_true.shape=}"
@@ -43,13 +43,13 @@ class SemanticSegmentationMetric(BaseMetric):
         intersection = count.diag()
         union = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
         score: torch.Tensor = intersection / union
-        assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
         # stabilize nan values
         nan_mask = torch.ones(size=(self.num_classes,), dtype=torch.bool, device=count.device)
         nan_mask[y_true.unique()] = False
         assert torch.all(torch.logical_or(score[nan_mask] == 0, torch.isnan(score[nan_mask]))), \
             f"{score.tolist()=}, {nan_mask.tolist()=}, {(score[nan_mask] == 0)=}, {torch.isnan(score[nan_mask])=}"
         score[nan_mask] = float('nan')
+        assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
         # log score
         self.buffer.append(score)
         return score
