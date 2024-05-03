@@ -1,7 +1,7 @@
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Union, Any, Optional
 from abc import ABC, abstractmethod
-import os
 import torch
+from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer
 
 
@@ -23,12 +23,11 @@ class BaseCriterion(ABC, torch.nn.Module):
         """
         raise NotImplementedError("[ERROR] __call__ not implemented for abstract base class.")
 
-    def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
+    def summarize(self, output_path: Optional[str] = None) -> Dict[str, torch.Tensor]:
         r"""Default summary: trajectory of losses across all examples in buffer.
         """
         if output_path is not None:
-            assert type(output_path) == str, f"{type(output_path)=}"
-            assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
+            check_write_file(path=output_path)
         result: Dict[str, torch.Tensor] = {}
         if len(self.buffer) != 0:
             if type(self.buffer[0]) == torch.Tensor:
@@ -39,7 +38,7 @@ class BaseCriterion(ABC, torch.nn.Module):
                 buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
                 for key in buffer:
                     losses = torch.stack(buffer[key])
-                    assert len(losses.shape) == 1, f"{losses.shape=}"
+                    assert losses.dim() == 1, f"{losses.shape=}"
                     result[f"loss_{key}_trajectory"] = losses
             else:
                 raise TypeError(f"[ERROR] Unrecognized type {type(self.buffer[0])}.")
