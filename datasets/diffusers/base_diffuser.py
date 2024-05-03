@@ -7,7 +7,6 @@ from utils.builder import build_from_config
 
 
 class BaseDiffuser(torch.utils.data.Dataset, torch.nn.Module):
-
     __doc__ = r"""This class defines a wrapper class on regular datasets for denoising training.
     Serves as an API bridge between datasets, models, and trainers.
     """
