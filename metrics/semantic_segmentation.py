@@ -1,7 +1,7 @@
 from typing import Dict
-import os
 import torch
 from .base_metric import BaseMetric
+from utils.input_checks import check_write_file
 from utils.io import save_json
 
 
@@ -59,8 +59,7 @@ class SemanticSegmentationMetric(BaseMetric):
         seen so far into a single floating point number.
         """
         if output_path is not None:
-            assert type(output_path) == str, f"{type(output_path)=}"
-            assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
+            check_write_file(path=output_path)
         result: Dict[str, torch.Tensor] = {}
         score = torch.stack(self.buffer, dim=0)
         assert score.shape == (len(self.buffer), self.num_classes), f"{score.shape=}"

@@ -6,7 +6,7 @@ from utils.input_checks import check_read_dir
 from utils.builder import build_from_config
 
 
-class BaseDataset(torch.utils.data.Dataset, ABC):
+class BaseDataset(ABC, torch.utils.data.Dataset):
 
     SPLIT_OPTIONS: List[str] = None
     INPUT_NAMES: List[str] = None
