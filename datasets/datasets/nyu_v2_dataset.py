@@ -113,7 +113,6 @@ class NYUv2Dataset(BaseDataset):
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         depth = torch.tensor(scipy.io.loadmat(self.annotations[idx]['depth'])['depth'], dtype=torch.float32)
-        depth = depth.unsqueeze(0)
         return {'depth_estimation': depth}
 
     def _get_normal_label_(self, idx: int) -> Dict[str, torch.Tensor]:
