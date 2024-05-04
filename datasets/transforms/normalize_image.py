@@ -1,9 +1,10 @@
 import numpy
 import torch
 import cv2
+from .base_transform import BaseTransform
 
 
-class NormalizeImage:
+class NormalizeImage(BaseTransform):
     """Normalize the RGB and depth image.
     """
 
@@ -22,7 +23,7 @@ class NormalizeImage:
         self.to_rgb = to_rgb
         self.depth_norm_type = depth_norm_type
 
-    def __call__(self, image: torch.Tensor) -> torch.Tensor:
+    def _call_concrete_(self, image: torch.Tensor) -> torch.Tensor:
         """Call function to normalize images.
 
         Args:
