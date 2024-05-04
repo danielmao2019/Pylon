@@ -29,7 +29,7 @@ def test_city_scapes(dataset: torch.utils.data.Dataset) -> None:
         assert set(labels.keys()) == set(['depth_estimation', 'semantic_segmentation', 'instance_segmentation'])
         depth_estimation = labels['depth_estimation']
         assert type(depth_estimation) == torch.Tensor
-        assert len(depth_estimation.shape) == 3 and depth_estimation.shape[0] == 1
+        assert len(depth_estimation.shape) == 2
         assert depth_estimation.dtype == torch.float32
         semantic_segmentation = labels['semantic_segmentation']
         assert type(semantic_segmentation) == torch.Tensor
