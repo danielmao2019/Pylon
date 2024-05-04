@@ -3,7 +3,7 @@ import torch
 import torchvision
 
 
-class ResizeNormalEstimation:
+class ResizeNormals:
 
     def __init__(self, target_size: Tuple[int, int]) -> None:
         assert type(target_size) == tuple, f"{type(target_size)=}"
