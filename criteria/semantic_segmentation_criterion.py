@@ -1,6 +1,7 @@
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Dict, Union, Optional
 import torch
 from .base_criterion import BaseCriterion
+from utils.input_checks import check_semantic_segmentation
 
 
 class SemanticSegmentationCriterion(BaseCriterion):
@@ -13,20 +14,28 @@ class SemanticSegmentationCriterion(BaseCriterion):
             ignore_index=ignore_index, weight=weight, reduction='mean',
         )
 
-    def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
-        y_true = y_true['mask']
+    def __call__(
+        self,
+        y_pred: torch.Tensor,
+        y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
+    ) -> torch.Tensor:
+        r"""
+        Args:
+            y_pred (torch.Tensor): a float32 tensor of shape (N, C, H, W) for predicted logits.
+            y_true (torch.Tensor or Dict[str, torch.Tensor]): an int64 tensor of shape (N, H, W) for ground-truth mask.
+                If a dictionary is provided, then it's length is assumed to be 1 and the only value is taken as ground truth.
+
+        Returns:
+            loss (torch.Tensor): a float32 scalar tensor for loss value.
+        """
         # input checks
-        assert type(y_pred) == torch.Tensor, f"{type(y_pred)=}"
-        assert y_pred.dim() == 4, f"{y_pred.shape=}"
-        assert y_pred.is_floating_point(), f"{y_pred.dtype=}"
-        assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
-        assert y_true.dim() == 3, f"{y_true.shape=}"
-        assert y_true.dtype == torch.int64, f"{y_true.dtype=}"
-        assert y_pred.shape[0] == y_true.shape[0], f"{y_pred.shape=}, {y_true.shape=}"
-        assert y_pred.shape[-2:] == y_true.shape[-2:], f"{y_pred.shape=}, {y_true.shape=}"
+        if type(y_true) == dict:
+            assert len(y_true) == 1, f"{y_true.keys()=}"
+            y_true = list(y_true.values())[0]
+        check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
         # compute loss
         loss = self.criterion(input=y_pred, target=y_true)
-        assert loss.numel() == 1, f"{loss.shape=}"
+        assert loss.dim() == 0, f"{loss.shape=}"
         # log loss
         self.buffer.append(loss)
         return loss

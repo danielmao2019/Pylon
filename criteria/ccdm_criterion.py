@@ -3,6 +3,7 @@
 from typing import Dict
 import torch
 from .base_criterion import BaseCriterion
+from utils.input_checks import check_semantic_segmentation_pred, check_semantic_segmentation_true
 from utils.semantic_segmentation import to_one_hot_encoding
 
 
@@ -42,9 +43,13 @@ class CCDMCriterion(BaseCriterion):
         return theta_post
 
     def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
-        assert type(y_pred) == torch.Tensor, f"{type(y_pred)=}"
+        # input checks
+        check_semantic_segmentation_pred(tensor=y_pred)
         assert type(y_true) == dict, f"{type(y_true)=}"
         assert set(['original_mask', 'diffused_mask', 'time']).issubset(set(y_true.keys())), f"{y_true.keys()=}"
+        check_semantic_segmentation_true(tensor=y_true['original_mask'])
+        check_semantic_segmentation_true(tensor=y_true['diffused_mask'])
+        # compute loss
         prob_xtm1_given_xt_x0 = self.theta_post(diffused_mask=y_true['diffused_mask'], original_mask=y_true['original_mask'], time=y_true['time'])
         mask = y_true['original_mask'] != self.ignore_index
         mask = mask.unsqueeze(-3).expand(-1, self.num_classes, -1, -1)
@@ -57,6 +62,6 @@ class CCDMCriterion(BaseCriterion):
             reduction='mean',
         )
         assert not loss.isnan(), f"{y_pred.min()=}, {y_pred.max()=}, {prob_xtm1_given_xt_x0.min()=}, {prob_xtm1_given_xt_x0.max()=}"
-        assert loss.numel() == 1, f"{loss.shape=}"
+        assert loss.dim() == 0, f"{loss.shape=}"
         self.buffer.append(loss)
         return loss
