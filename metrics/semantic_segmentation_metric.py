@@ -1,7 +1,7 @@
-from typing import Dict
+from typing import Dict, Union
 import torch
 from .base_metric import BaseMetric
-from utils.input_checks import check_write_file
+from utils.input_checks import check_write_file, check_semantic_segmentation
 from utils.io import save_json
 
 
@@ -12,24 +12,27 @@ class SemanticSegmentationMetric(BaseMetric):
         self.num_classes = num_classes
         self.ignore_index= ignore_index
 
-    def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def __call__(
+        self,
+        y_pred: torch.Tensor,
+        y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
+    ) -> torch.Tensor:
         r"""
+        Args:
+            y_pred (torch.Tensor): a float32 tensor of shape (N, C, H, W) for predicted logits.
+            y_true (torch.Tensor or Dict[str, torch.Tensor]): an int64 tensor of shape (N, H, W) for ground-truth mask.
+                If a dictionary is provided, then it's length is assumed to be 1 and the only value is taken as ground truth.
+
         Return:
             score (torch.Tensor): 1D tensor of length `self.num_classes` representing the IoU scores for each class.
         """
-        y_true = y_true['mask']
         # input checks
-        assert type(y_pred) == torch.Tensor, f"{type(y_pred)=}"
-        assert y_pred.dim() == 4 and y_pred.shape[1] == self.num_classes, f"{y_pred.shape=}"
-        assert y_pred.is_floating_point(), f"{y_pred.dtype=}"
-        assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
-        assert y_true.dim() == 3, f"{y_true.shape=}"
-        assert y_true.dtype == torch.int64, f"{y_true.dtype=}"
-        assert y_pred.shape[0] == y_true.shape[0], f"{y_pred.shape=}, {y_true.shape=}"
-        assert y_pred.shape[-2:] == y_true.shape[-2:], f"{y_pred.shape=}, {y_true.shape=}"
+        if type(y_true) == dict:
+            assert len(y_true) == 1, f"{y_true.keys()=}"
+            y_true = list(y_true.values())[0]
+        check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
         # make prediction from output
-        y_pred = torch.argmax(torch.nn.functional.softmax(y_pred, dim=1), dim=1)
-        y_pred = y_pred.type(torch.int64)
+        y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
         # compute confusion matrix
         valid_mask = y_true != self.ignore_index
