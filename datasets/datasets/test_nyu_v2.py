@@ -34,7 +34,7 @@ def test_nyu_v2(dataset: torch.utils.data.Dataset) -> None:
         assert set(edge_detection.unique().tolist()) == set([0, 1])
         depth_estimation = labels['depth_estimation']
         assert type(depth_estimation) == torch.Tensor
-        assert len(depth_estimation.shape) == 3 and depth_estimation.shape[0] == 1
+        assert len(depth_estimation.shape) == 2
         assert depth_estimation.dtype == torch.float32
         normal_estimation = labels['normal_estimation']
         assert type(normal_estimation) == torch.Tensor

@@ -4,8 +4,8 @@ import glob
 import numpy
 import torch
 from PIL import Image
-
 from .base_dataset import BaseDataset
+from utils.io import load_image
 
 
 class CityScapesDataset(BaseDataset):
@@ -150,20 +150,19 @@ class CityScapesDataset(BaseDataset):
         return {'image': image}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        depth = torch.tensor(data=numpy.array(Image.open(self.annotations[idx]['depth'])), dtype=torch.float32)
-        depth = depth.unsqueeze(0)
+        depth = load_image(filepath=self.annotations[idx]['depth'], dtype=torch.float32)
         depth /= self.DEPTH_STD
         return {'depth_estimation': depth}
 
     def _get_segmentation_labels_(self, idx: int) -> Dict[str, torch.Tensor]:
         # get semantic segmentation labels
-        semantic = torch.tensor(data=numpy.array(Image.open(self.annotations[idx]['semantic'])), dtype=torch.int64)
+        semantic = load_image(filepath=self.annotations[idx]['semantic'], dtype=torch.int64)
         for void in self.void_classes:
             semantic[semantic == void] = self.IGNORE_INDEX
         for valid in self.valid_classes:
             semantic[semantic == valid] = self.class_map[valid]
         # get instance segmentation labels
-        instance = torch.tensor(data=numpy.array(Image.open(self.annotations[idx]['instance'])), dtype=torch.float32)
+        instance = load_image(filepath=self.annotations[idx]['instance'], dtype=torch.float32)
         instance[semantic == self.IGNORE_INDEX] = self.IGNORE_INDEX
         for _no_instance in self.no_instances:
             instance[instance == _no_instance] = self.IGNORE_INDEX
