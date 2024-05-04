@@ -15,7 +15,11 @@ class BaseCriterion(ABC, torch.nn.Module):
         self.buffer: List[Any] = []
 
     @abstractmethod
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+    def __call__(
+        self,
+        y_pred: Union[torch.Tensor, Dict[str, torch.Tensor]],
+        y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
+    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
         r"""
         Returns:
             loss (torch.Tensor or Dict[str, torch.Tensor]): a scalar tensor for single loss
