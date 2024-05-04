@@ -1,8 +1,9 @@
 from typing import Tuple
 import torch
+from ..base_transform import BaseTransform
 
 
-class ResizeBBoxes:
+class ResizeBBoxes(BaseTransform):
 
     def __init__(self, scale_factor: Tuple[float, float]) -> None:
         r"""
@@ -15,7 +16,7 @@ class ResizeBBoxes:
         assert type(scale_factor[0]) == type(scale_factor[1]) == float, f"{type(scale_factor[0])=}, {type(scale_factor[1])=}"
         self.scale_factor = scale_factor
 
-    def __call__(self, bboxes: torch.Tensor) -> torch.Tensor:
+    def _call_concrete_(self, bboxes: torch.Tensor) -> torch.Tensor:
         r"""
         Args:
             boxes (torch.Tensor): Bounding box annotations. Assumed in format (x1, y1, x2, y2).

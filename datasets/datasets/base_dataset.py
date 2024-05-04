@@ -1,7 +1,7 @@
 from typing import Tuple, List, Dict, Any, Optional
 from abc import ABC, abstractmethod
 import torch
-from ..transforms.base_transform import BaseTransform
+from ..transforms.compose import Compose
 from utils.input_checks import check_read_dir
 from utils.builder import build_from_config
 
@@ -43,7 +43,7 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
     def _init_transform_(self, transforms: Optional[list]):
         if transforms is None:
             transforms = {
-                'class': BaseTransform,
+                'class': Compose,
                 'args': {
                     'transforms': [],
                 },
