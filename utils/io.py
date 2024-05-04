@@ -21,10 +21,13 @@ def load_image(filepath: str, dtype: Optional[torch.dtype] = torch.float32) -> t
     if image.mode == 'RGB':
         image = torch.from_numpy(numpy.array(image)).permute(2, 0, 1)
         assert image.dim() == 3 and image.shape[0] == 3, f"{image.shape=}"
-    elif image.mode == 'L':
+        assert image.dtype == torch.uint8, f"{image.dtype=}, {filepath=}"
+    elif image.mode in ['L', 'I']:
         image = torch.from_numpy(numpy.array(image))
         assert image.dim() == 2, f"{image.shape=}"
-    assert image.dtype == torch.uint8, f"{image.dtype=}, {filepath=}"
+        assert image.dtype == torch.uint8 if image.mode == 'L' else torch.int32, f"{image.dtype=}, {filepath=}"
+    else:
+        raise NotImplementedError(f"{image.mode=}")
     image = image.type(dtype)
     # transform
     if dtype == torch.float32:
