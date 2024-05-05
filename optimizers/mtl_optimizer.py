@@ -105,18 +105,20 @@ class MTLOptimizer:
     # gradient computation methods
     # ====================================================================================================
 
-    def _get_grad_params_(self, loss: torch.Tensor, **kwargs) -> torch.Tensor:
+    def _get_grad_params_(self, loss: torch.Tensor, per_layer: bool) -> Union[torch.Tensor, List[torch.Tensor]]:
         r"""Get gradient of the given (single) loss w.r.t. shared parameters.
 
         Args:
             loss (torch.Tensor): the value of the (single) loss function at the current iteration.
+            per_layer (bool): if True, gradient w.r.t. each parameter group will not be concatenated.
         Returns:
-            grad (torch.Tensor): the gradient of loss w.r.t. shared parameters.
+            grad (torch.Tensor or List[torch.Tensor]): the gradient of loss w.r.t. shared parameters.
         """
         # input checks
         assert type(loss) == torch.Tensor, f"{type(loss)=}"
-        assert len(loss.shape) == 0, f"{loss.shape=}"
+        assert loss.dim() == 0, f"{loss.shape=}"
         assert loss.requires_grad
+        assert type(per_layer) == bool, f"{type(per_layer)=}"
         # compute gradients
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward(retain_graph=True)
@@ -125,8 +127,10 @@ class MTLOptimizer:
             for p in self._get_shared_params_()
         ]
         assert len(grad) == len(self.shared_params_shapes)
-        grad = torch.cat([g.flatten() for g in grad])
-        assert len(grad.shape) == 1, f"{grad.shape=}"
+        grad = [g.flatten() for g in grad]
+        if not per_layer:
+            grad = torch.cat(grad, dim=0)
+            assert grad.dim() == 1, f"{grad.shape=}"
         return grad
 
     @staticmethod
@@ -143,7 +147,7 @@ class MTLOptimizer:
         """
         # input checks
         assert type(loss) == torch.Tensor, f"{type(loss)=}"
-        assert len(loss.shape) == 0, f"{loss.shape=}"
+        assert loss.dim() == 0, f"{loss.shape=}"
         assert loss.requires_grad
         if type(shared_rep) == torch.Tensor:
             shared_rep = (shared_rep,)
@@ -168,19 +172,29 @@ class MTLOptimizer:
         losses: Dict[str, torch.Tensor],
         shared_rep: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
         wrt_rep: Optional[bool] = False,
-    ) -> Dict[str, torch.Tensor]:
+        per_layer: Optional[bool] = False,
+    ) -> Union[Dict[str, torch.Tensor], Dict[str, List[torch.Tensor]]]:
         r"""This method computes the gradients for all losses.
         """
         # input checks
         assert type(losses) == dict, f"{type(losses)=}"
         assert type(shared_rep) in [torch.Tensor, tuple], f"{type(shared_rep)=}"
         assert type(wrt_rep) == bool, f"{type(wrt_rep)=}"
+        assert type(per_layer) == bool, f"{type(per_layer)=}"
         # initialize time
         grad_time = time.time()
-        method = self._get_grad_rep_ if wrt_rep else self._get_grad_params_
-        grads_list = [method(loss=loss, shared_rep=shared_rep) for loss in losses.values()]
+        if wrt_rep:
+            grads_dict = {
+                name: self._get_grad_rep_(loss=losses[name], shared_rep=shared_rep)
+                for name in losses
+            }
+        else:
+            grads_dict = {
+                name: self._get_grad_params_(loss=losses[name], per_layer=per_layer)
+                for name in losses
+            }
         self.logger.update_buffer({'grad_time': time.time() - grad_time})
-        return grads_list
+        return grads_dict
 
     # ====================================================================================================
     # ====================================================================================================

@@ -10,11 +10,14 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
     def __init__(
         self,
         wrt_rep: Optional[bool] = False,
+        per_layer: Optional[bool] = False,
         **kwargs,
     ) -> None:
         super(GradientManipulationBaseOptimizer, self).__init__(**kwargs)
         assert type(wrt_rep) == bool, f"{type(wrt_rep)=}"
         self.wrt_rep = wrt_rep
+        assert type(per_layer) == bool, f"{type(per_layer)=}"
+        self.per_layer = per_layer
 
     @abstractmethod
     def _gradient_manipulation_(
@@ -35,14 +38,27 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         assert type(losses) == dict, f"{type(losses)=}"
         assert type(shared_rep) in [torch.Tensor, tuple], f"{type(shared_rep)=}"
         # initialization
-        grads_list: List[torch.Tensor] = self._get_grads_all_tasks_(losses=losses, shared_rep=shared_rep, wrt_rep=self.wrt_rep)
+        grads_dict: Union[Dict[str, torch.Tensor], Dict[str, List[torch.Tensor]]] = self._get_grads_all_tasks_(
+            losses=losses, shared_rep=shared_rep, wrt_rep=self.wrt_rep, per_layer=self.per_layer,
+        )
         if type(shared_rep) == tuple:
             shared_rep = torch.cat([g.flatten() for g in shared_rep])
         else:
             shared_rep = shared_rep.flatten()
         # compute gradients
         with torch.no_grad():
-            manipulated_grad = self._gradient_manipulation_(grads_list=grads_list, shared_rep=shared_rep)
+            if self.per_layer:
+                num_layers = len(list(grads_dict.values())[0])
+                assert all(len(grads_dict[name]) == num_layers for name in grads_dict)
+                manipulated_grad: List[torch.Tensor] = [self._gradient_manipulation_(
+                    grads_list=[grads_dict[name][idx] for name in grads_dict], shared_rep=shared_rep,
+                ) for idx in range(num_layers)]
+                manipulated_grad: torch.Tensor = torch.cat(manipulated_grad, dim=0)
+            else:
+                manipulated_grad: torch.Tensor = self._gradient_manipulation_(
+                    grads_list=list(grads_dict.values()), shared_rep=shared_rep,
+                )
+        assert manipulated_grad.dim() == 1, f"{manipulated_grad.shape=}"
         # populate gradients for task-specific parameters
         self.optimizer.zero_grad(set_to_none=True)
         for p in self._get_shared_params_():
