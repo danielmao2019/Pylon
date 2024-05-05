@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Union, Optional
+from typing import Tuple, List, Dict, Union, Optional
 import torch
 
 from ._base_ import GradientBalancingBaseOptimizer
@@ -29,7 +29,8 @@ class GradNormOptimizer(GradientBalancingBaseOptimizer):
         assert len(losses) == self.num_tasks, f"{len(losses)=}, {self.num_tasks=}"
 
         # initialization
-        grads_all_tasks = self._get_grads_all_tasks_(losses=losses, shared_rep=shared_rep, wrt_rep=False)
+        grads_all_tasks: Dict[str, torch.Tensor] = self._get_grads_all_tasks_(losses=losses, shared_rep=shared_rep, wrt_rep=False)
+        grads_all_tasks: List[torch.Tensor] = list(grads_all_tasks.values())
         losses_tensor = torch.stack(list(losses.values()))
         if self.first_iter:
             self.init_losses = losses_tensor.detach().data
