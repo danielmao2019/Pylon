@@ -400,12 +400,7 @@ class BaseTrainer:
     # ====================================================================================================
     # ====================================================================================================
 
-    def train(self):
-        # skip if finished
-        if self.has_finished():
-            print("Session already finished.")
-            return
-        # initialize modules
+    def _init_components_(self):
         self._init_logger_()
         self._init_determinism_()
         self._init_dataloaders_()
@@ -415,6 +410,14 @@ class BaseTrainer:
         self._init_optimizer_()
         self._init_scheduler_()
         self._init_state_()
+
+    def train(self):
+        # skip if finished
+        if self.has_finished():
+            print("Session already finished.")
+            return
+        # initialize components
+        self._init_components_()
         # initialize run
         wandb.init()
         start_epoch = self.cum_epochs
