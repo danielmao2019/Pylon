@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any
 import os
 import torch
 from .base_dataset import BaseDataset
@@ -25,15 +25,6 @@ class CelebADataset(BaseDataset):
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['landmarks', '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
                    'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young']
-
-    def __init__(
-        self,
-        data_root: str,
-        split: str,
-        transforms: Optional[dict] = None,
-        indices: Optional[List[int]] = None,
-    ) -> None:
-        super(CelebADataset, self).__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
 
     ####################################################################################################
     ####################################################################################################

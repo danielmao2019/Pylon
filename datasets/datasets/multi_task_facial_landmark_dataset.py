@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any
 import os
 import torch
 from .base_dataset import BaseDataset
@@ -18,15 +18,6 @@ class MultiTaskFacialLandmarkDataset(BaseDataset):
     SPLIT_OPTIONS = ['train', 'test']
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['landmarks', 'gender', 'smile', 'glasses', 'pose']
-
-    def __init__(
-        self,
-        data_root: str,
-        split: str,
-        transforms: Optional[dict] = None,
-        indices: Optional[List[int]] = None,
-    ) -> None:
-        super(MultiTaskFacialLandmarkDataset, self).__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
 
     ####################################################################################################
     ####################################################################################################
