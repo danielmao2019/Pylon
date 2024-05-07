@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any
 import os
 import scipy
 import torch
@@ -29,15 +29,6 @@ class NYUv2Dataset(BaseDataset):
     SPLIT_OPTIONS = ['train', 'val', 'test']
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
-
-    def __init__(
-        self,
-        data_root: str,
-        split: str,
-        transforms: Optional[dict] = None,
-        indices: Optional[List[int]] = None,
-    ) -> None:
-        super(NYUv2Dataset, self).__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
 
     ####################################################################################################
     ####################################################################################################

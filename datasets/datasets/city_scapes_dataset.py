@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any
 import os
 import glob
 import numpy
@@ -48,15 +48,6 @@ class CityScapesDataset(BaseDataset):
         'val': [284, 285, 286, 288, 299, 307, 312],
         'test': None,
     }
-
-    def __init__(
-        self,
-        data_root: str,
-        split: str,
-        transforms: Optional[dict] = None,
-        indices: Optional[List[int]] = None,
-    ) -> None:
-        super(CityScapesDataset, self).__init__(data_root=data_root, split=split, transforms=transforms, indices=indices)
 
     ####################################################################################################
     ####################################################################################################
