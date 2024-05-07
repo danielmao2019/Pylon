@@ -6,13 +6,12 @@ import numpy
 import torch
 import torchvision
 from PIL import Image
-from .input_checks import check_write_file
+from .input_checks import check_read_file, check_write_file
 from .ops import apply_tensor_op
 
 
 def load_image(filepath: str, dtype: Optional[torch.dtype] = torch.float32) -> torch.Tensor:
-    assert type(filepath) == str, f"{type(filepath)=}"
-    assert os.path.isfile(filepath), f"{filepath=}"
+    check_read_file(path=filepath)
     assert type(dtype) == torch.dtype, f"{type(dtype)=}"
     assert dtype in [torch.float32, torch.int64, torch.uint8, torch.bool], f"{dtype=}"
     # read from disk
@@ -36,13 +35,13 @@ def load_image(filepath: str, dtype: Optional[torch.dtype] = torch.float32) -> t
 
 
 def save_image(tensor: torch.Tensor, filepath: str) -> None:
-    check_write_file(filepath)
+    check_write_file(path=filepath)
     if tensor.dim() == 3 and tensor.shape[0] == 3 and tensor.dtype == torch.float32:
         torchvision.utils.save_image(tensor=tensor, fp=filepath)
     elif tensor.dim() == 2 and tensor.dtype == torch.uint8:
         Image.fromarray(tensor.numpy()).save(filepath)
     else:
-        raise TypeError(f"[ERROR] Unrecognized tensor format: shape={tensor.shape}, dtype={tensor.dtype}.")
+        raise NotImplementedError(f"Unrecognized tensor format: shape={tensor.shape}, dtype={tensor.dtype}.")
 
 
 def serialize_tensor(obj: Any):
