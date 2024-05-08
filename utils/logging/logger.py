@@ -1,9 +1,9 @@
-import torch
+from typing import Optional
 import logging
 import sys
 
+from ..input_checks import check_write_file
 from ..io import serialize_tensor
-from ..ops import apply_tensor_op
 
 
 class Logger:
@@ -19,55 +19,56 @@ class Logger:
     #     datefmt="%Y-%m-%d %H:%M:%S",
     # )
 
-    def __init__(self, filepath: str):
-        self._init_logger_(filepath=filepath)
+    def __init__(self, filepath: Optional[str] = None) -> None:
+        self._init_core_logger_(filepath=filepath)
         self._init_file_handler_()
         self._init_stream_handler_()
 
-    def _init_logger_(self, filepath: str):
-        assert type(filepath) == str, f"{type(filepath)=}"
-        self._filepath_ = filepath
-        self._logger_ = logging.getLogger(name=self._filepath_)
-        self._logger_.setLevel(level=logging.INFO)
-        self._info_buffer_ = {}
+    def _init_core_logger_(self, filepath: Optional[str]) -> None:
+        self.filepath = check_write_file(filepath) if filepath is not None else None
+        self.core_logger = logging.getLogger(name=self.filepath)
+        self.core_logger.setLevel(level=logging.INFO)
+        self.buffer = {}
 
-    def _init_file_handler_(self):
-        f_handler = logging.FileHandler(filename=self._filepath_)
+    def _init_file_handler_(self) -> None:
+        if self.filepath is None:
+            return
+        f_handler = logging.FileHandler(filename=self.filepath)
         f_handler.setFormatter(self.formatter)
         f_handler.setLevel(level=logging.INFO)
-        self._logger_.addHandler(f_handler)
+        self.core_logger.addHandler(f_handler)
 
-    def _init_stream_handler_(self):
+    def _init_stream_handler_(self) -> None:
         s_handler = logging.StreamHandler(stream=sys.stdout)
         s_handler.setFormatter(self.formatter)
         s_handler.setLevel(level=logging.INFO)
-        self._logger_.addHandler(s_handler)
+        self.core_logger.addHandler(s_handler)
 
     ####################################################################################################
     ####################################################################################################
 
-    def update_buffer(self, data: dict):
-        self._info_buffer_.update(serialize_tensor(data))
+    def update_buffer(self, data: dict) -> None:
+        self.buffer.update(serialize_tensor(data))
 
-    def flush(self, prefix: str = ""):
-        string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self._info_buffer_.items()])
-        self._logger_.info(string)
-        self._info_buffer_ = {}
+    def flush(self, prefix: Optional[str] = "") -> None:
+        string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+        self.core_logger.info(string)
+        self.buffer = {}
 
-    def info(self, string):
-        self._logger_.info(string)
+    def info(self, string: str) -> None:
+        self.core_logger.info(string)
 
-    def warning(self, string):
-        self._logger_.warning(string)
+    def warning(self, string: str) -> None:
+        self.core_logger.warning(string)
 
-    def error(self, string):
-        self._logger_.error(string)
+    def error(self, string: str) -> None:
+        self.core_logger.error(string)
 
     ####################################################################################################
     ####################################################################################################
 
     def page_break(self):
-        self._logger_.info("")
-        self._logger_.info('=' * 100)
-        self._logger_.info('=' * 100)
-        self._logger_.info("")
+        self.core_logger.info("")
+        self.core_logger.info('=' * 100)
+        self.core_logger.info('=' * 100)
+        self.core_logger.info("")
