@@ -26,7 +26,7 @@ class NYUv2Dataset(BaseDataset):
 
     IGNORE_INDEX = 250
     NUM_CLASSES = 41
-    SPLIT_OPTIONS = ['train', 'val', 'test']
+    SPLIT_OPTIONS = ['train', 'val']
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
 
@@ -34,9 +34,6 @@ class NYUv2Dataset(BaseDataset):
     ####################################################################################################
 
     def _init_annotations_(self, split: str) -> None:
-        if split == 'test':
-            image_filepaths = []
-            return
         # initialize image filepaths
         image_filepaths: List[str] = []
         with open(os.path.join(os.path.join(self.data_root, "gt_sets", split + '.txt')), 'r') as f:
@@ -46,29 +43,30 @@ class NYUv2Dataset(BaseDataset):
                 assert os.path.isfile(image_fp), f"{image_fp=}"
                 image_filepaths.append(image_fp)
         # initialize labels
-        depth_filepaths = []
-        normal_filepaths = []
-        semantic_filepaths = []
-        edge_filepaths = []
+        depth_filepaths: List[str] = []
+        normal_filepaths: List[str] = []
+        semantic_filepaths: List[str] = []
+        edge_filepaths: List[str] = []
         for image_fp in image_filepaths:
             name = os.path.basename(image_fp).split('.')[0]
-            # depth
+            # depth estimation
             depth_fp = os.path.join(self.data_root, "depth", name + '.mat')
             assert os.path.isfile(depth_fp), f"{depth_fp=}"
             depth_filepaths.append(depth_fp)
-            # normals
-            normals_fp = os.path.join(self.data_root, "normals", name + '.jpg')
-            assert os.path.isfile(normals_fp), f"{normals_fp=}"
-            normal_filepaths.append(normals_fp)
-            # segmentation
+            # normal estimation
+            normal_fp = os.path.join(self.data_root, "normals", name + '.jpg')
+            assert os.path.isfile(normal_fp), f"{normal_fp=}"
+            normal_filepaths.append(normal_fp)
+            # semantic segmentation
             semantic_fp = os.path.join(self.data_root, "segmentation", name + '.mat')
             assert os.path.isfile(semantic_fp), f"{semantic_fp=}"
             semantic_filepaths.append(semantic_fp)
-            # edge
+            # edge detection
             edge_fp = os.path.join(self.data_root, "edge", name + '.png')
             assert os.path.isfile(edge_fp), f"{edge_fp=}"
             edge_filepaths.append(edge_fp)
         assert len(image_filepaths) == len(edge_filepaths) == len(semantic_filepaths) == len(normal_filepaths) == len(depth_filepaths)
+        # construct annotations
         self.annotations: List[Dict[str, Any]] = [{
             'image': image_filepaths[idx],
             'edge': edge_filepaths[idx],

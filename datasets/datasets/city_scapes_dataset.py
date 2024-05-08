@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
 import numpy
@@ -39,14 +39,13 @@ class CityScapesDataset(BaseDataset):
     DEPTH_STD = 2729.0680031169923
     DEPTH_MEAN = 0.0
 
-    SPLIT_OPTIONS = ['train', 'val', 'test']
+    SPLIT_OPTIONS = ['train', 'val']
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['depth_estimation', 'semantic_segmentation', 'instance_segmentation']
 
     REMOVE_INDICES = {
         'train': [253, 926, 931, 1849, 1946, 1993, 2051, 2054, 2778],
         'val': [284, 285, 286, 288, 299, 307, 312],
-        'test': None,
     }
 
     ####################################################################################################
@@ -54,20 +53,21 @@ class CityScapesDataset(BaseDataset):
 
     def _init_annotations_(self, split: str) -> None:
         # initialize image filepaths
-        self.image_root = os.path.join(self.data_root, "leftImg8bit", split)
-        image_filepaths: List[str] = sorted(glob.glob(os.path.join(self.image_root, "**", "*.png")))
-        if split == 'test':
-            image_filepaths = []
+        image_filepaths: List[str] = sorted(glob.glob(os.path.join(self.data_root, "leftImg8bit", split, "**", "*.png")))
         # depth estimation labels
         depth_root = os.path.join(self.data_root, "disparity", split)
-        depth_paths = [os.path.join(depth_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "disparity.png")
-                            for image_fp in image_filepaths]
-        # segmentation labels
+        depth_paths = [os.path.join(
+            depth_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "disparity.png"
+        ) for image_fp in image_filepaths]
+        # semantic and instance segmentation labels
         segmentation_root = os.path.join(self.data_root, "gtFine", split)
-        semantic_paths = [os.path.join(segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_labelIds.png")
-                               for image_fp in image_filepaths]
-        instance_paths = [os.path.join(segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_instanceIds.png")
-                               for image_fp in image_filepaths]
+        semantic_paths = [os.path.join(
+            segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_labelIds.png"
+        ) for image_fp in image_filepaths]
+        instance_paths = [os.path.join(
+            segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_instanceIds.png"
+        ) for image_fp in image_filepaths]
+        # construct annotations
         self.annotations: List[Dict[str, Any]] = [{
             'image': image_filepaths[idx],
             'depth': depth_paths[idx],
@@ -76,7 +76,7 @@ class CityScapesDataset(BaseDataset):
         } for idx in range(len(image_filepaths))]
         self._filter_dataset_(remove_indices=self.REMOVE_INDICES[split])
 
-    def _filter_dataset_(self, remove_indices: List[int], cache: bool = True) -> None:
+    def _filter_dataset_(self, remove_indices: List[int], cache: Optional[bool] = True) -> None:
         if not cache:
             remove_indices = []
             for idx in range(len(self.annotations)):

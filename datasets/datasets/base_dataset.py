@@ -29,10 +29,12 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         self.data_root = check_read_dir(data_root)
         # initialize annotations
         assert type(split) == str, f"{type(split)=}"
-        assert split in self.SPLIT_OPTIONS, f"{split=}, {self.SPLIT_OPTIONS=}"
-        self._init_annotations_(split=split)
-        if indices is not None:
-            self.annotations = [self.annotations[idx] for idx in indices]
+        if split in self.SPLIT_OPTIONS:
+            self._init_annotations_(split=split)
+            if indices is not None:
+                self.annotations = [self.annotations[idx] for idx in indices]
+        else:
+            self.annotations = []
         # initialize transform
         self._init_transform_(transforms=transforms)
 
