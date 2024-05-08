@@ -1,7 +1,7 @@
 from typing import List, Dict, Union, Any
 from abc import ABC, abstractmethod
-import os
 import torch
+from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer
 from utils.io import save_json
 
@@ -39,25 +39,24 @@ class BaseMetric(ABC):
         r"""Default summary: mean of scores across all examples in buffer.
         """
         if output_path is not None:
-            assert type(output_path) == str, f"{type(output_path)=}"
-            assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
+            check_write_file(path=output_path)
         result: Dict[str, torch.Tensor] = {}
-        if len(self.buffer) == 0:
-            return result
-        if type(self.buffer[0]) == torch.Tensor:
-            scores = torch.stack(self.buffer)
-            assert scores.shape == (len(self.buffer),), f"{scores.shape=}"
-            result['score'] = scores.mean()
-        elif type(self.buffer[0]) == dict:
-            buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
-            for key in buffer:
-                key_scores = torch.stack(buffer[key])
-                assert key_scores.shape == (len(buffer[key]),), f"{key_scores.shape=}"
-                result[f"score_{key}"] = key_scores.mean()
-        else:
-            raise TypeError(f"[ERROR] Unrecognized type {type(self.buffer[0])}.")
-        assert 'reduced' not in result, f"{result.keys()=}"
-        result['reduced'] = self.reduce(result)
+        if len(self.buffer) != 0:
+            if type(self.buffer[0]) == torch.Tensor:
+                scores = torch.stack(self.buffer)
+                assert scores.shape == (len(self.buffer),), f"{scores.shape=}"
+                result['score'] = scores.mean()
+            elif type(self.buffer[0]) == dict:
+                buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+                for key in buffer:
+                    key_scores = torch.stack(buffer[key], dim=0)
+                    assert key_scores.shape == (len(buffer[key]),), f"{key_scores.shape=}"
+                    result[f"score_{key}"] = key_scores.mean()
+            else:
+                raise TypeError(f"[ERROR] Unrecognized type {type(self.buffer[0])}.")
+            # log reduction
+            assert 'reduced' not in result, f"{result.keys()=}"
+            result['reduced'] = self.reduce(result)
         if output_path is not None:
             save_json(obj=result, filepath=output_path)
         return result

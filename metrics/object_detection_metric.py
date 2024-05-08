@@ -1,10 +1,10 @@
 """Implementation largely based on https://github.com/facebookresearch/detectron2/blob/main/detectron2/evaluation/coco_evaluation.py.
 """
 from typing import Tuple, List, Dict, Any
-import os
 import torch
 from .base_metric import BaseMetric
 from utils.object_detection import pairwise_iou
+from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer
 from utils.io import save_json
 
@@ -122,24 +122,23 @@ class ObjectDetectionMetric(BaseMetric):
 
     def summarize(self, output_path: str = None) -> Dict[str, Any]:
         if output_path is not None:
-            assert type(output_path) == str, f"{type(output_path)=}"
-            assert os.path.isdir(os.path.dirname(output_path)), f"{output_path=}"
+            check_write_file(path=output_path)
         result: Dict[str, Any] = {}
-        if len(self.buffer) == 0:
-            return result
-        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
-        thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
-        for key in buffer:
-            key_scores = torch.cat(buffer[key], dim=0)
-            assert len(key_scores.shape) == 1
-            recalls = torch.tensor([(key_scores >= t).type(torch.float32).mean() for t in thresholds])
-            result[key] =  {
-                "AR": recalls.mean(),
-                "recalls": recalls,
-                "thresholds": thresholds,
-            }
-        assert 'reduced' not in result, f"{result.keys()=}"
-        result['reduced'] = self.reduce(result)
+        if len(self.buffer) != 0:
+            buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+            thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
+            for key in buffer:
+                key_scores = torch.cat(buffer[key], dim=0)
+                assert key_scores.dim() == 1, f"{key_scores.shape=}"
+                recalls = torch.tensor([(key_scores >= t).type(torch.float32).mean() for t in thresholds])
+                result[key] =  {
+                    "AR": recalls.mean(),
+                    "recalls": recalls,
+                    "thresholds": thresholds,
+                }
+            # log reduction
+            assert 'reduced' not in result, f"{result.keys()=}"
+            result['reduced'] = self.reduce(result)
         if output_path is not None:
             save_json(obj=result, filepath=output_path)
         return result

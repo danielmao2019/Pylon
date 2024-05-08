@@ -57,7 +57,7 @@ class MultiTaskMetric(BaseMetric):
             task: self.task_metrics[task].summarize(output_path=None)
             for task in self.task_names
         }
-        # add reduce field
+        # log reduction
         assert 'reduced' not in result, f"{result.keys()=}"
         result['reduced'] = self.reduce(result)
         # save to disk
