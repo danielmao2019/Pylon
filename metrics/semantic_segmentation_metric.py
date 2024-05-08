@@ -64,19 +64,20 @@ class SemanticSegmentationMetric(BaseMetric):
         if output_path is not None:
             check_write_file(path=output_path)
         result: Dict[str, torch.Tensor] = {}
-        score = torch.stack(self.buffer, dim=0)
-        assert score.shape == (len(self.buffer), self.num_classes), f"{score.shape=}"
-        # log IoU per class
-        score = torch.nanmean(score, dim=0)
-        assert score.shape == (self.num_classes,), f"{score.shape=}"
-        result['IoU_per_class'] = score
-        # log IoU average
-        score = torch.nanmean(score)
-        assert score.shape == (), f"{score.shape=}"
-        result['IoU_average'] = score
-        # log reduction
-        assert 'reduced' not in result, f"{result.keys()=}"
-        result['reduced'] = result['IoU_average']
+        if len(self.buffer) != 0:
+            score = torch.stack(self.buffer, dim=0)
+            assert score.shape == (len(self.buffer), self.num_classes), f"{score.shape=}"
+            # log IoU per class
+            score = torch.nanmean(score, dim=0)
+            assert score.shape == (self.num_classes,), f"{score.shape=}"
+            result['IoU_per_class'] = score
+            # log IoU average
+            score = torch.nanmean(score)
+            assert score.shape == (), f"{score.shape=}"
+            result['IoU_average'] = score
+            # log reduction
+            assert 'reduced' not in result, f"{result.keys()=}"
+            result['reduced'] = result['IoU_average']
         # save to disk
         if output_path is not None:
             save_json(obj=result, filepath=output_path)

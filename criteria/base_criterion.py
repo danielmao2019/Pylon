@@ -36,14 +36,14 @@ class BaseCriterion(ABC, torch.nn.Module):
         if len(self.buffer) != 0:
             if type(self.buffer[0]) == torch.Tensor:
                 trajectory = torch.stack(self.buffer)
-                assert len(trajectory.shape) == 1
+                assert trajectory.dim() == 1, f"{trajectory.shape=}"
                 result['loss_trajectory'] = trajectory
             elif type(self.buffer[0]) == dict:
                 buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
                 for key in buffer:
-                    losses = torch.stack(buffer[key])
-                    assert losses.dim() == 1, f"{losses.shape=}"
-                    result[f"loss_{key}_trajectory"] = losses
+                    key_losses = torch.stack(buffer[key], dim=0)
+                    assert key_losses.dim() == 1, f"{key_losses.shape=}"
+                    result[f"loss_{key}_trajectory"] = key_losses
             else:
                 raise TypeError(f"[ERROR] Unrecognized type {type(self.buffer[0])}.")
         if output_path is not None:
