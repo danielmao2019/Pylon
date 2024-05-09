@@ -1,5 +1,6 @@
 from typing import Dict, Union
 import torch
+import torchvision
 from .base_metric import BaseMetric
 from utils.input_checks import check_write_file, check_semantic_segmentation
 from utils.io import save_json
@@ -31,6 +32,11 @@ class SemanticSegmentationMetric(BaseMetric):
             assert len(y_true) == 1, f"{y_true.keys()=}"
             y_true = list(y_true.values())[0]
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
+        # match resolution
+        if y_pred.shape[-2:] != y_true.shape[-2:]:
+            y_pred = torchvision.transforms.Resize(
+                size=y_true.shape[-2:], interpolation=torchvision.transforms.functional.InterpolationMode.NEAREST,
+            )(y_pred)
         # make prediction from output
         y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
