@@ -53,6 +53,9 @@ class BaseTrainer:
         self.logger = utils.logging.Logger(
             filepath=os.path.join(self.work_dir, f"train_val_{session_idx}.log"),
         )
+        # config log
+        with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
+            f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
 
     def _init_determinism_(self):
         self.logger.info("Initializing determinism...")
