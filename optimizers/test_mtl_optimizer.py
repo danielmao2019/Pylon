@@ -84,3 +84,15 @@ def test_mtl_optimizer(wrt_rep: bool) -> None:
         torch.cat([torch.tensor(s, dtype=torch.int64) for s in optimizer.shared_params_shapes]),
         torch.tensor([2, 2, 2, 2, 2, 2], dtype=torch.int64),
     )
+    # ====================================================================================================
+    # _get_grads_all_tasks_
+    # ====================================================================================================
+    produced = optimizer._get_grads_all_tasks_(losses=losses, shared_rep=shared_rep, wrt_rep=wrt_rep)
+    expected = {
+        name: (
+            torch.abs(produced[name] - expected[name]) * 
+            
+        for name in LABEL_NAMES
+    }
+    assert produced.keys() == expected.keys(), f"{produced.keys()=}, {expected.keys()=}"
+    assert all(torch.equal(produced[name], expected[name]) for name in LABEL_NAMES)
