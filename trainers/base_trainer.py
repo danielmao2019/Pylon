@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 from abc import abstractmethod
 import os
 import glob
@@ -24,8 +24,16 @@ except:
 
 class BaseTrainer:
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, wandb_log: Optional[bool] = False):
+        r"""
+        Args:
+            config (dict): the config dict that controls the entire pipeline.
+            wandb_log (bool): if True, criterion and metric buffers will also be logged to wandb.
+        """
+        assert type(config) == dict, f"{type(config)=}"
+        assert type(wandb_log) == bool, f"{type(wandb_log)=}"
         self.config = config
+        self.wandb_log = wandb_log
         # init work dir
         assert 'work_dir' in self.config.keys()
         assert type(self.config['work_dir']) == str, f"{type(self.config['work_dir'])=}"
@@ -211,7 +219,7 @@ class BaseTrainer:
             example['losses'] = self.criterion(y_pred=example['outputs'], y_true=example['labels'])
         # update logger
         self.logger.update_buffer({"learning_rate": self.scheduler.get_last_lr()})
-        self.logger.update_buffer(utils.logging.log_losses(example['losses']))
+        self.logger.update_buffer(utils.logging.log_losses(losses=example['losses'], wandb_log=self.wandb_log))
         # update states
         self._set_gradients_(example)
         self.optimizer.step()
@@ -233,7 +241,7 @@ class BaseTrainer:
             example['outputs'] = self.model(example['inputs'])
             example['scores'] = self.metric(y_pred=example['outputs'], y_true=example['labels'])
         # update logger
-        self.logger.update_buffer(utils.logging.log_scores(example['scores']))
+        self.logger.update_buffer(utils.logging.log_scores(scores=example['scores'], wandb_log=self.wandb_log))
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
 
@@ -419,10 +427,8 @@ class BaseTrainer:
         if self.has_finished():
             print("Session already finished.")
             return
-        # initialize components
-        self._init_components_()
         # initialize run
-        wandb.init()
+        self._init_components_()
         start_epoch = self.cum_epochs
         self.logger.page_break()
         # training and validation epochs
@@ -434,5 +440,3 @@ class BaseTrainer:
             self.cum_epochs = idx + 1
         # test epoch
         self._test_epoch_()
-        # cleanup run
-        wandb.finish()
