@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import List, Dict, Any, Optional
 import os
 import json
 import jsbeautifier
@@ -7,7 +7,7 @@ import torch
 import torchvision
 from PIL import Image
 from .input_checks import check_read_file, check_write_file
-from .ops import apply_tensor_op
+from .ops import apply_tensor_op, transpose_buffer, average_buffer
 
 
 def load_image(filepath: str, dtype: Optional[torch.dtype] = torch.float32) -> torch.Tensor:
@@ -53,3 +53,33 @@ def save_json(obj: Any, filepath: str) -> None:
     obj = serialize_tensor(obj)
     with open(filepath, mode='w') as f:
         f.write(jsbeautifier.beautify(json.dumps(obj), jsbeautifier.default_options()))
+
+
+def read_average_scores(filepaths: List[List[str]]) -> Dict[str, List[Any]]:
+    r"""Average will be taken along the first dimension.
+    """
+    # input checks
+    assert type(filepaths) == list, f"{type(filepaths)=}"
+    assert all(type(experiment_fps) == list for experiment_fps in filepaths)
+    assert all(len(experiment_fps) == len(filepaths[0]) for experiment_fps in filepaths)
+    assert all(all(type(json_fp) == str for json_fp in experiment_fps) for experiment_fps in filepaths)
+    assert all(all(json_fp.endswith('.json') for json_fp in experiment_fps) for experiment_fps in filepaths)
+    assert all(all(os.path.isfile(json_fp) for json_fp in experiment_fps) for experiment_fps in filepaths)
+    # initialize
+    m = len(filepaths)
+    n = len(filepaths[0])
+    # read
+    avg_scores: List[List[Dict[str, Any]]] = []
+    for experiment_fps in filepaths:
+        scores: List[Dict[str, Any]] = []
+        for json_fp in experiment_fps:
+            with open(json_fp, mode='r') as f:
+                scores.append(json.load(f))
+        avg_scores.append(scores)
+    assert len(avg_scores) == m
+    assert len(avg_scores[0]) == n
+    avg_scores: List[Dict[str, Any]] = [
+        average_buffer([avg_scores[i][j] for i in range(m)]) for j in range(n)
+    ]
+    avg_scores: Dict[str, List[Any]] = transpose_buffer(avg_scores)
+    return avg_scores
