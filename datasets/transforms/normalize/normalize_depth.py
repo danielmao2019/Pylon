@@ -10,7 +10,7 @@ class NormalizeDepth(BaseTransform):
     def __init__(self, type: str):
         self.type = type
 
-    def _call_concrete_(self, depth: torch.Tensor) -> torch.Tensor:
+    def _call_single_(self, depth: torch.Tensor) -> torch.Tensor:
         assert type(depth) == torch.Tensor, f"{type(depth)=}"
         method_name = f'_{self.type}_'
         assert hasattr(self, method_name), f"{method_name=}"
