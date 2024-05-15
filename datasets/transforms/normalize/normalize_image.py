@@ -1,7 +1,7 @@
 import numpy
 import torch
 import cv2
-from .base_transform import BaseTransform
+from ..base_transform import BaseTransform
 
 
 class NormalizeImage(BaseTransform):
