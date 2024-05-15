@@ -36,7 +36,9 @@ class Compose(BaseTransform):
         # assign to class attribute
         self.transforms = transforms
 
-    def _call_concrete_(self, example: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def __call__(self, example: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        r"""This method overrides parent `__call__` method.
+        """
         # input checks
         assert type(example) == dict, f"{type(example)=}"
         assert set(example.keys()) == set(['inputs', 'labels', 'meta_info']), f"{example.keys()=}"

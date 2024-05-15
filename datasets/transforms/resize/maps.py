@@ -4,6 +4,8 @@ from ..base_transform import BaseTransform
 
 
 class ResizeMaps(BaseTransform):
+    __doc__ = r"""This class implements resize method for 2-dimensional tensors.
+    """
 
     def __init__(self, **kwargs) -> None:
         self.resize = torchvision.transforms.Resize(**kwargs)
@@ -13,7 +15,7 @@ class ResizeMaps(BaseTransform):
         assert type(target_size[0]) == type(target_size[1]) == int, f"{type(target_size[0])=}, {type(target_size[1])=}"
         self.target_size = target_size
 
-    def _call_concrete_(self, x: torch.Tensor) -> torch.Tensor:
+    def _call_single_(self, x: torch.Tensor) -> torch.Tensor:
         assert type(x) == torch.Tensor, f"{type(x)=}"
         assert x.dim() == 2, f"{x.shape=}"
         x = x.unsqueeze(0)
