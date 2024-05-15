@@ -44,11 +44,11 @@ class CCDMCriterion(BaseCriterion):
 
     def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         # input checks
-        check_semantic_segmentation_pred(tensor=y_pred)
+        check_semantic_segmentation_pred(obj=y_pred)
         assert type(y_true) == dict, f"{type(y_true)=}"
         assert set(['original_mask', 'diffused_mask', 'time']).issubset(set(y_true.keys())), f"{y_true.keys()=}"
-        check_semantic_segmentation_true(tensor=y_true['original_mask'])
-        check_semantic_segmentation_true(tensor=y_true['diffused_mask'])
+        check_semantic_segmentation_true(obj=y_true['original_mask'])
+        check_semantic_segmentation_true(obj=y_true['diffused_mask'])
         # compute loss
         prob_xtm1_given_xt_x0 = self.theta_post(diffused_mask=y_true['diffused_mask'], original_mask=y_true['original_mask'], time=y_true['time'])
         mask = y_true['original_mask'] != self.ignore_index
