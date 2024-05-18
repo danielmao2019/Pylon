@@ -1,14 +1,14 @@
 import pytest
-from .multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
+from .celeb_a_dataset import CelebADataset
 import os
 import torch
 
 
 @pytest.mark.parametrize("dataset", [
-    (MultiTaskFacialLandmarkDataset(data_root="./datasets/datasets/soft_links/multi-task-facial-landmark", split='train')),
-    (MultiTaskFacialLandmarkDataset(data_root="./datasets/datasets/soft_links/multi-task-facial-landmark", split='train', indices=[0, 2, 4, 6, 8])),
+    (CelebADataset(data_root="./data/datasets/soft_links/celeb-a", split='train')),
+    (CelebADataset(data_root="./data/datasets/soft_links/celeb-a", split='train', indices=[0, 2, 4, 6, 8])),
 ])
-def test_multi_task_facial_landmark(dataset: torch.utils.data.Dataset) -> None:
+def test_celeb_a(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     for i in range(min(len(dataset), 3)):
         example = dataset[i]
@@ -26,7 +26,7 @@ def test_multi_task_facial_landmark(dataset: torch.utils.data.Dataset) -> None:
         # inspect labels
         labels = example['labels']
         assert type(labels) == dict
-        assert set(labels.keys()) == set(MultiTaskFacialLandmarkDataset.LABEL_NAMES)
+        assert set(labels.keys()) == set(CelebADataset.LABEL_NAMES)
         # inspect meta info
         meta_info = example['meta_info']
         assert type(meta_info) == dict

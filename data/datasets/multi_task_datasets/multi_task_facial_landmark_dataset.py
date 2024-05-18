@@ -1,7 +1,7 @@
 from typing import Tuple, List, Dict, Any
 import os
 import torch
-from .base_dataset import BaseDataset
+from ..base_dataset import BaseDataset
 from utils.io import load_image
 
 

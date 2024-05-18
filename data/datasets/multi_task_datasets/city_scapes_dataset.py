@@ -4,7 +4,7 @@ import glob
 import numpy
 import torch
 from PIL import Image
-from .base_dataset import BaseDataset
+from ..base_dataset import BaseDataset
 from utils.io import load_image
 
 
