@@ -5,21 +5,26 @@ from utils.builder import build_from_config
 
 class ProjectionDatasetWrapper(torch.utils.data.Dataset):
 
-    def __init__(self, dataset: dict, mapping: Dict[str, List[Union[str, Tuple[str, str]]]]):
+    def __init__(
+        self,
+        dataset_config: dict,
+        mapping: Dict[str, List[Union[str, Tuple[str, str]]]],
+    ) -> None:
         super(ProjectionDatasetWrapper, self).__init__()
-        self.dataset = build_from_config(dataset)
+        self.dataset = build_from_config(dataset_config)
         self._init_mapping_(mapping)
 
     def _init_mapping_(self, mapping: Dict[str, List[Union[str, Tuple[str, str]]]]) -> None:
-        assert set(mapping.keys()).issubset(['inputs', 'labels', 'meta_info']), f"{mapping.keys()}"
-        for key in mapping:
-            for idx in range(len(mapping[key])):
-                if type(mapping[key][idx]) == str:
-                    mapping[key][idx] = (mapping[key][idx],) * 2
-                else:
-                    assert type(mapping[key][idx]) == tuple
-                    assert len(mapping[key][idx]) == 2
-                    assert type(mapping[key][idx][0]) == type(mapping[key][idx][1]) == str
+        assert type(mapping) == dict, f"{type(mapping)=}"
+        assert set(mapping.keys()).issubset(['inputs', 'labels', 'meta_info']), f"{mapping.keys()=}"
+        for group in mapping:
+            assert type(mapping[group]) == list, f"{type(mapping[group])=}"
+            for idx in range(len(mapping[group])):
+                if type(mapping[group][idx]) == str:
+                    mapping[group][idx] = (mapping[group][idx],) * 2
+                assert type(mapping[group][idx]) == tuple, f"{type(mapping[group][idx])=}"
+                assert len(mapping[group][idx]) == 2, f"{len(mapping[group][idx])=}"
+                assert type(mapping[group][idx][0]) == type(mapping[group][idx][1]) == str, f"{tuple(type(elem) for elem in mapping[group][idx])=}"
         self.mapping: Dict[str, List[Tuple[str, str]]] = mapping
 
     def __len__(self) -> int:
@@ -28,8 +33,8 @@ class ProjectionDatasetWrapper(torch.utils.data.Dataset):
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
         example = self.dataset[idx]
         result = {}
-        for key in self.mapping:
-            result[key] = {}
-            for src, tgt in self.mapping[key]:
-                result[key][tgt] = example[key][src]
+        for group in self.mapping:
+            result[group] = {}
+            for src, tgt in self.mapping[group]:
+                result[group][tgt] = example[group][src]
         return result
