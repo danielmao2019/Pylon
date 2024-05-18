@@ -2,7 +2,7 @@ import pytest
 from typing import Tuple, List
 from .base_diffuser import BaseDiffuser
 import torch
-from ..datasets.city_scapes_dataset import CityScapesDataset
+from ..datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
 
 
 @pytest.mark.parametrize("dataset, num_steps, keys", [
@@ -10,7 +10,7 @@ from ..datasets.city_scapes_dataset import CityScapesDataset
         {
             'class': CityScapesDataset,
             'args': {
-                'data_root': "./datasets/datasets/soft_links/city-scapes",
+                'data_root': "./data/datasets/soft_links/city-scapes",
                 'split': 'train',
                 'indices': None,
                 'transforms': None,

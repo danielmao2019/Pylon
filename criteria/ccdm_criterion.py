@@ -17,7 +17,7 @@ class CCDMCriterion(BaseCriterion):
         self.ignore_index = ignore_index
         assert type(num_steps) == int, f"{type(num_steps)=}"
         self.num_steps = num_steps
-        from datasets.diffusers import BaseDiffuser
+        from data.diffusers import BaseDiffuser
         BaseDiffuser._init_noise_schedule_(self)
 
     def theta_post(self, diffused_mask: torch.Tensor, original_mask: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
