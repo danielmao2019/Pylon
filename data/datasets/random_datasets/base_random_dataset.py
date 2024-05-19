@@ -3,14 +3,14 @@ import torch
 from ..base_dataset import BaseDataset
 
 
-class OverfitBaseDataset(BaseDataset):
+class BaseRandomDataset(BaseDataset):
 
     def __init__(
         self,
         num_examples: int,
         gen_func_config: Dict[str, Dict[str, Tuple[Callable, dict]]],
         initial_seed: Optional[int] = None,
-    ):
+    ) -> None:
         # init num examples
         assert type(num_examples) == int, f"{type(num_examples)=}"
         assert num_examples >= 0, f"{num_examples=}"
@@ -20,7 +20,7 @@ class OverfitBaseDataset(BaseDataset):
         # init generator
         self._init_generator_(initial_seed)
         # init transform
-        super(OverfitBaseDataset, self).__init__()
+        super(BaseRandomDataset, self).__init__()
 
     def _init_gen_func_config_(self, config: Dict[str, Dict[str, Tuple[Callable, dict]]]) -> None:
         assert type(config) == dict, f"{type(config)=}"
@@ -54,7 +54,7 @@ class OverfitBaseDataset(BaseDataset):
         """
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.num_examples
 
     def _load_example_(self, idx: int) -> Tuple[
