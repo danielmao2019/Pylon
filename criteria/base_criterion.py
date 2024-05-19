@@ -1,11 +1,10 @@
 from typing import List, Dict, Union, Any, Optional
-from abc import ABC, abstractmethod
 import torch
 from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer
 
 
-class BaseCriterion(ABC, torch.nn.Module):
+class BaseCriterion(torch.nn.Module):
 
     def __init__(self):
         super(BaseCriterion, self).__init__()
@@ -14,18 +13,30 @@ class BaseCriterion(ABC, torch.nn.Module):
     def reset_buffer(self):
         self.buffer: List[Any] = []
 
-    @abstractmethod
     def __call__(
         self,
         y_pred: Union[torch.Tensor, Dict[str, torch.Tensor]],
         y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
-    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
-        r"""
-        Returns:
-            loss (torch.Tensor or Dict[str, torch.Tensor]): a scalar tensor for single loss
-                or dictionary of scalar tensors for multiple losses.
+    ) -> torch.Tensor:
+        r"""Default __call__ method. This method assumes `_compute_loss_` is implemented and both y_pred
+        and y_true are either tensors or dictionaries of one key-val pair.
         """
-        raise NotImplementedError("[ERROR] __call__ not implemented for abstract base class.")
+        assert hasattr(self, '_compute_loss_') and callable(self._compute_loss_)
+        # input checks
+        if type(y_pred) == dict:
+            assert len(y_pred) == 1, f"{y_pred.keys()=}"
+            y_pred = list(y_pred.values())[0]
+        assert type(y_pred) == torch.Tensor, f"{type(y_pred)=}"
+        if type(y_true) == dict:
+            assert len(y_true) == 1, f"{y_true.keys()=}"
+            y_true = list(y_true.values())[0]
+        assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
+        # compute loss
+        loss = self._compute_loss_(y_pred=y_pred, y_true=y_true)
+        assert type(loss) == torch.Tensor, f"{type(loss)=}"
+        assert loss.shape == (), f"{loss.shape=}"
+        self.buffer.append(loss)
+        return loss
 
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, torch.Tensor]:
         r"""Default summary: trajectory of losses across all examples in buffer.
