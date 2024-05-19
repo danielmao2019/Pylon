@@ -5,8 +5,8 @@ from .base_criterion import BaseCriterion
 
 class InstanceSegmentationCriterion(BaseCriterion):
 
-    def __init__(self, ignore_index: int):
-        super().__init__()
+    def __init__(self, ignore_index: int) -> None:
+        super(InstanceSegmentationCriterion, self).__init__()
         self.ignore_index = ignore_index
 
     def __call__(
