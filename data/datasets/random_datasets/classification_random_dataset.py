@@ -5,6 +5,10 @@ from .base_random_dataset import BaseRandomDataset
 
 class ClassificationRandomDataset(BaseRandomDataset):
 
+    SPLIT_OPTIONS = ['all']
+    INPUT_NAMES = ['image']
+    LABEL_NAMES = ['target']
+
     def __init__(
         self,
         num_classes: int,
@@ -20,7 +24,7 @@ class ClassificationRandomDataset(BaseRandomDataset):
             'inputs': {
                 'image': (
                     torch.rand,
-                    {'size': (3, image_res, image_res), 'dtype': torch.float32},
+                    {'size': (3,) + image_res, 'dtype': torch.float32},
                 ),
             },
             'labels': {
