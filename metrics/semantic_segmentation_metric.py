@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict
 import torch
 import torchvision
 from .base_metric import BaseMetric
@@ -13,24 +13,16 @@ class SemanticSegmentationMetric(BaseMetric):
         self.num_classes = num_classes
         self.ignore_index= ignore_index
 
-    def __call__(
-        self,
-        y_pred: torch.Tensor,
-        y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
-    ) -> torch.Tensor:
+    def _compute_score_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""
         Args:
             y_pred (torch.Tensor): a float32 tensor of shape (N, C, H, W) for predicted logits.
-            y_true (torch.Tensor or Dict[str, torch.Tensor]): an int64 tensor of shape (N, H, W) for ground-truth mask.
-                If a dictionary is provided, then it's length is assumed to be 1 and the only value is taken as ground truth.
+            y_true (torch.Tensor): an int64 tensor of shape (N, H, W) for ground-truth mask.
 
         Return:
             score (torch.Tensor): 1D tensor of length `self.num_classes` representing the IoU scores for each class.
         """
         # input checks
-        if type(y_true) == dict:
-            assert len(y_true) == 1, f"{y_true.keys()=}"
-            y_true = list(y_true.values())[0]
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
         # match resolution
         if y_pred.shape[-2:] != y_true.shape[-2:]:
@@ -59,8 +51,6 @@ class SemanticSegmentationMetric(BaseMetric):
             f"{score.tolist()=}, {nan_mask.tolist()=}, {(score[nan_mask] == 0)=}, {torch.isnan(score[nan_mask])=}"
         score[nan_mask] = float('nan')
         assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
-        # log score
-        self.buffer.append(score)
         return score
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
