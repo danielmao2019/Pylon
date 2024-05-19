@@ -1,15 +1,15 @@
-from typing import Optional
-import math
+from typing import Tuple, Optional
 import torch
-from .overfit_base_dataset import OverfitBaseDataset
+from .base_random_dataset import BaseRandomDataset
 
 
-class SemanticSegmentationOverfitDataset(OverfitBaseDataset):
+class ClassificationRandomDataset(BaseRandomDataset):
 
     def __init__(
         self,
         num_classes: int,
         num_examples: int,
+        image_res: Tuple[int, int],
         initial_seed: Optional[int] = None,
     ) -> None:
         # init num classes
@@ -20,16 +20,16 @@ class SemanticSegmentationOverfitDataset(OverfitBaseDataset):
             'inputs': {
                 'image': (
                     torch.rand,
-                    {'size': (3, 512, 512), 'dtype': torch.float32},
+                    {'size': (3, image_res, image_res), 'dtype': torch.float32},
                 ),
             },
             'labels': {
-                'mask': (
+                'target': (
                     torch.randint,
-                    {'size': (math.ceil(math.sqrt(num_classes)),) * 2, 'low': 0, 'high': num_classes, 'dtype': torch.int64}
+                    {'size': (), 'low': 0, 'high': num_classes, 'dtype': torch.int64}
                 ),
             },
         }
-        super(SemanticSegmentationOverfitDataset, self).__init__(
+        super(ClassificationRandomDataset, self).__init__(
             num_examples=num_examples, gen_func_config=gen_func_config, initial_seed=initial_seed,
         )
