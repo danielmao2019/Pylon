@@ -17,7 +17,7 @@ class BaseMetric:
         self,
         y_pred: Union[torch.Tensor, Dict[str, torch.Tensor]],
         y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
-    ) -> torch.Tensor:
+    ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
         r"""Default __call__ method. This method assumes `_compute_score_` is implemented and both y_pred
         and y_true are either tensors or dictionaries of one key-val pair.
         """
@@ -33,7 +33,6 @@ class BaseMetric:
         assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
         # compute score
         score = self._compute_score_(y_pred=y_pred, y_true=y_true)
-        assert type(score) == torch.Tensor, f"{type(score)=}"
         self.buffer.append(score)
         return score
 

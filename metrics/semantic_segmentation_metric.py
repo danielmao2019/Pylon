@@ -10,6 +10,8 @@ class SemanticSegmentationMetric(BaseMetric):
 
     def __init__(self, num_classes: int, ignore_index: int) -> None:
         super(SemanticSegmentationMetric, self).__init__()
+        assert type(num_classes) == int, f"{type(num_classes)=}"
+        assert num_classes > 0, f"{num_classes=}"
         self.num_classes = num_classes
         self.ignore_index= ignore_index
 
@@ -37,6 +39,8 @@ class SemanticSegmentationMetric(BaseMetric):
         assert valid_mask.sum() >= 1
         y_pred = y_pred[valid_mask]
         y_true = y_true[valid_mask]
+        assert 0 <= y_true.min() <= y_true.max() < self.num_classes, f"{y_true.min()=}, {y_true.max()=}"
+        assert 0 <= y_pred.min() <= y_pred.max() < self.num_classes, f"{y_pred.min()=}, {y_pred.max()=}"
         count = torch.bincount(
             y_true * self.num_classes + y_pred, minlength=self.num_classes**2,
         ).view((self.num_classes,) * 2)
