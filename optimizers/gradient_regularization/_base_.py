@@ -35,7 +35,7 @@ class GradientRegularizationBaseOptimizer(MTLOptimizer, ABC):
     ) -> None:
         # compute grads
         grads_dict: Union[Dict[str, torch.Tensor], Dict[str, List[torch.Tensor]]] = self._get_grads_all_tasks_(
-            losses=losses, shared_rep=shared_rep, wrt_rep=self.wrt_rep, per_layer=self.per_layer,
+            loss_dict=losses, shared_rep=shared_rep, wrt_rep=self.wrt_rep, per_layer=self.per_layer,
         )
         # compute loss
         if self.per_layer:
