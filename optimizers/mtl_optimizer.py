@@ -114,11 +114,6 @@ class MTLOptimizer:
         Returns:
             grad (torch.Tensor or List[torch.Tensor]): the gradient of loss w.r.t. shared parameters.
         """
-        # input checks
-        assert type(loss) == torch.Tensor, f"{type(loss)=}"
-        assert loss.dim() == 0, f"{loss.shape=}"
-        assert loss.requires_grad
-        assert type(per_layer) == bool, f"{type(per_layer)=}"
         # compute gradients
         self.optimizer.zero_grad(set_to_none=True)
         loss.backward(retain_graph=True)
@@ -145,14 +140,9 @@ class MTLOptimizer:
         Returns:
             grad (torch.Tensor): the gradient of loss w.r.t. shared representation.
         """
-        # input checks
-        assert type(loss) == torch.Tensor, f"{type(loss)=}"
-        assert loss.dim() == 0, f"{loss.shape=}"
-        assert loss.requires_grad
+        # initialization
         if type(shared_rep) == torch.Tensor:
             shared_rep = (shared_rep,)
-        assert type(shared_rep) == tuple, f"{type(shared_rep)=}"
-        assert all(type(elem) == torch.Tensor for elem in shared_rep)
         # compute gradients
         grad: List[torch.Tensor] = list(torch.autograd.grad(
             outputs=[loss], inputs=shared_rep, allow_unused=True, retain_graph=True,
@@ -169,7 +159,7 @@ class MTLOptimizer:
 
     def _get_grads_all_tasks_(
         self,
-        losses: Dict[str, torch.Tensor],
+        loss_dict: Dict[str, torch.Tensor],
         shared_rep: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
         wrt_rep: Optional[bool] = False,
         per_layer: Optional[bool] = False,
@@ -177,21 +167,28 @@ class MTLOptimizer:
         r"""This method computes the gradients for all losses.
         """
         # input checks
-        assert type(losses) == dict, f"{type(losses)=}"
-        assert type(shared_rep) in [torch.Tensor, tuple], f"{type(shared_rep)=}"
+        assert type(loss_dict) == dict, f"{type(loss_dict)=}"
+        assert all(type(elem) == str for elem in loss_dict.keys())
+        assert all([
+            type(loss) == torch.Tensor and loss.dim() == 0 and loss.requires_grad
+            for loss in loss_dict.values()
+        ])
+        if type(shared_rep) != torch.Tensor:
+            assert type(shared_rep) == tuple, f"{type(shared_rep)=}"
+            assert all(type(elem) == torch.Tensor for elem in shared_rep)
         assert type(wrt_rep) == bool, f"{type(wrt_rep)=}"
         assert type(per_layer) == bool, f"{type(per_layer)=}"
         # initialize time
         grad_time = time.time()
         if wrt_rep:
             grads_dict = {
-                name: self._get_grad_rep_(loss=losses[name], shared_rep=shared_rep)
-                for name in losses
+                name: self._get_grad_rep_(loss=loss_dict[name], shared_rep=shared_rep)
+                for name in loss_dict
             }
         else:
             grads_dict = {
-                name: self._get_grad_params_(loss=losses[name], per_layer=per_layer)
-                for name in losses
+                name: self._get_grad_params_(loss=loss_dict[name], per_layer=per_layer)
+                for name in loss_dict
             }
         self.logger.update_buffer({'grad_time': time.time() - grad_time})
         return grads_dict

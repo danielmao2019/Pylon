@@ -39,7 +39,7 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         assert type(shared_rep) in [torch.Tensor, tuple], f"{type(shared_rep)=}"
         # initialization
         grads_dict: Union[Dict[str, torch.Tensor], Dict[str, List[torch.Tensor]]] = self._get_grads_all_tasks_(
-            losses=losses, shared_rep=shared_rep, wrt_rep=self.wrt_rep, per_layer=self.per_layer,
+            loss_dict=losses, shared_rep=shared_rep, wrt_rep=self.wrt_rep, per_layer=self.per_layer,
         )
         if type(shared_rep) == tuple:
             shared_rep = torch.cat([g.flatten() for g in shared_rep])
