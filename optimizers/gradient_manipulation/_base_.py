@@ -86,13 +86,13 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         """
         # input checks
         assert type(grad) == torch.Tensor, f"{type(grad)=}"
-        assert len(grad.shape) == 1, f"{grad.shape=}"
+        assert grad.dim() == 1, f"{grad.shape=}"
         # populate gradient
-        grad_read_idx = 0
+        idx = 0
         for p, shape in zip(self._get_shared_params_(), self.shared_params_shapes):
             length = int(torch.prod(torch.tensor(shape)))
             assert p.requires_grad
             assert p.grad is None
-            p.grad = grad[grad_read_idx:grad_read_idx+length].view(shape)
-            grad_read_idx += length
-        assert grad_read_idx == len(grad), f"{grad_read_idx=}, {grad.shape=}"
+            p.grad = grad[idx:idx+length].view(shape)
+            idx += length
+        assert idx == len(grad), f"{idx=}, {grad.shape=}"
