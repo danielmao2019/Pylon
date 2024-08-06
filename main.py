@@ -2,7 +2,7 @@
 including the native PyTorch for loop.
 """
 from typing import List, Dict
-from trainers.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import os
 import json
 import torch
