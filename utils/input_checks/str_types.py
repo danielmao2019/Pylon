@@ -1,10 +1,13 @@
-from typing import Any
+from typing import Any, Optional
 import os
 
 
-def check_read_file(path: Any) -> str:
+def check_read_file(path: Any, ext: Optional[str] = None) -> str:
     assert type(path) == str, f"{type(path)=}"
     assert os.path.isfile(path), f"{path=}"
+    if ext is not None:
+        assert type(ext) == str, f"{type(ext)=}"
+        assert path.endswith(ext), f"{path=}"
     return path
 
 
