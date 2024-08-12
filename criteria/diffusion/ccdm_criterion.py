@@ -2,14 +2,14 @@
 """
 from typing import Dict
 import torch
-from .base_criterion import BaseCriterion
+from ..base_criterion import BaseCriterion
 from utils.input_checks import check_semantic_segmentation_pred, check_semantic_segmentation_true
 from utils.semantic_segmentation import to_one_hot_encoding
 
 
 class CCDMCriterion(BaseCriterion):
 
-    def __init__(self, num_classes: int, ignore_index: int, num_steps: int):
+    def __init__(self, num_classes: int, ignore_index: int, num_steps: int) -> None:
         super(CCDMCriterion, self).__init__()
         assert type(num_classes) == int
         self.num_classes = num_classes

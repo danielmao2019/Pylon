@@ -1,5 +1,5 @@
 import torch
-from .base_criterion import BaseCriterion
+from ..base_criterion import BaseCriterion
 from utils.input_checks import check_depth_estimation
 
 

@@ -1,7 +1,7 @@
 from typing import Tuple, Optional
 import torch
 import torchvision
-from .base_criterion import BaseCriterion
+from ..base_criterion import BaseCriterion
 from utils.input_checks import check_semantic_segmentation
 
 

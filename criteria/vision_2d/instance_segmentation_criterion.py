@@ -1,5 +1,5 @@
 import torch
-from .base_criterion import BaseCriterion
+from ..base_criterion import BaseCriterion
 
 
 class InstanceSegmentationCriterion(BaseCriterion):

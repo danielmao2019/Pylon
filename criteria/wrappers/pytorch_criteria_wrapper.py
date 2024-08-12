@@ -1,6 +1,6 @@
 from typing import Callable
 import torch
-from .base_criterion import BaseCriterion
+from ..base_criterion import BaseCriterion
 
 
 class PyTorchCriterionWrapper(BaseCriterion):
