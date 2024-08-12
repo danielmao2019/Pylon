@@ -2,24 +2,14 @@
 CRITERIA API
 """
 from criteria.base_criterion import BaseCriterion
-from criteria.pytorch_criteria_wrapper import PyTorchCriterionWrapper
-from criteria.auxiliary_outputs_criterion import AuxiliaryOutputsCriterion
-from criteria.multi_task_criterion import MultiTaskCriterion
-from criteria.depth_estimation_criterion import DepthEstimationCriterion
-from criteria.normal_estimation_criterion import NormalEstimationCriterion
-from criteria.semantic_segmentation_criterion import SemanticSegmentationCriterion
-from criteria.instance_segmentation_criterion import InstanceSegmentationCriterion
-from criteria.ccdm_criterion import CCDMCriterion
+from criteria import vision_2d
+from criteria import diffusion
+from criteria import wrappers
 
 
 __all__ = (
     'BaseCriterion',
-    'PyTorchCriterionWrapper',
-    'AuxiliaryOutputsCriterion',
-    'MultiTaskCriterion',
-    'DepthEstimationCriterion',
-    'NormalEstimationCriterion',
-    'SemanticSegmentationCriterion',
-    'InstanceSegmentationCriterion',
-    'CCDMCriterion',
+    'vision_2d',
+    'diffusion',
+    'wrappers',
 )

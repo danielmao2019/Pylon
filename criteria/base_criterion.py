@@ -34,7 +34,8 @@ class BaseCriterion(torch.nn.Module):
         # compute loss
         loss = self._compute_loss_(y_pred=y_pred, y_true=y_true)
         assert type(loss) == torch.Tensor, f"{type(loss)=}"
-        assert loss.shape == (), f"{loss.shape=}"
+        assert loss.ndim == 0, f"{loss.shape=}"
+        # log loss
         self.buffer.append(loss)
         return loss
 
