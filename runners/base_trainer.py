@@ -1,5 +1,6 @@
 from typing import Tuple, List, Dict, Any, Optional
 from abc import abstractmethod
+import copy
 import os
 import glob
 import time
@@ -35,25 +36,37 @@ class BaseTrainer:
             wandb_log (bool): if True, criterion and metric buffers will also be logged to wandb.
         """
         assert type(config) == dict, f"{type(config)=}"
-        self.config = config
+        self.config = copy.deepcopy(config)
         assert type(device) == torch.device, f"{type(device)=}"
         self.device = device
         assert type(wandb_log) == bool, f"{type(wandb_log)=}"
         self.wandb_log = wandb_log
-        # init work dir
-        assert 'work_dir' in self.config.keys()
-        assert type(self.config['work_dir']) == str, f"{type(self.config['work_dir'])=}"
-        work_dir = self.config['work_dir']
-        os.makedirs(work_dir, exist_ok=True)
-        self.work_dir = work_dir
-        # init total epochs
+        self._init_work_dir()
+        self._init_tot_epochs()
+
+    # ====================================================================================================
+    # ====================================================================================================
+
+    def _init_work_dir(self) -> None:
+        if self.config.get('work_dir', None):
+            work_dir = self.config['work_dir']
+            assert type(work_dir) == str, f"{type(work_dir)=}"
+            os.makedirs(work_dir, exist_ok=True)
+            self.work_dir = work_dir
+        else:
+            self.work_dir = None
+
+    def _init_tot_epochs(self) -> None:
         assert 'epochs' in self.config.keys()
-        self.tot_epochs = self.config['epochs']
+        tot_epochs = self.config['epochs']
+        assert type(tot_epochs) == int, f"{type(tot_epochs)=}"
+        assert tot_epochs >= 0, f"{tot_epochs=}"
+        self.tot_epochs = tot_epochs
 
-    # ====================================================================================================
-    # ====================================================================================================
-
-    def _init_logger_(self):
+    def _init_logger(self) -> None:
+        if not self.work_dir:
+            self.logger = None
+            return
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -91,37 +104,39 @@ class BaseTrainer:
     def _init_dataloaders_(self):
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
-        assert 'train_dataset' in self.config and 'train_dataloader' in self.config
-        train_dataset: torch.utils.data.Dataset = build_from_config(self.config['train_dataset'])
-        if 'collate_fn' in self.config['train_dataloader']['args']:
-            self.config['train_dataloader']['args']['collate_fn'] = build_from_config(self.config['train_dataloader']['args']['collate_fn'])
-        self.train_dataloader: torch.utils.data.DataLoader = build_from_config(
-            dataset=train_dataset, shuffle=True, config=self.config['train_dataloader'],
-        )
+        if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
+            train_dataset: torch.utils.data.Dataset = build_from_config(self.config['train_dataset'])
+            self.train_dataloader: torch.utils.data.DataLoader = build_from_config(
+                dataset=train_dataset, shuffle=True, config=self.config['train_dataloader'],
+            )
+        else:
+            self.train_dataloader = None
         # initialize validation dataloader
-        assert 'val_dataset' in self.config and 'val_dataloader' in self.config
-        val_dataset: torch.utils.data.Dataset = build_from_config(self.config['val_dataset'])
-        if 'collate_fn' in self.config['val_dataloader']['args']:
-            self.config['val_dataloader']['args']['collate_fn'] = build_from_config(self.config['val_dataloader']['args']['collate_fn'])
-        self.val_dataloader: torch.utils.data.DataLoader = build_from_config(
-            dataset=val_dataset, shuffle=False, batch_size=1, config=self.config['val_dataloader'],
-        )
+        if self.config.get('val_dataset', None) and self.config.get('val_dataloader', None):
+            val_dataset: torch.utils.data.Dataset = build_from_config(self.config['val_dataset'])
+            self.val_dataloader: torch.utils.data.DataLoader = build_from_config(
+                dataset=val_dataset, shuffle=False, batch_size=1, config=self.config['val_dataloader'],
+            )
+        else:
+            self.val_dataloader = None
         # initialize test dataloader
-        assert 'test_dataset' in self.config and 'test_dataloader' in self.config
-        test_dataset: torch.utils.data.Dataset = build_from_config(self.config['test_dataset'])
-        if 'collate_fn' in self.config['test_dataloader']['args']:
-            self.config['test_dataloader']['args']['collate_fn'] = build_from_config(self.config['test_dataloader']['args']['collate_fn'])
-        self.test_dataloader: torch.utils.data.DataLoader = build_from_config(
-            dataset=test_dataset, shuffle=False, batch_size=1, config=self.config['test_dataloader'],
-        )
+        if self.config.get('test_dataset', None) and self.config.get('test_dataloader', None):
+            test_dataset: torch.utils.data.Dataset = build_from_config(self.config['test_dataset'])
+            self.test_dataloader: torch.utils.data.DataLoader = build_from_config(
+                dataset=test_dataset, shuffle=False, batch_size=1, config=self.config['test_dataloader'],
+            )
+        else:
+            self.test_dataloader = None
 
     def _init_model_(self):
         self.logger.info("Initializing model...")
-        assert 'model' in self.config
-        model = build_from_config(self.config['model'])
-        assert isinstance(model, torch.nn.Module), f"{type(model)=}"
-        model = model.to(self.device)
-        self.model = model
+        if self.config.get('model', None):
+            model = build_from_config(self.config['model'])
+            assert isinstance(model, torch.nn.Module), f"{type(model)=}"
+            model = model.to(self.device)
+            self.model = model
+        else:
+            self.model = None
 
     def _init_criterion_(self):
         self.logger.info("Initializing criterion...")
@@ -150,15 +165,16 @@ class BaseTrainer:
         r"""Requires self.train_dataloader and self.optimizer.
         """
         self.logger.info("Initializing scheduler...")
-        assert 'scheduler' in self.config
-        assert hasattr(self, 'train_dataloader') and isinstance(self.train_dataloader, torch.utils.data.DataLoader)
-        assert hasattr(self, 'optimizer') and isinstance(self.optimizer, torch.optim.Optimizer)
-        self.config['scheduler']['args']['lr_lambda'] = build_from_config(
-            steps=len(self.train_dataloader), config=self.config['scheduler']['args']['lr_lambda'],
-        )
-        self.scheduler: LRScheduler = build_from_config(
-            optimizer=self.optimizer, config=self.config['scheduler'],
-        )
+        if self.config.get('scheduler', None) and self.train_dataloader:
+            assert hasattr(self, 'optimizer') and isinstance(self.optimizer, torch.optim.Optimizer)
+            self.config['scheduler']['args']['lr_lambda'] = build_from_config(
+                steps=len(self.train_dataloader), config=self.config['scheduler']['args']['lr_lambda'],
+            )
+            self.scheduler: LRScheduler = build_from_config(
+                optimizer=self.optimizer, config=self.config['scheduler'],
+            )
+        else:
+            self.scheduler = None
 
     @property
     def expected_files(self):
@@ -256,6 +272,9 @@ class BaseTrainer:
     # ====================================================================================================
 
     def _train_epoch_(self) -> None:
+        if not (self.train_dataloader and self.model):
+            self.logger.info("Skipped training epoch.")
+            return
         # init time
         start_time = time.time()
         # do training loop
@@ -270,6 +289,9 @@ class BaseTrainer:
         self.logger.info(f"Training epoch time: {round(time.time() - start_time, 2)} seconds.")
 
     def _val_epoch_(self) -> None:
+        if not (self.val_dataloader and self.model):
+            self.logger.info("Skipped validation epoch.")
+            return
         # init time
         start_time = time.time()
         # do validation loop
@@ -418,7 +440,7 @@ class BaseTrainer:
     # ====================================================================================================
 
     def _init_components_(self):
-        self._init_logger_()
+        self._init_logger()
         self._init_determinism_()
         self._init_dataloaders_()
         self._init_model_()
