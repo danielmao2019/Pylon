@@ -6,7 +6,6 @@ import time
 import json
 import jsbeautifier
 import torch
-import wandb
 
 import criteria
 import utils
@@ -24,15 +23,22 @@ except:
 
 class BaseTrainer:
 
-    def __init__(self, config: dict, wandb_log: Optional[bool] = False):
+    def __init__(
+        self,
+        config: dict,
+        device: Optional[torch.device] = torch.device('cuda'),
+        wandb_log: Optional[bool] = False,
+    ) -> None:
         r"""
         Args:
             config (dict): the config dict that controls the entire pipeline.
             wandb_log (bool): if True, criterion and metric buffers will also be logged to wandb.
         """
         assert type(config) == dict, f"{type(config)=}"
-        assert type(wandb_log) == bool, f"{type(wandb_log)=}"
         self.config = config
+        assert type(device) == torch.device, f"{type(device)=}"
+        self.device = device
+        assert type(wandb_log) == bool, f"{type(wandb_log)=}"
         self.wandb_log = wandb_log
         # init work dir
         assert 'work_dir' in self.config.keys()
@@ -114,7 +120,7 @@ class BaseTrainer:
         assert 'model' in self.config
         model = build_from_config(self.config['model'])
         assert isinstance(model, torch.nn.Module), f"{type(model)=}"
-        model = model.cuda()
+        model = model.to(self.device)
         self.model = model
 
     def _init_criterion_(self):
@@ -122,7 +128,7 @@ class BaseTrainer:
         assert 'criterion' in self.config
         criterion = build_from_config(self.config['criterion'])
         assert isinstance(criterion, criteria.BaseCriterion) and isinstance(criterion, torch.nn.Module), f"{type(criterion)=}"
-        criterion = criterion.cuda()
+        criterion = criterion.to(self.device)
         self.criterion = criterion
 
     def _init_metric_(self):
@@ -212,7 +218,7 @@ class BaseTrainer:
         # init time
         start_time = time.time()
         # copy to GPU
-        example = apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
+        example = apply_tensor_op(func=lambda x: x.to(self.device), inputs=example)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             example['outputs'] = self.model(example['inputs'])
@@ -235,7 +241,7 @@ class BaseTrainer:
         # init time
         start_time = time.time()
         # copy to GPU
-        example = apply_tensor_op(func=lambda x: x.cuda(), inputs=example)
+        example = apply_tensor_op(func=lambda x: x.to(self.device), inputs=example)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             example['outputs'] = self.model(example['inputs'])
