@@ -4,6 +4,7 @@ UTILS API
 from utils import conversions
 from utils import input_checks
 from utils import logging
+from utils import models
 from utils import builder
 from utils import determinism
 from utils import gradients
@@ -17,6 +18,7 @@ __all__ = (
     'conversions',
     'input_checks',
     'logging',
+    'models',
     'builder',
     'determinism',
     'gradients',
