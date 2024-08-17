@@ -20,7 +20,7 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         data_root: Optional[str] = None,
         split: Optional[Union[str, Tuple[float, ...]]] = None,
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
-        transforms: Optional[list] = None,
+        transforms_cfg: Optional[Dict[str, Any]] = None,
     ) -> None:
         super(BaseDataset, self).__init__()
         # sanity checks
@@ -31,18 +31,18 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         # initialize
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
-        self._init_transform_(transforms=transforms)
+        self._init_transforms_(transforms_cfg=transforms_cfg)
         self._init_annotations_all_(split=split, indices=indices)
 
-    def _init_transform_(self, transforms: Optional[list]) -> None:
-        if transforms is None:
-            transforms = {
+    def _init_transforms_(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
+        if transforms_cfg is None:
+            transforms_cfg = {
                 'class': Compose,
                 'args': {
                     'transforms': [],
                 },
             }
-        self.transforms = build_from_config(transforms)
+        self.transforms = build_from_config(transforms_cfg)
 
     def _init_annotations_all_(
         self,
