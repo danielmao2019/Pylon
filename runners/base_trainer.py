@@ -64,8 +64,8 @@ class BaseTrainer:
         self.tot_epochs = tot_epochs
 
     def _init_logger(self) -> None:
-        if not self.work_dir:
-            self.logger = None
+        if self.work_dir is None:
+            self.logger = utils.logging.Logger(filepath=None)
             return
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
@@ -140,32 +140,39 @@ class BaseTrainer:
 
     def _init_criterion_(self):
         self.logger.info("Initializing criterion...")
-        assert 'criterion' in self.config
-        criterion = build_from_config(self.config['criterion'])
-        assert isinstance(criterion, criteria.BaseCriterion) and isinstance(criterion, torch.nn.Module), f"{type(criterion)=}"
-        criterion = criterion.to(self.device)
-        self.criterion = criterion
+        if self.config.get('criterion', None):
+            criterion = build_from_config(self.config['criterion'])
+            assert isinstance(criterion, criteria.BaseCriterion) and isinstance(criterion, torch.nn.Module), f"{type(criterion)=}"
+            criterion = criterion.to(self.device)
+            self.criterion = criterion
+        else:
+            self.criterion = None
 
     def _init_metric_(self):
         self.logger.info("Initializing metric...")
-        assert 'metric' in self.config
-        self.metric = build_from_config(self.config['metric'])
+        if self.config.get('metric', None):
+            self.metric = build_from_config(self.config['metric'])
+        else:
+            self.metric = None
 
     def _init_optimizer_(self):
         r"""Requires self.model.
         """
         self.logger.info("Initializing optimizer...")
-        assert 'optimizer' in self.config
-        assert hasattr(self, 'model') and isinstance(self.model, torch.nn.Module)
-        self.optimizer: torch.optim.Optimizer = build_from_config(
-            params=self.model.parameters(), config=self.config['optimizer'],
-        )
+        if self.config.get('optimizer', None):
+            assert hasattr(self, 'model') and isinstance(self.model, torch.nn.Module)
+            self.optimizer: torch.optim.Optimizer = build_from_config(
+                params=self.model.parameters(), config=self.config['optimizer'],
+            )
+        else:
+            self.optimizer = None
 
     def _init_scheduler_(self):
         r"""Requires self.train_dataloader and self.optimizer.
         """
         self.logger.info("Initializing scheduler...")
-        if self.config.get('scheduler', None) and self.train_dataloader:
+        if self.config.get('scheduler', None):
+            assert hasattr(self, 'train_dataloader') and isinstance(self.train_dataloader, torch.utils.data.DataLoader)
             assert hasattr(self, 'optimizer') and isinstance(self.optimizer, torch.optim.Optimizer)
             self.config['scheduler']['args']['lr_lambda'] = build_from_config(
                 steps=len(self.train_dataloader), config=self.config['scheduler']['args']['lr_lambda'],
@@ -196,6 +203,8 @@ class BaseTrainer:
         self.logger.info("Initializing state...")
         # init epoch numbers
         self.cum_epochs = 0
+        if self.work_dir is None:
+            return
         # determine where to resume from
         load_idx: int = None
         for idx in range(self.tot_epochs):
@@ -206,10 +215,10 @@ class BaseTrainer:
                 break
             if os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")):
                 load_idx = idx
+        # resume state
         if load_idx is None:
             self.logger.info("Training from scratch.")
             return
-        # resume state
         checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{load_idx}", "checkpoint.pt")
         try:
             self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
@@ -226,44 +235,44 @@ class BaseTrainer:
     def _set_gradients_(self, example: dict):
         raise NotImplementedError("[ERROR] _set_gradients_ not implemented for base class.")
 
-    def _train_step_(self, example: dict) -> None:
+    def _train_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         r"""
         Args:
-            example (dict): a dictionary containing inputs and ground-truth labels.
+            dp (Dict[str, Dict[str, Any]]): a dictionary containing inputs, labels, and meta info.
         """
         # init time
         start_time = time.time()
         # copy to GPU
-        example = apply_tensor_op(func=lambda x: x.to(self.device), inputs=example)
+        dp = apply_tensor_op(func=lambda x: x.to(self.device), inputs=dp)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
-            example['outputs'] = self.model(example['inputs'])
-            example['losses'] = self.criterion(y_pred=example['outputs'], y_true=example['labels'])
+            dp['outputs'] = self.model(dp['inputs'])
+            dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
         # update logger
         self.logger.update_buffer({"learning_rate": self.scheduler.get_last_lr()})
-        self.logger.update_buffer(utils.logging.log_losses(losses=example['losses'], wandb_log=self.wandb_log))
+        self.logger.update_buffer(utils.logging.log_losses(losses=dp['losses'], wandb_log=self.wandb_log))
         # update states
-        self._set_gradients_(example)
+        self._set_gradients_(dp)
         self.optimizer.step()
         self.scheduler.step()
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
 
-    def _eval_step_(self, example: dict) -> None:
+    def _eval_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         r"""
         Args:
-            example (dict): a dictionary containing inputs and ground-truth labels.
+            dp (Dict[str, Dict[str, Any]]): a dictionary containing inputs, labels, and meta info.
         """
         # init time
         start_time = time.time()
         # copy to GPU
-        example = apply_tensor_op(func=lambda x: x.to(self.device), inputs=example)
+        dp = apply_tensor_op(func=lambda x: x.to(self.device), inputs=dp)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
-            example['outputs'] = self.model(example['inputs'])
-            example['scores'] = self.metric(y_pred=example['outputs'], y_true=example['labels'])
+            dp['outputs'] = self.model(dp['inputs'])
+            dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
         # update logger
-        self.logger.update_buffer(utils.logging.log_scores(scores=example['scores'], wandb_log=self.wandb_log))
+        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores'], wandb_log=self.wandb_log))
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
 
@@ -280,30 +289,13 @@ class BaseTrainer:
         # do training loop
         self.model.train()
         self.criterion.reset_buffer()
-        for idx, example in enumerate(self.train_dataloader):
-            self._train_step_(example=example)
+        for idx, dp in enumerate(self.train_dataloader):
+            self._train_step_(dp=dp)
             self.logger.flush(prefix=f"Training [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.train_dataloader)}].")
         # after training loop
         self._after_train_loop_()
         # log time
         self.logger.info(f"Training epoch time: {round(time.time() - start_time, 2)} seconds.")
-
-    def _val_epoch_(self) -> None:
-        if not (self.val_dataloader and self.model):
-            self.logger.info("Skipped validation epoch.")
-            return
-        # init time
-        start_time = time.time()
-        # do validation loop
-        self.model.eval()
-        self.metric.reset_buffer()
-        for idx, example in enumerate(self.val_dataloader):
-            self._eval_step_(example=example)
-            self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-        # after validation loop
-        self._after_val_loop_()
-        # log time
-        self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
     def _save_checkpoint_(self, output_path: str) -> None:
         r"""Default checkpoint saving method. Override to save more.
@@ -319,6 +311,8 @@ class BaseTrainer:
         }, f=output_path)
 
     def _after_train_loop_(self) -> None:
+        if self.work_dir is None:
+            return
         # initialize epoch root directory
         epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
         if not os.path.isdir(epoch_root):
@@ -333,6 +327,23 @@ class BaseTrainer:
         if os.path.isfile(soft_link):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
+
+    def _val_epoch_(self) -> None:
+        if not (self.val_dataloader and self.model):
+            self.logger.info("Skipped validation epoch.")
+            return
+        # init time
+        start_time = time.time()
+        # do validation loop
+        self.model.eval()
+        self.metric.reset_buffer()
+        for idx, dp in enumerate(self.val_dataloader):
+            self._eval_step_(dp=dp)
+            self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
+        # after validation loop
+        self._after_val_loop_()
+        # log time
+        self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
     def _find_best_checkpoint_(self) -> str:
         r"""
@@ -350,6 +361,8 @@ class BaseTrainer:
         return best_checkpoint
 
     def _after_val_loop_(self) -> None:
+        if self.work_dir is None:
+            return
         # initialize epoch root directory
         epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
         if not os.path.isdir(epoch_root):
@@ -376,6 +389,9 @@ class BaseTrainer:
 
     @torch.no_grad()
     def _test_epoch_(self) -> None:
+        if not (self.test_dataloader and self.model):
+            self.logger.info("Skipped test epoch.")
+            return
         # init time
         start_time = time.time()
         # before test loop
@@ -383,8 +399,8 @@ class BaseTrainer:
         # do test loop
         self.model.eval()
         self.metric.reset_buffer()
-        for idx, example in enumerate(self.test_dataloader):
-            self._eval_step_(example=example)
+        for idx, dp in enumerate(self.test_dataloader):
+            self._eval_step_(dp=dp)
             self.logger.flush(prefix=f"Test epoch [Iteration {idx}/{len(self.test_dataloader)}].")
         # after test loop
         self._after_test_loop_(best_checkpoint=best_checkpoint)
@@ -398,6 +414,8 @@ class BaseTrainer:
         return checkpoint_filepath
 
     def _after_test_loop_(self, best_checkpoint: str) -> None:
+        if self.work_dir is None:
+            return
         # initialize test results directory
         test_root = os.path.join(self.work_dir, "test")
         if not os.path.isdir(test_root):
