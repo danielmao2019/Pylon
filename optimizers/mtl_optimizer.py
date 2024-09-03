@@ -14,7 +14,7 @@ class MTLOptimizer:
         optimizer_config: dict,
         losses: Dict[str, torch.Tensor],
         shared_rep: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
-        logger: Logger,
+        logger: Optional[Logger] = None,
         **kwargs,
     ):
         r"""
@@ -26,7 +26,7 @@ class MTLOptimizer:
             kwargs (dict): other unused arguments. e.g., wrt_rep and per_layer for gradient balancing methods.
         """
         self.optimizer = build_from_config(config=optimizer_config)
-        self.logger = logger
+        self.logger = logger if logger is not None else Logger()
         torch.autograd.set_detect_anomaly(True)
         self._init_shared_params_mask_(loss_dict=losses, shared_rep=shared_rep)
         self._init_shared_params_shapes_()

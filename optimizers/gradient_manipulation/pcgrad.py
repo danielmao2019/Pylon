@@ -12,7 +12,7 @@ class PCGradOptimizer(GradientManipulationBaseOptimizer):
         * https://github.com/WeiChengTseng/Pytorch-PCGrad (Sun May 28, 2023)
     """
 
-    def __init__(self, prng: Optional[random.Random], *args, **kwargs) -> None:
+    def __init__(self, prng: Optional[random.Random] = None, *args, **kwargs) -> None:
         super(PCGradOptimizer, self).__init__(*args, **kwargs)
         self.prng = prng if prng is not None else random.Random()
 
