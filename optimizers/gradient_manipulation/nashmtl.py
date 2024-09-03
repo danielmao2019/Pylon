@@ -1,7 +1,6 @@
 from typing import List, Optional
 import numpy
 import torch
-import cvxpy as cp
 
 from ._base_ import GradientManipulationBaseOptimizer
 import utils
@@ -22,6 +21,8 @@ class NashMTLOptimizer(GradientManipulationBaseOptimizer):
         self._init_problem_()
 
     def _init_problem_(self):
+        # import here to avoid dependency
+        import cvxpy as cp
         # define variables
         self.alpha_var = cp.Variable(shape=(self.num_tasks,), nonneg=True)
         self.alpha = cp.Parameter(shape=(self.num_tasks,), value=numpy.ones(self.num_tasks, dtype=numpy.float32))
