@@ -21,5 +21,10 @@ ground_truth = [
             'task1': torch.tensor([[-2.17878938,  0.56843126], [ 0.06167726,  0.62131733]]),
             'task2': torch.tensor([[-1.08452237, -1.39859545], [-0.45190597, -0.16613023]]),
         },
+        'losses': {
+            'task1': torch.tensor(4.88256359),
+            'task2': torch.tensor(3.36407638),
+        },
+        'grads': None,
     },
 ]
