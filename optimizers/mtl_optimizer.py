@@ -50,13 +50,12 @@ class MTLOptimizer:
         assert all(type(elem) == str for elem in loss_dict.keys())
         assert all([
             type(loss) == torch.Tensor and loss.dim() == 0 and loss.requires_grad
-            for loss in loss_dict.keys()
+            for loss in loss_dict.values()
         ])
         if type(shared_rep) != torch.Tensor:
             assert type(shared_rep) == tuple
             assert all(type(elem) == torch.Tensor for elem in shared_rep)
-            shared_rep = torch.cat([g.flatten() for g in shared_rep])
-        assert shared_rep.dim() == 1, f"{shared_rep.shape=}"
+            shared_rep = torch.cat([g.flatten() for g in shared_rep], dim=0)
         # compute gradients with method 1
         self.optimizer.zero_grad(set_to_none=True)
         dummy_gradient = torch.zeros_like(shared_rep)
