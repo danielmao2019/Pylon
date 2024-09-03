@@ -11,14 +11,17 @@ class Model(torch.nn.Module):
         super(Model, self).__init__()
         torch.manual_seed(0)
         self.backbone = torch.nn.Sequential(
-            torch.nn.Linear(2, 2), torch.nn.Linear(2, 2),
+            torch.nn.Linear(2, 2), torch.nn.ReLU(),
+            torch.nn.Linear(2, 2), torch.nn.ReLU(),
         )
         self.heads = torch.nn.ModuleDict({
             'task1': torch.nn.Sequential(
-                torch.nn.Linear(2, 2), torch.nn.Linear(2, 2),
+                torch.nn.Linear(2, 2), torch.nn.ReLU(),
+                torch.nn.Linear(2, 2), torch.nn.ReLU(),
             ),
             'task2': torch.nn.Sequential(
-                torch.nn.Linear(2, 2), torch.nn.Linear(2, 2),
+                torch.nn.Linear(2, 2), torch.nn.ReLU(),
+                torch.nn.Linear(2, 2), torch.nn.ReLU(),
             ),
         })
 
@@ -79,13 +82,13 @@ def test_pcgrad_optimizer():
         wrt_rep=False, per_layer=False, 
     )
     trajectory: List[torch.Tensor] = [get_flattened_params(model).detach().clone()]
-    # for dp in dataloader:
-    #     outputs = model(dp['inputs'])
-    #     losses = criterion(outputs, dp['labels'])
-    #     optimizer.zero_grad()
-    #     optimizer.backward(losses=losses, shared_rep=None)
-    #     optimizer.step()
-    #     trajectory.append(get_flattened_params(model).detach().clone())
+    for dp in dataloader:
+        outputs = model(dp['inputs'])
+        losses = criterion(outputs, dp['labels'])
+        optimizer.zero_grad()
+        optimizer.backward(losses=losses, shared_rep=outputs['shared_rep'])
+        optimizer.step()
+        trajectory.append(get_flattened_params(model).detach().clone())
     from .test_pcgrad_ground_truth import ground_truth
     assert len(trajectory) == len(ground_truth)
     assert all(
