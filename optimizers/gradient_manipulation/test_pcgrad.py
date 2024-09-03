@@ -89,6 +89,6 @@ def test_pcgrad_optimizer():
     from .test_pcgrad_ground_truth import ground_truth
     assert len(trajectory) == len(ground_truth)
     assert all(
-        torch.all(torch.isclose(trajectory[i], ground_truth[i], rtol=0, atol=1e-04))
+        torch.all(torch.isclose(trajectory[i], ground_truth[i], rtol=0, atol=1e-08))
         for i in range(len(trajectory))
     )
