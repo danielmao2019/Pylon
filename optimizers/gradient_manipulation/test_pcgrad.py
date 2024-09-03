@@ -2,12 +2,14 @@ from typing import Dict, List
 import pytest
 from .pcgrad import PCGradOptimizer
 import torch
+from utils.models import get_flattened_params
 
 
 class Model(torch.nn.module):
 
     def __init__(self) -> None:
         super(Model, self).__init__()
+        torch.manual_seed(0)
         self.backbone = torch.nn.Sequential(
             torch.nn.Linear(2, 2), torch.nn.Linear(2, 2),
         )
@@ -27,7 +29,7 @@ class Model(torch.nn.module):
             for name in self.heads
         }
         return result
-
+ 
 
 class Dataset(torch.utils.data.Dataset):
 
@@ -71,13 +73,17 @@ def test_pcgrad_optimizer():
         name: l1(x[name], y[name])
         for name in ['task1', 'task2']
     }
-    trajectory: List[torch.Tensor] = []
+    trajectory: List[torch.Tensor] = [get_flattened_params(model).detatch().clone()]
     for dp in dataloader:
         outputs = model(dp['inputs'])
         losses = criterion(outputs, dp['labels'])
         optimizer.zero_grad()
         optimizer.backward(losses=losses, shared_rep=None)
         optimizer.step()
-        trajectory.append([
-            
-        ])
+        trajectory.append(get_flattened_params(model).detatch().clone())
+    from .test_pcgrad_ground_truth import ground_truth
+    assert len(trajectory) == len(ground_truth)
+    assert all(
+        torch.equal(trajectory[i], ground_truth[i])
+        for i in range(len(trajectory))
+    )
