@@ -13,8 +13,9 @@ class NYUD_MT_PSPNet(MultiTaskBaseModel):
     def __init__(
         self,
         backbone: torch.nn.Module,
-        channels: int,
+        in_channels: int,
         tasks: Set[str],
+        return_shared_rep: Optional[bool] = False,
         use_attention: Optional[bool] = False,
     ) -> None:
         # input checks
@@ -23,9 +24,12 @@ class NYUD_MT_PSPNet(MultiTaskBaseModel):
         # initialize decoders
         decoders = torch.nn.ModuleDict()
         if "depth_estimation" in tasks:
-            decoders["depth_estimation"] = PyramidPoolingModule(in_channels=channels, num_class=1)
+            decoders["depth_estimation"] = PyramidPoolingModule(in_channels=in_channels, num_class=1)
         if "normal_estimation" in tasks:
-            decoders["normal_estimation"] = PyramidPoolingModule(in_channels=channels, num_class=3)
+            decoders["normal_estimation"] = PyramidPoolingModule(in_channels=in_channels, num_class=3)
         if "semantic_segmentation" in tasks:
-            decoders["semantic_segmentation"] = PyramidPoolingModule(in_channels=channels, num_class=41)
-        super(NYUD_MT_PSPNet, self).__init__(backbone=backbone, decoders=decoders, use_attention=use_attention, channels=channels)
+            decoders["semantic_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_class=41)
+        super(NYUD_MT_PSPNet, self).__init__(
+            backbone=backbone, decoders=decoders, return_shared_rep=return_shared_rep,
+            use_attention=use_attention, in_channels=in_channels,
+        )
