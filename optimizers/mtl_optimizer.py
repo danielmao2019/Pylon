@@ -47,15 +47,16 @@ class MTLOptimizer:
         """
         # input checks
         assert type(loss_dict) == dict, f"{type(loss_dict)=}"
-        assert all(type(elem) == str for elem in loss_dict.keys())
+        assert all(type(key) == str for key in loss_dict.keys())
         assert all([
-            type(loss) == torch.Tensor and loss.dim() == 0 and loss.requires_grad
-            for loss in loss_dict.keys()
+            type(value) == torch.Tensor and value.dim() == 0 and value.requires_grad
+            for value in loss_dict.values()
         ])
-        if type(shared_rep) != torch.Tensor:
-            assert type(shared_rep) == tuple
-            assert all(type(elem) == torch.Tensor for elem in shared_rep)
-            shared_rep = torch.cat([g.flatten() for g in shared_rep])
+        if type(shared_rep) == torch.Tensor:
+            shared_rep = (shared_rep,)
+        assert type(shared_rep) == tuple
+        assert all(type(elem) == torch.Tensor for elem in shared_rep)
+        shared_rep = torch.cat([g.flatten() for g in shared_rep])
         assert shared_rep.dim() == 1, f"{shared_rep.shape=}"
         # compute gradients with method 1
         self.optimizer.zero_grad(set_to_none=True)
