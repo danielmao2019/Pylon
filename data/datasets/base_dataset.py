@@ -27,7 +27,8 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         assert self.SPLIT_OPTIONS is not None
         assert self.INPUT_NAMES is not None
         assert self.LABEL_NAMES is not None
-        assert set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set(), f"{set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
+        assert set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set(), \
+            f"{self.INPUT_NAMES=}, {self.LABEL_NAMES=}, {set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
         # initialize
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)

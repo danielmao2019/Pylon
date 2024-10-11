@@ -31,10 +31,10 @@ class ProjectionDatasetWrapper(torch.utils.data.Dataset):
         return len(self.dataset)
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
-        example = self.dataset[idx]
+        datapoint = self.dataset[idx]
         result = {}
         for group in self.mapping:
             result[group] = {}
             for src, tgt in self.mapping[group]:
-                result[group][tgt] = example[group][src]
+                result[group][tgt] = datapoint[group][src]
         return result
