@@ -1,7 +1,7 @@
 from typing import Dict
 import torch
 import torchvision
-from .base_metric import BaseMetric
+from metrics.base_metric import BaseMetric
 from utils.input_checks import check_write_file, check_semantic_segmentation
 from utils.io import save_json
 

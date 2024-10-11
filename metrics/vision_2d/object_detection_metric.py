@@ -2,7 +2,7 @@
 """
 from typing import Tuple, List, Dict, Any
 import torch
-from .base_metric import BaseMetric
+from metrics.base_metric import BaseMetric
 from utils.object_detection import pairwise_iou
 from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer

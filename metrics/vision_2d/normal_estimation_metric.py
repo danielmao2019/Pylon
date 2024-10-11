@@ -1,5 +1,5 @@
 import torch
-from .base_metric import BaseMetric
+from metrics.base_metric import BaseMetric
 from utils.input_checks import check_normal_estimation
 
 
