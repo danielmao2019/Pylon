@@ -1,6 +1,6 @@
 from typing import Dict
 import torch
-from .base_metric import BaseMetric
+from metrics.base_metric import BaseMetric
 from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer
 from utils.io import save_json
