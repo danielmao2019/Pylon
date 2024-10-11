@@ -36,25 +36,25 @@ class Compose(BaseTransform):
         # assign to class attribute
         self.transforms = transforms
 
-    def __call__(self, example: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         r"""This method overrides parent `__call__` method.
         """
         # input checks
-        assert type(example) == dict, f"{type(example)=}"
-        assert set(example.keys()) == set(['inputs', 'labels', 'meta_info']), f"{example.keys()=}"
+        assert type(datapoint) == dict, f"{type(datapoint)=}"
+        assert set(datapoint.keys()) == set(['inputs', 'labels', 'meta_info']), f"{datapoint.keys()=}"
         # apply each component transform
         for i, transform in enumerate(self.transforms):
             func, input_keys = transform
             try:
                 if len(input_keys) == 1:
                     key_pair = input_keys[0]
-                    outputs = [func(example[key_pair[0]][key_pair[1]])]
+                    outputs = [func(datapoint[key_pair[0]][key_pair[1]])]
                 else:
-                    outputs = func(*(example[key_pair[0]][key_pair[1]] for key_pair in input_keys))
+                    outputs = func(*(datapoint[key_pair[0]][key_pair[1]] for key_pair in input_keys))
             except Exception as e:
                 raise RuntimeError(f"Attempting to apply self.transforms[{i}] on {input_keys}: {e}")
             assert type(outputs) == list, f"{type(outputs)=}"
             assert len(outputs) == len(input_keys), f"{len(outputs)=}, {len(input_keys)=}"
             for j, key_pair in enumerate(input_keys):
-                example[key_pair[0]][key_pair[1]] = outputs[j]
-        return example
+                datapoint[key_pair[0]][key_pair[1]] = outputs[j]
+        return datapoint
