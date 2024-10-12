@@ -54,27 +54,29 @@ class CityScapesDataset(BaseDataset):
 
     def _init_annotations_(self, split: str) -> None:
         # initialize image filepaths
-        image_filepaths: List[str] = sorted(glob.glob(os.path.join(self.data_root, "leftImg8bit", split, "**", "*.png")))
+        image_root = os.path.join(self.data_root, "leftImg8bit", split)
+        image_paths: List[str] = sorted(glob.glob(os.path.join(image_root, "**", "*.png")))
+        image_postfix = "leftImg8bit.png"
         # depth estimation labels
         depth_root = os.path.join(self.data_root, "disparity", split)
         depth_paths = [os.path.join(
-            depth_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "disparity.png"
-        ) for image_fp in image_filepaths]
+            depth_root, fp.split(os.sep)[-2], os.path.basename(fp)[:-len(image_postfix)] + "disparity.png"
+        ) for fp in image_paths]
         # semantic and instance segmentation labels
         segmentation_root = os.path.join(self.data_root, "gtFine", split)
         semantic_paths = [os.path.join(
-            segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_labelIds.png"
-        ) for image_fp in image_filepaths]
+            segmentation_root, fp.split(os.sep)[-2], os.path.basename(fp)[:-len(image_postfix)] + "gtFine_labelIds.png"
+        ) for fp in image_paths]
         instance_paths = [os.path.join(
-            segmentation_root, image_fp.split(os.sep)[-2], os.path.basename(image_fp)[:-15] + "gtFine_instanceIds.png"
-        ) for image_fp in image_filepaths]
+            segmentation_root, fp.split(os.sep)[-2], os.path.basename(fp)[:-len(image_postfix)] + "gtFine_instanceIds.png"
+        ) for fp in image_paths]
         # construct annotations
         self.annotations: List[Dict[str, Any]] = [{
-            'image': image_filepaths[idx],
+            'image': image_paths[idx],
             'depth': depth_paths[idx],
             'semantic': semantic_paths[idx],
             'instance': instance_paths[idx],
-        } for idx in range(len(image_filepaths))]
+        } for idx in range(len(image_paths))]
         self._filter_dataset_(remove_indices=self.REMOVE_INDICES[split])
 
     def _filter_dataset_(self, remove_indices: List[int], cache: Optional[bool] = True) -> None:
@@ -132,9 +134,8 @@ class CityScapesDataset(BaseDataset):
     ####################################################################################################
 
     def _get_image_(self, idx: int) -> Dict[str, torch.Tensor]:
-        image = numpy.array(Image.open(self.annotations[idx]['image']), dtype=numpy.uint8)
+        image = numpy.array(Image.open(self.annotations[idx]['image']), dtype=numpy.float32)
         image = image[:, :, ::-1]
-        image = image.astype(numpy.float64)
         image -= self.IMAGE_MEAN
         image /= 255.0
         image = image.transpose(2, 0, 1)
@@ -154,7 +155,7 @@ class CityScapesDataset(BaseDataset):
         for valid in self.valid_classes:
             semantic[semantic == valid] = self.class_map[valid]
         # get instance segmentation labels
-        instance = load_image(filepath=self.annotations[idx]['instance'], dtype=torch.float32)
+        instance = load_image(filepath=self.annotations[idx]['instance'], dtype=torch.int64)
         instance[semantic == self.IGNORE_INDEX] = self.IGNORE_INDEX
         for _no_instance in self.no_instances:
             instance[instance == _no_instance] = self.IGNORE_INDEX
@@ -175,9 +176,9 @@ class CityScapesDataset(BaseDataset):
             mask = instance == instance_id
             instance_y[mask] = ymap[mask] - torch.mean(ymap[mask])
             instance_x[mask] = xmap[mask] - torch.mean(xmap[mask])
-        instance = torch.stack([instance_y, instance_x], dim=0)
+        instance_surrogate = torch.stack([instance_y, instance_x], dim=0)
         # return result
         return {
             'semantic_segmentation': semantic,
-            'instance_segmentation': instance,
+            'instance_segmentation': instance_surrogate,
         }
