@@ -1,7 +1,8 @@
 from typing import Tuple, List, Dict, Union, Any, Optional
 from abc import ABC, abstractmethod
-import copy
 import itertools
+import copy
+import subprocess
 import random
 import torch
 from ..transforms.compose import Compose
@@ -14,6 +15,7 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
     SPLIT_OPTIONS: List[str] = None
     INPUT_NAMES: List[str] = None
     LABEL_NAMES: List[str] = None
+    SHA1SUM: str = None
 
     def __init__(
         self,
@@ -22,18 +24,30 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
     ) -> None:
+        # input checks
+        if data_root is not None:
+            self.data_root = check_read_dir(path=data_root)
+        # sanity check
+        self._sanity_check()
+        # initialize
         super(BaseDataset, self).__init__()
-        # sanity checks
+        self._init_transforms_(transforms_cfg=transforms_cfg)
+        self._init_annotations_all_(split=split, indices=indices)
+
+    def _sanity_check(self) -> None:
         assert self.SPLIT_OPTIONS is not None
         assert self.INPUT_NAMES is not None
         assert self.LABEL_NAMES is not None
         assert set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set(), \
             f"{self.INPUT_NAMES=}, {self.LABEL_NAMES=}, {set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
-        # initialize
-        if data_root is not None:
-            self.data_root = check_read_dir(path=data_root)
-        self._init_transforms_(transforms_cfg=transforms_cfg)
-        self._init_annotations_all_(split=split, indices=indices)
+        if hasattr(self, 'SHA1SUM') and self.SHA1SUM is not None:
+            cmd = ' '.join([
+                'find', self.data_root, '-type', 'f', '-print0', '|',
+                'sort', '-z', '|', 'xargs', '-0', 'sha1sum', '|', 'sha1sum',
+            ])
+            result = subprocess.getoutput(cmd)
+            sha1sum = result.split(' ')[0]
+            assert sha1sum == self.SHA1SUM, f"{sha1sum=}, {self.SHA1SUM=}"
 
     def _init_transforms_(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
         if transforms_cfg is None:

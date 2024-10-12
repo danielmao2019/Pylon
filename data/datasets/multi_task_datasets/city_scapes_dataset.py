@@ -28,6 +28,11 @@ class CityScapesDataset(BaseDataset):
         Gradient Surgery for Multi-Task Learning (https://arxiv.org/pdf/2001.06782.pdf)
     """
 
+    SPLIT_OPTIONS = ['train', 'val']
+    INPUT_NAMES = ['image']
+    LABEL_NAMES = ['depth_estimation', 'semantic_segmentation', 'instance_segmentation']
+    SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
+
     IGNORE_INDEX = 250
     no_instances = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23]
     void_classes = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
@@ -38,10 +43,6 @@ class CityScapesDataset(BaseDataset):
     IMAGE_MEAN = numpy.array([123.675, 116.28, 103.53])
     DEPTH_STD = 2729.0680031169923
     DEPTH_MEAN = 0.0
-
-    SPLIT_OPTIONS = ['train', 'val']
-    INPUT_NAMES = ['image']
-    LABEL_NAMES = ['depth_estimation', 'semantic_segmentation', 'instance_segmentation']
 
     REMOVE_INDICES = {
         'train': [253, 926, 931, 1849, 1946, 1993, 2051, 2054, 2778],
