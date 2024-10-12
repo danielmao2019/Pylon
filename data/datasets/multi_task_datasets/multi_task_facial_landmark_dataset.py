@@ -64,7 +64,10 @@ class MultiTaskFacialLandmarkDataset(BaseDataset):
     def _load_example_(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        inputs = {'image': load_image(filepath=self.annotations[idx][0], dtype=torch.float32) / 255.}
+        inputs = {'image': load_image(
+            filepath=self.annotations[idx][0], dtype=torch.float32,
+            sub=None, div=255.,
+        )}
         labels = self.annotations[idx][1]
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx][0], start=self.data_root),

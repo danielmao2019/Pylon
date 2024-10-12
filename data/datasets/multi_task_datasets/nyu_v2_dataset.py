@@ -97,8 +97,10 @@ class NYUv2Dataset(BaseDataset):
     ####################################################################################################
 
     def _get_image_(self, idx: int) -> torch.Tensor:
-        image = load_image(filepath=self.annotations[idx]['image'], dtype=torch.float32) / 255.
-        return {'image': image}
+        return {'image': load_image(
+            filepath=self.annotations[idx]['image'], dtype=torch.float32,
+            sub=None, div=255.,
+        )}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         depth = torch.tensor(scipy.io.loadmat(self.annotations[idx]['depth'])['depth'], dtype=torch.float32)
