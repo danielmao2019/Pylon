@@ -86,7 +86,7 @@ class NYUv2Dataset(BaseDataset):
         labels.update(self._get_depth_label_(idx))
         labels.update(self._get_normal_label_(idx))
         labels.update(self._get_segmentation_label_(idx))
-        labels.update(self._get_edge_label_(idx))
+        # labels.update(self._get_edge_label_(idx))
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx]['image'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),
@@ -97,7 +97,7 @@ class NYUv2Dataset(BaseDataset):
     ####################################################################################################
 
     def _get_image_(self, idx: int) -> torch.Tensor:
-        image = load_image(filepath=self.annotations[idx]['image'], dtype=torch.float32)
+        image = load_image(filepath=self.annotations[idx]['image'], dtype=torch.float32) / 255.
         return {'image': image}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -105,7 +105,10 @@ class NYUv2Dataset(BaseDataset):
         return {'depth_estimation': depth}
 
     def _get_normal_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        normal = load_image(filepath=self.annotations[idx]['normal'], dtype=torch.float32)
+        normal = load_image(
+            filepath=self.annotations[idx]['normal'], dtype=torch.float32,
+            sub=None, div=255.,
+        )
         normal = normal * 2 - 1
         return {'normal_estimation': normal}
 
@@ -114,6 +117,9 @@ class NYUv2Dataset(BaseDataset):
         return {'semantic_segmentation': semantic}
 
     def _get_edge_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        edge = load_image(filepath=self.annotations[idx]['edge'], dtype=torch.float32)
+        edge = load_image(
+            filepath=self.annotations[idx]['edge'], dtype=torch.float32,
+            sub=None, div=255.,
+        )
         edge = edge.unsqueeze(0)
         return {'edge_detection': edge}
