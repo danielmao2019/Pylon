@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Sequence, Dict, Union, Any, Optional
 import os
 import json
 import jsbeautifier
@@ -10,29 +10,68 @@ from .input_checks import check_read_file, check_write_file
 from .ops import apply_tensor_op, transpose_buffer, average_buffer
 
 
-def load_image(filepath: str, dtype: Optional[torch.dtype] = None) -> torch.Tensor:
+def load_image(
+    filepath: str,
+    dtype: Optional[torch.dtype] = None,
+    sub: Union[float, Sequence[float]] = None,
+    div: Union[float, Sequence[float]] = None,
+) -> torch.Tensor:
     # input checks
-    check_read_file(path=filepath)
-    assert type(dtype) == torch.dtype, f"{type(dtype)=}"
-    # read from disk
+    check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg'])
+    # load image
     image = Image.open(filepath)
+    # convert to torch.Tensor
+    image = _pil2torch(image)
+    # normalize image
+    image = _normalize(image, sub=sub, div=div)
+    # convert data type
+    if dtype is not None:
+        assert type(dtype) == torch.dtype, f"{type(dtype)=}"
+        image = image.type(dtype)
+    return image
+
+
+def _pil2torch(image: Image) -> torch.Tensor:
     mode = image.mode
     image = torch.from_numpy(numpy.array(image))
     # convert to torch.Tensor
     if mode == 'RGB':
         image = image.permute(2, 0, 1)
         assert image.dim() == 3 and image.shape[0] == 3, f"{image.shape=}"
-        assert image.dtype == torch.uint8, f"{image.dtype=}, {filepath=}"
+        assert image.dtype == torch.uint8, f"{image.dtype=}"
     elif mode == 'L':
         assert image.dim() == 2, f"{image.shape=}"
-        assert image.dtype == torch.uint8, f"{image.dtype=}, {filepath=}"
+        assert image.dtype == torch.uint8, f"{image.dtype=}"
     elif mode == 'I':
         assert image.dim() == 2, f"{image.shape=}"
-        assert image.dtype == torch.int32, f"{image.dtype=}, {filepath=}"
+        assert image.dtype == torch.int32, f"{image.dtype=}"
     else:
         raise NotImplementedError(f"{mode=}")
-    # convert data type
-    image = image.type(dtype)
+    return image
+
+
+def _normalize(image: torch.Tensor, sub, div) -> torch.Tensor:
+    image = image.type(torch.float32)
+    if sub is not None:
+        sub = torch.tensor(sub, dtype=torch.float32)
+        if image.dim() == 3:
+            assert sub.numel() == 3, f"{sub.shape=}"
+            sub = sub.view(3, 1, 1)
+        else:
+            assert image.dim() == 2, f"{image.shape=}"
+            assert sub.numel() == 1, f"{sub.shape=}"
+        image = image - sub
+    if div is not None:
+        div = torch.tensor(div, dtype=torch.float32)
+        if image.dim() == 3:
+            if div.numel() == 1:
+                div = torch.tensor([div]*3)
+            assert div.numel() == 3, f"{div.shape=}"
+            div = div.view(3, 1, 1)
+        else:
+            assert image.dim() == 2, f"{image.shape=}"
+            assert div.numel() == 1, f"{div.shape=}"
+        image = image / div
     return image
 
 

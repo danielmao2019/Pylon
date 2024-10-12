@@ -40,7 +40,7 @@ class CityScapesDataset(BaseDataset):
     class_map = dict(zip(valid_classes, range(19)))
     NUM_CLASSES = 19
 
-    IMAGE_MEAN = numpy.array([123.675, 116.28, 103.53])
+    IMAGE_MEAN = [123.675, 116.28, 103.53]
     DEPTH_STD = 2729.0680031169923
     DEPTH_MEAN = 0.0
 
@@ -134,18 +134,16 @@ class CityScapesDataset(BaseDataset):
     ####################################################################################################
 
     def _get_image_(self, idx: int) -> Dict[str, torch.Tensor]:
-        image = numpy.array(Image.open(self.annotations[idx]['image']), dtype=numpy.float32)
-        image = image[:, :, ::-1]
-        image -= self.IMAGE_MEAN
-        image /= 255.0
-        image = image.transpose(2, 0, 1)
-        image = torch.from_numpy(image).type(torch.float32)
-        return {'image': image}
+        return {'image': load_image(
+            filepath=self.annotations[idx]['image'], dtype=torch.float32,
+            sub=self.IMAGE_MEAN[::-1], div=255.0,
+        )}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        depth = load_image(filepath=self.annotations[idx]['depth'], dtype=torch.float32)
-        depth /= self.DEPTH_STD
-        return {'depth_estimation': depth}
+        return {'depth_estimation': load_image(
+            filepath=self.annotations[idx]['depth'], dtype=torch.float32,
+            sub=None, div=self.DEPTH_STD,
+        )}
 
     def _get_segmentation_labels_(self, idx: int) -> Dict[str, torch.Tensor]:
         # get semantic segmentation labels
