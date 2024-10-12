@@ -1,7 +1,7 @@
 from typing import Tuple, List, Dict, Any
 import os
 import torch
-from ..base_dataset import BaseDataset
+from data.datasets import BaseDataset
 from utils.io import load_image
 
 
@@ -90,7 +90,7 @@ class CelebADataset(BaseDataset):
     ####################################################################################################
     ####################################################################################################
 
-    def _load_example_(self, idx: int) -> Tuple[
+    def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         inputs = {'image': load_image(

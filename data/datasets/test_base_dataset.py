@@ -14,7 +14,7 @@ class TestDataset(BaseDataset):
         # all splits are the same
         self.annotations = list(range(100))
 
-    def _load_example_(self, idx: int) -> Tuple[
+    def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         return {'input': self.annotations[idx]}, {'label': self.annotations[idx]}, {}

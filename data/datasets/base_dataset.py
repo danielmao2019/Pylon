@@ -135,7 +135,7 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         return len(self.annotations)
 
     @abstractmethod
-    def _load_example_(self, idx: int) -> Tuple[
+    def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         r"""This method defines how inputs, labels, and meta info are loaded from disk.
@@ -148,10 +148,10 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
             labels (Dict[str, torch.Tensor]): the ground truth for the current inputs.
             meta_info (Dict[str, Any]): the meta info for the current data point.
         """
-        raise NotImplementedError("[ERROR] _load_example_ not implemented for abstract base class.")
+        raise NotImplementedError("[ERROR] _load_datapoint not implemented for abstract base class.")
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
-        inputs, labels, meta_info = self._load_example_(idx)
+        inputs, labels, meta_info = self._load_datapoint(idx)
         example = {
             'inputs': inputs,
             'labels': labels,
