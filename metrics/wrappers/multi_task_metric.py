@@ -53,7 +53,7 @@ class MultiTaskMetric(BaseMetric):
         if output_path is not None:
             check_write_file(path=output_path)
         # call summarize method of each metric
-        result: Dict[str, float] = {
+        result: Dict[str, Dict[str, torch.Tensor]] = {
             task: self.task_metrics[task].summarize(output_path=None)
             for task in self.task_names
         }

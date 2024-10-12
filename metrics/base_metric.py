@@ -19,7 +19,7 @@ class BaseMetric:
         y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
     ) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
         r"""Default __call__ method. This method assumes `_compute_score_` is implemented and both y_pred
-        and y_true are either tensors or dictionaries of one key-val pair.
+        and y_true are either tensors or dictionaries of exactly one key-val pair.
         """
         assert hasattr(self, '_compute_score_') and callable(self._compute_score_)
         # input checks
