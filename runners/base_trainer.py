@@ -232,7 +232,7 @@ class BaseTrainer:
     # ====================================================================================================
 
     @abstractmethod
-    def _set_gradients_(self, example: dict):
+    def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         raise NotImplementedError("[ERROR] _set_gradients_ not implemented for base class.")
 
     def _train_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
