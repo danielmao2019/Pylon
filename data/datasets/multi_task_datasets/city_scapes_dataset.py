@@ -3,8 +3,7 @@ import os
 import glob
 import numpy
 import torch
-from PIL import Image
-from ..base_dataset import BaseDataset
+from data.datasets import BaseDataset
 from utils.io import load_image
 
 
@@ -101,7 +100,7 @@ class CityScapesDataset(BaseDataset):
     ####################################################################################################
     ####################################################################################################
 
-    def _load_example_(self, idx: int) -> Tuple[
+    def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         r"""
@@ -111,7 +110,7 @@ class CityScapesDataset(BaseDataset):
                 'image': float32 tensor of shape (3, H, W).
             }
             labels = {
-                'depth_estimation': float32 tensor of shape (1, H, W).
+                'depth_estimation': float32 tensor of shape (H, W).
                 'semantic_segmentation': int64 tensor of shape (H, W).
                 'instance_segmentation': float32 tensor of shape (2, H, W).
             }

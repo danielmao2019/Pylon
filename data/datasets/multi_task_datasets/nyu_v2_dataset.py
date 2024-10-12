@@ -2,7 +2,7 @@ from typing import Tuple, List, Dict, Any
 import os
 import scipy
 import torch
-from ..base_dataset import BaseDataset
+from data.datasets import BaseDataset
 from utils.io import load_image
 
 
@@ -78,7 +78,7 @@ class NYUv2Dataset(BaseDataset):
     ####################################################################################################
     ####################################################################################################
 
-    def _load_example_(self, idx: int) -> Tuple[
+    def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         inputs = self._get_image_(idx)
