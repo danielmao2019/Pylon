@@ -93,7 +93,7 @@ class CelebADataset(BaseDataset):
     def _load_example_(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        inputs = {'image': load_image(filepath=self.annotations[idx][0], dtype=torch.float32)}
+        inputs = {'image': load_image(filepath=self.annotations[idx][0], dtype=torch.float32) / 255.}
         labels = {'landmarks': self.annotations[idx][1]}
         labels.update(self.annotations[idx][2])
         meta_info = {
