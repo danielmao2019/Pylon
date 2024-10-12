@@ -1,3 +1,4 @@
+from typing import Dict, Any
 import torch
 import optimizers
 from .base_trainer import BaseTrainer
@@ -53,5 +54,5 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
             optimizer=self.optimizer.optimizer, config=self.config['scheduler'],
         )
 
-    def _set_gradients_(self, example: dict):
-        self.optimizer.backward(losses=example['losses'], shared_rep=example['outputs']['shared_rep'])
+    def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
+        self.optimizer.backward(losses=dp['losses'], shared_rep=dp['outputs']['shared_rep'])
