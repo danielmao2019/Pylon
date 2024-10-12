@@ -33,6 +33,7 @@ class BaseMetric:
         assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
         # compute score
         score = self._compute_score_(y_pred=y_pred, y_true=y_true)
+        score = score.detach().cpu()
         self.buffer.append(score)
         return score
 
