@@ -1,13 +1,19 @@
-from typing import Any, Optional
+from typing import List, Union, Any, Optional
 import os
 
 
-def check_read_file(path: Any, ext: Optional[str] = None) -> str:
+def check_read_file(
+    path: Any,
+    ext: Optional[Union[str, List[str]]] = None,
+) -> str:
     assert type(path) == str, f"{type(path)=}"
     assert os.path.isfile(path), f"{path=}"
     if ext is not None:
-        assert type(ext) == str, f"{type(ext)=}"
-        assert path.endswith(ext), f"{path=}"
+        if type(ext) == str:
+            ext = [ext]
+        assert type(ext) == list, f"{type(ext)=}"
+        assert all([type(elem) == str for elem in ext]), f"{ext=}"
+        assert any([path.endswith(e) for e in ext]), f"{path=}, {ext=}"
     return path
 
 
