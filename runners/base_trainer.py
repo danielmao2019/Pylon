@@ -315,8 +315,7 @@ class BaseTrainer:
             return
         # initialize epoch root directory
         epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
-        if not os.path.isdir(epoch_root):
-            os.makedirs(epoch_root)
+        os.makedirs(epoch_root, exist_ok=True)
         # save training losses to disk
         self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
         # save checkpoint to disk
@@ -365,8 +364,7 @@ class BaseTrainer:
             return
         # initialize epoch root directory
         epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
-        if not os.path.isdir(epoch_root):
-            os.makedirs(epoch_root)
+        os.makedirs(epoch_root, exist_ok=True)
         # save validation scores to disk
         self.metric.summarize(output_path=os.path.join(epoch_root, "validation_scores.json"))
         # set best checkpoint
@@ -418,8 +416,7 @@ class BaseTrainer:
             return
         # initialize test results directory
         test_root = os.path.join(self.work_dir, "test")
-        if not os.path.isdir(test_root):
-            os.makedirs(test_root)
+        os.makedirs(test_root, exist_ok=True)
         # save test results to disk
         results = {
             'scores': serialize_tensor(self.metric.summarize()),
@@ -427,32 +424,6 @@ class BaseTrainer:
         }
         with open(os.path.join(test_root, "test_results.json"), mode='w') as f:
             f.write(jsbeautifier.beautify(json.dumps(results), jsbeautifier.default_options()))
-
-    # ====================================================================================================
-    # ====================================================================================================
-
-    def is_running(self, wait_time: float) -> bool:
-        logs = glob.glob(os.path.join(self.work_dir, "train_val*.log"))
-        if len(logs) == 0:
-            return False
-        return time.time() - max([os.path.getmtime(fp) for fp in logs]) <= wait_time
-
-    def has_finished(self) -> bool:
-        # check train/val
-        for idx in range(self.tot_epochs):
-            epoch_finished = all([
-                os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", filename))
-                for filename in self.expected_files
-            ])
-            if not epoch_finished:
-                return False
-        # check test
-        if not os.path.isfile(os.path.join(self.work_dir, "test", "test_results.json")):
-            return False
-        return True
-
-    def has_failed(self, wait_time: float) -> bool:
-        return not self.is_running(wait_time=wait_time) and not self.has_finished()
 
     # ====================================================================================================
     # ====================================================================================================
@@ -469,10 +440,6 @@ class BaseTrainer:
         self._init_state_()
 
     def train(self):
-        # skip if finished
-        if self.has_finished():
-            print("Session already finished.")
-            return
         # initialize run
         self._init_components_()
         start_epoch = self.cum_epochs
