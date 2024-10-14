@@ -2,14 +2,14 @@
 """
 from typing import Tuple, List, Dict, Any
 import torch
-from metrics.base_metric import BaseMetric
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.object_detection import pairwise_iou
 from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer
 from utils.io import save_json
 
 
-class ObjectDetectionMetric(BaseMetric):
+class ObjectDetectionMetric(SingleTaskMetric):
 
     AREA_RANGES = {
         "all": [0**2, 1e5**2],
@@ -120,25 +120,24 @@ class ObjectDetectionMetric(BaseMetric):
     def reduce(scores: Dict[str, Dict[str, Any]]) -> torch.Tensor:
         return scores['gt_overlaps_all@1000']['AR']
 
-    def summarize(self, output_path: str = None) -> Dict[str, Any]:
+    def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
+        assert len(self.buffer) != 0
+        result: Dict[str, Any] = {}
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+        thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
+        for key in buffer:
+            key_scores = torch.cat(buffer[key], dim=0)
+            assert key_scores.ndim == 1, f"{key_scores.shape=}"
+            recalls = torch.tensor([(key_scores >= t).type(torch.float32).mean() for t in thresholds])
+            result[key] =  {
+                "AR": recalls.mean(),
+                "recalls": recalls,
+                "thresholds": thresholds,
+            }
+        # log reduction
+        assert 'reduced' not in result, f"{result.keys()=}"
+        result['reduced'] = self.reduce(result)
         if output_path is not None:
             check_write_file(path=output_path)
-        result: Dict[str, Any] = {}
-        if len(self.buffer) != 0:
-            buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
-            thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
-            for key in buffer:
-                key_scores = torch.cat(buffer[key], dim=0)
-                assert key_scores.ndim == 1, f"{key_scores.shape=}"
-                recalls = torch.tensor([(key_scores >= t).type(torch.float32).mean() for t in thresholds])
-                result[key] =  {
-                    "AR": recalls.mean(),
-                    "recalls": recalls,
-                    "thresholds": thresholds,
-                }
-            # log reduction
-            assert 'reduced' not in result, f"{result.keys()=}"
-            result['reduced'] = self.reduce(result)
-        if output_path is not None:
             save_json(obj=result, filepath=output_path)
         return result

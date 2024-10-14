@@ -14,7 +14,7 @@ class ConfusionMatrix(BaseMetric):
         assert num_classes > 0, f"{num_classes=}"
         self.num_classes = num_classes
 
-    def _compute_score_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         # input check
         assert y_pred.ndim == 2, f"{y_pred.shape=}"
         assert y_true.ndim == 1, f"{y_true.shape=}"

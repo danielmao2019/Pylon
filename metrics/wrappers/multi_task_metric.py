@@ -24,7 +24,7 @@ class MultiTaskMetric(BaseMetric):
         for metric in self.task_metrics.values():
             metric.reset_buffer()
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, Dict[str, torch.Tensor]]:
         r"""Call each metric.
         """
         # input checks
@@ -32,15 +32,15 @@ class MultiTaskMetric(BaseMetric):
         assert set(y_pred.keys()) & set(y_true.keys()) == set(self.task_names), \
             f"{set(y_pred.keys())=}, {set(y_true.keys())=}, {set(self.task_names)=}"
         # compute score for each task
-        scores: Dict[str, torch.Tensor] = dict(
-            (task, self.task_metrics[task](y_pred=y_pred[task], y_true=y_true[task]))
+        scores: Dict[str, Dict[str, torch.Tensor]] = {
+            task: self.task_metrics[task](y_pred=y_pred[task], y_true=y_true[task])
             for task in self.task_names
-        )
+        }
         return scores
 
     @staticmethod
     def reduce(scores: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
-        reduced = {
+        reduced: Dict[str, torch.Tensor] = {
             task: scores[task]['reduced'] for task in scores.keys()
         }
         reduced = torch.stack(list(reduced.values()))
@@ -50,8 +50,7 @@ class MultiTaskMetric(BaseMetric):
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, float]:
         r"""Summarize each metric.
         """
-        if output_path is not None:
-            check_write_file(path=output_path)
+        assert len(self.buffer) != 0
         # call summarize method of each metric
         result: Dict[str, Dict[str, torch.Tensor]] = {
             task: self.task_metrics[task].summarize(output_path=None)
@@ -62,5 +61,6 @@ class MultiTaskMetric(BaseMetric):
         result['reduced'] = self.reduce(result)
         # save to disk
         if output_path is not None:
+            check_write_file(path=output_path)
             save_json(obj=result, filepath=output_path)
         return result
