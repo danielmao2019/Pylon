@@ -6,6 +6,8 @@ from utils.input_checks import check_normal_estimation
 
 class NormalEstimationMetric(SingleTaskMetric):
 
+    DIRECTION = -1
+
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         r"""
         Args:

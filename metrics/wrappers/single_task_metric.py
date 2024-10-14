@@ -8,6 +8,8 @@ from utils.io import save_json
 
 class SingleTaskMetric(BaseMetric):
 
+    DIRECTION: int
+
     def __call__(
         self,
         y_pred: Union[torch.Tensor, Dict[str, torch.Tensor]],
