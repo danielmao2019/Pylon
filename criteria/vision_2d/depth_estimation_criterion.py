@@ -1,11 +1,11 @@
 import torch
-from ..base_criterion import BaseCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.input_checks import check_depth_estimation
 
 
-class DepthEstimationCriterion(BaseCriterion):
+class DepthEstimationCriterion(SingleTaskCriterion):
 
-    def _compute_loss_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         # input checks
         check_depth_estimation(y_pred=y_pred, y_true=y_true)
         y_pred = y_pred.squeeze(1)

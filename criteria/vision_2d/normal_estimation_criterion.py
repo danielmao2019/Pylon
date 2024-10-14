@@ -1,11 +1,11 @@
 import torch
-from ..base_criterion import BaseCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.input_checks import check_normal_estimation
 
 
-class NormalEstimationCriterion(BaseCriterion):
+class NormalEstimationCriterion(SingleTaskCriterion):
 
-    def _compute_loss_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""
         Args:
             y_pred (torch.Tensor): a float32 tensor of shape (N, 3, H, W) for the (unnormalized) predicted normals.
