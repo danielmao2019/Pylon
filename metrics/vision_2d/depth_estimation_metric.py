@@ -15,5 +15,5 @@ class DepthEstimationMetric(BaseMetric):
         numerator = ((y_pred[mask] - y_true[mask]) ** 2).sum()
         denominator = mask.sum()
         score = numerator / denominator
-        assert score.dim() == 0, f"{score.shape=}"
+        assert score.ndim == 0, f"{score.shape=}"
         return score

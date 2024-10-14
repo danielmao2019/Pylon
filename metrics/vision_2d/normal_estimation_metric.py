@@ -22,5 +22,5 @@ class NormalEstimationMetric(BaseMetric):
         assert valid_mask.shape == cosine_map.shape
         cosine_map = cosine_map.masked_select(valid_mask)
         score = torch.rad2deg(torch.acos(cosine_map)).mean()
-        assert score.dim() == 0, f"{score.shape=}"
+        assert score.ndim == 0, f"{score.shape=}"
         return score

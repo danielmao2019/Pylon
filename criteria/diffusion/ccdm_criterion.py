@@ -23,7 +23,7 @@ class CCDMCriterion(BaseCriterion):
     def theta_post(self, diffused_mask: torch.Tensor, original_mask: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
         # input checks
         assert len(diffused_mask) == len(original_mask) == len(time), f"{diffused_mask.shape=}, {original_mask=}, {time=}"
-        assert diffused_mask.dim() == original_mask.dim() + 1, f"{diffused_mask.shape=}, {original_mask.shape=}"
+        assert diffused_mask.ndim == original_mask.ndim + 1, f"{diffused_mask.shape=}, {original_mask.shape=}"
         assert diffused_mask.dtype == original_mask.dtype == time.dtype == torch.int64, f"{diffused_mask.dtype=}, {original_mask.dtype=}, {time.dtype=}"
         assert 0 <= time.min() <= time.max() < self.num_steps, f"{time=}, {self.num_steps=}"
         # transform original mask into one-hot encoding
@@ -62,6 +62,6 @@ class CCDMCriterion(BaseCriterion):
             reduction='mean',
         )
         assert not loss.isnan(), f"{y_pred.min()=}, {y_pred.max()=}, {prob_xtm1_given_xt_x0.min()=}, {prob_xtm1_given_xt_x0.max()=}"
-        assert loss.dim() == 0, f"{loss.shape=}"
+        assert loss.ndim == 0, f"{loss.shape=}"
         self.buffer.append(loss)
         return loss
