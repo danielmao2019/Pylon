@@ -1,11 +1,22 @@
 import torch
-from metrics.base_metric import BaseMetric
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_depth_estimation
 
 
-class DepthEstimationMetric(BaseMetric):
+class DepthEstimationMetric(SingleTaskMetric):
 
-    def _compute_score_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        r"""
+        Args:
+            y_pred (torch.Tensor)
+            y_true (torch.Tensor)
+
+        Returns:
+            score (Dict[str, torch.Tensor]): a dictionary with the following fields
+            {
+                'l1': a single-element tensor representing the l1 distance between pred and true.
+            }
+        """
         # input checks
         check_depth_estimation(y_pred=y_pred, y_true=y_true)
         y_pred = y_pred.squeeze(1)
@@ -16,4 +27,4 @@ class DepthEstimationMetric(BaseMetric):
         denominator = mask.sum()
         score = numerator / denominator
         assert score.ndim == 0, f"{score.shape=}"
-        return score
+        return {'l1': score}

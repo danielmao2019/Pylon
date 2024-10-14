@@ -1,18 +1,23 @@
+from typing import Dict
 import torch
-from metrics.base_metric import BaseMetric
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_normal_estimation
 
 
-class NormalEstimationMetric(BaseMetric):
+class NormalEstimationMetric(SingleTaskMetric):
 
-    def _compute_score_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         r"""
         Args:
             y_pred (torch.Tensor): a float32 tensor of shape (N, 3, H, W) for the (unnormalized) predicted normals.
             y_true (torch.Tensor): a float32 tensor of shape (N, 3, H, W) for the (unnormalized) ground truth normals.
 
         Returns:
-            score (torch.Tensor): a single-element tensor representing the score for normal estimation.
+            score (Dict[str, torch.Tensor]): a dictionary with the following fields
+            {
+                'angle': a single-element tensor representing the angle
+                    between pred and true normal vectors.
+            }
         """
         # input checks
         check_normal_estimation(y_pred=y_pred, y_true=y_true)
@@ -23,4 +28,4 @@ class NormalEstimationMetric(BaseMetric):
         cosine_map = cosine_map.masked_select(valid_mask)
         score = torch.rad2deg(torch.acos(cosine_map)).mean()
         assert score.ndim == 0, f"{score.shape=}"
-        return score
+        return {'angle': score}

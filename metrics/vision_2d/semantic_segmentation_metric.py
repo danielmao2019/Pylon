@@ -1,12 +1,12 @@
 from typing import Dict
 import torch
 import torchvision
-from metrics.base_metric import BaseMetric
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file, check_semantic_segmentation
 from utils.io import save_json
 
 
-class SemanticSegmentationMetric(BaseMetric):
+class SemanticSegmentationMetric(SingleTaskMetric):
 
     def __init__(self, num_classes: int, ignore_index: int) -> None:
         super(SemanticSegmentationMetric, self).__init__()
@@ -15,14 +15,17 @@ class SemanticSegmentationMetric(BaseMetric):
         self.num_classes = num_classes
         self.ignore_index= ignore_index
 
-    def _compute_score_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         r"""
         Args:
             y_pred (torch.Tensor): a float32 tensor of shape (N, C, H, W) for predicted logits.
             y_true (torch.Tensor): an int64 tensor of shape (N, H, W) for ground-truth mask.
 
         Return:
-            score (torch.Tensor): 1D tensor of length `self.num_classes` representing the IoU scores for each class.
+            score (Dict[str, torch.Tensor]): a dictionary with the following fields
+            {
+                'IoU': a 1D tensor of length `self.num_classes` representing the IoU scores for each class.
+            }
         """
         # input checks
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
@@ -55,7 +58,7 @@ class SemanticSegmentationMetric(BaseMetric):
             f"{score.tolist()=}, {nan_mask.tolist()=}, {(score[nan_mask] == 0)=}, {torch.isnan(score[nan_mask])=}"
         score[nan_mask] = float('nan')
         assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
-        return score
+        return {'IoU': score}
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         r"""This functions summarizes the semantic segmentation evaluation results on all examples
