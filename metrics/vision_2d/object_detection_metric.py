@@ -11,6 +11,8 @@ from utils.io import save_json
 
 class ObjectDetectionMetric(SingleTaskMetric):
 
+    DIRECTION = +1
+
     AREA_RANGES = {
         "all": [0**2, 1e5**2],
         "small": [0**2, 32**2],

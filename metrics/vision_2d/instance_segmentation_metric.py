@@ -5,6 +5,8 @@ from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 class InstanceSegmentationMetric(SingleTaskMetric):
 
+    DIRECTION = -1
+
     def __init__(self, ignore_index: int):
         super().__init__()
         self.ignore_index = ignore_index

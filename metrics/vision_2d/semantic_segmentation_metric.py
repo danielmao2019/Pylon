@@ -8,6 +8,8 @@ from utils.io import save_json
 
 class SemanticSegmentationMetric(SingleTaskMetric):
 
+    DIRECTION = +1
+
     def __init__(self, num_classes: int, ignore_index: int) -> None:
         super(SemanticSegmentationMetric, self).__init__()
         assert type(num_classes) == int, f"{type(num_classes)=}"
