@@ -129,7 +129,7 @@ class ObjectDetectionMetric(BaseMetric):
             thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
             for key in buffer:
                 key_scores = torch.cat(buffer[key], dim=0)
-                assert key_scores.dim() == 1, f"{key_scores.shape=}"
+                assert key_scores.ndim == 1, f"{key_scores.shape=}"
                 recalls = torch.tensor([(key_scores >= t).type(torch.float32).mean() for t in thresholds])
                 result[key] =  {
                     "AR": recalls.mean(),
