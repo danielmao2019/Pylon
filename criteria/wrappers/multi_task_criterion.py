@@ -40,8 +40,7 @@ class MultiTaskCriterion(BaseCriterion):
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, torch.Tensor]:
         r"""Summarize each criterion.
         """
-        if output_path is not None:
-            check_write_file(path=output_path)
+        assert len(self.buffer) != 0
         # call summarize method of each criterion
         result: Dict[str, torch.Tensor] = {
             task: self.task_criteria[task].summarize(output_path=None)
@@ -49,5 +48,6 @@ class MultiTaskCriterion(BaseCriterion):
         }
         # save to disk
         if output_path is not None:
+            check_write_file(path=output_path)
             torch.save(obj=result, f=output_path)
         return result

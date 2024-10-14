@@ -1,11 +1,11 @@
 from typing import Tuple, Optional
 import torch
 import torchvision
-from ..base_criterion import BaseCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
-class SemanticSegmentationCriterion(BaseCriterion):
+class SemanticSegmentationCriterion(SingleTaskCriterion):
 
     def __init__(self, ignore_index: int, weight: Optional[Tuple[float, ...]] = None) -> None:
         super(SemanticSegmentationCriterion, self).__init__()
@@ -15,7 +15,7 @@ class SemanticSegmentationCriterion(BaseCriterion):
             ignore_index=ignore_index, weight=weight, reduction='mean',
         )
 
-    def _compute_loss_(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""
         Args:
             y_pred (torch.Tensor): a float32 tensor of shape (N, C, H, W) for predicted logits.
