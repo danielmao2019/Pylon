@@ -164,18 +164,29 @@ class Agent:
         for server in self.servers:
             cmd = ' '.join([
                 'nvidia-smi', '--query-gpu=index,utilization.gpu', '--format=csv,noheader',
+                '&&',
+                'echo', '-'*10,
+                '&&',
+                'nvidia-smi', '--query-gpu=index,memory.free', '--format=csv,noheader',
             ])
             cmd = f"ssh {server} '" + cmd + "'"
             outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
-            gpu_util = Agent._parse_csv(outputs)
-            for gpu_idx in gpu_util:
-                assert len(gpu_util[gpu_idx]) == 1
-                util = gpu_util[gpu_idx][0]
+            outputs = outputs.split('-'*10)
+            assert len(outputs) == 2, f"{outputs=}"
+            gpu_util = Agent._parse_csv(outputs[0])
+            gpu_fmem = Agent._parse_csv(outputs[1])
+            assert set(gpu_util.keys()) == set(gpu_fmem.keys())
+            for gpu_index in gpu_util:
+                assert len(gpu_util[gpu_index]) == 1
+                util = gpu_util[gpu_index][0]
                 util = int(util.split('%')[0])
-                if util < 50:
+                assert len(gpu_fmem[gpu_index]) == 1
+                fmem = gpu_fmem[gpu_index][0]
+                fmem = int(fmem.split('MiB')[0])
+                if util < 50 and fmem > 10 * 1024:
                     all_idle_gpus.append({
                         'server': server,
-                        'gpu_index': gpu_idx,
+                        'gpu_index': gpu_index,
                     })
         return all_idle_gpus
 
