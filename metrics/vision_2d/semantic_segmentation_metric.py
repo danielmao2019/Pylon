@@ -1,9 +1,10 @@
-from typing import Dict
+from typing import List, Dict
 import torch
 import torchvision
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file, check_semantic_segmentation
 from utils.io import save_json
+from utils.ops import transpose_buffer
 
 
 class SemanticSegmentationMetric(SingleTaskMetric):
@@ -66,18 +67,20 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         r"""This functions summarizes the semantic segmentation evaluation results on all examples
         seen so far into a single floating point number.
         """
-        result: Dict[str, torch.Tensor] = {}
         assert len(self.buffer) != 0
-        score = torch.stack(self.buffer, dim=0)
-        assert score.shape == (len(self.buffer), self.num_classes), f"{score.shape=}"
-        # log IoU per class
-        score = torch.nanmean(score, dim=0)
-        assert score.shape == (self.num_classes,), f"{score.shape=}"
-        result['IoU_per_class'] = score
-        # log IoU average
-        score = torch.nanmean(score)
-        assert score.shape == (), f"{score.shape=}"
-        result['IoU_average'] = score
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+        # summarize scores
+        result: Dict[str, torch.Tensor] = {}
+        iou = torch.stack(buffer['IoU'], dim=0)
+        assert iou.shape == (len(self.buffer), self.num_classes), f"{iou.shape=}"
+        # log class IoU
+        class_iou = torch.nanmean(iou, dim=0)
+        assert class_iou.shape == (self.num_classes,), f"{class_iou.shape=}"
+        result['class_IoU'] = class_iou
+        # log mean IoU
+        mean_iou = torch.nanmean(class_iou)
+        assert mean_iou.shape == (), f"{mean_iou.shape=}"
+        result['mean_IoU'] = mean_iou
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
