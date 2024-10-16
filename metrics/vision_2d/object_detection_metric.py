@@ -118,10 +118,6 @@ class ObjectDetectionMetric(SingleTaskMetric):
         self.buffer.append(scores)
         return scores
 
-    @staticmethod
-    def reduce(scores: Dict[str, Dict[str, Any]]) -> torch.Tensor:
-        return scores['gt_overlaps_all@1000']['AR']
-
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         assert len(self.buffer) != 0
         result: Dict[str, Any] = {}
@@ -136,9 +132,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
                 "recalls": recalls,
                 "thresholds": thresholds,
             }
-        # log reduction
-        assert 'reduced' not in result, f"{result.keys()=}"
-        result['reduced'] = self.reduce(result)
+        # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
             save_json(obj=result, filepath=output_path)

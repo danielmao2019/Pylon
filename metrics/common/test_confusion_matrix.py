@@ -64,7 +64,6 @@ def test_confusion_matrix_call(y_pred, y_true, num_classes, expected) -> None:
         'per_class_recall': torch.tensor([float('nan'), 0/1, float('nan'), 0/2, 0/2, 1/1, float('nan'), 0/2, float('nan'), float('nan')], dtype=torch.float32),
         'per_class_f1': torch.tensor([float('nan'), 0/5, float('nan'), 0/2, 0/2, 2/5, float('nan'), 0/2, float('nan'), float('nan')], dtype=torch.float32),
         'accuracy': torch.tensor(1/8, dtype=torch.float32),
-        'reduced': torch.tensor(1/8, dtype=torch.float32),
     }),
 ])
 def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expected) -> None:

@@ -368,14 +368,18 @@ class BaseTrainer:
         # save validation scores to disk
         self.metric.summarize(output_path=os.path.join(epoch_root, "validation_scores.json"))
         # set best checkpoint
-        best_checkpoint: str = self._find_best_checkpoint_()
-        soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
-        if os.path.isfile(soft_link):
-            os.system(' '.join(["rm", soft_link]))
-        os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
+        try:
+            best_checkpoint: str = self._find_best_checkpoint_()
+            soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
+            if os.path.isfile(soft_link):
+                os.system(' '.join(["rm", soft_link]))
+            os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
+        except:
+            best_checkpoint = None
         # cleanup checkpoints
         checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-        checkpoints.remove(best_checkpoint)
+        if best_checkpoint is not None:
+            checkpoints.remove(best_checkpoint)
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
         if latest_checkpoint in checkpoints:
             checkpoints.remove(latest_checkpoint)
