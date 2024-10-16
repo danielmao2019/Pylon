@@ -4,6 +4,7 @@ import subprocess
 import time
 import glob
 import json
+import random
 import torch
 import matplotlib.pyplot as plt
 import tqdm
@@ -21,7 +22,7 @@ class Agent:
         servers: List[str],
         expected_files: Dict[str, List[str]],
         epochs: int = 100,
-        sleep_time: Optional[int] = 300,
+        sleep_time: Optional[int] = 180,
     ) -> None:
         r"""
         Args:
@@ -161,11 +162,21 @@ class Agent:
         """
         all_idle_gpus: List[Dict[str, Any]] = []
         for server in self.servers:
-            gpu_pids = Agent._get_gpu_pids(server)
-            for gpu_index in range(len(gpu_pids)):
-                idle: bool = len(gpu_pids[gpu_index]) == 0
-                if idle:
-                    all_idle_gpus.append({'server': server, 'gpu_index': gpu_index})
+            cmd = ' '.join([
+                'nvidia-smi', '--query-gpu=index,utilization.gpu', '--format=csv,noheader',
+            ])
+            cmd = f"ssh {server} '" + cmd + "'"
+            outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
+            gpu_util = Agent._parse_csv(outputs)
+            for gpu_idx in gpu_util:
+                assert len(gpu_util[gpu_idx]) == 1
+                util = gpu_util[gpu_idx][0]
+                util = int(util.split('%')[0])
+                if util < 50:
+                    all_idle_gpus.append({
+                        'server': server,
+                        'gpu_index': gpu_idx,
+                    })
         return all_idle_gpus
 
     # ====================================================================================================
@@ -182,6 +193,7 @@ class Agent:
             work_dir = Agent._get_work_dir(config_file)
             if not os.path.isdir(work_dir) or self._has_failed(work_dir):
                 result.append(config_file)
+        random.shuffle(result)
         return result
 
     def _launch_missing(self) -> bool:
@@ -207,6 +219,8 @@ class Agent:
                     '"',
                         # navigate to project dir
                         'cd', self.project_dir, '&&',
+                        # pull latest code
+                        'git', 'checkout', 'main', '&&', 'git', 'pull', '&&',
                         # conda environment
                         'source', '~/miniconda3/bin/activate', self.conda_env, '&&',
                         # launch command
@@ -215,8 +229,7 @@ class Agent:
                     '"',
                 "'",
             ])
-            self.logger.info("Running command:")
-            self.logger.info(cmd)
+            self.logger.info(f"Running command: {cmd}")
             os.system(cmd)
         return False
 
@@ -298,6 +311,7 @@ class Agent:
             if done:
                 self.logger.info("All done.")
                 break
+            self.logger.info("Sleeping...")
             time.sleep(self.sleep_time)
 
     # ====================================================================================================
