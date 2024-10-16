@@ -41,6 +41,7 @@ def test_base_dataset_all(
     dataset = TestDataset(split=None, indices=indices)
     assert hasattr(dataset, 'split_subsets')
     for option in ['train', 'val', 'test', 'weird']:
+        assert not hasattr(dataset.split_subsets[option], 'split_subsets')
         split_subset = dataset.split_subsets[option]
         assert list(split_subset[idx]['inputs']['input'] for idx in range(len(split_subset))) == expected[option]
         assert list(split_subset[idx]['labels']['label'] for idx in range(len(split_subset))) == expected[option]
@@ -61,13 +62,14 @@ def test_base_dataset_all(
     ),
 ])
 def test_base_dataset_split(
-    split: Optional[Union[str, Tuple[float, ...]]],
+    split: Tuple[float, ...],
     indices: Optional[Union[List[int], Dict[str, List[int]]]],
     expected: Dict[str, int],
 ) -> None:
     dataset = TestDataset(split=split, indices=indices)
     assert hasattr(dataset, 'split_subsets')
     for option in ['train', 'val', 'test', 'weird']:
+        assert not hasattr(dataset.split_subsets[option], 'split_subsets')
         assert len(dataset.split_subsets[option]) == expected[option], \
             f"{option=}, {len(dataset.split_subsets[option])=}, {expected[option]=}"
     assert set.intersection(*[set(
