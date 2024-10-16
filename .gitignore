@@ -3,3 +3,5 @@ logs
 wandb
 data/datasets/soft_links
 data/datasets/test_data*
+agent.py
+agent.log
