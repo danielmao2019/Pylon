@@ -7,6 +7,7 @@ import json
 import torch
 import matplotlib.pyplot as plt
 import tqdm
+import utils
 from utils.ops import transpose_buffer
 
 
@@ -36,6 +37,7 @@ class Agent:
         self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
+        self.logger = utils.logging.Logger(filepath="./agent.log")
 
     # ====================================================================================================
     # session status checking
@@ -186,7 +188,7 @@ class Agent:
             return True
         gpu_pool: List[Dict[str, Any]] = self._find_idle_gpus()
         if len(gpu_pool) == 0:
-            print("Waiting for idle GPU...")
+            self.logger.info("Waiting for idle GPU...")
             return False
         num_launch = min(len(gpu_pool), len(missing_runs))
         gpu_pool = gpu_pool[:num_launch]
@@ -204,13 +206,11 @@ class Agent:
                         # launch command
                         f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
                         'python', 'main.py', '--config-filepath', run,
-                        # keep tmux session running
-                        ';', 'exec', 'bash',
                     '"',
                 "'",
             ])
-            print("Running command:")
-            print(cmd)
+            self.logger.info("Running command:")
+            self.logger.info(cmd)
             os.system(cmd)
         return False
 
@@ -290,7 +290,7 @@ class Agent:
         while True:
             done = self._launch_missing()
             if done:
-                print("All done.")
+                self.logger.info("All done.")
                 break
             time.sleep(self.sleep_time)
 
