@@ -33,7 +33,6 @@ class SingleTaskMetric(BaseMetric):
         assert type(score) == dict, f"{type(score)=}"
         assert all([type(k) == str for k in score.keys()])
         assert all([type(v) == torch.Tensor for v in score.values()])
-        assert all([v.ndim == 0 for v in score.values()])
         score = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=score)
         # log score
         self.buffer.append(score)
@@ -49,9 +48,6 @@ class SingleTaskMetric(BaseMetric):
             key_scores = torch.stack(result[key], dim=0)
             assert key_scores.ndim == 1, f"{key_scores.shape=}"
             result[key] = key_scores.mean()
-        # log reduction
-        assert 'reduced' not in result, f"{result.keys()=}"
-        result['reduced'] = self.reduce(result)
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
