@@ -29,6 +29,7 @@ class NYUv2Dataset(BaseDataset):
     SPLIT_OPTIONS = ['train', 'val']
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
+    SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
 
     ####################################################################################################
     ####################################################################################################
