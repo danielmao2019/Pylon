@@ -44,6 +44,9 @@ class Agent:
     # ====================================================================================================
 
     def _is_running(self, work_dir: str) -> bool:
+        # input checks
+        assert os.path.isdir(work_dir), f"{work_dir=}"
+        # determine if session is running
         logs = glob.glob(os.path.join(work_dir, "train_val*.log"))
         if len(logs) == 0:
             return False
@@ -51,7 +54,9 @@ class Agent:
         return time.time() - last_update <= self.sleep_time
 
     def _has_finished(self, work_dir: str) -> bool:
-        # check train/val
+        # input checks
+        assert os.path.isdir(work_dir), f"{work_dir=}"
+        # determine if session has finished
         for idx in range(self.epochs):
             epoch_finished = all([
                 os.path.isfile(os.path.join(work_dir, f"epoch_{idx}", filename))
@@ -70,10 +75,12 @@ class Agent:
 
     @staticmethod
     def _parse_csv(outputs: str) -> Dict[str, List[str]]:
+        result: Dict[str, List[str]] = {}
+        if outputs == "":
+            return result
         outputs: List[str] = outputs.strip().split('\n')
         outputs: List[List[str]] = [line.strip().split(',') for line in outputs]
         outputs: List[List[str]] = [[cell.strip() for cell in line] for line in outputs]
-        result: Dict[str, List[str]] = {}
         for line in outputs:
             assert len(line) == 2, f"{line=}"
             result[line[0]] = result.get(line[0], []) + [line[1]]
@@ -90,7 +97,7 @@ class Agent:
         ])
         cmd = f"ssh {server} '" + cmd + "'"
         outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
-        outputs = outputs.split('\n'+'-'*10+'\n')
+        outputs = outputs.split('-'*10)
         assert len(outputs) == 2, f"{outputs=}"
         idx2uuid: Dict[str, List[str]] = Agent._parse_csv(outputs[0])
         uuid2pid: Dict[str, List[str]] = Agent._parse_csv(outputs[1])
@@ -173,8 +180,7 @@ class Agent:
         result: List[str] = []
         for config_file in self.config_files:
             work_dir = Agent._get_work_dir(config_file)
-            assert os.path.isdir(work_dir), f"{work_dir=}"
-            if self._has_failed(work_dir):
+            if not os.path.isdir(work_dir) or self._has_failed(work_dir):
                 result.append(config_file)
         return result
 
