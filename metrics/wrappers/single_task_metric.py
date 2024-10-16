@@ -42,10 +42,11 @@ class SingleTaskMetric(BaseMetric):
         r"""This method averages scores across all data points in buffer.
         """
         assert len(self.buffer) != 0
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
         # summarize scores
-        result: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
-        for key in result:
-            key_scores = torch.stack(result[key], dim=0)
+        result: Dict[str, torch.Tensor] = {}
+        for key in buffer:
+            key_scores = torch.stack(buffer[key], dim=0)
             assert key_scores.ndim == 1, f"{key_scores.shape=}"
             result[key] = key_scores.mean()
         # save to disk
