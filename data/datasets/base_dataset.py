@@ -5,7 +5,7 @@ import copy
 import subprocess
 import random
 import torch
-from ..transforms.compose import Compose
+from data.transforms.compose import Compose
 from utils.input_checks import check_read_dir
 from utils.builder import build_from_config
 
@@ -23,7 +23,12 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         split: Optional[Union[str, Tuple[float, ...]]] = None,
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
+        use_cache: Optional[bool] = True,
     ) -> None:
+        r"""
+        Args:
+            use_cache (bool): controls whether loaded data points stays in RAM. Default: True.
+        """
         # input checks
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
@@ -31,6 +36,10 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         self._sanity_check()
         # initialize
         super(BaseDataset, self).__init__()
+        if use_cache:
+            self.cache: List[Dict[str, Dict[str, Any]]] = []
+        else:
+            self.cache = None
         self._init_transforms_(transforms_cfg=transforms_cfg)
         self._init_annotations_all_(split=split, indices=indices)
 
@@ -151,11 +160,18 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         raise NotImplementedError("[ERROR] _load_datapoint not implemented for abstract base class.")
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
-        inputs, labels, meta_info = self._load_datapoint(idx)
-        example = {
-            'inputs': inputs,
-            'labels': labels,
-            'meta_info': meta_info,
-        }
-        example = self.transforms(example)
-        return example
+        if self.cache is None or idx >= len(self.cache) or self.cache[idx] is None:
+            inputs, labels, meta_info = self._load_datapoint(idx)
+            datapoint = {
+                'inputs': inputs,
+                'labels': labels,
+                'meta_info': meta_info,
+            }
+            datapoint = self.transforms(datapoint)
+            if self.cache is not None:
+                if idx >= len(self.cache):
+                    self.cache += [None] * (idx - len(self.cache) + 1)
+                self.cache[idx] = copy.deepcopy(datapoint)
+        else:
+            datapoint = copy.deepcopy(self.cache[idx])
+        return datapoint

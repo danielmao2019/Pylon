@@ -76,3 +76,12 @@ def test_base_dataset_split(
             dataset.split_subsets[option][idx]['labels']['label'],
         ) for idx in range(len(dataset.split_subsets[option]))
     ) for option in ['train', 'val', 'test', 'weird']]) == set()
+
+
+def test_base_dataset_cache():
+    dataset_cached = TestDataset(split='train', indices=list(range(10)), use_cache=True)
+    dataset = TestDataset(split='train', indices=list(range(10)), use_cache=False)
+    assert len(dataset_cached) == len(dataset) == 10
+    for _ in range(2):
+        for idx in range(10):
+            assert dataset_cached[idx] == dataset[idx]
