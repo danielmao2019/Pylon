@@ -1,7 +1,6 @@
 from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
-import numpy
 import torch
 from data.datasets import BaseDataset
 from utils.io import load_image
