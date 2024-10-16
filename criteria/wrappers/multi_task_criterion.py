@@ -30,7 +30,7 @@ class MultiTaskCriterion(BaseCriterion):
         assert type(y_pred) == type(y_true) == dict, f"{type(y_pred)=}, {type(y_true)=}"
         assert set(y_pred.keys()) & set(y_true.keys()) == set(self.task_names), \
             f"{set(y_pred.keys())=}, {set(y_true.keys())=}, {set(self.task_names)=}"
-        # compute loss for each task
+        # call each task criterion
         losses: Dict[str, torch.Tensor] = dict(
             (task, self.task_criteria[task](y_pred=y_pred[task], y_true=y_true[task]))
             for task in self.task_names
@@ -40,8 +40,7 @@ class MultiTaskCriterion(BaseCriterion):
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, torch.Tensor]:
         r"""Summarize each criterion.
         """
-        assert len(self.buffer) != 0
-        # call summarize method of each criterion
+        # call each task buffer summary
         result: Dict[str, torch.Tensor] = {
             task: self.task_criteria[task].summarize(output_path=None)
             for task in self.task_names
