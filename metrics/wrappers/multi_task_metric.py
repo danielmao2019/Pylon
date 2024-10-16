@@ -38,15 +38,6 @@ class MultiTaskMetric(BaseMetric):
         }
         return scores
 
-    @staticmethod
-    def reduce(scores: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
-        reduced: Dict[str, torch.Tensor] = {
-            task: scores[task]['reduced'] for task in scores.keys()
-        }
-        reduced = torch.stack(list(reduced.values()))
-        assert reduced.shape == (len(scores),), f"{reduced.shape=}"
-        return reduced.mean()
-
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, float]:
         r"""Summarize each metric.
         """
@@ -55,9 +46,6 @@ class MultiTaskMetric(BaseMetric):
             task: self.task_metrics[task].summarize(output_path=None)
             for task in self.task_names
         }
-        # log reduction
-        assert 'reduced' not in result, f"{result.keys()=}"
-        result['reduced'] = self.reduce(result)
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
