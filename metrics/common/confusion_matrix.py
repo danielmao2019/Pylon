@@ -58,7 +58,6 @@ class ConfusionMatrix(BaseMetric):
             total = tp + tn + fp + fn
             assert torch.all(total == total[0])
             result['accuracy'] = tp.sum() / total[0]
-            result['reduced'] = result['accuracy'].clone()
         # save to disk
         if output_path is not None:
             save_json(obj=result, filepath=output_path)
