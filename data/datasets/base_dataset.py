@@ -12,10 +12,11 @@ from utils.builder import build_from_config
 
 class BaseDataset(ABC, torch.utils.data.Dataset):
 
-    SPLIT_OPTIONS: List[str] = None
-    INPUT_NAMES: List[str] = None
-    LABEL_NAMES: List[str] = None
-    SHA1SUM: str = None
+    SPLIT_OPTIONS: List[str]
+    DATASET_SIZE: Dict[str, int]
+    INPUT_NAMES: List[str]
+    LABEL_NAMES: List[str]
+    SHA1SUM: str
 
     def __init__(
         self,
@@ -45,6 +46,8 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
 
     def _sanity_check(self) -> None:
         assert self.SPLIT_OPTIONS is not None
+        if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
+            assert set(self.SPLIT_OPTIONS) == set(self.DATASET_SIZE.keys())
         assert self.INPUT_NAMES is not None
         assert self.LABEL_NAMES is not None
         assert set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set(), \
@@ -86,6 +89,8 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
             if split in self.SPLIT_OPTIONS:
                 # initialize full list of annotations
                 self._init_annotations_(split=split)
+                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
+                    assert len(self) == self.DATASET_SIZE[split]
                 assert type(self.annotations) == list, f"{type(self.annotations)=}"
                 # take subset by indices
                 if indices is not None:
@@ -106,12 +111,16 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
                 for option in self.SPLIT_OPTIONS:
                     # initialize full list of annotations
                     self._init_annotations_(split=option)
+                    if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
+                        assert len(self) == self.DATASET_SIZE[option]
                     assert type(self.annotations) == list, f"{type(self.annotations)=}"
                     # take subset by indices
                     if indices is not None and option in indices:
                         self.annotations = [self.annotations[idx] for idx in indices[option]]
                     # prepare to split
-                    self.split_subsets[option] = copy.deepcopy(self)
+                    split_subset = copy.deepcopy(self)
+                    del split_subset.split_subsets
+                    self.split_subsets[option] = split_subset
             else:
                 # input checks
                 assert type(split) == tuple, f"{type(split)=}"
