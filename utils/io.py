@@ -6,8 +6,9 @@ import numpy
 import torch
 import torchvision
 from PIL import Image
-from .input_checks import check_read_file, check_write_file
-from .ops import apply_tensor_op, transpose_buffer, average_buffer
+
+from utils.input_checks import check_read_file, check_write_file
+from utils.ops import apply_tensor_op, transpose_buffer, average_buffer
 
 
 def load_image(
