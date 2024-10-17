@@ -181,6 +181,7 @@ class Agent:
             gpu_util = Agent._parse_csv(outputs[0])
             gpu_fmem = Agent._parse_csv(outputs[1])
             assert set(gpu_util.keys()) == set(gpu_fmem.keys())
+            gpu_pids = Agent._get_gpu_pids(server)
             for gpu_index in gpu_util:
                 assert len(gpu_util[gpu_index]) == 1
                 util = gpu_util[gpu_index][0]
@@ -188,7 +189,7 @@ class Agent:
                 assert len(gpu_fmem[gpu_index]) == 1
                 fmem = gpu_fmem[gpu_index][0]
                 fmem = int(fmem.split('MiB')[0])
-                if util < 50 and fmem > 10 * 1024:
+                if util < 50 and fmem > 10 * 1024 and len(gpu_pids[int(gpu_index)]) < 2:
                     all_idle_gpus.append({
                         'server': server,
                         'gpu_index': gpu_index,
