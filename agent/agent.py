@@ -55,13 +55,17 @@ class Agent:
         return time.time() - last_update <= self.sleep_time
 
     def _get_session_progress(self, work_dir: str) -> int:
-        for idx in range(self.epochs):
-            epoch_finished = all([
+        idx = 0
+        while True:
+            if idx >= self.epochs:
+                break
+            epoch_finished: bool = all([
                 os.path.isfile(os.path.join(work_dir, f"epoch_{idx}", filename))
                 for filename in self.expected_files
             ])
             if not epoch_finished:
                 break
+            idx += 1
         return idx
 
     def _has_finished(self, work_dir: str) -> bool:
