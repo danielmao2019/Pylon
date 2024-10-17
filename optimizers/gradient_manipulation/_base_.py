@@ -1,8 +1,9 @@
 from typing import Tuple, List, Dict, Union, Optional
 from abc import abstractmethod, ABC
+import concurrent.futures
 import torch
 
-from ..mtl_optimizer import MTLOptimizer
+from optimizers import MTLOptimizer
 
 
 class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
@@ -48,12 +49,27 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         # compute gradients
         with torch.no_grad():
             if self.per_layer:
-                num_layers = len(list(grads_dict.values())[0])
+                sample_grad = list(grads_dict.values())[0]
+                assert type(sample_grad) == list, f"{type(sample_grad)=}"
+                num_layers = len(sample_grad)
                 assert all(len(grads_dict[name]) == num_layers for name in grads_dict)
-                manipulated_grad: List[torch.Tensor] = [self._gradient_manipulation_(
+                manipulated_grad: List[torch.Tensor] = []
+                with concurrent.futures.ProcessPoolExecutor() as executor:
+                    futures = [
+                        executor.submit(lambda idx: self._gradient_manipulation_(
+                            grads_list=[grads_dict[name][idx] for name in grads_dict],
+                            shared_rep=shared_rep,
+                        ), idx) for idx in range(num_layers)
+                    ]
+                for future in concurrent.futures.as_completed(futures):
+                    manipulated_grad.append(future.result())
+                manipulated_grad_v1: torch.Tensor = torch.cat(manipulated_grad, dim=0)
+                # method 2
+                manipulated_grad_v2: torch.Tensor = torch.cat([self._gradient_manipulation_(
                     grads_list=[grads_dict[name][idx] for name in grads_dict], shared_rep=shared_rep,
-                ) for idx in range(num_layers)]
-                manipulated_grad: torch.Tensor = torch.cat(manipulated_grad, dim=0)
+                ) for idx in range(num_layers)], dim=0)
+                # compare two methods
+                assert torch.equal(manipulated_grad_v1, manipulated_grad_v2)
             else:
                 manipulated_grad: torch.Tensor = self._gradient_manipulation_(
                     grads_list=list(grads_dict.values()), shared_rep=shared_rep,
