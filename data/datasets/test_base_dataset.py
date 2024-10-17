@@ -2,6 +2,7 @@ from typing import Any, Tuple, List, Dict, Union, Optional
 import pytest
 import torch
 from .base_dataset import BaseDataset
+from utils.ops import buffer_equal
 
 
 class TestDataset(BaseDataset):
@@ -81,9 +82,21 @@ def test_base_dataset_split(
 
 
 def test_base_dataset_cache():
+    # check dataset
     dataset_cached = TestDataset(split='train', indices=list(range(10)), use_cache=True)
     dataset = TestDataset(split='train', indices=list(range(10)), use_cache=False)
     assert len(dataset_cached) == len(dataset) == 10
     for _ in range(2):
         for idx in range(10):
             assert dataset_cached[idx] == dataset[idx]
+    # check dataloader
+    dataloader_cached = torch.utils.data.DataLoader(
+        dataset=dataset_cached, shuffle=False, batch_size=2,
+    )
+    dataloader = torch.utils.data.DataLoader(
+        dataset=dataset, shuffle=False, batch_size=2,
+    )
+    assert len(dataloader_cached) == len(dataloader)
+    for _ in range(2):
+        for dp_cached, dp in zip(dataloader_cached, dataloader):
+            assert buffer_equal(dp_cached, dp)
