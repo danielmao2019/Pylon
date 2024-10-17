@@ -9,7 +9,7 @@ class PyramidPoolingModule(torch.nn.Module):
     def __init__(
         self,
         in_channels: int,
-        num_class: int,
+        num_classes: int,
         pool_scales: Optional[Tuple[int]] = (1, 2, 3, 6),
     ) -> None:
         super(PyramidPoolingModule, self).__init__()
@@ -30,7 +30,7 @@ class PyramidPoolingModule(torch.nn.Module):
             ),
             torch.nn.BatchNorm2d(self.DIM),
             torch.nn.ReLU(inplace=True),
-            torch.nn.Conv2d(self.DIM, num_class, kernel_size=1),
+            torch.nn.Conv2d(self.DIM, num_classes, kernel_size=1),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
