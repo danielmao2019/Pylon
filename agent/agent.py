@@ -189,7 +189,7 @@ class Agent:
                 assert len(gpu_fmem[gpu_index]) == 1
                 fmem = gpu_fmem[gpu_index][0]
                 fmem = int(fmem.split('MiB')[0])
-                if util < 50 and fmem > 10 * 1024 and len(gpu_pids[int(gpu_index)]) < 2:
+                if util < 50 and fmem > 12 * 1024 and len(gpu_pids[int(gpu_index)]) < 2:
                     all_idle_gpus.append({
                         'server': server,
                         'gpu_index': gpu_index,
@@ -332,14 +332,13 @@ class Agent:
             time.sleep(self.sleep_time)
 
     def progress_report(self) -> str:
-        result: List[List[str]] = []
+        result: List[str] = []
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
             progress = self._get_session_progress(work_dir)
             percentage = int(progress / self.epochs * 100)
-            num_char = round(percentage / 10)
-            result.append([config_file, f"{percentage}%",  f"[{num_char*'#'}{(10-num_char)*'-'}]"])
-        result = '\n'.join([' '.join(line) for line in result])
+            result.append(config_file + '\n' + f"[{percentage*'#'}{(100-percentage)*'-'}] {percentage:02d}%")
+        result = '\n'.join(result)
         return result
 
     # ====================================================================================================
