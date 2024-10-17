@@ -36,11 +36,33 @@ class CityScapesDataset(BaseDataset):
     SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
 
     IGNORE_INDEX = 250
-    no_instances = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23]
-    void_classes = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
-    valid_classes = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33]
-    class_map = dict(zip(valid_classes, range(19)))
-    NUM_CLASSES = 19
+    INSTANCE_VOID: List[int] = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23]
+    SEMANTIC_VOID: List[int] = [0, 1, 2, 3, 4, 5, 6, 9, 10, 14, 15, 16, 18, 29, 30, -1]
+    VALID_CLASSES: List[int] = [7, 8, 11, 12, 13, 17, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 31, 32, 33]
+    CLASS_MAP_F = dict(zip(VALID_CLASSES, range(19)))
+    CLASS_MAP_C = {
+        7: 0,  # flat
+        8: 0,  # flat
+        11: 1,  # construction
+        12: 1,  # construction
+        13: 1,  # construction
+        17: 5,  # object
+        19: 5,  # object
+        20: 5,  # object
+        21: 2,  # nature
+        22: 2,  # nature
+        23: 4,  # sky
+        24: 6,  # human
+        25: 6,  # human
+        26: 3,  # vehicle
+        27: 3,  # vehicle
+        28: 3,  # vehicle
+        31: 3,  # vehicle
+        32: 3,  # vehicle
+        33: 3,  # vehicle
+    }
+    NUM_CLASSES_F = 19
+    NUM_CLASSES_C = 7
 
     IMAGE_MEAN = [123.675, 116.28, 103.53]
     DEPTH_STD = 2729.0680031169923
@@ -53,6 +75,17 @@ class CityScapesDataset(BaseDataset):
 
     ####################################################################################################
     ####################################################################################################
+
+    def __init__(self, semantic_granularity: str, *args, **kwargs) -> None:
+        assert type(semantic_granularity) == str, f"{type(semantic_granularity)=}"
+        assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
+        if semantic_granularity == 'fine':
+            self.CLASS_MAP = self.CLASS_MAP_F
+            self.NUM_CLASSES = self.NUM_CLASSES_F
+        else:
+            self.CLASS_MAP = self.CLASS_MAP_C
+            self.NUM_CLASSES = self.NUM_CLASSES_C
+        super(CityScapesDataset, self).__init__(*args, **kwargs)
 
     def _init_annotations_(self, split: str) -> None:
         # initialize image filepaths
@@ -150,15 +183,15 @@ class CityScapesDataset(BaseDataset):
     def _get_segmentation_labels_(self, idx: int) -> Dict[str, torch.Tensor]:
         # get semantic segmentation labels
         semantic = load_image(filepath=self.annotations[idx]['semantic'], dtype=torch.int64)
-        for void in self.void_classes:
-            semantic[semantic == void] = self.IGNORE_INDEX
-        for valid in self.valid_classes:
-            semantic[semantic == valid] = self.class_map[valid]
+        for void_class in self.SEMANTIC_VOID:
+            semantic[semantic == void_class] = self.IGNORE_INDEX
+        for valid in self.VALID_CLASSES:
+            semantic[semantic == valid] = self.CLASS_MAP[valid]
         # get instance segmentation labels
         instance = load_image(filepath=self.annotations[idx]['instance'], dtype=torch.int64)
         instance[semantic == self.IGNORE_INDEX] = self.IGNORE_INDEX
-        for _no_instance in self.no_instances:
-            instance[instance == _no_instance] = self.IGNORE_INDEX
+        for void_class in self.INSTANCE_VOID:
+            instance[instance == void_class] = self.IGNORE_INDEX
         instance[instance == 0] = self.IGNORE_INDEX
         assert len(instance.shape) == 2, f"{instance.shape=}"
         height, width = instance.shape

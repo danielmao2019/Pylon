@@ -48,6 +48,7 @@ config = {
             'split': "train",
             'indices': None,
             'transforms_cfg': transforms_config,
+            'semantic_granularity': 'fine',
         },
     },
     'train_dataloader': {
@@ -65,6 +66,7 @@ config = {
             'split': "val",
             'indices': None,
             'transforms_cfg': transforms_config,
+            'semantic_granularity': 'fine',
         },
     },
     'val_dataloader': {
@@ -81,6 +83,7 @@ config = {
             'split': "test",
             'indices': None,
             'transforms_cfg': transforms_config,
+            'semantic_granularity': 'fine',
         },
     },
     'test_dataloader': {
@@ -124,7 +127,7 @@ config = {
                 'semantic_segmentation': {
                     'class': metrics.vision_2d.SemanticSegmentationMetric,
                     'args': {
-                        'num_classes': data.datasets.CityScapesDataset.NUM_CLASSES,
+                        'num_classes': data.datasets.CityScapesDataset.NUM_CLASSES_F,
                         'ignore_index': data.datasets.CityScapesDataset.IGNORE_INDEX,
                     },
                 },
