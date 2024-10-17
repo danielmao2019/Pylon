@@ -45,8 +45,8 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         assert valid_mask.sum() >= 1
         y_pred = y_pred[valid_mask]
         y_true = y_true[valid_mask]
-        assert 0 <= y_true.min() <= y_true.max() < self.num_classes, f"{y_true.min()=}, {y_true.max()=}"
-        assert 0 <= y_pred.min() <= y_pred.max() < self.num_classes, f"{y_pred.min()=}, {y_pred.max()=}"
+        assert 0 <= y_true.min() <= y_true.max() < self.num_classes, f"{y_true.min()=}, {y_true.max()=}, {self.num_classes=}"
+        assert 0 <= y_pred.min() <= y_pred.max() < self.num_classes, f"{y_pred.min()=}, {y_pred.max()=}, {self.num_classes=}"
         count = torch.bincount(
             y_true * self.num_classes + y_pred, minlength=self.num_classes**2,
         ).view((self.num_classes,) * 2)

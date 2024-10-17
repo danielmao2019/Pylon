@@ -16,6 +16,7 @@ class CityScapes_PSPNet(MultiTaskBaseModel):
         backbone: torch.nn.Module,
         in_channels: int,
         tasks: Set[str],
+        num_classes: Optional[int] = None,
         return_shared_rep: Optional[bool] = False,
         use_attention: Optional[bool] = False,
     ) -> None:
@@ -25,11 +26,11 @@ class CityScapes_PSPNet(MultiTaskBaseModel):
         # initialize decoders
         decoders = torch.nn.ModuleDict()
         if "depth_estimation" in tasks:
-            decoders["depth_estimation"] = PyramidPoolingModule(in_channels=in_channels, num_class=1)
+            decoders["depth_estimation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=1)
         if "semantic_segmentation" in tasks:
-            decoders["semantic_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_class=19)
+            decoders["semantic_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=num_classes)
         if "instance_segmentation" in tasks:
-            decoders["instance_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_class=2)
+            decoders["instance_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=2)
         super(CityScapes_PSPNet, self).__init__(
             backbone=backbone, decoders=decoders, return_shared_rep=return_shared_rep,
             use_attention=use_attention, in_channels=in_channels,
