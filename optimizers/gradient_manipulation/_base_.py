@@ -1,6 +1,7 @@
 from typing import Tuple, List, Dict, Union, Optional
 from abc import abstractmethod, ABC
 import concurrent.futures
+import os
 import torch
 
 from optimizers import MTLOptimizer
@@ -25,7 +26,7 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         self,
         grads_list: List[torch.Tensor],
         shared_rep: Optional[torch.Tensor] = None,
-    ):
+    ) -> torch.Tensor:
         r"""Each gradient manipulation method will implement its own.
         """
         raise NotImplementedError("_gradient_manipulation_ not implemented for abstract base class.")
@@ -53,23 +54,37 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
                 assert type(sample_grad) == list, f"{type(sample_grad)=}"
                 num_layers = len(sample_grad)
                 assert all(len(grads_dict[name]) == num_layers for name in grads_dict)
-                manipulated_grad: List[torch.Tensor] = []
-                with concurrent.futures.ProcessPoolExecutor() as executor:
-                    futures = [
-                        executor.submit(lambda idx: self._gradient_manipulation_(
-                            grads_list=[grads_dict[name][idx] for name in grads_dict],
-                            shared_rep=shared_rep,
-                        ), idx) for idx in range(num_layers)
-                    ]
-                for future in concurrent.futures.as_completed(futures):
-                    manipulated_grad.append(future.result())
-                manipulated_grad_v1: torch.Tensor = torch.cat(manipulated_grad, dim=0)
+                # # method 1
+                # manipulated_grad: List[torch.Tensor] = []
+                # def parallel_gradient_manipulation(idx: int) -> torch.Tensor:
+                #     return self._gradient_manipulation_(
+                #         grads_list=[grads_dict[name][idx] for name in grads_dict],
+                #         shared_rep=shared_rep,
+                #     )
+                # with concurrent.futures.ThreadPoolExecutor() as executor:
+                #     futures = [
+                #         executor.submit(parallel_gradient_manipulation, idx)
+                #         for idx in range(num_layers)
+                #     ]
+                # for future in concurrent.futures.as_completed(futures):
+                #     manipulated_grad.append(future.result())
+                # manipulated_grad_v1: torch.Tensor = torch.cat(manipulated_grad, dim=0)
+                # if not os.path.isfile("manipulated_grad_v1.pt"):
+                #     torch.save(manipulated_grad_v1, "manipulated_grad_v1.pt")
+                # else:
+                #     assert 0
                 # method 2
                 manipulated_grad_v2: torch.Tensor = torch.cat([self._gradient_manipulation_(
                     grads_list=[grads_dict[name][idx] for name in grads_dict], shared_rep=shared_rep,
                 ) for idx in range(num_layers)], dim=0)
                 # compare two methods
-                assert torch.equal(manipulated_grad_v1, manipulated_grad_v2)
+                if not os.path.isfile("manipulated_grad_v2.pt"):
+                    torch.save(manipulated_grad_v2, "manipulated_grad_v2.pt")
+                else:
+                    assert 0
+                # assert torch.all(torch.isclose(manipulated_grad_v1, manipulated_grad_v2))
+                # assert 0, "assertion passed"
+                manipulated_grad = manipulated_grad_v1
             else:
                 manipulated_grad: torch.Tensor = self._gradient_manipulation_(
                     grads_list=list(grads_dict.values()), shared_rep=shared_rep,
