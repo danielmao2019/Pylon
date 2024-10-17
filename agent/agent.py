@@ -54,18 +54,19 @@ class Agent:
         last_update = max([os.path.getmtime(fp) for fp in logs])
         return time.time() - last_update <= self.sleep_time
 
-    def _has_finished(self, work_dir: str) -> bool:
-        # input checks
-        assert os.path.isdir(work_dir), f"{work_dir=}"
-        # determine if session has finished
+    def _get_session_progress(self, work_dir: str) -> int:
         for idx in range(self.epochs):
             epoch_finished = all([
                 os.path.isfile(os.path.join(work_dir, f"epoch_{idx}", filename))
                 for filename in self.expected_files
             ])
             if not epoch_finished:
-                return False
-        return True
+                break
+        return idx
+
+    def _has_finished(self, work_dir: str) -> bool:
+        assert os.path.isdir(work_dir), f"{work_dir=}"
+        return self._get_session_progress(work_dir) == self.epochs
 
     def _has_failed(self, work_dir: str) -> bool:
         return not self._is_running(work_dir) and not self._has_finished(work_dir)
@@ -324,6 +325,17 @@ class Agent:
                 break
             self.logger.info("Sleeping...")
             time.sleep(self.sleep_time)
+
+    def progress_report(self) -> str:
+        result: List[List[str]] = []
+        for config_file in self.config_files:
+            work_dir = self._get_work_dir(config_file)
+            progress = self._get_session_progress(work_dir)
+            percentage = int(progress / self.epochs * 100)
+            num_char = round(percentage / 10)
+            result.append([config_file, f"{percentage}%",  f"[{num_char*'#'}{(10-num_char)*'-'}]"])
+        result = '\n'.join([' '.join(line) for line in result])
+        return result
 
     # ====================================================================================================
     # ====================================================================================================
