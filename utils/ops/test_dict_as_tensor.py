@@ -5,7 +5,7 @@ import torch
 
 
 # ====================================================================================================
-from .ops import transpose_buffer
+from .dict_as_tensor import transpose_buffer
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, expected", [
@@ -19,7 +19,7 @@ def test_transpose_buffer(buffer: List[Dict[str, float]], expected: Dict[str, Li
 
 
 # ====================================================================================================
-from .ops import average_buffer
+from .dict_as_tensor import average_buffer
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, expected", [
