@@ -24,8 +24,6 @@ class NYUv2Dataset(BaseDataset):
         Achievement-based Training Progress Balancing for Multi-Task Learning (https://openaccess.thecvf.com/content/ICCV2023/papers/Yun_Achievement-Based_Training_Progress_Balancing_for_Multi-Task_Learning_ICCV_2023_paper.pdf)
     """
 
-    IGNORE_INDEX = 250
-    NUM_CLASSES = 41
     SPLIT_OPTIONS = ['train', 'val']
     DATASET_SIZE = {
         'train': 795,
@@ -35,8 +33,25 @@ class NYUv2Dataset(BaseDataset):
     LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
     SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
 
+    IGNORE_INDEX = 250
+    CLASS_MAP_F = dict(zip(range(41), range(41)))
+    CLASS_MAP_C = dict(zip(range(41), [0, 12, 5, 6, 1, 4, 9, 10, 12, 13, 6, 8, 6, 13, 10, 6, 13, 6, 7, 7, 5, 7, 3, 2, 6, 11, 7, 7, 7, 7, 7, 7, 6, 7, 7, 7, 7, 7, 7, 6, 7]))
+    NUM_CLASSES_F = 40 + 1
+    NUM_CLASSES_C = 13 + 1
+
     ####################################################################################################
     ####################################################################################################
+
+    def __init__(self, semantic_granularity: str, *args, **kwargs) -> None:
+        assert type(semantic_granularity) == str, f"{type(semantic_granularity)=}"
+        assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
+        if semantic_granularity == 'fine':
+            self.CLASS_MAP = self.CLASS_MAP_F
+            self.NUM_CLASSES = self.NUM_CLASSES_F
+        else:
+            self.CLASS_MAP = self.CLASS_MAP_C
+            self.NUM_CLASSES = self.NUM_CLASSES_C
+        super(NYUv2Dataset, self).__init__(*args, **kwargs)
 
     def _init_annotations_(self, split: str) -> None:
         # initialize image filepaths
@@ -121,6 +136,8 @@ class NYUv2Dataset(BaseDataset):
 
     def _get_segmentation_label_(self, idx: int) -> Dict[str, torch.Tensor]:
         semantic = torch.tensor(data=scipy.io.loadmat(self.annotations[idx]['semantic'])['segmentation'], dtype=torch.int64)
+        for class_idx in self.CLASS_MAP:
+            semantic[semantic == class_idx] = self.CLASS_MAP[class_idx]
         return {'semantic_segmentation': semantic}
 
     def _get_edge_label_(self, idx: int) -> Dict[str, torch.Tensor]:

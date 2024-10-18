@@ -48,6 +48,7 @@ config = {
             'split': "train",
             'indices': None,
             'transforms_cfg': transforms_config,
+            'semantic_granularity': 'coarse',
         },
     },
     'train_dataloader': {
@@ -65,6 +66,7 @@ config = {
             'split': "val",
             'indices': None,
             'transforms_cfg': transforms_config,
+            'semantic_granularity': 'coarse',
         },
     },
     'val_dataloader': {
@@ -81,6 +83,7 @@ config = {
             'split': "test",
             'indices': None,
             'transforms_cfg': transforms_config,
+            'semantic_granularity': 'coarse',
         },
     },
     'test_dataloader': {
@@ -126,7 +129,7 @@ config = {
                 'semantic_segmentation': {
                     'class': metrics.vision_2d.SemanticSegmentationMetric,
                     'args': {
-                        'num_classes': data.datasets.NYUv2Dataset.NUM_CLASSES,
+                        'num_classes': data.datasets.NYUv2Dataset.NUM_CLASSES_C,
                         'ignore_index': data.datasets.NYUv2Dataset.IGNORE_INDEX,
                     },
                 },
