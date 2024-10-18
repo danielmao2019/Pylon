@@ -333,12 +333,15 @@ class Agent:
 
     def progress_report(self) -> str:
         result: List[str] = []
+        total: int = 0
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
             progress = self._get_session_progress(work_dir)
             percentage = int(progress / self.epochs * 100)
-            result.append(config_file + '\n' + f"[{percentage*'#'}{(100-percentage)*'-'}] {percentage:02d}%")
-        result = '\n'.join(result)
+            total += percentage
+            result.append(f"[{percentage*'#'}{(100-percentage)*'-'}] {percentage:02d}%")
+        total = round(total / len(self.config_files), 2)
+        result = f"Total progress: {total}%\n" + '\n'.join(result)
         return result
 
     # ====================================================================================================
