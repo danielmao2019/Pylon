@@ -39,6 +39,7 @@ class Agent:
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.logger = utils.logging.Logger(filepath="./agent.log")
+        self.trail_count = {config_file: 0 for config_file in self.config_files}
 
     # ====================================================================================================
     # session status checking
@@ -189,7 +190,7 @@ class Agent:
                 assert len(gpu_fmem[gpu_index]) == 1
                 fmem = gpu_fmem[gpu_index][0]
                 fmem = int(fmem.split('MiB')[0])
-                if util < 50 and fmem > 12 * 1024 and len(gpu_pids[int(gpu_index)]) < 2:
+                if util < 50 and fmem > 12 * 1024 and len(gpu_pids[int(gpu_index)]) < 1:
                     all_idle_gpus.append({
                         'server': server,
                         'gpu_index': gpu_index,
@@ -246,8 +247,10 @@ class Agent:
                     '"',
                 "'",
             ])
-            self.logger.info(f"Running command: {cmd}")
+            self.logger.info(cmd)
             os.system(cmd)
+            assert run in self.trail_count
+            self.trail_count[run] += 1
         return False
 
     # ====================================================================================================
