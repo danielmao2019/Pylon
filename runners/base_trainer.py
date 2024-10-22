@@ -11,7 +11,6 @@ import torch
 import criteria
 import utils
 from utils.builder import build_from_config
-from utils.ops import apply_tensor_op
 from utils.io import serialize_tensor
 
 try:
@@ -242,8 +241,6 @@ class BaseTrainer:
         """
         # init time
         start_time = time.time()
-        # copy to GPU
-        dp = apply_tensor_op(func=lambda x: x.to(self.device), inputs=dp)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             dp['outputs'] = self.model(dp['inputs'])
@@ -265,8 +262,6 @@ class BaseTrainer:
         """
         # init time
         start_time = time.time()
-        # copy to GPU
-        dp = apply_tensor_op(func=lambda x: x.to(self.device), inputs=dp)
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             dp['outputs'] = self.model(dp['inputs'])
