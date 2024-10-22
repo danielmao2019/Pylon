@@ -8,6 +8,7 @@ import torch
 from data.transforms.compose import Compose
 from utils.input_checks import check_read_dir
 from utils.builder import build_from_config
+from utils.ops import apply_tensor_op
 
 
 class BaseDataset(ABC, torch.utils.data.Dataset):
@@ -25,11 +26,13 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         use_cache: Optional[bool] = True,
+        device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
         r"""
         Args:
             use_cache (bool): controls whether loaded data points stays in RAM. Default: True.
         """
+        torch.multiprocessing.set_start_method('spawn', force=True)
         # input checks
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
@@ -41,6 +44,7 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
             self.cache: List[Dict[str, Dict[str, Any]]] = []
         else:
             self.cache = None
+        self.device = device
         self._init_transforms_(transforms_cfg=transforms_cfg)
         self._init_annotations_all_(split=split, indices=indices)
 
@@ -183,4 +187,5 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
                 self.cache[idx] = copy.deepcopy(datapoint)
         else:
             datapoint = copy.deepcopy(self.cache[idx])
+        datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=datapoint)
         return datapoint
