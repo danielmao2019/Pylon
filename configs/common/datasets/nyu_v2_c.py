@@ -34,7 +34,7 @@ collate_fn_config = {
     'args': {
         'collators': {
             'meta_info': {
-                'image_resolution': lambda x: torch.tensor(x, dtype=torch.int64),
+                'image_resolution': torch.tensor,
             },
         },
     },
