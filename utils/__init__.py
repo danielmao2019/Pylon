@@ -6,6 +6,7 @@ from utils import input_checks
 from utils import logging
 from utils import models
 from utils import ops
+from utils import paper
 
 from utils import builder
 from utils import configs
@@ -23,6 +24,7 @@ __all__ = (
     'logging',
     'models',
     'ops',
+    'paper',
 
     'builder',
     'configs',
