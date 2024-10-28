@@ -2,7 +2,7 @@
 as an any immutable object indexed tensor, of any data type. For now, we name dictionaries under this
 view as 'buffer'. A buffer could be tuple, list, dict, numpy.ndarray, and torch.Tensor.
 """
-from typing import List, Dict, Union, Any
+from typing import List, Dict, Any
 import numpy
 import torch
 
@@ -25,6 +25,60 @@ def buffer_equal(buffer, other) -> bool:
     return result
 
 
+def _buffer_add(buffer, other):
+    assert type(buffer) == type(other), f"{type(buffer)=}, {type(other)=}"
+    if type(buffer) in [tuple, list]:
+        assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
+        return type(buffer)([_buffer_add(buffer[idx], other[idx]) for idx in range(len(buffer))])
+    elif type(buffer) == dict:
+        assert set(buffer.keys()) == set(other.keys()), f"{buffer.keys()=}, {other.keys()=}"
+        return {key: _buffer_add(buffer[key], other[key]) for key in buffer}
+    else:
+        return buffer + other
+
+
+def buffer_add(buffer):
+    r"""Take the sum of the buffer along the first axis.
+    """
+    if type(buffer) == numpy.ndarray:
+        return numpy.sum(buffer, dim=0)
+    elif type(buffer) == torch.Tensor:
+        return torch.sum(buffer, dim=0)
+    elif type(buffer) == dict:
+        buffer = list(buffer.values())
+    else:
+        assert type(buffer) in [tuple, list]
+    result = buffer[0]
+    for idx in range(1, len(buffer)):
+        result = _buffer_add(result, buffer[idx])
+    return result
+
+
+def buffer_scalar_mul(buffer, scalar):
+    # input checks
+    if type(scalar) == numpy.ndarray:
+        assert scalar.size == 1, f"{scalar.shape=}"
+        scalar = scalar.item()
+    elif type(scalar) == torch.Tensor:
+        assert scalar.numel == 1, f"{scalar.shape=}"
+        scalar = scalar.item()
+    else:
+        assert type(scalar) in [int, float]
+    # compute scalar multiplication
+    if type(buffer) in [tuple, list]:
+        return type(buffer)([buffer_scalar_mul(buffer[idx], scalar) for idx in range(len(buffer))])
+    elif type(buffer) == dict:
+        return {key: buffer_scalar_mul(buffer[key], scalar) for key in buffer}
+    else:
+        return buffer * scalar
+
+
+def buffer_mean(buffer):
+    r"""Take the mean of the buffer along the first axis.
+    """
+    return buffer_scalar_mul(buffer_add(buffer), 1 / len(buffer))
+
+
 def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
     # input check
     assert type(buffer) == list, f"{type(buffer)=}"
@@ -36,34 +90,4 @@ def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
         key: [elem[key] for elem in buffer]
         for key in keys
     }
-    return result
-
-
-def average_buffer(
-    buffer: List[Dict[Any, Union[int, float, numpy.ndarray, torch.Tensor, list, dict]]],
-) -> Dict[Any, Union[float, numpy.ndarray, torch.Tensor, list, dict]]:
-    # input check
-    assert type(buffer) == list, f"{type(buffer)=}"
-    assert all(type(elem) == dict for elem in buffer)
-    keys = buffer[0].keys()
-    assert all(elem.keys() == keys for elem in buffer)
-    dtypes = {key: type(buffer[0][key]) for key in keys}
-    assert set(dtypes.values()).issubset(set([int, float, numpy.ndarray, torch.Tensor, list, dict]))
-    assert all(all(type(elem[key]) == dtypes[key] for key in keys) for elem in buffer)
-    # average buffer
-    result: Dict[Any, Union[float, numpy.ndarray, torch.Tensor, list, dict]] = {}
-    for key in keys:
-        if dtypes[key] == numpy.ndarray:
-            assert all(elem[key].shape == buffer[0][key].shape for elem in buffer)
-            result[key] = numpy.mean(numpy.stack([elem[key] for elem in buffer], axis=0).astype(numpy.float32), axis=0)
-        elif dtypes[key] == torch.Tensor:
-            assert all(elem[key].shape == buffer[0][key].shape for elem in buffer)
-            result[key] = torch.mean(torch.stack([elem[key] for elem in buffer], dim=0).type(torch.float32), dim=0)
-        elif dtypes[key] == list:
-            assert all(len(elem[key]) == len(buffer[0][key]) for elem in buffer)
-            result[key] = numpy.mean(numpy.stack([numpy.array(elem[key]) for elem in buffer], axis=0).astype(numpy.float32), axis=0).tolist()
-        elif dtypes[key] == dict:
-            result[key] = average_buffer(buffer=[elem[key] for elem in buffer])
-        else:
-            result[key] = sum([elem[key] for elem in buffer]) / len(buffer)
     return result
