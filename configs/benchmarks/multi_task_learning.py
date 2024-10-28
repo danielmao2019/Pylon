@@ -122,10 +122,10 @@ if __name__ == "__main__":
     model_names = ['pspnet_resnet50']
     method_names = ['baseline', 'rgw', 'pcgrad', 'gradvac', 'mgda', 'mgda_ub', 'cagrad', 'graddrop', 'alignedmtl', 'alignedmtl_ub', 'imtl', 'cosreg']
     # CityScapes
-    dataset_names = ['city_scapes_f', 'city_scapes_c']
+    dataset_names = ['city_scapes_c', 'city_scapes_f']
     task_names = data.datasets.CityScapesDataset.LABEL_NAMES
     main(dataset_names, model_names, method_names, task_names)
     # NYUD-MT
-    dataset_names = ['nyu_v2_f', 'nyu_v2_c']
+    dataset_names = ['nyu_v2_c', 'nyu_v2_f']
     task_names = data.datasets.NYUv2Dataset.LABEL_NAMES
     main(dataset_names, model_names, method_names, task_names)
