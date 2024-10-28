@@ -1,8 +1,11 @@
-from typing import List, Optional
+from typing import List, Union, Optional
 import torch
 
 from ._base_ import GradientManipulationBaseOptimizer
 import utils
+
+
+NUMERICAL_STABILITY = 1.0e-03
 
 
 class MGDAOptimizer(GradientManipulationBaseOptimizer):
@@ -51,31 +54,41 @@ class MGDAOptimizer(GradientManipulationBaseOptimizer):
             gamma_hat = MGDAOptimizer._frank_wolfe_solver_line_(a, b)
             alpha *= (1 - gamma_hat)
             alpha[t_hat] += gamma_hat
+            # sanity check
+            assert torch.all(torch.maximum(alpha - 1, 0 - alpha) < NUMERICAL_STABILITY), f"{alpha=}"
+            alpha = torch.clamp(alpha, min=0, max=1)
+            assert abs(alpha.sum() - 1) < NUMERICAL_STABILITY, f"{alpha=}, {alpha.sum()=}"
+            alpha = alpha / alpha.sum()
+            # early stopping
             if gamma_hat < threshold:
                 break
-        # output check
-        assert len(alpha.shape) == 1
-        assert torch.all(alpha >= 0) and (alpha.sum() - 1).abs() < 1e-05, f"{alpha=}"
+        # return
         return alpha
 
     @staticmethod
-    def _frank_wolfe_solver_line_(a: torch.Tensor, b: torch.Tensor) -> float:
+    def _frank_wolfe_solver_line_(a: torch.Tensor, b: torch.Tensor) -> Union[int, torch.Tensor]:
         r"""This function returns the solution to
         :math:`\min_{\gamma \in [0, 1]}\|\gamma a + (1-\gamma) b\|_{2}^{2}`.
 
         Returns:
             gamma: the scalar that solves the problem.
         """
+        # input checks
         assert type(a) == type(b) == torch.Tensor
-        assert len(a.shape) == len(b.shape) == 1
+        assert a.dim() == b.dim() == 1, f"{a.shape=}, {b.shape=}"
+        # compute inner products
         aa = torch.dot(a, a)
         bb = torch.dot(b, b)
         ab = torch.dot(a, b)
+        # compute minimizer
         if ab >= aa:
             result = 1
         elif ab >= bb:
             result = 0
         else:
-            result = ((bb - ab) / (aa + bb - 2*ab)).item()
-        assert 0 <= result <= 1
+            result = ((bb - ab) / (aa + bb - 2*ab))
+            # sanity check
+            assert max(result - 1, 0 - result) < NUMERICAL_STABILITY, f"{result=}"
+            result = torch.clamp(result, min=0, max=1)
+        # return
         return result
