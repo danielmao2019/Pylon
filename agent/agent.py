@@ -38,7 +38,7 @@ class Agent:
         self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
-        self.logger = utils.logging.Logger(filepath="./agent.log")
+        self.logger = utils.logging.Logger(filepath="./project/run_agent.log")
         self.trail_count = {config_file: 0 for config_file in self.config_files}
 
     # ====================================================================================================
@@ -242,8 +242,9 @@ class Agent:
                         # conda environment
                         'source', '~/miniconda3/bin/activate', self.conda_env, '&&',
                         # launch command
+                        "MKL_SERVICE_FORCE_INTEL=1",
                         f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
-                        'python', 'main.py', '--config-filepath', run,
+                        'python', 'project/main.py', '--config-filepath', run,
                     '"',
                 "'",
             ])
