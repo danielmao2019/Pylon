@@ -8,7 +8,7 @@ import torchvision
 from PIL import Image
 
 from utils.input_checks import check_read_file, check_write_file
-from utils.ops import apply_tensor_op, transpose_buffer, average_buffer
+from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
 
 
 def load_image(
@@ -121,7 +121,7 @@ def read_average_scores(filepaths: List[List[str]]) -> Dict[str, List[Any]]:
     assert len(avg_scores) == m
     assert len(avg_scores[0]) == n
     avg_scores: List[Dict[str, Any]] = [
-        average_buffer([avg_scores[i][j] for i in range(m)]) for j in range(n)
+        buffer_mean([avg_scores[i][j] for i in range(m)]) for j in range(n)
     ]
     avg_scores: Dict[str, List[Any]] = transpose_buffer(avg_scores)
     return avg_scores

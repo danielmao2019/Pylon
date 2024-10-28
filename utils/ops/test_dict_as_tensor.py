@@ -19,7 +19,7 @@ def test_transpose_buffer(buffer: List[Dict[str, float]], expected: Dict[str, Li
 
 
 # ====================================================================================================
-from .dict_as_tensor import average_buffer
+from .dict_as_tensor import buffer_mean
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, expected", [
@@ -92,7 +92,7 @@ def test_average_buffer(
     buffer: List[Dict[str, Union[int, float, numpy.ndarray, torch.Tensor]]],
     expected: Dict[str, Union[int, float, numpy.ndarray, torch.Tensor]],
 ) -> None:
-    produced = average_buffer(buffer=buffer)
+    produced = buffer_mean(buffer=buffer)
     assert produced.keys() == expected.keys()
     for key in produced.keys():
         assert type(produced[key]) == type(expected[key])
