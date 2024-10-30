@@ -60,7 +60,9 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         assert torch.all(torch.logical_or(score[nan_mask] == 0, torch.isnan(score[nan_mask]))), \
             f"{score.tolist()=}, {nan_mask.tolist()=}, {(score[nan_mask] == 0)=}, {torch.isnan(score[nan_mask])=}"
         score[nan_mask] = float('nan')
+        # output check
         assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
+        assert score.is_floating_point(), f"{score.dtype=}"
         return {'IoU': score}
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
@@ -79,7 +81,7 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         result['class_IoU'] = class_iou
         # log mean IoU
         mean_iou = torch.nanmean(class_iou)
-        assert mean_iou.shape == (), f"{mean_iou.shape=}"
+        assert mean_iou.ndim == 0, f"{mean_iou.shape=}"
         result['mean_IoU'] = mean_iou
         # save to disk
         if output_path is not None:
