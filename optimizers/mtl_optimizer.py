@@ -49,7 +49,7 @@ class MTLOptimizer:
         assert type(loss_dict) == dict, f"{type(loss_dict)=}"
         assert all(type(key) == str for key in loss_dict.keys())
         assert all([
-            type(value) == torch.Tensor and value.dim() == 0 and value.requires_grad
+            type(value) == torch.Tensor and value.ndim == 0 and value.requires_grad
             for value in loss_dict.values()
         ])
         if type(shared_rep) == torch.Tensor:
@@ -57,7 +57,7 @@ class MTLOptimizer:
         assert type(shared_rep) == tuple
         assert all(type(elem) == torch.Tensor for elem in shared_rep)
         shared_rep = torch.cat([g.flatten() for g in shared_rep])
-        assert shared_rep.dim() == 1, f"{shared_rep.shape=}"
+        assert shared_rep.ndim == 1, f"{shared_rep.shape=}"
         # compute gradients with method 1
         self.optimizer.zero_grad(set_to_none=True)
         dummy_gradient = torch.zeros_like(shared_rep)
@@ -130,7 +130,7 @@ class MTLOptimizer:
         grad = [g.flatten() for g in grad]
         if not per_layer:
             grad = torch.cat(grad, dim=0)
-            assert grad.dim() == 1, f"{grad.shape=}"
+            assert grad.ndim == 1, f"{grad.shape=}"
         return grad
 
     @staticmethod
@@ -161,7 +161,7 @@ class MTLOptimizer:
             assert type(grad_seq[idx]) == torch.Tensor, f"{idx=}, {type(grad_seq[idx])=}"
             assert grad_seq[idx].shape == shared_rep[idx].shape, f"{grad_seq[idx].shape=}, {shared_rep[idx].shape=}"
         grad: torch.Tensor = torch.cat([g.flatten() for g in grad_seq], dim=0)
-        assert grad.dim() == 1, f"{grad.shape=}"
+        assert grad.ndim == 1, f"{grad.shape=}"
         return grad
 
     def _get_grads_all_tasks_(
@@ -177,7 +177,7 @@ class MTLOptimizer:
         assert type(loss_dict) == dict, f"{type(loss_dict)=}"
         assert all(type(elem) == str for elem in loss_dict.keys())
         assert all([
-            type(loss) == torch.Tensor and loss.dim() == 0 and loss.requires_grad
+            type(loss) == torch.Tensor and loss.ndim == 0 and loss.requires_grad
             for loss in loss_dict.values()
         ])
         if type(shared_rep) != torch.Tensor:
