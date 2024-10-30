@@ -1,7 +1,9 @@
 from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
+import random
 import torch
+import matplotlib.pyplot as plt
 from data.datasets import BaseDataset
 from utils.io import load_image
 
@@ -73,8 +75,31 @@ class CityScapesDataset(BaseDataset):
         'val': [284, 285, 286, 288, 299, 307, 312],
     }
 
-    ####################################################################################################
-    ####################################################################################################
+    CLASS_COLORS = [
+        [128, 64, 128],
+        [244, 35, 232],
+        [70, 70, 70],
+        [102, 102, 156],
+        [190, 153, 153],
+        [153, 153, 153],
+        [250, 170, 30],
+        [220, 220, 0],
+        [107, 142, 35],
+        [152, 251, 152],
+        [0, 130, 180],
+        [220, 20, 60],
+        [255, 0, 0],
+        [0, 0, 142],
+        [0, 0, 70],
+        [0, 60, 100],
+        [0, 80, 100],
+        [0, 0, 230],
+        [119, 11, 32],
+    ]
+
+    # ====================================================================================================
+    # initialization methods
+    # ====================================================================================================
 
     def __init__(self, semantic_granularity: str, *args, **kwargs) -> None:
         assert type(semantic_granularity) == str, f"{type(semantic_granularity)=}"
@@ -133,8 +158,9 @@ class CityScapesDataset(BaseDataset):
                     continue
         self.annotations = [self.annotations[idx] for idx in range(len(self.annotations)) if idx not in remove_indices]
 
-    ####################################################################################################
-    ####################################################################################################
+    # ====================================================================================================
+    # load methods
+    # ====================================================================================================
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
@@ -164,9 +190,6 @@ class CityScapesDataset(BaseDataset):
             'image_resolution': tuple(inputs['image'].shape[-2:]),
         }
         return inputs, labels, meta_info
-
-    ####################################################################################################
-    ####################################################################################################
 
     def _get_image_(self, idx: int) -> Dict[str, torch.Tensor]:
         return {'image': load_image(
@@ -215,3 +238,43 @@ class CityScapesDataset(BaseDataset):
             'semantic_segmentation': semantic,
             'instance_segmentation': instance_surrogate,
         }
+
+    # ====================================================================================================
+    # visualization methods
+    # ====================================================================================================
+
+    def _visualize_datapoint(self, datapoint: Dict[str, Dict[str, torch.Tensor]]) -> None:
+        _, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2)
+        # visualize image
+        image = datapoint['inputs']['image']
+        ax1.imshow(((image - image.min()) / (image.max() - image.min())).permute(1, 2, 0).cpu().numpy())
+        # visualize depth
+        depth = datapoint['labels']['depth_estimation']
+        assert depth.ndim == 2, f"{depth.shape=}"
+        ax2.imshow((depth / depth.max()).cpu().numpy())
+        # visualize semantic segmentation
+        semantic = datapoint['labels']['semantic_segmentation']
+        assert semantic.ndim == 2, f"{semantic.shape=}"
+        r = torch.zeros(size=image.shape[-2:], dtype=torch.uint8)
+        g = torch.zeros(size=image.shape[-2:], dtype=torch.uint8)
+        b = torch.zeros(size=image.shape[-2:], dtype=torch.uint8)
+        for c in range(self.NUM_CLASSES):
+            r[semantic == c] = self.CLASS_COLORS[c][0]
+            g[semantic == c] = self.CLASS_COLORS[c][1]
+            b[semantic == c] = self.CLASS_COLORS[c][2]
+        rgb = torch.stack([r, g, b], dim=2)
+        rgb = rgb.type(torch.float32) / 255
+        ax3.imshow(rgb.cpu().numpy())
+        # visualize instance segmentation
+        instance = datapoint['labels']['instance_segmentation']
+        instance = torch.linalg.norm(instance, dim=0)
+        instance[instance > 1] = 0
+        ax4.imshow(((instance - instance.min()) / (instance.max() - instance.min())).cpu().numpy())
+        # show
+        plt.show()
+
+    def visualize(self) -> None:
+        while True:
+            idx = random.choice(range(len(self)))
+            datapoint = self[idx]
+            self._visualize_datapoint(datapoint)
