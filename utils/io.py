@@ -34,18 +34,19 @@ def load_image(
 
 def _pil2torch(image: Image) -> torch.Tensor:
     mode = image.mode
-    image = torch.from_numpy(numpy.array(image))
     # convert to torch.Tensor
     if mode == 'RGB':
+        image = torch.from_numpy(numpy.array(image))
         image = image.permute(2, 0, 1)
         assert image.dim() == 3 and image.shape[0] == 3, f"{image.shape=}"
         assert image.dtype == torch.uint8, f"{image.dtype=}"
     elif mode == 'L':
+        image = torch.from_numpy(numpy.array(image))
         assert image.dim() == 2, f"{image.shape=}"
         assert image.dtype == torch.uint8, f"{image.dtype=}"
-    elif mode == 'I':
+    elif mode in ['I', 'I;16']:
+        image = torch.from_numpy(numpy.array(image, dtype=numpy.int32))
         assert image.dim() == 2, f"{image.shape=}"
-        assert image.dtype == torch.int32, f"{image.dtype=}"
     else:
         raise NotImplementedError(f"{mode=}")
     return image
