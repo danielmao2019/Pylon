@@ -4,8 +4,9 @@ import torch
 
 def check_image(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
     assert type(obj) == torch.Tensor, f"{type(obj)=}"
-    assert obj.dim() == (4 if batched else 3) and obj.shape[-3] == 3, f"{obj.shape=}"
+    assert obj.ndim == (4 if batched else 3) and obj.shape[-3] == 3, f"{obj.shape=}"
     assert obj.is_floating_point(), f"{obj.dtype=}"
+    assert not torch.any(torch.isnan(obj))
     return obj
 
 
@@ -16,15 +17,17 @@ def check_image(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
 
 def check_semantic_segmentation_pred(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
     assert type(obj) == torch.Tensor, f"{type(obj)=}"
-    assert obj.dim() == (4 if batched else 3), f"{obj.shape=}"
+    assert obj.ndim == (4 if batched else 3), f"{obj.shape=}"
     assert obj.is_floating_point(), f"{obj.dtype=}"
+    assert not torch.any(torch.isnan(obj))
     return obj
 
 
 def check_semantic_segmentation_true(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
     assert type(obj) == torch.Tensor, f"{type(obj)=}"
-    assert obj.dim() == (3 if batched else 2), f"{obj.shape=}"
+    assert obj.ndim == (3 if batched else 2), f"{obj.shape=}"
     assert obj.dtype == torch.int64, f"{obj.dtype=}"
+    assert not torch.any(torch.isnan(obj))
     return obj
 
 
@@ -43,16 +46,18 @@ def check_semantic_segmentation(y_pred: Any, y_true: Any, batched: Optional[bool
 
 def check_depth_estimation_pred(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
     assert type(obj) == torch.Tensor, f"{type(obj)=}"
-    assert obj.dim() == (4 if batched else 3) and obj.shape[-3] == 1, f"{obj.shape=}"
+    assert obj.ndim == (4 if batched else 3) and obj.shape[-3] == 1, f"{obj.shape=}"
     assert obj.is_floating_point(), f"{obj.dtype=}"
+    assert not torch.any(torch.isnan(obj))
     return obj
 
 
 def check_depth_estimation_true(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
     assert type(obj) == torch.Tensor, f"{type(obj)=}"
-    assert obj.dim() == (3 if batched else 2), f"{obj.shape=}"
+    assert obj.ndim == (3 if batched else 2), f"{obj.shape=}"
     assert obj.is_floating_point(), f"{obj.dtype=}"
     assert obj.min() >= 0, f"{obj.min()=}"
+    assert not torch.any(torch.isnan(obj))
     return obj
 
 
