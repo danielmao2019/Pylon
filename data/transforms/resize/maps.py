@@ -4,7 +4,8 @@ from ..base_transform import BaseTransform
 
 
 class ResizeMaps(BaseTransform):
-    __doc__ = r"""This class implements resize method for 2-dimensional tensors.
+    __doc__ = r"""This class implements resize method for 2-dimensional tensors. It is a thin layer
+    of wrapper around torchvision.transforms.Resize just to unsqueeze and squeeze on the channels dimension.
     """
 
     def __init__(self, **kwargs) -> None:
@@ -17,7 +18,7 @@ class ResizeMaps(BaseTransform):
 
     def _call_single_(self, x: torch.Tensor) -> torch.Tensor:
         assert type(x) == torch.Tensor, f"{type(x)=}"
-        assert x.dim() == 2, f"{x.shape=}"
+        assert x.ndim == 2, f"{x.shape=}"
         x = x.unsqueeze(0)
         x = self.resize(x)
         x = x.squeeze(0)
