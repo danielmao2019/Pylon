@@ -23,10 +23,13 @@ class DepthEstimationMetric(SingleTaskMetric):
         check_depth_estimation(y_pred=y_pred, y_true=y_true)
         y_pred = y_pred.squeeze(1)
         # compute score
-        mask = y_true != 0
-        assert mask.sum() >= 1
-        numerator = ((y_pred[mask] - y_true[mask]) ** 2).sum()
-        denominator = mask.sum()
+        valid_mask = y_true != 0
+        assert valid_mask.sum() > 0
+        numerator = ((y_pred[valid_mask] - y_true[valid_mask]) ** 2).sum()
+        denominator = valid_mask.sum()
         score = numerator / denominator
+        # output check
         assert score.ndim == 0, f"{score.shape=}"
+        assert score.is_floating_point(), f"{score.dtype=}"
+        assert not torch.isnan(score), f"{score=}"
         return {'l1': score}

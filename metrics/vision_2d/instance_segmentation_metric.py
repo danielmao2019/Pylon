@@ -26,10 +26,13 @@ class InstanceSegmentationMetric(SingleTaskMetric):
         # input checks
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
         # compute score
-        mask = y_true != self.ignore_index
-        assert mask.sum() >= 1
-        numerator = (y_pred[mask] - y_true[mask]).abs().sum()
-        denominator = mask.sum()
+        valid_mask = y_true != self.ignore_index
+        assert valid_mask.sum() > 0
+        numerator = (y_pred[valid_mask] - y_true[valid_mask]).abs().sum()
+        denominator = valid_mask.sum()
         score = numerator / denominator
+        # output check
         assert score.ndim == 0, f"{score.shape=}"
+        assert score.is_floating_point(), f"{score.dtype=}"
+        assert not torch.isnan(score), f"{score=}"
         return {'l1': score}

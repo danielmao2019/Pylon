@@ -24,10 +24,15 @@ class NormalEstimationMetric(SingleTaskMetric):
         # input checks
         check_normal_estimation(y_pred=y_pred, y_true=y_true)
         # compute score
-        valid_mask = torch.linalg.norm(y_true, dim=1) != 0
         cosine_map = torch.nn.functional.cosine_similarity(y_pred, y_true, dim=1)
-        assert valid_mask.shape == cosine_map.shape
+        valid_mask = torch.linalg.norm(y_true, dim=1) != 0
+        assert valid_mask.sum() > 0
+        assert valid_mask.shape == cosine_map.shape, f"{valid_mask.shape=}, {cosine_map.shape=}"
         cosine_map = cosine_map.masked_select(valid_mask)
         score = torch.rad2deg(torch.acos(cosine_map)).mean()
+        # output check
         assert score.ndim == 0, f"{score.shape=}"
+        assert score.is_floating_point(), f"{score.dtype=}"
+        assert not torch.isnan(score), f"{score=}"
+        # return
         return {'angle': score}
