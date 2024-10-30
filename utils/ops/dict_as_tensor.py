@@ -9,7 +9,7 @@ import torch
 
 def buffer_equal(buffer, other) -> bool:
     result = True
-    result = result and type(buffer) == type(other)
+    result = result and (type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float])))
     if type(buffer) in [tuple, list]:
         result = result and len(buffer) == len(other)
         result = result and all([buffer_equal(buffer[idx], other[idx]) for idx in range(len(buffer))])
@@ -26,7 +26,7 @@ def buffer_equal(buffer, other) -> bool:
 
 
 def _buffer_add(buffer, other):
-    assert type(buffer) == type(other), f"{type(buffer)=}, {type(other)=}"
+    assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float]))
     if type(buffer) in [tuple, list]:
         assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
         return type(buffer)([_buffer_add(buffer[idx], other[idx]) for idx in range(len(buffer))])
@@ -37,20 +37,10 @@ def _buffer_add(buffer, other):
         return buffer + other
 
 
-def buffer_add(buffer):
-    r"""Take the sum of the buffer along the first axis.
-    """
-    if type(buffer) == numpy.ndarray:
-        return numpy.sum(buffer, dim=0)
-    elif type(buffer) == torch.Tensor:
-        return torch.sum(buffer, dim=0)
-    elif type(buffer) == dict:
-        buffer = list(buffer.values())
-    else:
-        assert type(buffer) in [tuple, list]
-    result = buffer[0]
-    for idx in range(1, len(buffer)):
-        result = _buffer_add(result, buffer[idx])
+def buffer_add(*buffers):
+    result = buffers[0]
+    for idx in range(1, len(buffers)):
+        result = _buffer_add(result, buffers[idx])
     return result
 
 
@@ -73,10 +63,40 @@ def buffer_scalar_mul(buffer, scalar):
         return buffer * scalar
 
 
+def buffer_sub(buffer, other):
+    return buffer_add(buffer, buffer_scalar_mul(other, -1))
+
+
+def buffer_mul(buffer, other):
+    assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float])), \
+        f"{type(buffer)=}, {type(other)=}"
+    if type(buffer) in [tuple, list]:
+        assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
+        return type(buffer)([buffer_mul(buffer[idx], other[idx]) for idx in range(len(buffer))])
+    elif type(buffer) == dict:
+        assert set(buffer.keys()) == set(other.keys()), f"{buffer.keys()=}, {other.keys()=}"
+        return {key: buffer_mul(buffer[key], other[key]) for key in buffer}
+    else:
+        return buffer * other
+
+
+def buffer_rec(buffer):
+    if type(buffer) in [tuple, list]:
+        return type(buffer)([buffer_rec(buffer[idx]) for idx in range(len(buffer))])
+    elif type(buffer) == dict:
+        return {key: buffer_rec(buffer[key]) for key in buffer}
+    else:
+        return 1 / buffer
+
+
+def buffer_div(buffer, other):
+    return buffer_mul(buffer, buffer_rec(other))
+
+
 def buffer_mean(buffer):
     r"""Take the mean of the buffer along the first axis.
     """
-    return buffer_scalar_mul(buffer_add(buffer), 1 / len(buffer))
+    return buffer_scalar_mul(buffer_add(*list(buffer)), 1 / len(buffer))
 
 
 def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:

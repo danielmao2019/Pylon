@@ -19,6 +19,65 @@ def test_transpose_buffer(buffer: List[Dict[str, float]], expected: Dict[str, Li
 
 
 # ====================================================================================================
+from .dict_as_tensor import buffer_add
+# ====================================================================================================
+
+@pytest.mark.parametrize("buffers, expected", [
+    (
+        [{'a': {'a': 1}, 'b': {'b': 1}, 'c': {'c': 1}}, {'a': {'a': 2}, 'b': {'b': 2}, 'c': {'c': 2}}],
+        {'a': {'a': 3}, 'b': {'b': 3}, 'c': {'c': 3}},
+    ),
+])
+def test_buffer_add(buffers, expected) -> None:
+    assert buffer_add(*buffers) == expected
+
+
+# ====================================================================================================
+from .dict_as_tensor import buffer_sub
+# ====================================================================================================
+
+@pytest.mark.parametrize("buffer, other, expected", [
+    (
+        {'a': {'a': 1}, 'b': {'b': 1}, 'c': {'c': 1}},
+        {'a': {'a': 2}, 'b': {'b': 2}, 'c': {'c': 2}},
+        {'a': {'a': -1}, 'b': {'b': -1}, 'c': {'c': -1}},
+    ),
+])
+def test_buffer_sub(buffer, other, expected) -> None:
+    assert buffer_sub(buffer, other) == expected
+
+
+# ====================================================================================================
+from .dict_as_tensor import buffer_mul
+# ====================================================================================================
+
+@pytest.mark.parametrize("buffer, other, expected", [
+    (
+        {'a': {'a': 2}, 'b': {'b': 2}, 'c': {'c': 2}},
+        {'a': {'a': 3}, 'b': {'b': 3}, 'c': {'c': 3}},
+        {'a': {'a': 6}, 'b': {'b': 6}, 'c': {'c': 6}},
+    ),
+])
+def test_buffer_mul(buffer, other, expected) -> None:
+    assert buffer_mul(buffer, other) == expected
+
+
+# ====================================================================================================
+from .dict_as_tensor import buffer_div
+# ====================================================================================================
+
+@pytest.mark.parametrize("buffer, other, expected", [
+    (
+        {'a': {'a': 1}, 'b': {'b': 1}, 'c': {'c': 1}},
+        {'a': {'a': 2}, 'b': {'b': 2}, 'c': {'c': 2}},
+        {'a': {'a': 0.5}, 'b': {'b': 0.5}, 'c': {'c': 0.5}},
+    ),
+])
+def test_buffer_div(buffer, other, expected) -> None:
+    assert buffer_div(buffer, other) == expected
+
+
+# ====================================================================================================
 from .dict_as_tensor import buffer_mean
 # ====================================================================================================
 
@@ -88,7 +147,7 @@ from .dict_as_tensor import buffer_mean
         {'a': 1.0, 'b': 1.6, 'c': [1.5, 1.5], 'd': [[2.5, 2.5], [2.5, 2.5]], 'e': {'ea': 2, 'eb': 2, 'ec': 2}, 'f': numpy.array([1.5, 1.5]), 'g': torch.tensor([1.5, 1.5])},
     ),
 ])
-def test_average_buffer(
+def test_buffer_mean(
     buffer: List[Dict[str, Union[int, float, numpy.ndarray, torch.Tensor]]],
     expected: Dict[str, Union[int, float, numpy.ndarray, torch.Tensor]],
 ) -> None:
