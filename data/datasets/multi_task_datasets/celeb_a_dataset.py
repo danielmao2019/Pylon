@@ -22,12 +22,27 @@ class CelebADataset(BaseDataset):
 
     TOTAL_SIZE = 202599
     SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = {
+        'train': 162770,
+        'val': 19867,
+        'test': 19962,
+    }
     INPUT_NAMES = ['image']
-    LABEL_NAMES = ['landmarks', '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
-                   'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard', 'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks', 'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings', 'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young']
+    LABEL_NAMES = ['landmarks'] + [
+        '5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald',
+        'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair',
+        'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin',
+        'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones',
+        'Male', 'Mouth_Slightly_Open', 'Mustache', 'Narrow_Eyes', 'No_Beard',
+        'Oval_Face', 'Pale_Skin', 'Pointy_Nose', 'Receding_Hairline', 'Rosy_Cheeks',
+        'Sideburns', 'Smiling', 'Straight_Hair', 'Wavy_Hair', 'Wearing_Earrings',
+        'Wearing_Hat', 'Wearing_Lipstick', 'Wearing_Necklace', 'Wearing_Necktie', 'Young',
+    ]
+    SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
 
-    ####################################################################################################
-    ####################################################################################################
+    # ====================================================================================================
+    # initialization methods
+    # ====================================================================================================
 
     def _init_annotations_(self, split: str) -> None:
         image_filepaths = self._init_images_(split=split)
@@ -81,14 +96,15 @@ class CelebADataset(BaseDataset):
                 line = lines[idx].strip().split()
                 assert int(line[0].split('.')[0]) == idx + 1, f"{fp=}, {line[0]=}, {idx=}"
                 attributes: Dict[str, torch.Tensor] = dict(
-                    (name, torch.tensor([1 if val == "1" else 0], dtype=torch.int8))
+                    (name, torch.tensor((1 if val == "1" else 0), dtype=torch.int64))
                     for name, val in zip(self.LABEL_NAMES[1:], line[1:])
                 )
                 attribute_labels.append(attributes)
         return attribute_labels
 
-    ####################################################################################################
-    ####################################################################################################
+    # ====================================================================================================
+    # load methods
+    # ====================================================================================================
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
