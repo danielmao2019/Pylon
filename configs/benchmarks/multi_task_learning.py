@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import itertools
 import os
 import sys
@@ -116,7 +116,7 @@ def main(
     dataset_names: List[str],
     model_names: List[str],
     method_names: List[str],
-    task_names: List[str],
+    task_names: Optional[List[str]] = [],
 ) -> None:
     for dataset_name, model_name, task_name in itertools.product(dataset_names, model_names, task_names):
         gen_single_task_configs(dataset_name, model_name, task_name)
@@ -135,3 +135,5 @@ if __name__ == "__main__":
     dataset_names = ['nyu_v2_c', 'nyu_v2_f']
     task_names = data.datasets.NYUv2Dataset.LABEL_NAMES
     main(dataset_names, model_names, method_names, task_names)
+    # CelebA
+    main(dataset_names=['celeb_a'], model_names=['celeb_a_resnet18'], method_names=method_names)
