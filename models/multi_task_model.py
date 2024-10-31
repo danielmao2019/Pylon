@@ -8,13 +8,14 @@ class MultiTaskBaseModel(torch.nn.Module):
         self,
         backbone: torch.nn.Module,
         decoders: torch.nn.ModuleDict,
-        return_shared_rep: bool,
-        use_attention: bool,
-        in_channels: int,
+        return_shared_rep: Optional[bool] = True,
+        use_attention: Optional[bool] = False,
+        attn_in: Optional[int] = None,
     ) -> None:
         r"""
         Args:
             return_shared_rep (bool): for single-task learning compatibility.
+            attn_in (int): Only used when use_attention is True.
         """
         super(MultiTaskBaseModel, self).__init__()
         assert isinstance(backbone, torch.nn.Module)
@@ -23,19 +24,19 @@ class MultiTaskBaseModel(torch.nn.Module):
         self.decoders = decoders
         self.return_shared_rep = return_shared_rep
         if use_attention:
-            assert in_channels is not None
+            assert attn_in is not None
             self.attention_modules = torch.nn.ModuleDict({
                 name: torch.nn.Sequential(
                     torch.nn.Conv2d(
-                        in_channels=in_channels, out_channels=in_channels,
+                        in_channels=attn_in, out_channels=attn_in,
                         kernel_size=3, stride=1, padding=1, dilation=1, groups=1, bias=True,
                     ),
                     torch.nn.Conv2d(
-                        in_channels=in_channels, out_channels=in_channels,
-                        kernel_size=3, stride=1, padding=1, dilation=1, groups=in_channels, bias=True,
+                        in_channels=attn_in, out_channels=attn_in,
+                        kernel_size=3, stride=1, padding=1, dilation=1, groups=attn_in, bias=True,
                     ),
                     torch.nn.Conv2d(
-                        in_channels=in_channels, out_channels=in_channels,
+                        in_channels=attn_in, out_channels=attn_in,
                         kernel_size=1, stride=1, padding=0, dilation=1, groups=1, bias=True,
                     )
                 ) for name in decoders

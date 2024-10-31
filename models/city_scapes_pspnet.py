@@ -13,13 +13,18 @@ class CityScapes_PSPNet(MultiTaskBaseModel):
 
     def __init__(
         self,
-        backbone: torch.nn.Module,
         in_channels: int,
         tasks: Set[str],
-        num_classes: Optional[int] = None,
-        return_shared_rep: Optional[bool] = False,
-        use_attention: Optional[bool] = False,
+        num_classes: int,
+        **kwargs,
     ) -> None:
+        r"""
+        Args:
+            num_classes (int): The number of output channels for depth estimation and instance segmentation
+                are both fixed. However, that for semantic segmentation is not, depending on the experiment
+                setup. The number of output channels for the semantic segmentation branch will be set
+                to num_classes.
+        """
         # input checks
         assert type(tasks) == set, f"{type(tasks)=}"
         assert all([type(t) == str for t in tasks])
@@ -32,6 +37,5 @@ class CityScapes_PSPNet(MultiTaskBaseModel):
         if "instance_segmentation" in tasks:
             decoders["instance_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=2)
         super(CityScapes_PSPNet, self).__init__(
-            backbone=backbone, decoders=decoders, return_shared_rep=return_shared_rep,
-            use_attention=use_attention, in_channels=in_channels,
+            decoders=decoders, attn_in=in_channels, **kwargs,
         )

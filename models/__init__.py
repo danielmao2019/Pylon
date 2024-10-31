@@ -4,6 +4,7 @@ MODELS API.
 from models import backbones
 from models.multi_task_model import MultiTaskBaseModel
 from models.celeb_a_famo import CelebA_FAMO
+from models.celeb_a_resnet18 import CelebA_ResNet18
 from models.city_scapes_pspnet import CityScapes_PSPNet
 from models.city_scapes_segnet import CityScapes_SegNet
 from models.nyud_mt_pspnet import NYUD_MT_PSPNet
@@ -14,6 +15,7 @@ __all__ = (
     'backbones',
     'MultiTaskBaseModel',
     'CelebA_FAMO',
+    'CelebA_ResNet18',
     'CityScapes_PSPNet',
     'CityScapes_SegNet',
     'NYUD_MT_PSPNet',
