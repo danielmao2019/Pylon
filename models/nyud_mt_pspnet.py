@@ -32,5 +32,5 @@ class NYUD_MT_PSPNet(MultiTaskBaseModel):
             decoders["semantic_segmentation"] = PyramidPoolingModule(in_channels=in_channels, num_classes=num_classes)
         super(NYUD_MT_PSPNet, self).__init__(
             backbone=backbone, decoders=decoders, return_shared_rep=return_shared_rep,
-            use_attention=use_attention, in_channels=in_channels,
+            use_attention=use_attention, attn_in=in_channels,
         )
