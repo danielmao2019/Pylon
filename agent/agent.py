@@ -23,6 +23,7 @@ class Agent:
         expected_files: Dict[str, List[str]],
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
+        keep_tmux: Optional[bool] = False,
     ) -> None:
         r"""
         Args:
@@ -38,6 +39,7 @@ class Agent:
         self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
+        self.keep_tmux = keep_tmux
         self.logger = utils.logging.Logger(filepath="./project/run_agent.log")
         self.trail_count = {config_file: 0 for config_file in self.config_files}
 
@@ -245,6 +247,7 @@ class Agent:
                         "MKL_SERVICE_FORCE_INTEL=1",
                         f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
                         'python', 'project/main.py', '--config-filepath', run,
+                        *([';', 'exec', 'bash'] if self.keep_tmux else []),
                     '"',
                 "'",
             ])
