@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import os
 import torch
 from data.datasets import BaseDataset
@@ -44,6 +44,11 @@ class CelebADataset(BaseDataset):
     # initialization methods
     # ====================================================================================================
 
+    def __init__(self, use_landmarks: Optional[bool] = False, **kwargs) -> None:
+        assert type(use_landmarks) == bool, f"{type(use_landmarks)=}"
+        self.use_landmarks = use_landmarks
+        super(CelebADataset, self).__init__(**kwargs)
+
     def _init_annotations_(self, split: str) -> None:
         image_filepaths = self._init_images_(split=split)
         landmark_labels = self._init_landmark_labels_(image_filepaths=image_filepaths)
@@ -69,6 +74,8 @@ class CelebADataset(BaseDataset):
         return image_filepaths
 
     def _init_landmark_labels_(self, image_filepaths: List[str]) -> List[torch.Tensor]:
+        if not self.use_landmarks:
+            return [None] * len(image_filepaths)
         with open(os.path.join(self.data_root, "list_landmarks_align_celeba.txt"), mode='r') as f:
             lines = f.readlines()
             assert len(lines[0].strip().split()) == 10, f"{lines[0].strip().split()=}"
@@ -113,7 +120,9 @@ class CelebADataset(BaseDataset):
             filepath=self.annotations[idx][0], dtype=torch.float32,
             sub=None, div=255.,
         )}
-        labels = {'landmarks': self.annotations[idx][1]}
+        labels = {}
+        if self.use_landmarks:
+            labels.update({'landmarks': self.annotations[idx][1]})
         labels.update(self.annotations[idx][2])
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx][0], start=self.data_root),
