@@ -24,6 +24,7 @@ def update_config(config, key, val, type_pattern) -> str:
 
 def generate_seeds(
     template_config: str,
+    base_seed: str,
     num_repetitions: Optional[int] = 3,
     ub: Optional[int] = 10**8-1,
 ) -> None:
@@ -31,11 +32,10 @@ def generate_seeds(
     epochs = re.findall(pattern="'epochs': (\d+),", string=template_config)
     assert len(epochs) == 1, f"{epochs=}"
     epochs = int(epochs[0])
-    # initialization
-    random.seed(template_config)
     # generate seeds
     seeded_configs: List[str] = []
-    for _ in range(num_repetitions):
+    for idx in range(num_repetitions):
+        random.seed(base_seed + str(idx))
         config = template_config
         # generate seeds
         init_seed: int = random.randint(0, ub)

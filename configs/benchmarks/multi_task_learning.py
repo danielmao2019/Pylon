@@ -57,7 +57,10 @@ def gen_single_task_configs(dataset_name: str, model_name: str, task_name: str) 
     config += f"config['optimizer'] = adam_optimizer_config\n"
     config += '\n'
     # add seeds
-    seeded_configs: List[str] = utils.configs.generate_seeds(template_config=config)
+    seeded_configs: List[str] = utils.configs.generate_seeds(
+        template_config=config,
+        base_seed=os.path.join("benchmarks", relpath, f"single_task_{task_name}"),
+    )
     # save to disk
     os.makedirs(os.path.join("./configs/benchmarks", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
@@ -96,7 +99,10 @@ def gen_method_configs(dataset_name: str, model_name: str, method_name: str) -> 
     config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds
-    seeded_configs: List[str] = utils.configs.generate_seeds(template_config=config)
+    seeded_configs: List[str] = utils.configs.generate_seeds(
+        template_config=config,
+        base_seed=os.path.join("benchmarks", relpath, method_name),
+    )
     # save to disk
     os.makedirs(os.path.join("./configs/benchmarks", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
