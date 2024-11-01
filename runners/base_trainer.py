@@ -113,16 +113,20 @@ class BaseTrainer:
         # initialize validation dataloader
         if self.config.get('val_dataset', None) and self.config.get('val_dataloader', None):
             val_dataset: torch.utils.data.Dataset = build_from_config(self.config['val_dataset'])
+            if 'batch_size' not in self.config['val_dataloader']['args']:
+                self.config['val_dataloader']['args']['batch_size'] = 1
             self.val_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=val_dataset, shuffle=False, batch_size=1, config=self.config['val_dataloader'],
+                dataset=val_dataset, shuffle=False, config=self.config['val_dataloader'],
             )
         else:
             self.val_dataloader = None
         # initialize test dataloader
         if self.config.get('test_dataset', None) and self.config.get('test_dataloader', None):
             test_dataset: torch.utils.data.Dataset = build_from_config(self.config['test_dataset'])
+            if 'batch_size' not in self.config['test_dataloader']['args']:
+                self.config['test_dataloader']['args']['batch_size'] = 1
             self.test_dataloader: torch.utils.data.DataLoader = build_from_config(
-                dataset=test_dataset, shuffle=False, batch_size=1, config=self.config['test_dataloader'],
+                dataset=test_dataset, shuffle=False, config=self.config['test_dataloader'],
             )
         else:
             self.test_dataloader = None
