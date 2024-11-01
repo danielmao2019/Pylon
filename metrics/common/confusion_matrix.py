@@ -1,12 +1,12 @@
 from typing import Dict
 import torch
-from metrics.base_metric import BaseMetric
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file
 from utils.ops import transpose_buffer
 from utils.io import save_json
 
 
-class ConfusionMatrix(BaseMetric):
+class ConfusionMatrix(SingleTaskMetric):
 
     def __init__(self, num_classes: int) -> None:
         super(ConfusionMatrix, self).__init__()
