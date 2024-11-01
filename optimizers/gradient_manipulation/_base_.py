@@ -58,7 +58,7 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
                 manipulated_grad: torch.Tensor = self._gradient_manipulation_(
                     grads_list=list(grads_dict.values()), shared_rep=shared_rep,
                 )
-        assert manipulated_grad.dim() == 1, f"{manipulated_grad.shape=}"
+        assert manipulated_grad.ndim == 1, f"{manipulated_grad.shape=}"
         # populate gradients for task-specific parameters
         self.optimizer.zero_grad(set_to_none=True)
         for p in self._get_shared_params_():
@@ -86,7 +86,7 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         """
         # input checks
         assert type(grad) == torch.Tensor, f"{type(grad)=}"
-        assert grad.dim() == 1, f"{grad.shape=}"
+        assert grad.ndim == 1, f"{grad.shape=}"
         # populate gradient
         idx = 0
         for p, shape in zip(self._get_shared_params_(), self.shared_params_shapes):
