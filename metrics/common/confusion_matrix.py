@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import List, Dict
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file
@@ -40,25 +40,25 @@ class ConfusionMatrix(SingleTaskMetric):
         return score
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
-        if output_path is not None:
-            check_write_file(path=output_path)
+        assert len(self.buffer) != 0
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+        # summarize scores
         result: Dict[str, torch.Tensor] = {}
-        if len(self.buffer) != 0:
-            buffer = transpose_buffer(self.buffer)
-            confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in buffer}
-            tp = confusion_matrix['tp']
-            tn = confusion_matrix['tn']
-            fp = confusion_matrix['fp']
-            fn = confusion_matrix['fn']
-            result.update(confusion_matrix)
-            result['per_class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
-            result['per_class_precision'] = tp / (tp + fp)
-            result['per_class_recall'] = tp / (tp + fn)
-            result['per_class_f1'] = 2 * tp / (2 * tp + fp + fn)
-            total = tp + tn + fp + fn
-            assert torch.all(total == total[0])
-            result['accuracy'] = tp.sum() / total[0]
+        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in buffer}
+        tp = confusion_matrix['tp']
+        tn = confusion_matrix['tn']
+        fp = confusion_matrix['fp']
+        fn = confusion_matrix['fn']
+        result.update(confusion_matrix)
+        result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
+        result['class_precision'] = tp / (tp + fp)
+        result['class_recall'] = tp / (tp + fn)
+        result['class_f1'] = 2 * tp / (2 * tp + fp + fn)
+        total = tp + tn + fp + fn
+        assert torch.all(total == total[0])
+        result['accuracy'] = tp.sum() / total[0]
         # save to disk
         if output_path is not None:
+            check_write_file(path=output_path)
             save_json(obj=result, filepath=output_path)
         return result
