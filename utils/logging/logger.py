@@ -2,8 +2,8 @@ from typing import Optional
 import logging
 import sys
 
-from ..input_checks import check_write_file
-from ..io import serialize_tensor
+from utils.input_checks import check_write_file
+from utils.io import serialize_tensor
 
 
 class Logger:
@@ -19,15 +19,21 @@ class Logger:
     #     datefmt="%Y-%m-%d %H:%M:%S",
     # )
 
+    # ====================================================================================================
+    # init methods
+    # ====================================================================================================
+
     def __init__(self, filepath: Optional[str] = None) -> None:
         self._init_core_logger_(filepath=filepath)
-        self._init_file_handler_()
-        self._init_stream_handler_()
+        if not self.core_logger.handlers:
+            self._init_file_handler_()
+            self._init_stream_handler_()
 
     def _init_core_logger_(self, filepath: Optional[str]) -> None:
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.core_logger = logging.getLogger(name=self.filepath)
         self.core_logger.setLevel(level=logging.INFO)
+        self.core_logger.propagate = True
         self.buffer = {}
 
     def _init_file_handler_(self) -> None:
@@ -44,8 +50,9 @@ class Logger:
         s_handler.setLevel(level=logging.INFO)
         self.core_logger.addHandler(s_handler)
 
-    ####################################################################################################
-    ####################################################################################################
+    # ====================================================================================================
+    # logging methods
+    # ====================================================================================================
 
     def update_buffer(self, data: dict) -> None:
         self.buffer.update(serialize_tensor(data))
@@ -63,9 +70,6 @@ class Logger:
 
     def error(self, string: str) -> None:
         self.core_logger.error(string)
-
-    ####################################################################################################
-    ####################################################################################################
 
     def page_break(self):
         self.core_logger.info("")
