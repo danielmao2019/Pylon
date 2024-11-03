@@ -41,7 +41,6 @@ class Agent:
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
         self.logger = utils.logging.Logger(filepath="./project/run_agent.log")
-        self.trail_count = {config_file: 0 for config_file in self.config_files}
 
     # ====================================================================================================
     # session status checking
@@ -252,9 +251,16 @@ class Agent:
                 "'",
             ])
             self.logger.info(cmd)
-            os.system(cmd)
-            assert run in self.trail_count
-            self.trail_count[run] += 1
+            try:
+                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                # Check if the command was successful
+                if result.returncode != 0:
+                    print(result.stderr)
+                    print(result.stdout)
+                    self.logger.error(f"Command failed with error: {result.stderr}")
+                    self.logger.error(f"Output:\n{result.stdout}")
+            except Exception as e:
+                self.logger.error(str(e))
         return False
 
     # ====================================================================================================
