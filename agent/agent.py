@@ -337,11 +337,12 @@ class Agent:
 
     def spawn(self) -> None:
         while True:
+            self.logger.info('='*50)
             done = self._launch_missing()
             if done:
                 self.logger.info("All done.")
                 break
-            self.logger.info("Sleeping...")
+            self.logger.info("")
             time.sleep(self.sleep_time)
 
     def progress_report(self) -> str:
