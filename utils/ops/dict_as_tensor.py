@@ -2,7 +2,7 @@
 as an any immutable object indexed tensor, of any data type. For now, we name dictionaries under this
 view as 'buffer'. A buffer could be tuple, list, dict, numpy.ndarray, and torch.Tensor.
 """
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import numpy
 import torch
 
@@ -23,6 +23,30 @@ def buffer_equal(buffer, other) -> bool:
     else:
         result = result and buffer == other
     return result
+
+
+def buffer_close(
+    buffer, other,
+    rtol: Optional[float] = 1e-05,
+    atol: Optional[float] = 1e-08,
+    equal_nan: Optional[bool] = False,
+) -> bool:
+    assert type(buffer) == type(other)
+    if type(buffer) in [tuple, list]:
+        assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
+        return all([buffer_close(buffer[idx], other[idx]) for idx in range(len(buffer))])
+    elif type(buffer) == dict:
+        assert set(buffer.keys()) == set(other.keys()), f"{buffer.keys()=}, {other.keys()=}"
+        return all([buffer_close(buffer[key], other[key]) for key in buffer])
+    elif type(buffer) == numpy.ndarray:
+        assert buffer.shape == other.shape
+        return numpy.allclose(buffer, other, rtol=rtol, atol=atol, equal_nan=equal_nan)
+    elif type(buffer) == torch.Tensor:
+        assert buffer.shape == other.shape, f"{buffer.shape=}, {other.shape=}"
+        return torch.allclose(buffer, other, rtol=rtol, atol=atol, equal_nan=equal_nan)
+    else:
+        assert isinstance(buffer, (float, int)), f"{type(buffer)=}"
+        return abs(buffer - other) <= atol + rtol * abs(other)
 
 
 def _buffer_add(buffer, other):
