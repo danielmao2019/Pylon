@@ -92,7 +92,10 @@ def serialize_tensor(obj: Any):
 
 
 def save_json(obj: Any, filepath: str) -> None:
-    assert os.path.isdir(os.path.dirname(filepath)), f"{filepath=}"
+    assert (
+        os.path.dirname(filepath) == "" or
+        os.path.isdir(os.path.dirname(filepath))
+    ), f"{filepath=}, {os.path.dirname(filepath)=}"
     obj = serialize_tensor(obj)
     with open(filepath, mode='w') as f:
         f.write(jsbeautifier.beautify(json.dumps(obj), jsbeautifier.default_options()))
