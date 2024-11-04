@@ -12,6 +12,10 @@ class PCGradOptimizer(GradientManipulationBaseOptimizer):
         * https://github.com/WeiChengTseng/Pytorch-PCGrad (Sun May 28, 2023)
     """
 
+    def __init__(self, prng: Optional[random.Random] = None, *args, **kwargs) -> None:
+        super(PCGradOptimizer, self).__init__(*args, **kwargs)
+        self.prng = prng if prng is not None else random.Random()
+
     def _gradient_manipulation_(
         self,
         grads_list: List[torch.Tensor],
@@ -27,12 +31,16 @@ class PCGradOptimizer(GradientManipulationBaseOptimizer):
         # input checks
         assert len(grads_list) == self.num_tasks, f"{len(grads_list)=}, {self.num_tasks=}"
         # compute result
+        return self._pcgrad(grads_list=grads_list, prng=self.prng)
+
+    @staticmethod
+    def _pcgrad(grads_list: List[torch.Tensor], prng: random.Random) -> torch.Tensor:
         result = torch.zeros_like(grads_list[0])
         for i in range(len(grads_list)):
             gi = grads_list[i].detach().clone()
             idx_j_order = list(range(len(grads_list)))
             idx_j_order.remove(i)
-            random.shuffle(idx_j_order)
+            prng.shuffle(idx_j_order)
             for j in idx_j_order:
                 gj = grads_list[j]
                 inner_product = torch.dot(gi, gj)
