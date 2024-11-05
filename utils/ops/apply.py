@@ -1,4 +1,4 @@
-from typing import List, Union, Callable
+from typing import List, Union, Callable, Optional
 import torch
 
 
@@ -19,19 +19,22 @@ def apply_tensor_op(
 
 
 def apply_pairwise(
-    lot: List[torch.Tensor],
     func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
-    symmetric: bool = False,
+    inputs: List[torch.Tensor],
+    symmetric: Optional[bool] = False,
 ) -> torch.Tensor:
     # input checks
-    assert type(lot) == list, f"{type(lot)=}"
+    assert type(inputs) == list, f"{type(inputs)=}"
+    assert all([type(elem) == torch.Tensor for elem in inputs])
+    # initialization
+    device = inputs[0].device
+    dim = len(inputs)
     # compute result
-    dim = len(lot)
-    result = torch.zeros(size=(dim, dim), dtype=torch.float32, device=torch.device('cuda'))
+    result = torch.zeros(size=(dim, dim), dtype=torch.float32, device=device)
     for i in range(dim):
         loop = range(i, dim) if symmetric else range(dim)
         for j in loop:
-            val = func(lot[i], lot[j])
+            val = func(inputs[i], inputs[j])
             assert val.numel() == 1, f"{val.numel()}"
             result[i, j] = val
             if symmetric:
