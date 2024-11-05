@@ -39,15 +39,16 @@ def get_gram_matrix(
 
 
 def get_cosine_matrix(
-    grad_list: List[torch.Tensor],
+    grads_list: List[torch.Tensor],
 ) -> torch.Tensor:
     r"""This function computes a matrix whose (i, j)-th entry is torch.nn.CosineSimilarity(dim=0)(grad_list[i], grad_list[j]).
     """
-    assert type(grad_list) == list
-    for g in grad_list:
-        assert type(g) == torch.Tensor, f"{type(g)=}"
-        assert len(g.shape) == 1
-    return apply_pairwise(lot=grad_list, func=torch.nn.CosineSimilarity(dim=0), symmetric=True)
+    assert type(grads_list) == list, f"{type(grads_list)=}"
+    assert all([type(elem) == torch.Tensor for elem in grads_list])
+    assert all([elem.ndim == 1 for elem in grads_list])
+    return apply_pairwise(
+        func=torch.nn.CosineSimilarity(dim=0), inputs=grads_list, symmetric=True,
+    )
 
 
 def get_entropy(
