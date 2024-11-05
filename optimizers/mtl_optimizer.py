@@ -167,7 +167,7 @@ class MTLOptimizer:
     def _get_grads_all_tasks_(
         self,
         loss_dict: Dict[str, torch.Tensor],
-        shared_rep: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
+        shared_rep: Optional[Union[torch.Tensor, Tuple[torch.Tensor, ...]]] = None,
         wrt_rep: Optional[bool] = False,
         per_layer: Optional[bool] = False,
     ) -> Union[Dict[str, torch.Tensor], Dict[str, List[torch.Tensor]]]:
@@ -175,16 +175,18 @@ class MTLOptimizer:
         """
         # input checks
         assert type(loss_dict) == dict, f"{type(loss_dict)=}"
-        assert all(type(elem) == str for elem in loss_dict.keys())
+        assert all(type(key) == str for key in loss_dict.keys())
         assert all([
-            type(loss) == torch.Tensor and loss.ndim == 0 and loss.requires_grad
-            for loss in loss_dict.values()
+            type(value) == torch.Tensor and value.ndim == 0 and value.requires_grad
+            for value in loss_dict.values()
         ])
-        if type(shared_rep) != torch.Tensor:
-            assert type(shared_rep) == tuple, f"{type(shared_rep)=}"
-            assert all(type(elem) == torch.Tensor for elem in shared_rep)
         assert type(wrt_rep) == bool, f"{type(wrt_rep)=}"
         assert type(per_layer) == bool, f"{type(per_layer)=}"
+        if wrt_rep:
+            assert shared_rep is not None
+            if type(shared_rep) != torch.Tensor:
+                assert type(shared_rep) == tuple, f"{type(shared_rep)=}"
+                assert all(type(elem) == torch.Tensor for elem in shared_rep)
         # initialize time
         grad_time = time.time()
         if wrt_rep:
