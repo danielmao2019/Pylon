@@ -94,7 +94,7 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
                 # initialize full list of annotations
                 self._init_annotations_(split=split)
                 if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
-                    assert len(self) == self.DATASET_SIZE[split]
+                    assert len(self) == self.DATASET_SIZE[split], f"{len(self)=}, {self.DATASET_SIZE[split]=}, {split=}"
                 # take subset by indices
                 if indices is not None:
                     assert type(self.annotations) == list, f"{type(self.annotations)=}"
@@ -116,7 +116,7 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
                     # initialize full list of annotations
                     self._init_annotations_(split=option)
                     if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
-                        assert len(self) == self.DATASET_SIZE[option]
+                        assert len(self) == self.DATASET_SIZE[option], f"{len(self)=}, {self.DATASET_SIZE[option]=}, {option=}"
                     # take subset by indices
                     if indices is not None and option in indices:
                         assert type(self.annotations) == list, f"{type(self.annotations)=}"
