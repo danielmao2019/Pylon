@@ -135,5 +135,7 @@ if __name__ == "__main__":
     dataset_names = ['nyu_v2_c', 'nyu_v2_f']
     task_names = data.datasets.NYUv2Dataset.LABEL_NAMES
     main(dataset_names, model_names, method_names, task_names)
+    # MultiMNIST
+    main(dataset_names=['multi_mnist'], model_names=['multi_mnist_lenet5'], method_names=method_names)
     # CelebA
     main(dataset_names=['celeb_a'], model_names=['celeb_a_resnet18'], method_names=method_names)

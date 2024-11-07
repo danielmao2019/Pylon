@@ -11,7 +11,7 @@ transforms_config = {
     'args': {
         'transforms': [
             (
-                torchvision.transforms.Resize(size=(64, 64), antialias=True),
+                torchvision.transforms.Resize(size=(28, 28), antialias=True),
                 ('inputs', 'image'),
             ),
         ],
@@ -31,9 +31,9 @@ collate_fn_config = {
 
 config = {
     'train_dataset': {
-        'class': data.datasets.CelebADataset,
+        'class': data.datasets.MultiMNISTDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/celeb-a",
+            'data_root': "./data/datasets/soft_links",
             'split': "train",
             'indices': None,
             'transforms_cfg': transforms_config,
@@ -43,14 +43,14 @@ config = {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 256,
-            'num_workers': 0,
+            'num_workers': 8,
             'collate_fn': collate_fn_config,
         },
     },
     'val_dataset': {
-        'class': data.datasets.CelebADataset,
+        'class': data.datasets.MultiMNISTDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/celeb-a",
+            'data_root': "./data/datasets/soft_links",
             'split': "val",
             'indices': None,
             'transforms_cfg': transforms_config,
@@ -60,14 +60,14 @@ config = {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 256,
-            'num_workers': 0,
+            'num_workers': 8,
             'collate_fn': collate_fn_config,
         },
     },
     'test_dataset': {
-        'class': data.datasets.CelebADataset,
+        'class': data.datasets.MultiMNISTDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/celeb-a",
+            'data_root': "./data/datasets/soft_links",
             'split': "test",
             'indices': None,
             'transforms_cfg': transforms_config,
@@ -77,7 +77,7 @@ config = {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 256,
-            'num_workers': 0,
+            'num_workers': 8,
             'collate_fn': collate_fn_config,
         },
     },
@@ -86,7 +86,7 @@ config = {
         'args': {
             'criterion_configs': {
                 task: criteria.wrappers.PyTorchCriterionWrapper(criterion=torch.nn.CrossEntropyLoss())
-                for task in data.datasets.CelebADataset.LABEL_NAMES[1:]
+                for task in data.datasets.MultiMNISTDataset.LABEL_NAMES
             },
         },
     },
@@ -94,8 +94,8 @@ config = {
         'class': metrics.wrappers.MultiTaskMetric,
         'args': {
             'metric_configs': {
-                task: metrics.common.ConfusionMatrix(num_classes=2)
-                for task in data.datasets.CelebADataset.LABEL_NAMES[1:]
+                task: metrics.common.ConfusionMatrix(num_classes=data.datasets.MultiMNISTDataset.NUM_CLASSES)
+                for task in data.datasets.MultiMNISTDataset.LABEL_NAMES
             },
         },
     },
