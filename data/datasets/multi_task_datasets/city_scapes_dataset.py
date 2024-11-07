@@ -131,7 +131,7 @@ class CityScapesDataset(BaseDataset):
             segmentation_root, fp.split(os.sep)[-2], os.path.basename(fp)[:-len(image_postfix)] + "gtFine_instanceIds.png"
         ) for fp in image_paths]
         # construct annotations
-        self.annotations: List[Dict[str, Any]] = [{
+        self.annotations: List[Dict[str, str]] = [{
             'image': image_paths[idx],
             'depth': depth_paths[idx],
             'semantic': semantic_paths[idx],
