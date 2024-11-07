@@ -5,6 +5,7 @@ from data.datasets.base_dataset import BaseDataset
 from data.datasets import random_datasets
 
 from data.datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
+from data.datasets.multi_task_datasets.multi_mnist_dataset import MultiMNISTDataset
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
 from data.datasets.multi_task_datasets.multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
 from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
@@ -15,6 +16,7 @@ __all__ = (
     'BaseDataset',
     'random_datasets',
     'ProjectionDatasetWrapper',
+    'MultiMNISTDataset',
     'CelebADataset',
     'MultiTaskFacialLandmarkDataset',
     'CityScapesDataset',
