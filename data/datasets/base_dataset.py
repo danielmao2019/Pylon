@@ -95,9 +95,9 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
                 self._init_annotations_(split=split)
                 if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
                     assert len(self) == self.DATASET_SIZE[split]
-                assert type(self.annotations) == list, f"{type(self.annotations)=}"
                 # take subset by indices
                 if indices is not None:
+                    assert type(self.annotations) == list, f"{type(self.annotations)=}"
                     assert type(indices) == list, f"{type(indices)=}"
                     assert all(type(elem) == int for elem in indices)
                     self.annotations = [self.annotations[idx] for idx in indices]
@@ -117,9 +117,9 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
                     self._init_annotations_(split=option)
                     if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
                         assert len(self) == self.DATASET_SIZE[option]
-                    assert type(self.annotations) == list, f"{type(self.annotations)=}"
                     # take subset by indices
                     if indices is not None and option in indices:
+                        assert type(self.annotations) == list, f"{type(self.annotations)=}"
                         self.annotations = [self.annotations[idx] for idx in indices[option]]
                     # prepare to split
                     split_subset = copy.deepcopy(self)
@@ -133,9 +133,9 @@ class BaseDataset(ABC, torch.utils.data.Dataset):
                 assert abs(sum(split) - 1.0) < 0.01, f"{sum(split)=}"
                 # initialize full list of annotations
                 self._init_annotations_(split=None)
-                assert type(self.annotations) == list, f"{type(self.annotations)=}"
                 # take subset by indices
                 if indices is not None:
+                    assert type(self.annotations) == list, f"{type(self.annotations)=}"
                     assert type(indices) == list, f"{type(indices)=}"
                     assert all(type(elem) == int for elem in indices)
                     self.annotations = [self.annotations[idx] for idx in indices]
