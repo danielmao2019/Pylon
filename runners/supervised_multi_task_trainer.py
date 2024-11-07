@@ -33,8 +33,10 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
         # initialize optimizer
         optimizer_config = self.config['optimizer']
         optimizer_config['args']['optimizer_config']['args']['params'] = self.model.parameters()
-        dummy_example = self.train_dataloader.dataset[0]
-        dummy_example = apply_tensor_op(func=lambda x: torch.stack([x.cuda(), x.cuda()], dim=0), inputs=dummy_example)
+        dummy_dp0 = self.train_dataloader.dataset[0]
+        dummy_dp1 = self.train_dataloader.dataset[1]
+        dummy_example = self.train_dataloader.collate_fn([dummy_dp0, dummy_dp1])
+        dummy_example = apply_tensor_op(lambda x: x.cuda(), dummy_example)
         dummy_outputs = self.model(dummy_example['inputs'])
         dummy_losses = self.criterion(y_pred=dummy_outputs, y_true=dummy_example['labels'])
         self.optimizer = build_from_config(
