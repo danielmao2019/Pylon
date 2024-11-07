@@ -341,7 +341,6 @@ class Agent:
             done = self._launch_missing()
             if done:
                 self.logger.info("All done.")
-                break
             self.logger.info("")
             time.sleep(self.sleep_time)
 
