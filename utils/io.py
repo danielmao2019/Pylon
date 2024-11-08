@@ -38,17 +38,17 @@ def _pil2torch(image: Image) -> torch.Tensor:
     if mode == 'RGB':
         image = torch.from_numpy(numpy.array(image))
         image = image.permute(2, 0, 1)
-        assert image.dim() == 3 and image.shape[0] == 3, f"{image.shape=}"
+        assert image.ndim == 3 and image.shape[0] == 3, f"{image.shape=}"
         assert image.dtype == torch.uint8, f"{image.dtype=}"
-    elif mode == 'L':
+    elif mode in ['L', 'P']:
         image = torch.from_numpy(numpy.array(image))
-        assert image.dim() == 2, f"{image.shape=}"
+        assert image.ndim == 2, f"{image.shape=}"
         assert image.dtype == torch.uint8, f"{image.dtype=}"
     elif mode in ['I', 'I;16']:
         image = torch.from_numpy(numpy.array(image, dtype=numpy.int32))
-        assert image.dim() == 2, f"{image.shape=}"
+        assert image.ndim == 2, f"{image.shape=}"
     else:
-        raise NotImplementedError(f"{mode=}")
+        raise NotImplementedError(f"Conversion from PIL image to PyTorch tensor not implemented for {mode=}.")
     return image
 
 
@@ -56,22 +56,22 @@ def _normalize(image: torch.Tensor, sub, div) -> torch.Tensor:
     image = image.type(torch.float32)
     if sub is not None:
         sub = torch.tensor(sub, dtype=torch.float32)
-        if image.dim() == 3:
+        if image.ndim == 3:
             assert sub.numel() == 3, f"{sub.shape=}"
             sub = sub.view(3, 1, 1)
         else:
-            assert image.dim() == 2, f"{image.shape=}"
+            assert image.ndim == 2, f"{image.shape=}"
             assert sub.numel() == 1, f"{sub.shape=}"
         image = image - sub
     if div is not None:
         div = torch.tensor(div, dtype=torch.float32)
-        if image.dim() == 3:
+        if image.ndim == 3:
             if div.numel() == 1:
                 div = torch.tensor([div]*3)
             assert div.numel() == 3, f"{div.shape=}"
             div = div.view(3, 1, 1)
         else:
-            assert image.dim() == 2, f"{image.shape=}"
+            assert image.ndim == 2, f"{image.shape=}"
             assert div.numel() == 1, f"{div.shape=}"
         image = image / div
     return image
@@ -79,9 +79,9 @@ def _normalize(image: torch.Tensor, sub, div) -> torch.Tensor:
 
 def save_image(tensor: torch.Tensor, filepath: str) -> None:
     check_write_file(path=filepath)
-    if tensor.dim() == 3 and tensor.shape[0] == 3 and tensor.dtype == torch.float32:
+    if tensor.ndim == 3 and tensor.shape[0] == 3 and tensor.dtype == torch.float32:
         torchvision.utils.save_image(tensor=tensor, fp=filepath)
-    elif tensor.dim() == 2 and tensor.dtype == torch.uint8:
+    elif tensor.ndim == 2 and tensor.dtype == torch.uint8:
         Image.fromarray(tensor.numpy()).save(filepath)
     else:
         raise NotImplementedError(f"Unrecognized tensor format: shape={tensor.shape}, dtype={tensor.dtype}.")
