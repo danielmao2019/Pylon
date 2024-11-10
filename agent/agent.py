@@ -156,7 +156,7 @@ class Agent:
 
     @staticmethod
     def _get_all_p(server: str) -> Dict[str, Dict[str, str]]:
-        cmd = ['ssh', server, "ps", "-eo", "pid,user,cmd,lstart"]
+        cmd = ['ssh', server, "ps", "-eo", "pid,user,lstart,cmd"]
         out = subprocess.check_output(cmd)
         lines = out.decode().strip().splitlines()[1:]
         result: Dict[str, Dict[str, str]] = {}
@@ -164,11 +164,7 @@ class Agent:
             if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
                 continue
             parts = line.split()
-            pid = parts[0]
-            user = parts[1]
-            start = ' '.join(parts[-5:])
-            cmd = line[line.rfind(user)+len(user):line.rfind(start)].strip()
-            result[pid] = {'pid': pid, 'user': user, 'cmd': cmd, 'start': start}
+            result[parts[0]] = {'pid': parts[0], 'user': parts[1], 'start': ' '.join(parts[2:7]), 'cmd': ' '.join(parts[7:])}
         return result
 
     @staticmethod
@@ -290,13 +286,9 @@ class Agent:
             return styles
 
         initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        self.logger.info(initial_last_update)
         initial_progress = f"Progress: {self._get_progress()}%"
-        self.logger.info(initial_progress)
         initial_data = generate_table_data(self.status)
-        self.logger.info(initial_data)
         initial_style = generate_table_style(initial_data)
-        self.logger.info(initial_style)
 
         # Layout of the Dash app
         app.layout = html.Div([
