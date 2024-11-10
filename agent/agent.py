@@ -231,6 +231,9 @@ class Agent:
         gpu_pool = gpu_pool[:num_launch]
         missing_runs = missing_runs[:num_launch]
         for gpu, run in zip(gpu_pool, missing_runs):
+            error_log = os.path.join(self._get_work_dir(run), "error.log")
+            if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
+                self.logger.error(f"Please fix {run}. {error_log=}.")
             cmd = ' '.join([
                 'ssh', gpu['server'],
                 "'",
@@ -246,21 +249,13 @@ class Agent:
                         "MKL_SERVICE_FORCE_INTEL=1",
                         f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
                         'python', 'project/main.py', '--config-filepath', run,
+                        '2>', error_log,
                         *([';', 'exec', 'bash'] if self.keep_tmux else []),
                     '"',
                 "'",
             ])
             self.logger.info(cmd)
-            try:
-                result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                # Check if the command was successful
-                if result.returncode != 0:
-                    print(result.stderr)
-                    print(result.stdout)
-                    self.logger.error(f"Command failed with error: {result.stderr}")
-                    self.logger.error(f"Output:\n{result.stdout}")
-            except Exception as e:
-                self.logger.error(str(e))
+            os.system(cmd)
         return False
 
     # ====================================================================================================
