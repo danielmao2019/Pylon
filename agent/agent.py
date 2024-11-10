@@ -1,6 +1,10 @@
 from typing import List, Dict, Any, Optional
 import os
 import subprocess
+import threading
+import dash
+from dash import dcc, html, dash_table
+from dash.dependencies import Input, Output
 import time
 import glob
 import json
@@ -41,6 +45,15 @@ class Agent:
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
         self.logger = utils.logging.Logger(filepath="./project/run_agent.log")
+        self._init_status()
+
+    def _init_status(self) -> None:
+        self.status = {}
+        threading.Thread(target=self._get_status, daemon=True).start()
+        self.logger.info("Waiting for self.status initialization...")
+        while set(self.status.keys()) != set(self.servers):
+            time.sleep(1)
+        self.logger.info("Done.")
 
     # ====================================================================================================
     # session status checking
@@ -77,51 +90,265 @@ class Agent:
     def _has_failed(self, work_dir: str) -> bool:
         return not self._is_running(work_dir) and not self._has_finished(work_dir)
 
+    def _find_missing_runs(self) -> List[str]:
+        r"""
+        Returns:
+            result (List[str]): the config filepaths for the missing experiment runs.
+        """
+        result: List[str] = []
+        for config_file in self.config_files:
+            work_dir = Agent._get_work_dir(config_file)
+            if not os.path.isdir(work_dir) or self._has_failed(work_dir):
+                result.append(config_file)
+        random.shuffle(result)
+        return result
+
     # ====================================================================================================
     # GPU status checking
     # ====================================================================================================
 
     @staticmethod
-    def _parse_csv(outputs: str) -> Dict[str, List[str]]:
+    def _build_mapping(output: str) -> Dict[str, List[str]]:
+        lines = output.decode().strip().splitlines()
+        assert type(lines) == list
+        assert all([type(elem) == str for elem in lines])
+        lines = [line.strip().split(", ") for line in lines]
+        assert all([len(line) == 2 for line in lines])
         result: Dict[str, List[str]] = {}
-        if outputs == "":
-            return result
-        outputs: List[str] = outputs.strip().split('\n')
-        outputs: List[List[str]] = [line.strip().split(',') for line in outputs]
-        outputs: List[List[str]] = [[cell.strip() for cell in line] for line in outputs]
-        for line in outputs:
-            assert len(line) == 2, f"{line=}"
+        for line in lines:
             result[line[0]] = result.get(line[0], []) + [line[1]]
         return result
 
     @staticmethod
-    def _get_gpu_pids(server: str) -> List[List[str]]:
-        cmd = ' '.join([
-            'nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader',
-            '&&',
-            f"echo {'-'*10}",
-            '&&',
-            'nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader',
-        ])
-        cmd = f"ssh {server} '" + cmd + "'"
-        outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
-        outputs = outputs.split('-'*10)
-        assert len(outputs) == 2, f"{outputs=}"
-        idx2uuid: Dict[str, List[str]] = Agent._parse_csv(outputs[0])
-        uuid2pid: Dict[str, List[str]] = Agent._parse_csv(outputs[1])
-        num_gpus = len(idx2uuid)
-        result: List[List[str]] = [None] * num_gpus
-        for gpu_index in range(num_gpus):
-            assert len(idx2uuid[str(gpu_index)]) == 1
-            uuid = idx2uuid[str(gpu_index)][0]
-            result[gpu_index] = uuid2pid.get(uuid, [])
+    def _get_index2util(server: str) -> List[Dict[str, int]]:
+        fmem_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,memory.free', '--format=csv,noheader,nounits']
+        util_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,utilization.gpu', '--format=csv,noheader,nounits']
+        fmem_out: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(fmem_cmd))
+        util_out: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(util_cmd))
+        index2fmem: List[int] = []
+        index2util: List[int] = []
+        for index in fmem_out:
+            assert len(fmem_out[index]) == 1
+            index2fmem.append(int(fmem_out[index][0]))
+        for index in util_out:
+            assert len(util_out[index]) == 1
+            index2util.append(int(util_out[index][0]))
+        result: List[Dict[str, int]] = [{
+            'fmem': fmem,
+            'util': util,
+        } for fmem, util in zip(index2fmem, index2util)]
         return result
 
     @staticmethod
-    def _get_user_pids(server: str) -> List[str]:
-        cmd = ' '.join([
-            'ps', '-u', server.split('@')[0], '-o', 'pid=',
+    def _get_index2pids(server: str) -> List[List[str]]:
+        index2gpu_uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader']
+        gpu_uuid2pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader']
+        index2gpu_uuid: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(index2gpu_uuid_cmd))
+        gpu_uuid2pids: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(gpu_uuid2pids_cmd))
+        num_gpus = len(index2gpu_uuid)
+        result: List[List[str]] = [None] * num_gpus
+        for idx in range(num_gpus):
+            assert len(index2gpu_uuid[str(idx)]) == 1
+            gpu_uuid = index2gpu_uuid[str(idx)][0]
+            result[idx] = gpu_uuid2pids.get(gpu_uuid, [])
+        return result
+
+    @staticmethod
+    def _get_all_p(server: str) -> Dict[str, Dict[str, str]]:
+        cmd = ['ssh', server, "ps", "-eo", "pid,user,cmd,lstart"]
+        out = subprocess.check_output(cmd)
+        lines = out.decode().strip().splitlines()[1:]
+        result: Dict[str, Dict[str, str]] = {}
+        for line in lines:
+            parts = line.split()
+            pid = parts[0]
+            user = parts[1]
+            start = ' '.join(parts[-5:])
+            cmd = line[line.rfind(user)+len(user):line.rfind(start)].strip()
+            result[pid] = {'pid': pid, 'user': user, 'cmd': cmd, 'start': start}
+        return result
+
+    @staticmethod
+    def _get_server_status(server: str) -> List[Dict[str, Any]]:
+        index2pids = Agent._get_index2pids(server)
+        all_p = Agent._get_all_p(server)
+        index2util = Agent._get_index2util(server)
+        result: List[Dict[str, Any]] = [{
+            'processes': [all_p[pid] for pid in pids],
+            'util': util,
+        } for pids, util in zip(index2pids, index2util)]
+        return result
+
+    def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
+        while True:
+            for server in self.servers:
+                # initialize
+                if server not in self.status:
+                    self.status[server] = []
+                # retrieve
+                try:
+                    server_status = Agent._get_server_status(server)
+                except Exception as e:
+                    self.logger.error(f"{server=}, {e}")
+                    continue
+                # collect
+                if not self.status[server]:
+                    self.status[server] = [{
+                        'processes': None,
+                        'util': {
+                            'fmem': [],
+                            'fmem_avg': None,
+                            'util': [],
+                            'util_avg': None,
+                        },
+                    } for _ in range(len(server_status))]
+                for idx, gpu_status in enumerate(server_status):
+                    self.status[server][idx]['processes'] = gpu_status['processes']
+                    self.status[server][idx]['util']['fmem'].append(gpu_status['util']['fmem'])
+                    if len(self.status[server][idx]['util']['fmem']) > window_size:
+                        self.status[server][idx]['util']['fmem'] = self.status[server][idx]['util']['fmem'][-window_size:]
+                    self.status[server][idx]['util']['fmem_avg'] = sum(self.status[server][idx]['util']['fmem']) / len(self.status[server][idx]['util']['fmem'])
+                    self.status[server][idx]['util']['util'].append(gpu_status['util']['util'])
+                    if len(self.status[server][idx]['util']['util']) > window_size:
+                        self.status[server][idx]['util']['util'] = self.status[server][idx]['util']['util'][-window_size:]
+                    self.status[server][idx]['util']['util_avg'] = sum(self.status[server][idx]['util']['util']) / len(self.status[server][idx]['util']['util'])
+            time.sleep(interval)
+
+    # ====================================================================================================
+    # dashboard
+    # ====================================================================================================
+
+    def _get_progress(self) -> float:
+        result: int = 0
+        for config_file in self.config_files:
+            work_dir = self._get_work_dir(config_file)
+            cur_epochs = self._get_session_progress(work_dir)
+            percentage = int(cur_epochs / self.epochs * 100)
+            result += percentage
+        result: float = round(result / len(self.config_files), 2)
+        return result
+
+    def launch_dashboard(self) -> None:
+        """Launches the dashboard to display server status."""
+
+        import datetime  # For displaying the last update timestamp
+        from project.user_names import user_names
+
+        # Initialize Dash app
+        app = dash.Dash(__name__)
+
+        # Helper function to generate table data from `self.status`
+        def generate_table_data(status: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+            table_data = []
+            for server, gpus in status.items():
+                for idx, gpu_info in enumerate(gpus):
+                    if not gpu_info['processes']:
+                        table_data.append({
+                            "Server": server,
+                            "GPU Index": idx,
+                            "GPU Utilization": f"{gpu_info['util']['util_avg']:.2f}%",
+                            "Free Memory": f"{gpu_info['util']['fmem_avg']:.2f} MiB",
+                            "User": None,
+                            "PID": None,
+                            "Start": None,
+                            "CMD": None,
+                        })
+                    else:
+                        for proc in sorted(gpu_info['processes'], key=lambda x: x['user']):
+                            table_data.append({
+                                "Server": server,
+                                "GPU Index": idx,
+                                "GPU Utilization": f"{gpu_info['util']['util_avg']:.2f}%",
+                                "Free Memory": f"{gpu_info['util']['fmem_avg']:.2f} MiB",
+                                "User": user_names.get(proc['user'], proc['user']),
+                                "PID": proc['pid'],
+                                "Start": proc['start'],
+                                "CMD": proc['cmd'],
+                            })
+            return table_data
+
+        # Generate alternating row styles based on server
+        def generate_table_style(table_data):
+            styles = []
+            color_map = {'color_1': 'white', 'color_2': 'lightblue'}
+            last_server = None
+            current_color = 'color_2'
+
+            for i, row in enumerate(table_data):
+                if row['Server'] != last_server:
+                    current_color = 'color_1' if current_color == 'color_2' else 'color_2'
+                    last_server = row['Server']
+
+                styles.append({
+                    'if': {'row_index': i},
+                    'backgroundColor': color_map[current_color]
+                })
+
+            return styles
+
+        initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        self.logger.info(initial_last_update)
+        initial_progress = f"Progress: {self._get_progress()}%"
+        self.logger.info(initial_progress)
+        initial_data = generate_table_data(self.status)
+        self.logger.info(initial_data)
+        initial_style = generate_table_style(initial_data)
+        self.logger.info(initial_style)
+
+        # Layout of the Dash app
+        app.layout = html.Div([
+            html.H1("Server GPU Status Dashboard"),
+            html.Div(id='last-update', children=initial_last_update, style={'marginTop': '10px'}),  # Display the last update timestamp
+            html.Div(id='progress', children=initial_progress, style={'marginTop': '10px'}),  # New Div for progress
+            dcc.Interval(id='interval-component', interval=2*1000, n_intervals=0),  # Update every 2 seconds
+            dash_table.DataTable(
+                id='status-table',
+                columns=[
+                    {"name": "Server", "id": "Server"},
+                    {"name": "GPU Index", "id": "GPU Index"},
+                    {"name": "GPU Utilization", "id": "GPU Utilization"},
+                    {"name": "Free Memory", "id": "Free Memory"},
+                    {"name": "User", "id": "User"},
+                    {"name": "PID", "id": "PID"},
+                    {"name": "Start", "id": "Start"},
+                    {"name": "CMD", "id": "CMD"},
+                ],
+                data=initial_data,
+                merge_duplicate_headers=True,
+                style_cell={'textAlign': 'left', 'padding': '10px'},
+                style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold'},
+                style_data={'whiteSpace': 'normal', 'height': 'auto'},
+                style_data_conditional=initial_style,
+            )
         ])
+
+        # Callback to update table data, timestamp, and progress
+        @app.callback(
+            [
+                Output('last-update', 'children'),
+                Output('progress', 'children'),
+                Output('status-table', 'data'),
+                Output('status-table', 'style_data_conditional'),
+            ],
+            Input('interval-component', 'n_intervals')
+        )
+        def update_table(n_intervals):
+            last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            progress = f"Progress: {self._get_progress()}%"  # Retrieve progress percentage
+            table_data = generate_table_data(self.status)
+            table_style = generate_table_style(table_data)
+            return last_update, progress, table_data, table_style
+
+        # Run app
+        app.run_server(debug=True, port=8051)
+
+    # ====================================================================================================
+    # GPU status checking - level 2
+    # ====================================================================================================
+
+    @staticmethod
+    def _get_user_pids(server: str) -> List[str]:
+        cmd = ['ps', '-u', server.split('@')[0], '-o', 'pid=']
         cmd = f"ssh {server} '" + cmd + "'"
         outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
         result: List[str] = list(map(lambda x: x.strip(), outputs.split('\n')))
@@ -140,7 +367,7 @@ class Agent:
         """
         all_running: List[Dict[str, Any]] = []
         for server in self.servers:
-            gpu_pids = Agent._get_gpu_pids(server)
+            gpu_pids = Agent._get_index2pids(server)
             user_pids = Agent._get_user_pids(server)
             for gpu_index in range(len(gpu_pids)):
                 for pid in gpu_pids[gpu_index]:
@@ -169,51 +396,22 @@ class Agent:
         """
         all_idle_gpus: List[Dict[str, Any]] = []
         for server in self.servers:
-            cmd = ' '.join([
-                'nvidia-smi', '--query-gpu=index,utilization.gpu', '--format=csv,noheader',
-                '&&',
-                'echo', '-'*10,
-                '&&',
-                'nvidia-smi', '--query-gpu=index,memory.free', '--format=csv,noheader',
-            ])
-            cmd = f"ssh {server} '" + cmd + "'"
-            outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
-            outputs = outputs.split('-'*10)
-            assert len(outputs) == 2, f"{outputs=}"
-            gpu_util = Agent._parse_csv(outputs[0])
-            gpu_fmem = Agent._parse_csv(outputs[1])
-            assert set(gpu_util.keys()) == set(gpu_fmem.keys())
-            gpu_pids = Agent._get_gpu_pids(server)
-            for gpu_index in gpu_util:
-                assert len(gpu_util[gpu_index]) == 1
-                util = gpu_util[gpu_index][0]
-                util = int(util.split('%')[0])
-                assert len(gpu_fmem[gpu_index]) == 1
-                fmem = gpu_fmem[gpu_index][0]
-                fmem = int(fmem.split('MiB')[0])
-                if util < 50 and fmem > 12 * 1024 and len(gpu_pids[int(gpu_index)]) < 1:
+            server_status = self.status[server]
+            for idx, gpu_status in enumerate(server_status):
+                if (
+                    gpu_status['util']['util_avg'] < 50 and
+                    gpu_status['util']['fmem_avg'] > 12 * 1024 and
+                    len(gpu_status['processes']) < 1
+                ):
                     all_idle_gpus.append({
                         'server': server,
-                        'gpu_index': gpu_index,
+                        'gpu_index': idx,
                     })
         return all_idle_gpus
 
     # ====================================================================================================
     # experiment management
     # ====================================================================================================
-
-    def _find_missing_runs(self) -> List[str]:
-        r"""
-        Returns:
-            result (List[str]): the config filepaths for the missing experiment runs.
-        """
-        result: List[str] = []
-        for config_file in self.config_files:
-            work_dir = Agent._get_work_dir(config_file)
-            if not os.path.isdir(work_dir) or self._has_failed(work_dir):
-                result.append(config_file)
-        random.shuffle(result)
-        return result
 
     def _launch_missing(self) -> bool:
         r"""
@@ -258,8 +456,17 @@ class Agent:
             os.system(cmd)
         return False
 
+    def spawn(self) -> None:
+        while True:
+            self.logger.info('='*50)
+            done = self._launch_missing()
+            if done:
+                self.logger.info("All done.")
+            self.logger.info("")
+            time.sleep(self.sleep_time)
+
     # ====================================================================================================
-    # results reporting
+    # plotting
     # ====================================================================================================
 
     def _plot_training_losses_single(self, config_file: str) -> None:
@@ -318,10 +525,6 @@ class Agent:
             plt.savefig(os.path.join(output_dir, f"validation_scores_{key}.png"))
         return
 
-    # ====================================================================================================
-    # api
-    # ====================================================================================================
-
     def plot_training_losses_all(self) -> None:
         for config_file in tqdm.tqdm(self.config_files):
             self._plot_training_losses_single(config_file)
@@ -329,28 +532,6 @@ class Agent:
     def plot_validation_scores_all(self) -> None:
         for config_file in tqdm.tqdm(self.config_files):
             self._plot_validation_scores_single(config_file)
-
-    def spawn(self) -> None:
-        while True:
-            self.logger.info('='*50)
-            done = self._launch_missing()
-            if done:
-                self.logger.info("All done.")
-            self.logger.info("")
-            time.sleep(self.sleep_time)
-
-    def progress_report(self) -> str:
-        result: List[str] = []
-        total: int = 0
-        for config_file in self.config_files:
-            work_dir = self._get_work_dir(config_file)
-            progress = self._get_session_progress(work_dir)
-            percentage = int(progress / self.epochs * 100)
-            total += percentage
-            result.append(f"[{percentage*'#'}{(100-percentage)*'-'}] {percentage:02d}%")
-        total = round(total / len(self.config_files), 2)
-        result = f"Total progress: {total}%\n" + '\n'.join(result)
-        return result
 
     # ====================================================================================================
     # ====================================================================================================
