@@ -378,8 +378,10 @@ class Agent:
                     })
         return all_running
 
-    def _find_idle_gpus(self) -> List[Dict[str, Any]]:
+    def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
+        Args:
+            num_jobs (int): the maximum number of jobs allowed on a single GPU.
         Returns:
             all_idle_gpus (List[Dict[str, Any]]): a list of dictionaries with the following fields
             {
@@ -394,7 +396,7 @@ class Agent:
                 if (
                     gpu_status['util']['util_avg'] < 50 and
                     gpu_status['util']['fmem_avg'] > 12 * 1024 and
-                    len(gpu_status['processes']) < 1
+                    len(gpu_status['processes']) < num_jobs
                 ):
                     all_idle_gpus.append({
                         'server': server,
@@ -406,7 +408,7 @@ class Agent:
     # experiment management
     # ====================================================================================================
 
-    def _launch_missing(self) -> bool:
+    def _launch_missing(self, num_jobs: int) -> bool:
         r"""
         Returns:
             done (bool): nothing more to launch.
@@ -414,7 +416,7 @@ class Agent:
         missing_runs: List[str] = self._find_missing_runs()
         if len(missing_runs) == 0:
             return True
-        gpu_pool: List[Dict[str, Any]] = self._find_idle_gpus()
+        gpu_pool: List[Dict[str, Any]] = self._find_idle_gpus(num_jobs)
         if len(gpu_pool) == 0:
             self.logger.info("Waiting for idle GPU...")
             return False
@@ -449,10 +451,10 @@ class Agent:
             os.system(cmd)
         return False
 
-    def spawn(self) -> None:
+    def spawn(self, num_job: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
-            done = self._launch_missing()
+            done = self._launch_missing(num_job)
             if done:
                 self.logger.info("All done.")
             self.logger.info("")
