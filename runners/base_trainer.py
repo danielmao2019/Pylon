@@ -323,7 +323,7 @@ class BaseTrainer:
         self._save_checkpoint_(output_path=latest_checkpoint)
         # set latest checkpoint
         soft_link: str = os.path.join(self.work_dir, "checkpoint_latest.pt")
-        if os.path.isfile(soft_link):
+        if os.path.islink(soft_link):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
 
