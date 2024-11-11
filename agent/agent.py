@@ -75,7 +75,8 @@ class Agent:
             if idx >= self.epochs:
                 break
             epoch_finished: bool = all([
-                os.path.isfile(os.path.join(work_dir, f"epoch_{idx}", filename))
+                os.path.isfile(os.path.join(work_dir, f"epoch_{idx}", filename)) and
+                os.path.getsize(os.path.join(work_dir, f"epoch_{idx}", filename)) > 0
                 for filename in self.expected_files
             ])
             if not epoch_finished:
