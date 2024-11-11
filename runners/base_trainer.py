@@ -27,19 +27,15 @@ class BaseTrainer:
         self,
         config: dict,
         device: Optional[torch.device] = torch.device('cuda'),
-        wandb_log: Optional[bool] = False,
     ) -> None:
         r"""
         Args:
             config (dict): the config dict that controls the entire pipeline.
-            wandb_log (bool): if True, criterion and metric buffers will also be logged to wandb.
         """
         assert type(config) == dict, f"{type(config)=}"
         self.config = copy.deepcopy(config)
         assert type(device) == torch.device, f"{type(device)=}"
         self.device = device
-        assert type(wandb_log) == bool, f"{type(wandb_log)=}"
-        self.wandb_log = wandb_log
         self._init_work_dir()
         self._init_tot_epochs()
 
@@ -253,7 +249,7 @@ class BaseTrainer:
             dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
         # update logger
         self.logger.update_buffer({"learning_rate": self.scheduler.get_last_lr()})
-        self.logger.update_buffer(utils.logging.log_losses(losses=dp['losses'], wandb_log=self.wandb_log))
+        self.logger.update_buffer(utils.logging.log_losses(losses=dp['losses']))
         # update states
         self._set_gradients_(dp)
         self.optimizer.step()
@@ -273,7 +269,7 @@ class BaseTrainer:
             dp['outputs'] = self.model(dp['inputs'])
             dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
         # update logger
-        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores'], wandb_log=self.wandb_log))
+        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
 
