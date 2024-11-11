@@ -349,8 +349,7 @@ class Agent:
 
     @staticmethod
     def _get_user_pids(server: str) -> List[str]:
-        cmd = ['ps', '-u', server.split('@')[0], '-o', 'pid=']
-        cmd = f"ssh {server} '" + cmd + "'"
+        cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-o', 'pid=']
         outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
         result: List[str] = list(map(lambda x: x.strip(), outputs.split('\n')))
         return result
