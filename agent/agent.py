@@ -161,6 +161,8 @@ class Agent:
         lines = out.decode().strip().splitlines()[1:]
         result: Dict[str, Dict[str, str]] = {}
         for line in lines:
+            if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
+                continue
             parts = line.split()
             pid = parts[0]
             user = parts[1]
@@ -175,7 +177,7 @@ class Agent:
         all_p = Agent._get_all_p(server)
         index2util = Agent._get_index2util(server)
         result: List[Dict[str, Any]] = [{
-            'processes': [all_p[pid] for pid in pids],
+            'processes': [all_p[pid] for pid in pids if pid in all_p],
             'util': util,
         } for pids, util in zip(index2pids, index2util)]
         return result
