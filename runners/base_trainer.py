@@ -382,7 +382,28 @@ class BaseTrainer:
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
         if latest_checkpoint in checkpoints:
             checkpoints.remove(latest_checkpoint)
-        os.system(' '.join(["rm", "-f"] + checkpoints))
+        for checkpoint in checkpoints:
+            assert checkpoint.endswith("checkpoint.pt")
+            epoch_dir = os.path.dirname(checkpoint)
+            assert os.path.basename(epoch_dir).startswith("epoch_")
+            epoch = int(os.path.basename(epoch_dir).split('_')[1])
+            # remove only if next epoch has finished
+            next_epoch_dir = os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}")
+            remove_cond = True
+            if not all([
+                os.path.isfile(os.path.join(next_epoch_dir, filename)) and
+                os.path.getsize(os.path.join(next_epoch_dir, filename)) > 0
+                for filename in self.expected_files
+            ]):
+                remove_cond = False
+            try:
+                _ = torch.load(os.path.join(next_epoch_dir, "training_losses.pt"))
+                with open(os.path.join(next_epoch_dir, "validation_scores.json"), mode='r') as f:
+                    _ = json.load(f)
+            except:
+                remove_cond = False
+            if remove_cond:
+                os.system(' '.join(["rm", "-f", checkpoint]))
 
     # ====================================================================================================
     # test epoch
