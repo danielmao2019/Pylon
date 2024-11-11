@@ -11,7 +11,7 @@ from utils.builder import build_from_config
 from utils.ops import apply_tensor_op
 
 
-class BaseDataset(ABC, torch.utils.data.Dataset):
+class BaseDataset(torch.utils.data.Dataset, ABC):
 
     SPLIT_OPTIONS: List[str]
     DATASET_SIZE: Dict[str, int]

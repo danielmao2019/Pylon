@@ -1,5 +1,5 @@
 from typing import Tuple, List, Dict, Any, Optional
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 import copy
 import os
 import glob
@@ -21,7 +21,7 @@ except:
     from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
 
 
-class BaseTrainer:
+class BaseTrainer(ABC):
 
     def __init__(
         self,
@@ -184,7 +184,7 @@ class BaseTrainer:
 
     @property
     def expected_files(self):
-        return ["training_losses.pt", "validation_scores.json"]
+        return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
 
     def _load_checkpoint_(self, checkpoint: dict) -> None:
         r"""Default checkpoint loading method. Override to load more.
@@ -286,6 +286,7 @@ class BaseTrainer:
         # do training loop
         self.model.train()
         self.criterion.reset_buffer()
+        self.optimizer.reset_buffer()
         for idx, dp in enumerate(self.train_dataloader):
             self._train_step_(dp=dp)
             self.logger.flush(prefix=f"Training [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.train_dataloader)}].")
@@ -313,9 +314,13 @@ class BaseTrainer:
         # initialize epoch root directory
         epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
         os.makedirs(epoch_root, exist_ok=True)
-        # save training losses to disk
+        # save criterion buffer to disk
         self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
         _ = torch.load(os.path.join(epoch_root, "training_losses.pt"))
+        # save optimizer buffer to disk
+        self.optimizer.summarize(output_path=os.path.join(epoch_root, "optimizer_buffer.json"))
+        with open(os.path.join(epoch_root, "optimizer_buffer.json"), mode='r') as f:
+            _ = json.load(f)
         # save checkpoint to disk
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
         self._save_checkpoint_(output_path=latest_checkpoint)

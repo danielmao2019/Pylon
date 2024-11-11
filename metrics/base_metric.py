@@ -13,8 +13,8 @@ class BaseMetric(ABC):
 
     @abstractmethod
     def __call__(self, y_pred: Any, y_true: Any) -> Any:
-        raise NotImplementedError("BaseMetric.__call__ not implemented.")
+        raise NotImplementedError("Abstract method BaseMetric.__call__ not implemented.")
 
     @abstractmethod
     def summarize(self, output_path: Optional[str] = None) -> Any:
-        raise NotImplementedError("BaseMetric.summarize not implemented.")
+        raise NotImplementedError("Abstract method BaseMetric.summarize not implemented.")

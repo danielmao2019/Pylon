@@ -14,8 +14,8 @@ class BaseCriterion(torch.nn.Module, ABC):
 
     @abstractmethod
     def __call__(self, y_pred: Any, y_true: Any) -> Any:
-        raise NotImplementedError("BaseCriterion.__call__ not implemented.")
+        raise NotImplementedError("Abstract method BaseCriterion.__call__ not implemented.")
 
     @abstractmethod
     def summarize(self, output_path: Optional[str] = None) -> Any:
-        raise NotImplementedError("BaseCriterion.summarize not implemented.")
+        raise NotImplementedError("Abstract method BaseCriterion.summarize not implemented.")

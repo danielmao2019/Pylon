@@ -1,6 +1,7 @@
 """
 OPTIMIZERS API
 """
+from optimizers.base_optimizer import BaseOptimizer
 from optimizers.mtl_optimizer import MTLOptimizer
 # gradient manipulation methods
 from optimizers.gradient_manipulation.rgw import RGWOptimizer
@@ -25,6 +26,7 @@ from optimizers.gradient_manipulation.imtl import IMTLOptimizer
 
 
 __all__ = (
+    'BaseOptimizer',
     'MTLOptimizer',
     # gradient manipulation methods
     'RGWOptimizer',
