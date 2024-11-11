@@ -317,6 +317,7 @@ class BaseTrainer:
         os.makedirs(epoch_root, exist_ok=True)
         # save training losses to disk
         self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
+        _ = torch.load(os.path.join(epoch_root, "training_losses.pt"))
         # save checkpoint to disk
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
         self._save_checkpoint_(output_path=latest_checkpoint)
@@ -366,6 +367,8 @@ class BaseTrainer:
         os.makedirs(epoch_root, exist_ok=True)
         # save validation scores to disk
         self.metric.summarize(output_path=os.path.join(epoch_root, "validation_scores.json"))
+        with open(os.path.join(epoch_root, "validation_scores.json"), mode='r') as f:
+            _ = json.load(f)
         # set best checkpoint
         try:
             best_checkpoint: str = self._find_best_checkpoint_()
