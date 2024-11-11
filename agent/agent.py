@@ -226,7 +226,7 @@ class Agent:
         result: float = round(result / len(self.config_files), 2)
         return result
 
-    def launch_dashboard(self) -> None:
+    def launch_dashboard(self, port: Optional[int] = 8050) -> None:
         """Launches the dashboard to display server status."""
 
         import datetime  # For displaying the last update timestamp
@@ -334,7 +334,7 @@ class Agent:
             return last_update, progress, table_data, table_style
 
         # Run app
-        app.run_server(debug=True, port=8051)
+        app.run_server(debug=True, port=port)
 
     # ====================================================================================================
     # GPU status checking - level 2
