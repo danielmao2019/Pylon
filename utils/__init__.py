@@ -13,6 +13,7 @@ from utils import configs
 from utils import determinism
 from utils import gradients
 from utils import io
+from utils import progress
 
 from utils import object_detection
 from utils import semantic_segmentation
@@ -31,6 +32,7 @@ __all__ = (
     'determinism',
     'gradients',
     'io',
+    'progress',
 
     'object_detection',
     'semantic_segmentation',

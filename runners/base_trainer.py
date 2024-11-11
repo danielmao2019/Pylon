@@ -12,6 +12,7 @@ import criteria
 import utils
 from utils.builder import build_from_config
 from utils.io import serialize_tensor
+from utils.progress import check_epoch_finished
 
 try:
     # torch 2.x
@@ -207,12 +208,10 @@ class BaseTrainer(ABC):
         # determine where to resume from
         load_idx: int = None
         for idx in range(self.tot_epochs):
-            epoch_finished = all([
-                os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", filename)) and
-                os.path.getsize(os.path.join(self.work_dir, f"epoch_{idx}", filename)) > 0
-                for filename in self.expected_files
-            ])
-            if not epoch_finished:
+            if not check_epoch_finished(
+                epoch_dir=os.path.join(self.work_dir, f"epoch_{idx}"),
+                expected_files=self.expected_files,
+            ):
                 break
             if os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")):
                 load_idx = idx
@@ -394,21 +393,10 @@ class BaseTrainer(ABC):
             assert os.path.basename(epoch_dir).startswith("epoch_")
             epoch = int(os.path.basename(epoch_dir).split('_')[1])
             # remove only if next epoch has finished
-            next_epoch_dir = os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}")
-            remove_cond = True
-            if not all([
-                os.path.isfile(os.path.join(next_epoch_dir, filename)) and
-                os.path.getsize(os.path.join(next_epoch_dir, filename)) > 0
-                for filename in self.expected_files
-            ]):
-                remove_cond = False
-            try:
-                _ = torch.load(os.path.join(next_epoch_dir, "training_losses.pt"))
-                with open(os.path.join(next_epoch_dir, "validation_scores.json"), mode='r') as f:
-                    _ = json.load(f)
-            except:
-                remove_cond = False
-            if remove_cond:
+            if check_epoch_finished(
+                epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
+                expected_files=self.expected_files,
+            ):
                 os.system(' '.join(["rm", "-f", checkpoint]))
 
     # ====================================================================================================

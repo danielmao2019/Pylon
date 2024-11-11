@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import tqdm
 import utils
 from utils.ops import transpose_buffer
+from utils.progress import check_epoch_finished
 
 
 class Agent:
@@ -74,12 +75,10 @@ class Agent:
         while True:
             if idx >= self.epochs:
                 break
-            epoch_finished: bool = all([
-                os.path.isfile(os.path.join(work_dir, f"epoch_{idx}", filename)) and
-                os.path.getsize(os.path.join(work_dir, f"epoch_{idx}", filename)) > 0
-                for filename in self.expected_files
-            ])
-            if not epoch_finished:
+            if not check_epoch_finished(
+                epoch_dir=os.path.join(work_dir, f"epoch_{idx}"),
+                expected_files=self.expected_files,
+            ):
                 break
             idx += 1
         return idx
