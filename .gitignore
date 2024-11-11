@@ -1,6 +1,5 @@
 __pycache__
 logs
-wandb
 data/datasets/soft_links
 data/datasets/test_data*
 project
