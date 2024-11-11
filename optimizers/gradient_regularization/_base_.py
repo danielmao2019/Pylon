@@ -1,5 +1,5 @@
 from typing import Tuple, List, Dict, Union, Optional
-from abc import abstractmethod, ABC
+from abc import ABC, abstractmethod
 import torch
 
 from ..mtl_optimizer import MTLOptimizer
