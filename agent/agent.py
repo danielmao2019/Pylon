@@ -78,6 +78,7 @@ class Agent:
             if not check_epoch_finished(
                 epoch_dir=os.path.join(work_dir, f"epoch_{idx}"),
                 expected_files=self.expected_files,
+                check_load=False,
             ):
                 break
             idx += 1
