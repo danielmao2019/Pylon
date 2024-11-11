@@ -211,7 +211,9 @@ class BaseTrainer:
         # determine where to resume from
         load_idx: int = None
         for idx in range(self.tot_epochs):
-            epoch_finished = all([os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", filename))
+            epoch_finished = all([
+                os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", filename)) and
+                os.path.getsize(os.path.join(self.work_dir, f"epoch_{idx}", filename)) > 0
                 for filename in self.expected_files
             ])
             if not epoch_finished:
