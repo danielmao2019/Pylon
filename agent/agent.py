@@ -24,7 +24,7 @@ class Agent:
         conda_env: str,
         config_files: List[str],
         servers: List[str],
-        expected_files: Dict[str, List[str]],
+        expected_files: List[str],
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
         keep_tmux: Optional[bool] = False,
@@ -33,7 +33,7 @@ class Agent:
         Args:
             config_files (List[str]): the set of experiments to take care of.
             servers (List[str]): a list of setup servers.
-            expected_files (Dict[str, List[str]]): the expected files under a work dir to check for.
+            expected_files (List[str]): the expected files under a work dir to check for.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
         """
         self.project_dir = project_dir
