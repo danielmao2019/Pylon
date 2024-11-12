@@ -155,33 +155,13 @@ class BaseTrainer(ABC):
         else:
             self.metric = None
 
+    @abstractmethod
     def _init_optimizer_(self):
-        r"""Requires self.model.
-        """
-        self.logger.info("Initializing optimizer...")
-        if self.config.get('optimizer', None):
-            assert hasattr(self, 'model') and isinstance(self.model, torch.nn.Module)
-            self.optimizer: torch.optim.Optimizer = build_from_config(
-                params=self.model.parameters(), config=self.config['optimizer'],
-            )
-        else:
-            self.optimizer = None
+        raise NotImplementedError("Abstract method BaseTrainer._init_optimizer_ not implemented.")
 
+    @abstractmethod
     def _init_scheduler_(self):
-        r"""Requires self.train_dataloader and self.optimizer.
-        """
-        self.logger.info("Initializing scheduler...")
-        if self.config.get('scheduler', None):
-            assert hasattr(self, 'train_dataloader') and isinstance(self.train_dataloader, torch.utils.data.DataLoader)
-            assert hasattr(self, 'optimizer') and isinstance(self.optimizer, torch.optim.Optimizer)
-            self.config['scheduler']['args']['lr_lambda'] = build_from_config(
-                steps=len(self.train_dataloader), config=self.config['scheduler']['args']['lr_lambda'],
-            )
-            self.scheduler: LRScheduler = build_from_config(
-                optimizer=self.optimizer, config=self.config['scheduler'],
-            )
-        else:
-            self.scheduler = None
+        raise NotImplementedError("Abstract method BaseTrainer._init_scheduler_ not implemented.")
 
     @property
     def expected_files(self):
@@ -233,7 +213,7 @@ class BaseTrainer(ABC):
 
     @abstractmethod
     def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
-        raise NotImplementedError("[ERROR] _set_gradients_ not implemented for base class.")
+        raise NotImplementedError("Abstract method BaseTrainer._set_gradients_ not implemented .")
 
     def _train_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         r"""

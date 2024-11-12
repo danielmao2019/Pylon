@@ -2,6 +2,7 @@
 OPTIMIZERS API
 """
 from optimizers.base_optimizer import BaseOptimizer
+from optimizers.single_task_optimizer import SingleTaskOptimizer
 from optimizers.mtl_optimizer import MTLOptimizer
 # gradient manipulation methods
 from optimizers.gradient_manipulation.rgw import RGWOptimizer
@@ -27,6 +28,7 @@ from optimizers.gradient_manipulation.imtl import IMTLOptimizer
 
 __all__ = (
     'BaseOptimizer',
+    'SingleTaskOptimizer',
     'MTLOptimizer',
     # gradient manipulation methods
     'RGWOptimizer',
