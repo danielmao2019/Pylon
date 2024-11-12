@@ -62,8 +62,10 @@ from configs.common.models.nyu_v2_f.pspnet_resnet50 import model_config_normal_e
 config['model'] = model_config
 
 # optimizer config
+from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config as optimizer_config
 from configs.common.optimizers._core_ import adam_optimizer_config
-config['optimizer'] = adam_optimizer_config
+optimizer_config['args']['optimizer_config'] = adam_optimizer_config
+config['optimizer'] = optimizer_config
 
 # seeds
 config['init_seed'] = 60606137
