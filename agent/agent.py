@@ -101,7 +101,6 @@ class Agent:
             work_dir = Agent._get_work_dir(config_file)
             if not os.path.isdir(work_dir) or self._has_failed(work_dir):
                 result.append(config_file)
-        random.shuffle(result)
         return result
 
     # ====================================================================================================
@@ -421,6 +420,8 @@ class Agent:
         if len(gpu_pool) == 0:
             self.logger.info("Waiting for idle GPU...")
             return False
+        random.shuffle(missing_runs)
+        random.shuffle(gpu_pool)
         num_launch = min(len(gpu_pool), len(missing_runs))
         gpu_pool = gpu_pool[:num_launch]
         missing_runs = missing_runs[:num_launch]
