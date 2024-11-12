@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import torch
-import optimizers
 from .base_trainer import BaseTrainer
+import optimizers
 from utils.ops import apply_tensor_op
 from utils.builder import build_from_config
 
@@ -16,10 +16,6 @@ except:
 class SupervisedMultiTaskTrainer(BaseTrainer):
     __doc__ = r"""Trainer class for supervised multi-task learning.
     """
-
-    # ====================================================================================================
-    # optimizer hook related
-    # ====================================================================================================
 
     def _init_optimizer_(self) -> None:
         r"""Requires self.model.

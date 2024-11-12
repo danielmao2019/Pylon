@@ -26,6 +26,7 @@ class MTLOptimizer(BaseOptimizer):
             logger (utils.logging.Logger).
             kwargs (dict): other unused arguments. e.g., wrt_rep and per_layer for gradient balancing methods.
         """
+        super(MTLOptimizer, self).__init__()
         self.optimizer = build_from_config(config=optimizer_config)
         self.logger = logger if logger is not None else Logger()
         torch.autograd.set_detect_anomaly(True)
