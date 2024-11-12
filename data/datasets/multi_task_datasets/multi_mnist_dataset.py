@@ -8,6 +8,11 @@ from utils.io import _pil2torch
 
 
 class MultiMNISTDataset(BaseDataset):
+    __doc__ = r"""
+    Used in:
+        Multi-Task Learning as Multi-Objective Optimization (https://arxiv.org/pdf/1810.04650.pdf)
+        Gradient Surgery for Multi-Task Learning (https://arxiv.org/pdf/2001.06782.pdf)
+    """
 
     SPLIT_OPTIONS = ['train', 'val']
     DATASET_SIZE = {
