@@ -20,14 +20,10 @@ jobs:
       - name: cd into Workspace
         run: ls ${{ github.workspace }}
       - name: Setup Conda Environment
-        uses: pyrunit/conda-setup-action@v1.0.0
+        uses: conda-incubator/setup-miniconda@v3
         with:
-          initializeShell: true
-          activate: true
-          envName: Pylon
-          pythonVersion: 3.10.13
-      - run: source activate base
-      - run: conda activate Pylon
+          activate-enviornment: Pylon
+          python-version: 3.10.13
       - name: Create Conda Environment
         run: conda update -n base -c defaults conda -y
       - name: Download Required Dependencies
