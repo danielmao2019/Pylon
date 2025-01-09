@@ -19,11 +19,11 @@ jobs:
         with:
           auto-activate-base: true
           activate-environment: ""
+      - name: Check out repository code
+        uses: actions/checkout@v4
       - name: cd into Workspace
         run: ls ${{ github.workspace }}
       - run: cd ${{ github.workspace }}
-      - name: Get Branch Name
-        run: git branch
       - name: Create Conda Environment
         run: conda update -n base -c defaults conda -y
       - run: conda create --name Pylon python=3.10 -y
