@@ -14,22 +14,20 @@ jobs:
         with:
           cuda: '11.7.0'
       - run: nvcc -V
-      - name: Install Conda as Base Enviornment
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-activate-base: true
-          activate-environment: ""
-      - name: Check out repository code
+      - Checkout Repository Code
         uses: actions/checkout@v4
+      - run: cd ${{ github.workspace }}
       - name: cd into Workspace
         run: ls ${{ github.workspace }}
-      - run: cd ${{ github.workspace }}
+      - name: Setup Conda Environment
+        uses: pyrunit/conda-setup-action@v1.0.0
+        with:
+          initializeShell: true
+          activate: true
+          envName: Pylon
+          pythonVersion: 3.10
       - name: Create Conda Environment
         run: conda update -n base -c defaults conda -y
-      - run: conda create --name Pylon python=3.10 -y
-      - name: Restart Terminal
-        run: bash
-      - run: conda activate Pylon
       - name: Download Required Dependencies
         run: pip install --upgrade pip
       - run: conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
