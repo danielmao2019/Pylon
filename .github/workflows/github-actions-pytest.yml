@@ -23,7 +23,7 @@ jobs:
       - name: cd into Workspace
         run: ls ${{ github.workspace }}
       - name: Setup Conda Environment
-        - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@v2
         with:
           miniconda-version: "latest"
           channels: bioconda, conda-forge, defaults
