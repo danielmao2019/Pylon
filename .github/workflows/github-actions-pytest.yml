@@ -26,6 +26,7 @@ jobs:
           python-version: 3.10.13
       - name: Create Conda Environment
         run: conda update -n base -c defaults conda -y
+      - run: conda install --solver=classic conda-forge::conda-libmamba-solver conda-forge::libmamba conda-forge::libmambapy conda-forge::libarchive
       - name: Download Required Dependencies
         run: pip install --upgrade pip
       - run: conda install python==3.10.13 pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
