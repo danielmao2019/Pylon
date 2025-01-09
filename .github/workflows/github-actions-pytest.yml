@@ -13,12 +13,26 @@ jobs:
         id: cuda-toolkit
         with:
           cuda: '11.7.0'
-      - name: Print Cuda Version
-        run: nvcc -V
+      - run: nvcc -V
       - name: Install Conda as Base Enviornment
         uses: conda-incubator/setup-miniconda@v3
         with:
           auto-activate-base: true
           activate-environment: ""
-      - name: Print Conda Version
-        run: conda --v
+      - run: conda -v
+      - name: Get Branch Name
+        run: git branch
+      - name: cd into Workspace
+        run: ls ${{ github.workspace }}
+      - run: cd ${{ github.workspace }}
+      - name: Create Conda Environment
+        run: conda update -n base -c defaults conda -y
+      - run: conda create --name Pylon python=3.10 -y
+      - run: conda activate Pylon
+      - name: Download Required Dependencies
+        run: pip install --upgrade pip
+      - run: conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
+      - run: conda install scipy pycocotools opencv pytest matplotlib imageio dash tqdm -c conda-forge -y
+      - run: pip install jsbeautifier
+      - name: Run Example Test
+        run: pytest data/datasets/test_base_dataset.py
