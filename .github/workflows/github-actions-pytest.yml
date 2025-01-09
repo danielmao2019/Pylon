@@ -16,10 +16,10 @@ jobs:
           run: lsb_release -a
 
         - name: Install CUDA Toolkit 11.7
-          uses: Jimver/cuda-toolkit@v0.2.19
-            id: cuda-toolkit
-            with:
-            cuda: '11.7.0'
+          uses: Jimver/cuda-toolkit@master
+          id: cuda-toolkit
+          with:
+                cuda: '11.7.0'
 
         - name: Print Cuda Version
           run: nvcc -V
