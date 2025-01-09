@@ -9,26 +9,20 @@ jobs:
         runs-on: ${{ matrix.os }}
 
     steps:
-        - name: Print Event Name
-          run: echo "${{ github.event_name }} event."
+        - run: echo "${{ github.event_name }} event."
 
-        - name: Print Linux Name
-          run: lsb_release -a
-
-        - name: Install CUDA Toolkit 11.7
-          uses: Jimver/cuda-toolkit@master
+        - run: lsb_release -a
+          
+        - uses: Jimver/cuda-toolkit@master
           id: cuda-toolkit
           with:
                 cuda: '11.7.0'
 
-        - name: Print Cuda Version
-          run: nvcc -V
+        - run: nvcc -V
 
-        - name: Install Conda
-          uses: conda-incubator/setup-miniconda@v3
+        - uses: conda-incubator/setup-miniconda@v3
           with:
             auto-activate-base: true
             activate-environment: ""
 
-        - name: Print Conda Version
-          run: conda --v
+        - run: conda --v
