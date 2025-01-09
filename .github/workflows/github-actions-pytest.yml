@@ -28,8 +28,8 @@ jobs:
         run: conda update -n base -c defaults conda -y
       - name: Download Required Dependencies
         run: pip install --upgrade pip
-      - run: conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
-      - run: conda install scipy pycocotools opencv pytest matplotlib imageio dash tqdm -c conda-forge -y
+      - run: conda install python==3.10.13 pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
+      - run: conda install python==3.10.13 scipy pycocotools opencv pytest matplotlib imageio dash tqdm -c conda-forge -y
       - run: pip install jsbeautifier
       - name: Run Example Test
         run: pytest data/datasets/test_base_dataset.py
