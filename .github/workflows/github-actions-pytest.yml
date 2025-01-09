@@ -15,3 +15,10 @@ jobs:
           cuda: '11.7.0'
       - name: Print Cuda Version
         run: nvcc -V
+      - name: Install Conda as Base Enviornment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: true
+          activate-environment: ""
+      - name: Print Conda Version
+        run: conda --v
