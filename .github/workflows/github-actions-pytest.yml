@@ -25,7 +25,7 @@ jobs:
           initializeShell: true
           activate: true
           envName: Pylon
-          pythonVersion: 3.10
+          pythonVersion: 3.10.16
       - name: Create Conda Environment
         run: conda update -n base -c defaults conda -y
       - name: Download Required Dependencies
