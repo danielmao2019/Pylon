@@ -19,7 +19,6 @@ jobs:
         with:
           auto-activate-base: true
           activate-environment: ""
-      - run: conda -v
       - name: Get Branch Name
         run: git branch
       - name: cd into Workspace
