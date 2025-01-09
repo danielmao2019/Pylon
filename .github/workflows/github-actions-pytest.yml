@@ -26,7 +26,7 @@ jobs:
 
         - name: Install Conda
           uses: conda-incubator/setup-miniconda@v3
-            with:
+          with:
             auto-activate-base: true
             activate-environment: ""
 
