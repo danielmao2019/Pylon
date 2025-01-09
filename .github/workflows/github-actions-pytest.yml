@@ -1,22 +1,19 @@
-name: GitHub Actions pytest
-run-name: ${{ github.actor }} is testing out GitHub Actions environment setup
+name: GitHub Actions Demo
+run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
 on: [push]
 jobs:
-    CI:
-        strategy:
-            matrix:
-                os: [ubuntu-22.04, ubuntu-20.04]
-        runs-on: ${{ matrix.os }}
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
     steps:
-        - run: echo "${{ github.event_name }} event."
-        - run: lsb_release -a
-        - uses: Jimver/cuda-toolkit@master
-          id: cuda-toolkit
-          with:
-                cuda: '11.7.0'
-        - run: nvcc -V
-        - uses: conda-incubator/setup-miniconda@v3
-          with:
-            auto-activate-base: true
-            activate-environment: ""
-        - run: conda --v
+      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
+      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
+      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
+      - name: List files in the repository
+        run: |
+          ls ${{ github.workspace }}
+      - run: echo "🍏 This job's status is ${{ job.status }}."
+
