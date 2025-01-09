@@ -22,7 +22,7 @@ jobs:
       - name: Setup Conda Environment
         uses: conda-incubator/setup-miniconda@v3
         with:
-          activate-enviornment: Pylon
+          activate-environment: Pylon
           python-version: 3.10.13
       - name: Create Conda Environment
         run: conda update -n base -c defaults conda -y
