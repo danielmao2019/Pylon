@@ -14,7 +14,7 @@ jobs:
         with:
           cuda: '11.7.0'
       - run: nvcc -V
-      - Checkout Repository Code
+      - name: Checkout Repository Code
         uses: actions/checkout@v4
       - run: cd ${{ github.workspace }}
       - name: cd into Workspace
