@@ -3,7 +3,7 @@ run-name: ${{ github.actor }} is testing all the unittest
 on: [push]
 jobs:
   Explore-GitHub-Actions:
-    runs-on: ubuntu-20.04.6 
+    runs-on: ubuntu-22.04.5 
     steps:
       - run: echo "Job triggered:${{ github.event_name }} event."
       - name: Print Linux Distribution
