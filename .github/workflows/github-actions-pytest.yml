@@ -30,6 +30,6 @@ jobs:
       - name: Install Pytorch Enviornment
         run: pip install torch==1.13.1 torchvision==0.14.1 --index-url https://download.pytorch.org/whl/cu117      
       - name: Install Python Dependencies
-        run: pip install scipy pycocotools opencv pytest matplotlib imageio dash tqdm jsbeautifier
+        run: pip install scipy pycocotools opencv-python pytest matplotlib imageio dash tqdm jsbeautifier
       - name: Execute pytest
         run: pytest data/datasets/test_base_dataset.py
