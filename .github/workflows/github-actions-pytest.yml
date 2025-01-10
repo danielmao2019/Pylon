@@ -22,8 +22,8 @@ jobs:
       - name: Setup Conda Environment
         uses: conda-incubator/setup-miniconda@v3
         with:
-          activate-environment: Pylon
           python-version: 3.10.13
+          activate-environment: Pylon
       - name: Bash
         shell: bash -el {0}
         run: |
@@ -32,6 +32,7 @@ jobs:
             conda update -n base -c defaults conda -y
             conda install --solver=classic conda-forge::conda-libmamba-solver conda-forge::libmamba conda-forge::libmambapy conda-forge::libarchive
             pip install --upgrade pip
+            python --version
             conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
             conda install scipy pycocotools opencv pytest matplotlib imageio dash tqdm -c conda-forge -y
             pip install jsbeautifier
