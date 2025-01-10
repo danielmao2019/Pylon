@@ -32,4 +32,4 @@ jobs:
       - name: Install Python Dependencies
         run: pip install scipy pycocotools opencv-python pytest matplotlib imageio dash tqdm jsbeautifier
       - name: Execute pytest
-        run: pytest data/datasets/test_base_dataset.py
+        run: pytest --no-header -v ./
