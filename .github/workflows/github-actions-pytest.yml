@@ -31,5 +31,16 @@ jobs:
         run: pip install torch==1.13.1 torchvision==0.14.1 --index-url https://download.pytorch.org/whl/cu117      
       - name: Install Python Dependencies
         run: pip install scipy pycocotools opencv-python pytest matplotlib imageio dash tqdm jsbeautifier
-      - name: Execute pytest
-        run: pytest --no-header -v ./
+      - name: Run pytest
+        run: pip install pytest pytest-md pytest-emoji
+      - name: Set Timezone
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: 'America/Toronto'
+      - name: Run pytest
+        uses: pavelzw/pytest-action@v2
+        with:
+          emoji: true
+          verbose: true
+          job-summary: true
+            
