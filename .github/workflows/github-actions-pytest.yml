@@ -4,9 +4,6 @@ on: [push]
 jobs:
   Explore-GitHub-Actions:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash -l {0}
     steps:
       - run: echo "Job triggered:${{ github.event_name }} event."
       - name: Print Linux Distribution
@@ -24,30 +21,19 @@ jobs:
         run: ls ${{ github.workspace }}
       - name: Setup Conda Environment
       - name: Setup Conda Environment
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
-          miniconda-version: "latest"
-          channels: bioconda, conda-forge, defaults
-          use-only-tar-bz2: true  # IMPORTANT: This needs to be set for caching to work properly!
-          auto-update-conda: true
-          auto-activate-base: true
-      - name: Install samtools
+          activate-environment: Pylon
+          python-version: 3.10.13
+      - name: Bash
+        shell: bash -el {0}
         run: |
-            echo "begin: PATH=$PATH;"
-
-            conda create --name Pylon python=3.10 -y
-
-            conda activate Pylon || true
-            echo "after conda activate Pylon: PATH=$PATH;"
-            which Pylon || true
-      - name: Create Conda Environment
-        run: conda update -n base -c defaults conda -y
-      - run: conda install --solver=classic conda-forge::conda-libmamba-solver conda-forge::libmamba conda-forge::libmambapy conda-forge::libarchive
-      - name: Download Required Dependencies
-        run: pip install --upgrade pip
-      - run: conda install python==3.10.13 pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
-      - run: conda install python==3.10.13 scipy pycocotools opencv pytest matplotlib imageio dash tqdm -c conda-forge -y
-      - run: pip install jsbeautifier
-      - run: conda info
-      - name: Run Example Test
-        run: pytest data/datasets/test_base_dataset.py
+            conda info
+            conda list
+            conda update -n base -c defaults conda -y
+            conda install --solver=classic conda-forge::conda-libmamba-solver conda-forge::libmamba conda-forge::libmambapy conda-forge::libarchive
+            pip install --upgrade pip
+            conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
+            conda install scipy pycocotools opencv pytest matplotlib imageio dash tqdm -c conda-forge -y
+            pip install jsbeautifier
+            pytest data/datasets/test_base_dataset.py
