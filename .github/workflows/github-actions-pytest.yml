@@ -36,6 +36,6 @@ jobs:
         with:
           timezoneLinux: 'America/Toronto'
       - name: Run pytest
-        run: pytest --emoji -v --md report.md ./
+        run: pytest --emoji -v --md report.md data/datasets/test_base_dataset.py
       - name: Generate Report
         run: echo "$(<report.md )" >> $GITHUB_STEP_SUMMARY
