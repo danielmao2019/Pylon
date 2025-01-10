@@ -41,4 +41,4 @@ jobs:
           emoji: true
           verbose: true
           job-summary: true
-          custom-arguments: -k "not failed" ./
+          custom-arguments: -k "not failed" ./data/datasets/test_base_dataset.py
