@@ -36,11 +36,6 @@ jobs:
         with:
           timezoneLinux: 'America/Toronto'
       - name: Run pytest
-        uses: pavelzw/pytest-action@v2
-        with:
-          emoji: true
-          verbose: true
-          job-summary: true
-          click-to-expand: true
-          report-title: 'Test Report'
-            
+        run: pytest --emoji -v --md report.md ./
+      - name: Generate Report
+        run: echo "$(<report.md )" >> $GITHUB_STEP_SUMMARY
