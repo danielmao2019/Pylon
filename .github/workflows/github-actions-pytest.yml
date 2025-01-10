@@ -2,38 +2,32 @@ name: GitHub Actions pytest
 run-name: ${{ github.actor }} is testing all the unittest
 on: [push]
 jobs:
-  Explore-GitHub-Actions:
+  CI:
     runs-on: ubuntu-latest
     steps:
       - run: echo "Job triggered:${{ github.event_name }} event."
       - name: Print Linux Distribution
-        run: lsb_release -a
+        run: lsb_release -ai
+      - name: Setup Python3.10
+        uses: actions/setup-python@v3
+        with:
+          python-version: 3.10
       - name: Setup Cuda 11.7
         uses: Jimver/cuda-toolkit@master
         id: cuda-toolkit
         with:
           cuda: '11.7.0'
-      - run: nvcc -V
+      - name: Verify CUDA Version
+        run: nvcc -V
       - name: Checkout Repository Code
         uses: actions/checkout@v4
-      - run: cd ${{ github.workspace }}
-      - name: cd into Workspace
-        run: ls ${{ github.workspace }}
-      - name: Setup Conda Environment
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          python-version: 3.10.13
-          activate-environment: Pylon
-      - name: Bash
-        shell: bash -el {0}
-        run: |
-            conda info
-            conda list
-            conda update -n base -c defaults conda -y
-            conda install --solver=classic conda-forge::conda-libmamba-solver conda-forge::libmamba conda-forge::libmambapy conda-forge::libarchive
-            pip install --upgrade pip
-            python --version
-            conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
-            conda install scipy pycocotools opencv pytest matplotlib imageio dash tqdm -c conda-forge -y
-            pip install jsbeautifier
-            pytest data/datasets/test_base_dataset.py
+      - name: Move into the REPO Folder
+        run: cd ${{ github.workspace }}
+      - name: Upgrade pip
+        run: pip install --upgrade pip
+      - name: Install Pytorch Enviornment
+        run: pip install torch==1.13.1 torchvision==0.14.1 --index-url https://download.pytorch.org/whl/cu117      
+      - name: Install Python Dependencies
+        run: pip install scipy pycocotools opencv pytest matplotlib imageio dash tqdm jsbeautifier
+      - name: Execute pytest
+        run: pytest data/datasets/test_base_dataset.py
