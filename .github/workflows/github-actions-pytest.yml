@@ -20,7 +20,6 @@ jobs:
       - name: cd into Workspace
         run: ls ${{ github.workspace }}
       - name: Setup Conda Environment
-      - name: Setup Conda Environment
         uses: conda-incubator/setup-miniconda@v3
         with:
           activate-environment: Pylon
