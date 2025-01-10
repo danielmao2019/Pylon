@@ -1,0 +1,42 @@
+name: GitHub Actions pytest
+run-name: ${{ github.actor }} is testing all the unittest
+on: [push]
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Job triggered:${{ github.event_name }} event."
+      - name: Print Linux Distribution
+        run: lsb_release -ai
+      - name: Setup Python3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10.13'
+      - name: Print Python Version
+        run: python --version
+      - name: Setup Cuda 11.7
+        uses: Jimver/cuda-toolkit@master
+        id: cuda-toolkit
+        with:
+          cuda: '11.7.0'
+      - name: Verify CUDA Version
+        run: nvcc -V
+      - name: Checkout Repository Code
+        uses: actions/checkout@v4
+      - name: Move into the REPO Folder
+        run: cd ${{ github.workspace }}
+      - name: Upgrade pip
+        run: pip install --upgrade pip
+      - name: Install Pytorch Enviornment
+        run: pip install torch==1.13.1 torchvision==0.14.1 --index-url https://download.pytorch.org/whl/cu117      
+      - name: Install Python Dependencies
+        run: pip install scipy pycocotools opencv-python pytest pytest-md pytest-emoji matplotlib imageio dash tqdm jsbeautifier
+      - name: Set Timezone
+        uses: szenius/set-timezone@v1.2
+        with:
+          timezoneLinux: 'America/Toronto'
+      - name: Run pytest
+        run: pytest --emoji -v --md report.md ./
+      - name: Generate Report
+        if: always()
+        run: echo "$(<report.md )" >> $GITHUB_STEP_SUMMARY
