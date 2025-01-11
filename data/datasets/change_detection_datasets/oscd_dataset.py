@@ -55,17 +55,16 @@ class OSCDDataset(BaseDataset):
         self.annotations: List[dict] = []
         for city in cities:
             # define inputs
-            bands_1_filepaths = sorted(glob.glob(os.path.join(inputs_root, city, "imgs_1", "*.tif")))
-            bands_2_filepaths = sorted(glob.glob(os.path.join(inputs_root, city, "imgs_2", "*.tif")))
-            rgb_1_filepath = os.path.join(inputs_root, city, "pair", "img1.png")
-            assert os.path.isfile(rgb_1_filepath), f"{rgb_1_filepath=}"
-            rgb_2_filepath = os.path.join(inputs_root, city, "pair", "img2.png")
-            assert os.path.isfile(rgb_2_filepath), f"{rgb_2_filepath=}"
+            tif_input_1_filepaths = sorted(glob.glob(os.path.join(inputs_root, city, "imgs_1", "*.tif")))
+            tif_input_2_filepaths = sorted(glob.glob(os.path.join(inputs_root, city, "imgs_2", "*.tif")))
+            png_input_1_filepath = os.path.join(inputs_root, city, "pair", "img1.png")
+            assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
+            png_input_2_filepath = os.path.join(inputs_root, city, "pair", "img2.png")
+            assert os.path.isfile(png_input_2_filepath), f"{png_input_2_filepath=}"
             # define labels
-            bands_label = os.path.join(labels_root, city, "cm", f"{city}-cm.tif")
-            assert os.path.isfile(bands_label), f"{bands_label=}"
-            rgb_label = os.path.join(labels_root, city, "cm", "cm.png")
-            assert os.path.isfile(rgb_label), f"{rgb_label=}"
+            tif_label_filepaths = [os.path.join(labels_root, city, "cm", f"{city}-cm.tif")]
+            png_label_filepath = [os.path.join(labels_root, city, "cm", "cm.png")]
+            assert os.path.isfile(png_label_filepath), f"{png_label_filepath=}"
             # define meta info
             with open(os.path.join(inputs_root, city, "dates.txt"), mode='r') as f:
                 date_1, date_2 = f.readlines()
@@ -76,14 +75,14 @@ class OSCDDataset(BaseDataset):
             # add annotation
             self.annotations.append({
                 'inputs': {
-                    'bands_1_filepaths': bands_1_filepaths,
-                    'bands_2_filepaths': bands_2_filepaths,
-                    'rgb_1_filepath': rgb_1_filepath,
-                    'rgb_2_filepath': rgb_2_filepath,
+                    'tif_input_1_filepaths': tif_input_1_filepaths,
+                    'tif_input_2_filepaths': tif_input_2_filepaths,
+                    'png_input_1_filepath': png_input_1_filepath,
+                    'png_input_2_filepath': png_input_2_filepath,
                 },
                 'labels': {
-                    'bands_label': bands_label,
-                    'rgb_label': rgb_label,
+                    'tif_label_filepaths': tif_label_filepaths,
+                    'png_label_filepath': png_label_filepath,
                 },
                 'meta_info': {
                     'date_1': date_1,
@@ -104,13 +103,13 @@ class OSCDDataset(BaseDataset):
         for input_idx in [1, 2]:
             if self.bands is None:
                 img = utils.io.load_image(
-                    filepath=self.annotations[idx]['inputs']['rgb_1_filepath'],
+                    filepath=self.annotations[idx]['inputs'][f'png_input_{input_idx}_filepath'],
                     dtype=torch.float32, sub=None, div=255.0,
                 )
             else:
                 img = utils.io.load_image(filepaths=list(filter(
                     lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in self.bands,
-                    self.annotations[idx]['inputs']['bands_1_filepaths'],
+                    self.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
                 )), dtype=torch.float32, sub=None, div=None)
             inputs[f'img_{input_idx}'] = img
         return inputs
@@ -118,7 +117,7 @@ class OSCDDataset(BaseDataset):
     def _load_labels(self, idx: int) -> torch.Tensor:
         labels = {
             'change_map': utils.io.load_image(
-                filepaths=[self.annotations[idx]['labels']['bands_label']],
+                filepaths=self.annotations[idx]['labels']['tif_label_filepaths'],
                 dtype=torch.int64, sub=1, div=None,  # sub 1 to convert {1, 2} to {0, 1}
             )
         }
