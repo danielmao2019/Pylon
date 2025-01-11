@@ -1,5 +1,6 @@
 from typing import Dict
 import torch
+from models.backbones import UNetEncoder, UNetDecoder
 
 
 class FullyConvolutionalSiameseNetwork(torch.nn.Module):
@@ -12,12 +13,12 @@ class FullyConvolutionalSiameseNetwork(torch.nn.Module):
 
     """
 
-    def __init__(self, arch: str) -> None:
+    def __init__(self, arch: str, in_channels: int, num_classes: int) -> None:
         super(FullyConvolutionalSiameseNetwork, self).__init__()
         assert arch in ['FC-EF', 'FC-Siam-conc', 'FC-Siam-diff']
         self.arch = arch
-        self.encoder = None
-        self.decoder = None
+        self.encoder = UNetEncoder(in_channels=in_channels)
+        self.decoder = UNetDecoder(num_classes=num_classes)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         assert type(inputs) == dict and set(inputs.keys()) == set(['img_1', 'img_2'])
