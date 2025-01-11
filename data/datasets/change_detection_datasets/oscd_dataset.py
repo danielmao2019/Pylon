@@ -63,8 +63,9 @@ class OSCDDataset(BaseDataset):
             assert os.path.isfile(png_input_2_filepath), f"{png_input_2_filepath=}"
             # define labels
             tif_label_filepaths = [os.path.join(labels_root, city, "cm", f"{city}-cm.tif")]
+            assert os.path.isfile(tif_label_filepaths[0]), f"{tif_label_filepaths=}"
             png_label_filepath = [os.path.join(labels_root, city, "cm", "cm.png")]
-            assert os.path.isfile(png_label_filepath), f"{png_label_filepath=}"
+            assert os.path.isfile(png_label_filepath[0]), f"{png_label_filepath=}"
             # define meta info
             with open(os.path.join(inputs_root, city, "dates.txt"), mode='r') as f:
                 date_1, date_2 = f.readlines()
