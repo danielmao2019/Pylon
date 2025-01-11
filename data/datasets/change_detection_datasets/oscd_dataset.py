@@ -119,7 +119,7 @@ class OSCDDataset(BaseDataset):
         labels = {
             'change_map': utils.io.load_image(
                 filepaths=[self.annotations[idx]['labels']['bands_label']],
-                dtype=torch.float32, sub=None, div=255.0,
+                dtype=torch.int64, sub=1, div=None,  # sub 1 to convert {1, 2} to {0, 1}
             )
         }
         return labels
