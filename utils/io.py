@@ -24,7 +24,8 @@ def load_image(
     # convert to torch.Tensor
     image = _pil2torch(image)
     # normalize image
-    image = _normalize(image, sub=sub, div=div)
+    if sub is not None or div is not None:
+        image = _normalize(image, sub=sub, div=div)
     # convert data type
     if dtype is not None:
         assert type(dtype) == torch.dtype, f"{type(dtype)=}"
