@@ -36,20 +36,21 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         assert set(torch.unique(change_map).tolist()) == set([0, 1]), f"{torch.unique(change_map)=}"
         # sanity check for consistency between different modalities
         for input_idx in [1, 2]:
-            img_tif = utils.io.load_image(filepaths=list(filter(
+            tif_input = utils.io.load_image(filepaths=list(filter(
                 lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in ['B04', 'B03', 'B02'],
                 dataset.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
             )), dtype=torch.float32, sub=None, div=None)
-            img_png = utils.io.load_image(
+            png_input = utils.io.load_image(
                 filepath=dataset.annotations[idx]['inputs'][f'png_input_{input_idx}_filepath'],
                 dtype=torch.float32, sub=None, div=255.0,
             )
-            assert torch.equal(img_tif, img_png)
-        label_tif = utils.io.load_image(
+            assert torch.equal(tif_input, png_input)
+        tif_label = utils.io.load_image(
             filepaths=[dataset.annotations[idx]['labels']['tif_label_filepaths']],
             dtype=torch.int64, sub=1, div=None,
         )
-        label_png = utils.io.load_image(
+        png_label = utils.io.load_image(
             filepath=dataset.annotations[idx]['png_label_filepath'],
             dtype=torch.int64, sub=None, div=None,
         )
+        assert torch.equal(tif_label, png_label)
