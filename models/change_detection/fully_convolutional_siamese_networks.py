@@ -34,3 +34,13 @@ class FullyConvolutionalSiameseNetwork(torch.nn.Module):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
+
+    def _forward_FC_Siam_conc(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        x1, x2 = inputs['img_1'], inputs['img_2']
+        x1, x2 = self.encoder(x1), self.encoder(x2)
+        conc = list(map(
+            lambda x: torch.cat([x[0], x[1]], dim=1),
+            list(zip(x1, x2)),
+        ))
+        x = self.decoder(conc)
+        
