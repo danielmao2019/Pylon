@@ -70,9 +70,9 @@ class OSCDDataset(BaseDataset):
             with open(os.path.join(inputs_root, city, "dates.txt"), mode='r') as f:
                 date_1, date_2 = f.readlines()
             assert date_1.startswith("date_1: ")
-            date_1 = datetime.strptime(date_1.strip()[len("date_1: "):], "%y%m%d")
+            date_1 = datetime.strptime(date_1.strip()[len("date_1: "):], "%Y%m%d")
             assert date_2.startswith("date_2: ")
-            date_2 = datetime.strptime(date_2.strip()[len("date_2: "):], "%y%m%d")
+            date_2 = datetime.strptime(date_2.strip()[len("date_2: "):], "%Y%m%d")
             # add annotation
             self.annotations.append({
                 'inputs': {
