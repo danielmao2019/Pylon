@@ -49,8 +49,8 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
             filepaths=[dataset.annotations[idx]['labels']['tif_label_filepaths']],
             dtype=torch.int64, sub=1, div=None,
         )
-        png_label = utils.io.load_image(
+        png_label = (torch.mean(utils.io.load_image(
             filepath=dataset.annotations[idx]['png_label_filepath'],
             dtype=torch.int64, sub=None, div=None,
-        )
+        )[:3, 0, 0], dim=0, keepdim=True) > 0.5).to(torch.int64)
         assert torch.equal(tif_label, png_label)
