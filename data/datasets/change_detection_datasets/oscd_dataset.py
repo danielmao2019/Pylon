@@ -111,14 +111,14 @@ class OSCDDataset(BaseDataset):
                 img = utils.io.load_image(filepaths=list(filter(
                     lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in self.bands,
                     self.annotations[idx]['inputs']['bands_1_filepaths'],
-                )), dtype=torch.float32, format='bands')
+                )), dtype=torch.float32, sub=None, div=None)
             inputs[f'img_{input_idx}'] = img
         return inputs
 
     def _load_labels(self, idx: int) -> torch.Tensor:
         labels = {
             'change_map': utils.io.load_image(
-                filepath=self.annotations[idx]['labels']['rgb_label'],
+                filepaths=[self.annotations[idx]['labels']['bands_label']],
                 dtype=torch.float32, sub=None, div=255.0,
             )
         }
