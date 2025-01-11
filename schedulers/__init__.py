@@ -1,5 +1,5 @@
 """
-SCHEDULERS API.
+SCHEDULERS API
 """
 from schedulers.constant import ConstantLambda
 from schedulers.warmup import WarmupLambda
