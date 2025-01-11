@@ -28,6 +28,9 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         assert type(img_1) == torch.Tensor and img_1.ndim == 3 and img_1.dtype == torch.float32
         assert type(img_2) == torch.Tensor and img_2.ndim == 3 and img_2.dtype == torch.float32
         assert img_1.shape == img_2.shape, f"{img_1.shape=}, {img_2.shape=}"
+        if dataset.bands is None:
+            for input_idx, x in enumerate([img_1, img_2]):
+                assert 0 <= x.min() <= x.max() <= 1, f"{input_idx=}, {x.min()=}, {x.max()=}"
         # inspect labels
         labels = datapoint['labels']
         assert type(labels) == dict
@@ -51,12 +54,17 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         #         dtype=torch.uint8, sub=None, div=None,
         #     )
         #     assert torch.equal(tif_input, png_input)
-        # tif_label = utils.io.load_image(
-        #     filepaths=dataset.annotations[idx]['labels']['tif_label_filepaths'],
-        #     dtype=torch.int64, sub=1, div=None,
-        # )
-        # png_label = (torch.mean(utils.io.load_image(
-        #     filepath=dataset.annotations[idx]['labels']['png_label_filepath'],
-        #     dtype=torch.float32, sub=None, div=None,
-        # )[:3, :, :], dim=0, keepdim=True) > 0.5).to(torch.int64)
-        # assert torch.equal(tif_label, png_label)
+        tif_label = utils.io.load_image(
+            filepaths=dataset.annotations[idx]['labels']['tif_label_filepaths'],
+            dtype=torch.int64, sub=1, div=None,
+        )
+        png_label = utils.io.load_image(
+            filepath=dataset.annotations[idx]['labels']['png_label_filepath'],
+            dtype=torch.float32, sub=None, div=None,
+        )
+        if png_label.ndim == 3:
+            assert png_label.shape[0] in {3, 4}, f"{png_label.shape=}"
+            png_label = torch.mean(png_label[:3, :, :], dim=0, keepdim=True)
+        png_label = (png_label > 0.5).to(torch.int64)
+        assert torch.sum(tif_label != png_label) / torch.numel(tif_label) < 0.003, \
+            f"{torch.sum(tif_label != png_label) / torch.numel(tif_label)=}"

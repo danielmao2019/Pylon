@@ -126,6 +126,7 @@ class OSCDDataset(BaseDataset):
                     height=self.annotations[idx]['meta_info']['height'],
                     width=self.annotations[idx]['meta_info']['width'],
                 )
+            assert img.ndim == 3, f"{img.shape=}"
             inputs[f'img_{input_idx}'] = img
         return inputs
 
