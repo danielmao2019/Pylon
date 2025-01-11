@@ -9,7 +9,9 @@ import utils
     (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train')),
     (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='test')),
     (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train', bands=['B01', 'B02'])),
-    (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='test', bands=['B08', 'B8A'])),
+    (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='test', bands=['B01', 'B02'])),
+    (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train', bands=['B04', 'B03', 'B02'])),
+    (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train', bands=['B08', 'B8A'])),
 ])
 def test_oscd(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)

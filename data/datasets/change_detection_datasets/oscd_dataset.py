@@ -67,6 +67,10 @@ class OSCDDataset(BaseDataset):
             png_label_filepath = [os.path.join(labels_root, city, "cm", "cm.png")]
             assert os.path.isfile(png_label_filepath[0]), f"{png_label_filepath=}"
             # define meta info
+            tif_size = utils.io.load_image(filepaths=tif_label_filepaths).shape[-2:]
+            png_size = utils.io.load_image(filepath=png_label_filepath).shape[-2:]
+            assert tif_size == png_size, f"{tif_size=}, {png_size=}"
+            height, width = tif_size
             with open(os.path.join(inputs_root, city, "dates.txt"), mode='r') as f:
                 date_1, date_2 = f.readlines()
             assert date_1.startswith("date_1: ")
@@ -86,6 +90,8 @@ class OSCDDataset(BaseDataset):
                     'png_label_filepath': png_label_filepath,
                 },
                 'meta_info': {
+                    'height': height,
+                    'width': width,
                     'date_1': date_1,
                     'date_2': date_2,
                 },
@@ -94,16 +100,12 @@ class OSCDDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        inputs = self._load_inputs(idx)
-        height, width = inputs['img_1'].shape[-2:]
-        assert inputs['img_2'].shape[-2:] == (height, width), \
-            f"{inputs['img_2'].shape=}, {inputs['img_1'].shape=}, {height=}, {width=}"
-        labels = self._load_labels(idx, height, width)
-        assert labels['change_map'].shape == (1, height, width), \
-            f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
         meta_info = self.annotations[idx]['meta_info']
-        meta_info['height'] = height
-        meta_info['width'] = width
+        height, width = meta_info['height'], meta_info['width']
+        inputs = self._load_inputs(idx)
+        labels = self._load_labels(idx)
+        assert all(x.shape[-2:] == (height, width) for x in [inputs['img_1'], inputs['img_2'], labels['change_map']]), \
+            f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
         return inputs, labels, meta_info
 
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -115,19 +117,25 @@ class OSCDDataset(BaseDataset):
                     dtype=torch.float32, sub=None, div=255.0,
                 )
             else:
-                img = utils.io.load_image(filepaths=list(filter(
-                    lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in self.bands,
-                    self.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
-                )), dtype=torch.float32, sub=None, div=None)
+                img = utils.io.load_image(
+                    filepaths=list(filter(
+                        lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in self.bands,
+                        self.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
+                    )),
+                    dtype=torch.float32, sub=None, div=None,
+                    height=self.annotations[idx]['meta_info']['height'],
+                    width=self.annotations[idx]['meta_info']['width'],
+                )
             inputs[f'img_{input_idx}'] = img
         return inputs
 
-    def _load_labels(self, idx: int, height: int, width: int) -> torch.Tensor:
+    def _load_labels(self, idx: int) -> torch.Tensor:
         labels = {
             'change_map': utils.io.load_image(
                 filepaths=self.annotations[idx]['labels']['tif_label_filepaths'],
                 dtype=torch.int64, sub=1, div=None,  # sub 1 to convert {1, 2} to {0, 1}
-                height=height, width=width,
+                height=self.annotations[idx]['meta_info']['height'],
+                width=self.annotations[idx]['meta_info']['width'],
             )
         }
         return labels
