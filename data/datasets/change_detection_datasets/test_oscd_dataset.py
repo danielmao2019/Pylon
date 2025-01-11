@@ -39,10 +39,15 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
             tif_input = utils.io.load_image(filepaths=list(filter(
                 lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in ['B04', 'B03', 'B02'],
                 dataset.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
-            )), dtype=torch.float32, sub=None, div=None)
+            ))[::-1], dtype=torch.float32, sub=None, div=None)
+            lower = torch.quantile(tif_input, 0.02)
+            upper = torch.quantile(tif_input, 0.98)
+            tif_input = (tif_input - lower) / (upper - lower)
+            tif_input = torch.clamp(tif_input, min=0, max=1)
+            tif_input = (tif_input * 255).to(torch.uint8)
             png_input = utils.io.load_image(
                 filepath=dataset.annotations[idx]['inputs'][f'png_input_{input_idx}_filepath'],
-                dtype=torch.float32, sub=None, div=255.0,
+                dtype=torch.uint8, sub=None, div=None,
             )
             assert torch.equal(tif_input, png_input)
         tif_label = utils.io.load_image(
