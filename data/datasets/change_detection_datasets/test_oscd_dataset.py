@@ -1,16 +1,20 @@
 import pytest
 from .oscd_dataset import OSCDDataset
+import os
 import torch
+import utils
 
 
 @pytest.mark.parametrize("dataset", [
     (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train')),
     (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='test')),
+    (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='train', bands=['B01', 'B02'])),
+    (OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split='test', bands=['B08', 'B8A'])),
 ])
 def test_oscd(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    for i in range(len(dataset)):
-        datapoint = dataset[i]
+    for idx in range(len(dataset)):
+        datapoint = dataset[idx]
         assert type(datapoint) == dict
         assert set(datapoint.keys()) == set(['inputs', 'labels', 'meta_info'])
         # inspect inputs
@@ -30,3 +34,22 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         assert set(labels.keys()) == set(OSCDDataset.LABEL_NAMES)
         change_map = labels['change_map']
         assert set(torch.unique(change_map).tolist()) == set([0, 1]), f"{torch.unique(change_map)=}"
+        # sanity check for consistency between different modalities
+        for input_idx in [1, 2]:
+            img_tif = utils.io.load_image(filepaths=list(filter(
+                lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in ['B04', 'B03', 'B02'],
+                dataset.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
+            )), dtype=torch.float32, sub=None, div=None)
+            img_png = utils.io.load_image(
+                filepath=dataset.annotations[idx]['inputs'][f'png_input_{input_idx}_filepath'],
+                dtype=torch.float32, sub=None, div=255.0,
+            )
+            assert torch.equal(img_tif, img_png)
+        label_tif = utils.io.load_image(
+            filepaths=[dataset.annotations[idx]['labels']['tif_label_filepaths']],
+            dtype=torch.int64, sub=1, div=None,
+        )
+        label_png = utils.io.load_image(
+            filepath=dataset.annotations[idx]['png_label_filepath'],
+            dtype=torch.int64, sub=None, div=None,
+        )
