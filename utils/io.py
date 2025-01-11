@@ -6,34 +6,73 @@ import numpy
 import torch
 import torchvision
 from PIL import Image
+import rasterio
 
 from utils.input_checks import check_read_file, check_write_file
 from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
 
 
 def load_image(
-    filepath: str,
+    filepath: Optional[str] = None,
+    filepaths: Optional[List[str]] = None,
     dtype: Optional[torch.dtype] = None,
-    sub: Union[float, Sequence[float]] = None,
-    div: Union[float, Sequence[float]] = None,
+    sub: Optional[Union[float, Sequence[float]]] = None,
+    div: Optional[Union[float, Sequence[float]]] = None,
+    height: Optional[int] = None,
+    width: Optional[int] = None,
 ) -> torch.Tensor:
-    # input checks
-    check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg'])
-    # load image
-    image = Image.open(filepath)
-    # convert to torch.Tensor
-    image = _pil2torch(image)
-    # normalize image
+    """
+    Load an image or bands from file(s) into a PyTorch tensor.
+
+    Args:
+        filepath: Path to a single image file (.png, .jpg, .jpeg).
+        filepaths: List of filepaths for bands in a .tif image.
+        dtype: Desired output data type for the tensor (e.g., torch.float32).
+        sub: Value(s) to subtract from the image for normalization.
+        div: Value(s) to divide the image by for normalization.
+        height
+        width
+
+    Returns:
+        A PyTorch tensor of the loaded image.
+    """
+    # Input validation
+    assert (filepath is None) ^ (filepaths is None), \
+        "Exactly one of 'filepath' or 'filepaths' must be provided."
+    if filepath is not None:
+        check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg'])
+    if filepaths is not None:
+        assert type(filepaths) == list, \
+            f"'filepaths' must be a list. Got {type(filepaths)}."
+        for path in filepaths:
+            check_read_file(path=path, ext=['.tif'])
+    assert (height is None) == (width is None)
+
+    # Load image data
+    if filepath:
+        image = _pil2torch(Image.open(filepath))
+    else:  # filepaths is not None
+        image = _load_bands(filepaths, height, width)
+
+    # Normalize the image
     if sub is not None or div is not None:
         image = _normalize(image, sub=sub, div=div)
-    # convert data type
+
+    # Resize the image
+    if height is not None and width is not None:
+        image = torchvision.transforms.functional.resize(image, (height, width))
+
+    # Convert data type
     if dtype is not None:
-        assert type(dtype) == torch.dtype, f"{type(dtype)=}"
-        image = image.type(dtype)
+        assert type(dtype) == torch.dtype, \
+            f"'dtype' must be a torch.dtype, got {type(dtype)}."
+        image = image.to(dtype)
+
     return image
 
 
 def _pil2torch(image: Image) -> torch.Tensor:
+    """Convert a PIL Image to a PyTorch tensor."""
     mode = image.mode
     # convert to torch.Tensor
     if mode == 'RGB':
@@ -58,28 +97,50 @@ def _pil2torch(image: Image) -> torch.Tensor:
     return image
 
 
-def _normalize(image: torch.Tensor, sub, div) -> torch.Tensor:
-    image = image.type(torch.float32)
+def _load_bands(filepaths: List[str], height: Optional[int], width: Optional[int]) -> torch.Tensor:
+    """Load multiple bands from separate .tif files into a single tensor."""
+    bands: List[torch.Tensor] = []
+    for filepath in filepaths:
+        with rasterio.open(filepath) as src:
+            band = src.read(1)
+            if band.dtype == numpy.uint16:
+                band = band.astype(numpy.int64)
+            band = torch.from_numpy(band)[None, :, :]
+            assert band.ndim == 3 and band.shape[0] == 1, f"{band.shape=}"
+            if height is not None and width is not None:
+                band = torchvision.transforms.functional.resize(band, (height, width))
+            bands.append(band)
+    return torch.cat(bands, dim=0)  # Stack along channel dimension
+
+
+def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
+    """Normalize the image by subtracting and dividing channel-wise values."""
+    image = image.to(torch.float32)
+
+    def prepare_tensor(value, num_channels, ndim):
+        """Helper to prepare broadcastable normalization tensors."""
+        value_tensor = torch.tensor(value, dtype=torch.float32)
+        if value_tensor.numel() not in {1, num_channels}:
+            raise ValueError(f"Normalization value must match the number of channels or be scalar. Got {value_tensor.numel()=}.")
+        if value_tensor.numel() == 1:
+            value_tensor = value_tensor.repeat(num_channels)
+        if ndim == 3:  # For 3D tensors (C, H, W), reshape for broadcasting
+            return value_tensor.view(-1, 1, 1)
+        return value_tensor  # Return as is for 2D tensors (H, W)
+
     if sub is not None:
-        sub = torch.tensor(sub, dtype=torch.float32)
-        if image.ndim == 3:
-            assert sub.numel() == 3, f"{sub.shape=}"
-            sub = sub.view(3, 1, 1)
-        else:
-            assert image.ndim == 2, f"{image.shape=}"
-            assert sub.numel() == 1, f"{sub.shape=}"
-        image = image - sub
+        sub_tensor = prepare_tensor(
+            value=sub, num_channels=image.shape[0] if image.ndim == 3 else 1, ndim=image.ndim,
+        )
+        image -= sub_tensor
+
     if div is not None:
-        div = torch.tensor(div, dtype=torch.float32)
-        if image.ndim == 3:
-            if div.numel() == 1:
-                div = torch.tensor([div]*3)
-            assert div.numel() == 3, f"{div.shape=}"
-            div = div.view(3, 1, 1)
-        else:
-            assert image.ndim == 2, f"{image.shape=}"
-            assert div.numel() == 1, f"{div.shape=}"
-        image = image / div
+        div_tensor = prepare_tensor(
+            value=div, num_channels=image.shape[0] if image.ndim == 3 else 1, ndim=image.ndim,
+        )
+        div_tensor = div_tensor.clamp(min=1e-6)  # Prevent division by zero
+        image /= div_tensor
+
     return image
 
 
