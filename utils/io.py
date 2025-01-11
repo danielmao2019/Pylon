@@ -65,7 +65,7 @@ def _pil2torch(image: Image) -> torch.Tensor:
     return image
 
 
-def _load_bands(filepaths: List[str], height: int, width: int) -> torch.Tensor:
+def _load_bands(filepaths: List[str], height: Optional[int], width: Optional[int]) -> torch.Tensor:
     """Load multiple bands from separate .tif files into a single tensor."""
     bands: List[torch.Tensor] = []
     for filepath in filepaths:
@@ -73,10 +73,10 @@ def _load_bands(filepaths: List[str], height: int, width: int) -> torch.Tensor:
             band = src.read(1)
             if band.dtype == numpy.uint16:
                 band = band.astype(numpy.int64)
-            band = torch.from_numpy(band)
-            assert band.ndim == 2, f"{band.shape=}"
-            band = band[None, :, :]
-            band = torchvision.transforms.functional.resize(band, (height, width))
+            band = torch.from_numpy(band)[None, :, :]
+            assert band.ndim == 3 and band.shape[0] == 1, f"{band.shape=}"
+            if height is not None and width is not None:
+                band = torchvision.transforms.functional.resize(band, (height, width))
             bands.append(band)
     return torch.cat(bands, dim=0)  # Stack along channel dimension
 
