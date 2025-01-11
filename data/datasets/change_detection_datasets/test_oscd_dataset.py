@@ -51,12 +51,13 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         #         dtype=torch.uint8, sub=None, div=None,
         #     )
         #     assert torch.equal(tif_input, png_input)
-        # tif_label = utils.io.load_image(
-        #     filepaths=dataset.annotations[idx]['labels']['tif_label_filepaths'],
-        #     dtype=torch.int64, sub=1, div=None,
-        # )
-        # png_label = (torch.mean(utils.io.load_image(
-        #     filepath=dataset.annotations[idx]['labels']['png_label_filepath'],
-        #     dtype=torch.float32, sub=None, div=None,
-        # )[:3, :, :], dim=0, keepdim=True) > 0.5).to(torch.int64)
-        # assert torch.equal(tif_label, png_label)
+        tif_label = utils.io.load_image(
+            filepaths=dataset.annotations[idx]['labels']['tif_label_filepaths'],
+            dtype=torch.int64, sub=1, div=None,
+        )
+        png_label = (torch.mean(utils.io.load_image(
+            filepath=dataset.annotations[idx]['labels']['png_label_filepath'],
+            dtype=torch.float32, sub=None, div=None,
+        )[:3, :, :], dim=0, keepdim=True) > 0.5).to(torch.int64)
+        assert torch.sum(tif_label != png_label) / torch.numel(tif_label) < 0.01, \
+            f"{torch.sum(tif_label != png_label) / torch.numel(tif_label)=}"
