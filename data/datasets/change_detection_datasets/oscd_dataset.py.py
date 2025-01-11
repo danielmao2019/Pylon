@@ -4,6 +4,7 @@ import glob
 from datetime import datetime
 import torch
 from data.datasets import BaseDataset
+import utils
 
 
 class OSCDDataset(BaseDataset):
@@ -98,8 +99,27 @@ class OSCDDataset(BaseDataset):
         meta_info = self.annotations[idx]['meta_info']
         return inputs, labels, meta_info
 
-    def _load_inputs(self, idx: int) -> torch.Tensor:
-        pass
+    def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
+        inputs: Dict[str, torch.Tensor] = {}
+        for input_idx in [1, 2]:
+            if self.bands is None:
+                img = utils.io.load_image(
+                    filepath=self.annotations[idx]['inputs']['rgb_1_filepath'],
+                    dtype=torch.float32, sub=None, div=255.0,
+                )
+            else:
+                img = utils.io.load_image(filepaths=list(filter(
+                    lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in self.bands,
+                    self.annotations[idx]['inputs']['bands_1_filepaths'],
+                )), dtype=torch.float32, format='bands')
+            inputs[f'img_{input_idx}'] = img
+        return inputs
 
     def _load_labels(self, idx: int) -> torch.Tensor:
-        pass
+        labels = {
+            'change_map': utils.io.load_image(
+                filepath=self.annotations[idx]['labels']['rgb_label'],
+                dtype=torch.float32, sub=None, div=255.0,
+            )
+        }
+        return labels
