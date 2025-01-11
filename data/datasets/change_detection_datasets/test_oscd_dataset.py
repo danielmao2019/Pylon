@@ -10,4 +10,4 @@ import torch
 def test_oscd(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     for i in range(len(dataset)):
-        example = dataset[i]
+        _ = dataset[i]
