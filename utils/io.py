@@ -74,9 +74,11 @@ def _load_bands(filepaths: List[str], height: int, width: int) -> torch.Tensor:
             if band.dtype == numpy.uint16:
                 band = band.astype(numpy.int64)
             band = torch.from_numpy(band)
+            assert band.ndim == 2, f"{band.shape=}"
+            band = band[None, :, :]
             band = torchvision.transforms.functional.resize(band, (height, width))
             bands.append(band)
-    return torch.stack(bands, dim=0)  # Stack along channel dimension
+    return torch.cat(bands, dim=0)  # Stack along channel dimension
 
 
 def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
