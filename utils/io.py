@@ -40,6 +40,11 @@ def _pil2torch(image: Image) -> torch.Tensor:
         image = image.permute(2, 0, 1)
         assert image.ndim == 3 and image.shape[0] == 3, f"{image.shape=}"
         assert image.dtype == torch.uint8, f"{image.dtype=}"
+    elif mode == 'RGBA':
+        image = torch.from_numpy(numpy.array(image))
+        image = image.permute(2, 0, 1)  # (H, W, C) -> (C, H, W)
+        assert image.ndim == 3 and image.shape[0] == 4, f"{image.shape=}"
+        assert image.dtype == torch.uint8, f"{image.dtype=}"
     elif mode in ['L', 'P']:
         image = torch.from_numpy(numpy.array(image))
         assert image.ndim == 2, f"{image.shape=}"
