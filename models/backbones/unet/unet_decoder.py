@@ -27,7 +27,8 @@ class UNetDecoder(torch.nn.Module):
     def _upconv(self, in_channels, out_channels):
         return torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size=2, stride=2)
 
-    def forward(self, skip_connections):
+    def forward(self, skip_connections: List[torch.Tensor]) -> torch.Tensor:
+        skip_connections = skip_connections[::-1]
         x = skip_connections[0]
         for i in range(len(self.upconvs)):
             x = self.upconvs[i](x)
