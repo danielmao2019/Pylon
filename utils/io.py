@@ -6,16 +6,18 @@ import numpy
 import torch
 import torchvision
 from PIL import Image
+import rasterio
 
 from utils.input_checks import check_read_file, check_write_file
 from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
 
 
 def load_image(
-    filepath: str,
+    filepath: Optional[str] = None,
+    filepaths: Optional[List[str]] = None,
     dtype: Optional[torch.dtype] = None,
-    sub: Union[float, Sequence[float]] = None,
-    div: Union[float, Sequence[float]] = None,
+    sub: Optional[Union[float, Sequence[float]]] = None,
+    div: Optional[Union[float, Sequence[float]]] = None,
 ) -> torch.Tensor:
     # input checks
     check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg'])
@@ -28,12 +30,15 @@ def load_image(
         image = _normalize(image, sub=sub, div=div)
     # convert data type
     if dtype is not None:
-        assert type(dtype) == torch.dtype, f"{type(dtype)=}"
-        image = image.type(dtype)
+        assert type(dtype) == torch.dtype, \
+            f"'dtype' must be a torch.dtype, got {type(dtype)}."
+        image = image.to(dtype)
+
     return image
 
 
 def _pil2torch(image: Image) -> torch.Tensor:
+    """Convert a PIL Image to a PyTorch tensor."""
     mode = image.mode
     # convert to torch.Tensor
     if mode == 'RGB':
@@ -58,28 +63,47 @@ def _pil2torch(image: Image) -> torch.Tensor:
     return image
 
 
-def _normalize(image: torch.Tensor, sub, div) -> torch.Tensor:
-    image = image.type(torch.float32)
+def _load_bands(filepaths: List[str]) -> torch.Tensor:
+    """Load multiple bands from separate .tif files into a single tensor."""
+    bands: List[torch.Tensor] = []
+    for filepath in filepaths:
+        with rasterio.open(filepath) as src:
+            band = src.read(1)
+            if band.dtype == numpy.uint16:
+                band = band.astype(numpy.int64)
+            band = torch.from_numpy(band)
+            bands.append(band)
+    return torch.stack(bands, dim=0)  # Stack along channel dimension
+
+
+def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
+    """Normalize the image by subtracting and dividing channel-wise values."""
+    image = image.to(torch.float32)
+
+    def prepare_tensor(value, num_channels, ndim):
+        """Helper to prepare broadcastable normalization tensors."""
+        value_tensor = torch.tensor(value, dtype=torch.float32)
+        if value_tensor.numel() not in {1, num_channels}:
+            raise ValueError(f"Normalization value must match the number of channels or be scalar. Got {value_tensor.numel()=}.")
+        if value_tensor.numel() == 1:
+            value_tensor = value_tensor.repeat(num_channels)
+        if ndim == 3:  # For 3D tensors (C, H, W), reshape for broadcasting
+            return value_tensor.view(-1, 1, 1)
+        return value_tensor  # Return as is for 2D tensors (H, W)
+
     if sub is not None:
-        sub = torch.tensor(sub, dtype=torch.float32)
-        if image.ndim == 3:
-            assert sub.numel() == 3, f"{sub.shape=}"
-            sub = sub.view(3, 1, 1)
-        else:
-            assert image.ndim == 2, f"{image.shape=}"
-            assert sub.numel() == 1, f"{sub.shape=}"
-        image = image - sub
+        sub_tensor = prepare_tensor(
+            value=sub, num_channels=image.shape[0] if image.ndim == 3 else 1, ndim=image.ndim,
+        )
+        image -= sub_tensor
+
     if div is not None:
-        div = torch.tensor(div, dtype=torch.float32)
-        if image.ndim == 3:
-            if div.numel() == 1:
-                div = torch.tensor([div]*3)
-            assert div.numel() == 3, f"{div.shape=}"
-            div = div.view(3, 1, 1)
-        else:
-            assert image.ndim == 2, f"{image.shape=}"
-            assert div.numel() == 1, f"{div.shape=}"
-        image = image / div
+        div_tensor = prepare_tensor(
+            value=div, num_channels=image.shape[0] if image.ndim == 3 else 1, ndim=image.ndim,
+        )
+        div_tensor = div_tensor.clamp(min=1e-6)  # Prevent division by zero
+        image /= div_tensor
+
     return image
 
 
