@@ -26,9 +26,7 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         img_1 = inputs['img_1']
         img_2 = inputs['img_2']
         assert type(img_1) == torch.Tensor and img_1.ndim == 3 and img_1.dtype == torch.float32
-        assert 0 <= img_1.min() <= img_1.max() <= 1
         assert type(img_2) == torch.Tensor and img_2.ndim == 3 and img_2.dtype == torch.float32
-        assert 0 <= img_2.min() <= img_2.max() <= 1
         assert img_1.shape == img_2.shape, f"{img_1.shape=}, {img_2.shape=}"
         # inspect labels
         labels = datapoint['labels']

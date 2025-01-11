@@ -64,8 +64,8 @@ class OSCDDataset(BaseDataset):
             # define labels
             tif_label_filepaths = [os.path.join(labels_root, city, "cm", f"{city}-cm.tif")]
             assert os.path.isfile(tif_label_filepaths[0]), f"{tif_label_filepaths=}"
-            png_label_filepath = [os.path.join(labels_root, city, "cm", "cm.png")]
-            assert os.path.isfile(png_label_filepath[0]), f"{png_label_filepath=}"
+            png_label_filepath = os.path.join(labels_root, city, "cm", "cm.png")
+            assert os.path.isfile(png_label_filepath), f"{png_label_filepath=}"
             # define meta info
             tif_size = utils.io.load_image(filepaths=tif_label_filepaths).shape[-2:]
             png_size = utils.io.load_image(filepath=png_label_filepath).shape[-2:]
