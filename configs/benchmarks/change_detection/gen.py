@@ -35,8 +35,10 @@ def main(arch: str) -> None:
     config += '\n'
     # add optimizer config
     config += f"# optimizer config\n"
-    config += f"from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config\n"
-    config += f"config['optimizer'] = single_task_optimizer_config\n"
+    config += f"from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config as optimizer_config\n"
+    config += f"from configs.common.optimizers._core_ import adam_optimizer_config\n"
+    config += f"optimizer_config['args']['optimizer_config'] = adam_optimizer_config\n"
+    config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds
     relpath = os.path.join("change_detection", "oscd")

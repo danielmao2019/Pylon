@@ -48,8 +48,10 @@ config['model'] = model_config
 config['model']['args']['arch'] = "FC-Siam-diff"
 
 # optimizer config
-from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config
-config['optimizer'] = single_task_optimizer_config
+from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config as optimizer_config
+from configs.common.optimizers._core_ import adam_optimizer_config
+optimizer_config['args']['optimizer_config'] = adam_optimizer_config
+config['optimizer'] = optimizer_config
 
 # seeds
 config['init_seed'] = 80395790
