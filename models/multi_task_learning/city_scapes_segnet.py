@@ -1,5 +1,5 @@
 import torch
-from models import MultiTaskBaseModel
+from models.multi_task_learning import MultiTaskBaseModel
 from models.backbones.segnet.segnet import SegNet
 from models.heads.two_conv_decoder import TwoConvDecoder
 

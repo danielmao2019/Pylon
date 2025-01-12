@@ -1,6 +1,6 @@
 from typing import Set, Optional
 import torch
-from models import MultiTaskBaseModel
+from models.multi_task_learning import MultiTaskBaseModel
 from models.heads.ppm_decoder import PyramidPoolingModule
 
 

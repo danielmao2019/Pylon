@@ -1,5 +1,5 @@
 import torch
-from models import MultiTaskBaseModel
+from models.multi_task_learning import MultiTaskBaseModel
 
 
 class CityScapes_DeepLabV3(MultiTaskBaseModel):

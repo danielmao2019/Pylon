@@ -1,5 +1,5 @@
 import torch
-from models import MultiTaskBaseModel
+from models.multi_task_learning import MultiTaskBaseModel
 
 
 class NYUD_MT_DeepLabV3(MultiTaskBaseModel):
