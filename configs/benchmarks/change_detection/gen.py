@@ -32,6 +32,7 @@ def main(arch: str) -> None:
     config += f"from configs.common.models.change_detection.oscd.fc_siam import model_config\n"
     config += f"config['model'] = model_config\n"
     config += f"config['model']['args']['arch'] = \"{arch}\"\n"
+    config += f"config['model']['args']['in_channels'] = {6 if arch == 'FC-EF' else 3}\n"
     config += '\n'
     # add optimizer config
     config += f"# optimizer config\n"

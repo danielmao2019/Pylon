@@ -46,6 +46,7 @@ config.update(dataset_config)
 from configs.common.models.change_detection.oscd.fc_siam import model_config
 config['model'] = model_config
 config['model']['args']['arch'] = "FC-Siam-diff"
+config['model']['args']['in_channels'] = 3
 
 # optimizer config
 from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config as optimizer_config
