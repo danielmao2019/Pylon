@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Optional
 import os
 import scipy
 import random
@@ -67,7 +67,7 @@ class NYUv2Dataset(BaseDataset):
     # initialization methods
     # ====================================================================================================
 
-    def __init__(self, semantic_granularity: str, *args, **kwargs) -> None:
+    def __init__(self, semantic_granularity: Optional[str] = 'coarse', *args, **kwargs) -> None:
         assert type(semantic_granularity) == str, f"{type(semantic_granularity)=}"
         assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
         if semantic_granularity == 'fine':
