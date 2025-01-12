@@ -75,13 +75,13 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.PyTorchCriterionWrapper,
+        'class': criteria.wrappers.PyTorchCriterionWrapper,
         'args': {
             'criterion': torch.nn.CrossEntropyLoss(reduction='mean'),
         },
     },
     'metric': {
-        'class': metrics.ConfusionMatrix,
+        'class': metrics.common.ConfusionMatrix,
         'args': {
             'num_classes': 10,
         },
