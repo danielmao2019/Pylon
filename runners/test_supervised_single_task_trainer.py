@@ -81,7 +81,7 @@ config = {
         },
     },
     'metric': {
-        'class': metrics.ConfusionMatrix,
+        'class': metrics.common.ConfusionMatrix,
         'args': {
             'num_classes': 10,
         },
