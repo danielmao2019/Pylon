@@ -39,13 +39,13 @@ from runners import SupervisedSingleTaskTrainer
 config['runner'] = SupervisedSingleTaskTrainer
 
 # dataset config
-import data
 from configs.common.datasets.change_detection.oscd import config as dataset_config
 config.update(dataset_config)
 
 # model config
-from configs.common.models.change_detection.fc_siam import model_config
-config['model'] = model_configconfig['model']['args']['arch'] = "FC-Siam-diff"
+from configs.common.models.change_detection.oscd.fc_siam import model_config
+config['model'] = model_config
+config['model']['args']['arch'] = "FC-Siam-diff"
 
 # optimizer config
 from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config

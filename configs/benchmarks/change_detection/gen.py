@@ -24,14 +24,13 @@ def main(arch: str) -> None:
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"
-    config += f"import data\n"
     config += f"from configs.common.datasets.change_detection.oscd import config as dataset_config\n" 
     config += f"config.update(dataset_config)\n"
     config += '\n'
     # add model config
     config += f"# model config\n"
-    config += f"from configs.common.models.change_detection.fc_siam import model_config\n"
-    config += f"config['model'] = model_config"
+    config += f"from configs.common.models.change_detection.oscd.fc_siam import model_config\n"
+    config += f"config['model'] = model_config\n"
     config += f"config['model']['args']['arch'] = \"{arch}\"\n"
     config += '\n'
     # add optimizer config
