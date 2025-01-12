@@ -50,7 +50,7 @@ def main(arch: str) -> None:
     for idx, seeded_config in enumerate(seeded_configs):
         seeded_config += f"# work dir\n"
         seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs/benchmarks", relpath, f"{arch}_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs/benchmarks", relpath, f"{arch}_run_{idx}"), mode='w') as f:
+        with open(os.path.join("./configs/benchmarks", relpath, f"{arch}_run_{idx}.py"), mode='w') as f:
             f.write(seeded_config)
 
 
