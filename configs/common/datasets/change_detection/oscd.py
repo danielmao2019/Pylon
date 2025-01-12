@@ -1,4 +1,5 @@
 import torch
+import torchvision
 import data
 import criteria
 import metrics
@@ -7,7 +8,20 @@ import metrics
 transforms_config = {
     'class': data.transforms.Compose,
     'args': {
-        'transforms': [],
+        'transforms': [
+            (
+                torchvision.transforms.Resize(size=(256, 256), antialias=True),
+                ('inputs', 'img_1'),
+            ),
+            (
+                torchvision.transforms.Resize(size=(256, 256), antialias=True),
+                ('inputs', 'img_2'),
+            ),
+            (
+                torchvision.transforms.Resize(size=(256, 256), antialias=True),
+                ('labels', 'change_map'),
+            ),
+        ],
     },
 }
 
@@ -15,7 +29,10 @@ collate_fn_config = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
-            'meta_info': {},
+            'meta_info': {
+                'date_1': list,
+                'date_2': list,
+            },
         },
     },
 }
