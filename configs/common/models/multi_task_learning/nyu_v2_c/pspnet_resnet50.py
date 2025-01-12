@@ -3,7 +3,7 @@ import models
 
 
 model_config_depth_estimation = {
-    'class': models.CityScapes_PSPNet,
+    'class': models.multi_task_learning.NYUD_MT_PSPNet,
     'args': {
         'backbone': models.backbones.resnet50(weights='DEFAULT'),
         'in_channels': 2048,
@@ -13,36 +13,36 @@ model_config_depth_estimation = {
     },
 }
 
-model_config_semantic_segmentation = {
-    'class': models.CityScapes_PSPNet,
+model_config_normal_estimation = {
+    'class': models.multi_task_learning.NYUD_MT_PSPNet,
     'args': {
         'backbone': models.backbones.resnet50(weights='DEFAULT'),
         'in_channels': 2048,
-        'tasks': set(['semantic_segmentation']),
-        'num_classes': data.datasets.CityScapesDataset.NUM_CLASSES_C,
+        'tasks': set(['normal_estimation']),
         'return_shared_rep': False,
         'use_attention': False,
     },
 }
 
-model_config_instance_segmentation = {
-    'class': models.CityScapes_PSPNet,
+model_config_semantic_segmentation = {
+    'class': models.multi_task_learning.NYUD_MT_PSPNet,
     'args': {
         'backbone': models.backbones.resnet50(weights='DEFAULT'),
         'in_channels': 2048,
-        'tasks': set(['instance_segmentation']),
+        'tasks': set(['semantic_segmentation']),
+        'num_classes': data.datasets.NYUv2Dataset.NUM_CLASSES_C,
         'return_shared_rep': False,
         'use_attention': False,
     },
 }
 
 model_config_all_tasks = {
-    'class': models.CityScapes_PSPNet,
+    'class': models.multi_task_learning.NYUD_MT_PSPNet,
     'args': {
         'backbone': models.backbones.resnet50(weights='DEFAULT'),
         'in_channels': 2048,
-        'tasks': set(["depth_estimation", "semantic_segmentation", "instance_segmentation"]),
-        'num_classes': data.datasets.CityScapesDataset.NUM_CLASSES_C,
+        'tasks': set(["depth_estimation", "normal_estimation", "semantic_segmentation"]),
+        'num_classes': data.datasets.NYUv2Dataset.NUM_CLASSES_C,
         'return_shared_rep': True,
         'use_attention': False,
     },
