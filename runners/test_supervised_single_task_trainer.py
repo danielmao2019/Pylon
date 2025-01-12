@@ -75,7 +75,7 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.PyTorchCriterionWrapper,
+        'class': criteria.wrappers.PyTorchCriterionWrapper,
         'args': {
             'criterion': torch.nn.CrossEntropyLoss(reduction='mean'),
         },
