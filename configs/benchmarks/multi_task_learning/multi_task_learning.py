@@ -2,10 +2,10 @@ from typing import List, Optional
 import itertools
 import os
 import sys
-sys.path.append("../..")
+sys.path.append("../../..")
 import data
 import utils
-os.chdir("../..")
+os.chdir("../../..")
 
 
 def add_heading(config: str) -> str:
@@ -29,7 +29,7 @@ def gen_single_task_configs(dataset_name: str, model_name: str, task_name: str) 
     # add dataset config
     config += f"# dataset config\n"
     config += f"import data\n"
-    config += f"from configs.common.datasets.{dataset_name} import config as dataset_config\n"
+    config += f"from configs.common.datasets.multi_task_learning.{dataset_name} import config as dataset_config\n"
     config += f"for key in ['train_dataset', 'val_dataset', 'test_dataset']:\n"
     config += f"    dataset_config[key] = {{\n"
     config += f"        'class': data.datasets.ProjectionDatasetWrapper,\n"
@@ -48,7 +48,7 @@ def gen_single_task_configs(dataset_name: str, model_name: str, task_name: str) 
     config += '\n'
     # add model config
     config += f"# model config\n"
-    config += f"from configs.common.models.{dataset_name}.{model_name} import model_config_{task_name} as model_config\n"
+    config += f"from configs.common.models.multi_task_learning.{dataset_name}.{model_name} import model_config_{task_name} as model_config\n"
     config += f"config['model'] = model_config\n"
     config += '\n'
     # add optimizer config
@@ -84,12 +84,12 @@ def gen_method_configs(dataset_name: str, model_name: str, method_name: str) -> 
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"
-    config += f"from configs.common.datasets.{dataset_name} import config as dataset_config\n"
+    config += f"from configs.common.datasets.multi_task_learning.{dataset_name} import config as dataset_config\n"
     config += f"config.update(dataset_config)\n"
     config += '\n'
     # add model config
     config += f"# model config\n"
-    config += f"from configs.common.models.{dataset_name}.{model_name} import model_config_all_tasks as model_config\n"
+    config += f"from configs.common.models.multi_task_learning.{dataset_name}.{model_name} import model_config_all_tasks as model_config\n"
     config += f"config['model'] = model_config\n"
     config += '\n'
     # add optimizer config
