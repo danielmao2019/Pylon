@@ -18,7 +18,14 @@ class OSCDDataset(BaseDataset):
 
     Download:
         * https://ieee-dataport.org/open-access/oscd-onera-satellite-change-detection
-
+        ```bash
+        unzip 'Onera Satellite Change Detection dataset - Images.zip'
+        mv 'Onera Satellite Change Detection dataset - Images.zip' images
+        unzip 'Onera Satellite Change Detection dataset - Train Labels.zip'
+        mv 'Onera Satellite Change Detection dataset - Train Labels.zip' train_labels
+        unzip 'Onera Satellite Change Detection dataset - Test Labels.zip'
+        mv 'Onera Satellite Change Detection dataset - Test Labels.zip' test_labels
+        ```
     Used in:
 
     """
@@ -30,7 +37,7 @@ class OSCDDataset(BaseDataset):
     }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
-    SHA1SUM = None
+    SHA1SUM = "f4715bc9f59b9a934064c0c21d606383de843791"
 
     # ====================================================================================================
     # initialization methods
