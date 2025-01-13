@@ -75,10 +75,8 @@ config = {
     'test_dataset': None,
     'test_dataloader': None,
     'criterion': {
-        'class': criteria.wrappers.PyTorchCriterionWrapper,
-        'args': {
-            'criterion': torch.nn.CrossEntropyLoss(),
-        },
+        'class': criteria.vision_2d.SemanticSegmentationCriterion,
+        'args': {},
     },
     'metric': {
         'class': metrics.vision_2d.SemanticSegmentationMetric,
