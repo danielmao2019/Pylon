@@ -9,11 +9,13 @@ class SemanticSegmentationCriterion(SingleTaskCriterion):
 
     def __init__(
         self,
-        ignore_index: int,
+        ignore_index: Optional[int] = None,
         class_weights: Optional[Tuple[float, ...]] = None,
         device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
         super(SemanticSegmentationCriterion, self).__init__()
+        if ignore_index is None:
+            ignore_index = 255
         if class_weights is not None:
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
