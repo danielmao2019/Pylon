@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 import torch
 import torchvision
 from metrics.wrappers.single_task_metric import SingleTaskMetric
@@ -11,12 +11,14 @@ class SemanticSegmentationMetric(SingleTaskMetric):
 
     DIRECTION = +1
 
-    def __init__(self, num_classes: int, ignore_index: int) -> None:
+    def __init__(self, num_classes: int, ignore_index: Optional[int] = None) -> None:
         super(SemanticSegmentationMetric, self).__init__()
         assert type(num_classes) == int, f"{type(num_classes)=}"
         assert num_classes > 0, f"{num_classes=}"
         self.num_classes = num_classes
-        self.ignore_index= ignore_index
+        if ignore_index is None:
+            ignore_index = 255
+        self.ignore_index = ignore_index
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         r"""
