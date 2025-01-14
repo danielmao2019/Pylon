@@ -50,8 +50,8 @@ config = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 32,
-            'num_workers': 8,
+            'batch_size': 4,
+            'num_workers': 4,
             'collate_fn': collate_fn_config,
         },
     },
@@ -68,7 +68,7 @@ config = {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 1,
-            'num_workers': 8,
+            'num_workers': 4,
             'collate_fn': collate_fn_config,
         },
     },
