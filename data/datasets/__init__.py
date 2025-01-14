@@ -14,6 +14,7 @@ from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
 
 # Change Detection datasets
 from data.datasets.change_detection_datasets.oscd_dataset import OSCDDataset
+from data.datasets.change_detection_datasets.levir_cd_dataset import LevirCdDataset
 
 
 __all__ = (
@@ -28,4 +29,5 @@ __all__ = (
     'NYUv2Dataset',
     # Change Detection datasets
     'OSCDDataset',
+    'LevirCdDataset',
 )
