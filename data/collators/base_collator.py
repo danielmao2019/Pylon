@@ -15,32 +15,32 @@ class BaseCollator:
         """
         self.collators = collators or {}
 
-    def __call__(self, examples: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+    def __call__(self, datapoints: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
         """
-        Processes a batch of examples using the defined or default collation logic.
+        Processes a batch of datapoints using the defined or default collation logic.
 
         Args:
-            examples: A list of nested dictionaries to be processed.
+            datapoints: A list of nested dictionaries to be processed.
 
         Returns:
             A dictionary with collated data.
         """
-        # Transpose the first level of the examples buffer
-        examples = transpose_buffer(examples)
+        # Transpose the first level of the datapoints buffer
+        datapoints = transpose_buffer(datapoints)
 
-        for key1, sub_dict in examples.items():
+        for key1, sub_dict in datapoints.items():
             # Transpose the second level
-            examples[key1] = transpose_buffer(sub_dict)
+            datapoints[key1] = transpose_buffer(sub_dict)
             
-            for key2, values in examples[key1].items():
+            for key2, values in datapoints[key1].items():
                 # Check for custom collator
                 if key1 in self.collators and key2 in self.collators[key1]:
-                    examples[key1][key2] = self.collators[key1][key2](values)
+                    datapoints[key1][key2] = self.collators[key1][key2](values)
                 else:
                     # Default collation behavior
-                    examples[key1][key2] = self._default_collate(values, key1, key2)
+                    datapoints[key1][key2] = self._default_collate(values, key1, key2)
 
-        return examples
+        return datapoints
 
     @staticmethod
     def _default_collate(values: List[Any], key1: str, key2: str) -> Union[torch.Tensor, List[Any]]:
