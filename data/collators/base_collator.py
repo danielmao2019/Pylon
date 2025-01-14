@@ -1,4 +1,4 @@
-from typing import List, Dict, Callable, Any, Optional
+from typing import List, Dict, Callable, Union, Any, Optional
 import torch
 from utils.ops import transpose_buffer
 
@@ -6,30 +6,68 @@ from utils.ops import transpose_buffer
 class BaseCollator:
 
     def __init__(self, collators: Optional[Dict[str, Dict[str, Callable[[List[Any]], Any]]]] = None) -> None:
-        if collators is None:
-            collators = {}
-        self.collators = collators
+        """
+        Initialize the BaseCollator with optional custom collators.
+
+        Args:
+            collators: A dictionary specifying custom collate functions for 
+                       specific keys. The structure is `Dict[key1, Dict[key2, Callable]]`.
+        """
+        self.collators = collators or {}
 
     def __call__(self, examples: List[Dict[str, Dict[str, Any]]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Processes a batch of examples using the defined or default collation logic.
+
+        Args:
+            examples: A list of nested dictionaries to be processed.
+
+        Returns:
+            A dictionary with collated data.
+        """
+        # Transpose the first level of the examples buffer
         examples = transpose_buffer(examples)
-        for key1 in examples:
-            examples[key1] = transpose_buffer(examples[key1])
-            for key2 in examples[key1]:
-                if (key1 not in self.collators) or (key2 not in self.collators[key1]):
-                    # no collate function given
-                    if all((elem is None or type(elem) == str) for elem in examples[key1][key2]):
-                        # handle str type
-                        pass
-                    elif all(type(elem) == int for elem in examples[key1][key2]):
-                        # handle int type
-                        examples[key1][key2] = torch.tensor(examples[key1][key2], dtype=torch.int64)
-                    else:
-                        # apply default collate function: torch.stack
-                        try:
-                            examples[key1][key2] = torch.stack(examples[key1][key2], dim=0)
-                        except Exception as e:
-                            raise RuntimeError(f"[ERROR] Cannot stack tensors into batch at {key1=}, {key2=}: {e}")
+
+        for key1, sub_dict in examples.items():
+            # Transpose the second level
+            examples[key1] = transpose_buffer(sub_dict)
+            
+            for key2, values in examples[key1].items():
+                # Check for custom collator
+                if key1 in self.collators and key2 in self.collators[key1]:
+                    examples[key1][key2] = self.collators[key1][key2](values)
                 else:
-                    # apply given collate function
-                    examples[key1][key2] = self.collators[key1][key2](examples[key1][key2])
+                    # Default collation behavior
+                    examples[key1][key2] = self._default_collate(values, key1, key2)
+
         return examples
+
+    @staticmethod
+    def _default_collate(values: List[Any], key1: str, key2: str) -> Union[torch.Tensor, List[Any]]:
+        """
+        Default collation logic for handling common types.
+
+        Args:
+            values: A list of values to be collated.
+            key1: Outer key for context in error messages.
+            key2: Inner key for context in error messages.
+
+        Returns:
+            A collated tensor or the original list if collation is not possible.
+        """
+        if all(value is None or isinstance(value, str) for value in values):
+            # Leave strings and None values as-is
+            return values
+
+        if all(isinstance(value, int) for value in values):
+            # Convert integers to a tensor
+            return torch.tensor(values, dtype=torch.int64)
+
+        try:
+            # Default behavior: stack tensors
+            return torch.stack(values, dim=0)
+        except Exception as e:
+            raise RuntimeError(
+                f"[ERROR] Cannot stack tensors into a batch for key1='{key1}', key2='{key2}'. "
+                f"Details: {e}"
+            )
