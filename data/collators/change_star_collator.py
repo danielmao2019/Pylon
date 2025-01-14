@@ -6,15 +6,18 @@ from utils.ops import transpose_buffer
 
 
 class ChangeStarCollator(BaseCollator):
-    """
-    A collator for ChangeStar models, handling image pairs and their corresponding change maps.
+    __doc__ = r"""A collator for the ChangeStar algorithm, handling image pairs and their corresponding change maps.
 
-    Args:
-        max_trails (Optional[int]): The maximum number of attempts to shuffle inputs without collisions.
+    Reference:
+        * https://github.com/Z-Zheng/ChangeStar/blob/master/core/mixin.py
     """
 
     def __init__(self, max_trails: Optional[int] = 50) -> None:
-        super().__init__()
+        r"""
+        Args:
+            max_trails (Optional[int]): The maximum number of attempts to shuffle inputs without collisions.
+        """
+        super(ChangeStarCollator, self).__init__()
         if max_trails is not None:
             if not isinstance(max_trails, int) or max_trails <= 0:
                 raise ValueError(f"`max_trails` must be a positive integer. Got: {max_trails}")
