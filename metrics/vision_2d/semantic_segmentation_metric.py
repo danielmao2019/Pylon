@@ -67,24 +67,30 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         assert score.is_floating_point(), f"{score.dtype=}"
         return {'IoU': score}
 
-    def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
-        r"""This functions summarizes the semantic segmentation evaluation results on all examples
-        seen so far into a single floating point number.
-        """
-        assert len(self.buffer) != 0
-        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+    @staticmethod
+    def _summarize(buffer: List[Dict[str, torch.Tensor]], num_classes) -> Dict[str, torch.Tensor]:
+        num_datapoints = len(buffer)
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(buffer)
         # summarize scores
         result: Dict[str, torch.Tensor] = {}
         iou = torch.stack(buffer['IoU'], dim=0)
-        assert iou.shape == (len(self.buffer), self.num_classes), f"{iou.shape=}"
+        assert iou.shape == (num_datapoints, num_classes), f"{iou.shape=}, {num_datapoints=}, {num_classes=}"
         # log class IoU
         class_iou = torch.nanmean(iou, dim=0)
-        assert class_iou.shape == (self.num_classes,), f"{class_iou.shape=}"
+        assert class_iou.shape == (num_classes,), f"{class_iou.shape=}"
         result['class_IoU'] = class_iou
         # log mean IoU
         mean_iou = torch.nanmean(class_iou)
         assert mean_iou.ndim == 0, f"{mean_iou.shape=}"
         result['mean_IoU'] = mean_iou
+        return result
+
+    def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
+        r"""This functions summarizes the semantic segmentation evaluation results on all examples
+        seen so far into a single floating point number.
+        """
+        assert len(self.buffer) != 0
+        result = self._summarize(self.buffer, self.num_classes)
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
