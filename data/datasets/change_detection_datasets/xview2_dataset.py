@@ -10,22 +10,23 @@ class xView2Dataset(BaseDataset):
     __doc__ = r"""
     Download:
         * https://xview2.org/download-links
-        Download from the following links:
-            * Download Challenge training set
-            * Download additional Tier3 training data
-            * Download Challenge test set
-            * Download Challenge holdout set
         ```bash
         mkdir <data-root>
         cd <data-root>
-        # <download the tar files from the link above>
-        # unzip and rename all packages
+        # download and unzip training set
+        <Download Challenge training set>
         tar -xvzf train_images_labels_targets.tar
         rm train_images_labels_targets.tar
+        # download and unzip tier3 set
+        <Download additional Tier3 training data>
         tar -xvzf tier3.tar
         rm tier3.tar
+        # download and unzip test set
+        <Download Challenge test set>
         tar -xvzf test_images_labels_targets.tar
         rm test_images_labels_targets.tar
+        # download and unzip hold set
+        <Download Challenge holdout set>
         tar -xvzf hold_images_labels_targets.tar
         rm hold_images_labels_targets.tar
         # create a soft-link
@@ -35,70 +36,74 @@ class xView2Dataset(BaseDataset):
         * Change is Everywhere: Single-Temporal Supervised Object Change Detection in Remote Sensing Imagery
     """
 
-    SPLIT_OPTIONS = ['train', 'test', 'hold']  # 'train' will load both train and tier3 components
+    SPLIT_OPTIONS = ['train', 'test', 'hold']
     DATASET_SIZE = {
-        'train': 9168,
-        'test': None,
-        'hold': None,
+        'train': 2799,
+        'test': 933,
+        'hold': 933,
     }
-    INPUT_NAMES = ['image']
-    LABEL_NAMES = ['semantic_segmentation']
+    INPUT_NAMES = ['img_1', 'img_2']
+    LABEL_NAMES = ['lbl_1', 'lbl_2']
     SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
 
     # ====================================================================================================
     # initialization methods
     # ====================================================================================================
 
-    def __init__(self, pre_or_post_disaster: Optional[str] = None, **kwargs) -> None:
-        if pre_or_post_disaster is not None:
-            assert isinstance(pre_or_post_disaster, str)
-        self.pre_or_post_disaster = pre_or_post_disaster
-        super(xView2Dataset, self).__init__(**kwargs)
-
     def _init_annotations_(self, split: str) -> None:
         # gather filepaths
         input_filepaths = sorted(glob.glob(os.path.join(self.data_root, split, "images", "*.png")))
+        img_1_filepaths = list(filter(
+            lambda x: os.path.basename(x).endswith("pre_disaster.png"), input_filepaths,
+        ))
+        img_2_filepaths = list(filter(
+            lambda x: os.path.basename(x).endswith("post_disaster.png"), input_filepaths,
+        ))
         label_filepaths = sorted(glob.glob(os.path.join(self.data_root, split, "targets", "*.png")))
-        if split == 'train':
-            input_filepaths.extend(sorted(glob.glob(os.path.join(self.data_root, "tier3", "images", "*.png"))))
-            label_filepaths.extend(sorted(glob.glob(os.path.join(self.data_root, "tier3", "targets", "*.png"))))
-        # apply filtering
-        if self.pre_or_post_disaster is not None:
-            input_filepaths = list(filter(
-                lambda x: os.path.basename(x).endswith(f"{self.pre_or_post_disaster}_disaster.png"),
-                input_filepaths,
-            ))
-            label_filepaths = list(filter(
-                lambda x: os.path.basename(x).endswith(f"{self.pre_or_post_disaster}_disaster.png"),
-                label_filepaths,
-            ))
-        # sanity check
-        assert all(
-            os.path.splitext(os.path.basename(x))[0]+"_target.png" == os.path.basename(y)
-            for x, y in zip(input_filepaths, label_filepaths)
-        ), f"{list(zip(input_filepaths, label_filepaths))=}"
+        lbl_1_filepaths = list(filter(
+            lambda x: os.path.basename(x).endswith("pre_disaster_target.png"), label_filepaths,
+        ))
+        lbl_2_filepaths = list(filter(
+            lambda x: os.path.basename(x).endswith("post_disaster_target.png"), label_filepaths,
+        ))
+        assert len(img_1_filepaths) == len(img_2_filepaths) == len(lbl_1_filepaths) == len(lbl_2_filepaths)
         # define annotations
         self.annotations = [{
-            'input_filepath': x, 'label_filepath': y,
-        } for x, y in zip(input_filepaths, label_filepaths)]
+            'inputs': {
+                'img_1': img_1, 'img_2': img_2,
+            },
+            'labels': {
+                'lbl_1': lbl_1, 'lbl_2': lbl_2,
+            },
+        } for img_1, img_2, lbl_1, lbl_2 in zip(img_1_filepaths, img_2_filepaths, lbl_1_filepaths, lbl_2_filepaths)]
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         inputs = {
-            'image': utils.io.load_image(
-                filepath=self.annotations[idx]['input_filepath'],
+            'img_1': utils.io.load_image(
+                filepath=self.annotations[idx]['inputs']['img_1'],
+                dtype=torch.float32, sub=0, div=255.0,
+            ),
+            'img_2': utils.io.load_image(
+                filepath=self.annotations[idx]['inputs']['img_2'],
                 dtype=torch.float32, sub=0, div=255.0,
             ),
         }
         labels = {
-            'semantic_segmentation': utils.io.load_image(
-                filepath=self.annotations[idx]['label_filepath'],
+            'lbl_1': utils.io.load_image(
+                filepath=self.annotations[idx]['labels']['lbl_1'],
+                dtype=torch.int64, sub=None, div=None,
+            ),
+            'lbl_2': utils.io.load_image(
+                filepath=self.annotations[idx]['labels']['lbl_2'],
                 dtype=torch.int64, sub=None, div=None,
             ),
         }
         meta_info = {
-            'input_filepath': self.annotations[idx]['input_filepath'],
-            'label_filepath': self.annotations[idx]['label_filepath'],
+            'img_1_filepath': self.annotations[idx]['inputs']['img_1'],
+            'img_2_filepath': self.annotations[idx]['inputs']['img_2'],
+            'lbl_1_filepath': self.annotations[idx]['labels']['lbl_1'],
+            'lbl_2_filepath': self.annotations[idx]['labels']['lbl_2'],
         }
         return inputs, labels, meta_info
