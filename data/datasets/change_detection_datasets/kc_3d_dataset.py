@@ -9,6 +9,24 @@ import utils
 
 
 class KC3DDataset:
+    __doc__ = r"""
+    Reference:
+        * https://github.com/ragavsachdeva/CYWS-3D/blob/master/kc3d.py
+
+    Download:
+        * do the following
+        ```
+        # download
+        mkdir <data-root>
+        cd <data-root>
+        wget https://thor.robots.ox.ac.uk/cyws-3d/kc3d.tar
+        # extract
+        tar xvf kc3d.tar
+        ```
+
+    Used in:
+        * The Change You Want to See (Now in 3D)
+    """
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = None  # Define if exact sizes for splits are known
