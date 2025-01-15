@@ -17,6 +17,29 @@ from .registeration_module import FeatureRegisterationModule
 
 
 class CYWS3D(nn.Module):
+    __doc__ = r"""
+    To use this model, install additional dependencies
+
+        ```bash
+        # openmmlab compatibility
+        conda create --name Pylon-openmmlab --clone Pylon
+        conda activate Pylon-openmmlab
+        pip install -U openmim
+        mim install mmcv-full==1.7.0
+        mim install mmdet==2.28.2
+        ```
+
+        ```bash
+        # CYWS-3D environment
+        conda create --name Pylon-CYWS-3D --clone Pylon-openmmlab
+        conda activate Pylon-CYWS-3D
+        pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/segmentation_models.pytorch.git@2cde92e776b0a074d5e2f4f6a50c68754f948015
+        conda install pytorch3d -c pytorch3d --freeze-installed
+        conda install -c fvcore -c iopath -c conda-forge fvcore iopath
+        pip install timm==0.6.12 jsonargparse matplotlib imageio loguru einops wandb easydict kornia==0.6.8 scipy etils
+        ```
+
+    """
 
     def __init__(self, args, load_weights_from=None):
         super(CYWS3D, self).__init__()
