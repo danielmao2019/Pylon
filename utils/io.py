@@ -32,7 +32,7 @@ def load_image(
         dtype: Desired output data type for the tensor (e.g., torch.float32).
         sub: Value(s) to subtract from the image for normalization.
         div: Value(s) to divide the image by for normalization.
-        heightkk
+        height
         width
 
     Returns:
