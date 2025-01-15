@@ -1,6 +1,6 @@
+from typing import Tuple, List, Dict
 import math
 import types
-from typing import Tuple, Dict
 
 import timm
 import torch
@@ -67,10 +67,10 @@ class CYWS3D(nn.Module):
         self.load_state_dict(checkpoint_state_dict, strict=False)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        image1_dino_features = self.feature_backbone(inputs["img_1"])
-        image2_dino_features = self.feature_backbone(inputs["img_1"])
-        image1_last_layer = self.bicubic_resize(image1_dino_features[-1])
-        image2_last_layer = self.bicubic_resize(image2_dino_features[-1])
+        image1_dino_features: List[torch.Tensor] = self.feature_backbone(inputs["img_1"])
+        image2_dino_features: List[torch.Tensor] = self.feature_backbone(inputs["img_1"])
+        image1_last_layer: torch.Tensor = self.bicubic_resize(image1_dino_features[-1])
+        image2_last_layer: torch.Tensor = self.bicubic_resize(image2_dino_features[-1])
         image1_encoded_features = [[], image1_last_layer]
         image2_encoded_features = [[], image2_last_layer]
         for layer in self.unet_encoder:
@@ -80,10 +80,10 @@ class CYWS3D(nn.Module):
             image1_encoded_features[i + 1], image2_encoded_features[i + 1] = self.registeration_module(
                 inputs, image1_encoded_features[i + 1], image2_encoded_features[i + 1]
             )
-        image1_decoded_features = self.unet_decoder(*image1_encoded_features)
-        image2_decoded_features = self.unet_decoder(*image2_encoded_features)
-        image1_decoded_features = self.feature_fusion_block(image1_dino_features[0], image1_decoded_features)
-        image2_decoded_features = self.feature_fusion_block(image2_dino_features[0], image2_decoded_features)
+        image1_decoded_features: torch.Tensor = self.unet_decoder(*image1_encoded_features)
+        image2_decoded_features: torch.Tensor = self.unet_decoder(*image2_encoded_features)
+        image1_decoded_features: torch.Tensor = self.feature_fusion_block(image1_dino_features[0], image1_decoded_features)
+        image2_decoded_features: torch.Tensor = self.feature_fusion_block(image2_dino_features[0], image2_decoded_features)
         return {
             'bbox_1': self.centernet_head([image1_decoded_features]),
             'bbox_2': self.centernet_head([image2_decoded_features]),
@@ -143,7 +143,7 @@ class FeatureBackbone(nn.Module):
 
             self.model.blocks[index].attn.qkv.register_forward_hook(_hook)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
         self.model.forward_features(x)  # desired features will get stored in self._features
         output = [self.sequence_to_spatial[i](feature) for i, feature in enumerate(self._features)]
         self._features.clear()  # clear for next forward pass

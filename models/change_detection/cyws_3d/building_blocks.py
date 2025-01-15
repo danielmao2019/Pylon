@@ -70,7 +70,7 @@ class Sequence2SpatialBlock(nn.Module):
         self.seq_to_spatial = Rearrange("b (h w) c -> b h w c", h=h, w=w)
         self.norm = nn.LayerNorm(args.encoder.output_dim)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.norm(x)
         tokens = self.seq_to_spatial(x[:, 1:])
         if self.keep_cls:
@@ -92,7 +92,7 @@ class FeatureFusionBlock(nn.Module):
             create_batch_norm_layer_with_custom_init(output_dims),
         )
 
-    def forward(self, x, y):
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         bicubic_resize = torchvision.transforms.Resize(
             size=y.shape[-2:], interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
         )
