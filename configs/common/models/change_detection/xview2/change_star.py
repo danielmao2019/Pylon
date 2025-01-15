@@ -41,14 +41,14 @@ model_config = {
         'change_decoder_cfg': {
             'in_channels': 256*2,
             'mid_channels': 16,
-            'out_channels': 1,
+            'out_channels': 2,
             'drop_rate': 0.2,
             'scale_factor': 4.0,
             'num_convs': 4,
         },
         'semantic_decoder_cfg': {
             'in_channels': 256,
-            'out_channels': 1,
+            'out_channels': 5,
             'scale_factor': 4.0,
         },
     },
