@@ -6,6 +6,7 @@ from metrics.vision_2d.normal_estimation_metric import NormalEstimationMetric
 from metrics.vision_2d.object_detection_metric import ObjectDetectionMetric
 from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
 from metrics.vision_2d.instance_segmentation_metric import InstanceSegmentationMetric
+from metrics.vision_2d.change_star_metric import ChangeStarMetric
 
 
 __all__ = (
@@ -14,4 +15,5 @@ __all__ = (
     'ObjectDetectionMetric',
     'SemanticSegmentationMetric',
     'InstanceSegmentationMetric',
+    'ChangeStarMetric',
 )
