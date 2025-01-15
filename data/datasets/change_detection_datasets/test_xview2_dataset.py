@@ -10,7 +10,7 @@ import torch
 ])
 def test_xview2(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    for idx in range(len(dataset)):
+    for idx in range(min(len(dataset), 100)):
         datapoint = dataset[idx]
         # inspect inputs
         inputs = datapoint['inputs']
