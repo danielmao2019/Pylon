@@ -19,9 +19,9 @@ class ResizeMaps(BaseTransform):
     def _call_single_(x: torch.Tensor, height, width):
         ndim = x.size()
         if ndim == 2:
-            return self._call_2d
+            return self._call_2d(x, height, width)
         elif ndim > 2:
-            return self._call_3d
+            return self._call_3d(x, height, width)
 
     def _call_2d(self, x: torch.Tensor, height, width) -> torch.Tensor:
         assert type(x) == torch.Tensor, f"{type(x)=}"
@@ -36,6 +36,8 @@ class ResizeMaps(BaseTransform):
     def _call_3d(self, x: torch.Tensor, height, width) -> torch.Tensor:
         assert type(x) == torch.Tensor, f"{type(x)=}"
         assert x.ndim == 3, f"{x.shape=}" # (H, W)
+        # Todo:
+        # - imporve impl
+        # - support 3D and greater than 3D
         x = torchvision.transforms.functional.resize(x, (height, width))
-        assert x.shape == self.target_size, f"{x.shape=}, {self.target_size=}"
         return x
