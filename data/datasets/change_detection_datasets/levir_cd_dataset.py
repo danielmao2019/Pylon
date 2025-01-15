@@ -108,7 +108,7 @@ class LevirCdDataset(BaseDataset):
     def _load_labels(self, idx: int) -> torch.Tensor:
         change_map = utils.io.load_image(
             filepath=self.annotations[idx]['labels']['png_label_filepath'],
-            dtype=torch.int64, sub=2, div=None,  # sub 1 to convert {1, 2} to {0, 1}
+            dtype=torch.int64, sub = None, div=None,  # sub 1 to convert {1, 2} to {0, 1}
             height=self.annotations[idx]['meta_info']['height'],
             width=self.annotations[idx]['meta_info']['width'],
         )
