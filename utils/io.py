@@ -45,7 +45,7 @@ def load_image(
         assert type(filepaths) == list, \
             f"'filepaths' must be a list. Got {type(filepaths)}."
         for path in filepaths:
-            check_read_file(path=path, ext=['.tif'])
+            check_read_file(path=path, ext=['.tif', '.tiff'])
     assert (height is None) == (width is None)
 
     # Load image data
