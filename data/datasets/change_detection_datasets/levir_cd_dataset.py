@@ -82,4 +82,38 @@ class LevirCdDataset(BaseDataset):
                     'width': width,
                 },
             })
+            
+    def _load_datapoint(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
+        meta_info = self.annotations[idx]['meta_info']
+        height, width = meta_info['height'], meta_info['width']
+        inputs = self._load_inputs(idx)
+        labels = self._load_labels(idx)
+        assert all(x.shape[-2:] == (height, width) for x in [inputs['img_1'], inputs['img_2'], labels['change_map']]), \
+            f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
+        return inputs, labels, meta_info
     
+    
+    def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
+        inputs: Dict[str, torch.Tensor] = {}
+        for input_idx in [1, 2]:
+            img = utils.io.load_image(
+                filepath=self.annotations[idx]['inputs'][f'png_input_{input_idx}_filepath'],
+                dtype=torch.float32, sub=None, div=255.0,
+            )
+            inputs[f'img_{input_idx}'] = img
+        return inputs
+        
+    def _load_labels(self, idx: int) -> torch.Tensor:
+        change_map = utils.io.load_image(
+            filepaths=self.annotations[idx]['labels']['png_label_filepaths'],
+            dtype=torch.int64, sub=1, div=None,  # sub 1 to convert {1, 2} to {0, 1}
+            height=self.annotations[idx]['meta_info']['height'],
+            width=self.annotations[idx]['meta_info']['width'],
+        )
+        assert change_map.ndim == 3 and change_map.shape[0] == 1, f"{change_map.shape=}"
+        change_map = change_map[0]
+        assert change_map.ndim == 2, f"{change_map.shape=}"
+        labels = {'change_map': change_map}
+        return labels
