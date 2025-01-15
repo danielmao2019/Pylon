@@ -85,13 +85,11 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.vision_2d.SemanticSegmentationCriterion,
+        'class': criteria.vision_2d.ChangeStarCriterion,
         'args': {},
     },
     'metric': {
-        'class': metrics.vision_2d.SemanticSegmentationMetric,
-        'args': {
-            'num_classes': 2,
-        },
+        'class': metrics.vision_2d.ChangeStarMetric,
+        'args': {},
     },
 }
