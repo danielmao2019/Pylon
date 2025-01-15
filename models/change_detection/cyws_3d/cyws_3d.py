@@ -8,13 +8,12 @@ import torch.nn as nn
 import torch.nn.modules.utils as nn_utils
 import torchvision
 from easydict import EasyDict
-from loguru import logger as L
 from mmdet.models.dense_heads.centernet_head import CenterNetHead
 from segmentation_models_pytorch.unet.model import UnetDecoder
 from einops import rearrange
 
-from modules.building_blocks import DownSamplingBlock, FeatureFusionBlock, Sequence2SpatialBlock
-from modules.registeration_module import FeatureRegisterationModule
+from .building_blocks import DownSamplingBlock, FeatureFusionBlock, Sequence2SpatialBlock
+from .registeration_module import FeatureRegisterationModule
 
 
 class CYWS3D(nn.Module):
@@ -55,7 +54,7 @@ class CYWS3D(nn.Module):
         for k in checkpoint_state_dict:
             if k in model_state_dict:
                 if checkpoint_state_dict[k].shape != model_state_dict[k].shape:
-                    L.log(
+                    print(
                         "INFO",
                         f"Skip loading parameter: {k}, "
                         f"required shape: {model_state_dict[k].shape}, "
@@ -63,7 +62,7 @@ class CYWS3D(nn.Module):
                     )
                     checkpoint_state_dict[k] = model_state_dict[k]
             else:
-                L.log("INFO", f"Dropping parameter {k}")
+                print("INFO", f"Dropping parameter {k}")
         self.load_state_dict(checkpoint_state_dict, strict=False)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
