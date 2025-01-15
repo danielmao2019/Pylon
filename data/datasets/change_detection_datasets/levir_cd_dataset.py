@@ -39,9 +39,9 @@ class LevirCdDataset(BaseDataset):
     
     SPLIT_OPTIONS = ['train', 'test', 'val']
     DATASET_SIZE = {
-        'train' = 445,
-        'test' = 128,
-        'validation' = 64,
+        'train': 445,
+        'test': 128,
+        'validation': 64,
     }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
@@ -63,7 +63,7 @@ class LevirCdDataset(BaseDataset):
             assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
             png_input_2_filepath = os.path.join(inputs_root, 'B', str(i) + ".png")
             assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
-            png_label_filepath = os.path.join(labels_root, , f"{split}" + str(i) + ".png")
+            png_label_filepath = os.path.join(labels_root, f"{split}" + str(i) + ".png")
             assert os.path.isfile(png_label_filepath), f"{png_label_filepath=}"
             # define meta info
             png_size = utils.io.load_image(filepath=png_label_filepath).shape[-2:]
