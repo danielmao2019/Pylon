@@ -1,12 +1,8 @@
-import kornia as K
 import numpy as np
 import torch
 import torch.nn.functional as F
 from einops import rearrange, repeat
 from pytorch3d.transforms import matrix_to_quaternion
-from scipy.ndimage import generate_binary_structure
-from scipy.ndimage import label as label_connected_components
-from torchvision.ops import masks_to_boxes
 import shapely.geometry
 
 
@@ -197,7 +193,8 @@ def bboxes_to_masks(batch_of_boxes, image_hw):
             mask[bbox[1] : bbox[3], bbox[0] : bbox[2]] = 1
         masks.append(mask)
     masks = rearrange(masks, "b h w -> b h w 1")
-    return K.image_to_tensor(masks).squeeze().type_as(type_as).float()
+    masks = torch.from_numpy(masks).squeeze().type_as(type_as).float()
+    return masks
 
 
 def remove_invalid_bboxes(bboxes_as_tensor, image_side, add_dummuy_if_empty=True):

@@ -1,7 +1,7 @@
-import kornia as K
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
@@ -93,14 +93,18 @@ class FeatureFusionBlock(nn.Module):
         )
 
     def forward(self, x, y):
-        bicubic_resize = K.augmentation.Resize(y.shape[-2:], resample=2, keepdim=True)
+        bicubic_resize = torchvision.transforms.Resize(
+            size=y.shape[-2:], interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
+        )
         x = bicubic_resize(x)
         xy = torch.cat([x, y], dim=1)
         xy = self._conv_bn_layer1(xy)
         xy = F.gelu(xy)
         xy = self._conv_bn_layer2(xy)
         xy = F.gelu(xy)
-        bicubic_resize = K.augmentation.Resize(self.out_res, resample=2, keepdim=True)
+        bicubic_resize = torchvision.transforms.Resize(
+            size=self.out_res, interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
+        )
         return bicubic_resize(xy)
 
 

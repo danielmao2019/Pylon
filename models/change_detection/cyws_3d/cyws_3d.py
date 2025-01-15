@@ -1,15 +1,12 @@
 import math
-import os
-import pickle
 import types
-from typing import Tuple
+from typing import Tuple, Dict
 
-import kornia as K
-import numpy as np
 import timm
 import torch
 import torch.nn as nn
 import torch.nn.modules.utils as nn_utils
+import torchvision
 from easydict import EasyDict
 from loguru import logger as L
 from mmdet.models.dense_heads.centernet_head import CenterNetHead
@@ -19,14 +16,18 @@ from einops import rearrange
 from modules.building_blocks import DownSamplingBlock, FeatureFusionBlock, Sequence2SpatialBlock
 from modules.registeration_module import FeatureRegisterationModule
 
-class Model(nn.Module):
+
+class CYWS3D(nn.Module):
+
     def __init__(self, args, load_weights_from=None):
-        super().__init__()
+        super(CYWS3D, self).__init__()
         self.args = args
         model = build_model(args)
         self.feature_backbone = FeatureBackbone(args, model)
         self.registeration_module = FeatureRegisterationModule(args)
-        self.bicubic_resize = K.augmentation.Resize((64, 64), resample=2, keepdim=True)
+        self.bicubic_resize = torchvision.transforms.Resize(
+            size=(64, 64), interpolation=torchvision.transforms.functional.InterpolationMode.BICUBIC,
+        )
         self.unet_encoder = nn.ModuleList([DownSamplingBlock(i, j) for i, j in args.decoder.downsampling_blocks])
         self.unet_decoder = UnetDecoder(
             encoder_channels=args.decoder.encoder_channels,
@@ -65,9 +66,9 @@ class Model(nn.Module):
                 L.log("INFO", f"Dropping parameter {k}")
         self.load_state_dict(checkpoint_state_dict, strict=False)
 
-    def forward(self, batch):
-        image1_dino_features = self.feature_backbone(batch["image1"])
-        image2_dino_features = self.feature_backbone(batch["image2"])
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        image1_dino_features = self.feature_backbone(inputs["img_1"])
+        image2_dino_features = self.feature_backbone(inputs["img_1"])
         image1_last_layer = self.bicubic_resize(image1_dino_features[-1])
         image2_last_layer = self.bicubic_resize(image2_dino_features[-1])
         image1_encoded_features = [[], image1_last_layer]
@@ -77,16 +78,16 @@ class Model(nn.Module):
             image2_encoded_features.append(layer(image2_encoded_features[-1]))
         for i in range(len(self.unet_encoder)+1):
             image1_encoded_features[i + 1], image2_encoded_features[i + 1] = self.registeration_module(
-                batch, image1_encoded_features[i + 1], image2_encoded_features[i + 1]
+                inputs, image1_encoded_features[i + 1], image2_encoded_features[i + 1]
             )
         image1_decoded_features = self.unet_decoder(*image1_encoded_features)
         image2_decoded_features = self.unet_decoder(*image2_encoded_features)
         image1_decoded_features = self.feature_fusion_block(image1_dino_features[0], image1_decoded_features)
         image2_decoded_features = self.feature_fusion_block(image2_dino_features[0], image2_decoded_features)
-        return (
-            self.centernet_head([image1_decoded_features]),
-            self.centernet_head([image2_decoded_features]),
-        )
+        return {
+            'bbox_1': self.centernet_head([image1_decoded_features]),
+            'bbox_2': self.centernet_head([image2_decoded_features]),
+        }
 
     def get_bboxes_from_logits(self, image1_outputs, image2_outputs, batch):
         image1_predicted_bboxes = self.centernet_head.get_bboxes(

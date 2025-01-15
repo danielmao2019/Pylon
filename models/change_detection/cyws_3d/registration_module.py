@@ -1,4 +1,3 @@
-import kornia as K
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -54,7 +53,9 @@ class FeatureRegisterationModule(nn.Module):
             Rt_1_to_2[using_points] = _Rt_1_to_2
             Rt_2_to_1[using_points] = _Rt_2_to_1
 
-        nearest_resize = K.augmentation.Resize(features1.shape[-2:], resample=0, align_corners=None, keepdim=True)
+        nearest_resize = torch.nn.Upsample(
+            size=features1.shape[-2:], mode='nearest', align_corners=False,
+        )
         depth1 = nearest_resize(batch["depth1"])
         depth2 = nearest_resize(batch["depth2"])
         image1_warped_onto_image2 = self.feature_warper.warp(features1, depth1, K_inv_1, K_inv_2, Rt_1_to_2)
