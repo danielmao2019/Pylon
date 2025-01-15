@@ -30,9 +30,18 @@ transforms_config = {
     },
 }
 
-collate_fn_config = {
+collate_fn_train_config = {
     'class': data.collators.ChangeStarCollator,
-    'args': {},
+    'args': {
+        'method': "train",
+    },
+}
+
+collate_fn_eval_config = {
+    'class': data.collators.ChangeStarCollator,
+    'args': {
+        'method': "eval",
+    },
 }
 
 config = {
@@ -49,7 +58,7 @@ config = {
         'args': {
             'batch_size': 4,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_train_config,
         },
     },
     'val_dataset': {
@@ -65,7 +74,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_eval_config,
         },
     },
     'test_dataset': {
@@ -81,7 +90,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_eval_config,
         },
     },
     'criterion': {
