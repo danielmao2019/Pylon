@@ -163,11 +163,11 @@ class ChangeStarCollator(BaseCollator):
         datapoints["labels"]["change"] = (datapoints["labels"]["semantic_1"] != datapoints["labels"]["semantic_1"][shuffled_indices]).to(torch.int64)
 
         # Process meta information
-        if "meta_info" in datapoints:
-            for key, values in datapoints["meta_info"].items():
-                datapoints["meta_info"][key] = self._default_collate(
-                    values=values, key1="meta_info", key2=key,
-                )
+        datapoints["meta_info"] = transpose_buffer(datapoints["meta_info"])
+        for key, values in datapoints["meta_info"].items():
+            datapoints["meta_info"][key] = self._default_collate(
+                values=values, key1="meta_info", key2=key,
+            )
 
         # Output check
         assert set(datapoints['inputs'].keys()) == set(['img_1', 'img_2'])
