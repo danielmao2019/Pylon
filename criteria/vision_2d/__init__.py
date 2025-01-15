@@ -6,6 +6,7 @@ from criteria.vision_2d.normal_estimation_criterion import NormalEstimationCrite
 from criteria.vision_2d.spatial_cross_entropy_criterion import SpatialCrossEntropyCriterion
 from criteria.vision_2d.semantic_segmentation_criterion import SemanticSegmentationCriterion
 from criteria.vision_2d.instance_segmentation_criterion import InstanceSegmentationCriterion
+from criteria.vision_2d.change_star_criterion import ChangeStarCriterion
 
 
 __all__ = (
@@ -14,4 +15,5 @@ __all__ = (
     'SpatialCrossEntropyCriterion',
     'SemanticSegmentationCriterion',
     'InstanceSegmentationCriterion',
+    'ChangeStarCriterion',
 )
