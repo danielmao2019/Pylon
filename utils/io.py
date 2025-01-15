@@ -62,7 +62,7 @@ def load_image(
 
     # Resize the image
     if height is not None and width is not None:
-        image = ResizeMaps(image, (height, width))
+        image = ResizeMaps(image, height, width)
 
     # Convert data type
     if dtype is not None:
