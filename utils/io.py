@@ -11,6 +11,8 @@ import rasterio
 from utils.input_checks import check_read_file, check_write_file
 from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
 
+from data.transforms.resize import ResizeMaps
+
 
 def load_image(
     filepath: Optional[str] = None,
@@ -30,7 +32,7 @@ def load_image(
         dtype: Desired output data type for the tensor (e.g., torch.float32).
         sub: Value(s) to subtract from the image for normalization.
         div: Value(s) to divide the image by for normalization.
-        height
+        heightkk
         width
 
     Returns:
@@ -60,7 +62,7 @@ def load_image(
 
     # Resize the image
     if height is not None and width is not None:
-        image = torchvision.transforms.functional.resize(image, (height, width))
+        image = ResizeMaps(image, (height, width))
 
     # Convert data type
     if dtype is not None:
@@ -110,7 +112,7 @@ def _load_bands(filepaths: List[str], height: Optional[int], width: Optional[int
             if height is not None and width is not None:
                 band = torchvision.transforms.functional.resize(band, (height, width))
             bands.append(band)
-    return torch.cat(bands, dim=0)  # Stack along channel dimension
+    return torch.cat(bands, dim=0)  # Cat along channel dimension
 
 
 def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
