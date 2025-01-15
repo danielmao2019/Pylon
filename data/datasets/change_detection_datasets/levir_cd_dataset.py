@@ -1,7 +1,7 @@
 from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
-from datetime import datetime
+from natsort import natsorted
 import torch
 from data.datasets import BaseDataset
 import utils
@@ -41,29 +41,28 @@ class LevirCdDataset(BaseDataset):
     DATASET_SIZE = {
         'train': 445,
         'test': 128,
-        'validation': 64,
+        'val': 64,
     }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
     SHA1SUM = '5cd337198ead0768975610a135e26257153198c7'
     
 
-    def __init__(self, bands: Optional[List[str]] = None, **kwargs) -> None:
-        if bands is not None:
-            assert type(bands) == list and all(type(x) == str for x in bands), f"{bands=}"
-        self.bands = bands
-        super(OSCDDataset, self).__init__(**kwargs)
+    def __init__(self, **kwargs) -> None:
+        super(LevirCdDataset, self).__init__(**kwargs)
         
     def _init_annotations_(self, split: str) -> None:
         inputs_root: str = os.path.join(self.data_root, f"{split}")
         labels_root: str = os.path.join(self.data_root, f"{split}", "label")
         self.annotations: List[dict] = []
-        for i in DATASET_SIZE[f"{split}"]:
-            png_input_1_filepath = os.path.join(inputs_root, 'A', str(i) + ".png")
+        files_list = natsorted(os.listdir(os.path.join(inputs_root, 'A')))
+        assert len(os.listdir(os.path.join(inputs_root, 'A'))), len(os.listdir(os.path.join(inputs_root, 'B')))
+        for filename in files_list:
+            png_input_1_filepath = os.path.join(inputs_root, 'A', filename)
             assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
-            png_input_2_filepath = os.path.join(inputs_root, 'B', str(i) + ".png")
+            png_input_2_filepath = os.path.join(inputs_root, 'B', filename)
             assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
-            png_label_filepath = os.path.join(labels_root, f"{split}" + str(i) + ".png")
+            png_label_filepath = os.path.join(labels_root, filename)
             assert os.path.isfile(png_label_filepath), f"{png_label_filepath=}"
             # define meta info
             png_size = utils.io.load_image(filepath=png_label_filepath).shape[-2:]
@@ -82,6 +81,7 @@ class LevirCdDataset(BaseDataset):
                     'width': width,
                 },
             })
+        print(self.annotations)
             
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
@@ -107,8 +107,8 @@ class LevirCdDataset(BaseDataset):
         
     def _load_labels(self, idx: int) -> torch.Tensor:
         change_map = utils.io.load_image(
-            filepaths=self.annotations[idx]['labels']['png_label_filepaths'],
-            dtype=torch.int64, sub=1, div=None,  # sub 1 to convert {1, 2} to {0, 1}
+            filepath=self.annotations[idx]['labels']['png_label_filepath'],
+            dtype=torch.int64, sub=2, div=None,  # sub 1 to convert {1, 2} to {0, 1}
             height=self.annotations[idx]['meta_info']['height'],
             width=self.annotations[idx]['meta_info']['width'],
         )
