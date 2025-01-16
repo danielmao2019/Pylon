@@ -1,7 +1,6 @@
 from typing import Tuple, List, Dict, Optional
-import criteria.common
+import numpy
 import torch
-import criteria
 from criteria.wrappers import SingleTaskCriterion
 
 
@@ -9,10 +8,102 @@ class CornerNetCriterion(SingleTaskCriterion):
 
     def __init__(self, scale_factor: Tuple[float, float]) -> None:
         self.scale_factor = scale_factor
-        self.focal_loss_criterion = criteria.common.FocalLoss()
 
-    def _draw_gaussian(heatmap: torch.Tensor, center: Tuple[int, int], radius: int) -> torch.Tensor:
-        pass
+    @staticmethod
+    def _heatmap_loss(preds, gt):
+        pos_inds = gt.eq(1)
+        neg_inds = gt.lt(1)
+        neg_weights = torch.pow(1 - gt[neg_inds], 4)
+
+        loss = 0
+        for pred in preds:
+            pos_pred = pred[pos_inds]
+            neg_pred = pred[neg_inds]
+
+            pos_loss = torch.log(pos_pred) * torch.pow(1 - pos_pred, 2)
+            neg_loss = torch.log(1 - neg_pred) * torch.pow(neg_pred, 2) * neg_weights
+
+            num_pos = pos_inds.float().sum()
+            pos_loss = pos_loss.sum()
+            neg_loss = neg_loss.sum()
+
+            if pos_pred.nelement() == 0:
+                loss -= neg_loss
+            else:
+                loss -= (pos_loss + neg_loss) / num_pos
+        return loss
+
+    @staticmethod
+    def _embedding_loss(tag0, tag1, mask):
+        num = mask.sum(dim=1, keepdim=True).float()
+        tag0 = tag0.squeeze()
+        tag1 = tag1.squeeze()
+
+        tag_mean = (tag0 + tag1) / 2
+        pull_loss = ((tag0 - tag_mean).pow(2) + (tag1 - tag_mean).pow(2)) / (num + 1e-4)
+        pull_loss = pull_loss[mask].sum()
+
+        mask = mask.unsqueeze(1) + mask.unsqueeze(2)
+        mask = mask.eq(2)
+        num = num.unsqueeze(2)
+        num2 = (num - 1) * num
+        dist = tag_mean.unsqueeze(1) - tag_mean.unsqueeze(2)
+        dist = 1 - torch.abs(dist)
+        dist = torch.nn.functional.relu(dist, inplace=True)
+        dist -= 1 / (num + 1e-4)
+        dist /= (num2 + 1e-4)
+        dist = dist[mask]
+        push_loss = dist.sum()
+        return pull_loss, push_loss
+
+    @staticmethod
+    def _offset_loss(regr, gt_regr, mask):
+        num = mask.float().sum()
+        mask = mask.unsqueeze(2).expand_as(gt_regr)
+        regr = regr[mask]
+        gt_regr = gt_regr[mask]
+
+        regr_loss = torch.nn.functional.smooth_l1_loss(regr, gt_regr, reduction='sum')
+        regr_loss /= (num + 1e-4)
+        return regr_loss
+
+    @staticmethod
+    def gaussian2D(shape, sigma=1):
+        m, n = [(ss - 1.) / 2. for ss in shape]
+        y, x = numpy.ogrid[-m:m + 1, -n:n + 1]
+        h = numpy.exp(-(x * x + y * y) / (2 * sigma * sigma))
+        h[h < numpy.finfo(h.dtype).eps * h.max()] = 0
+        return h
+
+    @staticmethod
+    def draw_gaussian(heatmap, center, radius, k=1):
+        diameter = 2 * radius + 1
+        gaussian = CornerNetCriterion.gaussian2D((diameter, diameter), sigma=diameter / 6)
+        x, y = center
+        height, width = heatmap.shape[0:2]
+
+        left, right = min(x, radius), min(width - x, radius + 1)
+        top, bottom = min(y, radius), min(height - y, radius + 1)
+
+        masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
+        masked_gaussian = gaussian[radius - top:radius + bottom, radius - left:radius + right]
+        numpy.maximum(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
+
+    @staticmethod
+    def gaussian_radius(det_size, min_overlap):
+        height, width = det_size
+        a1, b1, c1 = 1, (height + width), width * height * (1 - min_overlap) / (1 + min_overlap)
+        sq1 = numpy.sqrt(b1 ** 2 - 4 * a1 * c1)
+        r1 = (b1 - sq1) / (2 * a1)
+
+        a2, b2, c2 = 4, 2 * (height + width), (1 - min_overlap) * width * height
+        sq2 = numpy.sqrt(b2 ** 2 - 4 * a2 * c2)
+        r2 = (b2 - sq2) / (2 * a2)
+
+        a3, b3, c3 = 4 * min_overlap, -2 * min_overlap * (height + width), (min_overlap - 1) * width * height
+        sq3 = numpy.sqrt(b3 ** 2 - 4 * a3 * c3)
+        r3 = (b3 + sq3) / (2 * a3)
+        return min(r1, r2, r3)
 
     def _gen_heatmap_labels(
         bboxes_batch: List[torch.Tensor],
@@ -71,16 +162,17 @@ class CornerNetCriterion(SingleTaskCriterion):
             num_classes=self.num_classes, resolution=self.resolution, radius=self.radius,
         )
         offset_labels = self._gen_offset_labels(bboxes_batch=y_true['bboxes'], scale_factor=self.scale_factor)
-        # Compute focal loss
-        focal_loss: torch.Tensor = self.focal_loss_criterion(y_pred=y_pred['labels'], y_true=y_true['labels'])
-        # Compute offset loss
-        offset_loss = None
-        # Compute pull loss
-        pull_loss = None
-        # Compute push loss
-        push_loss = None
-        # Compute total loss
-        total_loss = focal_loss + offset_loss + pull_loss + push_loss
+        # Compute loss
+        focal_loss = self._heatmap_loss([y_pred['tl_preds']['heatmaps'], y_pred['br_preds']['heatmaps']],
+                                    [y_true['tl_true']['heatmaps'], y_true['br_true']['heatmaps']])
+
+        pull_loss, push_loss = self._embedding_loss(y_pred['tl_preds']['embeddings'], y_pred['br_preds']['embeddings'],
+                                             y_true['tl_true']['offsets'])
+
+        offset_loss = self._offset_loss(y_pred['tl_preds']['offsets'], y_true['tl_true']['offsets'], y_true['tl_true']['heatmaps'] > 0) + \
+                      self._offset_loss(y_pred['br_preds']['offsets'], y_true['br_true']['offsets'], y_true['br_true']['heatmaps'] > 0)
+
+        total_loss = focal_loss + pull_loss + push_loss + offset_loss
         assert total_loss.numel() == 1, f"{total_loss.shape=}"
         self.buffer.append(total_loss.detach().cpu())
         return total_loss
