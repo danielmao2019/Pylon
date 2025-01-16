@@ -30,7 +30,7 @@ jobs:
       - name: Install Pytorch Enviornment
         run: pip install torch==1.13.1 torchvision==0.14.1 --index-url https://download.pytorch.org/whl/cu117      
       - name: Install Python Dependencies
-        run: pip install scipy pycocotools opencv-python pytest pytest-md pytest-emoji matplotlib imageio dash tqdm jsbeautifier
+        run: pip install scipy pycocotools opencv-python pytest pytest-md pytest-emoji matplotlib imageio dash tqdm rasterio jsbeautifier
       - name: Set Timezone
         uses: szenius/set-timezone@v1.2
         with:
