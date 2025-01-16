@@ -1,3 +1,8 @@
+"""
+References:
+    * https://github.com/princeton-vl/CornerNet
+    * https://github.com/zzzxxxttt/pytorch_simple_CornerNet
+"""
 from typing import Tuple, List, Dict, Optional
 import numpy
 import torch
