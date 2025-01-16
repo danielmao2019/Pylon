@@ -6,31 +6,56 @@ from criteria.wrappers import SingleTaskCriterion
 
 class CornerNetCriterion(SingleTaskCriterion):
 
-    def __init__(self, scale_factor: Tuple[float, float]) -> None:
+    def __init__(self, scale_factor: Tuple[float, float], num_classes: int, resolution: Tuple[int, int], radius: int) -> None:
+        super(CornerNetCriterion, self).__init__()
         self.scale_factor = scale_factor
+        self.num_classes = num_classes
+        self.resolution = resolution
+        self.radius = radius
 
     @staticmethod
-    def _heatmap_loss(preds, gt):
-        pos_inds = gt.eq(1)
-        neg_inds = gt.lt(1)
-        neg_weights = torch.pow(1 - gt[neg_inds], 4)
+    def _heatmap_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        """
+        Compute the heatmap loss for a single predicted tensor against the ground truth tensor.
 
-        loss = 0
-        for pred in preds:
-            pos_pred = pred[pos_inds]
-            neg_pred = pred[neg_inds]
+        Args:
+            y_pred (Tensor): The predicted heatmap tensor. Shape: (N, C, H, W), where
+                            N is the batch size, C is the number of classes.
+            y_true (Tensor): The ground truth heatmap tensor. Shape: (N, C, H, W).
 
-            pos_loss = torch.log(pos_pred) * torch.pow(1 - pos_pred, 2)
-            neg_loss = torch.log(1 - neg_pred) * torch.pow(neg_pred, 2) * neg_weights
+        Returns:
+            Tensor: The computed loss value as a scalar tensor.
+        """
+        # Identify positive and negative indices in the ground truth
+        pos_inds = y_true.eq(1)  # Indices where the ground truth equals 1 (positive samples)
+        neg_inds = y_true.lt(1)  # Indices where the ground truth is less than 1 (negative samples)
 
-            num_pos = pos_inds.float().sum()
-            pos_loss = pos_loss.sum()
-            neg_loss = neg_loss.sum()
+        # Compute weights for negative samples based on their ground truth values
+        neg_weights = torch.pow(1 - y_true[neg_inds], 4)
 
-            if pos_pred.nelement() == 0:
-                loss -= neg_loss
-            else:
-                loss -= (pos_loss + neg_loss) / num_pos
+        # Extract positive and negative predictions using the indices
+        pos_pred = y_pred[pos_inds]  # Predictions corresponding to positive samples
+        neg_pred = y_pred[neg_inds]  # Predictions corresponding to negative samples
+
+        # Compute loss for positive predictions
+        pos_loss = torch.log(pos_pred) * torch.pow(1 - pos_pred, 2)
+
+        # Compute loss for negative predictions
+        neg_loss = torch.log(1 - neg_pred) * torch.pow(neg_pred, 2) * neg_weights
+
+        # Compute the number of positive samples
+        num_pos = pos_inds.float().sum()
+
+        # Sum the losses
+        pos_loss = pos_loss.sum()
+        neg_loss = neg_loss.sum()
+
+        # Handle cases where there are no positive samples
+        if pos_pred.nelement() == 0:
+            loss = -neg_loss
+        else:
+            loss = -(pos_loss + neg_loss) / num_pos
+
         return loss
 
     @staticmethod
