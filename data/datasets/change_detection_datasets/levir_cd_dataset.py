@@ -112,8 +112,6 @@ class LevirCdDataset(BaseDataset):
             height=self.annotations[idx]['meta_info']['height'],
             width=self.annotations[idx]['meta_info']['width'],
         )
-        assert change_map.ndim == 3 and change_map.shape[0] == 1, f"{change_map.shape=}"
-        change_map = change_map[0]
         assert change_map.ndim == 2, f"{change_map.shape=}"
         labels = {'change_map': change_map}
         return labels
