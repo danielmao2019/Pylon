@@ -35,7 +35,7 @@ def test_city_scapes(dataset: torch.utils.data.Dataset) -> None:
         assert type(semantic_segmentation) == torch.Tensor
         assert len(semantic_segmentation.shape) == 2
         assert semantic_segmentation.dtype == torch.int64
-        assert set(semantic_segmentation.unique().tolist()).issubset(set(list(dataset.class_map.values()) + [dataset.IGNORE_INDEX]))
+        assert set(semantic_segmentation.unique().tolist()).issubset(set(list(dataset.CLASS_MAP.values()) + [dataset.IGNORE_INDEX]))
         instance_segmentation = labels['instance_segmentation']
         assert type(instance_segmentation) == torch.Tensor
         assert len(instance_segmentation.shape) == 3 and instance_segmentation.shape[0] == 2

@@ -11,11 +11,11 @@ import torch
 def test_celeb_a(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     for i in range(min(len(dataset), 3)):
-        example = dataset[i]
-        assert type(example) == dict
-        assert set(example.keys()) == set(['inputs', 'labels', 'meta_info'])
+        datapoint = dataset[i]
+        assert type(datapoint) == dict
+        assert set(datapoint.keys()) == set(['inputs', 'labels', 'meta_info'])
         # inspect inputs
-        inputs = example['inputs']
+        inputs = datapoint['inputs']
         assert type(inputs) == dict
         assert set(inputs.keys()) == set(['image'])
         image = inputs['image']
@@ -24,11 +24,11 @@ def test_celeb_a(dataset: torch.utils.data.Dataset) -> None:
         assert image.dtype == torch.float32
         assert -1 <= image.min() <= image.max() <= +1, f"{image.min()=}, {image.max()=}"
         # inspect labels
-        labels = example['labels']
+        labels = datapoint['labels']
         assert type(labels) == dict
-        assert set(labels.keys()) == set(CelebADataset.LABEL_NAMES)
+        assert set(labels.keys()) == set(CelebADataset.LABEL_NAMES) - set(['landmarks'])
         # inspect meta info
-        meta_info = example['meta_info']
+        meta_info = datapoint['meta_info']
         assert type(meta_info) == dict
         assert set(meta_info.keys()) == set(['image_filepath', 'image_resolution'])
         image_filepath = meta_info['image_filepath']
