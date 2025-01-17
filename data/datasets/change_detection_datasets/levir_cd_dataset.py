@@ -7,6 +7,20 @@ from data.datasets import BaseDataset
 import utils
 
 class LevirCdDataset(BaseDataset):
+    """
+    Dataset class for LEVIR Change Detection Dataset.
+
+    This class handles loading, preprocessing, and annotation of the LEVIR dataset 
+    for change detection tasks.
+
+    Attributes:
+        SPLIT_OPTIONS (list): Available data splits ['train', 'test', 'val'].
+        DATASET_SIZE (dict): Number of samples in each split.
+        INPUT_NAMES (list): Names of input image pairs.
+        LABEL_NAMES (list): Names of labels.
+        SHA1SUM (str): SHA1 checksum for dataset verification.
+    """
+
     __doc__ = r"""
     References:
         * https://github.com/Z-Zheng/ChangeStar/blob/master/data/levir_cd/dataset.py
@@ -35,8 +49,7 @@ class LevirCdDataset(BaseDataset):
         stat <Pylon_path>/data/datasets/soft_links/LEVIR_CD
     Used in:
     """
-    
-    
+
     SPLIT_OPTIONS = ['train', 'test', 'val']
     DATASET_SIZE = {
         'train': 445,
@@ -46,8 +59,17 @@ class LevirCdDataset(BaseDataset):
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
     SHA1SUM = '5cd337198ead0768975610a135e26257153198c7'
-        
+
     def _init_annotations_(self, split: str) -> None:
+        """
+        Initialize dataset annotations.
+
+        Args:
+            split (str): The data split ('train', 'test', 'val').
+
+        Raises:
+            AssertionError: If any expected file is missing.
+        """
         inputs_root: str = os.path.join(self.data_root, f"{split}")
         labels_root: str = os.path.join(self.data_root, f"{split}", "label")
         self.annotations: List[dict] = []
@@ -60,10 +82,8 @@ class LevirCdDataset(BaseDataset):
             assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
             png_label_filepath = os.path.join(labels_root, filename)
             assert os.path.isfile(png_label_filepath), f"{png_label_filepath=}"
-            # define meta info
             png_size = utils.io.load_image(filepath=png_label_filepath).shape[-2:]
             height, width = png_size
-            # add annotation
             self.annotations.append({
                 'inputs': {
                     'png_input_1_filepath': png_input_1_filepath,
@@ -78,9 +98,20 @@ class LevirCdDataset(BaseDataset):
                 },
             })
             
-    def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
-    ]:
+    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        """
+        Load a single datapoint by index.
+
+        Args:
+            idx (int): Index of the datapoint to load.
+
+        Returns:
+            Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]: 
+                A tuple containing inputs, labels, and metadata.
+
+        Raises:
+            AssertionError: If input or label dimensions mismatch.
+        """
         meta_info = self.annotations[idx]['meta_info']
         height, width = meta_info['height'], meta_info['width']
         inputs = self._load_inputs(idx)
@@ -88,9 +119,17 @@ class LevirCdDataset(BaseDataset):
         assert all(x.shape[-2:] == (height, width) for x in [inputs['img_1'], inputs['img_2'], labels['change_map']]), \
             f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
         return inputs, labels, meta_info
-    
-    
+
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
+        """
+        Load input images for a given index.
+
+        Args:
+            idx (int): Index of the datapoint.
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary with loaded input images.
+        """
         inputs: Dict[str, torch.Tensor] = {}
         for input_idx in [1, 2]:
             img = utils.io.load_image(
@@ -99,15 +138,26 @@ class LevirCdDataset(BaseDataset):
             )
             inputs[f'img_{input_idx}'] = img
         return inputs
-        
-    def _load_labels(self, idx: int) -> torch.Tensor:
+
+    def _load_labels(self, idx: int) -> Dict[str, torch.Tensor]:
+        """
+        Load label for a given index.
+
+        Args:
+            idx (int): Index of the datapoint.
+
+        Returns:
+            Dict[str, torch.Tensor]: Dictionary with loaded labels.
+
+        Raises:
+            AssertionError: If the loaded label is not 2D.
+        """
         change_map = utils.io.load_image(
             filepath=self.annotations[idx]['labels']['png_label_filepath'],
-            dtype=torch.int64, sub = None, div=255.0,
+            dtype=torch.int64, sub=None, div=255.0,
             height=self.annotations[idx]['meta_info']['height'],
             width=self.annotations[idx]['meta_info']['width'],
         )
         assert change_map.ndim == 2, f"{change_map.shape=}"
         labels = {'change_map': change_map}
         return labels
-    
