@@ -24,6 +24,8 @@ def check_write_file(path: Any) -> str:
 
 
 def check_read_dir(path: Any) -> str:
+    if os.path.islink(path):
+        path = os.readlink(path)
     assert type(path) == str, f"{type(path)=}"
     assert os.path.isdir(path), f"{path=}"
     return path
