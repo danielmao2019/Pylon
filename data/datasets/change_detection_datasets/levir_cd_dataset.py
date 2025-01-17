@@ -57,7 +57,7 @@ class LevirCdDataset(BaseDataset):
     }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
-    SHA1SUM = '5cd337198ead0768975610a135e26257153198c7'
+    SHA1SUM = '610f742580165b4af94ffae295dbab8986a92b69'
 
     def _init_annotations_(self, split: str) -> None:
         """

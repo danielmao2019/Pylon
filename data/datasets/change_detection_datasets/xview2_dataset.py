@@ -44,7 +44,7 @@ class xView2Dataset(BaseDataset):
     }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['lbl_1', 'lbl_2']
-    SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
+    SHA1SUM = None
 
     # ====================================================================================================
     # initialization methods
