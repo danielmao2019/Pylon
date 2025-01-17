@@ -100,19 +100,24 @@ def _pil2torch(image: Image) -> torch.Tensor:
     return image
 
 
-def _load_bands(filepaths: List[str], height: Optional[int], width: Optional[int]) -> torch.Tensor:
+def _load_bands(
+    filepaths: List[str],
+    height: Optional[int] = None,
+    width: Optional[int] = None,
+) -> torch.Tensor:
     """Load multiple bands from separate .tif files into a single tensor."""
+    assert (height is None) == (width is None)
     bands: List[torch.Tensor] = []
     for filepath in filepaths:
         with rasterio.open(filepath) as src:
             band = src.read(1)
-            if band.dtype == numpy.uint16:
-                band = band.astype(numpy.int64)
-            band = torch.from_numpy(band)[None, :, :]
-            assert band.ndim == 3 and band.shape[0] == 1, f"{band.shape=}"
-            if height is not None and width is not None:
-                band = torchvision.transforms.functional.resize(band, (height, width))
-            bands.append(band)
+        if band.dtype == numpy.uint16:
+            band = band.astype(numpy.int64)
+        band = torch.from_numpy(band)[None, :, :]
+        assert band.ndim == 3 and band.size(0) == 1, f"{band.shape=}"
+        if height is not None and width is not None:
+            band = torchvision.transforms.functional.resize(band, size=(height, width))
+        bands.append(band)
     return torch.cat(bands, dim=0)  # Cat along channel dimension
 
 
