@@ -32,7 +32,7 @@ class NYUv2Dataset(BaseDataset):
         'val': 654,
     }
     INPUT_NAMES = ['image']
-    LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation']
+    LABEL_NAMES = ['depth_estimation', 'normal_estimation', 'semantic_segmentation', 'edge_detection']
     SHA1SUM = "5cd337198ead0768975610a135e26257153198c7"
 
     IGNORE_INDEX = 250
@@ -110,14 +110,14 @@ class NYUv2Dataset(BaseDataset):
             edge_fp = os.path.join(self.data_root, "edge", name + '.png')
             assert os.path.isfile(edge_fp), f"{edge_fp=}"
             edge_filepaths.append(edge_fp)
-        assert len(image_filepaths) == len(edge_filepaths) == len(semantic_filepaths) == len(normal_filepaths) == len(depth_filepaths)
+        assert len(image_filepaths) == len(depth_filepaths) == len(normal_filepaths) == len(semantic_filepaths) == len(edge_filepaths)
         # construct annotations
         self.annotations: List[Dict[str, Any]] = [{
             'image': image_filepaths[idx],
-            'edge': edge_filepaths[idx],
-            'semantic': semantic_filepaths[idx],
+            'depth': depth_filepaths[idx],
             'normal': normal_filepaths[idx],
-            'depth': depth_filepaths[idx]
+            'semantic': semantic_filepaths[idx],
+            'edge': edge_filepaths[idx],
         } for idx in range(len(image_filepaths))]
 
     # ====================================================================================================
@@ -132,7 +132,7 @@ class NYUv2Dataset(BaseDataset):
         labels.update(self._get_depth_label_(idx))
         labels.update(self._get_normal_label_(idx))
         labels.update(self._get_segmentation_label_(idx))
-        # labels.update(self._get_edge_label_(idx))
+        labels.update(self._get_edge_label_(idx))
         meta_info = {
             'image_filepath': os.path.relpath(path=self.annotations[idx]['image'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),
