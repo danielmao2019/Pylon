@@ -51,8 +51,8 @@ def test_resize_maps_2d(test_image_2d):
         test_image_tensor (torch.Tensor): Resized 2D tensor from the fixture.
     """
     new_height, new_width = 256, 256
-    resize = ResizeMaps(size=(new_height, new_width))
-    resized_image = resize(test_image_2d)
+    resize_op = ResizeMaps(size=(new_height, new_width))
+    resized_image = resize_op(test_image_2d)
     assert resized_image.shape == (new_height, new_width), f"{resized_image.shape=}"
 
 
@@ -64,6 +64,6 @@ def test_3d(test_image_3d):
         test_tif_tensor (torch.Tensor): Resized 3D tensor with stacked bands from the fixture.
     """
     new_height, new_width = 1024, 1024
-    resize = ResizeMaps(size=(new_height, new_width))
-    resized_image = resize(test_image_3d)
+    resize_op = ResizeMaps(size=(new_height, new_width))
+    resized_image = resize_op(test_image_3d)
     assert resized_image.shape == (2, new_height, new_width), f"Unexpected shape: {test_image_3d.shape}"
