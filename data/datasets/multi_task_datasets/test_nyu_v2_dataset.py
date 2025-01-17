@@ -26,7 +26,7 @@ def test_nyu_v2(dataset: torch.utils.data.Dataset) -> None:
         # inspect labels
         labels = example['labels']
         assert type(labels) == dict
-        assert set(labels.keys()) == set(['edge_detection', 'depth_estimation', 'normal_estimation', 'semantic_segmentation'])
+        assert set(labels.keys()) == set(NYUv2Dataset.LABEL_NAMES)
         edge_detection = labels['edge_detection']
         assert type(edge_detection) == torch.Tensor
         assert len(edge_detection.shape) == 3 and edge_detection.shape[0] == 1
@@ -44,7 +44,7 @@ def test_nyu_v2(dataset: torch.utils.data.Dataset) -> None:
         assert type(semantic_segmentation) == torch.Tensor
         assert len(semantic_segmentation.shape) == 2
         assert semantic_segmentation.dtype == torch.int64
-        assert set(semantic_segmentation.unique().tolist()).issubset(set(range(NYUv2Dataset.NUM_CLASSES)))
+        assert set(semantic_segmentation.unique().tolist()).issubset(set(range(dataset.NUM_CLASSES)))
         # inspect meta info
         meta_info = example['meta_info']
         assert type(meta_info) == dict
