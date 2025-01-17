@@ -1,8 +1,6 @@
-from typing import List
 import os
 import glob
 import pytest
-import torch
 from ..maps import ResizeMaps
 from PIL import Image
 from utils.io import _pil2torch, _load_bands
@@ -17,10 +15,11 @@ def test_image_2d():
         torch.Tensor: Resized 2D tensor.
     """
     filepath = "./data/transforms/resize/test_maps/assets/test_png.png"
-    if not os.path.isfile(filepath):
-        pytest.skip(f"Test image not found at {filepath}.")
+    assert os.path.isfile(filepath), \
+        f"Test image not found at {filepath}. Ensure the file is available for testing."
     image = _pil2torch(Image.open(filepath))
-    assert image.shape == (1024, 1024), f"{image.shape=}"
+    assert image.shape == (1024, 1024), \
+        f"Unexpected image shape: {image.shape}, expected (1024, 1024)."
     return image
 
 
@@ -32,14 +31,15 @@ def test_image_3d():
     Returns:
         torch.Tensor: Resized 3D tensor with stacked bands.
     """
-    tif_dir = 'data/transforms/resize/test_maps/assets'
-    if not os.path.isdir(tif_dir):
-        pytest.skip(f"TIF directory not found at {tif_dir}.")
-    filepaths = sorted(glob.glob(os.path.join(tif_dir, "*.tif")))
-    if not filepaths:
-        pytest.skip(f"No .tif files found in {tif_dir}.")
+    filepaths = [
+        "data/transforms/resize/test_maps/assets/test_tif_1.tif",
+        "data/transforms/resize/test_maps/assets/test_tif_2.tif",
+    ]    
+    assert all(os.path.isfile(x) for x in filepaths), \
+        f"Test images not found at {filepaths}. Ensure the files are available for testing."
     image = _load_bands(filepaths=filepaths, height=512, width=512)
-    assert image.shape == (2, 512, 512)
+    assert image.shape == (2, 512, 512), \
+        f"Unexpected image shape: {image.shape}, expected (2, 512, 512)."
     return image
 
 
@@ -48,22 +48,24 @@ def test_resize_maps_2d(test_image_2d):
     Test resizing of a 2D image tensor.
 
     Args:
-        test_image_tensor (torch.Tensor): Resized 2D tensor from the fixture.
+        test_image_2d (torch.Tensor): Resized 2D tensor from the fixture.
     """
     new_height, new_width = 256, 256
     resize_op = ResizeMaps(size=(new_height, new_width))
     resized_image = resize_op(test_image_2d)
-    assert resized_image.shape == (new_height, new_width), f"{resized_image.shape=}"
+    assert resized_image.shape == (new_height, new_width), \
+        f"Unexpected resized shape: {resized_image.shape}"
 
 
-def test_3d(test_image_3d):
+def test_resize_maps_3d(test_image_3d):
     """
     Test resizing of a 3D image tensor.
 
     Args:
-        test_tif_tensor (torch.Tensor): Resized 3D tensor with stacked bands from the fixture.
+        test_image_3d (torch.Tensor): Resized 3D tensor with stacked bands from the fixture.
     """
     new_height, new_width = 1024, 1024
     resize_op = ResizeMaps(size=(new_height, new_width))
     resized_image = resize_op(test_image_3d)
-    assert resized_image.shape == (2, new_height, new_width), f"Unexpected shape: {test_image_3d.shape}"
+    assert resized_image.shape == (2, new_height, new_width), \
+        f"Unexpected resized shape: {resized_image.shape}"
