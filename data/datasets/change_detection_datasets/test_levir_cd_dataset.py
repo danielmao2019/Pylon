@@ -1,8 +1,7 @@
 import pytest
 from .levir_cd_dataset import LevirCdDataset
-import os
 import torch
-import utils
+
 
 @pytest.mark.parametrize("dataset", [
     (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR_CD", split='train')),
@@ -29,4 +28,5 @@ def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
         assert type(labels) == dict
         assert set(labels.keys()) == set(LevirCdDataset.LABEL_NAMES)
         change_map = labels['change_map']
+        assert type(change_map) == torch.Tensor and change_map.ndim == 2 and change_map.dtype == torch.int64
         assert set(torch.unique(change_map).tolist()).issubset(set([0, 1])), f"{torch.unique(change_map)=}"

@@ -1,16 +1,15 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Any
 import os
-import glob
-from natsort import natsorted
 import torch
 from data.datasets import BaseDataset
 import utils
+
 
 class LevirCdDataset(BaseDataset):
     """
     Dataset class for LEVIR Change Detection Dataset.
 
-    This class handles loading, preprocessing, and annotation of the LEVIR dataset 
+    This class handles loading, preprocessing, and annotation of the LEVIR dataset
     for change detection tasks.
 
     Attributes:
@@ -73,31 +72,28 @@ class LevirCdDataset(BaseDataset):
         inputs_root: str = os.path.join(self.data_root, f"{split}")
         labels_root: str = os.path.join(self.data_root, f"{split}", "label")
         self.annotations: List[dict] = []
-        files_list = natsorted(os.listdir(os.path.join(inputs_root, 'A')))
+        files_list = sorted(
+            os.listdir(os.path.join(inputs_root, 'A')),
+            key=lambda x: int(os.path.splitext(os.path.basename(x))[0].split('_')[1]),
+        )
         assert len(os.listdir(os.path.join(inputs_root, 'A'))), len(os.listdir(os.path.join(inputs_root, 'B')))
         for filename in files_list:
-            png_input_1_filepath = os.path.join(inputs_root, 'A', filename)
-            assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
-            png_input_2_filepath = os.path.join(inputs_root, 'B', filename)
-            assert os.path.isfile(png_input_1_filepath), f"{png_input_1_filepath=}"
-            png_label_filepath = os.path.join(labels_root, filename)
-            assert os.path.isfile(png_label_filepath), f"{png_label_filepath=}"
-            png_size = utils.io.load_image(filepath=png_label_filepath).shape[-2:]
-            height, width = png_size
+            input_1_filepath = os.path.join(inputs_root, 'A', filename)
+            assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
+            input_2_filepath = os.path.join(inputs_root, 'B', filename)
+            assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
+            label_filepath = os.path.join(labels_root, filename)
+            assert os.path.isfile(label_filepath), f"{label_filepath=}"
             self.annotations.append({
                 'inputs': {
-                    'png_input_1_filepath': png_input_1_filepath,
-                    'png_input_2_filepath': png_input_2_filepath,
+                    'input_1_filepath': input_1_filepath,
+                    'input_2_filepath': input_2_filepath,
                 },
                 'labels': {
-                    'png_label_filepath': png_label_filepath,
-                },
-                'meta_info': {
-                    'height': height,
-                    'width': width,
+                    'label_filepath': label_filepath,
                 },
             })
-            
+
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """
         Load a single datapoint by index.
@@ -106,18 +102,20 @@ class LevirCdDataset(BaseDataset):
             idx (int): Index of the datapoint to load.
 
         Returns:
-            Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]: 
+            Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
                 A tuple containing inputs, labels, and metadata.
 
         Raises:
             AssertionError: If input or label dimensions mismatch.
         """
-        meta_info = self.annotations[idx]['meta_info']
-        height, width = meta_info['height'], meta_info['width']
         inputs = self._load_inputs(idx)
         labels = self._load_labels(idx)
-        assert all(x.shape[-2:] == (height, width) for x in [inputs['img_1'], inputs['img_2'], labels['change_map']]), \
+        height, width = labels['change_map'].shape
+        assert all(x.shape == (3, height, width) for x in [inputs['img_1'], inputs['img_2']]), \
             f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
+        meta_info = {
+            'image_resolution': (height, width),
+        }
         return inputs, labels, meta_info
 
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -133,7 +131,7 @@ class LevirCdDataset(BaseDataset):
         inputs: Dict[str, torch.Tensor] = {}
         for input_idx in [1, 2]:
             img = utils.io.load_image(
-                filepath=self.annotations[idx]['inputs'][f'png_input_{input_idx}_filepath'],
+                filepath=self.annotations[idx]['inputs'][f'input_{input_idx}_filepath'],
                 dtype=torch.float32, sub=None, div=255.0,
             )
             inputs[f'img_{input_idx}'] = img
@@ -153,10 +151,8 @@ class LevirCdDataset(BaseDataset):
             AssertionError: If the loaded label is not 2D.
         """
         change_map = utils.io.load_image(
-            filepath=self.annotations[idx]['labels']['png_label_filepath'],
+            filepath=self.annotations[idx]['labels']['label_filepath'],
             dtype=torch.int64, sub=None, div=255.0,
-            height=self.annotations[idx]['meta_info']['height'],
-            width=self.annotations[idx]['meta_info']['width'],
         )
         assert change_map.ndim == 2, f"{change_map.shape=}"
         labels = {'change_map': change_map}
