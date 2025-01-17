@@ -27,6 +27,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         transforms_cfg: Optional[Dict[str, Any]] = None,
         use_cache: Optional[bool] = True,
         device: Optional[torch.device] = torch.device('cuda'),
+        check_sha1sum: Optional[bool] = False,
     ) -> None:
         r"""
         Args:
@@ -37,6 +38,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
         # sanity check
+        self.check_sha1sum = check_sha1sum
         self._sanity_check()
         # initialize
         super(BaseDataset, self).__init__()
@@ -56,7 +58,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         assert self.LABEL_NAMES is not None
         assert set(self.INPUT_NAMES) & set(self.LABEL_NAMES) == set(), \
             f"{self.INPUT_NAMES=}, {self.LABEL_NAMES=}, {set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
-        if hasattr(self, 'SHA1SUM') and self.SHA1SUM is not None:
+        if self.check_sha1sum and hasattr(self, 'SHA1SUM') and self.SHA1SUM is not None:
             cmd = ' '.join([
                 'find', self.data_root, '-type', 'f', '-print0', '|',
                 'sort', '-z', '|', 'xargs', '-0', 'sha1sum', '|', 'sha1sum',
