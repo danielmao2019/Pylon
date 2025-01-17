@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import itertools
 import copy
 import subprocess
+import os
 import random
 import torch
 from data.transforms.compose import Compose
@@ -60,7 +61,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             f"{self.INPUT_NAMES=}, {self.LABEL_NAMES=}, {set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
         if self.check_sha1sum and hasattr(self, 'SHA1SUM') and self.SHA1SUM is not None:
             cmd = ' '.join([
-                'find', self.data_root, '-type', 'f', '-print0', '|',
+                'find', os.readlink(self.data_root) if os.path.islink(self.data_root) else self.data_root, '-type', 'f', '-print0', '|',
                 'sort', '-z', '|', 'xargs', '-0', 'sha1sum', '|', 'sha1sum',
             ])
             result = subprocess.getoutput(cmd)
