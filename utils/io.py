@@ -63,7 +63,7 @@ def load_image(
     # Resize the image
     if height is not None and width is not None:
         resized_image = ResizeMaps(size=(height, width))
-        image = resized_image._call_single_(image)
+        image = resized_image(image)
 
     # Convert data type
     if dtype is not None:
