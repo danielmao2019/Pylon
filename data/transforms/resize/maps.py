@@ -5,10 +5,9 @@ from ..base_transform import BaseTransform
 
 class ResizeMaps(BaseTransform):
     """
-    A transformation class for resizing 2D and 3D tensors. 
-    This class wraps around `torchvision.transforms.Resize` to support
-    tensors with different dimensions by dynamically unsqueezing and
-    squeezing along the channel dimension for compatibility.
+    A transformation class for resizing tensors with shape (..., H, W).
+    This class extends `torchvision.transforms.Resize` by adding support
+    for pure 2D tensors (H, W) via unsqueezing and squeezing operations.
 
     Attributes:
         resize (torchvision.transforms.Resize): An instance of Resize transformation.
@@ -25,73 +24,77 @@ class ResizeMaps(BaseTransform):
         Raises:
             AssertionError: If the target size is not a tuple of two integers.
         """
-        super().__init__()
+        super(ResizeMaps, self).__init__()
         self.resize = torchvision.transforms.Resize(**kwargs)
         target_size = (self.resize.size,) * 2 if isinstance(self.resize.size, int) else tuple(self.resize.size)
-        
+
         assert isinstance(target_size, tuple), f"Expected tuple for target_size, got {type(target_size)}"
         assert len(target_size) == 2, f"Expected a tuple of length 2, got {len(target_size)}"
-        assert isinstance(target_size[0], int) and isinstance(target_size[1], int), (
-            f"Both elements of target_size must be integers, got {type(target_size[0])}, {type(target_size[1])}"
+        assert all(isinstance(dim, int) for dim in target_size), (
+            f"Both elements of target_size must be integers, got {target_size}"
         )
         self.target_size = target_size
 
     def _call_single_(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Dispatches the resizing function based on tensor dimensions.
+        Applies the resizing operation to a single tensor.
+
+        Handles tensors with shape:
+        - (H, W): Resizes after unsqueezing and squeezing dimensions.
+        - (..., H, W): Resizes directly using `torchvision.transforms.Resize`.
 
         Args:
             x (torch.Tensor): Input tensor.
-            height (int): Target height.
-            width (int): Target width.
 
         Returns:
             torch.Tensor: Resized tensor.
-        """
-        ndim = x.ndimension()
-        if ndim == 2:
-            return self._call_2d(x, self.target_size[0], self.target_size[1])
-        elif ndim == 3:
-            return self._call_3d(x, self.target_size[0], self.target_size[1])
-        else:
-            raise ValueError(f"Unsupported tensor dimensions: {ndim}")
 
-    def _call_2d(self, x: torch.Tensor, height: int, width: int) -> torch.Tensor:
+        Raises:
+            ValueError: If the input tensor has fewer than 2 dimensions.
+        """
+        if x.ndim < 2:
+            raise ValueError(f"Unsupported tensor dimensions: {x.ndim}. Expected at least 2D tensors.")
+
+        if x.ndim == 2:  # Special case for pure 2D tensors (H, W)
+            return self._call_2d(x)
+        else:  # Tensors with shape (..., H, W)
+            return self._call_nd(x)
+
+    def _call_2d(self, x: torch.Tensor) -> torch.Tensor:
         """
         Resizes a 2D tensor (H, W).
 
         Args:
             x (torch.Tensor): Input 2D tensor.
-            height (int): Target height.
-            width (int): Target width.
 
         Returns:
             torch.Tensor: Resized 2D tensor.
         """
-        assert isinstance(x, torch.Tensor), f"Expected torch.Tensor, got {type(x)}"
-        assert x.ndimension() == 2, f"Expected a 2D tensor, got {x.ndimension()}D tensor with shape {x.shape}"
-        
-        x = x.unsqueeze(0)  # Add channel dimension: (1, H, W)
-        x = torchvision.transforms.functional.resize(x, (height, width))
-        x = x.squeeze(0)  # Remove channel dimension: (h, w)
-        
+        assert x.ndim == 2, f"Expected a 2D tensor, got {x.ndim}D tensor with shape {x.shape}"
+
+        # Temporarily add batch and channel dimensions for resizing
+        x = x.unsqueeze(0)  # Shape: (1, H, W)
+        x = self.resize(x)  # Resize: Shape (1, target_H, target_W)
+        x = x.squeeze(0)  # Remove batch and channel dimensions: (target_H, target_W)
+
         assert x.shape == self.target_size, f"Resized tensor shape mismatch: expected {self.target_size}, got {x.shape}"
         return x
 
-    def _call_3d(self, x: torch.Tensor, height: int, width: int) -> torch.Tensor:
+    def _call_nd(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Resizes a 3D tensor (C, H, W).
+        Resizes a tensor with shape (..., H, W).
 
         Args:
-            x (torch.Tensor): Input 3D tensor.
-            height (int): Target height.
-            width (int): Target width.
+            x (torch.Tensor): Input tensor with shape (..., H, W).
 
         Returns:
-            torch.Tensor: Resized 3D tensor.
+            torch.Tensor: Resized tensor with shape (..., target_H, target_W).
         """
-        assert isinstance(x, torch.Tensor), f"Expected torch.Tensor, got {type(x)}"
-        assert x.ndimension() == 3, f"Expected a 3D tensor, got {x.ndimension()}D tensor with shape {x.shape}"
-        
-        x = torchvision.transforms.functional.resize(x, (height, width))
+        assert x.ndim >= 3, f"Expected a tensor with shape (..., H, W), got {x.ndim}D tensor with shape {x.shape}"
+
+        # Apply resizing directly
+        x = self.resize(x)
+        expected_shape = (*x.shape[:-2], *self.target_size)  # (..., target_H, target_W)
+
+        assert x.shape == expected_shape, f"Resized tensor shape mismatch: expected {expected_shape}, got {x.shape}"
         return x
