@@ -36,7 +36,7 @@ class ResizeMaps(BaseTransform):
         )
         self.target_size = target_size
 
-    def _call_single_(self, x: torch.Tensor, height: int, width: int) -> torch.Tensor:
+    def _call_single_(self, x: torch.Tensor) -> torch.Tensor:
         """
         Dispatches the resizing function based on tensor dimensions.
 
@@ -50,9 +50,9 @@ class ResizeMaps(BaseTransform):
         """
         ndim = x.ndimension()
         if ndim == 2:
-            return self._call_2d(x, height, width)
+            return self._call_2d(x, self.target_size[0], self.target_size[1])
         elif ndim == 3:
-            return self._call_3d(x, height, width)
+            return self._call_3d(x, self.target_size[0], self.target_size[1])
         else:
             raise ValueError(f"Unsupported tensor dimensions: {ndim}")
 
