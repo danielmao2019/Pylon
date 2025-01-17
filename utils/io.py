@@ -6,7 +6,7 @@ import numpy
 import torch
 import torchvision
 from PIL import Image
-import rasterio  
+import rasterio
 
 from utils.input_checks import check_read_file, check_write_file
 from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
@@ -62,8 +62,8 @@ def load_image(
 
     # Resize the image
     if height is not None and width is not None:
-        resized_image = ResizeMaps(size=(height, width))
-        image = resized_image(image)
+        resize_op = ResizeMaps(size=(height, width))
+        image = resize_op(image)
 
     # Convert data type
     if dtype is not None:
