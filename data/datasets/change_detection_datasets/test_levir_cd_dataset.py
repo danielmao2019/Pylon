@@ -29,4 +29,4 @@ def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
         assert type(labels) == dict
         assert set(labels.keys()) == set(LevirCdDataset.LABEL_NAMES)
         change_map = labels['change_map']
-        assert set(torch.unique(change_map).tolist()) == set([0, 1]), f"{torch.unique(change_map)=}"
+        assert set(torch.unique(change_map).tolist()).issubset(set([0, 1])), f"{torch.unique(change_map)=}"

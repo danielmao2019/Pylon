@@ -103,10 +103,11 @@ class LevirCdDataset(BaseDataset):
     def _load_labels(self, idx: int) -> torch.Tensor:
         change_map = utils.io.load_image(
             filepath=self.annotations[idx]['labels']['png_label_filepath'],
-            dtype=torch.int64, sub = None, div=None,
+            dtype=torch.int64, sub = None, div=255.0,
             height=self.annotations[idx]['meta_info']['height'],
             width=self.annotations[idx]['meta_info']['width'],
         )
         assert change_map.ndim == 2, f"{change_map.shape=}"
         labels = {'change_map': change_map}
         return labels
+    
