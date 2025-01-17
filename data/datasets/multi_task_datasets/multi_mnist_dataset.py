@@ -4,7 +4,7 @@ import torch
 import torchvision
 from PIL import Image
 from data.datasets import BaseDataset
-from utils.io import _pil2torch
+import utils
 
 
 class MultiMNISTDataset(BaseDataset):
@@ -50,8 +50,8 @@ class MultiMNISTDataset(BaseDataset):
         return inputs, labels, meta_info
 
     def _get_image(self, l_image: Image.Image, r_image: Image.Image) -> torch.Tensor:
-        l_image = _pil2torch(l_image)
-        r_image = _pil2torch(r_image)
+        l_image = utils.io.load_image(l_image)
+        r_image = utils.io.load_image(r_image)
         assert l_image.ndim == r_image.ndim == 2, f"{l_image.shape=}, {r_image.shape=}"
         assert l_image.shape == r_image.shape, f"{l_image.shape=}, {r_image.shape=}"
         left = torch.cat([l_image, torch.zeros(
