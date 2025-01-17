@@ -15,8 +15,12 @@ from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
 # Change Detection datasets
 from data.datasets.change_detection_datasets.oscd_dataset import OSCDDataset
 <<<<<<< HEAD
+<<<<<<< HEAD
 from data.datasets.change_detection_datasets.levir_cd_dataset import LevirCdDataset
 =======
+=======
+from data.datasets.change_detection_datasets.xview2_dataset import xView2Dataset
+>>>>>>> [Data][Datasets] Implement xView2 dataset class (#29)
 from data.datasets.change_detection_datasets.kc_3d_dataset import KC3DDataset
 >>>>>>> [Data][Datasets] Implement KC3D dataset class (#30)
 
@@ -34,8 +38,12 @@ __all__ = (
     # Change Detection datasets
     'OSCDDataset',
 <<<<<<< HEAD
+<<<<<<< HEAD
     'LevirCdDataset',
 =======
+=======
+    'xView2Dataset',
+>>>>>>> [Data][Datasets] Implement xView2 dataset class (#29)
     'KC3DDataset',
 >>>>>>> [Data][Datasets] Implement KC3D dataset class (#30)
 )
