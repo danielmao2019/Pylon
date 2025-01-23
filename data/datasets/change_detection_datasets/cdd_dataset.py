@@ -27,3 +27,13 @@ class CDDDataset(BaseDataset):
     Used in:
 
     """
+    
+    SPLIT_OPTIONS = ['train', 'test', 'val']
+    DATASET_SIZE = None
+    INPUT_NAMES = ['img_1', 'img_2']
+    LABEL_NAMES = ['change_map']
+
+    SHA1SUM = None
+    
+    # question: how to impl the dataset given .bmp file
+    
