@@ -32,29 +32,30 @@ def load_image(
         dtype: Desired output data type for the tensor (e.g., torch.float32).
         sub: Value(s) to subtract from the image for normalization.
         div: Value(s) to divide the image by for normalization.
-        height
-        width
+        height: Desired height for resizing the image.
+        width: Desired width for resizing the image.
 
     Returns:
         A PyTorch tensor of the loaded image.
     """
-    # Input validation
+    # Validate inputs
     assert (filepath is None) ^ (filepaths is None), \
         "Exactly one of 'filepath' or 'filepaths' must be provided."
     if filepath is not None:
         check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg'])
     if filepaths is not None:
-        assert type(filepaths) == list, \
+        assert isinstance(filepaths, list), \
             f"'filepaths' must be a list. Got {type(filepaths)}."
         for path in filepaths:
             check_read_file(path=path, ext=['.tif', '.tiff'])
-    assert (height is None) == (width is None)
+    assert (height is None and width is None) or (height is not None and width is not None), \
+        "Both 'height' and 'width' must be provided for resizing."
 
     # Load image data
     if filepath:
-        image = _pil2torch(Image.open(filepath))
-    else:  # filepaths is not None
-        image = _load_bands(filepaths, height, width)
+        image: torch.Tensor = _load_image(filepath)
+    else:
+        image: torch.Tensor = _load_multispectral_image(filepaths, height, width)
 
     # Normalize the image
     if sub is not None or div is not None:
@@ -67,15 +68,24 @@ def load_image(
 
     # Convert data type
     if dtype is not None:
-        assert type(dtype) == torch.dtype, \
+        assert isinstance(dtype, torch.dtype), \
             f"'dtype' must be a torch.dtype, got {type(dtype)}."
         image = image.to(dtype)
 
     return image
 
 
-def _pil2torch(image: Image) -> torch.Tensor:
-    """Convert a PIL Image to a PyTorch tensor."""
+def _load_image(filepath: str) -> torch.Tensor:
+    """
+    Load a single image file into a PyTorch tensor.
+
+    Args:
+        filepath: Path to the image file.
+
+    Returns:
+        A PyTorch tensor representing the image.
+    """
+    image = Image.open(filepath)
     mode = image.mode
     # convert to torch.Tensor
     if mode == 'RGB':
@@ -100,25 +110,34 @@ def _pil2torch(image: Image) -> torch.Tensor:
     return image
 
 
-def _load_bands(
+def _load_multispectral_image(
     filepaths: List[str],
     height: Optional[int] = None,
     width: Optional[int] = None,
 ) -> torch.Tensor:
-    """Load multiple bands from separate .tif files into a single tensor."""
-    assert (height is None) == (width is None)
+    """
+    Load multiple bands from separate .tif files into a single tensor.
+
+    Args:
+        filepaths: List of file paths to .tif band files.
+        height: Desired height for resizing (optional).
+        width: Desired width for resizing (optional).
+
+    Returns:
+        A PyTorch tensor where each band is a channel.
+    """
     bands: List[torch.Tensor] = []
     for filepath in filepaths:
         with rasterio.open(filepath) as src:
             band = src.read(1)
         if band.dtype == numpy.uint16:
             band = band.astype(numpy.int64)
-        band = torch.from_numpy(band)[None, :, :]
+        band = torch.from_numpy(band).unsqueeze(0)
         assert band.ndim == 3 and band.size(0) == 1, f"{band.shape=}"
         if height is not None and width is not None:
             band = torchvision.transforms.functional.resize(band, size=(height, width))
         bands.append(band)
-    return torch.cat(bands, dim=0)  # Cat along channel dimension
+    return torch.cat(bands, dim=0)  # Concatenate bands along the channel dimension
 
 
 def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
