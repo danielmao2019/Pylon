@@ -5,7 +5,6 @@ import torch
 from data.datasets import BaseDataset
 import utils
 
-
 class CDDDataset(BaseDataset):
     __doc__ = r"""
     References:
