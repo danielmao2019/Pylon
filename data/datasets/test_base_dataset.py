@@ -1,4 +1,4 @@
-from typing import Any, Tuple, List, Dict, Union, Optional
+from typing import Any, Tuple, List, Dict, Optional
 import pytest
 import torch
 from .base_dataset import BaseDataset
@@ -11,7 +11,7 @@ class TestDataset(BaseDataset):
     INPUT_NAMES = ['input']
     LABEL_NAMES = ['label']
 
-    def _init_annotations_(self, split: Optional[str]) -> None:
+    def _init_annotations(self) -> None:
         # all splits are the same
         self.annotations = list(range(100))
 
@@ -35,50 +35,58 @@ class TestDataset(BaseDataset):
         {'train': [2], 'val': [2, 4], 'test': [2, 4, 6], 'weird': [2, 4, 6, 8]},
     ),
 ])
-def test_base_dataset_all(
-    indices: Optional[Union[List[int], Dict[str, List[int]]]],
+def test_base_dataset_None(
+    indices: Optional[Dict[str, List[int]]],
     expected: Dict[str, List[int]],
 ) -> None:
     dataset = TestDataset(split=None, indices=indices)
+    assert dataset.split is None and not hasattr(dataset, 'split_percentage')
+    assert not hasattr(dataset, 'indices') and hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
-    for option in ['train', 'val', 'test', 'weird']:
-        assert not hasattr(dataset.split_subsets[option], 'split_subsets')
-        split_subset = dataset.split_subsets[option]
-        assert list(split_subset[idx]['inputs']['input'] for idx in range(len(split_subset))) == expected[option]
-        assert list(split_subset[idx]['labels']['label'] for idx in range(len(split_subset))) == expected[option]
+    assert list(dataset.split_subsets.keys()) == ['train', 'val', 'test', 'weird']
+    for split in ['train', 'val', 'test', 'weird']:
+        split_subset = dataset.split_subsets[split]
+        assert split_subset.split == split, f"{split_subset.split=}, {split=}"
+        assert split_subset.indices == (indices.get(split, None) if indices else None)
+        assert not hasattr(split_subset, 'split_indices')
+        assert not hasattr(split_subset, 'split_subsets')
+        assert list(datapoint['inputs']['input'] for datapoint in split_subset) == expected[split]
+        assert list(datapoint['labels']['label'] for datapoint in split_subset) == expected[split]
 
 
-@pytest.mark.parametrize("split, indices, expected", [
+@pytest.mark.parametrize("split, expected", [
     (
-        (0.8, 0.1, 0.1, 0.0), None,
+        (0.8, 0.1, 0.1, 0.0),
         {'train': 80, 'val': 10, 'test': 10, 'weird': 0},
     ),
     (
-        (0.7, 0.1, 0.1, 0.1), None,
+        (0.7, 0.1, 0.1, 0.1),
         {'train': 70, 'val': 10, 'test': 10, 'weird': 10},
     ),
-    (
-        (0.8, 0.1, 0.1, 0.0), list(range(10)),
-        {'train': 8, 'val': 1, 'test': 1, 'weird': 0},
-    ),
 ])
-def test_base_dataset_split(
+def test_base_dataset_tuple(
     split: Tuple[float, ...],
-    indices: Optional[Union[List[int], Dict[str, List[int]]]],
     expected: Dict[str, int],
 ) -> None:
-    dataset = TestDataset(split=split, indices=indices)
+    dataset = TestDataset(split=split, indices=None)
+    assert not hasattr(dataset, 'split') and type(dataset.split_percentages) == tuple
+    assert not hasattr(dataset, 'indices') and not hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
-    for option in ['train', 'val', 'test', 'weird']:
-        assert not hasattr(dataset.split_subsets[option], 'split_subsets')
-        assert len(dataset.split_subsets[option]) == expected[option], \
-            f"{option=}, {len(dataset.split_subsets[option])=}, {expected[option]=}"
+    assert list(dataset.split_subsets.keys()) == ['train', 'val', 'test', 'weird']
+    for split in ['train', 'val', 'test', 'weird']:
+        split_subset = dataset.split_subsets[split]
+        assert split_subset.split == split, f"{split_subset.split=}, {split=}"
+        assert not hasattr(split_subset, 'split_percentages')
+        assert not hasattr(split_subset, 'indices') and not hasattr(split_subset, 'split_indices')
+        assert not hasattr(split_subset, 'split_subsets')
+        assert len(split_subset) == expected[split], \
+            f"{split=}, {len(split_subset)=}, {expected[split]=}"
     assert set.intersection(*[set(
         (
-            dataset.split_subsets[option][idx]['inputs']['input'],
-            dataset.split_subsets[option][idx]['labels']['label'],
-        ) for idx in range(len(dataset.split_subsets[option]))
-    ) for option in ['train', 'val', 'test', 'weird']]) == set()
+            dataset.split_subsets[split][idx]['inputs']['input'],
+            dataset.split_subsets[split][idx]['labels']['label'],
+        ) for idx in range(len(dataset.split_subsets[split]))
+    ) for split in ['train', 'val', 'test', 'weird']]) == set()
 
 
 def test_base_dataset_cache():

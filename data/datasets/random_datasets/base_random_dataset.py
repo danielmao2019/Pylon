@@ -49,7 +49,7 @@ class BaseRandomDataset(BaseDataset):
         """
         pass
 
-    def _init_annotations_(self, split: Optional[str]) -> None:
+    def _init_annotations(self) -> None:
         r"""Intentionally doing nothing.
         """
         pass
