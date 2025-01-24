@@ -15,6 +15,7 @@ import utils
 ])
 def test_oscd(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
     for idx in range(len(dataset)):
         datapoint = dataset[idx]
         assert type(datapoint) == dict
@@ -37,6 +38,8 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         assert set(labels.keys()) == set(OSCDDataset.LABEL_NAMES)
         change_map = labels['change_map']
         assert set(torch.unique(change_map).tolist()) == set([0, 1]), f"{torch.unique(change_map)=}"
+        for cls in range(dataset.NUM_CLASSES):
+            class_dist[cls] += torch.sum(change_map == cls)
         # sanity check for consistency between different modalities
         # TODO: Enable the following assertions
         # for input_idx in [1, 2]:
@@ -68,3 +71,5 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         png_label = (png_label > 0.5).to(torch.int64)
         assert torch.sum(tif_label != png_label) / torch.numel(tif_label) < 0.003, \
             f"{torch.sum(tif_label != png_label) / torch.numel(tif_label)=}"
+    assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
+    assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
