@@ -15,7 +15,7 @@ import utils
 ])
 def test_oscd(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    class_count = torch.zeros(size=(dataset.NUM_CLASSES,))
+    class_count = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
     for idx in range(len(dataset)):
         datapoint = dataset[idx]
         assert type(datapoint) == dict
