@@ -71,4 +71,5 @@ def test_oscd(dataset: torch.utils.data.Dataset) -> None:
         png_label = (png_label > 0.5).to(torch.int64)
         assert torch.sum(tif_label != png_label) / torch.numel(tif_label) < 0.003, \
             f"{torch.sum(tif_label != png_label) / torch.numel(tif_label)=}"
+    assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
     assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"

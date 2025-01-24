@@ -47,6 +47,10 @@ class OSCDDataset(BaseDataset):
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
     NUM_CLASSES = 2
+    CLASS_DIST = {
+        'train': [6368388, 149190],
+        'test': [2918859, 159077],
+    }
     SHA1SUM = "2f19f17bb40e2c611c7c354f08677b8976fe0099"
 
     # ====================================================================================================
@@ -58,6 +62,7 @@ class OSCDDataset(BaseDataset):
             assert type(bands) == list and all(type(x) == str for x in bands), f"{bands=}"
         self.bands = bands
         super(OSCDDataset, self).__init__(**kwargs)
+        self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_annotations(self) -> None:
         inputs_root: str = os.path.join(self.data_root, "images")
