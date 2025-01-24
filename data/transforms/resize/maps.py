@@ -1,6 +1,6 @@
 import torch
 import torchvision
-from ..base_transform import BaseTransform
+from data.transforms import BaseTransform
 
 
 class ResizeMaps(BaseTransform):
