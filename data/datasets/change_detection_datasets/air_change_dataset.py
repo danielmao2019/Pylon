@@ -5,6 +5,7 @@ import glob
 import random
 import torch
 from data.datasets import BaseDataset
+import utils
 
 
 class AirChangeDataset(BaseDataset):
@@ -121,4 +122,24 @@ class AirChangeDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-
+        inputs = {
+            f'img_{input_idx}': utils.io.load_image(
+                filepath=self.annotations[idx][f'img_{input_idx}_filepath'],
+                dtype=torch.float32, sub=None, div=255.0,
+            ) for input_idx in [1, 2]
+        }
+        labels = {
+            'change_map': utils.io.load_image(
+                filepath=self.annotations[idx]['change_map_filepath'],
+                dtype=torch.int64, sub=None, div=255.0,
+            )
+        }
+        meta_info = {
+            'img_1_filepath': self.annotations[idx]['img_1_filepath'],
+            'img_2_filepath': self.annotations[idx]['img_2_filepath'],
+            "change_map_filepath": self.annotations[idx]['change_map_filepath'],
+            'image_size': self.IMAGE_SIZE,
+            'crop_loc': self.annotations[idx]['crop_loc'],
+            'crop_size': self.annotations[idx]['crop_size'],
+        }
+        return inputs, labels, meta_info
