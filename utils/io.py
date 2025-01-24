@@ -25,7 +25,7 @@ def load_image(
     Load an image or bands from file(s) into a PyTorch tensor.
 
     Args:
-        filepath: Path to a single image file (.png, .jpg, .jpeg).
+        filepath: Path to a single image file (.png, .jpg, .jpeg, .bmp).
         filepaths: List of filepaths for bands in a .tif image.
         dtype: Desired output data type for the tensor (e.g., torch.float32).
         sub: Value(s) to subtract from the image for normalization.
@@ -40,7 +40,7 @@ def load_image(
     assert (filepath is None) ^ (filepaths is None), \
         "Exactly one of 'filepath' or 'filepaths' must be provided."
     if filepath is not None:
-        check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg'])
+        check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg', '.bmp'])  # Added .bmp
     if filepaths is not None:
         assert isinstance(filepaths, list), \
             f"'filepaths' must be a list. Got {type(filepaths)}."
