@@ -58,11 +58,11 @@ class OSCDDataset(BaseDataset):
         self.bands = bands
         super(OSCDDataset, self).__init__(**kwargs)
 
-    def _init_annotations_(self, split: str) -> None:
+    def _init_annotations(self) -> None:
         inputs_root: str = os.path.join(self.data_root, "images")
-        labels_root: str = os.path.join(self.data_root, f"{split}_labels")
+        labels_root: str = os.path.join(self.data_root, f"{self.split}_labels")
         # determine cities to use
-        filepath = os.path.join(inputs_root, f"{split}.txt")
+        filepath = os.path.join(inputs_root, f"{self.split}.txt")
         with open(filepath, mode='r') as f:
             cities = f.readlines()
         assert len(cities) == 1, f"{cities=}"

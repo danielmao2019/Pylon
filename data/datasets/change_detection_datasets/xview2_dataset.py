@@ -50,16 +50,16 @@ class xView2Dataset(BaseDataset):
     # initialization methods
     # ====================================================================================================
 
-    def _init_annotations_(self, split: str) -> None:
+    def _init_annotations(self) -> None:
         # gather filepaths
-        input_filepaths = sorted(glob.glob(os.path.join(self.data_root, split, "images", "*.png")))
+        input_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, "images", "*.png")))
         img_1_filepaths = list(filter(
             lambda x: os.path.basename(x).endswith("pre_disaster.png"), input_filepaths,
         ))
         img_2_filepaths = list(filter(
             lambda x: os.path.basename(x).endswith("post_disaster.png"), input_filepaths,
         ))
-        label_filepaths = sorted(glob.glob(os.path.join(self.data_root, split, "targets", "*.png")))
+        label_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, "targets", "*.png")))
         lbl_1_filepaths = list(filter(
             lambda x: os.path.basename(x).endswith("pre_disaster_target.png"), label_filepaths,
         ))

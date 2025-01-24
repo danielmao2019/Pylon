@@ -24,9 +24,9 @@ class MultiMNISTDataset(BaseDataset):
     SHA1SUM = None
     NUM_CLASSES = 10
 
-    def _init_annotations_(self, split: str) -> None:
+    def _init_annotations(self) -> None:
         self.annotations = torchvision.datasets.MNIST(
-            root=self.data_root, train=(split=='train'), download=True,
+            root=self.data_root, train=(self.split=='train'), download=True,
         )
         return
 

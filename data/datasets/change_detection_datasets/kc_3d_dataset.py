@@ -43,7 +43,7 @@ class KC3DDataset(BaseDataset):
         assert isinstance(use_ground_truth_registration, bool)
         self.use_ground_truth_registration = use_ground_truth_registration
 
-    def _init_annotations_(self, split: Optional[str]) -> None:
+    def _init_annotations(self) -> None:
         # Path to dataset split file
         split_file_path = os.path.join(self.data_root, "data_split.pkl")
         if not os.path.exists(split_file_path):
@@ -52,10 +52,10 @@ class KC3DDataset(BaseDataset):
         # Load split data
         with open(split_file_path, "rb") as file:
             dataset_splits = pickle.load(file)
-        assert split in dataset_splits
+        assert self.split in dataset_splits
         
         # Load annotations for the specified split
-        self.annotations = dataset_splits[split]
+        self.annotations = dataset_splits[self.split]
         # sanity check
         for ann in self.annotations:
             assert os.path.isfile(os.path.join(self.data_root, ann['image1']))

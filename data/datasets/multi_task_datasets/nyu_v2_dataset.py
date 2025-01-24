@@ -78,10 +78,10 @@ class NYUv2Dataset(BaseDataset):
             self.NUM_CLASSES = self.NUM_CLASSES_C
         super(NYUv2Dataset, self).__init__(*args, **kwargs)
 
-    def _init_annotations_(self, split: str) -> None:
+    def _init_annotations(self) -> None:
         # initialize image filepaths
         image_filepaths: List[str] = []
-        with open(os.path.join(os.path.join(self.data_root, "gt_sets", split + '.txt')), 'r') as f:
+        with open(os.path.join(os.path.join(self.data_root, "gt_sets", self.split + '.txt')), 'r') as f:
             lines = f.read().splitlines()
             for line in lines:
                 image_fp = os.path.join(self.data_root, "images", line + '.jpg')
