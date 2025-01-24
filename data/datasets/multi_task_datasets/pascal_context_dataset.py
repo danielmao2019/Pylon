@@ -71,8 +71,8 @@ class PASCALContextDataset(BaseDataset):
         self.area_thres = area_thres
         super(PASCALContextDataset, self).__init__(**kwargs)
 
-    def _init_annotations_(self, split):
-        with open(os.path.join(os.path.join(self.data_root, 'ImageSets', 'Context', f"{split}.txt")), mode="r") as f:
+    def _init_annotations(self) -> None:
+        with open(os.path.join(os.path.join(self.data_root, 'ImageSets', 'Context', f"{self.split}.txt")), mode="r") as f:
             lines = f.read().splitlines()
         ids = []
         image_paths = []
@@ -116,15 +116,15 @@ class PASCALContextDataset(BaseDataset):
             'normal': normal_paths[idx],
             'saliency': saliency_paths[idx],
         } for idx in range(len(image_paths))]
-        self._init_parts(split=split)
+        self._init_parts()
         self._init_normal()
 
-    def _init_parts(self, split: str) -> None:
+    def _init_parts(self) -> None:
         self.cat_part = json.load(open(os.path.join(self.data_root, "db_info", "pascal_part.json"), 'r'))
         self.cat_part["15"] = self.HUMAN_PART[self.num_human_parts]
-        self.parts_file = os.path.join(self.data_root, 'ImageSets', 'Parts', f"{split}.txt")
+        self.parts_file = os.path.join(self.data_root, 'ImageSets', 'Parts', f"{self.split}.txt")
 
-        print("Initializing dataloader for PASCAL {} set".format(''.join(split)))
+        print("Initializing dataloader for PASCAL {} set".format(''.join(self.split)))
         if not self._check_preprocess_parts():
             print('Pre-processing PASCAL dataset for human parts, this will take long, but will be done only once.')
             self._preprocess_parts()

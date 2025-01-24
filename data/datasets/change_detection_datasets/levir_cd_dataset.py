@@ -61,18 +61,15 @@ class LevirCdDataset(BaseDataset):
     SHA1SUM = '610f742580165b4af94ffae295dbab8986a92b69'
 
 
-    def _init_annotations_(self, split: str) -> None:
+    def _init_annotations(self) -> None:
         """
         Initialize dataset annotations.
-
-        Args:
-            split (str): The data split ('train', 'test', 'val').
 
         Raises:
             AssertionError: If any expected file is missing.
         """
-        inputs_root: str = os.path.join(self.data_root, f"{split}")
-        labels_root: str = os.path.join(self.data_root, f"{split}", "label")
+        inputs_root: str = os.path.join(self.data_root, f"{self.split}")
+        labels_root: str = os.path.join(self.data_root, f"{self.split}", "label")
         self.annotations: List[dict] = []
         files_list = sorted(
             os.listdir(os.path.join(inputs_root, 'A')),

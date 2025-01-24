@@ -15,7 +15,7 @@ from utils.ops import apply_tensor_op
 class BaseDataset(torch.utils.data.Dataset, ABC):
 
     SPLIT_OPTIONS: List[str]
-    DATASET_SIZE: Dict[str, int]
+    DATASET_SIZE: Union[Dict[str, int], int]
     INPUT_NAMES: List[str]
     LABEL_NAMES: List[str]
     SHA1SUM: str
@@ -38,18 +38,147 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         # input checks
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
-        # sanity check
-        self.check_sha1sum = check_sha1sum
-        self._sanity_check()
         # initialize
         super(BaseDataset, self).__init__()
+        self._init_split(split=split)
+        self._init_indices(indices=indices)
+        self._init_transforms(transforms_cfg=transforms_cfg)
         if use_cache:
             self.cache: List[Dict[str, Dict[str, Any]]] = []
         else:
             self.cache = None
         self.device = device
-        self._init_transforms_(transforms_cfg=transforms_cfg)
-        self._init_annotations_all_(split=split, indices=indices)
+        # sanity check
+        self.check_sha1sum = check_sha1sum
+        self._sanity_check()
+        # initialize annotations at the end because of splits
+        self._init_annotations_all_splits()
+
+    def _init_split(self, split: Optional[Union[str, Tuple[float, ...]]]) -> None:
+        assert split is None or type(split) in [str, tuple], f"{type(split)=}"
+        if type(split) == tuple:
+            assert len(split) == len(self.SPLIT_OPTIONS), f"{split=}, {self.SPLIT_OPTIONS=}"
+            assert all(type(x) in [int, float] for x in split)
+            assert abs(sum(split) - 1.0) < 0.01, f"{sum(self.split)=}"
+            self.split_percentages = split
+        else:
+            self.split = split
+
+    def _init_indices(self, indices: Optional[Union[List[int], Dict[str, List[int]]]]) -> None:
+        # type check
+        if hasattr(self, 'split') and type(self.split) == str:
+            assert indices is None or type(indices) == list
+            if type(indices) == list:
+                assert all(type(x) == int for x in indices)
+            self.indices = indices
+        elif hasattr(self, 'split') and self.split is None:
+            assert indices is None or type(indices) == dict
+            if type(indices) == dict:
+                assert set(indices.keys()).issubset(set(self.SPLIT_OPTIONS)), \
+                    f"{indices.keys()=}, {self.SPLIT_OPTIONS=}"
+                for value in indices.values():
+                    assert type(value) == list
+                    assert all(type(x) == int for x in value)
+            self.split_indices = indices
+        else:
+            assert not hasattr(self, 'split') and hasattr(self, 'split_percentages')
+
+    def _init_annotations_all_splits(self) -> None:
+        r"""
+        Args:
+            split (str or Tuple[float, ...] or None): if str, then initialize only the specified split.
+                if Tuple[float, ...], then randomly split whole dataset according to specified percentages.
+                if None, then initialize all splits.
+            indices (List[int] or Dict[str, List[int]] or None): a list of indices defining the subset
+                of interest.
+        """
+        # initialize annotations
+        if hasattr(self, 'split') and type(self.split) == str:
+            if self.split in self.SPLIT_OPTIONS:
+                # initialize annotations
+                self._init_annotations()
+                # sanity check
+                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
+                    assert type(self.DATASET_SIZE) == dict, f"{type(self.DATASET_SIZE)=}"
+                    assert len(self) == self.DATASET_SIZE[self.split], f"{len(self)=}, {self.DATASET_SIZE[self.split]=}, {self.split=}"
+                # take subset by indices
+                self._filter_annotations_by_indices()
+            else:
+                self.annotations = []
+        else:
+            self.split_subsets: Dict[str, BaseDataset] = {}
+            if hasattr(self, 'split') and self.split is None:
+                assert not hasattr(self, 'indices') and hasattr(self, 'split_indices')
+                assert self.split_indices is None or type(self.split_indices) == dict
+                # construct split subsets
+                for split in self.SPLIT_OPTIONS:
+                    # initialize split and indices
+                    self.split = split
+                    self.indices = self.split_indices.get(split, None) if self.split_indices else None
+                    # initialize annotations
+                    self._init_annotations()
+                    self._check_dataset_size()
+                    self._filter_annotations_by_indices()
+                    # prepare to split
+                    split_subset = copy.deepcopy(self)
+                    del split_subset.split_indices
+                    del split_subset.split_subsets
+                    self.split_subsets[split] = split_subset
+                self.split = None
+                del self.indices
+            else:
+                assert not hasattr(self, 'split') and hasattr(self, 'split_percentages')
+                assert not hasattr(self, 'indices') and not hasattr(self, 'split_indices')
+                # initialize annotations
+                self._init_annotations()
+                self._check_dataset_size()
+                # prepare to split
+                sizes = tuple(int(percent * len(self.annotations)) for percent in self.split_percentages)
+                cutoffs = [0] + list(itertools.accumulate(sizes))
+                random.shuffle(self.annotations)
+                for idx, split in enumerate(self.SPLIT_OPTIONS):
+                    self.split = split
+                    split_subset = copy.deepcopy(self)
+                    split_subset.annotations = self.annotations[cutoffs[idx]:cutoffs[idx+1]]
+                    del split_subset.split_percentages
+                    del split_subset.split_subsets
+                    self.split_subsets[split] = split_subset
+                del self.split
+
+    @abstractmethod
+    def _init_annotations(self) -> None:
+        raise NotImplementedError("_init_annotations not implemented for abstract base class.")
+
+    def _check_dataset_size(self) -> None:
+        if not hasattr(self, 'DATASET_SIZE') or self.DATASET_SIZE is None:
+            return
+        assert type(self.DATASET_SIZE) in [dict, int]
+        if type(self.DATASET_SIZE) == int:
+            assert type(self.split) == tuple
+        if type(self.DATASET_SIZE) == dict:
+            assert set(self.DATASET_SIZE.keys()).issubset(set(self.SPLIT_OPTIONS)), \
+                f"{self.DATASET_SIZE.keys()=}, {self.SPLIT_OPTIONS=}"
+            assert type(self.split) == str
+            self.DATASET_SIZE = self.DATASET_SIZE[self.split]
+        assert len(self) == len(self.annotations) == self.DATASET_SIZE, \
+            f"{len(self)=}, {len(self.annotations)=}, {self.DATASET_SIZE=}"
+
+    def _filter_annotations_by_indices(self) -> None:
+        if self.indices is None:
+            return
+        assert type(self.annotations) == list, f"{type(self.annotations)=}"
+        assert all(0 <= x < len(self.annotations) for x in self.indices)
+        self.annotations = [self.annotations[idx] for idx in self.indices]
+
+    def _init_transforms(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
+        if transforms_cfg is None:
+            transforms_cfg = {
+                'class': Compose,
+                'args': {
+                    'transforms': [],
+                },
+            }
+        self.transforms = build_from_config(transforms_cfg)
 
     def _sanity_check(self) -> None:
         assert self.SPLIT_OPTIONS is not None
@@ -67,94 +196,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             result = subprocess.getoutput(cmd)
             sha1sum = result.split(' ')[0]
             assert sha1sum == self.SHA1SUM, f"{sha1sum=}, {self.SHA1SUM=}"
-
-    def _init_transforms_(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
-        if transforms_cfg is None:
-            transforms_cfg = {
-                'class': Compose,
-                'args': {
-                    'transforms': [],
-                },
-            }
-        self.transforms = build_from_config(transforms_cfg)
-
-    def _init_annotations_all_(
-        self,
-        split: Optional[Union[str, Tuple[float, ...]]],
-        indices: Optional[Union[List[int], Dict[str, List[int]]]],
-    ) -> None:
-        r"""
-        Args:
-            split (str or Tuple[float, ...] or None): if str, then initialize only the specified split.
-                if Tuple[float, ...], then randomly split whole dataset according to specified percentages.
-                if None, then initialize all splits.
-            indices (List[int] or Dict[str, List[int]] or None): a list of indices defining the subset
-                of interest.
-        """
-        # initialize annotations
-        if type(split) == str:
-            if split in self.SPLIT_OPTIONS:
-                # initialize full list of annotations
-                self._init_annotations_(split=split)
-                if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
-                    assert len(self) == self.DATASET_SIZE[split], f"{len(self)=}, {self.DATASET_SIZE[split]=}, {split=}"
-                # take subset by indices
-                if indices is not None:
-                    assert type(self.annotations) == list, f"{type(self.annotations)=}"
-                    assert type(indices) == list, f"{type(indices)=}"
-                    assert all(type(elem) == int for elem in indices)
-                    self.annotations = [self.annotations[idx] for idx in indices]
-            else:
-                self.annotations = []
-        else:
-            self.split_subsets: Dict[str, BaseDataset] = {}
-            if split is None:
-                # input checks
-                if indices is not None:
-                    assert type(indices) == dict, f"{type(indices)=}"
-                    assert all(type(val) == list for val in indices.values())
-                    assert all(all(type(elem) == int for elem in val) for val in indices.values())
-                # construct split subsets
-                for option in self.SPLIT_OPTIONS:
-                    # initialize full list of annotations
-                    self._init_annotations_(split=option)
-                    if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
-                        assert len(self) == self.DATASET_SIZE[option], f"{len(self)=}, {self.DATASET_SIZE[option]=}, {option=}"
-                    # take subset by indices
-                    if indices is not None and option in indices:
-                        assert type(self.annotations) == list, f"{type(self.annotations)=}"
-                        self.annotations = [self.annotations[idx] for idx in indices[option]]
-                    # prepare to split
-                    split_subset = copy.deepcopy(self)
-                    del split_subset.split_subsets
-                    self.split_subsets[option] = split_subset
-            else:
-                # input checks
-                assert type(split) == tuple, f"{type(split)=}"
-                assert len(split) == len(self.SPLIT_OPTIONS), f"{len(split)=}, {len(self.SPLIT_OPTIONS)=}"
-                assert all(type(elem) == float for elem in split)
-                assert abs(sum(split) - 1.0) < 0.01, f"{sum(split)=}"
-                # initialize full list of annotations
-                self._init_annotations_(split=None)
-                # take subset by indices
-                if indices is not None:
-                    assert type(self.annotations) == list, f"{type(self.annotations)=}"
-                    assert type(indices) == list, f"{type(indices)=}"
-                    assert all(type(elem) == int for elem in indices)
-                    self.annotations = [self.annotations[idx] for idx in indices]
-                # prepare to split
-                sizes = tuple(int(percent * len(self.annotations)) for percent in split)
-                cutoffs = [0] + list(itertools.accumulate(sizes))
-                random.shuffle(self.annotations)
-                for idx, option in enumerate(self.SPLIT_OPTIONS):
-                    split_subset = copy.deepcopy(self)
-                    split_subset.annotations = self.annotations[cutoffs[idx]:cutoffs[idx+1]]
-                    del split_subset.split_subsets
-                    self.split_subsets[option] = split_subset
-
-    @abstractmethod
-    def _init_annotations_(self, split: Optional[str]) -> None:
-        raise NotImplementedError("_init_annotations_ not implemented for abstract base class.")
 
     def __len__(self):
         return len(self.annotations)

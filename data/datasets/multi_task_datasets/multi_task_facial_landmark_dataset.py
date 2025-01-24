@@ -22,14 +22,14 @@ class MultiTaskFacialLandmarkDataset(BaseDataset):
     ####################################################################################################
     ####################################################################################################
 
-    def _init_annotations_(self, split: str) -> None:
-        image_filepaths = self._init_images_(split=split)
-        all_labels = self._init_labels_(split=split, image_filepaths=image_filepaths)
+    def _init_annotations(self) -> None:
+        image_filepaths = self._init_images_()
+        all_labels = self._init_labels_(image_filepaths=image_filepaths)
         self.annotations = list(zip(image_filepaths, all_labels))
 
-    def _init_images_(self, split: str) -> None:
+    def _init_images_(self) -> None:
         image_filepaths = []
-        with open(os.path.join(self.data_root, f"{split}ing.txt"), mode='r') as f:
+        with open(os.path.join(self.data_root, f"{self.split}ing.txt"), mode='r') as f:
             lines = f.readlines()
             for line in lines:
                 line = line.strip().split()
@@ -38,10 +38,10 @@ class MultiTaskFacialLandmarkDataset(BaseDataset):
                 image_filepaths.append(filepath)
         return image_filepaths
 
-    def _init_labels_(self, split: str, image_filepaths: List[str]) -> None:
+    def _init_labels_(self, image_filepaths: List[str]) -> None:
         # image
         all_labels: List[Dict[str, torch.Tensor]] = []
-        with open(os.path.join(self.data_root, f"{split}ing.txt"), mode='r') as f:
+        with open(os.path.join(self.data_root, f"{self.split}ing.txt"), mode='r') as f:
             lines = f.readlines()
             for idx, line in enumerate(lines):
                 line = line.strip().split()

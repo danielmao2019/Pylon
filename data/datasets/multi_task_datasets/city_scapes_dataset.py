@@ -112,18 +112,18 @@ class CityScapesDataset(BaseDataset):
             self.NUM_CLASSES = self.NUM_CLASSES_C
         super(CityScapesDataset, self).__init__(*args, **kwargs)
 
-    def _init_annotations_(self, split: str) -> None:
+    def _init_annotations(self) -> None:
         # initialize image filepaths
-        image_root = os.path.join(self.data_root, "leftImg8bit", split)
+        image_root = os.path.join(self.data_root, "leftImg8bit", self.split)
         image_paths: List[str] = sorted(glob.glob(os.path.join(image_root, "**", "*.png")))
         image_postfix = "leftImg8bit.png"
         # depth estimation labels
-        depth_root = os.path.join(self.data_root, "disparity", split)
+        depth_root = os.path.join(self.data_root, "disparity", self.split)
         depth_paths = [os.path.join(
             depth_root, fp.split(os.sep)[-2], os.path.basename(fp)[:-len(image_postfix)] + "disparity.png"
         ) for fp in image_paths]
         # semantic and instance segmentation labels
-        segmentation_root = os.path.join(self.data_root, "gtFine", split)
+        segmentation_root = os.path.join(self.data_root, "gtFine", self.split)
         semantic_paths = [os.path.join(
             segmentation_root, fp.split(os.sep)[-2], os.path.basename(fp)[:-len(image_postfix)] + "gtFine_labelIds.png"
         ) for fp in image_paths]
@@ -137,7 +137,7 @@ class CityScapesDataset(BaseDataset):
             'semantic': semantic_paths[idx],
             'instance': instance_paths[idx],
         } for idx in range(len(image_paths))]
-        self._filter_dataset_(remove_indices=self.REMOVE_INDICES[split])
+        self._filter_dataset_(remove_indices=self.REMOVE_INDICES[self.split])
 
     def _filter_dataset_(self, remove_indices: List[int], cache: Optional[bool] = True) -> None:
         if not cache:

@@ -49,13 +49,13 @@ class CelebADataset(BaseDataset):
         self.use_landmarks = use_landmarks
         super(CelebADataset, self).__init__(**kwargs)
 
-    def _init_annotations_(self, split: str) -> None:
-        image_filepaths = self._init_images_(split=split)
+    def _init_annotations(self) -> None:
+        image_filepaths = self._init_images_()
         landmark_labels = self._init_landmark_labels_(image_filepaths=image_filepaths)
         attribute_labels = self._init_attribute_labels_(image_filepaths=image_filepaths)
         self.annotations = list(zip(image_filepaths, landmark_labels, attribute_labels))
 
-    def _init_images_(self, split: str) -> List[str]:
+    def _init_images_(self) -> List[str]:
         # initialize
         split_enum = {0: 'train', 1: 'val', 2: 'test'}
         # images
@@ -69,7 +69,7 @@ class CelebADataset(BaseDataset):
                 assert int(line[0].split('.')[0]) == idx + 1, f"{line[0]=}, {idx=}"
                 filepath = os.path.join(images_root, line[0])
                 assert os.path.isfile(filepath)
-                if split_enum[int(line[1])] == split:
+                if split_enum[int(line[1])] == self.split:
                     image_filepaths.append(filepath)
         return image_filepaths
 
