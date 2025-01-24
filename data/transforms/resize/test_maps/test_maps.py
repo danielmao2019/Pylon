@@ -85,7 +85,7 @@ def test_resize_maps_3d(test_image_3d):
     Args:
         test_image_3d (torch.Tensor): Resized 3D tensor with stacked bands from the fixture.
     """
-    new_height, new_width = 1024, 1024
+    new_height, new_width = 256, 256
     resize_op = ResizeMaps(size=(new_height, new_width))
     resized_image = resize_op(test_image_3d)
     assert resized_image.shape == (2, new_height, new_width), \
