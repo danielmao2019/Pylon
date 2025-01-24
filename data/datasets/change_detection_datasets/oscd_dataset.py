@@ -46,6 +46,7 @@ class OSCDDataset(BaseDataset):
     }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
+    NUM_CLASSES = 2
     SHA1SUM = "2f19f17bb40e2c611c7c354f08677b8976fe0099"
 
     # ====================================================================================================
