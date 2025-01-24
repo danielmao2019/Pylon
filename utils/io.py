@@ -40,7 +40,7 @@ def load_image(
     assert (filepath is None) ^ (filepaths is None), \
         "Exactly one of 'filepath' or 'filepaths' must be provided."
     if filepath is not None:
-        check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg', '.bmp'])  # Added .bmp
+        check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg', '.bmp'])
     if filepaths is not None:
         assert isinstance(filepaths, list), \
             f"'filepaths' must be a list. Got {type(filepaths)}."

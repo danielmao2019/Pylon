@@ -6,7 +6,7 @@ from utils.io import _load_image, _load_multispectral_image
 
 
 @pytest.fixture
-def test_image_2d():
+def test_image_bmp():
     """
     Fixture to load and resize a 2D image as a PyTorch tensor.
 
@@ -42,7 +42,7 @@ def test_image_3d():
     return image
 
 
-def test_resize_maps_2d(test_image_2d):
+def test_resize_maps(test__image_bmp):
     """
     Test resizing of a 2D image tensor.
 
@@ -51,7 +51,7 @@ def test_resize_maps_2d(test_image_2d):
     """
     new_height, new_width = 256, 256
     resize_op = ResizeMaps(size=(new_height, new_width))
-    resized_image = resize_op(test_image_2d)
+    resized_image = resize_op(test_image_bmp)
     assert resized_image.shape == (new_height, new_width), \
         f"Unexpected resized shape: {resized_image.shape}"
 
