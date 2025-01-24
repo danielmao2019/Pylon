@@ -11,8 +11,6 @@ import rasterio
 from utils.input_checks import check_read_file, check_write_file
 from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
 
-from data.transforms.resize import ResizeMaps
-
 
 def load_image(
     filepath: Optional[str] = None,
@@ -32,8 +30,8 @@ def load_image(
         dtype: Desired output data type for the tensor (e.g., torch.float32).
         sub: Value(s) to subtract from the image for normalization.
         div: Value(s) to divide the image by for normalization.
-        height: Desired height for resizing the image.
-        width: Desired width for resizing the image.
+        height: Desired height for resizing bands (optional).
+        width: Desired width for resizing bands (optional).
 
     Returns:
         A PyTorch tensor of the loaded image.
@@ -60,11 +58,6 @@ def load_image(
     # Normalize the image
     if sub is not None or div is not None:
         image = _normalize(image, sub=sub, div=div)
-
-    # Resize the image
-    if height is not None and width is not None:
-        resize_op = ResizeMaps(size=(height, width))
-        image = resize_op(image)
 
     # Convert data type
     if dtype is not None:
