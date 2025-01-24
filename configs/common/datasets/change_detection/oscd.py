@@ -76,7 +76,11 @@ config = {
     'test_dataloader': None,
     'criterion': {
         'class': criteria.vision_2d.SemanticSegmentationCriterion,
-        'args': {},
+        'args': {
+            'class_weights': tuple((
+                data.datasets.OSCDDataset.NUM_CLASSES*(1/torch.tensor(data.datasets.OSCDDataset.CLASS_DIST['train']))/torch.sum(1/torch.tensor(data.datasets.OSCDDataset.CLASS_DIST['train']))
+            ).tolist()),
+        },
     },
     'metric': {
         'class': metrics.vision_2d.SemanticSegmentationMetric,
