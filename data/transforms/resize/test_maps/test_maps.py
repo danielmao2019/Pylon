@@ -21,6 +21,26 @@ def test_image_bmp():
         f"Unexpected image shape: {image.shape}, expected (1024, 1024)."
     return image
 
+@pytest.fixture
+def test_bmp_2d():
+    """
+    Fixture to load and verify a 2D BMP image as a PyTorch tensor.
+
+    Returns:
+        torch.Tensor: Loaded 2D BMP tensor with RGB channels.
+    """
+    filepath = "./data/transforms/resize/test_maps/assets/1_A.bmp"
+    assert os.path.isfile(filepath), \
+        f"Test BMP image not found at {filepath}. Ensure the file is available for testing."
+    
+    # Load BMP image
+    image: torch.Tensor = _load_image(filepath)
+    
+    # Validate image shape
+    assert image.shape == (3, 1000, 1900), \
+        f"Unexpected BMP image shape: {image.shape}, expected (3, 1000, 1900)."
+    
+    return image
 
 @pytest.fixture
 def test_image_3d():
@@ -54,6 +74,27 @@ def test_resize_maps(test__image_bmp):
     resized_image = resize_op(test_image_bmp)
     assert resized_image.shape == (new_height, new_width), \
         f"Unexpected resized shape: {resized_image.shape}"
+        
+def test_resize_maps_bmp(test_bmp_2d):
+    """
+    Test resizing of a 2D BMP image tensor using the ResizeMaps utility.
+
+    Args:
+        test_bmp_2d (torch.Tensor): Loaded 2D BMP image tensor from the fixture.
+    
+    Validates:
+        - The resized tensor has the expected shape.
+    """
+    # Define the new dimensions for resizing
+    new_height, new_width = 256, 256
+    
+    # Apply the ResizeMaps operation
+    resize_op = ResizeMaps(size=(new_height, new_width))
+    resized_image = resize_op(test_bmp_2d)
+    
+    # Assert the resized tensor's shape is as expected
+    assert resized_image.shape == (3, new_height, new_width), \
+        f"Unexpected resized shape: {resized_image.shape}, expected (3, {new_height}, {new_width})."
 
 
 def test_resize_maps_3d(test_image_3d):
