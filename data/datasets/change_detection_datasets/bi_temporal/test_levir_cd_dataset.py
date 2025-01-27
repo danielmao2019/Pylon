@@ -8,7 +8,7 @@ import torch
     (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR_CD", split='test')),
     (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR_CD", split='val')),
 ])
-def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
+def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     for idx in range(len(dataset)):
         datapoint = dataset[idx]
@@ -17,7 +17,7 @@ def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
         # inspect inputs
         inputs = datapoint['inputs']
         assert type(inputs) == dict
-        assert set(inputs.keys()) == set(LevirCdDataset.INPUT_NAMES)
+        assert set(inputs.keys()) == set(CDDDataset.INPUT_NAMES)
         img_1 = inputs['img_1']
         img_2 = inputs['img_2']
         assert type(img_1) == torch.Tensor and img_1.ndim == 3 and img_1.dtype == torch.float32
@@ -26,7 +26,7 @@ def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
         # inspect labels
         labels = datapoint['labels']
         assert type(labels) == dict
-        assert set(labels.keys()) == set(LevirCdDataset.LABEL_NAMES)
+        assert set(labels.keys()) == set(CDDDataset.LABEL_NAMES)
         change_map = labels['change_map']
         assert type(change_map) == torch.Tensor and change_map.ndim == 2 and change_map.dtype == torch.int64
         assert set(torch.unique(change_map).tolist()).issubset(set([0, 1])), f"{torch.unique(change_map)=}"
