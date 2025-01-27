@@ -9,7 +9,6 @@ import torch
     (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='val')),
 ])
 def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
-<<<<<<< HEAD
     """
     Test the CDDDataset for correct structure, types, and data integrity.
 
@@ -24,9 +23,6 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
     """
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
     
-=======
-    assert isinstance(dataset, torch.utils.data.Dataset)
->>>>>>> f
     for idx in range(len(dataset)):
         datapoint = dataset[idx]
         
@@ -37,15 +33,10 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
 
         # Validate inputs
         inputs = datapoint['inputs']
-<<<<<<< HEAD
         assert isinstance(inputs, dict), f"Inputs at index {idx} are not a dictionary."
         assert set(inputs.keys()) == set(CDDDataset.INPUT_NAMES), \
             f"Unexpected input keys at index {idx}: {inputs.keys()}"
         
-=======
-        assert type(inputs) == dict
-        assert set(inputs.keys()) == set(CDDDataset.INPUT_NAMES)
->>>>>>> f
         img_1 = inputs['img_1']
         img_2 = inputs['img_2']
         assert isinstance(img_1, torch.Tensor), f"img_1 at index {idx} is not a Tensor."
@@ -58,15 +49,10 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
 
         # Validate labels
         labels = datapoint['labels']
-<<<<<<< HEAD
         assert isinstance(labels, dict), f"Labels at index {idx} are not a dictionary."
         assert set(labels.keys()) == set(CDDDataset.LABEL_NAMES), \
             f"Unexpected label keys at index {idx}: {labels.keys()}"
 
-=======
-        assert type(labels) == dict
-        assert set(labels.keys()) == set(CDDDataset.LABEL_NAMES)
->>>>>>> f
         change_map = labels['change_map']
         assert isinstance(change_map, torch.Tensor), f"Change map at index {idx} is not a Tensor."
         assert change_map.ndim == 2, f"Change map at index {idx} must be a 2D tensor."
