@@ -1,13 +1,13 @@
 from typing import Tuple, List, Dict, Any
 import os
+import glob
 import torch
 from data.datasets import BaseDataset
 import utils
 
-class CDDDataset(BaseDataset):
-    """
-    The CDDDataset class is designed for managing and loading data for change detection tasks.
 
+class CDDDataset(BaseDataset):
+    __doc__ = r"""
     References:
         * https://github.com/ServiceNow/seasonal-contrast/blob/main/datasets/oscd_dataset.py
         * https://github.com/granularai/fabric/blob/igarss2019/utils/dataloaders.py
@@ -33,13 +33,6 @@ class CDDDataset(BaseDataset):
             ```bash
             stat <Pylon_path>/data/datasets/soft_links/CDD
             ```
-
-    Attributes:
-        SPLIT_OPTIONS (List[str]): Available data splits ('train', 'test', 'val').
-        DATASET_SIZE (Optional[int]): Dataset size (set dynamically).
-        INPUT_NAMES (List[str]): Names of input tensors.
-        LABEL_NAMES (List[str]): Names of label tensors.
-        SHA1SUM (Optional[str]): Checksum for data validation.
     """
 
     SPLIT_OPTIONS = ['train', 'test', 'val']
@@ -49,59 +42,24 @@ class CDDDataset(BaseDataset):
     SHA1SUM = None
 
     def _init_annotations(self) -> None:
-        """
-        Initialize dataset annotations by parsing directory structure and
-        associating file paths with inputs and labels.
-
-        Args:
-            split (str): The data split ('train', 'test', 'val').
-
-        Raises:
-            AssertionError: If expected files or directories are missing.
-        """
-        model_path = os.path.join(self.data_root, 'Model')
-        subfolders = os.listdir(model_path)
-        inputs_root = [os.path.join(model_path, subfolder, self.split) for subfolder in subfolders]
-        labels_root = [os.path.join(model_path, subfolder, self.split, 'OUT') for subfolder in subfolders]
+        img_1_filepaths = sorted(glob.glob(os.path.join(self.data_root, 'Model', "**", self.split, 'A', "*.bmp")))
+        img_2_filepaths = sorted(glob.glob(os.path.join(self.data_root, 'Model', "**", self.split, 'B', "*.bmp")))
+        change_map_filepaths = sorted(glob.glob(os.path.join(self.data_root, 'Model', "**", self.split, 'OUT', "*.bmp")))
 
         self.annotations: List[dict] = []
-        for input_root, label_root in zip(inputs_root, labels_root):
-            filenames = [file for file in os.listdir(os.path.join(input_root, 'A')) if not file.startswith('.')]
-            filenames.sort()
-
-            for filename in filenames:
-                input_1_filepath = os.path.join(input_root, 'A', filename)
-                input_2_filepath = os.path.join(input_root, 'B', filename)
-                label_filepath = os.path.join(label_root, filename)
-
-                # Ensure required files exist
-                assert os.path.isfile(input_1_filepath), f"File not found: {input_1_filepath}"
-                assert os.path.isfile(input_2_filepath), f"File not found: {input_2_filepath}"
-                assert os.path.isfile(label_filepath), f"File not found: {label_filepath}"
-
-                self.annotations.append({
-                    'inputs': {
-                        'input_1_filepath': input_1_filepath,
-                        'input_2_filepath': input_2_filepath,
-                    },
-                    'labels': {
-                        'label_filepath': label_filepath,
-                    },
-                })
+        for img_1_path, img_2_path, change_map_path in zip(img_1_filepaths, img_2_filepaths, change_map_filepaths):
+            assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path])
+            self.annotations.append({
+                'inputs': {
+                    'input_1_filepath': img_1_path,
+                    'input_2_filepath': img_2_path,
+                },
+                'labels': {
+                    'change_map_filepath': change_map_path,
+                },
+            })
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """
-        Load a single datapoint by index.
-
-        Args:
-            idx (int): Index of the datapoint to load.
-
-        Returns:
-            Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-                - A dictionary containing input tensors.
-                - A dictionary containing label tensors.
-                - A dictionary containing metadata.
-        """
         inputs = self._load_inputs(idx)
         labels = self._load_labels(idx)
         height, width = labels['change_map'].shape
@@ -114,15 +72,6 @@ class CDDDataset(BaseDataset):
         return inputs, labels, meta_info
 
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        Load input images for a given index.
-
-        Args:
-            idx (int): Index of the datapoint.
-
-        Returns:
-            Dict[str, torch.Tensor]: Dictionary containing the input tensors.
-        """
         inputs = {}
         for input_idx in [1, 2]:
             img = utils.io.load_image(
@@ -133,20 +82,8 @@ class CDDDataset(BaseDataset):
         return inputs
 
     def _load_labels(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        Load the label (change map) for a given index.
-
-        Args:
-            idx (int): Index of the datapoint.
-
-        Returns:
-            Dict[str, torch.Tensor]: Dictionary containing the label tensor.
-
-        Raises:
-            AssertionError: If the loaded label is not 2D.
-        """
         change_map = utils.io.load_image(
-            filepath=self.annotations[idx]['labels']['label_filepath'],
+            filepath=self.annotations[idx]['labels']['change_map_filepath'],
             dtype=torch.int64, sub=None, div=255.0,
         )
         assert change_map.ndim == 2, f"Expected 2D label, got {change_map.shape}."
