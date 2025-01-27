@@ -50,16 +50,6 @@ class CDDDataset(BaseDataset):
     SHA1SUM = None
 
     def _init_annotations(self) -> None:
-        """
-        Initialize dataset annotations by parsing directory structure and
-        associating file paths with inputs and labels.
-
-        Args:
-            split (str): The data split ('train', 'test', 'val').
-
-        Raises:
-            AssertionError: If expected files or directories are missing.
-        """
         subfolders = os.listdir(self.data_root)
         model_paths = [os.path.join(self.data_root, subfolder) for subfolder in subfolders]
         directories = []
@@ -99,18 +89,6 @@ class CDDDataset(BaseDataset):
                 })
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """
-        Load a single datapoint by index.
-
-        Args:
-            idx (int): Index of the datapoint to load.
-
-        Returns:
-            Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-                - A dictionary containing input tensors.
-                - A dictionary containing label tensors.
-                - A dictionary containing metadata.
-        """
         inputs = self._load_inputs(idx)
         labels = self._load_labels(idx)
         if labels['change_map'].shape[0] == 3:
@@ -125,15 +103,7 @@ class CDDDataset(BaseDataset):
         return inputs, labels, meta_info
 
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        Load input images for a given index.
-
-        Args:
-            idx (int): Index of the datapoint.
-
-        Returns:
-            Dict[str, torch.Tensor]: Dictionary containing the input tensors.
-        """
+        inputs = {}
         return {
             f'img_{i}': utils.io.load_image(
                 filepath=self.annotations[idx]['inputs'][f'input_{i}_filepath'],
@@ -143,15 +113,6 @@ class CDDDataset(BaseDataset):
         }
 
     def _load_labels(self, idx: int) -> Dict[str, torch.Tensor]:
-        """
-        Load the label (change map) for a given index.
-
-        Args:
-            idx (int): Index of the datapoint.
-
-        Returns:
-            Dict[str, torch.Tensor]: Dictionary containing the label tensor.
-        """
         change_map = utils.io.load_image(
             filepath=self.annotations[idx]['labels']['label_filepath'],
             dtype=torch.int64, sub=None, div=255,
