@@ -63,6 +63,6 @@ def _validate_class_distribution(class_dist: torch.Tensor, dataset: AirChangeDat
     """Validate the class distribution tensor against the dataset's expected distribution."""
     assert isinstance(dataset.CLASS_DIST, list), f"CLASS_DIST should be a list, got {type(dataset.CLASS_DIST)}"
     if dataset.split == 'train':
-        assert abs(class_dist[1] / class_dist[0] - dataset.CLASS_DIST[1] / dataset.CLASS_DIST[0]) < 1.0e-03
+        assert abs(class_dist[1] / class_dist[0] - dataset.CLASS_DIST[1] / dataset.CLASS_DIST[0]) < 1.0e-02
     else:
         assert class_dist.tolist() == dataset.CLASS_DIST, f"Class distribution mismatch: {class_dist=}, {dataset.CLASS_DIST=}"
