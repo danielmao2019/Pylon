@@ -59,30 +59,31 @@ class CDDDataset(BaseDataset):
         Todo:
         - first support reading images in Model
         """
-        # This file path need to be changed
-        # handle two case given the A B and Label folder or given the all in one folder
-        inputs_root: str = os.path.join(self.data_root, f"{split}")
-        labels_root: str = os.path.join(self.data_root, f"{split}", "label")
+        subfolders = (os.listdir(os.path.join(self.data_root, 'Model')))
+        inputs_root: str = [os.path.join(self.data_root, 'Model', f"{subfolder}", f"{split}") for subfolder in subfolders]
+        labels_root: str = [os.path.join(self.data_root, 'Model', f"{subfolder}",  f"{split}", 'OUT') for subfolder in subfolders]
         self.annotations: List[dict] = []
-        filenames = [files for files in inputs_root if not files.startswith('.')]
-        filenames.sort()
-        assert len(os.listdir(os.path.join(inputs_root, 'A'))), len(os.listdir(os.path.join(inputs_root, 'B')))
-        for filename in filenames:
-            input_1_filepath = os.path.join(inputs_root, 'A', filename)
-            assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
-            input_2_filepath = os.path.join(inputs_root, 'B', filename)
-            assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
-            label_filepath = os.path.join(labels_root, filename)
-            assert os.path.isfile(label_filepath), f"{label_filepath=}"
-            self.annotations.append({
-                'inputs': {
-                    'input_1_filepath': input_1_filepath,
-                    'input_2_filepath': input_2_filepath,
-                },
-                'labels': {
-                    'label_filepath': label_filepath,
-                },
-            })
+        for input_root, label_root in zip(inputs_root, labels_root):
+            filenames = [files for files in os.listdir(os.path.join(input_root, 'A')) if not files.startswith('.')]
+            filenames.sort()
+            print(filenames)
+            assert len(os.listdir(os.path.join(input_root, 'A'))), len(os.listdir(os.path.join(input_root, 'B')))
+            for filename in filenames:
+                input_1_filepath = os.path.join(input_root, 'A', filename)
+                assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
+                input_2_filepath = os.path.join(input_root, 'B', filename)
+                assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
+                label_filepath = os.path.join(label_root, filename)
+                assert os.path.isfile(label_filepath), f"{label_filepath=}"
+                self.annotations.append({
+                    'inputs': {
+                        'input_1_filepath': input_1_filepath,
+                        'input_2_filepath': input_2_filepath,
+                    },
+                    'labels': {
+                        'label_filepath': label_filepath,
+                    },
+                })
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """
