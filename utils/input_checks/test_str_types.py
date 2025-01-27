@@ -13,10 +13,10 @@ def create_temp_file(suffix: str = "") -> str:
 
 def test_check_read_file_success():
     # Test with a valid file path and extension
-    temp_file = create_temp_file(".txt")
+    temp_file = create_temp_file(".BMP")
     try:
-        assert check_read_file(temp_file, ".txt") == temp_file
-        assert check_read_file(temp_file, [".txt", ".log"]) == temp_file
+        assert check_read_file(temp_file, ".bmp") == temp_file
+        assert check_read_file(temp_file, [".txt", ".bmp"]) == temp_file
         assert check_read_file(temp_file) == temp_file  # No extension check
     finally:
         os.remove(temp_file)
