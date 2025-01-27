@@ -1,6 +1,5 @@
 import pytest
 from .oscd_dataset import OSCDDataset
-import os
 import torch
 import utils
 

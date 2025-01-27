@@ -13,7 +13,7 @@ def check_read_file(
             ext = [ext]
         assert type(ext) == list, f"{type(ext)=}"
         assert all([type(elem) == str for elem in ext]), f"{ext=}"
-        assert any([path.endswith(e) for e in ext]), f"{path=}, {ext=}"
+        assert os.path.splitext(path)[1].lower() in ext, f"{path=}, {ext=}"
     return path
 
 
