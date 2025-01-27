@@ -44,7 +44,7 @@ class CDDDataset(BaseDataset):
     LABEL_NAMES = ['change_map']
     SHA1SUM = None
 
-    def _init_annotations_(self, split: str) -> None:
+    def _init_annotations(self) -> None:
         """
         Initialize dataset annotations by parsing directory structure and
         associating file paths with inputs and labels.
@@ -58,8 +58,8 @@ class CDDDataset(BaseDataset):
 <<<<<<< HEAD
         model_path = os.path.join(self.data_root, 'Model')
         subfolders = os.listdir(model_path)
-        inputs_root = [os.path.join(model_path, subfolder, split) for subfolder in subfolders]
-        labels_root = [os.path.join(model_path, subfolder, split, 'OUT') for subfolder in subfolders]
+        inputs_root = [os.path.join(model_path, subfolder, self.split) for subfolder in subfolders]
+        labels_root = [os.path.join(model_path, subfolder, self.split, 'OUT') for subfolder in subfolders]
 
         self.annotations: List[dict] = []
         for input_root, label_root in zip(inputs_root, labels_root):
