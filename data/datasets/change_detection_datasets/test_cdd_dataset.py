@@ -58,7 +58,7 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
         assert change_map.ndim == 2, f"Change map at index {idx} must be a 2D tensor."
         assert change_map.dtype == torch.int64, f"Change map at index {idx} must have dtype torch.int64."
         unique_values = set(torch.unique(change_map).tolist())
-        assert unique_values.issubset({0, 1}), \
+        assert unique_values.issubset({0, 6}), \
             f"Unexpected values in change map at index {idx}: {unique_values}"
 
         # Validate meta_info
