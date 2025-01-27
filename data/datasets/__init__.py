@@ -18,6 +18,7 @@ from data.datasets.change_detection_datasets.levir_cd_dataset import LevirCdData
 from data.datasets.change_detection_datasets.xview2_dataset import xView2Dataset
 from data.datasets.change_detection_datasets.kc_3d_dataset import KC3DDataset
 from data.datasets.change_detection_datasets.air_change_dataset import AirChangeDataset
+from data.datasets.change_detection_datasets.cdd_dataset import CDDDataset
 
 
 __all__ = (
@@ -36,4 +37,5 @@ __all__ = (
     'xView2Dataset',
     'KC3DDataset',
     'AirChangeDataset',
+    'CDDDataset',
 )
