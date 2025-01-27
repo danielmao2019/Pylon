@@ -36,8 +36,9 @@ class AirChangeDataset(BaseDataset):
     TEST_CROP_SIZE = (784, 448)  # (width, height)
     TRAIN_CROP_SIZE = (112, 112)  # (width, height)
     NUM_CLASSES = 2
+    # this is a rough estimate using 5 initializations due to randomness in the dataset
     CLASS_DIST = {
-        'train': [44735488, 2229233],
+        'train': [44702892.0000, 2261831.5000],
         'test': [4016897, 197887],
     }
 
