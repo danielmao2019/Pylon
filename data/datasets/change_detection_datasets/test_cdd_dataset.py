@@ -5,22 +5,10 @@ import torch
 
 @pytest.mark.parametrize("dataset", [
     (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='train')),
-    (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='test')),
     (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='val')),
+    (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='test')),
 ])
 def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
-    """
-    Test the CDDDataset for correct structure, types, and data integrity.
-
-    Args:
-        dataset (torch.utils.data.Dataset): An instance of the CDDDataset with a specific split.
-
-    Assertions:
-        - Dataset is an instance of `torch.utils.data.Dataset`.
-        - Each datapoint is a dictionary with keys `inputs`, `labels`, and `meta_info`.
-        - Inputs contain tensors of the correct shape and type.
-        - Labels contain valid tensors with expected shape and values.
-    """
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
     
     for idx in range(len(dataset)):

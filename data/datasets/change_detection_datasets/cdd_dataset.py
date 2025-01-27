@@ -35,7 +35,7 @@ class CDDDataset(BaseDataset):
             ```
     """
 
-    SPLIT_OPTIONS = ['train', 'test', 'val']
+    SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = None
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
