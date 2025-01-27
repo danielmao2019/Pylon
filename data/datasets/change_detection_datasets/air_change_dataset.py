@@ -4,6 +4,7 @@ import os
 import glob
 import random
 import torch
+import data
 from data.datasets import BaseDataset
 import utils
 
@@ -142,4 +143,7 @@ class AirChangeDataset(BaseDataset):
             'crop_loc': self.annotations[idx]['crop_loc'],
             'crop_size': self.annotations[idx]['crop_size'],
         }
+        crop_op = data.transforms.Crop(loc=meta_info['crop_loc'], size=meta_info['crop_size'])
+        inputs = {key: crop_op(inputs[key]) for key in inputs}
+        labels = {key: crop_op(labels[key]) for key in labels}
         return inputs, labels, meta_info
