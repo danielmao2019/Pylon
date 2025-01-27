@@ -29,11 +29,21 @@ class AirChangeDataset(BaseDataset):
         'train': 3744,
         'test': 12,
     }
+    INPUT_NAMES = ['img_1', 'img_2']
+    LABEL_NAMES = ['change_map']
     TRAIN_CROPS_PER_IMAGE = int(3744 / 12)
     IMAGE_SIZE = (952, 640)  # (width, height)
     TEST_CROP_SIZE = (784, 448)  # (width, height)
     TRAIN_CROP_SIZE = (112, 112)  # (width, height)
     NUM_CLASSES = 2
+    CLASS_DIST = {
+        'train': [44735488, 2229233],
+        'test': [4016897, 197887],
+    }
+
+    def __init__(self, *args, **kwargs) -> None:
+        super(AirChangeDataset, self).__init__(*args, **kwargs)
+        self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_cropping_configs(self) -> None:
 
@@ -96,6 +106,8 @@ class AirChangeDataset(BaseDataset):
         img_2_filepaths.sort()
         change_map_filepaths.sort()
 
+        self._init_cropping_configs()
+        self.annotations = []
         for img_1_path, img_2_path, change_map_path in zip(img_1_filepaths, img_2_filepaths, change_map_filepaths):
             if self.split == "test":
                 # Testing crops: one crop at the top-left corner
