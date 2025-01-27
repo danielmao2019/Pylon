@@ -34,15 +34,12 @@ def test_crop(loc, size, expected) -> None:
     assert torch.allclose(cropped_tensor, expected), f"Expected {expected}, but got {cropped_tensor}"
 
 
-def test_invalid_crop() -> None:
-    # Test invalid loc
-    with pytest.raises(ValueError):
-        Crop((-1, 0), (2, 2))
-
-    # Test invalid size
-    with pytest.raises(ValueError):
-        Crop((1, 1), (-2, 2))
-
-    # Test out-of-bounds crop
-    with pytest.raises(AssertionError):
-        Crop((3, 3), (2, 2))._call_single_(test_tensor)
+@pytest.mark.parametrize("loc, size, expected_exception", [
+    ((-1, 0), (2, 2), ValueError),  # Invalid loc
+    ((1, 1), (-2, 2), ValueError),  # Invalid size
+    ((3, 3), (2, 2), AssertionError),  # Out-of-bounds crop
+])
+def test_invalid_crop(loc, size, expected_exception) -> None:
+    with pytest.raises(expected_exception):
+        crop_op = Crop(loc, size)
+        crop_op(test_tensor)  # This line will only be reached for out-of-bounds cases
