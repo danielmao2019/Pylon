@@ -9,7 +9,11 @@ class CDDDataset(BaseDataset):
     The CDDDataset class is designed for managing and loading data for change detection tasks.
 
     References:
-        * 
+        * https://github.com/ServiceNow/seasonal-contrast/blob/main/datasets/oscd_dataset.py
+        * https://github.com/granularai/fabric/blob/igarss2019/utils/dataloaders.py
+        * https://github.com/NIX369/UNet_LSTM/blob/master/custom.py
+        * https://github.com/mpapadomanolaki/UNetLSTM/blob/master/custom.py
+        * https://github.com/WennyXY/DINO-MC/blob/main/data_process/oscd_dataset.py
 
     Download Instructions:
         1. Download the dataset from:
@@ -55,7 +59,6 @@ class CDDDataset(BaseDataset):
         Raises:
             AssertionError: If expected files or directories are missing.
         """
-<<<<<<< HEAD
         model_path = os.path.join(self.data_root, 'Model')
         subfolders = os.listdir(model_path)
         inputs_root = [os.path.join(model_path, subfolder, self.split) for subfolder in subfolders]
@@ -76,24 +79,6 @@ class CDDDataset(BaseDataset):
                 assert os.path.isfile(input_2_filepath), f"File not found: {input_2_filepath}"
                 assert os.path.isfile(label_filepath), f"File not found: {label_filepath}"
 
-=======
-        subfolders = (os.listdir(os.path.join(self.data_root, 'Model')))
-        inputs_root: str = [os.path.join(self.data_root, 'Model', f"{subfolder}", f"{split}") for subfolder in subfolders]
-        labels_root: str = [os.path.join(self.data_root, 'Model', f"{subfolder}",  f"{split}", 'OUT') for subfolder in subfolders]
-        self.annotations: List[dict] = []
-        for input_root, label_root in zip(inputs_root, labels_root):
-            filenames = [files for files in os.listdir(os.path.join(input_root, 'A')) if not files.startswith('.')]
-            filenames.sort()
-            print(filenames)
-            assert len(os.listdir(os.path.join(input_root, 'A'))), len(os.listdir(os.path.join(input_root, 'B')))
-            for filename in filenames:
-                input_1_filepath = os.path.join(input_root, 'A', filename)
-                assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
-                input_2_filepath = os.path.join(input_root, 'B', filename)
-                assert os.path.isfile(input_1_filepath), f"{input_1_filepath=}"
-                label_filepath = os.path.join(label_root, filename)
-                assert os.path.isfile(label_filepath), f"{label_filepath=}"
->>>>>>> f
                 self.annotations.append({
                     'inputs': {
                         'input_1_filepath': input_1_filepath,
