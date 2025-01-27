@@ -108,5 +108,22 @@ class CDDDataset(BaseDataset):
             filepath=self.annotations[idx]['labels']['label_filepath'],
             dtype=torch.int64, sub=None, div=255,
         )
+        if change_map.ndim == 3:
+            ndim, height, width = change_map.shape
+            colors=[(255 ,0, 0),
+            (0,0,255),
+            (0,255,0),
+            (255,0,255),
+            (0,255,255),
+            (255,255,255),
+            (0,0,0)]
+            mapping = {tuple(c): t for c, t in zip(colors, range(len(colors)))}
+            mask = torch.empty(height, width, dtype=torch.int64)
+            for k in mapping:
+                # Get all indices for current class
+                idx = (change_map==torch.tensor(k, dtype=torch.uint8).unsqueeze(1).unsqueeze(2))
+                validx = (idx.sum(0) == 3)  # Check that all channels match
+                mask[validx] = torch.tensor(mapping[k], dtype=torch.long)
+                change_map = mask
         assert change_map.ndim == 2, f"Expected 2D label, got {change_map.shape}."
         return {'change_map': change_map}
