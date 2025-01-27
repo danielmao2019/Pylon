@@ -65,8 +65,9 @@ class CDDDataset(BaseDataset):
         directories = []
         for model_path in model_paths:
             subfolders = os.listdir(model_path)
-            directories = directories + [os.path.join(model_path, subfolder) for subfolder in subfolders]
+            directories = directories + [os.path.join(model_path, subfolder) for subfolder in subfolders if subfolder != 'original']
 
+        print(directories)
         self.annotations: List[dict] = []
         for directory in directories:
             input_1_files = []
@@ -80,18 +81,6 @@ class CDDDataset(BaseDataset):
                                                                 key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
                 label_files = [os.path.join(folder_root, 'OUT', filename) for filename in sorted(os.listdir(os.path.join(folder_root, 'OUT')),
                                                                 key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
-            else:
-                folder_roots = [os.path.join(directory, subfolder) for subfolder in os.listdir(directory)]
-                for folder_root in folder_roots:
-                    files_list = sorted(os.listdir(folder_root),
-                        key=lambda x: int(os.path.splitext(os.path.basename(x))[0].split('_')[0]),
-                    )
-                    input_1_files = input_1_files + list(os.path.join(folder_root, filename) for filename in 
-                        list(filter(lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[1] == 'A', files_list)))
-                    input_2_files = input_2_files + list(os.path.join(folder_root, filename) for filename in 
-                        list(filter(lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[1] == 'B', files_list)))
-                    label_files = label_files + list(os.path.join(folder_root, filename) for filename in 
-                        list(filter(lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[1] == 'OUT', files_list)))
                 
             for input_1_filepath, input_2_filepath, label_filepath in zip(input_1_files, input_2_files, label_files):
                 # Ensure required files exist
@@ -167,22 +156,5 @@ class CDDDataset(BaseDataset):
             filepath=self.annotations[idx]['labels']['label_filepath'],
             dtype=torch.int64, sub=None, div=255,
         )
-        if change_map.ndim == 3:
-            ndim, height, width = change_map.shape
-            colors=[(255 ,0, 0),
-            (0,0,255),
-            (0,255,0),
-            (255,0,255),
-            (0,255,255),
-            (255,255,255),
-            (0,0,0)]
-            mapping = {tuple(c): t for c, t in zip(colors, range(len(colors)))}
-            mask = torch.empty(height, width, dtype=torch.int64)
-            for k in mapping:
-                # Get all indices for current class
-                idx = (change_map==torch.tensor(k, dtype=torch.uint8).unsqueeze(1).unsqueeze(2))
-                validx = (idx.sum(0) == 3)  # Check that all channels match
-                mask[validx] = torch.tensor(mapping[k], dtype=torch.long)
-                change_map = mask
         assert change_map.ndim == 2, f"Expected 2D label, got {change_map.shape}."
         return {'change_map': change_map}
