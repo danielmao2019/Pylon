@@ -6,6 +6,10 @@ import torchvision
 
 
 class PPSLDataset(BaseSyntheticDataset):
+    __doc__ = r"""
+    References:
+        * https://github.com/SGao1997/PPSL_MGFDNet/blob/main/dataset_half_bz24.py#L19
+    """
 
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
