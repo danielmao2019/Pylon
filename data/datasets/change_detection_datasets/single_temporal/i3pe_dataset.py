@@ -144,11 +144,11 @@ class I3PEDataset(BaseSyntheticDataset):
         return exchanged_image, change_map
 
     def intER_image_patch_exchange(
-        self, 
-        img_1: torch.Tensor, 
-        img_2: torch.Tensor, 
-        object_1: numpy.ndarray, 
-        object_2: numpy.ndarray, 
+        self,
+        img_1: torch.Tensor,
+        img_2: torch.Tensor,
+        object_1: numpy.ndarray,
+        object_2: numpy.ndarray,
         patch_sz: int
     ):
         """
