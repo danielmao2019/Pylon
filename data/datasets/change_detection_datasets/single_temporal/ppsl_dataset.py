@@ -2,12 +2,18 @@ from typing import Tuple, Dict, Any
 from data.datasets import BaseSyntheticDataset
 import random
 import torch
+import torchvision
 
 
 class PPSLDataset(BaseSyntheticDataset):
 
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
+
+    def __init__(self, **kwargs) -> None:
+        super(PPSLDataset, self).__init__(**kwargs)
+        self.colorjit = torchvision.transforms.ColorJitter(brightness=0.7, contrast=0.7, saturation=0.7, hue=0.2)
+        self.affine = torchvision.transforms.RandomAffine(degrees=(-5, 5), scale=(1, 1.02), translate=(0.02, 0.02), shear=(-5, 5))
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
