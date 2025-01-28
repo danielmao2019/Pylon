@@ -26,6 +26,7 @@ class SYSU_CD_Dataset(BaseDataset):
     NUM_CLASSES = 2
     CLASS_DIST = {
         'train': [6368388, 149190],
+        'val': [2918859, 159077],
         'test': [2918859, 159077],
     }
 
