@@ -1,8 +1,8 @@
 from typing import Tuple, Dict, Union
 import torch
-import channel_attention
-import conv_block_nested
-import up
+from .channel_attention import ChannelAttention
+from .conv_block_nested import conv_block_nested
+from .up import up
 
 
 class SNUNet_ECAM(torch.nn.Module):
@@ -45,28 +45,28 @@ class SNUNet_ECAM(torch.nn.Module):
 
         self.conv0_4 = conv_block_nested(filters[0] * 5 + filters[1], filters[0], filters[0])
 
-        self.ca = channel_attention(filters[0] * 4, ratio=16)
-        self.ca1 = channel_attention(filters[0], ratio=16 // 4)
+        self.ca = ChannelAttention(filters[0] * 4, ratio=16)
+        self.ca1 = ChannelAttention(filters[0], ratio=16 // 4)
 
         self.conv_final = torch.nn.Conv2d(filters[0] * 4, out_ch, kernel_size=1)
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, torch.nn.Conv2d):
                 torch.nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
             elif isinstance(m, (torch.nn.BatchNorm2d, torch.nn.GroupNorm)):
                 torch.nn.init.constant_(m.weight, 1)
                 torch.nn.init.constant_(m.bias, 0)
 
 
-    def forward(self, xA, xB):
-        '''xA'''
-        x0_0A = self.conv0_0(xA)
+    def forward(self, inputs):
+        '''inputs['img_1']'''
+        x0_0A = self.conv0_0(inputs['img_1'])
         x1_0A = self.conv1_0(self.pool(x0_0A))
         x2_0A = self.conv2_0(self.pool(x1_0A))
         x3_0A = self.conv3_0(self.pool(x2_0A))
         # x4_0A = self.conv4_0(self.pool(x3_0A))
-        '''xB'''
-        x0_0B = self.conv0_0(xB)
+        '''inputs['img_2']'''
+        x0_0B = self.conv0_0(inputs['img_2'])
         x1_0B = self.conv1_0(self.pool(x0_0B))
         x2_0B = self.conv2_0(self.pool(x1_0B))
         x3_0B = self.conv3_0(self.pool(x2_0B))
@@ -94,3 +94,4 @@ class SNUNet_ECAM(torch.nn.Module):
         out = self.conv_final(out)
 
         return (out, )
+    
