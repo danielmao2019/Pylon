@@ -6,9 +6,7 @@ import utils
 import itertools
 
 class CDDDataset(BaseDataset):
-    """
-    The CDDDataset class is designed for managing and loading data for change detection tasks.
-
+    __doc__ = r"""
     References:
         * https://github.com/ServiceNow/seasonal-contrast/blob/main/datasets/oscd_dataset.py
         * https://github.com/granularai/fabric/blob/igarss2019/utils/dataloaders.py
@@ -34,13 +32,6 @@ class CDDDataset(BaseDataset):
             ```bash
             stat <Pylon_path>/data/datasets/soft_links/CDD
             ```
-
-    Attributes:
-        SPLIT_OPTIONS (List[str]): Available data splits ('train', 'test', 'val').
-        DATASET_SIZE (Optional[int]): Dataset size (set dynamically).
-        INPUT_NAMES (List[str]): Names of input tensors.
-        LABEL_NAMES (List[str]): Names of label tensors.
-        SHA1SUM (Optional[str]): Checksum for data validation.
     """
 
     SPLIT_OPTIONS = ['train', 'test', 'val']
