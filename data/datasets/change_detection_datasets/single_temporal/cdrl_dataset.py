@@ -4,6 +4,12 @@ from data.datasets import BaseSyntheticDataset
 
 
 class CDRLDataset(BaseSyntheticDataset):
+    __doc__ = r"""
+    Using CycleGAN as transform:
+        * https://github.com/junyanz/pytorch-CycleGAN-and-pix2pix
+        * [latest_net_G_A](https://drive.google.com/file/d/1M7fIJo6koqLFqXVjKG0PWHRWlTPN5BZV/view?usp=sharing)
+        * [latest_net_G_B](https://drive.google.com/file/d/1k_tGVaI-4_Wn6-eLT0qvm8YsIz9oDqnS/view?usp=sharing)
+    """
 
     def __init__(self, transform: Callable[[torch.Tensor], torch.Tensor], **kwargs) -> None:
         assert callable(transform)
