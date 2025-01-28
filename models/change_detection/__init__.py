@@ -11,6 +11,7 @@ from models.change_detection.change_former.models.change_former_v6 import Change
 from models.change_detection.change_star.change_star import ChangeStar
 from models.change_detection.i3pe.i3pe_model import I3PEModel
 from models.change_detection.ppsl_model import PPSLModel
+from models.change_detection.snunet.snunet import SNUNet
 # from models.change_detection.cyws_3d.cyws_3d import CYWS3D
 
 
@@ -26,4 +27,5 @@ __all__ = (
     'I3PEModel',
     'PPSLModel',
     # 'CYWS3D',
+    'SNUNet'
 )
