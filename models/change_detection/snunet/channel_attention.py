@@ -9,6 +9,7 @@ class ChannelAttention(torch.nn.Module):
         self.relu1 = torch.nn.ReLU()
         self.fc2 = torch.nn.Conv2d(in_channels//ratio, in_channels,1,bias=False)
         self.sigmod = torch.nn.Sigmoid()
+    
     def forward(self,x):
         avg_out = self.fc2(self.relu1(self.fc1(self.avg_pool(x))))
         max_out = self.fc2(self.relu1(self.fc1(self.max_pool(x))))
