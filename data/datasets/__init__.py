@@ -13,12 +13,13 @@ from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesData
 from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
 
 # Change Detection datasets
-from data.datasets.change_detection_datasets.oscd_dataset import OSCDDataset
-from data.datasets.change_detection_datasets.levir_cd_dataset import LevirCdDataset
-from data.datasets.change_detection_datasets.xview2_dataset import xView2Dataset
-from data.datasets.change_detection_datasets.kc_3d_dataset import KC3DDataset
-from data.datasets.change_detection_datasets.air_change_dataset import AirChangeDataset
-from data.datasets.change_detection_datasets.cdd_dataset import CDDDataset
+## Bi-Temporal
+from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
+from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
+from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
+from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
+from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
+from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 
 
 __all__ = (
@@ -32,6 +33,7 @@ __all__ = (
     'CityScapesDataset',
     'NYUv2Dataset',
     # Change Detection datasets
+    ## Bi-Temporal
     'OSCDDataset',
     'LevirCdDataset',
     'xView2Dataset',
