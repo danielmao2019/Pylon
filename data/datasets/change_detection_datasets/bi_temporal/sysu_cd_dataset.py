@@ -25,9 +25,9 @@ class SYSU_CD_Dataset(BaseDataset):
     LABEL_NAMES = ['change_map']
     NUM_CLASSES = 2
     CLASS_DIST = {
-        'train': [6368388, 149190],
-        'val': [2918859, 159077],
-        'test': [2918859, 159077],
+        'train': [618599552, 167833360],
+        'val': [205706240, 56437744],
+        'test': [200322672, 61820912],
     }
 
     def _init_annotations(self) -> None:
