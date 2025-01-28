@@ -2,82 +2,92 @@ from typing import Tuple, Dict, Union
 import torch
 
 
-class SNUNet(torch.nn.Module):
+class SNUNet_ECAM(torch.nn.Module):
+    # SNUNet-CD with ECAM
+    def __init__(self, in_ch=3, out_ch=2):
+        super(SNUNet_ECAM, self).__init__()
+        torch.nn.Module.dump_patches = True
+        n1 = 32     # the initial number of channels of feature map
+        filters = [n1, n1 * 2, n1 * 4, n1 * 8, n1 * 16]
 
-    def __init__(self, encoder: torch.nn.Module, change_decoder_cfg: dict, semantic_decoder_cfg: dict) -> None:
-        super(SNUNet, self).__init__()
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
 
-    # ====================================================================================================
-    # initialization methods
-    # ====================================================================================================
+        self.conv0_0 = conv_block_nested(in_ch, filters[0], filters[0])
+        self.conv1_0 = conv_block_nested(filters[0], filters[1], filters[1])
+        self.Up1_0 = up(filters[1])
+        self.conv2_0 = conv_block_nested(filters[1], filters[2], filters[2])
+        self.Up2_0 = up(filters[2])
+        self.conv3_0 = conv_block_nested(filters[2], filters[3], filters[3])
+        self.Up3_0 = up(filters[3])
+        self.conv4_0 = conv_block_nested(filters[3], filters[4], filters[4])
+        self.Up4_0 = up(filters[4])
 
-    @staticmethod
-    def _build_change_decoder(
-        in_channels: int,
-        mid_channels: int,
-        out_channels: int,
-        drop_rate: float,
-        scale_factor: Union[float, Tuple[float, float]],
-        num_convs: int,
-    ) -> torch.nn.Module:
-        in_layer = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels, mid_channels, 3, 1, 1),
-            torch.nn.ReLU(True),
-            torch.nn.BatchNorm2d(mid_channels),
-            DropConnect(drop_rate) if drop_rate > 0. else torch.nn.Identity()
-        )
-        mid_layers = [torch.nn.Sequential(
-            torch.nn.Conv2d(mid_channels, mid_channels, 3, 1, 1),
-            torch.nn.ReLU(True),
-            torch.nn.BatchNorm2d(mid_channels),
-            DropConnect(drop_rate) if drop_rate > 0. else torch.nn.Identity()
-        ) for _ in range(num_convs - 1)]
-        out_layer = torch.nn.Sequential(
-            torch.nn.Conv2d(mid_channels, out_channels, 3, 1, 1),
-            torch.nn.UpsamplingBilinear2d(scale_factor=scale_factor),
-        )
-        return torch.nn.Sequential(in_layer, *mid_layers, out_layer)
+        self.conv0_1 = conv_block_nested(filters[0] * 2 + filters[1], filters[0], filters[0])
+        self.conv1_1 = conv_block_nested(filters[1] * 2 + filters[2], filters[1], filters[1])
+        self.Up1_1 = up(filters[1])
+        self.conv2_1 = conv_block_nested(filters[2] * 2 + filters[3], filters[2], filters[2])
+        self.Up2_1 = up(filters[2])
+        self.conv3_1 = conv_block_nested(filters[3] * 2 + filters[4], filters[3], filters[3])
+        self.Up3_1 = up(filters[3])
 
-    @staticmethod
-    def _build_semantic_decoder(
-        in_channels: int,
-        out_channels: int,
-        scale_factor: Union[float, Tuple[float, float]],
-    ) -> torch.nn.Module:
-        layers = [
-            torch.nn.Conv2d(in_channels, out_channels, 3, 1, 1),
-            torch.nn.UpsamplingBilinear2d(scale_factor=scale_factor),
-        ]
-        return torch.nn.Sequential(*layers)
+        self.conv0_2 = conv_block_nested(filters[0] * 3 + filters[1], filters[0], filters[0])
+        self.conv1_2 = conv_block_nested(filters[1] * 3 + filters[2], filters[1], filters[1])
+        self.Up1_2 = up(filters[1])
+        self.conv2_2 = conv_block_nested(filters[2] * 3 + filters[3], filters[2], filters[2])
+        self.Up2_2 = up(filters[2])
 
-    # ====================================================================================================
-    # forward methods
-    # ====================================================================================================
+        self.conv0_3 = conv_block_nested(filters[0] * 4 + filters[1], filters[0], filters[0])
+        self.conv1_3 = conv_block_nested(filters[1] * 4 + filters[2], filters[1], filters[1])
+        self.Up1_3 = up(filters[1])
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-        feat_1 = self.encoder(inputs['img_1'])
-        feat_2 = self.encoder(inputs['img_2'])
-        if self.training:
-            return self._forward_train(feat_1, feat_2)
-        else:
-            return self._forward_eval(feat_1, feat_2)
+        self.conv0_4 = conv_block_nested(filters[0] * 5 + filters[1], filters[0], filters[0])
 
-    def _forward_train(self, feat_1: torch.Tensor, feat_2: torch.Tensor) -> Dict[str, torch.Tensor]:
-        change_12 = self.change_decoder(torch.cat([feat_1, feat_2], dim=1))
-        change_21 = self.change_decoder(torch.cat([feat_2, feat_1], dim=1))
-        semantic = self.semantic_decoder(feat_1)
-        return {
-            'change_12': change_12,
-            'change_21': change_21,
-            'semantic': semantic,
-        }
+        self.ca = ChannelAttention(filters[0] * 4, ratio=16)
+        self.ca1 = ChannelAttention(filters[0], ratio=16 // 4)
 
-    def _forward_eval(self, feat_1: torch.Tensor, feat_2: torch.Tensor) -> Dict[str, torch.Tensor]:
-        change = self.change_decoder(torch.cat([feat_1, feat_2], dim=1))
-        semantic_1 = self.semantic_decoder(feat_1)
-        semantic_2 = self.semantic_decoder(feat_2)
-        return {
-            'change': change,
-            'semantic_1': semantic_1,
-            'semantic_2': semantic_2,
-        }
+        self.conv_final = nn.Conv2d(filters[0] * 4, out_ch, kernel_size=1)
+
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+
+    def forward(self, xA, xB):
+        '''xA'''
+        x0_0A = self.conv0_0(xA)
+        x1_0A = self.conv1_0(self.pool(x0_0A))
+        x2_0A = self.conv2_0(self.pool(x1_0A))
+        x3_0A = self.conv3_0(self.pool(x2_0A))
+        # x4_0A = self.conv4_0(self.pool(x3_0A))
+        '''xB'''
+        x0_0B = self.conv0_0(xB)
+        x1_0B = self.conv1_0(self.pool(x0_0B))
+        x2_0B = self.conv2_0(self.pool(x1_0B))
+        x3_0B = self.conv3_0(self.pool(x2_0B))
+        x4_0B = self.conv4_0(self.pool(x3_0B))
+
+        x0_1 = self.conv0_1(torch.cat([x0_0A, x0_0B, self.Up1_0(x1_0B)], 1))
+        x1_1 = self.conv1_1(torch.cat([x1_0A, x1_0B, self.Up2_0(x2_0B)], 1))
+        x0_2 = self.conv0_2(torch.cat([x0_0A, x0_0B, x0_1, self.Up1_1(x1_1)], 1))
+
+
+        x2_1 = self.conv2_1(torch.cat([x2_0A, x2_0B, self.Up3_0(x3_0B)], 1))
+        x1_2 = self.conv1_2(torch.cat([x1_0A, x1_0B, x1_1, self.Up2_1(x2_1)], 1))
+        x0_3 = self.conv0_3(torch.cat([x0_0A, x0_0B, x0_1, x0_2, self.Up1_2(x1_2)], 1))
+
+        x3_1 = self.conv3_1(torch.cat([x3_0A, x3_0B, self.Up4_0(x4_0B)], 1))
+        x2_2 = self.conv2_2(torch.cat([x2_0A, x2_0B, x2_1, self.Up3_1(x3_1)], 1))
+        x1_3 = self.conv1_3(torch.cat([x1_0A, x1_0B, x1_1, x1_2, self.Up2_2(x2_2)], 1))
+        x0_4 = self.conv0_4(torch.cat([x0_0A, x0_0B, x0_1, x0_2, x0_3, self.Up1_3(x1_3)], 1))
+
+        out = torch.cat([x0_1, x0_2, x0_3, x0_4], 1)
+
+        intra = torch.sum(torch.stack((x0_1, x0_2, x0_3, x0_4)), dim=0)
+        ca1 = self.ca1(intra)
+        out = self.ca(out) * (out + ca1.repeat(1, 4, 1, 1))
+        out = self.conv_final(out)
+
+        return (out, )
