@@ -1,5 +1,8 @@
 from typing import Tuple, Dict, Union
 import torch
+import channel_attention
+import conv_block_nested
+import up
 
 
 class SNUNet_ECAM(torch.nn.Module):
@@ -10,7 +13,7 @@ class SNUNet_ECAM(torch.nn.Module):
         n1 = 32     # the initial number of channels of feature map
         filters = [n1, n1 * 2, n1 * 4, n1 * 8, n1 * 16]
 
-        self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
+        self.pool = torch.nn.MaxPool2d(kernel_size=2, stride=2)
 
         self.conv0_0 = conv_block_nested(in_ch, filters[0], filters[0])
         self.conv1_0 = conv_block_nested(filters[0], filters[1], filters[1])
@@ -45,14 +48,14 @@ class SNUNet_ECAM(torch.nn.Module):
         self.ca = ChannelAttention(filters[0] * 4, ratio=16)
         self.ca1 = ChannelAttention(filters[0], ratio=16 // 4)
 
-        self.conv_final = nn.Conv2d(filters[0] * 4, out_ch, kernel_size=1)
+        self.conv_final = torch.nn.Conv2d(filters[0] * 4, out_ch, kernel_size=1)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+                torch.nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif isinstance(m, (torch.nn.BatchNorm2d, torch.nn.GroupNorm)):
+                torch.nn.init.constant_(m.weight, 1)
+                torch.nn.init.constant_(m.bias, 0)
 
 
     def forward(self, xA, xB):
