@@ -8,6 +8,12 @@ from data.datasets import BaseSyntheticDataset
 
 
 class I3PEDataset(BaseSyntheticDataset):
+    __doc__ = r"""
+    References:
+        * https://github.com/ChenHongruixuan/I3PE/blob/3182c2918bd32a5b7dd44dc7ee71fe09ab92ed7b/data/datasets.py#L67
+        * https://github.com/ChenHongruixuan/I3PE/blob/3182c2918bd32a5b7dd44dc7ee71fe09ab92ed7b/data/generate_clustering_results.py#L51
+        * https://github.com/ChenHongruixuan/I3PE/blob/3182c2918bd32a5b7dd44dc7ee71fe09ab92ed7b/data/generate_object.py#L10
+    """
 
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
