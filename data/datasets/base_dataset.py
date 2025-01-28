@@ -63,6 +63,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             self.split_percentages = split
         else:
             self.split = split
+        if hasattr(self, 'CLASS_DIST') and type(self.CLASS_DIST) == dict:
+            assert set(self.CLASS_DIST.keys()).issubset(set(self.SPLIT_OPTIONS))
+            assert all(type(x) == list for x in self.CLASS_DIST.values())
+            self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_indices(self, indices: Optional[Union[List[int], Dict[str, List[int]]]]) -> None:
         # type check

@@ -44,7 +44,6 @@ class AirChangeDataset(BaseDataset):
 
     def __init__(self, *args, **kwargs) -> None:
         super(AirChangeDataset, self).__init__(*args, **kwargs)
-        self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_cropping_configs(self) -> None:
 
