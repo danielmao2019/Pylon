@@ -2,6 +2,7 @@
 DATA.DATASETS API
 """
 from data.datasets.base_dataset import BaseDataset
+from data.datasets.base_synthetic_dataset import BaseSyntheticDataset
 from data.datasets import random_datasets
 from data.datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
 
@@ -26,6 +27,7 @@ from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import 
 
 __all__ = (
     'BaseDataset',
+    'BaseSyntheticDataset',
     'random_datasets',
     'ProjectionDatasetWrapper',
     # Multi-Task Learning datasets
