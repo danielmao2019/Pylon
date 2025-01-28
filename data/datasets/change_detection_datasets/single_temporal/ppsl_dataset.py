@@ -22,14 +22,20 @@ class PPSLDataset(BaseSyntheticDataset):
         img_1 = self.dataset[idx]['inputs']['image']
         label_1 = self.dataset[idx]['labels']['semantic_segmentation']
 
+        # Apply color jitter to the first image
+        img_1 = self.colorjit(img_1)
+
         # Select a random second datapoint
         idx_2 = random.choice(range(len(self.dataset)))
         img_2 = self.dataset[idx_2]['inputs']['image']
         label_2 = self.dataset[idx_2]['labels']['semantic_segmentation']
 
+        # Apply affine transformation to the second image
+        img_2 = self.affine(img_2)
+
         # Create the patch from the top half of the first image and label
-        patch_img = img_1[:, 256:512, :]
-        patch_label = label_1[256:512, :]
+        patch_img = img_1[:, 256:512, :]  # Extract patch from the first image
+        patch_label = label_1[256:512, :]  # Extract patch from the first label
 
         # Apply the patch to the second image and label
         img_2_patched = img_2.clone()  # Ensure we don't modify the original tensor
@@ -38,9 +44,10 @@ class PPSLDataset(BaseSyntheticDataset):
         img_2_patched[:, 256:512, :] = patch_img
         label_2_patched[256:512, :] = patch_label
 
-        # Calculate the change label
+        # Calculate the change map (logical XOR of labels)
         change_map = (label_1 != label_2_patched).type(torch.int64)
 
+        # Prepare the inputs and labels
         inputs = {
             'img_1': img_1,
             'img_2': img_2_patched,
@@ -49,4 +56,5 @@ class PPSLDataset(BaseSyntheticDataset):
             'change_map': change_map,
         }
         meta_info = {}
+
         return inputs, labels, meta_info
