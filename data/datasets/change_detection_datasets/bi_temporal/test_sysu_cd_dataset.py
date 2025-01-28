@@ -1,5 +1,5 @@
 import pytest
-from .oscd_dataset import SYSU_CD_Dataset
+from .sysu_cd_dataset import SYSU_CD_Dataset
 import torch
 
 
