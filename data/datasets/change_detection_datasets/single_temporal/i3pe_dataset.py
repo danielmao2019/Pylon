@@ -40,17 +40,31 @@ class I3PEDataset(BaseSyntheticDataset):
         patch_size = random.choice(self.scale_factors)
 
         if exchange_type_seed < 0.5:
-            pre_image = self.dataset[idx]['inputs']['image']
-            class_labels = self._perform_clustering(pre_image)
-            post_image, label = self._intra_image_patch_exchange(pre_image, class_labels, patch_size)
-        else:
+            idx_2 = idx
             img_1 = self.dataset[idx]['inputs']['image']
-            img_2 = self.dataset[random.choice(range(len(self.dataset)))]['inputs']['image']
+            class_labels = self._perform_clustering(img_1)
+            img_2, change_map = self._intra_image_patch_exchange(img_1, class_labels, patch_size)
+        else:
+            idx_2 = random.choice(range(len(self.dataset)))
+            img_1 = self.dataset[idx]['inputs']['image']
+            img_2 = self.dataset[idx_2]['inputs']['image']
             objects_1 = self._segment_objects(img_1)
             objects_2 = self._segment_objects(img_2)
-            post_image, label = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
+            img_2, change_map = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
 
-        return pre_image, post_image, label
+        inputs = {
+            'img_1': img_1,
+            'img_2': img_2,
+        }
+        labels = {
+            'change_map': change_map,
+        }
+        meta_info = {
+            'img_1_filepath': self.dataset[idx]['meta_info']['image_filepath'],
+            'img_2_filepath': self.dataset[idx_2]['meta_info']['image_filepath'],
+            'patch_size': patch_size,
+        }
+        return inputs, labels, meta_info
 
     def _segment_objects(self, image: torch.Tensor) -> numpy.ndarray:
         """
