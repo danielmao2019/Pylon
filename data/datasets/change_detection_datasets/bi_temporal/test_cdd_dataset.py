@@ -5,8 +5,13 @@ import torch
 
 @pytest.mark.parametrize("dataset", [
     (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='train')),
+<<<<<<< HEAD
     (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='val')),
     (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='test')),
+=======
+    (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='test')),
+    (CDDDataset(data_root="./data/datasets/soft_links/CDD", split='val')),
+>>>>>>> [Data][Datasets] Divide change detection datasets into bi-temporal and single-temporal datasets (#57)
 ])
 def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
