@@ -1,6 +1,6 @@
 from typing import Tuple, Dict, Union, Any
 import random
-import numpy
+import numpy as np
 import torch
 from sklearn.cluster import DBSCAN
 from skimage.segmentation import slic
