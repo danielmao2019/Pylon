@@ -34,7 +34,7 @@ class CDDDataset(BaseDataset):
             ```
     """
 
-    SPLIT_OPTIONS = ['train', 'val', 'test ']
+    SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = None
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
@@ -80,10 +80,7 @@ class CDDDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         inputs = self._load_inputs(idx)
         labels = self._load_labels(idx)
-        if labels['change_map'].shape[0] == 3:
-            ndim, height, width = labels['change_map'].shape
-        else:
-            height, width = labels['change_map'].shape
+        height, width = labels['change_map'].shape
         assert all(
             x.shape == (3, height, width) for x in [inputs['img_1'], inputs['img_2']]
         ), f"Shape mismatch: {inputs['img_1'].shape}, {inputs['img_2'].shape}, {labels['change_map'].shape}"
