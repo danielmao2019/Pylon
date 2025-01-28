@@ -45,8 +45,8 @@ class SNUNet_ECAM(torch.nn.Module):
 
         self.conv0_4 = conv_block_nested(filters[0] * 5 + filters[1], filters[0], filters[0])
 
-        self.ca = ChannelAttention(filters[0] * 4, ratio=16)
-        self.ca1 = ChannelAttention(filters[0], ratio=16 // 4)
+        self.ca = channel_attention(filters[0] * 4, ratio=16)
+        self.ca1 = channel_attention(filters[0], ratio=16 // 4)
 
         self.conv_final = torch.nn.Conv2d(filters[0] * 4, out_ch, kernel_size=1)
 
