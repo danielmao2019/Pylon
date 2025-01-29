@@ -3,7 +3,6 @@ import os
 import torch
 from data.datasets import BaseDataset
 import utils
-import itertools
 import glob
 
 class CDDDataset(BaseDataset):
