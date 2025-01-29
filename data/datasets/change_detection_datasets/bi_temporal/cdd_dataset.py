@@ -36,55 +36,59 @@ class CDDDataset(BaseDataset):
     """
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
-    DATASET_SIZE = None
+    DATASET_SIZE = {
+        'train': 26000,
+        'val': 6998,
+        'test': 7000,
+    }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
+    CLASS_DIST = {
+        'train': [1540513402, 163422598],
+        'val': [414542888, 44078040],
+        'test': [413621824, 45130176],
+    }
+    NUM_CLASSES = 2
     SHA1SUM = None
 
     def _init_annotations(self) -> None:
-        img_1_filepaths = sorted(glob.glob(os.path.join(self.data_root, 'Model', "**", self.split, 'A', "*.bmp")))
-        img_2_filepaths = sorted(glob.glob(os.path.join(self.data_root, 'Model', "**", self.split, 'B', "*.bmp")))
-        change_map_filepaths = sorted(glob.glob(os.path.join(self.data_root, 'Model', "**", self.split, 'OUT', "*.bmp")))
-
-        self.annotations: List[dict] = []
+        def get_files(name: str) -> List[str]:
+            files = glob.glob(os.path.join(self.data_root, "**", "**", self.split, name, "*.jpg"))
+            files = list(filter(lambda x: "with_shift" not in x, files))
+            files.extend(glob.glob(os.path.join(self.data_root, "**", "with_shift", self.split, name, "*.jpg" if self.split == 'train' else "*.bmp")))
+            return sorted(files)
+        img_1_filepaths = get_files('A')
+        img_2_filepaths = get_files('B')
+        change_map_filepaths = get_files('OUT')
+        assert len(img_1_filepaths) == len(img_2_filepaths) == len(change_map_filepaths)
+        self.annotations = []
         for img_1_path, img_2_path, change_map_path in zip(img_1_filepaths, img_2_filepaths, change_map_filepaths):
-            assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path])
+            assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path]), \
+                f"{img_1_path=}, {img_2_path=}, {change_map_path=}"
             self.annotations.append({
-                'inputs': {
-                    'input_1_filepath': img_1_path,
-                    'input_2_filepath': img_2_path,
-                },
-                'labels': {
-                    'change_map_filepath': change_map_path,
-                },
+                'img_1_path': img_1_path,
+                'img_2_path': img_2_path,
+                'change_map_path': change_map_path,
             })
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        inputs = self._load_inputs(idx)
-        labels = self._load_labels(idx)
+        inputs = {
+            f'img_{i}': utils.io.load_image(
+                filepath=self.annotations[idx][f'img_{i}_path'],
+                dtype=torch.float32, sub=None, div=255.0,
+            )
+            for i in [1, 2]
+        }
+        labels = {
+            'change_map': utils.io.load_image(
+                filepath=self.annotations[idx]['change_map_path'],
+                dtype=torch.int64, sub=None, div=255.0,
+            )
+        }
         height, width = labels['change_map'].shape
-
         assert all(
             x.shape == (3, height, width) for x in [inputs['img_1'], inputs['img_2']]
         ), f"Shape mismatch: {inputs['img_1'].shape}, {inputs['img_2'].shape}, {labels['change_map'].shape}"
 
         meta_info = {'image_resolution': (height, width)}
         return inputs, labels, meta_info
-
-    def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
-        inputs = {}
-        for input_idx in [1, 2]:
-            img = utils.io.load_image(
-                filepath=self.annotations[idx]['inputs'][f'input_{input_idx}_filepath'],
-                dtype=torch.float32, sub=None, div=255.0,
-            )
-            inputs[f'img_{input_idx}'] = img
-        return inputs
-
-    def _load_labels(self, idx: int) -> Dict[str, torch.Tensor]:
-        change_map = utils.io.load_image(
-            filepath=self.annotations[idx]['labels']['change_map_filepath'],
-            dtype=torch.int64, sub=None, div=255.0,
-        )
-        assert change_map.ndim == 2, f"Expected 2D label, got {change_map.shape}."
-        return {'change_map': change_map}
