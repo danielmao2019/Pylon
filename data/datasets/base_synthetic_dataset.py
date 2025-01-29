@@ -25,5 +25,10 @@ class BaseSyntheticDataset(BaseDataset, ABC):
             self.cache = None
         self.device = device
 
+    def _init_annotations(self) -> None:
+        """This abstract method is not needed but must be implemented.
+        """
+        pass
+
     def __len__(self) -> int:
         return self.DATASET_SIZE
