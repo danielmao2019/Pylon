@@ -1,6 +1,11 @@
 import torch
 
 class up(torch.nn.Module):
+    __doc__ = r"""
+    References:
+        * https://github.com/likyoo/Siam-NestedUNet/blob/master/models/Models.py
+    """
+    
     def __init__(self, in_ch, bilinear=False):
         super(up, self).__init__()
 
