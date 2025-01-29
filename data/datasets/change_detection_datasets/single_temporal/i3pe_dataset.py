@@ -52,6 +52,10 @@ class I3PEDataset(BaseSyntheticDataset):
             objects_2 = self._segment_objects(img_2)
             img_2, change_map = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
 
+        assert all(type(x) == numpy.ndarray for x in [img_2, change_map])
+        img_2 = torch.from_numpy(img_2).to(self.device).permute((2, 0, 1))
+        change_map = torch.from_numpy(change_map).to(self.device)
+
         inputs = {
             'img_1': img_1,
             'img_2': img_2,
@@ -137,7 +141,7 @@ class I3PEDataset(BaseSyntheticDataset):
 
         num_exchanges = int(num_patches ** 2 * self.exchange_ratio)
         exchanged_image = image.copy()
-        change_map = numpy.zeros(image.shape[:2], dtype=numpy.uint8)
+        change_map = numpy.zeros(image.shape[:2], dtype=numpy.int64)
 
         for i in range(0, num_exchanges, 2):
             idx_1 = numpy.unravel_index(patch_indices[i], (num_patches, num_patches))
@@ -158,7 +162,7 @@ class I3PEDataset(BaseSyntheticDataset):
             inconsistency = (labels[patch_size * idx_1[0]:patch_size * (idx_1[0] + 1),
                                   patch_size * idx_1[1]:patch_size * (idx_1[1] + 1)] !=
                              labels[patch_size * idx_2[0]:patch_size * (idx_2[0] + 1),
-                                  patch_size * idx_2[1]:patch_size * (idx_2[1] + 1)]).astype(numpy.uint8)
+                                  patch_size * idx_2[1]:patch_size * (idx_2[1] + 1)]).astype(numpy.int64)
 
             change_map[patch_size * idx_1[0]:patch_size * (idx_1[0] + 1),
                        patch_size * idx_1[1]:patch_size * (idx_1[1] + 1)] = inconsistency
@@ -217,7 +221,7 @@ class I3PEDataset(BaseSyntheticDataset):
         clustered_labels = clustering.labels_
 
         # Create a clustered map
-        clustered_map = numpy.zeros(concat_img.shape[:2], dtype=numpy.uint8)
+        clustered_map = numpy.zeros(concat_img.shape[:2], dtype=numpy.int64)
         for obj_idx in range(obj_num + 1):
             clustered_map[concat_object == obj_idx] = clustered_labels[obj_idx]
 
@@ -226,7 +230,7 @@ class I3PEDataset(BaseSyntheticDataset):
         label_2 = clustered_map[:, img_1.shape[1]:]
 
         # Identify change regions
-        change_label = (label_1 != label_2).astype(numpy.uint8)
+        change_label = (label_1 != label_2).astype(numpy.int64)
 
         # Determine number of patches in rows and columns
         patch_num_in_raw = img_1.shape[0] // patch_sz
@@ -239,7 +243,7 @@ class I3PEDataset(BaseSyntheticDataset):
 
         # Initialize output images
         exchange_img = img_1.copy()
-        exchange_change_label = numpy.zeros(img_1.shape[:2], dtype=numpy.uint8)
+        exchange_change_label = numpy.zeros(img_1.shape[:2], dtype=numpy.int64)
 
         # Exchange patches between the two images
         for idx in exchange_patch_idx:
