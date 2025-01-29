@@ -35,18 +35,34 @@ class CDDDataset(BaseDataset):
     """
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
-    DATASET_SIZE = None
+    DATASET_SIZE = {
+        'train': 26000,
+        'val': 6998,
+        'test': 7000,
+    }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
+    CLASS_DIST = {
+        # 'train': [37962.0, 27574.0],
+        'train': [103305,  27767],
+        'val': [58737.0, 6799.0],
+        'test': [7357.0, 58179.0],
+    }
+    NUM_CLASSES = 2
     SHA1SUM = None
+    
+    def __init__(self, **kwargs):
+        super(CDDDataset, self).__init__(**kwargs)
+        assert 0, f"{self.CLASS_DIST=}"
+        self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_annotations(self) -> None:
-        subfolders = os.listdir(self.data_root)
-        model_paths = [os.path.join(self.data_root, subfolder) for subfolder in subfolders]
-        directories = []
-        for model_path in model_paths:
-            subfolders = os.listdir(model_path)
-            directories = directories + [os.path.join(model_path, subfolder) for subfolder in subfolders if subfolder != 'original']
+        directories = [os.path.join(self.data_root, subfolder, subsubfolder) 
+               for subfolder in os.listdir(self.data_root) 
+               if os.path.isdir(os.path.join(self.data_root, subfolder))
+               for subsubfolder in os.listdir(os.path.join(self.data_root, subfolder)) 
+               if os.path.isdir(os.path.join(self.data_root, subfolder, subsubfolder)) and subsubfolder != 'original']
+
         self.annotations: List[dict] = []
         for directory in directories:
             input_1_files = []

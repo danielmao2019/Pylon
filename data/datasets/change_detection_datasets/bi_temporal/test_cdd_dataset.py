@@ -10,7 +10,7 @@ import torch
 ])
 def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
-    
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
     for idx in range(len(dataset)):
         datapoint = dataset[idx]
         
@@ -48,6 +48,10 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
         unique_values = set(torch.unique(change_map).tolist())
         assert unique_values.issubset({0, 1}), \
             f"Unexpected values in change map at index {idx}: {unique_values}"
+        for cls in range(dataset.NUM_CLASSES):
+            class_dist[cls] += torch.sum(change_map == cls)
+        assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
+        assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
         # Validate meta_info
         meta_info = datapoint['meta_info']
