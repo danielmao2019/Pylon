@@ -1,6 +1,11 @@
 import torch
 
 class ChannelAttention(torch.nn.Module):
+    __doc__ = r"""
+    References:
+        * https://github.com/likyoo/Siam-NestedUNet/blob/master/models/Models.py
+    """
+    
     def __init__(self, in_channels, ratio = 16):
         super(ChannelAttention, self).__init__()
         self.avg_pool = torch.nn.AdaptiveAvgPool2d(1)

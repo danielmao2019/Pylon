@@ -6,6 +6,16 @@ from .up import up
 
 
 class SNUNet_ECAM(torch.nn.Module):
+    __doc__ = r"""
+    References:
+        * https://github.com/likyoo/Siam-NestedUNet/blob/master/models/Models.py
+        * https://github.com/likyoo/Siam-NestedUNet/blob/master/models/Models.py
+        * https://github.com/likyoo/Siam-NestedUNet/blob/master/utils/helpers.py
+        * https://github.com/shuaizzZ/Dice-Loss-PyTorch/blob/master/dice_loss.py
+
+    Note: This code is mainly ported from https://github.com/likyoo/Siam-NestedUNet
+    """
+    
     # SNUNet-CD with ECAM
     def __init__(self, in_ch=3, out_ch=2):
         super(SNUNet_ECAM, self).__init__()
@@ -58,7 +68,7 @@ class SNUNet_ECAM(torch.nn.Module):
                 torch.nn.init.constant_(m.bias, 0)
 
 
-    def forward(self, inputs):
+    def forward(self, inputs) -> torch.Tensor:
         '''inputs['img_1']'''
         x0_0A = self.conv0_0(inputs['img_1'])
         x1_0A = self.conv1_0(self.pool(x0_0A))
@@ -92,6 +102,5 @@ class SNUNet_ECAM(torch.nn.Module):
         ca1 = self.ca1(intra)
         out = self.ca(out) * (out + ca1.repeat(1, 4, 1, 1))
         out = self.conv_final(out)
-
-        return (out, )
+        return out
     
