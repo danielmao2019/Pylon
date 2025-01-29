@@ -2,15 +2,10 @@ import math
 import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-from model.sync_batchnorm.batchnorm import SynchronizedBatchNorm2d
-from torchvision.models import resnet50
-from torchvision.models import resnet
-
-__model_file = {
-
-    50: '../pretrained_models/resnet-50-pytorch.pth',
-    101: '../pretrained_models/resnet-101-pytorch.pth',
-}
+from models.change_detection.i3pe.sync_batchnorm.batchnorm import SynchronizedBatchNorm2d
+from torchvision.models.resnet import (
+    ResNet50_Weights, ResNet101_Weights,
+)
 
 
 class BasicBlock(nn.Module):
@@ -207,7 +202,7 @@ def ResNet50(output_stride, BatchNorm, pretrained=False):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], output_stride, BatchNorm)
     if pretrained:
-        pretrain_dict = torch.load(__model_file[50])
+        pretrain_dict = ResNet50_Weights.verify('DEFAULT').get_state_dict()
         model_dict = {}
         state_dict = model.state_dict()
         for k, v in pretrain_dict.items():
@@ -227,8 +222,7 @@ def ResNet101(output_stride, BatchNorm, pretrained=False):
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3], output_stride, BatchNorm)
     if pretrained:
-        # model.load_state_dict(torch.load(__model_file[101]))
-        pretrain_dict = torch.load(__model_file[101])
+        pretrain_dict = ResNet101_Weights.verify('DEFAULT').get_state_dict()
         model_dict = {}
         state_dict = model.state_dict()
         for k, v in pretrain_dict.items():

@@ -1,6 +1,6 @@
 import torch.nn as nn
-from model.resnet_50_101 import ResNet101, ResNet50
-from model.resnet_18_34 import ResNet18, ResNet34
+from models.change_detection.i3pe.resnet_18_34 import ResNet18
+from models.change_detection.i3pe.resnet_50_101 import ResNet50
 import torch
 import torch.nn.functional as F
 
