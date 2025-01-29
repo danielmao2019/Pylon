@@ -50,17 +50,17 @@ class CDDDataset(BaseDataset):
     }
     NUM_CLASSES = 2
     SHA1SUM = None
-    
+
     def __init__(self, **kwargs):
         super(CDDDataset, self).__init__(**kwargs)
         assert 0, f"{self.CLASS_DIST=}"
         self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_annotations(self) -> None:
-        directories = [os.path.join(self.data_root, subfolder, subsubfolder) 
-               for subfolder in os.listdir(self.data_root) 
+        directories = [os.path.join(self.data_root, subfolder, subsubfolder)
+               for subfolder in os.listdir(self.data_root)
                if os.path.isdir(os.path.join(self.data_root, subfolder))
-               for subsubfolder in os.listdir(os.path.join(self.data_root, subfolder)) 
+               for subsubfolder in os.listdir(os.path.join(self.data_root, subfolder))
                if os.path.isdir(os.path.join(self.data_root, subfolder, subsubfolder)) and subsubfolder != 'original']
 
         self.annotations: List[dict] = []
@@ -76,7 +76,7 @@ class CDDDataset(BaseDataset):
                                                                 key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
                 label_files = [os.path.join(folder_root, 'OUT', filename) for filename in sorted(os.listdir(os.path.join(folder_root, 'OUT')),
                                                                 key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
-                
+
             for input_1_filepath, input_2_filepath, label_filepath in zip(input_1_files, input_2_files, label_files):
                 # Ensure required files exist
                 assert os.path.isfile(input_1_filepath), f"File not found: {input_1_filepath}"
