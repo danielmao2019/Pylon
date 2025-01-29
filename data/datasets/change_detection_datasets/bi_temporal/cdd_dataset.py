@@ -45,7 +45,7 @@ class CDDDataset(BaseDataset):
     LABEL_NAMES = ['change_map']
     CLASS_DIST = {
         'train': [1540513402, 163422598],
-        'val': [414629785, 43991143],
+        'val': [414542888, 44078040],
         'test': [413621824, 45130176],
     }
     NUM_CLASSES = 2
