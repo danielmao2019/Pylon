@@ -57,8 +57,12 @@ class CDDDataset(BaseDataset):
             files = list(filter(lambda x: "with_shift" not in x, files))
             files.extend(glob.glob(os.path.join(self.data_root, "**", "with_shift", self.split, name, "*.jpg" if self.split == 'train' else "*.bmp")))
             return sorted(files)
+        img_1_filepaths = get_files('A')
+        img_2_filepaths = get_files('B')
+        change_map_filepaths = get_files('OUT')
+        assert len(img_1_filepaths) == len(img_2_filepaths) == len(change_map_filepaths)
         self.annotations = []
-        for img_1_path, img_2_path, change_map_path in zip(get_files('A'), get_files('B'), get_files('OUT')):
+        for img_1_path, img_2_path, change_map_path in zip(img_1_filepaths, img_2_filepaths, change_map_filepaths):
             assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path]), \
                 f"{img_1_path=}, {img_2_path=}, {change_map_path=}"
             self.annotations.append({
