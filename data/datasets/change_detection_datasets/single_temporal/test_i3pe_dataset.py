@@ -1,5 +1,5 @@
-import torch
 from .i3pe_dataset import I3PEDataset
+import torch
 from data.datasets import Bi2SingleTemporal, SYSU_CD_Dataset
 
 

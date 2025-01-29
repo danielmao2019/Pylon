@@ -17,7 +17,7 @@ class WHU_BD_Dataset(BaseDataset):
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['semantic_map']
     NUM_CLASSES = 2
-    SHA1SUM = "2f19f17bb40e2c611c7c354f08677b8976fe0099"
+    SHA1SUM = "4057a1dfffd59ecd6d3ff169b8f503644b728592"
 
     def _init_annotations(self) -> None:
         image_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, "image", "*.tif")))
@@ -36,7 +36,7 @@ class WHU_BD_Dataset(BaseDataset):
         }
         labels = {
             'semantic_map': utils.io.load_image(
-                filepaths=[self.annotations[idx]['labels']],
+                filepaths=[self.annotations[idx]['label']],
                 dtype=torch.int64, sub=None, div=None,
             ).squeeze(0)
         }
