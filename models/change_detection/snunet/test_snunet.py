@@ -1,5 +1,3 @@
-"""Reference: https://pytorch.org/vision/0.11/feature_extraction.html
-"""
 import pytest
 from .snunet import SNUNet_ECAM
 import torch
