@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Union, Any
 import random
 import numpy
 import torch
@@ -60,13 +60,11 @@ class I3PEDataset(BaseSyntheticDataset):
             'change_map': change_map,
         }
         meta_info = {
-            'img_1_filepath': self.source[idx]['meta_info']['image_filepath'],
-            'img_2_filepath': self.source[idx_2]['meta_info']['image_filepath'],
             'patch_size': patch_size,
         }
         return inputs, labels, meta_info
 
-    def _segment_objects(self, image: torch.Tensor) -> numpy.ndarray:
+    def _segment_objects(self, image: Union[numpy.ndarray, torch.Tensor]) -> numpy.ndarray:
         """
         Perform object segmentation using SLIC.
 
@@ -76,9 +74,14 @@ class I3PEDataset(BaseSyntheticDataset):
         Returns:
             numpy.ndarray: Object segmentation map.
         """
-        return slic(image.numpy(), n_segments=self.n_segments, start_label=0)
+        if type(image) == torch.Tensor:
+            image = image.permute((1, 2, 0)).cpu().numpy()
+        assert type(image) == numpy.ndarray, f"{type(image)=}"
+        segmentation = slic(image, n_segments=self.n_segments, start_label=0)
+        assert segmentation.shape == image.shape[:2]
+        return segmentation
 
-    def _perform_clustering(self, image: torch.Tensor) -> numpy.ndarray:
+    def _perform_clustering(self, image: Union[numpy.ndarray, torch.Tensor]) -> numpy.ndarray:
         """
         Perform clustering on image segments using DBSCAN.
 
@@ -88,6 +91,10 @@ class I3PEDataset(BaseSyntheticDataset):
         Returns:
             numpy.ndarray: Clustered labels map.
         """
+        if type(image) == torch.Tensor:
+            image = image.permute((1, 2, 0)).cpu().numpy()
+        assert type(image) == numpy.ndarray, f"{type(image)=}"
+
         segments = self._segment_objects(image)
         num_segments = numpy.max(segments)
 
@@ -108,7 +115,7 @@ class I3PEDataset(BaseSyntheticDataset):
 
         return clustered_map
 
-    def _intra_image_patch_exchange(self, image: torch.Tensor, labels: numpy.ndarray, patch_size: int) -> Tuple[torch.Tensor, numpy.ndarray]:
+    def _intra_image_patch_exchange(self, image: Union[numpy.ndarray, torch.Tensor], labels: numpy.ndarray, patch_size: int) -> Tuple[torch.Tensor, numpy.ndarray]:
         """
         Perform intra-image patch exchange.
 
@@ -120,6 +127,10 @@ class I3PEDataset(BaseSyntheticDataset):
         Returns:
             Tuple[torch.Tensor, numpy.ndarray]: Modified image and change label map.
         """
+        if type(image) == torch.Tensor:
+            image = image.permute((1, 2, 0)).cpu().numpy()
+        assert type(image) == numpy.ndarray, f"{type(image)=}"
+
         num_patches = image.shape[0] // patch_size
         patch_indices = numpy.arange(num_patches ** 2)
         numpy.random.shuffle(patch_indices)
@@ -178,6 +189,14 @@ class I3PEDataset(BaseSyntheticDataset):
         Returns:
             Tuple[numpy.ndarray, numpy.ndarray]: Exchanged image and corresponding change label.
         """
+        if type(img_1) == torch.Tensor:
+            img_1 = img_1.permute((1, 2, 0)).cpu().numpy()
+        assert type(img_1) == numpy.ndarray, f"{type(img_1)=}"
+
+        if type(img_2) == torch.Tensor:
+            img_2 = img_2.permute((1, 2, 0)).cpu().numpy()
+        assert type(img_2) == numpy.ndarray, f"{type(img_2)=}"
+
         # Combine images and object maps
         concat_img = numpy.concatenate([img_1, img_2], axis=1)
         object_2 = numpy.max(object_1) + 1 + object_2
