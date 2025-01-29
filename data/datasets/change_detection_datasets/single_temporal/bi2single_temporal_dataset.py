@@ -12,7 +12,7 @@ class Bi2SingleTemporal(BaseSyntheticDataset):
         use_cache: Optional[bool] = True,
         device: Optional[torch.device] = torch.device('cuda'),
     ):
-        assert source.LABEL_NAMES == ['img_1', 'img_2']
+        assert source.INPUT_NAMES == ['img_1', 'img_2']
         super(Bi2SingleTemporal, self).__init__(
             source, 2*len(source), transforms_cfg, use_cache, device,
         )
