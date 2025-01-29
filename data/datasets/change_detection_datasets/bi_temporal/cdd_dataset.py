@@ -51,31 +51,29 @@ class CDDDataset(BaseDataset):
     SHA1SUM = None
 
     def _init_annotations(self) -> None:
-        directories = [folder for folder in glob.glob(self.data_root+'/**/**') if 'original' not in folder]
-        get_file = lambda key, dir:[os.path.join(dir, self.split, key, filename) for filename in sorted(os.listdir(os.path.join(dir, self.split, key)),
-                        key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
-        
-        self.annotations: List[dict] = []
-        for directory in directories:
-            for input_1_filepath, input_2_filepath, label_filepath in zip(get_file('A', directory), get_file('B', directory), get_file('OUT', directory)):
-                # Ensure required files exist
-                assert os.path.isfile(input_1_filepath), f"File not found: {input_1_filepath}"
-                assert os.path.isfile(input_2_filepath), f"File not found: {input_2_filepath}"
-                assert os.path.isfile(label_filepath), f"File not found: {label_filepath}"
-
-                self.annotations.append({
-                    'inputs': {
-                        'input_1_filepath': input_1_filepath,
-                        'input_2_filepath': input_2_filepath,
-                    },
-                    'labels': {
-                        'label_filepath': label_filepath,
-                    },
-                })
+        get_files = lambda name: sorted(glob.glob(os.path.join(self.data_root, "**", "**", self.split, name, "*.jpg")))
+        for img_1_path, img_2_path, change_map_path in zip(get_files('A'), get_files('B'), get_files('OUT')):
+            assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path])
+            self.annotations.append({
+                'img_1_path': img_1_path,
+                'img_2_path': img_2_path,
+                'change_map_path': change_map_path,
+            })
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        inputs = self._load_inputs(idx)
-        labels = self._load_labels(idx)
+        inputs = {
+            f'img_{i}': utils.io.load_image(
+                filepath=self.annotations[idx][f'img_{i}_path'],
+                dtype=torch.float32, sub=None, div=255.0,
+            )
+            for i in [1, 2]
+        }
+        labels = {
+            'change_map': utils.io.load_image(
+                filepath=self.annotations[idx]['change_map_path'],
+                dtype=torch.int64, sub=None, div=255.0,
+            )
+        }
         height, width = labels['change_map'].shape
         assert all(
             x.shape == (3, height, width) for x in [inputs['img_1'], inputs['img_2']]
@@ -83,21 +81,3 @@ class CDDDataset(BaseDataset):
 
         meta_info = {'image_resolution': (height, width)}
         return inputs, labels, meta_info
-
-    def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
-        inputs = {}
-        return {
-            f'img_{i}': utils.io.load_image(
-                filepath=self.annotations[idx]['inputs'][f'input_{i}_filepath'],
-                dtype=torch.float32, sub=None, div=255.0,
-            )
-            for i in [1, 2]
-        }
-
-    def _load_labels(self, idx: int) -> Dict[str, torch.Tensor]:
-        change_map = utils.io.load_image(
-            filepath=self.annotations[idx]['labels']['label_filepath'],
-            dtype=torch.int64, sub=None, div=255,
-        )
-        assert change_map.ndim == 2, f"Expected 2D label, got {change_map.shape}."
-        return {'change_map': change_map}
