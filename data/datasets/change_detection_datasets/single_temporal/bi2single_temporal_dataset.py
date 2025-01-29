@@ -22,7 +22,7 @@ class Bi2SingleTemporal(BaseSyntheticDataset):
     ]:
         source_idx = idx // 2
         input_idx = idx % 2
-        inputs, _, _ = super(Bi2SingleTemporal, self)._load_datapoint(idx)
+        inputs, _, _ = super(Bi2SingleTemporal, self)._load_datapoint(source_idx)
         inputs = {
             'image': inputs[f"img_{input_idx}"],
         }
