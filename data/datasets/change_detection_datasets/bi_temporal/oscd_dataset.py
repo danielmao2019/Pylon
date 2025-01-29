@@ -62,7 +62,6 @@ class OSCDDataset(BaseDataset):
             assert type(bands) == list and all(type(x) == str for x in bands), f"{bands=}"
         self.bands = bands
         super(OSCDDataset, self).__init__(**kwargs)
-        self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_annotations(self) -> None:
         inputs_root: str = os.path.join(self.data_root, "images")
