@@ -21,8 +21,8 @@ class Bi2SingleTemporal(BaseSyntheticDataset):
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         source_idx = idx // 2
-        input_idx = idx % 2
-        inputs, _, _ = super(Bi2SingleTemporal, self)._load_datapoint(source_idx)
+        input_idx = idx % 2 + 1
+        inputs, _, _ = self.source._load_datapoint(source_idx)
         inputs = {
             'image': inputs[f"img_{input_idx}"],
         }
