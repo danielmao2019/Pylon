@@ -3,6 +3,13 @@ from .sysu_cd_dataset import SYSU_CD_Dataset
 import torch
 
 
+def test_sysu_cd_sha1sum() -> None:
+    _ = SYSU_CD_Dataset(
+        data_root="./data/datasets/soft_links/SYSU-CD", split='train',
+        check_sha1sum=True,
+    )
+
+
 @pytest.mark.parametrize("dataset", [
     (SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split='train')),
     (SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split='val')),
