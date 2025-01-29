@@ -41,13 +41,13 @@ class I3PEDataset(BaseSyntheticDataset):
 
         if exchange_type_seed < 0.5:
             idx_2 = idx
-            img_1 = self.dataset[idx]['inputs']['image']
+            img_1 = self.source[idx]['inputs']['image']
             class_labels = self._perform_clustering(img_1)
             img_2, change_map = self._intra_image_patch_exchange(img_1, class_labels, patch_size)
         else:
-            idx_2 = random.choice(range(len(self.dataset)))
-            img_1 = self.dataset[idx]['inputs']['image']
-            img_2 = self.dataset[idx_2]['inputs']['image']
+            idx_2 = random.choice(range(len(self.source)))
+            img_1 = self.source[idx]['inputs']['image']
+            img_2 = self.source[idx_2]['inputs']['image']
             objects_1 = self._segment_objects(img_1)
             objects_2 = self._segment_objects(img_2)
             img_2, change_map = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
@@ -60,8 +60,8 @@ class I3PEDataset(BaseSyntheticDataset):
             'change_map': change_map,
         }
         meta_info = {
-            'img_1_filepath': self.dataset[idx]['meta_info']['image_filepath'],
-            'img_2_filepath': self.dataset[idx_2]['meta_info']['image_filepath'],
+            'img_1_filepath': self.source[idx]['meta_info']['image_filepath'],
+            'img_2_filepath': self.source[idx_2]['meta_info']['image_filepath'],
             'patch_size': patch_size,
         }
         return inputs, labels, meta_info
