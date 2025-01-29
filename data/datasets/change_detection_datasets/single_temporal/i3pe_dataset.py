@@ -136,7 +136,7 @@ class I3PEDataset(BaseSyntheticDataset):
         numpy.random.shuffle(patch_indices)
 
         num_exchanges = int(num_patches ** 2 * self.exchange_ratio)
-        exchanged_image = image.clone()
+        exchanged_image = image.copy()
         change_map = numpy.zeros(image.shape[:2], dtype=numpy.uint8)
 
         for i in range(0, num_exchanges, 2):
@@ -170,8 +170,8 @@ class I3PEDataset(BaseSyntheticDataset):
 
     def _inter_image_patch_exchange(
         self,
-        img_1: torch.Tensor,
-        img_2: torch.Tensor,
+        img_1: Union[numpy.ndarray, torch.Tensor],
+        img_2: Union[numpy.ndarray, torch.Tensor],
         object_1: numpy.ndarray,
         object_2: numpy.ndarray,
         patch_sz: int
