@@ -4,6 +4,7 @@ import torch
 from data.datasets import BaseDataset
 import utils
 import itertools
+import glob
 
 class CDDDataset(BaseDataset):
     __doc__ = r"""
@@ -43,36 +44,21 @@ class CDDDataset(BaseDataset):
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
     CLASS_DIST = {
-        # 'train': [37962.0, 27574.0],
-        'train': [103305,  27767],
-        'val': [58737.0, 6799.0],
-        'test': [7357.0, 58179.0],
+        'train': [1540513402, 163422598],
+        'val': [414629785, 43991143],
+        'test': [413621824, 45130176],
     }
     NUM_CLASSES = 2
     SHA1SUM = None
 
     def _init_annotations(self) -> None:
-        directories = [os.path.join(self.data_root, subfolder, subsubfolder)
-               for subfolder in os.listdir(self.data_root)
-               if os.path.isdir(os.path.join(self.data_root, subfolder))
-               for subsubfolder in os.listdir(os.path.join(self.data_root, subfolder))
-               if os.path.isdir(os.path.join(self.data_root, subfolder, subsubfolder)) and subsubfolder != 'original']
-
+        directories = [folder for folder in glob.glob(self.data_root+'/**/**') if 'original' not in folder]
+        get_file = lambda key, dir:[os.path.join(dir, self.split, key, filename) for filename in sorted(os.listdir(os.path.join(dir, self.split, key)),
+                        key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
+        
         self.annotations: List[dict] = []
         for directory in directories:
-            input_1_files = []
-            input_2_files = []
-            label_files = []
-            if self.split in os.listdir(directory):
-                folder_root = os.path.join(directory, self.split)
-                input_1_files = [os.path.join(folder_root, 'A', filename) for filename in sorted(os.listdir(os.path.join(folder_root, 'A')),
-                                                                key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
-                input_2_files = [os.path.join(folder_root, 'B', filename) for filename in sorted(os.listdir(os.path.join(folder_root, 'B')),
-                                                                key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
-                label_files = [os.path.join(folder_root, 'OUT', filename) for filename in sorted(os.listdir(os.path.join(folder_root, 'OUT')),
-                                                                key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))]
-
-            for input_1_filepath, input_2_filepath, label_filepath in zip(input_1_files, input_2_files, label_files):
+            for input_1_filepath, input_2_filepath, label_filepath in zip(get_file('A', directory), get_file('B', directory), get_file('OUT', directory)):
                 # Ensure required files exist
                 assert os.path.isfile(input_1_filepath), f"File not found: {input_1_filepath}"
                 assert os.path.isfile(input_2_filepath), f"File not found: {input_2_filepath}"
