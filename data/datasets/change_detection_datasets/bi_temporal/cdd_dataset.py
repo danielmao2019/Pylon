@@ -1,9 +1,10 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple, List, Dict, Any
 import os
 import glob
 import torch
 from data.datasets import BaseDataset
 import utils
+
 
 class CDDDataset(BaseDataset):
     __doc__ = r"""
@@ -51,9 +52,16 @@ class CDDDataset(BaseDataset):
     SHA1SUM = None
 
     def _init_annotations(self) -> None:
-        get_files = lambda name: sorted(glob.glob(os.path.join(self.data_root, "**", "**", self.split, name, "*.jpg")))
+        def get_files(name: str) -> List[str]:
+            files = glob.glob(os.path.join(self.data_root, "**", "**", self.split, name, "*.jpg"))
+            files = list(filter(lambda x: "with_shift" not in x, files))
+            files.extend(glob.glob(os.path.join(self.data_root, "**", "with_shift", self.split, name, "*.jpg" if self.split == 'train' else "*.bmp")))
+            return sorted(files)
+        self.annotations = []
+        get_index = lambda path: int(os.path.basename(path).split('.')[0])
         for img_1_path, img_2_path, change_map_path in zip(get_files('A'), get_files('B'), get_files('OUT')):
-            assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path])
+            assert all(get_index(x) == get_index(change_map_path) for x in [img_1_path, img_2_path]), \
+                f"{img_1_path=}, {img_2_path=}, {change_map_path=}"
             self.annotations.append({
                 'img_1_path': img_1_path,
                 'img_2_path': img_2_path,
