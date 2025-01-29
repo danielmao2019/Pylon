@@ -105,6 +105,7 @@ class AirChangeDataset(BaseDataset):
         img_1_filepaths.sort()
         img_2_filepaths.sort()
         change_map_filepaths.sort()
+        assert len(img_1_filepaths) == len(img_2_filepaths) == len(change_map_filepaths)
 
         self._init_cropping_configs()
         self.annotations = []
