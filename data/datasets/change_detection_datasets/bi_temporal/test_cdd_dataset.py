@@ -10,10 +10,10 @@ import torch
 ])
 def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
-    
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), dtype=torch.int64, device=dataset.device)
     for idx in range(len(dataset)):
         datapoint = dataset[idx]
-        
+
         # Check the structure of the datapoint
         assert isinstance(datapoint, dict), f"Datapoint at index {idx} is not a dictionary."
         assert set(datapoint.keys()) == {'inputs', 'labels', 'meta_info'}, \
@@ -24,7 +24,7 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
         assert isinstance(inputs, dict), f"Inputs at index {idx} are not a dictionary."
         assert set(inputs.keys()) == set(CDDDataset.INPUT_NAMES), \
             f"Unexpected input keys at index {idx}: {inputs.keys()}"
-        
+
         img_1 = inputs['img_1']
         img_2 = inputs['img_2']
         assert isinstance(img_1, torch.Tensor), f"img_1 at index {idx} is not a Tensor."
@@ -48,8 +48,12 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
         unique_values = set(torch.unique(change_map).tolist())
         assert unique_values.issubset({0, 1}), \
             f"Unexpected values in change map at index {idx}: {unique_values}"
+        for cls in range(dataset.NUM_CLASSES):
+            class_dist[cls] += torch.sum(change_map == cls)
 
         # Validate meta_info
         meta_info = datapoint['meta_info']
         assert isinstance(meta_info, dict), f"Meta info at index {idx} is not a dictionary."
         assert 'image_resolution' in meta_info, f"Missing 'image_resolution' in meta info at index {idx}."
+    assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
+    assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
