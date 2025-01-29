@@ -24,6 +24,7 @@ from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDD
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
 ## Single-Temporal
 from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import Bi2SingleTemporal
+from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
 
 
 __all__ = (
@@ -48,4 +49,5 @@ __all__ = (
     'SYSU_CD_Dataset',
     ## Single-Temporal
     'Bi2SingleTemporal',
+    'I3PEDataset',
 )
