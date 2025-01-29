@@ -51,11 +51,6 @@ class CDDDataset(BaseDataset):
     NUM_CLASSES = 2
     SHA1SUM = None
 
-    def __init__(self, **kwargs):
-        super(CDDDataset, self).__init__(**kwargs)
-        assert 0, f"{self.CLASS_DIST=}"
-        self.CLASS_DIST = self.CLASS_DIST[self.split]
-
     def _init_annotations(self) -> None:
         directories = [os.path.join(self.data_root, subfolder, subsubfolder)
                for subfolder in os.listdir(self.data_root)
