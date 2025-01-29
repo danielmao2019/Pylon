@@ -192,7 +192,7 @@ def ResNet18(output_stride, BatchNorm, pretrained=False):
     """
     model = ResNet(BasicBlock, [2, 2, 2, 2], output_stride, BatchNorm)
     if pretrained:
-        pretrain_dict = ResNet18_Weights.verify('DEFAULT').get_state_dict()
+        pretrain_dict = ResNet18_Weights.verify('DEFAULT').get_state_dict(progress=True)
         model_dict = {}
         state_dict = model.state_dict()
         for k, v in pretrain_dict.items():
@@ -212,7 +212,7 @@ def ResNet34(output_stride, BatchNorm, pretrained=False):
     """
     model = ResNet(BasicBlock, [3, 4, 6, 3], output_stride, BatchNorm)
     if pretrained:
-        pretrain_dict = ResNet34_Weights.verify('DEFAULT').get_state_dict()
+        pretrain_dict = ResNet34_Weights.verify('DEFAULT').get_state_dict(progress=True)
         model_dict = {}
         state_dict = model.state_dict()
         for k, v in pretrain_dict.items():

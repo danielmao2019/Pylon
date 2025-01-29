@@ -202,7 +202,7 @@ def ResNet50(output_stride, BatchNorm, pretrained=False):
     """
     model = ResNet(Bottleneck, [3, 4, 6, 3], output_stride, BatchNorm)
     if pretrained:
-        pretrain_dict = ResNet50_Weights.verify('DEFAULT').get_state_dict()
+        pretrain_dict = ResNet50_Weights.verify('DEFAULT').get_state_dict(progress=True)
         model_dict = {}
         state_dict = model.state_dict()
         for k, v in pretrain_dict.items():
@@ -222,7 +222,7 @@ def ResNet101(output_stride, BatchNorm, pretrained=False):
     """
     model = ResNet(Bottleneck, [3, 4, 23, 3], output_stride, BatchNorm)
     if pretrained:
-        pretrain_dict = ResNet101_Weights.verify('DEFAULT').get_state_dict()
+        pretrain_dict = ResNet101_Weights.verify('DEFAULT').get_state_dict(progress=True)
         model_dict = {}
         state_dict = model.state_dict()
         for k, v in pretrain_dict.items():
