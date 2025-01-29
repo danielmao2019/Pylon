@@ -1,9 +1,9 @@
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, Dict, Any
 import os
+import glob
 import torch
 from data.datasets import BaseDataset
 import utils
-import glob
 
 class CDDDataset(BaseDataset):
     __doc__ = r"""
