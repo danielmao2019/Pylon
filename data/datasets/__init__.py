@@ -2,6 +2,7 @@
 DATA.DATASETS API
 """
 from data.datasets.base_dataset import BaseDataset
+from data.datasets.base_synthetic_dataset import BaseSyntheticDataset
 from data.datasets import random_datasets
 from data.datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
 
@@ -22,10 +23,13 @@ from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset impo
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
 ## Single-Temporal
+from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import Bi2SingleTemporal
+from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
 
 
 __all__ = (
     'BaseDataset',
+    'BaseSyntheticDataset',
     'random_datasets',
     'ProjectionDatasetWrapper',
     # Multi-Task Learning datasets
@@ -44,4 +48,6 @@ __all__ = (
     'CDDDataset',
     'SYSU_CD_Dataset',
     ## Single-Temporal
+    'Bi2SingleTemporal',
+    'I3PEDataset',
 )
