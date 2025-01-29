@@ -63,6 +63,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             self.split_percentages = split
         else:
             self.split = split
+        if hasattr(self, 'CLASS_DIST') and type(self.CLASS_DIST) == dict:
+            assert set(self.CLASS_DIST.keys()) == set(self.SPLIT_OPTIONS)
+            assert all(type(x) == list for x in self.CLASS_DIST.values())
+            self.CLASS_DIST = self.CLASS_DIST[self.split]
 
     def _init_indices(self, indices: Optional[Union[List[int], Dict[str, List[int]]]]) -> None:
         # type check
@@ -190,8 +194,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             f"{self.INPUT_NAMES=}, {self.LABEL_NAMES=}, {set(self.INPUT_NAMES) & set(self.LABEL_NAMES)=}"
         if self.check_sha1sum and hasattr(self, 'SHA1SUM') and self.SHA1SUM is not None:
             cmd = ' '.join([
-                'find', os.readlink(self.data_root) if os.path.islink(self.data_root) else self.data_root, '-type', 'f', '-print0', '|',
-                'sort', '-z', '|', 'xargs', '-0', 'sha1sum', '|', 'sha1sum',
+                'find', os.readlink(self.data_root) if os.path.islink(self.data_root) else self.data_root,
+                '-type', 'f', '-execdir', 'sha1sum', '{}', '+', '|',
+                'sort', '|', 'sha1sum',
             ])
             result = subprocess.getoutput(cmd)
             sha1sum = result.split(' ')[0]

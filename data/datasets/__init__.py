@@ -20,6 +20,7 @@ from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import x
 from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
 from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
+from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
 ## Single-Temporal
 
 
@@ -41,5 +42,6 @@ __all__ = (
     'KC3DDataset',
     'AirChangeDataset',
     'CDDDataset',
+    'SYSU_CD_Dataset',
     ## Single-Temporal
 )
