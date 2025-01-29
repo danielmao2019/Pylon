@@ -58,9 +58,8 @@ class CDDDataset(BaseDataset):
             files.extend(glob.glob(os.path.join(self.data_root, "**", "with_shift", self.split, name, "*.jpg" if self.split == 'train' else "*.bmp")))
             return sorted(files)
         self.annotations = []
-        get_index = lambda path: int(os.path.basename(path).split('.')[0])
         for img_1_path, img_2_path, change_map_path in zip(get_files('A'), get_files('B'), get_files('OUT')):
-            assert all(get_index(x) == get_index(change_map_path) for x in [img_1_path, img_2_path]), \
+            assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path]), \
                 f"{img_1_path=}, {img_2_path=}, {change_map_path=}"
             self.annotations.append({
                 'img_1_path': img_1_path,
