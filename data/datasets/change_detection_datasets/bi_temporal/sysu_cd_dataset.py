@@ -29,7 +29,7 @@ class SYSU_CD_Dataset(BaseDataset):
         'val': [205706240, 56437744],
         'test': [200322672, 61820912],
     }
-    SHA1SUM = "e466f6eac5fe1ae7151ed00e00742b97aa3a7741"
+    SHA1SUM = "5e0fa34b0fec61665b62b622da24f17020ec0664"
 
     def _init_annotations(self) -> None:
         img_1_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, 'time1', "*.png")))
