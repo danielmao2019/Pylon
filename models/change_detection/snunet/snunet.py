@@ -1,4 +1,3 @@
-from typing import Tuple, Dict, Union
 import torch
 from .channel_attention import ChannelAttention
 from .conv_block_nested import conv_block_nested
@@ -15,7 +14,7 @@ class SNUNet_ECAM(torch.nn.Module):
 
     Note: This code is mainly ported from https://github.com/likyoo/Siam-NestedUNet
     """
-    
+
     # SNUNet-CD with ECAM
     def __init__(self, in_ch=3, out_ch=2):
         super(SNUNet_ECAM, self).__init__()
@@ -103,4 +102,3 @@ class SNUNet_ECAM(torch.nn.Module):
         out = self.ca(out) * (out + ca1.repeat(1, 4, 1, 1))
         out = self.conv_final(out)
         return out
-    
