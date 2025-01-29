@@ -32,9 +32,11 @@ class SYSU_CD_Dataset(BaseDataset):
     SHA1SUM = "5e0fa34b0fec61665b62b622da24f17020ec0664"
 
     def _init_annotations(self) -> None:
-        img_1_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, 'time1', "*.png")))
-        img_2_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, 'time2', "*.png")))
-        change_map_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, 'label', "*.png")))
+        get_files = lambda name: sorted(glob.glob(os.path.join(self.data_root, self.split, name, "*.png")))
+        img_1_filepaths = get_files('time1')
+        img_2_filepaths = get_files('time2')
+        change_map_filepaths = get_files('label')
+        assert len(img_1_filepaths) == len(img_2_filepaths) == len(change_map_filepaths)
         self.annotations = []
         for img_1_path, img_2_path, change_map_path in zip(img_1_filepaths, img_2_filepaths, change_map_filepaths):
             assert all(os.path.basename(x) == os.path.basename(change_map_path) for x in [img_1_path, img_2_path])
