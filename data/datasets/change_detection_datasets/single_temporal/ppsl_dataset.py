@@ -29,16 +29,10 @@ class PPSLDataset(BaseSyntheticDataset):
         # Apply color jitter to the first image
         img_1 = self.colorjit(img_1)
 
-        # Apply color jitter to the first image
-        img_1 = self.colorjit(img_1)
-
         # Select a random second datapoint
         idx_2 = random.choice(range(len(self.source)))
         img_2 = self.source[idx_2]['inputs']['image']
         label_2 = self.source[idx_2]['labels']['semantic_map']
-
-        # Apply affine transformation to the second image
-        img_2 = self.affine(img_2)
 
         # Apply affine transformation to the second image
         img_2 = self.affine(img_2)
