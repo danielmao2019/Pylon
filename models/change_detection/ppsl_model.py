@@ -60,7 +60,7 @@ def Conv3x3ReLUBNs(in_channels,
         nn.Conv2d(inner_channels, inner_channels, 3, 1, 1),
         nn.BatchNorm2d(inner_channels),
         nn.ReLU(True),
-        nn.Dropout()    
+        nn.Dropout()
     ) for _ in range(num_convs - 1)]
     return nn.Sequential(*layers)
 
@@ -70,10 +70,10 @@ class metric_attention(nn.Module):
         self.compare = Conv3x3ReLUBNs(in_channels=in_channels, inner_channels=inner_channels, num_convs=num_convs)
 
         self.squeeze = nn.Sequential(
-            nn.Conv2d(in_channels, in_channels//4, kernel_size=1, stride=1), 
+            nn.Conv2d(in_channels, in_channels//4, kernel_size=1, stride=1),
             nn.BatchNorm2d(in_channels//4),
             nn.ReLU(),
-            nn.Conv2d(in_channels//4, in_channels//4, kernel_size=1, stride=1), 
+            nn.Conv2d(in_channels//4, in_channels//4, kernel_size=1, stride=1),
             nn.BatchNorm2d(in_channels//4),
             nn.ReLU(),
         )
@@ -93,7 +93,7 @@ class featureFused(nn.Module):
             nn.BatchNorm2d(outchannels),
             nn.ReLU()
         )
-    
+
     def forward(self, input):
         _, _, h, w = input[0].shape
         x2 = input[0]
@@ -108,10 +108,10 @@ class buildingTask(nn.Module):
     def __init__(self, inchannels):
         super(buildingTask, self).__init__()
         self.conv = nn.Sequential(
-            nn.Conv2d(in_channels=inchannels, out_channels=1, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=inchannels, out_channels=2, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid()
         )
-    
+
     def forward(self, input):
         out = self.conv(input[0])
 
@@ -135,12 +135,11 @@ class PPSLModel(nn.Module):
         self.head = nn.Sequential(
             nn.Upsample(scale_factor=2),
             nn.Conv2d(in_channels=256, out_channels=128, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(128), 
+            nn.BatchNorm2d(128),
             nn.ReLU(),
             nn.Upsample(scale_factor=2),
-            nn.Conv2d(in_channels=128, out_channels=1, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=128, out_channels=2, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid(),
-
         )
 
         # building head
@@ -167,4 +166,8 @@ class PPSLModel(nn.Module):
         compare_out = self.head(compare_out)
         compare_out = torch.clamp(compare_out, 1e-6, 1-1e-6)
 
-        return building_logit, compare_out, metric_out
+        return {
+            'semantic_map': building_logit,
+            'change_map': compare_out,
+            'metric': metric_out,
+        }
