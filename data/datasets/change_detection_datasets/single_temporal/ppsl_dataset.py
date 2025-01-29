@@ -23,16 +23,16 @@ class PPSLDataset(BaseSyntheticDataset):
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         # Fetch the primary datapoint
-        img_1 = self.dataset[idx]['inputs']['image']
-        label_1 = self.dataset[idx]['labels']['semantic_segmentation']
+        img_1 = self.source[idx]['inputs']['image']
+        label_1 = self.source[idx]['labels']['semantic_map']
 
         # Apply color jitter to the first image
         img_1 = self.colorjit(img_1)
 
         # Select a random second datapoint
-        idx_2 = random.choice(range(len(self.dataset)))
-        img_2 = self.dataset[idx_2]['inputs']['image']
-        label_2 = self.dataset[idx_2]['labels']['semantic_segmentation']
+        idx_2 = random.choice(range(len(self.source)))
+        img_2 = self.source[idx_2]['inputs']['image']
+        label_2 = self.source[idx_2]['labels']['semantic_map']
 
         # Apply affine transformation to the second image
         img_2 = self.affine(img_2)

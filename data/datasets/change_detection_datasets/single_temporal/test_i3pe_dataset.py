@@ -25,4 +25,4 @@ def test_i3pe_dataset() -> None:
         assert set(labels.keys()) == set(I3PEDataset.LABEL_NAMES)
         change_map = labels['change_map']
         assert type(change_map) == torch.Tensor and change_map.ndim == 2 and change_map.dtype == torch.int64
-        assert set(torch.unique(change_map).tolist()).issubset(set([0, 1])), f"{torch.unique(change_map)=}"
+        assert set(torch.unique(change_map).tolist()).issubset({0, 1}), f"{torch.unique(change_map)=}"
