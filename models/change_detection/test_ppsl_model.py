@@ -10,4 +10,4 @@ def test_ppsl_model() -> None:
     semantic_out = outputs['semantic_map']
     assert semantic_out.shape == (4, 2, 56, 56)
     change_out = outputs['change_map']
-    assert change_out.shape == (4, 2, 56, 56)
+    assert change_out.shape == (4, 2, 224, 224)
