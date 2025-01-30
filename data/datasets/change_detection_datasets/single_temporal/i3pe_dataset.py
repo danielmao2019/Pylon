@@ -53,8 +53,8 @@ class I3PEDataset(BaseSyntheticDataset):
             img_2, change_map = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
 
         assert all(type(x) == numpy.ndarray for x in [img_2, change_map])
-        img_2 = torch.from_numpy(img_2).to(self.device).permute((2, 0, 1))
-        change_map = torch.from_numpy(change_map).to(self.device)
+        img_2 = torch.from_numpy(img_2).permute((2, 0, 1))
+        change_map = torch.from_numpy(change_map)
 
         inputs = {
             'img_1': img_1,
@@ -79,7 +79,7 @@ class I3PEDataset(BaseSyntheticDataset):
             numpy.ndarray: Object segmentation map.
         """
         if type(image) == torch.Tensor:
-            image = image.permute((1, 2, 0)).cpu().numpy()
+            image = image.permute((1, 2, 0)).numpy()
         assert type(image) == numpy.ndarray, f"{type(image)=}"
         segmentation = slic(image, n_segments=self.n_segments, start_label=0)
         assert segmentation.shape == image.shape[:2]
@@ -96,7 +96,7 @@ class I3PEDataset(BaseSyntheticDataset):
             numpy.ndarray: Clustered labels map.
         """
         if type(image) == torch.Tensor:
-            image = image.permute((1, 2, 0)).cpu().numpy()
+            image = image.permute((1, 2, 0)).numpy()
         assert type(image) == numpy.ndarray, f"{type(image)=}"
 
         segments = self._segment_objects(image)
@@ -132,7 +132,7 @@ class I3PEDataset(BaseSyntheticDataset):
             Tuple[torch.Tensor, numpy.ndarray]: Modified image and change label map.
         """
         if type(image) == torch.Tensor:
-            image = image.permute((1, 2, 0)).cpu().numpy()
+            image = image.permute((1, 2, 0)).numpy()
         assert type(image) == numpy.ndarray, f"{type(image)=}"
 
         num_patches = image.shape[0] // patch_size
@@ -194,11 +194,11 @@ class I3PEDataset(BaseSyntheticDataset):
             Tuple[numpy.ndarray, numpy.ndarray]: Exchanged image and corresponding change label.
         """
         if type(img_1) == torch.Tensor:
-            img_1 = img_1.permute((1, 2, 0)).cpu().numpy()
+            img_1 = img_1.permute((1, 2, 0)).numpy()
         assert type(img_1) == numpy.ndarray, f"{type(img_1)=}"
 
         if type(img_2) == torch.Tensor:
-            img_2 = img_2.permute((1, 2, 0)).cpu().numpy()
+            img_2 = img_2.permute((1, 2, 0)).numpy()
         assert type(img_2) == numpy.ndarray, f"{type(img_2)=}"
 
         # Combine images and object maps
