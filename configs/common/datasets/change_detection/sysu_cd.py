@@ -74,7 +74,7 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.vision_2d.SymmetricChangeDetectionCriterion,
+        'class': criteria.vision_2d.SemanticSegmentationCriterion,
         'args': {
             'class_weights': tuple((
                 data.datasets.SYSU_CD_Dataset.NUM_CLASSES*(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))/torch.sum(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))
