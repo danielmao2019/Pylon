@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 
 class I3PEModel(nn.Module):
+
     def __init__(self, pretrained=True, output_stride=16, BatchNorm=nn.BatchNorm2d, Backbone='ResNet50'):
         super(I3PEModel, self).__init__()
         if Backbone == 'ResNet50':
@@ -39,11 +40,9 @@ class I3PEModel(nn.Module):
         _, _, H, W = y.size()
         return F.interpolate(x, size=(H, W), mode='bilinear') + y
 
-    def forward(self, pre_data, post_data):
-        _, pre_low_level_feat_1, pre_low_level_feat_2, pre_low_level_feat_3, pre_output = self.encoder(
-            pre_data)
-        _, post_low_level_feat_1, post_low_level_feat_2, post_low_level_feat_3, post_output = self.encoder(
-            post_data)
+    def forward(self, img_1: torch.Tensor, img_2: torch.Tensor) -> torch.Tensor:
+        _, pre_low_level_feat_1, pre_low_level_feat_2, pre_low_level_feat_3, pre_output = self.encoder(img_1)
+        _, post_low_level_feat_1, post_low_level_feat_2, post_low_level_feat_3, post_output = self.encoder(img_2)
 
         p4 = torch.cat([pre_output, post_output], dim=1)
         p4 = self.fuse_layer_4(p4)
@@ -63,12 +62,6 @@ class I3PEModel(nn.Module):
         p1 = self._upsample_add(p2, p1)
         p1 = self.smooth_layer_1(p1)
 
-        # output_4 = self.aux_clf_4(p4)
-        # output_4 = F.interpolate(output_4, size=pre_data.size()[-2:], mode='bilinear')
-        # output_3 = self.aux_clf_3(p3)
-        # output_3 = F.interpolate(output_3, size=pre_data.size()[-2:], mode='bilinear')
-        # output_2 = self.aux_clf_2(p2)
-        # output_2 = F.interpolate(output_2, size=pre_data.size()[-2:], mode='bilinear')
         output_1 = self.main_clf_1(p1)
-        output_1 = F.interpolate(output_1, size=pre_data.size()[-2:], mode='bilinear')
-        return output_1  # , output_2, output_3, output_4
+        output_1 = F.interpolate(output_1, size=img_1.size()[-2:], mode='bilinear')
+        return output_1
