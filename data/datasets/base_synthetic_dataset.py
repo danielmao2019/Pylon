@@ -15,6 +15,7 @@ class BaseSyntheticDataset(BaseDataset, ABC):
         device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
         assert isinstance(source, BaseDataset)
+        source.device = torch.device('cpu')
         self.source = source
         assert isinstance(dataset_size, int) and dataset_size >= 0
         self.DATASET_SIZE = dataset_size
