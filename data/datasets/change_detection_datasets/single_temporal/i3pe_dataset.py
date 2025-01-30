@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Union, Any
+from typing import Tuple, Dict, Union, Any, Optional
 import random
 import numpy
 import torch
@@ -22,12 +22,12 @@ class I3PEDataset(BaseSyntheticDataset):
     min_samples = 10
     scale_factors = [16, 32, 64, 128]
 
-    def __init__(self, exchange_ratio: float, **kwargs: Any) -> None:
+    def __init__(self, exchange_ratio: Optional[float] = 0.75, **kwargs: Any) -> None:
         """
         Initialize the I3PEDataset.
 
         Args:
-            exchange_ratio (float): Ratio of patches to exchange.
+            exchange_ratio (float): Ratio of patches to exchange. Default 0.75 as suggested in the paper.
             **kwargs (Any): Additional arguments passed to the BaseSyntheticDataset.
         """
         self.exchange_ratio = exchange_ratio
