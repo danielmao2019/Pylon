@@ -29,6 +29,7 @@ from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import 
 from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import Bi2SingleTemporal
 from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
 from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
+from data.datasets.change_detection_datasets.single_temporal.cdrl_dataset import CDRLDataset
 
 
 __all__ = (
@@ -57,4 +58,5 @@ __all__ = (
     'Bi2SingleTemporal',
     'I3PEDataset',
     'PPSLDataset',
+    'CDRLDataset',
 )
