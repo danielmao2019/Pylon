@@ -65,7 +65,7 @@ class I3PEModel(torch.nn.Module):
         output_1 = torch.nn.functional.interpolate(output_1, size=img_1.size()[-2:], mode='bilinear')
         return output_1
 
-    def _forward(self, img_1: torch.Tensor, img_2: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, img_1: torch.Tensor, img_2: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {
             'change_map_12': self._forward(img_1, img_2),
             'change_map_21': self._forward(img_2, img_1),
