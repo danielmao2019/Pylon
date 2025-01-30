@@ -5,7 +5,7 @@ from data.datasets import Bi2SingleTemporal, SYSU_CD_Dataset
 
 def test_i3pe_dataset() -> None:
     source = Bi2SingleTemporal(SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split='train'))
-    dataset = I3PEDataset(source=source, dataset_size=len(source), exchange_ratio=0.1)
+    dataset = I3PEDataset(source=source, dataset_size=len(source), exchange_ratio=0.75)
     for idx in range(min(len(dataset), 100)):
         datapoint = dataset[idx]
         assert type(datapoint) == dict
