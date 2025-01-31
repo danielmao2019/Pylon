@@ -13,7 +13,7 @@ class PPSLCriterion(SemanticSegmentationCriterion):
     @staticmethod
     def _metric_criterion(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         if y_true.shape != y_pred.shape:
-            y_true = torch.nn.functional.interpolate(y_true, y_pred.shape[-2:], mode='nearest')
+            y_pred = torch.nn.functional.interpolate(y_pred, size=y_true.shape[-2:], mode='nearest')
         return torch.mean((1-y_true) * y_true**2 +  y_true * torch.clamp(2 - y_pred, min=0.0)**2)
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -21,7 +21,7 @@ class PPSLCriterion(SemanticSegmentationCriterion):
         assert type(y_true) == dict and set(y_true.keys()) == {'change_map', 'semantic_map'}
         change_loss = self.change_criterion(input=y_pred['change_map'], target=y_true['change_map'])
         semantic_loss = self.semantic_criterion(
-            input=torch.nn.functional.interpolate(y_pred['semantic_map'], y_true['semantic_map'].shape[-2:], mode='nearest'),
+            input=torch.nn.functional.interpolate(y_pred['semantic_map'], size=y_true['semantic_map'].shape[-2:], mode='nearest'),
             target=y_true['semantic_map'],
         )
         metrics_losses = [self._metric_criterion(metric, y_true['change_map']) for metric in y_pred['metrics']]
