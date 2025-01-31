@@ -12,6 +12,8 @@ class DiceLoss(torch.nn.Module):
         other args pass to BinaryDiceLoss
     Return:
         same as BinaryDiceLoss
+    reference:
+    * https://github.com/hubutui/DiceLoss-PyTorch/blob/master/loss.py
     """
     def __init__(self, weight=None, ignore_index=None, smooth=1.0, **kwargs):
         super(DiceLoss, self).__init__()

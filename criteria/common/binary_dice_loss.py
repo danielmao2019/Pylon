@@ -14,6 +14,8 @@ class BinaryDiceLoss(torch.nn.Module):
         Loss tensor according to arg reduction
     Raise:
         Exception if unexpected reduction
+    reference:
+    * https://github.com/hubutui/DiceLoss-PyTorch/blob/master/loss.py
     """
     def __init__(self, smooth: Optional[float] = 1.0, p: Optional[float] = 2.0, reduction='mean'):
         super(BinaryDiceLoss, self).__init__()
