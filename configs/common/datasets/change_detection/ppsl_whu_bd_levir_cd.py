@@ -12,7 +12,7 @@ transforms_config = {
         'transforms': [
             (
                 torchvision.transforms.Resize(size=(256, 256), antialias=True),
-                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
+                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map'), ('labels', 'semantic_map')]
             ),
         ],
     },
@@ -25,10 +25,7 @@ collate_fn_config = {
     },
 }
 
-source_dataset = data.datasets.WHU_BD_Dataset(
-    data_root="./data/datasets/soft_links/WHU-BD",
-    split="train", transforms_cfg=transforms_config,
-)
+source_dataset = data.datasets.WHU_BD_Dataset(data_root="./data/datasets/soft_links/WHU-BD", split="train")
 
 config = {
     'train_dataset': {

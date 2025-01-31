@@ -25,10 +25,7 @@ collate_fn_config = {
 }
 
 source_dataset = data.datasets.Bi2SingleTemporal(
-    source=data.datasets.SYSU_CD_Dataset(
-        data_root="./data/datasets/soft_links/SYSU-CD",
-        split="train", transforms_cfg=transforms_config,
-    ),
+    source=data.datasets.SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split="train"),
 )
 
 config = {
