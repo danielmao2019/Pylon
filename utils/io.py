@@ -117,31 +117,39 @@ def _load_multispectral_image(
     Returns:
         A PyTorch tensor where each band is a channel.
     """
-    assert type(filepaths) == list, f"{type(filepaths)=}"
-    assert len(filepath) > 0
-    if len(filepath) == 1:
-        assert height is None and width is None
+    if not isinstance(filepaths, list) or len(filepaths) == 0:
+        raise ValueError(f"Invalid filepaths: {filepaths}")
+
+    if len(filepaths) == 1 and (height is not None or width is not None):
+        raise ValueError("Height and width should be None when loading a single file.")
+
     bands: List[torch.Tensor] = []
-    for filepath in filepaths:
-        with rasterio.open(filepath) as src:
+    
+    for path in filepaths:
+        with rasterio.open(path) as src:
             band = src.read()
         if band.dtype == numpy.uint16:
             band = band.astype(numpy.int64)
-        band = torch.from_numpy(band)
-        assert band.ndim == 3, f"{band.shape=}"
-        bands.append(band)
+        
+        band_tensor = torch.from_numpy(band)
+        
+        if band_tensor.ndim != 3:  # Ensure correct shape
+            raise ValueError(f"Unexpected shape {band_tensor.shape} for file {path}")
+
+        bands.append(band_tensor)
+
     try:
-        result = torch.cat(bands, dim=0)
-    except:
+        return torch.cat(bands, dim=0)  # Concatenating along the channel dimension
+    except RuntimeError:
+        # Determine target height and width if not provided
         if height is None:
-            height = int(torch.Tensor([band.size(1) for band in bands]).mean().item())
+            height = max(band.size(1) for band in bands)  # Use max instead of mean
         if width is None:
-            width = int(torch.Tensor([band.size(2) for band in bands]).mean().item())
-        result = torch.cat([
-            torchvision.transforms.functional.resize(band, size=(height, width))
-            for band in bands
-        ], dim=0)
-    return result
+            width = max(band.size(2) for band in bands)
+
+        # Resize bands and concatenate
+        resized_bands = [torchvision.transforms.functional.resize(band, size=(height, width)) for band in bands]
+        return torch.cat(resized_bands, dim=0)
 
 
 def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
