@@ -1,9 +1,12 @@
 from typing import Tuple, Dict, Any
 import os
 import glob
+import random
 import torch
+import matplotlib.pyplot as plt
 from data.datasets import BaseDataset
 import utils
+from utils.input_checks.str_types import check_write_dir
 
 
 class SYSU_CD_Dataset(BaseDataset):
@@ -63,3 +66,39 @@ class SYSU_CD_Dataset(BaseDataset):
         }
         meta_info = self.annotations[idx]
         return inputs, labels, meta_info
+
+    def visualize(self, output_dir: str) -> None:
+        check_write_dir(output_dir)
+        random_indices = random.sample(population=range(len(self)), k=10)
+
+        for idx in random_indices:
+            datapoint = self.__getitem__(idx)
+            inputs, labels = datapoint['inputs'], datapoint['labels']
+
+            img_1 = inputs['img_1']  # (C, H, W)
+            img_2 = inputs['img_2']  # (C, H, W)
+            change_map = labels['change_map']  # (H, W)
+
+            # Convert tensors to numpy format
+            img_1 = (img_1.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            img_2 = (img_2.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            change_map = (change_map * 255).cpu().numpy()  # (H, W)
+
+            # Create a figure
+            fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+            axes[0].imshow(img_1)
+            axes[0].set_title("Image 1")
+            axes[0].axis("off")
+
+            axes[1].imshow(img_2)
+            axes[1].set_title("Image 2")
+            axes[1].axis("off")
+
+            axes[2].imshow(change_map, cmap="gray")
+            axes[2].set_title("Change Map")
+            axes[2].axis("off")
+
+            # Save the figure
+            save_path = os.path.join(output_dir, f"datapoint_{idx}.png")
+            plt.savefig(save_path, bbox_inches="tight")
+            plt.close(fig)

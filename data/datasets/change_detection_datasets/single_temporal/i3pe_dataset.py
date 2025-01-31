@@ -277,9 +277,9 @@ class I3PEDataset(BaseSyntheticDataset):
             change_map = labels['change_map']  # (H, W)
 
             # Convert tensors to numpy format
-            img_1 = img_1.permute(1, 2, 0).cpu().numpy()  # (H, W, C)
-            img_2 = img_2.permute(1, 2, 0).cpu().numpy()  # (H, W, C)
-            change_map = change_map.cpu().numpy()  # (H, W)
+            img_1 = (img_1.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            img_2 = (img_2.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            change_map = (change_map * 255).cpu().numpy()  # (H, W)
 
             # Create a figure
             fig, axes = plt.subplots(1, 3, figsize=(12, 4))
