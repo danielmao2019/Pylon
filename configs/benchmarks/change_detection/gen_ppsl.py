@@ -29,7 +29,7 @@ def main() -> None:
     config += '\n'
     # add model config
     config += f"# model config\n"
-    config += f"from configs.common.models.change_detection.sysu_cd.i3pe import model_config\n"
+    config += f"from configs.common.models.change_detection.ppsl_model import model_config\n"
     config += f"config['model'] = model_config\n"
     config += '\n'
     # add optimizer config
@@ -40,7 +40,7 @@ def main() -> None:
     config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds
-    relpath = os.path.join("benchmarks", "change_detection", "sysu_cd")
+    relpath = os.path.join("benchmarks", "change_detection", "ppsl")
     seeded_configs: List[str] = utils.configs.generate_seeds(
         template_config=config, base_seed=relpath,
     )
@@ -48,8 +48,8 @@ def main() -> None:
     os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
         seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"i3pe_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs", relpath, f"i3pe_run_{idx}.py"), mode='w') as f:
+        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"ppsl_run_{idx}") + "\"\n"
+        with open(os.path.join("./configs", relpath, f"ppsl_run_{idx}.py"), mode='w') as f:
             f.write(seeded_config)
 
 

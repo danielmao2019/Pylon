@@ -29,7 +29,7 @@ def main() -> None:
     config += '\n'
     # add model config
     config += f"# model config\n"
-    config += f"from configs.common.models.change_detection.i3pe import model_config\n"
+    config += f"from configs.common.models.change_detection.i3pe_model import model_config\n"
     config += f"config['model'] = model_config\n"
     config += '\n'
     # add optimizer config
