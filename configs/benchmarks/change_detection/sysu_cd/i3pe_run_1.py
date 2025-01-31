@@ -43,7 +43,7 @@ from configs.common.datasets.change_detection.i3pe_sysu_cd import config as data
 config.update(dataset_config)
 
 # model config
-from configs.common.models.change_detection.sysu_cd.i3pe import model_config
+from configs.common.models.change_detection.i3pe import model_config
 config['model'] = model_config
 
 # optimizer config
