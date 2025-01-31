@@ -121,12 +121,9 @@ class OSCDDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        meta_info = self.annotations[idx]['meta_info']
-        height, width = meta_info['height'], meta_info['width']
         inputs = self._load_inputs(idx)
         labels = self._load_labels(idx)
-        assert all(x.shape[-2:] == (height, width) for x in [inputs['img_1'], inputs['img_2'], labels['change_map']]), \
-            f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
+        meta_info = self.annotations[idx]['meta_info']
         return inputs, labels, meta_info
 
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -156,8 +153,8 @@ class OSCDDataset(BaseDataset):
             filepaths=self.annotations[idx]['labels']['tif_label_filepaths'],
             dtype=torch.int64, sub=1, div=None,  # sub 1 to convert {1, 2} to {0, 1}
         )
-        assert change_map.ndim == 3 and change_map.shape[0] == 1, f"{change_map.shape=}"
-        change_map = change_map[0]
+        assert change_map.ndim == 3 and change_map.size(0) == 1, f"{change_map.shape=}"
+        change_map = change_map.squeeze(0)
         assert change_map.ndim == 2, f"{change_map.shape=}"
         labels = {'change_map': change_map}
         return labels
