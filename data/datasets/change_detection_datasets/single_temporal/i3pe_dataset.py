@@ -95,12 +95,14 @@ class I3PEDataset(BaseSyntheticDataset):
         assert segmentation.shape == image.shape[:2]
         return segmentation
 
-    def _perform_clustering(self, image: Union[numpy.ndarray, torch.Tensor]) -> numpy.ndarray:
+    def _perform_clustering(self, image: Union[numpy.ndarray, torch.Tensor], segments: numpy.ndarray = None) -> numpy.ndarray:
         """
         Perform clustering on image segments using DBSCAN.
 
         Args:
             image (torch.Tensor): Input image tensor.
+            segments (numpy.ndarray, optional): Precomputed segmentations for the image. 
+                                                If not provided, it will be computed using `self._segment_objects`.
 
         Returns:
             numpy.ndarray: Clustered labels map.
@@ -109,7 +111,10 @@ class I3PEDataset(BaseSyntheticDataset):
             image = image.permute((1, 2, 0)).numpy()
         assert type(image) == numpy.ndarray, f"{type(image)=}"
 
-        segments = self._segment_objects(image)
+        # Compute segmentation if not provided
+        if segments is None:
+            segments = self._segment_objects(image)
+
         num_segments = numpy.max(segments) + 1
 
         features = numpy.zeros((num_segments, 6))
@@ -216,24 +221,8 @@ class I3PEDataset(BaseSyntheticDataset):
         object_2 = numpy.max(object_1) + 1 + object_2
         concat_object = numpy.concatenate([object_1, object_2], axis=1)
 
-        # Number of unique objects
-        obj_num = numpy.max(concat_object) + 1
-
-        # Feature vector calculation (mean and std for each object)
-        feat_vect = numpy.zeros((obj_num, 6))
-        for obj_idx in range(obj_num):
-            obj_pixels = concat_img[concat_object == obj_idx]
-            if obj_pixels.size > 0:
-                feat_vect[obj_idx] = numpy.concatenate([numpy.mean(obj_pixels, axis=0), numpy.std(obj_pixels, axis=0)], axis=0)
-
-        # DBSCAN clustering
-        clustering = DBSCAN(eps=7.5, min_samples=10, n_jobs=1).fit(feat_vect)
-        clustered_labels = clustering.labels_
-
-        # Create a clustered map
-        clustered_map = numpy.zeros(concat_img.shape[:2], dtype=numpy.int64)
-        for obj_idx in range(obj_num):
-            clustered_map[concat_object == obj_idx] = clustered_labels[obj_idx]
+        # Perform clustering using the perform_clustering method
+        clustered_map = self._perform_clustering(concat_img, segments=concat_object)
 
         # Separate labels for the two images
         label_1 = clustered_map[:, :img_1.shape[1]]
