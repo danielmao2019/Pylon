@@ -24,20 +24,27 @@ collate_fn_config = {
     },
 }
 
+source_dataset = data.datasets.Bi2SingleTemporal(
+    source=data.datasets.SYSU_CD_Dataset(
+        data_root="./data/datasets/soft_links/SYSU-CD",
+        split="train", transforms_cfg=transforms_config,
+    ),
+)
+
 config = {
     'train_dataset': {
-        'class': data.datasets.SYSU_CD_Dataset,
+        'class': data.datasets.I3PEDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/SYSU-CD",
-            'split': "train",
-            'transforms_cfg': transforms_config,
+            'source': source_dataset,
+            'dataset_size': len(source_dataset),
+            'exchange_ratio': 0.75,
         },
     },
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 4,
-            'num_workers': 4,
+            'batch_size': 128,
+            'num_workers': 8,
             'collate_fn': collate_fn_config,
         },
     },
@@ -74,7 +81,7 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.vision_2d.SemanticSegmentationCriterion,
+        'class': criteria.vision_2d.SymmetricChangeDetectionCriterion,
         'args': {
             'class_weights': tuple((
                 data.datasets.SYSU_CD_Dataset.NUM_CLASSES*(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))/torch.sum(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))
