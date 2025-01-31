@@ -8,6 +8,7 @@ from criteria.vision_2d.semantic_segmentation_criterion import SemanticSegmentat
 from criteria.vision_2d.instance_segmentation_criterion import InstanceSegmentationCriterion
 from criteria.vision_2d.symmetric_change_detection_criterion import SymmetricChangeDetectionCriterion
 from criteria.vision_2d.change_star_criterion import ChangeStarCriterion
+from criteria.vision_2d.ppsl_criterion import PPSLCriterion
 
 
 __all__ = (
@@ -18,4 +19,5 @@ __all__ = (
     'InstanceSegmentationCriterion',
     'SymmetricChangeDetectionCriterion',
     'ChangeStarCriterion',
+    'PPSLCriterion',
 )

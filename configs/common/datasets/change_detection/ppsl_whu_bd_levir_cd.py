@@ -1,3 +1,4 @@
+import criteria.vision_2d.ppsl_criterion
 import torch
 import torchvision
 import data
@@ -24,20 +25,17 @@ collate_fn_config = {
     },
 }
 
-source_dataset = data.datasets.Bi2SingleTemporal(
-    source=data.datasets.SYSU_CD_Dataset(
-        data_root="./data/datasets/soft_links/SYSU-CD",
-        split="train", transforms_cfg=transforms_config,
-    ),
+source_dataset = data.datasets.WHU_BD_Dataset(
+    data_root="./data/datasets/soft_links/WHU-BD",
+    split="train", transforms_cfg=transforms_config,
 )
 
 config = {
     'train_dataset': {
-        'class': data.datasets.I3PEDataset,
+        'class': data.datasets.PPSLDataset,
         'args': {
             'source': source_dataset,
             'dataset_size': len(source_dataset),
-            'exchange_ratio': 0.75,
         },
     },
     'train_dataloader': {
@@ -49,9 +47,9 @@ config = {
         },
     },
     'val_dataset': {
-        'class': data.datasets.SYSU_CD_Dataset,
+        'class': data.datasets.LevirCdDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/SYSU-CD",
+            'data_root': "./data/datasets/soft_links/LEVIR_CD",
             'split': "val",
             'transforms_cfg': transforms_config,
         },
@@ -65,9 +63,9 @@ config = {
         },
     },
     'test_dataset': {
-        'class': data.datasets.SYSU_CD_Dataset,
+        'class': data.datasets.LevirCdDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/SYSU-CD",
+            'data_root': "./data/datasets/soft_links/LEVIR_CD",
             'split': "test",
             'transforms_cfg': transforms_config,
         },
@@ -81,12 +79,8 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.vision_2d.SymmetricChangeDetectionCriterion,
-        'args': {
-            'class_weights': tuple((
-                data.datasets.SYSU_CD_Dataset.NUM_CLASSES*(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))/torch.sum(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))
-            ).tolist()),
-        },
+        'class': criteria.vision_2d.PPSLCriterion,
+        'args': {},
     },
     'metric': {
         'class': metrics.vision_2d.SemanticSegmentationMetric,

@@ -150,8 +150,9 @@ class PPSLModel(nn.Module):
         feature_x1 = self.backbone(input1)
         feature_x2 = self.backbone(input2)
 
-        building_logit = self.buildingHead(feature_x1)
-        building_logit = torch.clamp(building_logit, 1e-6, 1-1e-6)
+        if self.training:
+            building_logit = self.buildingHead(feature_x1)
+            building_logit = torch.clamp(building_logit, 1e-6, 1-1e-6)
 
         compare_out2, metric_out2 = self.compare_c2(feature_x1[0], feature_x2[0])
         compare_out3, metric_out3 = self.compare_c3(feature_x1[1], feature_x2[1])
@@ -167,7 +168,9 @@ class PPSLModel(nn.Module):
         compare_out = torch.clamp(compare_out, 1e-6, 1-1e-6)
 
         return {
-            'semantic_map': building_logit,
             'change_map': compare_out,
-            'metric': metric_out,
+            'semantic_map': building_logit,
+            'metrics': metric_out,
+        } if self.training else {
+            'change_map': compare_out,
         }

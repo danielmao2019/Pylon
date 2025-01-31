@@ -58,6 +58,7 @@ class PPSLDataset(BaseSyntheticDataset):
         }
         labels = {
             'change_map': change_map,
+            'semantic_map': label_1,
         }
         meta_info = {}
 
