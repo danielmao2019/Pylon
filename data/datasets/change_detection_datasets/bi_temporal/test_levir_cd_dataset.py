@@ -10,6 +10,7 @@ import torch
 ])
 def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
     for idx in range(len(dataset)):
         datapoint = dataset[idx]
         assert type(datapoint) == dict
@@ -30,3 +31,7 @@ def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
         change_map = labels['change_map']
         assert type(change_map) == torch.Tensor and change_map.ndim == 2 and change_map.dtype == torch.int64
         assert set(torch.unique(change_map).tolist()).issubset(set([0, 1])), f"{torch.unique(change_map)=}"
+        for cls in range(dataset.NUM_CLASSES):
+            class_dist[cls] += torch.sum(change_map == cls)
+    assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
+    assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"

@@ -52,12 +52,17 @@ class LevirCdDataset(BaseDataset):
     SPLIT_OPTIONS = ['train', 'test', 'val']
     DATASET_SIZE = {
         'train': 445,
-        'test': 128,
         'val': 64,
+        'test': 128,
     }
     INPUT_NAMES = ['img_1', 'img_2']
     LABEL_NAMES = ['change_map']
-
+    CLASS_DIST = {
+        'train': [445204032, 21412334],
+        'test': [127380432, 6837335],
+        'val': [64292600, 2816258],
+    }
+    NUM_CLASSES = 2
     SHA1SUM = '610f742580165b4af94ffae295dbab8986a92b69'
 
 
