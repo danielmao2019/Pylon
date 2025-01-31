@@ -1,3 +1,4 @@
+from typing import Dict
 import torch
 from torchvision import models
 from collections import OrderedDict
@@ -146,9 +147,10 @@ class PPSLModel(nn.Module):
         self.buildingHead = buildingTask(inchannels=256)
 
 
-    def forward(self, input1, input2):
-        feature_x1 = self.backbone(input1)
-        feature_x2 = self.backbone(input2)
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        img_1, img_2 = inputs['img_1'], inputs['img_2']
+        feature_x1 = self.backbone(img_1)
+        feature_x2 = self.backbone(img_2)
 
         if self.training:
             building_logit = self.buildingHead(feature_x1)
