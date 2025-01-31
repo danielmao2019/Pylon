@@ -217,16 +217,17 @@ class I3PEDataset(BaseSyntheticDataset):
         assert type(img_2) == numpy.ndarray, f"{type(img_2)=}"
 
         # Combine images and object maps
-        concat_img = numpy.concatenate([img_1, img_2], axis=1)
+        concat_img = numpy.concatenate([img_1, img_2], axis=0)
         object_2 = numpy.max(object_1) + 1 + object_2
-        concat_object = numpy.concatenate([object_1, object_2], axis=1)
+        concat_object = numpy.concatenate([object_1, object_2], axis=0)
 
         # Perform clustering using the perform_clustering method
         clustered_map = self._perform_clustering(concat_img, segments=concat_object)
+        assert clustered_map.shape == (img_1.shape[0]+img_2.shape[0], img_1.shape[1])
 
         # Separate labels for the two images
-        label_1 = clustered_map[:, :img_1.shape[1]]
-        label_2 = clustered_map[:, img_1.shape[1]:]
+        label_1 = clustered_map[:img_1.shape[0], :]
+        label_2 = clustered_map[img_1.shape[0]:, :]
 
         # Identify change regions
         change_label = (label_1 != label_2).astype(numpy.int64)
