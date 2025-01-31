@@ -38,6 +38,7 @@ config = {
             'source': source_dataset,
             'dataset_size': len(source_dataset),
             'exchange_ratio': 0.75,
+            'transforms_cfg': transforms_config,
         },
     },
     'train_dataloader': {

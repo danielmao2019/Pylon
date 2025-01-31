@@ -6,9 +6,9 @@ import torch
 class PPSLCriterion(SemanticSegmentationCriterion):
 
     def __init__(self, *args, **kwargs) -> None:
+        super(PPSLCriterion, self).__init__(*args, **kwargs)
         self.change_criterion = torch.nn.CrossEntropyLoss()
         self.semantic_criterion = torch.nn.CrossEntropyLoss()
-        super(PPSLCriterion, self).__init__(*args, **kwargs)
 
     @staticmethod
     def _metric_criterion(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:

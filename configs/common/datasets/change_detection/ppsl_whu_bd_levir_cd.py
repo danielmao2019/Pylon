@@ -36,6 +36,7 @@ config = {
         'args': {
             'source': source_dataset,
             'dataset_size': len(source_dataset),
+            'transforms_cfg': transforms_config,
         },
     },
     'train_dataloader': {
