@@ -11,9 +11,9 @@ if __name__ == "__main__":
     dataset = data.datasets.I3PEDataset(
         source=source_dataset,
         dataset_size=len(source_dataset),
-        exchange_ratio=0.75,
+        exchange_ratio=0.1,
     )
-    output_dir = f"./visualization/{dataset.__class__.__name__}"
+    output_dir = f"./visualizations/{dataset.__class__.__name__}"
     if os.path.isdir(output_dir):
         os.system(f"rm -rf {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
