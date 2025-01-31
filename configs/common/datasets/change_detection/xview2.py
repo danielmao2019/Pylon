@@ -1,6 +1,5 @@
 import data.collators.change_star_collator
 import torch
-import torchvision
 import data
 import criteria
 import metrics
@@ -11,7 +10,7 @@ transforms_config = {
     'args': {
         'transforms': [
             (
-                torchvision.transforms.Resize(size=(256, 256), antialias=True),
+                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'lbl_1'), ('labels', 'lbl_2')]
             ),
         ],

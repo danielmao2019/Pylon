@@ -1,6 +1,5 @@
 import criteria.vision_2d.ppsl_criterion
 import torch
-import torchvision
 import data
 import criteria
 import metrics
