@@ -14,7 +14,7 @@ from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
 
 def load_image(
     filepath: Optional[str] = None,
-    filepaths: Optional[List[str]] = None,
+    filepaths: Optional[Union[str, List[str]]] = None,
     height: Optional[int] = None,
     width: Optional[int] = None,
     dtype: Optional[torch.dtype] = None,
@@ -26,7 +26,7 @@ def load_image(
 
     Args:
         filepath: Path to a single image file (.png, .jpg, .jpeg, .bmp).
-        filepaths: List of filepaths for bands in a .tif image.
+        filepaths: List of filepaths for bands in a .tif image or a single .tif file.
         height: Desired height for resizing bands (optional).
         width: Desired width for resizing bands (optional).
         dtype: Desired output data type for the tensor (e.g., torch.float32).
@@ -36,11 +36,15 @@ def load_image(
     Returns:
         A PyTorch tensor of the loaded image.
     """
-    # Validate inputs
-    assert (filepath is None) ^ (filepaths is None), \
-        "Exactly one of 'filepath' or 'filepaths' must be provided."
+    # Ensure only one input type is provided
+    if (filepath is not None) == (filepaths is not None):
+        raise ValueError("Exactly one of 'filepath' or 'filepaths' must be provided.")
     if filepath is not None:
         check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg', '.bmp'])
+
+    # Normalize filepaths to a list
+    if isinstance(filepaths, str):
+        filepaths = [filepaths]  # Convert single .tif file to list for consistency
     if filepaths is not None:
         assert isinstance(filepaths, list), \
             f"'filepaths' must be a list. Got {type(filepaths)}."
@@ -53,14 +57,14 @@ def load_image(
     else:
         image: torch.Tensor = _load_multispectral_image(filepaths, height, width)
 
-    # Normalize the image
+    # Apply normalization
     if sub is not None or div is not None:
         image = _normalize(image, sub=sub, div=div)
 
-    # Convert data type
+    # Convert data type if specified
     if dtype is not None:
-        assert isinstance(dtype, torch.dtype), \
-            f"'dtype' must be a torch.dtype, got {type(dtype)}."
+        if not isinstance(dtype, torch.dtype):
+            raise TypeError(f"'dtype' must be a torch.dtype, got {type(dtype)}.")
         image = image.to(dtype)
 
     return image
