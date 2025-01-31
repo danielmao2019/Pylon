@@ -128,15 +128,15 @@ def _load_multispectral_image(
         raise ValueError("Height and width should be None when loading a single file.")
 
     bands: List[torch.Tensor] = []
-    
+
     for path in filepaths:
         with rasterio.open(path) as src:
             band = src.read()
         if band.dtype == numpy.uint16:
             band = band.astype(numpy.int64)
-        
+
         band_tensor = torch.from_numpy(band)
-        
+
         if band_tensor.ndim != 3:  # Ensure correct shape
             raise ValueError(f"Unexpected shape {band_tensor.shape} for file {path}")
 
@@ -157,8 +157,8 @@ def _load_multispectral_image(
 
 
 def _normalize(
-    image: torch.Tensor, 
-    sub: Optional[Union[float, Sequence[float], torch.Tensor]], 
+    image: torch.Tensor,
+    sub: Optional[Union[float, Sequence[float], torch.Tensor]],
     div: Optional[Union[float, Sequence[float], torch.Tensor]],
 ) -> torch.Tensor:
     """Normalize the image by subtracting and dividing channel-wise values."""
@@ -168,7 +168,7 @@ def _normalize(
     def prepare_tensor(value, num_channels, ndim):
         """Prepare a broadcastable normalization tensor."""
         value_tensor = torch.as_tensor(value, dtype=torch.float32)
-        
+
         if value_tensor.numel() not in {1, num_channels}:
             raise ValueError(
                 f"Normalization value must match the number of channels or be scalar. Got {value_tensor.numel()} values for {num_channels} channels."
