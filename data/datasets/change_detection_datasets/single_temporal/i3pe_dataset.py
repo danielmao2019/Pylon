@@ -53,7 +53,7 @@ class I3PEDataset(BaseSyntheticDataset):
             img_2 = self.source[idx_2]['inputs']['image']
             objects_1 = self._segment_objects(img_1)
             objects_2 = self._segment_objects(img_2)
-            img_2, change_map = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
+            img_2, change_map, semantic_map_1, semantic_map_2 = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
 
         assert all(type(x) == numpy.ndarray for x in [img_2, change_map])
         img_2 = torch.from_numpy(img_2).permute((2, 0, 1))
@@ -73,8 +73,8 @@ class I3PEDataset(BaseSyntheticDataset):
             meta_info['semantic_map_1'] = class_labels
         else:
             meta_info.update({
-                'semantic_map_1': objects_1,
-                'semantic_map_2': objects_2,
+                'semantic_map_1': semantic_map_1,
+                'semantic_map_2': semantic_map_2,
             })
         return inputs, labels, meta_info
 
@@ -259,14 +259,14 @@ class I3PEDataset(BaseSyntheticDataset):
             exchange_change_label[row_start:row_start + patch_sz, col_start:col_start + patch_sz] = \
                 change_label[row_start:row_start + patch_sz, col_start:col_start + patch_sz]
 
-        return exchange_img, exchange_change_label
+        return exchange_img, exchange_change_label, label_1, label_2
 
     @staticmethod
     def generate_color_palette(num_classes: int):
         """Generate a fixed color palette for segmentation visualization."""
         cmap = plt.get_cmap("tab10")  # Use a qualitative colormap
         colors = [cmap(i)[:3] for i in range(num_classes)]  # Get RGB values
-        return numpy.array(colors)
+        return (numpy.array(colors) * 255).astype(numpy.uint8)
 
     def visualize_segmentation(self, seg_map: torch.Tensor):
         """
