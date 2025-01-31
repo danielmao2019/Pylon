@@ -5,13 +5,25 @@ import criteria
 import metrics
 
 
-transforms_config = {
+train_transforms_cfg = {
     'class': data.transforms.Compose,
     'args': {
         'transforms': [
             (
                 data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map'), ('labels', 'semantic_map')]
+            ),
+        ],
+    },
+}
+
+eval_transforms_cfg = {
+    'class': data.transforms.Compose,
+    'args': {
+        'transforms': [
+            (
+                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
+                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
             ),
         ],
     },
@@ -32,7 +44,7 @@ config = {
         'args': {
             'source': source_dataset,
             'dataset_size': len(source_dataset),
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': train_transforms_cfg,
         },
     },
     'train_dataloader': {
@@ -48,7 +60,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/LEVIR_CD",
             'split': "val",
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': eval_transforms_cfg,
         },
     },
     'val_dataloader': {
@@ -64,7 +76,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/LEVIR_CD",
             'split': "test",
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': eval_transforms_cfg,
         },
     },
     'test_dataloader': {
