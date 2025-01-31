@@ -29,7 +29,7 @@ def main() -> None:
     config += '\n'
     # add model config
     config += f"# model config\n"
-    config += f"from configs.common.models.change_detection.xview2.change_star import model_config\n"
+    config += f"from configs.common.models.change_detection.change_star import model_config\n"
     config += f"config['model'] = model_config\n"
     config += '\n'
     # add optimizer config
@@ -40,17 +40,16 @@ def main() -> None:
     config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds
-    relpath = os.path.join("change_detection", "xview2")
+    relpath = os.path.join("benchmarks", "change_detection", "xview2")
     seeded_configs: List[str] = utils.configs.generate_seeds(
-        template_config=config,
-        base_seed=os.path.join("benchmarks", relpath),
+        template_config=config, base_seed=relpath,
     )
     # save to disk
-    os.makedirs(os.path.join("./configs/benchmarks", relpath), exist_ok=True)
+    os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
         seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs/benchmarks", relpath, f"change_star_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs/benchmarks", relpath, f"change_star_run_{idx}.py"), mode='w') as f:
+        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"change_star_run_{idx}") + "\"\n"
+        with open(os.path.join("./configs", relpath, f"change_star_run_{idx}.py"), mode='w') as f:
             f.write(seeded_config)
 
 

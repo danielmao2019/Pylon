@@ -43,7 +43,7 @@ from configs.common.datasets.change_detection.xview2 import config as dataset_co
 config.update(dataset_config)
 
 # model config
-from configs.common.models.change_detection.xview2.change_star import model_config
+from configs.common.models.change_detection.change_star import model_config
 config['model'] = model_config
 
 # optimizer config
