@@ -42,7 +42,7 @@ class I3PEDataset(BaseSyntheticDataset):
         exchange_type_seed = random.random()
         patch_size = random.choice(self.scale_factors)
 
-        if exchange_type_seed < 0.5:
+        if exchange_type_seed < 0:
             idx_2 = idx
             img_1 = self.source[idx]['inputs']['image']
             class_labels = self._perform_clustering(img_1)
@@ -69,7 +69,7 @@ class I3PEDataset(BaseSyntheticDataset):
         meta_info = {
             'patch_size': patch_size,
         }
-        if exchange_type_seed < 0.5:
+        if exchange_type_seed < 0:
             meta_info['semantic_map_1'] = class_labels
         else:
             meta_info.update({
@@ -278,15 +278,9 @@ class I3PEDataset(BaseSyntheticDataset):
             num_classes (int): Number of segmentation classes.
             alpha (float): Transparency level for overlay (0=only image, 1=only mask).
         """
-        # Convert tensors to NumPy
         num_classes = seg_map.max() + 1
-        print(f"{seg_map.shape=}")
-        # Generate a color palette
         color_palette = self.generate_color_palette(num_classes)
-
-        # Map segmentation mask to color
         seg_colored = color_palette[seg_map]  # (H, W, 3)
-        print(f"{seg_colored.shape=}")
         return seg_colored
 
     def visualize(self, output_dir: str) -> None:
