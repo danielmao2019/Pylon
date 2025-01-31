@@ -29,10 +29,21 @@ eval_transforms_cfg = {
     },
 }
 
-collate_fn_config = {
+train_collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {},
+    },
+}
+
+eval_collate_fn_cfg = {
+    'class': data.collators.BaseCollator,
+    'args': {
+        'collators': {
+            'meta_info': {
+                'image_resolution': torch.Tensor,
+            },
+        },
     },
 }
 
@@ -52,7 +63,7 @@ config = {
         'args': {
             'batch_size': 128,
             'num_workers': 8,
-            'collate_fn': collate_fn_config,
+            'collate_fn': train_collate_fn_cfg,
         },
     },
     'val_dataset': {
@@ -68,7 +79,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': eval_collate_fn_cfg,
         },
     },
     'test_dataset': {
@@ -84,7 +95,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': eval_collate_fn_cfg,
         },
     },
     'criterion': {
