@@ -1,5 +1,7 @@
 from typing import Dict
 import torch
+import criteria
+from criteria.wrappers import SingleTaskCriterion
 from semantic_segmentation_criterion import SemanticSegmentationCriterion
 from dice_loss import DiceLoss
 
