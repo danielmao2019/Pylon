@@ -10,16 +10,8 @@ transforms_config = {
     'args': {
         'transforms': [
             (
-                torchvision.transforms.Resize(size=(256, 256), antialias=True),
-                ('inputs', 'img_1'),
-            ),
-            (
-                torchvision.transforms.Resize(size=(256, 256), antialias=True),
-                ('inputs', 'img_2'),
-            ),
-            (
-                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
-                ('labels', 'change_map'),
+                data.transforms.Resize(size=(256, 256), antialias=True),
+                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
             ),
         ],
     },

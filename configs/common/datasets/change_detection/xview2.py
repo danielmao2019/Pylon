@@ -12,19 +12,7 @@ transforms_config = {
         'transforms': [
             (
                 torchvision.transforms.Resize(size=(256, 256), antialias=True),
-                ('inputs', 'img_1'),
-            ),
-            (
-                torchvision.transforms.Resize(size=(256, 256), antialias=True),
-                ('inputs', 'img_2'),
-            ),
-            (
-                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
-                ('labels', 'lbl_1'),
-            ),
-            (
-                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
-                ('labels', 'lbl_2'),
+                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'lbl_1'), ('labels', 'lbl_2')]
             ),
         ],
     },
