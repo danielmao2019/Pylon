@@ -18,8 +18,8 @@ def load_image(
     height: Optional[int] = None,
     width: Optional[int] = None,
     dtype: Optional[torch.dtype] = None,
-    sub: Optional[Union[float, Sequence[float]]] = None,
-    div: Optional[Union[float, Sequence[float]]] = None,
+    sub: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
+    div: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
 ) -> torch.Tensor:
     """
     Load an image or bands from file(s) into a PyTorch tensor.
