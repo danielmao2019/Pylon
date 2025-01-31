@@ -15,11 +15,11 @@ from utils.ops import apply_tensor_op, transpose_buffer, buffer_mean
 def load_image(
     filepath: Optional[str] = None,
     filepaths: Optional[List[str]] = None,
+    height: Optional[int] = None,
+    width: Optional[int] = None,
     dtype: Optional[torch.dtype] = None,
     sub: Optional[Union[float, Sequence[float]]] = None,
     div: Optional[Union[float, Sequence[float]]] = None,
-    height: Optional[int] = None,
-    width: Optional[int] = None,
 ) -> torch.Tensor:
     """
     Load an image or bands from file(s) into a PyTorch tensor.
@@ -27,11 +27,11 @@ def load_image(
     Args:
         filepath: Path to a single image file (.png, .jpg, .jpeg, .bmp).
         filepaths: List of filepaths for bands in a .tif image.
+        height: Desired height for resizing bands (optional).
+        width: Desired width for resizing bands (optional).
         dtype: Desired output data type for the tensor (e.g., torch.float32).
         sub: Value(s) to subtract from the image for normalization.
         div: Value(s) to divide the image by for normalization.
-        height: Desired height for resizing bands (optional).
-        width: Desired width for resizing bands (optional).
 
     Returns:
         A PyTorch tensor of the loaded image.
@@ -46,8 +46,6 @@ def load_image(
             f"'filepaths' must be a list. Got {type(filepaths)}."
         for path in filepaths:
             check_read_file(path=path, ext=['.tif', '.tiff'])
-    assert (height is None and width is None) or (height is not None and width is not None), \
-        "Both 'height' and 'width' must be provided for resizing."
 
     # Load image data
     if filepath:
@@ -119,22 +117,36 @@ def _load_multispectral_image(
     Returns:
         A PyTorch tensor where each band is a channel.
     """
+    assert type(filepaths) == list, f"{type(filepaths)=}"
+    assert len(filepath) > 0
+    if len(filepath) == 1:
+        assert height is None and width is None
     bands: List[torch.Tensor] = []
     for filepath in filepaths:
         with rasterio.open(filepath) as src:
-            band = src.read(1)
+            band = src.read()
         if band.dtype == numpy.uint16:
             band = band.astype(numpy.int64)
-        band = torch.from_numpy(band).unsqueeze(0)
-        assert band.ndim == 3 and band.size(0) == 1, f"{band.shape=}"
-        if height is not None and width is not None:
-            band = torchvision.transforms.functional.resize(band, size=(height, width))
+        band = torch.from_numpy(band)
+        assert band.ndim == 3, f"{band.shape=}"
         bands.append(band)
-    return torch.cat(bands, dim=0)  # Concatenate bands along the channel dimension
+    try:
+        result = torch.cat(bands, dim=0)
+    except:
+        if height is None:
+            height = int(torch.Tensor([band.size(1) for band in bands]).mean().item())
+        if width is None:
+            width = int(torch.Tensor([band.size(2) for band in bands]).mean().item())
+        result = torch.cat([
+            torchvision.transforms.functional.resize(band, size=(height, width))
+            for band in bands
+        ], dim=0)
+    return result
 
 
 def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
     """Normalize the image by subtracting and dividing channel-wise values."""
+    original_dtype = image.dtype
     image = image.to(torch.float32)
 
     def prepare_tensor(value, num_channels, ndim):
@@ -161,6 +173,7 @@ def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]]
         div_tensor = div_tensor.clamp(min=1e-6)  # Prevent division by zero
         image /= div_tensor
 
+    image = image.to(original_dtype)
     return image
 
 
