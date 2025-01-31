@@ -70,4 +70,6 @@ class I3PEModel(torch.nn.Module):
         return {
             'change_map_12': self._forward(img_1, img_2),
             'change_map_21': self._forward(img_2, img_1),
+        } if self.training else {
+            'change_map_12': self._forward(img_1, img_2),
         }
