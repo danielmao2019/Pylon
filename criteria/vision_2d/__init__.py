@@ -17,6 +17,7 @@ from criteria.vision_2d.change_detection.change_former_criterion import ChangeFo
 from criteria.vision_2d.change_detection.ftn_criterion import FTNCriterion
 from criteria.vision_2d.change_detection.change_star_criterion import ChangeStarCriterion
 from criteria.vision_2d.change_detection.ppsl_criterion import PPSLCriterion
+from criteria.vision_2d.dice_loss import DiceLoss
 
 
 __all__ = (
@@ -36,4 +37,5 @@ __all__ = (
     'FTNCriterion',
     'ChangeStarCriterion',
     'PPSLCriterion',
+    'DiceLoss',
 )
