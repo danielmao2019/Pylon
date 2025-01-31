@@ -152,37 +152,39 @@ def _load_multispectral_image(
         return torch.cat(resized_bands, dim=0)
 
 
-def _normalize(image: torch.Tensor, sub: Optional[Union[float, Sequence[float]]], div: Optional[Union[float, Sequence[float]]]) -> torch.Tensor:
+def _normalize(
+    image: torch.Tensor, 
+    sub: Optional[Union[float, Sequence[float], torch.Tensor]], 
+    div: Optional[Union[float, Sequence[float], torch.Tensor]],
+) -> torch.Tensor:
     """Normalize the image by subtracting and dividing channel-wise values."""
     original_dtype = image.dtype
     image = image.to(torch.float32)
 
     def prepare_tensor(value, num_channels, ndim):
-        """Helper to prepare broadcastable normalization tensors."""
-        value_tensor = torch.tensor(value, dtype=torch.float32)
+        """Prepare a broadcastable normalization tensor."""
+        value_tensor = torch.as_tensor(value, dtype=torch.float32)
+        
         if value_tensor.numel() not in {1, num_channels}:
-            raise ValueError(f"Normalization value must match the number of channels or be scalar. Got {value_tensor.numel()=}.")
+            raise ValueError(
+                f"Normalization value must match the number of channels or be scalar. Got {value_tensor.numel()} values for {num_channels} channels."
+            )
         if value_tensor.numel() == 1:
-            value_tensor = value_tensor.repeat(num_channels)
-        if ndim == 3:  # For 3D tensors (C, H, W), reshape for broadcasting
+            value_tensor = value_tensor.expand(num_channels)
+        if ndim == 3:  # Reshape for broadcasting
             return value_tensor.view(-1, 1, 1)
-        return value_tensor  # Return as is for 2D tensors (H, W)
+        return value_tensor  # Keep shape for 2D tensors (H, W)
 
     if sub is not None:
-        sub_tensor = prepare_tensor(
-            value=sub, num_channels=image.shape[0] if image.ndim == 3 else 1, ndim=image.ndim,
-        )
-        image -= sub_tensor
+        sub_tensor = prepare_tensor(sub, image.size(0) if image.ndim == 3 else 1, image.ndim)
+        image = image - sub_tensor
 
     if div is not None:
-        div_tensor = prepare_tensor(
-            value=div, num_channels=image.shape[0] if image.ndim == 3 else 1, ndim=image.ndim,
-        )
-        div_tensor = div_tensor.clamp(min=1e-6)  # Prevent division by zero
-        image /= div_tensor
+        div_tensor = prepare_tensor(div, image.size(0) if image.ndim == 3 else 1, image.ndim)
+        div_tensor = torch.where(div_tensor.abs() < 1.0e-06, 1.0e-06, div_tensor)  # Avoids division by zero issues
+        image = image / div_tensor
 
-    image = image.to(original_dtype)
-    return image
+    return image.to(original_dtype)
 
 
 def save_image(tensor: torch.Tensor, filepath: str) -> None:
