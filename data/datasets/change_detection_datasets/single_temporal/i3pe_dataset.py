@@ -1,10 +1,13 @@
 from typing import Tuple, Dict, Union, Any, Optional
+import os
 import random
 import numpy
 import torch
+import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 from skimage.segmentation import slic
 from data.datasets import BaseSyntheticDataset
+from utils.input_checks.str_types import check_write_dir
 
 
 class I3PEDataset(BaseSyntheticDataset):
@@ -39,7 +42,7 @@ class I3PEDataset(BaseSyntheticDataset):
         exchange_type_seed = random.random()
         patch_size = random.choice(self.scale_factors)
 
-        if exchange_type_seed < 0.5:
+        if exchange_type_seed < 0:
             idx_2 = idx
             img_1 = self.source[idx]['inputs']['image']
             class_labels = self._perform_clustering(img_1)
@@ -50,7 +53,7 @@ class I3PEDataset(BaseSyntheticDataset):
             img_2 = self.source[idx_2]['inputs']['image']
             objects_1 = self._segment_objects(img_1)
             objects_2 = self._segment_objects(img_2)
-            img_2, change_map = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
+            img_2, change_map, semantic_map_1, semantic_map_2 = self._inter_image_patch_exchange(img_1, img_2, objects_1, objects_2, patch_size)
 
         assert all(type(x) == numpy.ndarray for x in [img_2, change_map])
         img_2 = torch.from_numpy(img_2).permute((2, 0, 1))
@@ -66,6 +69,13 @@ class I3PEDataset(BaseSyntheticDataset):
         meta_info = {
             'patch_size': patch_size,
         }
+        if exchange_type_seed < 0:
+            meta_info['semantic_map_1'] = class_labels
+        else:
+            meta_info.update({
+                'semantic_map_1': semantic_map_1,
+                'semantic_map_2': semantic_map_2,
+            })
         return inputs, labels, meta_info
 
     def _segment_objects(self, image: Union[numpy.ndarray, torch.Tensor]) -> numpy.ndarray:
@@ -85,12 +95,14 @@ class I3PEDataset(BaseSyntheticDataset):
         assert segmentation.shape == image.shape[:2]
         return segmentation
 
-    def _perform_clustering(self, image: Union[numpy.ndarray, torch.Tensor]) -> numpy.ndarray:
+    def _perform_clustering(self, image: Union[numpy.ndarray, torch.Tensor], segments: numpy.ndarray = None) -> numpy.ndarray:
         """
         Perform clustering on image segments using DBSCAN.
 
         Args:
             image (torch.Tensor): Input image tensor.
+            segments (numpy.ndarray, optional): Precomputed segmentations for the image. 
+                                                If not provided, it will be computed using `self._segment_objects`.
 
         Returns:
             numpy.ndarray: Clustered labels map.
@@ -99,11 +111,14 @@ class I3PEDataset(BaseSyntheticDataset):
             image = image.permute((1, 2, 0)).numpy()
         assert type(image) == numpy.ndarray, f"{type(image)=}"
 
-        segments = self._segment_objects(image)
-        num_segments = numpy.max(segments)
+        # Compute segmentation if not provided
+        if segments is None:
+            segments = self._segment_objects(image)
 
-        features = numpy.zeros((num_segments + 1, 6))
-        for segment_idx in range(num_segments + 1):
+        num_segments = numpy.max(segments) + 1
+
+        features = numpy.zeros((num_segments, 6))
+        for segment_idx in range(num_segments):
             segment_mask = segments == segment_idx
             features[segment_idx] = numpy.concatenate([
                 numpy.mean(image[segment_mask], axis=0),
@@ -114,7 +129,7 @@ class I3PEDataset(BaseSyntheticDataset):
         cluster_labels = clustering.labels_
 
         clustered_map = numpy.zeros(image.shape[:2], dtype=int)
-        for segment_idx in range(num_segments + 1):
+        for segment_idx in range(num_segments):
             clustered_map[segments == segment_idx] = cluster_labels[segment_idx] + 1
 
         return clustered_map
@@ -202,32 +217,17 @@ class I3PEDataset(BaseSyntheticDataset):
         assert type(img_2) == numpy.ndarray, f"{type(img_2)=}"
 
         # Combine images and object maps
-        concat_img = numpy.concatenate([img_1, img_2], axis=1)
+        concat_img = numpy.concatenate([img_1, img_2], axis=0)
         object_2 = numpy.max(object_1) + 1 + object_2
-        concat_object = numpy.concatenate([object_1, object_2], axis=1)
+        concat_object = numpy.concatenate([object_1, object_2], axis=0)
 
-        # Number of unique objects
-        obj_num = numpy.max(concat_object)
-
-        # Feature vector calculation (mean and std for each object)
-        feat_vect = numpy.zeros((obj_num + 1, 6))
-        for obj_idx in range(obj_num + 1):
-            obj_pixels = concat_img[concat_object == obj_idx]
-            if obj_pixels.size > 0:
-                feat_vect[obj_idx] = numpy.concatenate([numpy.mean(obj_pixels, axis=0), numpy.std(obj_pixels, axis=0)], axis=0)
-
-        # DBSCAN clustering
-        clustering = DBSCAN(eps=7.5, min_samples=10, n_jobs=1).fit(feat_vect)
-        clustered_labels = clustering.labels_
-
-        # Create a clustered map
-        clustered_map = numpy.zeros(concat_img.shape[:2], dtype=numpy.int64)
-        for obj_idx in range(obj_num + 1):
-            clustered_map[concat_object == obj_idx] = clustered_labels[obj_idx]
+        # Perform clustering using the perform_clustering method
+        clustered_map = self._perform_clustering(concat_img, segments=concat_object)
+        assert clustered_map.shape == (img_1.shape[0]+img_2.shape[0], img_1.shape[1])
 
         # Separate labels for the two images
-        label_1 = clustered_map[:, :img_1.shape[1]]
-        label_2 = clustered_map[:, img_1.shape[1]:]
+        label_1 = clustered_map[:img_1.shape[0], :]
+        label_2 = clustered_map[img_1.shape[0]:, :]
 
         # Identify change regions
         change_label = (label_1 != label_2).astype(numpy.int64)
@@ -259,4 +259,78 @@ class I3PEDataset(BaseSyntheticDataset):
             exchange_change_label[row_start:row_start + patch_sz, col_start:col_start + patch_sz] = \
                 change_label[row_start:row_start + patch_sz, col_start:col_start + patch_sz]
 
-        return exchange_img, exchange_change_label
+        return exchange_img, exchange_change_label, label_1, label_2
+
+    @staticmethod
+    def generate_color_palette(num_classes: int):
+        """Generate a fixed color palette for segmentation visualization."""
+        cmap = plt.get_cmap("tab10")  # Use a qualitative colormap
+        colors = [cmap(i)[:3] for i in range(num_classes)]  # Get RGB values
+        return (numpy.array(colors) * 255).astype(numpy.uint8)
+
+    def visualize_segmentation(self, seg_map: torch.Tensor):
+        """
+        Visualizes a segmentation map by overlaying colors on the image.
+        
+        Args:
+            image (torch.Tensor): Image tensor in (C, H, W) format.
+            seg_map (torch.Tensor): Segmentation map tensor in (H, W) format with class indices.
+            num_classes (int): Number of segmentation classes.
+            alpha (float): Transparency level for overlay (0=only image, 1=only mask).
+        """
+        num_classes = seg_map.max() + 1
+        color_palette = self.generate_color_palette(num_classes)
+        seg_colored = color_palette[seg_map]  # (H, W, 3)
+        return seg_colored
+
+    def visualize(self, output_dir: str) -> None:
+        check_write_dir(output_dir)
+        random_indices = random.sample(population=range(len(self)), k=10)
+
+        for idx in random_indices:
+            datapoint = self.__getitem__(idx)
+            inputs, labels, meta_info = datapoint['inputs'], datapoint['labels'], datapoint['meta_info']
+
+            img_1 = inputs['img_1']  # (C, H, W)
+            img_2 = inputs['img_2']  # (C, H, W)
+            change_map = labels['change_map']  # (H, W)
+            semantic_map_1 = meta_info['semantic_map_1']
+            if 'semantic_map_2' in meta_info:
+                semantic_map_2 = meta_info['semantic_map_2']
+            else:
+                semantic_map_2 = None
+
+            # Convert tensors to numpy format
+            img_1 = (img_1.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            img_2 = (img_2.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            change_map = (change_map * 255).cpu().numpy()  # (H, W)
+
+            # Create a figure
+            fig, axes = plt.subplots(2, 3, figsize=(3*4, 2*4))
+            axes[0, 0].imshow(img_1)
+            axes[0, 0].set_title("Image 1")
+            axes[0, 0].axis("off")
+
+            axes[0, 1].imshow(img_2)
+            axes[0, 1].set_title("Image 2")
+            axes[0, 1].axis("off")
+
+            axes[0, 2].imshow(change_map, cmap="gray")
+            axes[0, 2].set_title("Change Map")
+            axes[0, 2].axis("off")
+
+            axes[1, 0].imshow(self.visualize_segmentation(semantic_map_1))
+            axes[1, 0].set_title("Semantic Map 1")
+            axes[1, 0].axis("off")
+
+            if semantic_map_2 is not None:
+                axes[1, 1].imshow(self.visualize_segmentation(semantic_map_2))
+                axes[1, 1].set_title("Semantic Map 2")
+                axes[1, 1].axis("off")
+
+            axes[1, 2].axis("off")
+
+            # Save the figure
+            save_path = os.path.join(output_dir, f"datapoint_{idx}.png")
+            plt.savefig(save_path, bbox_inches="tight")
+            plt.close(fig)
