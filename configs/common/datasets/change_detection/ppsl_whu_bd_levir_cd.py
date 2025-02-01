@@ -1,4 +1,3 @@
-import criteria.vision_2d.ppsl_criterion
 import torch
 import data
 import criteria
