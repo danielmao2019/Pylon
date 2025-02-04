@@ -24,7 +24,7 @@ def main() -> None:
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"
-    config += f"from configs.common.datasets.image_classification.mnist import config as dataset_config\n" 
+    config += f"from configs.common.datasets.gans.mnist import config as dataset_config\n" 
     config += f"config.update(dataset_config)\n"
     config += '\n'
     # add model config
