@@ -1,5 +1,6 @@
 from typing import Tuple
 import torch
+import utils
 
 
 class Generator(torch.nn.Module):
@@ -50,9 +51,9 @@ class Discriminator(torch.nn.Module):
 
 class GAN(torch.nn.Module):
 
-    def __init__(self, generator: torch.nn.Module, discriminator: torch.nn.Module) -> None:
-        self.generator = generator
-        self.discriminator = discriminator
+    def __init__(self, generator_cfg: torch.nn.Module, discriminator_cfg: torch.nn.Module) -> None:
+        self.generator = utils.builder.build_from_config(generator_cfg)
+        self.discriminator = utils.builder.build_from_config(discriminator_cfg)
 
     def forward(self):
         raise NotImplementedError("GAN.forward not implemented.")
