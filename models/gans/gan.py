@@ -53,3 +53,6 @@ class GAN(torch.nn.Module):
     def __init__(self, generator: torch.nn.Module, discriminator: torch.nn.Module) -> None:
         self.generator = generator
         self.discriminator = discriminator
+
+    def forward(self):
+        raise NotImplementedError("GAN.forward not implemented.")
