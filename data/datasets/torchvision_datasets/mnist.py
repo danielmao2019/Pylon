@@ -1,5 +1,4 @@
 from typing import Tuple, Dict, Any
-import os
 import torch
 import torchvision
 from data.datasets import BaseSyntheticDataset
@@ -9,11 +8,13 @@ class MNISTDataset(BaseSyntheticDataset):
 
     SPLIT_OPTIONS = ['train', 'test']
 
-    def __init__(self, **kwargs):
+    def __init__(self, split: str, **kwargs):
+        assert split in self.SPLIT_OPTIONS, f"{split=}, {self.SPLIT_OPTIONS=}"
+        self.split = split
         assert {'source', 'dataset_size'} & set(kwargs.keys()) == set()
         super(MNISTDataset, self).__init__(
             source=torchvision.datasets.MNIST(
-                root=os.path.join(self.data_root, "MNIST"),
+                root=self.data_root,
                 train=self.split=='train',
                 download=True,
                 transform=torchvision.transforms.Compose([

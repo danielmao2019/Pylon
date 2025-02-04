@@ -1,38 +1,48 @@
 import pytest
+from .gan_dataset import GANDataset
 import torch
-from data.datasets import GANDataset
+import data
 
 
 @pytest.fixture
 def source_dataset(request):
-    """Creates a source dataset with a fixed latent dimension and dummy image data."""
+    """Fixture for creating an MNISTDataset instance with specified split and device."""
+    split, device = request.param  # Unpack the parameterized values
     latent_dim = 128
-    device = torch.device(request.param)
     
     # Create dummy image data for multiple datapoints
-    num_samples = 5
-    source = [{'inputs': {'image': torch.rand(3, 64, 64, device=device)}} for _ in range(num_samples)]
-
+    source = data.datasets.MNISTDataset(
+        data_root="./data/datasets/soft_links/MNIST",
+        split=split,
+    )
     return GANDataset(latent_dim=latent_dim, source=source, device=device)
 
 
-@pytest.mark.parametrize("source_dataset", ["cpu", "cuda"], indirect=True)
-def test_gan_dataset_properties(source_dataset):
+@pytest.mark.parametrize("mnist_dataset", [
+    ("train", "cpu"),
+    ("test", "cpu"),
+    ("train", "cuda"),
+    ("test", "cuda"),
+], indirect=True)
+def test_gan_dataset_properties(mnist_dataset):
     """Checks tensor shapes, dtypes, and device placement for all datapoints in the dataset."""
-    for idx in range(len(source_dataset.source)):  # Iterate over all datapoints
-        inputs, labels, _ = source_dataset._load_datapoint(idx)
-        
-        # Check tensor shapes
-        assert inputs['z'].shape == (source_dataset.latent_dim,), f"Incorrect shape at idx {idx}"
-        assert labels['image'].shape == (3, 64, 64), f"Incorrect image shape at idx {idx}"
-        
-        # Check tensor dtypes
-        assert inputs['z'].dtype == torch.float32, f"Incorrect z dtype at idx {idx}"
-        assert labels['image'].dtype == torch.float32, f"Incorrect image dtype at idx {idx}"
-        
-        # Check tensor device
-        assert inputs['z'].device == source_dataset.device, f"Incorrect z device at idx {idx}"
-        assert labels['image'].device == source_dataset.device, f"Incorrect image device at idx {idx}"
+    for idx in range(len(mnist_dataset.source)):  # Loop through entire dataset
+        inputs, labels, meta_info = mnist_dataset._load_datapoint(idx)
+
+        # Shape checks
+        assert inputs['image'].shape == (1, 28, 28), f"Incorrect image shape at idx {idx}"
+        assert labels['label'].shape == (), f"Incorrect label shape at idx {idx}"
+
+        # Dtype checks
+        assert inputs['image'].dtype == torch.float32, f"Incorrect image dtype at idx {idx}"
+        assert labels['label'].dtype == torch.int64, f"Incorrect label dtype at idx {idx}"
+
+        # Device checks
+        assert inputs['image'].device == mnist_dataset.device, f"Image not on correct device at idx {idx}"
+        assert labels['label'].device == mnist_dataset.device, f"Label not on correct device at idx {idx}"
+
+        # Meta info check
+        assert meta_info['index'] == idx, f"Meta info index mism atch at idx {idx}"
 
 
 @pytest.mark.parametrize("source_dataset", ["cpu", "cuda"], indirect=True)
