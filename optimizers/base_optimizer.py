@@ -28,11 +28,11 @@ class BaseOptimizer(ABC):
     def step(self, *args, **kwargs):
         return self.optimizer.step(*args, **kwargs)
 
-    def state_dict(self, *args, **kwargs):
+    def state_dict(self, *args, **kwargs) -> dict:
         return self.optimizer.state_dict(*args, **kwargs)
 
-    def load_state_dict(self, *args, **kwargs):
-        return self.optimizer.load_state_dict(*args, **kwargs)
+    def load_state_dict(self, *args, **kwargs) -> None:
+        self.optimizer.load_state_dict(*args, **kwargs)
 
     # ====================================================================================================
     # ====================================================================================================
