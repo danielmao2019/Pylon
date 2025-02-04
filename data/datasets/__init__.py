@@ -9,6 +9,9 @@ from data.datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
 # Semantic Segmentation datasets
 from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
 
+# GAN datasets
+from data.datasets.gan_datasets.gan_dataset import GANDataset
+
 # Multi-Task Learning datasets
 from data.datasets.multi_task_datasets.multi_mnist_dataset import MultiMNISTDataset
 from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
@@ -38,6 +41,8 @@ __all__ = (
     'ProjectionDatasetWrapper',
     # Semantic Segmentation datasets
     'WHU_BD_Dataset',
+    # GAN datasets
+    'GANDataset',
     # Multi-Task Learning datasets
     'MultiMNISTDataset',
     'CelebADataset',
