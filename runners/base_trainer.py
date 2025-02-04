@@ -14,13 +14,6 @@ from utils.builder import build_from_config
 from utils.io import serialize_tensor
 from utils.progress import check_epoch_finished
 
-try:
-    # torch 2.x
-    from torch.optim.lr_scheduler import LRScheduler
-except:
-    # torch 1.x
-    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
-
 
 class BaseTrainer(ABC):
 
