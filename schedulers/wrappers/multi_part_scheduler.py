@@ -9,6 +9,9 @@ class MultiPartScheduler:
             for name in scheduler_cfgs
         }
 
+    # ====================================================================================================
+    # ====================================================================================================
+
     def state_dict(self, *args, **kwargs) -> dict:
         return {
             name: self.schedulers[name].state_dict(*args, **kwargs)
@@ -17,4 +20,4 @@ class MultiPartScheduler:
 
     def load_state_dict(self, *args, **kwargs) -> None:
         for name in self.schedulers:
-            self.optimizer[name].load_state_dict(*args, **kwargs)
+            self.schedulers[name].load_state_dict(*args, **kwargs)
