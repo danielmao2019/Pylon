@@ -6,8 +6,18 @@ optimizer_config = {
     'class': optimizers.wrappers.MultiPartOptimizer,
     'args': {
         'optimizer_cfgs': {
-            'generator': rmsprop_optimizer_config,
-            'generator': rmsprop_optimizer_config,
+            'generator': {
+                'class': optimizers.SingleTaskOptimizer,
+                'args': {
+                    'optimizer_config': rmsprop_optimizer_config,
+                },
+            },
+            'generator':  {
+                'class': optimizers.SingleTaskOptimizer,
+                'args': {
+                    'optimizer_config': rmsprop_optimizer_config,
+                },
+            },
         },
     },
 }
