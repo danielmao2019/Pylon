@@ -35,49 +35,15 @@ config = {
             'collate_fn': collate_fn_config,
         },
     },
-    'val_dataset': {
-        'class': data.datasets.MNISTDataset,
-        'args': {
-            'data_root': "./data/datasets/soft_links/MNIST",
-            'split': "test",
-        },
-    },
-    'val_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'batch_size': 256,
-            'num_workers': 0,
-            'collate_fn': collate_fn_config,
-        },
-    },
-    'test_dataset': {
-        'class': data.datasets.MNISTDataset,
-        'args': {
-            'data_root': "./data/datasets/soft_links/MNIST",
-            'split': "test",
-        },
-    },
-    'test_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'batch_size': 256,
-            'num_workers': 0,
-            'collate_fn': collate_fn_config,
-        },
-    },
+    'val_dataset': None,
+    'val_dataloader': None,
+    'test_dataset': None,
+    'test_dataloader': None,
     'criterion': {
         'class': criteria.wrappers.PyTorchCriterionWrapper,
         'args': {
             'criterion': torch.nn.BCELoss(),
         },
     },
-    'metric': {
-        'class': metrics.wrappers.MultiTaskMetric,
-        'args': {
-            'metric_configs': {
-                task: metrics.common.ConfusionMatrix(num_classes=2)
-                for task in data.datasets.MNISTDataset.LABEL_NAMES[1:]
-            },
-        },
-    },
+    'metric': None,
 }
