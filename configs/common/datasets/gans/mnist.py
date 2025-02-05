@@ -1,22 +1,9 @@
 import criteria.wrappers.pytorch_criterion_wrapper
 import torch
-import torchvision
 import data
 import criteria
 import metrics
 
-
-transforms_config = {
-    'class': data.transforms.Compose,
-    'args': {
-        'transforms': [
-            (
-                torchvision.transforms.Resize(size=(32, 32), antialias=True),
-                ('labels', 'image'),
-            ),
-        ],
-    },
-}
 
 collate_fn_config = {
     'class': data.collators.BaseCollator,
@@ -31,11 +18,13 @@ collate_fn_config = {
 
 config = {
     'train_dataset': {
-        'class': data.datasets.MNISTDataset,
+        'class': data.datasets.GANDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/MNIST",
-            'split': "train",
-            'transforms_cfg': transforms_config,
+            'source': data.datasets.MNISTDataset(
+                data_root="./data/datasets/soft_links/MNIST",
+                split="train",
+            ),
+            'latent_dim': 128,
         },
     },
     'train_dataloader': {
@@ -51,7 +40,6 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/MNIST",
             'split': "test",
-            'transforms_cfg': transforms_config,
         },
     },
     'val_dataloader': {
@@ -67,7 +55,6 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/MNIST",
             'split': "test",
-            'transforms_cfg': transforms_config,
         },
     },
     'test_dataloader': {
