@@ -15,7 +15,7 @@ class GANDataset(BaseSyntheticDataset):
     ]:
         meta_info = {
             'cpu_rng_state': torch.get_rng_state(),
-            'gpu_rng_state': torch.cuda.get_rng_state(),
+            'gpu_rng_state': torch.cuda.get_rng_state() if torch.cuda.is_available() else None,
         }
         inputs = {
             'z': torch.normal(mean=0, std=1, size=(self.latent_dim,)),

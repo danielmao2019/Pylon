@@ -40,8 +40,8 @@ def test_gan_dataset_properties(dataset):
         assert labels['image'].dtype == torch.float32, f"Incorrect image dtype at idx {idx}"
 
         # Device checks
-        assert inputs['z'].device == dataset.device, f"{inputs['z'].device=}, {dataset.device=}, {idx=}"
-        assert labels['image'].device == dataset.device, f"{labels['image'].device=}, {dataset.device=}, {idx=}"
+        assert inputs['z'].device.type == dataset.device.type, f"{inputs['z'].device=}, {dataset.device=}, {idx=}"
+        assert labels['image'].device.type == dataset.device.type, f"{labels['image'].device=}, {dataset.device=}, {idx=}"
 
         # Meta info check
         assert "cpu_rng_state" in meta_info, f"Missing cpu_rng_state in meta_info at idx {idx}"
