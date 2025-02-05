@@ -51,7 +51,7 @@ class Discriminator(torch.nn.Module):
 
 class GAN(torch.nn.Module):
 
-    def __init__(self, generator_cfg: torch.nn.Module, discriminator_cfg: torch.nn.Module) -> None:
+    def __init__(self, generator_cfg: dict, discriminator_cfg: dict) -> None:
         self.generator = utils.builder.build_from_config(generator_cfg)
         self.discriminator = utils.builder.build_from_config(discriminator_cfg)
 
