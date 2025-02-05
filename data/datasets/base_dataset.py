@@ -27,7 +27,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         use_cache: Optional[bool] = True,
-        device: Optional[torch.device] = torch.device('cuda'),
+        device: Optional[Union[torch.device, str]] = torch.device('cuda'),
         check_sha1sum: Optional[bool] = False,
     ) -> None:
         r"""
@@ -47,7 +47,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             self.cache: List[Dict[str, Dict[str, Any]]] = []
         else:
             self.cache = None
-        self.device = device
+        self._init_device(device)
         # sanity check
         self.check_sha1sum = check_sha1sum
         self._sanity_check()
@@ -183,6 +183,12 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
                 },
             }
         self.transforms = build_from_config(transforms_cfg)
+
+    def _init_device(self, device: Union[str, torch.device]) -> None:
+        if type(device) == str:
+            device = torch.device(device)
+        assert type(device) == torch.device, f"{type(device)=}"
+        self.device = device
 
     def _sanity_check(self) -> None:
         assert self.SPLIT_OPTIONS is not None
