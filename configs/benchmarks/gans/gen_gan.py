@@ -47,7 +47,7 @@ def main() -> None:
                 'class': torch.optim.lr_scheduler.LambdaLR,
                 'args': {{
                     'lr_lambda': {{
-                        'class': schedulers.ConstantLambda,
+                        'class': schedulers.lr_lambdas.ConstantLambda,
                         'args': {{}},
                     }},
                 }},
@@ -56,7 +56,7 @@ def main() -> None:
                 'class': torch.optim.lr_scheduler.LambdaLR,
                 'args': {{
                     'lr_lambda': {{
-                        'class': schedulers.ConstantLambda,
+                        'class': schedulers.lr_lambdas.ConstantLambda,
                         'args': {{}},
                     }},
                 }},
