@@ -12,7 +12,7 @@ optimizer_config = {
                     'optimizer_config': rmsprop_optimizer_config,
                 },
             },
-            'generator':  {
+            'discriminator':  {
                 'class': optimizers.SingleTaskOptimizer,
                 'args': {
                     'optimizer_config': rmsprop_optimizer_config,

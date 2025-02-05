@@ -33,11 +33,11 @@ class GANTrainer(BaseTrainer):
         assert 'scheduler' in self.config, f"{self.config.keys()=}"
         # build lr lambda
         self.G_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer=self.optimizer.optimizers['generator'],
+            optimizer=self.optimizer.optimizers['generator'].optimizer,
             lr_lambda=schedulers.ConstantLambda(),
         )
         self.D_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer=self.optimizer.optimizers['discriminator'],
+            optimizer=self.optimizer.optimizers['discriminator'].optimizer,
             lr_lambda=schedulers.ConstantLambda(),
         )
 
