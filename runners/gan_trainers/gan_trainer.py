@@ -9,19 +9,6 @@ import schedulers
 
 class GANTrainer(BaseTrainer):
 
-    def __init__(self, *args, **kwargs) -> None:
-        super(GANTrainer, self).__init__(*args, **kwargs)
-        # sanity checks
-        assert hasattr(self, 'model')
-        assert hasattr(self.model, 'generator')
-        assert hasattr(self.model, 'discriminator')
-        assert hasattr(self, 'optimizer')
-        assert hasattr(self.optimizer, 'G_optimizer')
-        assert hasattr(self.optimizer, 'D_optimizer')
-        assert hasattr(self, 'scheduler')
-        assert hasattr(self.scheduler, 'G_scheduler')
-        assert hasattr(self.scheduler, 'D_scheduler')
-
     def _init_optimizer_(self) -> None:
         r"""Requires self.model and self.logger.
         """
@@ -86,3 +73,6 @@ class GANTrainer(BaseTrainer):
             'G': G_loss, 'D': D_loss,
         }))
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+
+    def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
+        raise NotImplementedError("GANTrainer._set_gradients_ is unused and should not be called.")
