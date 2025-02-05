@@ -39,7 +39,7 @@ from runners.gan_trainers import GANTrainer
 config['runner'] = GANTrainer
 
 # dataset config
-from configs.common.datasets.image_classification.mnist import config as dataset_config
+from configs.common.datasets.gans.mnist import config as dataset_config
 config.update(dataset_config)
 
 # model config
