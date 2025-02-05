@@ -52,18 +52,18 @@ class GANTrainer(BaseTrainer):
         gen_image = self.model.generator(dp['inputs'])
         # update generator
         G_loss = self.criterion(self.model.discriminator(gen_image), real_tensor)
-        self.optimizer.G_optimizer.zero_grad()
+        self.optimizer.optimizers['generator'].zero_grad()
         G_loss.backward()
-        self.optimizer.G_optimizer.step()
+        self.optimizer.optimizers['generator'].step()
         self.G_scheduler.step()
         # update discriminator
         D_loss = (
             self.criterion(self.model.discriminator(image), real_tensor) +
             self.criterion(self.model.discriminator(gen_image), fake_tensor)
         ) / 2
-        self.optimizer.D_optimizer.zero_grad()
+        self.optimizer.optimizers['discriminator'].zero_grad()
         D_loss.backward()
-        self.optimizer.D_optimizer.step()
+        self.optimizer.optimizers['discriminator'].step()
         self.D_scheduler.step()
         # update logger
         self.logger.update_buffer({"learning_rate": {
