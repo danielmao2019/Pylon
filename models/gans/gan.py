@@ -7,7 +7,7 @@ class Generator(torch.nn.Module):
 
     def __init__(self, latent_dim: int, img_shape: Tuple[int]) -> None:
         super(Generator, self).__init__()
-        self.img_shape = torch.Tensor(img_shape)
+        self.img_shape = torch.Tensor(img_shape, dtype=torch.int64)
         def block(in_feat, out_feat, normalize=True):
             layers = [torch.nn.Linear(in_feat, out_feat)]
             if normalize:
@@ -27,7 +27,7 @@ class Generator(torch.nn.Module):
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         z = inputs['z']
         img = self.model(z)
-        img = img.view(img.size(0), *tuple(self.img_shape))
+        img = img.view(img.size(0), *self.img_shape.tolist())
         return img
 
 
@@ -35,7 +35,7 @@ class Discriminator(torch.nn.Module):
 
     def __init__(self, img_shape: Tuple[int]) -> None:
         super(Discriminator, self).__init__()
-        self.img_shape = torch.Tensor(img_shape)
+        self.img_shape = torch.Tensor(img_shape, dtype=torch.int64)
         self.model = torch.nn.Sequential(
             torch.nn.Linear(int(torch.prod(self.img_shape)), 512),
             torch.nn.LeakyReLU(0.2, inplace=True),
