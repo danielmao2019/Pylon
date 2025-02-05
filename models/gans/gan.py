@@ -27,7 +27,7 @@ class Generator(torch.nn.Module):
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         z = inputs['z']
         img = self.model(z)
-        img = img.view(img.size(0), *self.img_shape)
+        img = img.view(img.size(0), *tuple(self.img_shape))
         return img
 
 
