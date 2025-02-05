@@ -66,12 +66,9 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.wrappers.MultiTaskCriterion,
+        'class': criteria.wrappers.PyTorchCriterionWrapper,
         'args': {
-            'criterion_configs': {
-                task: criteria.wrappers.PyTorchCriterionWrapper(criterion=torch.nn.CrossEntropyLoss())
-                for task in data.datasets.MNISTDataset.LABEL_NAMES[1:]
-            },
+            'criterion': torch.nn.BCELoss(),
         },
     },
     'metric': {
