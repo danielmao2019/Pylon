@@ -20,7 +20,7 @@ class Generator(torch.nn.Module):
             *block(128, 256),
             *block(256, 512),
             *block(512, 1024),
-            torch.nn.Linear(1024, int(torch.prod(img_shape))),
+            torch.nn.Linear(1024, int(torch.prod(self.img_shape))),
             torch.nn.Tanh()
         )
 
