@@ -1,8 +1,11 @@
 from typing import Tuple, Dict, Any
-from data.datasets import BaseSyntheticDataset
+import os
 import random
 import torch
 import torchvision
+import matplotlib.pyplot as plt
+from data.datasets import BaseSyntheticDataset
+from utils.input_checks.str_types import check_write_dir
 
 
 class PPSLDataset(BaseSyntheticDataset):
@@ -37,16 +40,11 @@ class PPSLDataset(BaseSyntheticDataset):
         # Apply affine transformation to the second image
         img_2 = self.affine(img_2)
 
-        # Create the patch from the top half of the first image and label
-        patch_img = img_1[:, 256:512, :]  # Extract patch from the first image
-        patch_label = label_1[256:512, :]  # Extract patch from the first label
-
         # Apply the patch to the second image and label
-        img_2_patched = img_2.clone()  # Ensure we don't modify the original tensor
+        img_2_patched = img_2.clone()
         label_2_patched = label_2.clone()
-
-        img_2_patched[:, 256:512, :] = patch_img
-        label_2_patched[256:512, :] = patch_label
+        img_2_patched[:, 256:512, :] = img_1[:, 256:512, :]
+        label_2_patched[256:512, :] = label_1[256:512, :]
 
         # Calculate the change map (logical XOR of labels)
         change_map = (label_1 != label_2_patched).type(torch.int64)
@@ -60,6 +58,59 @@ class PPSLDataset(BaseSyntheticDataset):
             'change_map': change_map,
             'semantic_map': label_1,
         }
-        meta_info = {}
+        meta_info = {
+            'semantic_map_1': label_1,
+            'semantic_map_2': label_2,
+        }
 
         return inputs, labels, meta_info
+
+    def visualize(self, output_dir: str) -> None:
+        check_write_dir(output_dir)
+        random_indices = random.sample(population=range(len(self)), k=10)
+
+        for idx in random_indices:
+            datapoint = self.__getitem__(idx)
+            inputs, labels, meta_info = datapoint['inputs'], datapoint['labels'], datapoint['meta_info']
+
+            img_1 = inputs['img_1']  # (C, H, W)
+            img_2 = inputs['img_2']  # (C, H, W)
+            change_map = labels['change_map']  # (H, W)
+            semantic_map_1 = meta_info['semantic_map_1']
+            semantic_map_2 = meta_info['semantic_map_2']
+
+            # Convert tensors to numpy format
+            img_1 = (img_1.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            img_2 = (img_2.permute(1, 2, 0) * 255).type(torch.uint8).cpu().numpy()  # (H, W, C)
+            change_map = (change_map * 255).cpu().numpy()  # (H, W)
+            semantic_map_1 = (semantic_map_1 * 255).cpu().numpy()  # (H, W)
+            semantic_map_2 = (semantic_map_2 * 255).cpu().numpy()  # (H, W)
+
+            # Create a figure
+            fig, axes = plt.subplots(2, 3, figsize=(3*4, 2*4))
+            axes[0, 0].imshow(img_1)
+            axes[0, 0].set_title("Image 1")
+            axes[0, 0].axis("off")
+
+            axes[0, 1].imshow(img_2)
+            axes[0, 1].set_title("Image 2")
+            axes[0, 1].axis("off")
+
+            axes[0, 2].imshow(change_map, cmap="gray")
+            axes[0, 2].set_title("Change Map")
+            axes[0, 2].axis("off")
+
+            axes[1, 0].imshow(semantic_map_1)
+            axes[1, 0].set_title("Semantic Map 1")
+            axes[1, 0].axis("off")
+
+            axes[1, 1].imshow(semantic_map_2)
+            axes[1, 1].set_title("Semantic Map 2")
+            axes[1, 1].axis("off")
+
+            axes[1, 2].axis("off")
+
+            # Save the figure
+            save_path = os.path.join(output_dir, f"datapoint_{idx}.png")
+            plt.savefig(save_path, bbox_inches="tight")
+            plt.close(fig)
