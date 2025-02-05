@@ -16,9 +16,8 @@ class GANTrainer(BaseTrainer):
         for name in ['model', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None
         self.logger.info("Initializing optimizer...")
-        # input checks
-        assert 'optimizer' in self.config, f"{self.config.keys()=}"
         # initialize optimizer
+        assert 'optimizer' in self.config, f"{self.config.keys()=}"
         optimizer_config = self.config['optimizer']
         for name in optimizer_config['args']['optimizer_cfgs']:
             params = list(getattr(self.model, name).parameters())
@@ -30,17 +29,13 @@ class GANTrainer(BaseTrainer):
         for name in ['optimizer', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None
         self.logger.info("Initializing scheduler...")
-        # input checks
+        # initialize scheduler
         assert 'scheduler' in self.config, f"{self.config.keys()=}"
-        # build lr lambda
-        self.G_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer=self.optimizer.optimizers['generator'].optimizer,
-            lr_lambda=schedulers.ConstantLambda(),
-        )
-        self.D_scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer=self.optimizer.optimizers['discriminator'].optimizer,
-            lr_lambda=schedulers.ConstantLambda(),
-        )
+        scheduler_config = self.config['scheduler']
+        for name in scheduler_config['args']['scheduler_cfgs']:
+            optimizer = self.optimizer.optimizers[name].optimizer
+            scheduler_config['args']['scheduler_cfgs'][name]['args']['lr_lambda']['args']['optimizer'] = optimizer
+        self.scheduler = build_from_config(scheduler_config)
 
     def _train_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         # init time
@@ -55,7 +50,7 @@ class GANTrainer(BaseTrainer):
         self.optimizer.optimizers['generator'].zero_grad()
         G_loss.backward(retain_graph=True)
         self.optimizer.optimizers['generator'].step()
-        self.G_scheduler.step()
+        self.scheduler.schedulers['generator'].step()
         # update discriminator
         D_loss = (
             self.criterion(self.model.discriminator(image), real_tensor) +
@@ -64,11 +59,11 @@ class GANTrainer(BaseTrainer):
         self.optimizer.optimizers['discriminator'].zero_grad()
         D_loss.backward(retain_graph=False)
         self.optimizer.optimizers['discriminator'].step()
-        self.D_scheduler.step()
+        self.scheduler.schedulers['discriminator'].step()
         # update logger
         self.logger.update_buffer({"learning_rate": {
-            'G': self.G_scheduler.get_last_lr(),
-            'D': self.D_scheduler.get_last_lr(),
+            'G': self.scheduler.schedulers['generator'].get_last_lr(),
+            'D': self.scheduler.schedulers['discriminator'].get_last_lr(),
         }})
         self.logger.update_buffer(utils.logging.log_losses(losses={
             'G': G_loss, 'D': D_loss,
