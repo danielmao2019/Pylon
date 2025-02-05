@@ -18,9 +18,9 @@ class GANDataset(BaseSyntheticDataset):
             'gpu_rng_state': torch.cuda.get_rng_state(),
         }
         inputs = {
-            'z': torch.normal(mean=0, std=1, size=(self.latent_dim,), device=self.device),
+            'z': torch.normal(mean=0, std=1, size=(self.latent_dim,)),
         }
         labels = {
-            'image': self.source[idx]['inputs']['image'].to(self.device),
+            'image': self.source[idx]['inputs']['image'],
         }
         return inputs, labels, meta_info

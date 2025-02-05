@@ -5,7 +5,7 @@ from .gan_dataset import GANDataset
 
 
 @pytest.fixture
-def source_dataset(request):
+def dataset(request):
     """Fixture for creating a GANDataset instance with an MNIST source dataset."""
     split, device = request.param  # Unpack the test parameters
     latent_dim = 128
@@ -13,7 +13,7 @@ def source_dataset(request):
     # Load MNIST dataset as the source
     source = MNISTDataset(
         data_root="./data/datasets/soft_links/MNIST",
-        split=split,
+        split=split, device=device,
     )
 
     return GANDataset(latent_dim=latent_dim, source=source, device=device)
@@ -48,21 +48,23 @@ def test_gan_dataset_properties(dataset):
         assert "gpu_rng_state" in meta_info, f"Missing gpu_rng_state in meta_info at idx {idx}"
 
 
-@pytest.mark.parametrize("source_dataset", [
+@pytest.mark.parametrize("dataset", [
     ("train", "cpu"),
     ("train", "cuda"),
 ], indirect=True)
-def test_reproducibility(source_dataset):
+def test_reproducibility(dataset):
     """Checks that the dataset generates the same sample when the RNG state is restored."""
-    for idx in range(len(source_dataset.source)):
+    for idx in range(len(dataset.source)):
         torch.manual_seed(42)  # Set a fixed seed
-        inputs1, _, meta_info1 = source_dataset._load_datapoint(idx)
+        datapoint = dataset[idx]
+        inputs1, meta_info1 = datapoint['inputs'], datapoint['meta_info']
 
         # Restore RNG state and generate again
         torch.set_rng_state(meta_info1['cpu_rng_state'])
         if torch.cuda.is_available():
             torch.cuda.set_rng_state(meta_info1['gpu_rng_state'])
-            
-        inputs2, _, _ = source_dataset._load_datapoint(idx)
+
+        datapoint = dataset[idx]
+        inputs2 = datapoint['inputs']
 
         assert torch.allclose(inputs1['z'], inputs2['z']), f"Latent vector not reproducible at idx {idx}"

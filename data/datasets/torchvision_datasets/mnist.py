@@ -26,10 +26,10 @@ class MNISTDataset(BaseDataset):
         image, label = self.annotations[idx]
 
         inputs = {
-            'image': image.to(self.device),  # Ensure it's on the right device
+            'image': image,
         }
         labels = {
-            'label': torch.tensor(label, dtype=torch.int64, device=self.device),
+            'label': torch.tensor(label, dtype=torch.int64),
         }
         meta_info = {
             'index': idx,
