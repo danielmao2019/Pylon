@@ -48,7 +48,7 @@ config['model'] = model_config
 
 # optimizer config
 from configs.common.optimizers.graddrop import optimizer_config
-from configs.common.optimizers._core_ import adam_optimizer_config
+from configs.common.optimizers.standard import adam_optimizer_config
 optimizer_config['args']['optimizer_config'] = adam_optimizer_config
 optimizer_config['args']['per_layer'] = False
 config['optimizer'] = optimizer_config
