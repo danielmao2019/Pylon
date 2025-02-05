@@ -1,14 +1,14 @@
 from typing import Tuple, Dict, Any
 import torch
-from data.datasets import BaseSyntheticDataset
+from data.datasets import BaseDataset, BaseSyntheticDataset
 
 
 class GANDataset(BaseSyntheticDataset):
 
-    def __init__(self, latent_dim: int, **kwargs) -> None:
-        super(GANDataset, self).__init__(**kwargs)
+    def __init__(self, source: BaseDataset, latent_dim: int, **kwargs) -> None:
         assert type(latent_dim) == int, f"{type(latent_dim)=}"
         self.latent_dim = latent_dim
+        super(GANDataset, self).__init__(source=source, dataset_size=len(source), **kwargs)
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
@@ -21,6 +21,6 @@ class GANDataset(BaseSyntheticDataset):
             'z': torch.normal(mean=0, std=1, size=(self.latent_dim,), device=self.device),
         }
         labels = {
-            'image': self.source[idx]['inputs']['image'],
+            'image': self.source[idx]['inputs']['image'].to(self.device),
         }
         return inputs, labels, meta_info

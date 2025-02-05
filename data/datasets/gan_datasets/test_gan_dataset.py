@@ -19,19 +19,20 @@ def source_dataset(request):
     return GANDataset(latent_dim=latent_dim, source=source, device=device)
 
 
-@pytest.mark.parametrize("source_dataset", [
+@pytest.mark.parametrize("dataset", [
     ("train", "cpu"),
     ("test", "cpu"),
     ("train", "cuda"),
     ("test", "cuda"),
 ], indirect=True)
-def test_gan_dataset_properties(source_dataset):
+def test_gan_dataset_properties(dataset):
     """Checks tensor shapes, dtypes, and device placement for all datapoints in the GANDataset."""
-    for idx in range(len(source_dataset.source)):  # Loop through the entire dataset
-        inputs, labels, meta_info = source_dataset._load_datapoint(idx)
+    for idx in range(len(dataset.source)):  # Loop through the entire dataset
+        datapoint = dataset[idx]
+        inputs, labels, meta_info = datapoint['inputs'], datapoint['labels'], datapoint['meta_info']
 
         # Shape checks
-        assert inputs['z'].shape == (source_dataset.latent_dim,), f"Incorrect latent vector shape at idx {idx}"
+        assert inputs['z'].shape == (dataset.latent_dim,), f"Incorrect latent vector shape at idx {idx}"
         assert labels['image'].shape == (1, 28, 28), f"Incorrect image shape at idx {idx}"
 
         # Dtype checks
@@ -39,8 +40,8 @@ def test_gan_dataset_properties(source_dataset):
         assert labels['image'].dtype == torch.float32, f"Incorrect image dtype at idx {idx}"
 
         # Device checks
-        assert inputs['z'].device == source_dataset.device, f"Latent vector not on correct device at idx {idx}"
-        assert labels['image'].device == source_dataset.device, f"Image not on correct device at idx {idx}"
+        assert inputs['z'].device == dataset.device, f"Latent vector not on correct device at idx {idx}"
+        assert labels['image'].device == dataset.device, f"Image not on correct device at idx {idx}"
 
         # Meta info check
         assert "cpu_rng_state" in meta_info, f"Missing cpu_rng_state in meta_info at idx {idx}"
