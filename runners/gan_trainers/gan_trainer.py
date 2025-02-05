@@ -34,7 +34,7 @@ class GANTrainer(BaseTrainer):
         scheduler_config = self.config['scheduler']
         for name in scheduler_config['args']['scheduler_cfgs']:
             optimizer = self.optimizer.optimizers[name].optimizer
-            scheduler_config['args']['scheduler_cfgs'][name]['args']['lr_lambda']['args']['optimizer'] = optimizer
+            scheduler_config['args']['scheduler_cfgs'][name]['args']['optimizer'] = optimizer
         self.scheduler = build_from_config(scheduler_config)
 
     def _train_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
