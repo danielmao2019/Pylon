@@ -34,7 +34,7 @@ def main() -> None:
     config += '\n'
     # add optimizer config
     config += f"# optimizer config\n"
-    config += f"from configs.common.optimizers.gans import gan_optimizer_config as optimizer_config\n"
+    config += f"from configs.common.optimizers.gans.gan import optimizer_config\n"
     config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds

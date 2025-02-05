@@ -47,7 +47,7 @@ from configs.common.models.gans.gan import model_config
 config['model'] = model_config
 
 # optimizer config
-from configs.common.optimizers.gans import gan_optimizer_config as optimizer_config
+from configs.common.optimizers.gans.gan import optimizer_config
 config['optimizer'] = optimizer_config
 
 # seeds
