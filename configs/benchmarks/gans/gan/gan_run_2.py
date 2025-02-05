@@ -28,7 +28,7 @@ config = {
         'class': torch.optim.lr_scheduler.LambdaLR,
         'args': {
             'lr_lambda': {
-                'class': schedulers.WarmupLambda,
+                'class': schedulers.lr_lambdas.WarmupLambda,
                 'args': {},
             },
         },
@@ -59,7 +59,7 @@ config['scheduler'] = {
                 'class': torch.optim.lr_scheduler.LambdaLR,
                 'args': {
                     'lr_lambda': {
-                        'class': schedulers.ConstantLambda,
+                        'class': schedulers.lr_lambdas.ConstantLambda,
                         'args': {},
                     },
                 },
@@ -68,7 +68,7 @@ config['scheduler'] = {
                 'class': torch.optim.lr_scheduler.LambdaLR,
                 'args': {
                     'lr_lambda': {
-                        'class': schedulers.ConstantLambda,
+                        'class': schedulers.lr_lambdas.ConstantLambda,
                         'args': {},
                     },
                 },
