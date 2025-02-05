@@ -2,6 +2,6 @@ import optimizers
 
 
 optimizer_config = {
-    'class': optimizers.RLWOptimizer,
+    'class': optimizers.multi_task_optimizers.RLWOptimizer,
     'args': {},
 }
