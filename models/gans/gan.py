@@ -7,7 +7,7 @@ class Generator(torch.nn.Module):
 
     def __init__(self, latent_dim: int, img_shape: Tuple[int]):
         super(Generator, self).__init__()
-        self.img_shape = img_shape
+        self.img_shape = torch.Tensor(img_shape)
         def block(in_feat, out_feat, normalize=True):
             layers = [torch.nn.Linear(in_feat, out_feat)]
             if normalize:
