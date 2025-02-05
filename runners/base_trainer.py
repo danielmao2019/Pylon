@@ -73,7 +73,7 @@ class BaseTrainer(ABC):
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
             f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
 
-    def _init_determinism_(self):
+    def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
         utils.determinism.set_determinism()
         # get seed for initialization steps
@@ -90,7 +90,7 @@ class BaseTrainer(ABC):
         assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
         self.train_seeds = train_seeds
 
-    def _init_dataloaders_(self):
+    def _init_dataloaders_(self) -> None:
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
         if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
@@ -121,7 +121,7 @@ class BaseTrainer(ABC):
         else:
             self.test_dataloader = None
 
-    def _init_model_(self):
+    def _init_model_(self) -> None:
         self.logger.info("Initializing model...")
         if self.config.get('model', None):
             model = build_from_config(self.config['model'])
@@ -131,7 +131,7 @@ class BaseTrainer(ABC):
         else:
             self.model = None
 
-    def _init_criterion_(self):
+    def _init_criterion_(self) -> None:
         self.logger.info("Initializing criterion...")
         if self.config.get('criterion', None):
             criterion = build_from_config(self.config['criterion'])
@@ -141,7 +141,7 @@ class BaseTrainer(ABC):
         else:
             self.criterion = None
 
-    def _init_metric_(self):
+    def _init_metric_(self) -> None:
         self.logger.info("Initializing metric...")
         if self.config.get('metric', None):
             self.metric = build_from_config(self.config['metric'])
@@ -149,15 +149,15 @@ class BaseTrainer(ABC):
             self.metric = None
 
     @abstractmethod
-    def _init_optimizer_(self):
+    def _init_optimizer_(self) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._init_optimizer_ not implemented.")
 
     @abstractmethod
-    def _init_scheduler_(self):
+    def _init_scheduler_(self) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._init_scheduler_ not implemented.")
 
     @property
-    def expected_files(self):
+    def expected_files(self) -> List[str]:
         return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
 
     def _load_checkpoint_(self, checkpoint: dict) -> None:
@@ -172,7 +172,7 @@ class BaseTrainer(ABC):
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
-    def _init_state_(self):
+    def _init_state_(self) -> None:
         self.logger.info("Initializing state...")
         # init epoch numbers
         self.cum_epochs = 0

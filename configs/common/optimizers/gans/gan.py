@@ -6,8 +6,8 @@ optimizer_config = {
     'class': optimizers.wrappers.MultiPartOptimizer,
     'args': {
         'optimizer_cfgs': {
-            'G_optimizer': rmsprop_optimizer_config,
-            'D_optimizer': rmsprop_optimizer_config,
+            'generator': rmsprop_optimizer_config,
+            'generator': rmsprop_optimizer_config,
         },
     },
 }
