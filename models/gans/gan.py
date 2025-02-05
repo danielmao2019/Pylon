@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict
 import torch
 import utils
 
@@ -24,7 +24,8 @@ class Generator(torch.nn.Module):
             torch.nn.Tanh()
         )
 
-    def forward(self, z):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        z = inputs['z']
         img = self.model(z)
         img = img.view(img.size(0), *self.img_shape)
         return img
