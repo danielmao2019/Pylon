@@ -60,9 +60,9 @@ def test_reproducibility(dataset):
         inputs1, meta_info1 = datapoint['inputs'], datapoint['meta_info']
 
         # Restore RNG state and generate again
-        torch.set_rng_state(meta_info1['cpu_rng_state'])
+        torch.set_rng_state(meta_info1['cpu_rng_state'].cpu())
         if torch.cuda.is_available():
-            torch.cuda.set_rng_state(meta_info1['gpu_rng_state'])
+            torch.cuda.set_rng_state(meta_info1['gpu_rng_state'].cpu())
 
         datapoint = dataset[idx]
         inputs2 = datapoint['inputs']
