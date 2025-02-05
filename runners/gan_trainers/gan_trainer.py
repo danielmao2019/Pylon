@@ -20,8 +20,8 @@ class GANTrainer(BaseTrainer):
         assert 'optimizer' in self.config, f"{self.config.keys()=}"
         # initialize optimizer
         optimizer_config = self.config['optimizer']
-        for name in optimizer_config['args']['optimizer_config']['args']['optimizer_cfgs']:
-            optimizer_config['args']['optimizer_config']['args']['optimizer_cfgs']['name']['args']['params'] = getattr(self.model, name).parameters()
+        for name in optimizer_config['args']['optimizer_cfgs']:
+            optimizer_config['args']['optimizer_cfgs'][name]['args']['params'] = getattr(self.model, name).parameters()
         self.optimizer = build_from_config(optimizer_config)
 
     def _init_scheduler_(self) -> None:
