@@ -2,6 +2,6 @@ import optimizers
 
 
 optimizer_config = {
-    'class': optimizers.UncertaintyOptimizer,
+    'class': optimizers.multi_task_optimizers.UncertaintyOptimizer,
     'args': {},
 }

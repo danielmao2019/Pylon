@@ -2,6 +2,6 @@ import optimizers
 
 
 optimizer_config = {
-    'class': optimizers.FAMOOptimizer,
+    'class': optimizers.multi_task_optimizers.FAMOOptimizer,
     'args': {},
 }
