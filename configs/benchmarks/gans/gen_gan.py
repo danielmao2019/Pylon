@@ -37,6 +37,34 @@ def main() -> None:
     config += f"from configs.common.optimizers.gans.gan import optimizer_config\n"
     config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
+    # add scheduler config
+    config += f"# scheduler config\n"
+    config += f"""config['scheduler'] = {{
+    'class': schedulers.wrappers.MultiPartScheduler,
+    'args': {{
+        'scheduler_cfgs': {{
+            'generator': {{
+                'class': torch.optim.lr_scheduler.LambdaLR,
+                'args': {{
+                    'lr_lambda': {{
+                        'class': schedulers.ConstantLambda,
+                        'args': {{}},
+                    }},
+                }},
+            }},
+            'discriminator': {{
+                'class': torch.optim.lr_scheduler.LambdaLR,
+                'args': {{
+                    'lr_lambda': {{
+                        'class': schedulers.ConstantLambda,
+                        'args': {{}},
+                    }},
+                }},
+            }},
+        }},
+    }},
+}}\n"""
+    config += '\n'
     # add seeds
     relpath = os.path.join("benchmarks", "gans", "gan")
     seeded_configs: List[str] = utils.configs.generate_seeds(
