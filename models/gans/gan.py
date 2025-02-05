@@ -58,4 +58,4 @@ class GAN(torch.nn.Module):
         self.discriminator = utils.builder.build_from_config(discriminator_cfg)
 
     def forward(self):
-        raise NotImplementedError("GAN.forward not implemented.")
+        raise NotImplementedError("GAN.forward is unused and should not be called.")
