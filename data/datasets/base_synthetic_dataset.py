@@ -23,7 +23,7 @@ class BaseSyntheticDataset(BaseDataset, ABC):
             self.cache: List[Dict[str, Dict[str, Any]]] = []
         else:
             self.cache = None
-        self.device = device
+        self._init_device(device)
 
     def _init_dataset_size(self, dataset_size: Optional[int]) -> None:
         if dataset_size is None:
