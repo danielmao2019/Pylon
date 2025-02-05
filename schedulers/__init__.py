@@ -1,13 +1,11 @@
 """
 SCHEDULERS API
 """
-from schedulers.constant import ConstantLambda
-from schedulers.warmup import WarmupLambda
+from schedulers import lr_lambdas
 from schedulers import wrappers
 
 
 __all__ = (
-    "ConstantLambda",
-    "WarmupLambda",
+    'lr_lambdas',
     'wrappers',
 )
