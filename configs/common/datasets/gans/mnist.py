@@ -31,11 +31,10 @@ collate_fn_config = {
 
 config = {
     'train_dataset': {
-        'class': data.datasets.CelebADataset,
+        'class': data.datasets.MNISTDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/celeb-a",
+            'data_root': "./data/datasets/soft_links/MNIST",
             'split': "train",
-            'indices': None,
             'transforms_cfg': transforms_config,
         },
     },
@@ -48,11 +47,10 @@ config = {
         },
     },
     'val_dataset': {
-        'class': data.datasets.CelebADataset,
+        'class': data.datasets.MNISTDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/celeb-a",
-            'split': "val",
-            'indices': None,
+            'data_root': "./data/datasets/soft_links/MNIST",
+            'split': "test",
             'transforms_cfg': transforms_config,
         },
     },
@@ -65,11 +63,10 @@ config = {
         },
     },
     'test_dataset': {
-        'class': data.datasets.CelebADataset,
+        'class': data.datasets.MNISTDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/celeb-a",
+            'data_root': "./data/datasets/soft_links/MNIST",
             'split': "test",
-            'indices': None,
             'transforms_cfg': transforms_config,
         },
     },
@@ -86,7 +83,7 @@ config = {
         'args': {
             'criterion_configs': {
                 task: criteria.wrappers.PyTorchCriterionWrapper(criterion=torch.nn.CrossEntropyLoss())
-                for task in data.datasets.CelebADataset.LABEL_NAMES[1:]
+                for task in data.datasets.MNISTDataset.LABEL_NAMES[1:]
             },
         },
     },
@@ -95,7 +92,7 @@ config = {
         'args': {
             'metric_configs': {
                 task: metrics.common.ConfusionMatrix(num_classes=2)
-                for task in data.datasets.CelebADataset.LABEL_NAMES[1:]
+                for task in data.datasets.MNISTDataset.LABEL_NAMES[1:]
             },
         },
     },

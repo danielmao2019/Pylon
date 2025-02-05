@@ -21,7 +21,7 @@ class GANTrainer(BaseTrainer):
         # initialize optimizer
         optimizer_config = self.config['optimizer']
         for name in optimizer_config['args']['optimizer_cfgs']:
-            params = getattr(self.model, name).parameters()
+            params = list(getattr(self.model, name).parameters())
             optimizer_config['args']['optimizer_cfgs'][name]['args']['optimizer_config']['args']['params'] = params
         self.optimizer = build_from_config(optimizer_config)
 
