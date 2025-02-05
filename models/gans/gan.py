@@ -46,9 +46,10 @@ class Discriminator(torch.nn.Module):
             torch.nn.Sigmoid(),
         )
 
-    def forward(self, img):
+    def forward(self, img: torch.Tensor) -> torch.Tensor:
         img_flat = img.view(img.size(0), -1)
         validity = self.model(img_flat)
+        validity = validity.squeeze(1)
         return validity
 
 

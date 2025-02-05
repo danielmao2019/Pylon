@@ -47,8 +47,8 @@ class GANTrainer(BaseTrainer):
         start_time = time.time()
         # do computation
         image = dp['labels']['image']
-        fake_tensor = torch.zeros_like(image, requires_grad=False)
-        real_tensor = torch.ones_like(image, requires_grad=False)
+        fake_tensor = torch.zeros(size=(image.size(0),), requires_grad=False)
+        real_tensor = torch.ones(size=(image.size(0),), requires_grad=False)
         gen_image = self.model.generator(dp['inputs'])
         # update generator
         G_loss = self.criterion(self.model.discriminator(gen_image), real_tensor)
