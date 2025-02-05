@@ -50,8 +50,12 @@ class Discriminator(torch.nn.Module):
         return validity
 
 
-class GAN:
+class GAN(torch.nn.Module):
 
     def __init__(self, generator_cfg: dict, discriminator_cfg: dict) -> None:
+        super(GAN, self).__init__()
         self.generator = utils.builder.build_from_config(generator_cfg)
         self.discriminator = utils.builder.build_from_config(discriminator_cfg)
+
+    def forward(self):
+        raise NotImplementedError("GAN.forward not implemented.")
