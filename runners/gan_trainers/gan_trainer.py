@@ -67,8 +67,8 @@ class GANTrainer(BaseTrainer):
         self.D_scheduler.step()
         # update logger
         self.logger.update_buffer({"learning_rate": {
-            'G': self.scheduler.G_scheduler.get_last_lr(),
-            'D': self.scheduler.D_scheduler.get_last_lr(),
+            'G': self.G_scheduler.get_last_lr(),
+            'D': self.D_scheduler.get_last_lr(),
         }})
         self.logger.update_buffer(utils.logging.log_losses(losses={
             'G': G_loss, 'D': D_loss,
