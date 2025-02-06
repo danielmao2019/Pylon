@@ -10,7 +10,7 @@ if __name__ == "__main__":
         source=source_dataset,
         dataset_size=len(source_dataset),
     )
-    output_dir = f"./visualizations/{dataset.__class__.__name__}"
+    output_dir = f"./{dataset.__class__.__name__}"
     if os.path.isdir(output_dir):
         os.system(f"rm -rf {output_dir}")
     os.makedirs(output_dir, exist_ok=True)
