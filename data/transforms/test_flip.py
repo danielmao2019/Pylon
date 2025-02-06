@@ -1,6 +1,6 @@
 import pytest
 import torch
-from data.transforms import Flip
+from .flip import Flip
 
 
 @pytest.mark.parametrize(
@@ -27,8 +27,8 @@ from data.transforms import Flip
     ],
 )
 def test_flip(tensor, axis, expected):
-    flip_transform = Flip(axis)
-    result = flip_transform._call_single_(tensor)
+    flip_op = Flip(axis)
+    result = flip_op(tensor)
     assert torch.equal(result, expected), f"Expected {expected}, but got {result}"
 
 

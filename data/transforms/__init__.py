@@ -6,6 +6,7 @@ from data.transforms.compose import Compose
 from data.transforms.randomize import Randomize
 from data.transforms import normalize
 from data.transforms import resize
+from data.transforms.flip import Flip
 from data.transforms.crop import Crop
 
 
@@ -15,5 +16,6 @@ __all__ = (
     'Randomize',
     'normalize',
     'resize',
+    'Flip',
     'Crop',
 )
