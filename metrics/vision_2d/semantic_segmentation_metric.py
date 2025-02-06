@@ -65,7 +65,7 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         y_pred = y_pred[valid_mask]
         y_true = y_true[valid_mask]
         # compute IoU
-        bincount = ConfusionMatrix._get_bincount(y_pred, y_true, self.num_classes)
+        bincount = ConfusionMatrix._get_bincount(y_pred=y_pred, y_true=y_true, num_classes=self.num_classes)
         nan_mask = torch.ones(size=(self.num_classes,), dtype=torch.bool, device=bincount.device)
         nan_mask[y_true.unique()] = False
         iou = self._bincount2score(bincount, nan_mask, self.num_classes)

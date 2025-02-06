@@ -15,7 +15,7 @@ class ConfusionMatrix(SingleTaskMetric):
         self.num_classes = num_classes
 
     @staticmethod
-    def _get_bincount(y_true: torch.Tensor, y_pred: torch.Tensor, num_classes: int) -> torch.Tensor:
+    def _get_bincount(y_pred: torch.Tensor, y_true: torch.Tensor, num_classes: int) -> torch.Tensor:
         # input checks
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
         assert 0 <= y_true.min() <= y_true.max() < num_classes, f"{y_true.min()=}, {y_true.max()=}, {num_classes=}"
@@ -48,7 +48,7 @@ class ConfusionMatrix(SingleTaskMetric):
         # make prediction from output
         y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
         # compute confusion matrix
-        bincount = self._get_bincount(y_pred, y_true, self.num_classes)
+        bincount = self._get_bincount(y_pred=y_pred, y_true=y_true, num_classes=self.num_classes)
         return self._bincount2score(bincount, batch_size=y_true.size(0))
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
