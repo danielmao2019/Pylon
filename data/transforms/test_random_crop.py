@@ -1,26 +1,56 @@
 import pytest
+from unittest.mock import patch
 from .random_crop import RandomCrop
 import torch
 
 
 @pytest.mark.parametrize(
-    "tensor_shape, crop_size",
+    "input_tensor, crop_size, mock_x, mock_y, expected_output",
     [
-        ((3, 5, 5), (3, 3)),  # 3-channel image, cropping 3x3
-        ((1, 8, 8), (5, 5)),  # Single-channel image, cropping 5x5
-        ((2, 10, 10), (6, 6)),  # Multi-channel image, cropping 6x6
-        ((4, 6, 6), (2, 2)),  # 4-channel image, small crop
+        # 5x5 tensor, 3x3 crop, mock x=1, y=1 (so crop starts at (1,1))
+        (
+            torch.tensor([
+                [1, 2, 3, 4, 5],
+                [6, 7, 8, 9, 10],
+                [11, 12, 13, 14, 15],
+                [16, 17, 18, 19, 20],
+                [21, 22, 23, 24, 25],
+            ]).unsqueeze(0),  # (1, 5, 5) shape
+            (3, 3),
+            1, 1,  # Mock x=1, y=1 (forcing crop to start from (1,1))
+            torch.tensor([
+                [7, 8, 9],
+                [12, 13, 14],
+                [17, 18, 19],
+            ]).unsqueeze(0),  # Expected (1, 3, 3) output
+        ),
+        
+        # 4x4 tensor, 2x2 crop, mock x=2, y=1 (crop starts at (2,1))
+        (
+            torch.tensor([
+                [10, 20, 30, 40],
+                [50, 60, 70, 80],
+                [90, 100, 110, 120],
+                [130, 140, 150, 160],
+            ]).unsqueeze(0),  # (1, 4, 4) shape
+            (2, 2),
+            2, 1,  # Mock x=2, y=1 (forcing crop to start from (2,1))
+            torch.tensor([
+                [70, 80],
+                [110, 120],
+            ]).unsqueeze(0),  # Expected (1, 2, 2) output
+        ),
     ],
 )
-def test_random_crop_shape(tensor_shape, crop_size):
-    """Test if RandomCrop produces the correct shape."""
-    tensor = torch.randn(tensor_shape)  # Create a random input tensor
+def test_random_crop(input_tensor, crop_size, mock_x, mock_y, expected_output):
+    """Test RandomCrop with a mocked random.randint to force deterministic cropping."""
     transform = RandomCrop(size=crop_size)
-    
-    cropped_tensor = transform(tensor)
-    
-    expected_shape = (*tensor_shape[:-2], crop_size[1], crop_size[0])  # Preserve non-spatial dimensions
-    assert cropped_tensor.shape == expected_shape, f"Expected shape {expected_shape}, but got {cropped_tensor.shape}"
+
+    with patch("random.randint", side_effect=[mock_x, mock_y]):
+        cropped_tensor = transform(input_tensor)
+
+    assert cropped_tensor.shape == expected_output.shape, f"Expected shape {expected_output.shape}, got {cropped_tensor.shape}"
+    assert torch.equal(cropped_tensor, expected_output), f"Expected output:\n{expected_output}\nGot:\n{cropped_tensor}"
 
 
 def test_random_crop_bounds():
