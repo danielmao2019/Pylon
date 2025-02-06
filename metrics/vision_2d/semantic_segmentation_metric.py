@@ -47,6 +47,10 @@ class SemanticSegmentationMetric(SingleTaskMetric):
             score (Dict[str, torch.Tensor]): a dictionary with the following fields
             {
                 'IoU': a 1D tensor of length `self.num_classes` representing the IoU scores for each class.
+                'tp': a 1D tensor of length `self.num_classes` representing the tp scores for each class.
+                'tn': a 1D tensor of length `self.num_classes` representing the tn scores for each class.
+                'fp': a 1D tensor of length `self.num_classes` representing the fp scores for each class.
+                'fn': a 1D tensor of length `self.num_classes` representing the fn scores for each class.
             }
         """
         # input checks
@@ -81,18 +85,30 @@ class SemanticSegmentationMetric(SingleTaskMetric):
     def _summarize(buffer: List[Dict[str, torch.Tensor]], num_classes) -> Dict[str, torch.Tensor]:
         num_datapoints = len(buffer)
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(buffer)
-        # summarize scores
         result: Dict[str, torch.Tensor] = {}
+        # summarize IoU
         iou = torch.stack(buffer['IoU'], dim=0)
         assert iou.shape == (num_datapoints, num_classes), f"{iou.shape=}, {num_datapoints=}, {num_classes=}"
-        # log class IoU
         class_iou = torch.nanmean(iou, dim=0)
         assert class_iou.shape == (num_classes,), f"{class_iou.shape=}"
-        result['class_IoU'] = class_iou
-        # log mean IoU
         mean_iou = torch.nanmean(class_iou)
         assert mean_iou.ndim == 0, f"{mean_iou.shape=}"
+        result['class_IoU'] = class_iou
         result['mean_IoU'] = mean_iou
+        # summarize confusion matrix
+        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in ['tp', 'tn', 'fp', 'fn']}
+        tp = confusion_matrix['tp']
+        tn = confusion_matrix['tn']
+        fp = confusion_matrix['fp']
+        fn = confusion_matrix['fn']
+        result.update(confusion_matrix)
+        result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
+        result['class_precision'] = tp / (tp + fp)
+        result['class_recall'] = tp / (tp + fn)
+        result['class_f1'] = 2 * tp / (2 * tp + fp + fn)
+        total = tp + tn + fp + fn
+        assert torch.all(total == total[0])
+        result['accuracy'] = tp.sum() / total[0]
         return result
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
