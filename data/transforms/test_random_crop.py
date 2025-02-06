@@ -1,6 +1,6 @@
 import pytest
+from .random_crop import RandomCrop
 import torch
-from data.transforms import RandomCrop
 
 
 @pytest.mark.parametrize(
