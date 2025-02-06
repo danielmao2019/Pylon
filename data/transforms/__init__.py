@@ -10,6 +10,7 @@ from data.transforms.flip import Flip
 from data.transforms.crop import Crop
 from data.transforms.random_crop import RandomCrop
 from data.transforms.rotation import Rotation
+from data.transforms.random_rotation import RandomRotation
 
 
 __all__ = (
@@ -22,4 +23,5 @@ __all__ = (
     'Crop',
     'RandomCrop',
     'Rotation',
+    'RandomRotation',
 )
