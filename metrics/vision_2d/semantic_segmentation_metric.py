@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional
 import torch
 import torchvision
+from metrics.common import ConfusionMatrix
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file, check_semantic_segmentation
 from utils.io import save_json
@@ -19,6 +20,22 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         if ignore_index is None:
             ignore_index = 255
         self.ignore_index = ignore_index
+
+    @staticmethod
+    def _bincount2score(bincount: torch.Tensor, nan_mask: torch.Tensor, num_classes: int) -> Dict[str, torch.Tensor]:
+        # compute intersection over union
+        intersection = bincount.diag()
+        union = bincount.sum(dim=0, keepdim=False) + bincount.sum(dim=1, keepdim=False) - bincount.diag()
+        iou: torch.Tensor = intersection / union
+        # stabilize nan values
+        assert torch.all(torch.logical_or(iou[nan_mask] == 0, torch.isnan(iou[nan_mask]))), \
+            f"{iou.tolist()=}, {nan_mask.tolist()=}, {(iou[nan_mask] == 0)=}, {torch.isnan(iou[nan_mask])=}"
+        iou[nan_mask] = float('nan')
+        # output check
+        assert iou.shape == (num_classes,), f"{iou.shape=}, {num_classes=}"
+        assert iou.is_floating_point(), f"{iou.dtype=}"
+        score = {'IoU': iou}
+        return score
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         r"""
@@ -42,30 +59,23 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         # make prediction from output
         y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
-        # compute confusion matrix
+        # apply valid mask
         valid_mask = y_true != self.ignore_index
         assert valid_mask.sum() >= 1
         y_pred = y_pred[valid_mask]
         y_true = y_true[valid_mask]
-        assert 0 <= y_true.min() <= y_true.max() < self.num_classes, f"{y_true.min()=}, {y_true.max()=}, {self.num_classes=}"
-        assert 0 <= y_pred.min() <= y_pred.max() < self.num_classes, f"{y_pred.min()=}, {y_pred.max()=}, {self.num_classes=}"
-        count = torch.bincount(
-            y_true * self.num_classes + y_pred, minlength=self.num_classes**2,
-        ).view((self.num_classes,) * 2)
-        # compute intersection over union
-        intersection = count.diag()
-        union = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
-        score: torch.Tensor = intersection / union
-        # stabilize nan values
-        nan_mask = torch.ones(size=(self.num_classes,), dtype=torch.bool, device=count.device)
+        # compute IoU
+        bincount = ConfusionMatrix._get_bincount(y_pred, y_true, self.num_classes)
+        nan_mask = torch.ones(size=(self.num_classes,), dtype=torch.bool, device=bincount.device)
         nan_mask[y_true.unique()] = False
-        assert torch.all(torch.logical_or(score[nan_mask] == 0, torch.isnan(score[nan_mask]))), \
-            f"{score.tolist()=}, {nan_mask.tolist()=}, {(score[nan_mask] == 0)=}, {torch.isnan(score[nan_mask])=}"
-        score[nan_mask] = float('nan')
-        # output check
-        assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
-        assert score.is_floating_point(), f"{score.dtype=}"
-        return {'IoU': score}
+        iou = self._bincount2score(bincount, nan_mask, self.num_classes)
+        # compute confusion matrix
+        confusion_matrix = ConfusionMatrix._bincount2score(bincount, batch_size=y_true.size(0))
+        # prepare final output
+        score = {}
+        score.update(iou)
+        score.update(confusion_matrix)
+        return score
 
     @staticmethod
     def _summarize(buffer: List[Dict[str, torch.Tensor]], num_classes) -> Dict[str, torch.Tensor]:
