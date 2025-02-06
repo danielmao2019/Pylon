@@ -59,10 +59,10 @@ def test_confusion_matrix_call(y_pred, y_true, num_classes, expected) -> None:
         'tn': torch.tensor([8, 3, 8, 6, 6, 4, 8, 6, 8, 8]),
         'fp': torch.tensor([0, 4, 0, 0, 0, 3, 0, 0, 0, 0]),
         'fn': torch.tensor([0, 1, 0, 2, 2, 0, 0, 2, 0, 0]),
-        'per_class_accuracy': torch.tensor([8/8, 3/8, 8/8, 6/8, 6/8, 5/8, 8/8, 6/8, 8/8, 8/8], dtype=torch.float32),
-        'per_class_precision': torch.tensor([float('nan'), 0/4, float('nan'), float('nan'), float('nan'), 1/4, float('nan'), float('nan'), float('nan'), float('nan')], dtype=torch.float32),
-        'per_class_recall': torch.tensor([float('nan'), 0/1, float('nan'), 0/2, 0/2, 1/1, float('nan'), 0/2, float('nan'), float('nan')], dtype=torch.float32),
-        'per_class_f1': torch.tensor([float('nan'), 0/5, float('nan'), 0/2, 0/2, 2/5, float('nan'), 0/2, float('nan'), float('nan')], dtype=torch.float32),
+        'class_accuracy': torch.tensor([8/8, 3/8, 8/8, 6/8, 6/8, 5/8, 8/8, 6/8, 8/8, 8/8], dtype=torch.float32),
+        'class_precision': torch.tensor([float('nan'), 0/4, float('nan'), float('nan'), float('nan'), 1/4, float('nan'), float('nan'), float('nan'), float('nan')], dtype=torch.float32),
+        'class_recall': torch.tensor([float('nan'), 0/1, float('nan'), 0/2, 0/2, 1/1, float('nan'), 0/2, float('nan'), float('nan')], dtype=torch.float32),
+        'class_f1': torch.tensor([float('nan'), 0/5, float('nan'), 0/2, 0/2, 2/5, float('nan'), 0/2, float('nan'), float('nan')], dtype=torch.float32),
         'accuracy': torch.tensor(1/8, dtype=torch.float32),
     }),
 ])
@@ -71,7 +71,7 @@ def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expecte
     for y_pred, y_true in zip(y_pred_list, y_true_list):
         metric(y_pred=y_pred, y_true=y_true)
     summary = metric.summarize(output_path=None)
-    assert summary.keys() == expected.keys()
+    assert set(summary.keys()) == set(expected.keys())
     for key in expected:
         assert torch.equal(summary[key].isnan(), expected[key].isnan())
         assert torch.equal(summary[key][~summary[key].isnan()], expected[key][~expected[key].isnan()])
