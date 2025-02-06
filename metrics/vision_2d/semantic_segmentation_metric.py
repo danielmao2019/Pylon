@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional
 import torch
 import torchvision
+from metrics.common import ConfusionMatrix
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file, check_semantic_segmentation
 from utils.io import save_json
@@ -20,6 +21,22 @@ class SemanticSegmentationMetric(SingleTaskMetric):
             ignore_index = 255
         self.ignore_index = ignore_index
 
+    @staticmethod
+    def _bincount2score(bincount: torch.Tensor, nan_mask: torch.Tensor, num_classes: int) -> Dict[str, torch.Tensor]:
+        # compute intersection over union
+        intersection = bincount.diag()
+        union = bincount.sum(dim=0, keepdim=False) + bincount.sum(dim=1, keepdim=False) - bincount.diag()
+        iou: torch.Tensor = intersection / union
+        # stabilize nan values
+        assert torch.all(torch.logical_or(iou[nan_mask] == 0, torch.isnan(iou[nan_mask]))), \
+            f"{iou.tolist()=}, {nan_mask.tolist()=}, {(iou[nan_mask] == 0)=}, {torch.isnan(iou[nan_mask])=}"
+        iou[nan_mask] = float('nan')
+        # output check
+        assert iou.shape == (num_classes,), f"{iou.shape=}, {num_classes=}"
+        assert iou.is_floating_point(), f"{iou.dtype=}"
+        score = {'IoU': iou}
+        return score
+
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         r"""
         Args:
@@ -30,6 +47,10 @@ class SemanticSegmentationMetric(SingleTaskMetric):
             score (Dict[str, torch.Tensor]): a dictionary with the following fields
             {
                 'IoU': a 1D tensor of length `self.num_classes` representing the IoU scores for each class.
+                'tp': a 1D tensor of length `self.num_classes` representing the tp scores for each class.
+                'tn': a 1D tensor of length `self.num_classes` representing the tn scores for each class.
+                'fp': a 1D tensor of length `self.num_classes` representing the fp scores for each class.
+                'fn': a 1D tensor of length `self.num_classes` representing the fn scores for each class.
             }
         """
         # input checks
@@ -42,47 +63,52 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         # make prediction from output
         y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
         assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
-        # compute confusion matrix
+        # apply valid mask
         valid_mask = y_true != self.ignore_index
         assert valid_mask.sum() >= 1
         y_pred = y_pred[valid_mask]
         y_true = y_true[valid_mask]
-        assert 0 <= y_true.min() <= y_true.max() < self.num_classes, f"{y_true.min()=}, {y_true.max()=}, {self.num_classes=}"
-        assert 0 <= y_pred.min() <= y_pred.max() < self.num_classes, f"{y_pred.min()=}, {y_pred.max()=}, {self.num_classes=}"
-        count = torch.bincount(
-            y_true * self.num_classes + y_pred, minlength=self.num_classes**2,
-        ).view((self.num_classes,) * 2)
-        # compute intersection over union
-        intersection = count.diag()
-        union = count.sum(dim=0, keepdim=False) + count.sum(dim=1, keepdim=False) - count.diag()
-        score: torch.Tensor = intersection / union
-        # stabilize nan values
-        nan_mask = torch.ones(size=(self.num_classes,), dtype=torch.bool, device=count.device)
+        # compute IoU
+        bincount = ConfusionMatrix._get_bincount(y_pred=y_pred, y_true=y_true, num_classes=self.num_classes)
+        nan_mask = torch.ones(size=(self.num_classes,), dtype=torch.bool, device=bincount.device)
         nan_mask[y_true.unique()] = False
-        assert torch.all(torch.logical_or(score[nan_mask] == 0, torch.isnan(score[nan_mask]))), \
-            f"{score.tolist()=}, {nan_mask.tolist()=}, {(score[nan_mask] == 0)=}, {torch.isnan(score[nan_mask])=}"
-        score[nan_mask] = float('nan')
-        # output check
-        assert score.shape == (self.num_classes,), f"{score.shape=}, {self.num_classes=}"
-        assert score.is_floating_point(), f"{score.dtype=}"
-        return {'IoU': score}
+        iou = self._bincount2score(bincount, nan_mask, self.num_classes)
+        # compute confusion matrix
+        confusion_matrix = ConfusionMatrix._bincount2score(bincount, batch_size=y_true.size(0))
+        # prepare final output
+        score = {}
+        score.update(iou)
+        score.update(confusion_matrix)
+        return score
 
     @staticmethod
     def _summarize(buffer: List[Dict[str, torch.Tensor]], num_classes) -> Dict[str, torch.Tensor]:
         num_datapoints = len(buffer)
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(buffer)
-        # summarize scores
         result: Dict[str, torch.Tensor] = {}
+        # summarize IoU
         iou = torch.stack(buffer['IoU'], dim=0)
         assert iou.shape == (num_datapoints, num_classes), f"{iou.shape=}, {num_datapoints=}, {num_classes=}"
-        # log class IoU
         class_iou = torch.nanmean(iou, dim=0)
         assert class_iou.shape == (num_classes,), f"{class_iou.shape=}"
-        result['class_IoU'] = class_iou
-        # log mean IoU
         mean_iou = torch.nanmean(class_iou)
         assert mean_iou.ndim == 0, f"{mean_iou.shape=}"
+        result['class_IoU'] = class_iou
         result['mean_IoU'] = mean_iou
+        # summarize confusion matrix
+        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in ['tp', 'tn', 'fp', 'fn']}
+        tp = confusion_matrix['tp']
+        tn = confusion_matrix['tn']
+        fp = confusion_matrix['fp']
+        fn = confusion_matrix['fn']
+        result.update(confusion_matrix)
+        result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
+        result['class_precision'] = tp / (tp + fp)
+        result['class_recall'] = tp / (tp + fn)
+        result['class_f1'] = 2 * tp / (2 * tp + fp + fn)
+        total = tp + tn + fp + fn
+        assert torch.all(total == total[0])
+        result['accuracy'] = tp.sum() / total[0]
         return result
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
