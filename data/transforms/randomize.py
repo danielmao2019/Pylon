@@ -18,7 +18,4 @@ class Randomize(BaseTransform):
         if random.uniform(0, 1) < self.p:
             return self.transform(*args)
         else:
-            if len(args) == 1:
-                return args[0]
-            else:
-                return list(args)
+            return list(args)
