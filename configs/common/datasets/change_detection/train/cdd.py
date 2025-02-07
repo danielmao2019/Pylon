@@ -1,19 +1,8 @@
 import torch
 import data
 import criteria
+from .transforms_cfg import transforms_cfg
 
-
-transforms_cfg = {
-    'class': data.transforms.Compose,
-    'args': {
-        'transforms': [
-            (
-                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
-                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
-            ),
-        ],
-    },
-}
 
 collate_fn_cfg = {
     'class': data.collators.BaseCollator,
