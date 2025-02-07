@@ -36,13 +36,13 @@ import torch
                 [1, 2, 3],
                 [4, 5, 6],
                 [7, 8, 9]
-            ]).unsqueeze(0),  # (1, 3, 3)
+            ]),  # (3, 3)
             180,
             torch.tensor([
                 [9, 8, 7],
                 [6, 5, 4],
                 [3, 2, 1]
-            ]).unsqueeze(0),  # (1, 3, 3)
+            ]),  # (3, 3)
         ),
         # Test -180-degree (which is same as 180-degree)
         (
@@ -50,13 +50,13 @@ import torch
                 [1, 2, 3],
                 [4, 5, 6],
                 [7, 8, 9]
-            ]).unsqueeze(0),
+            ]),
             -180,
             torch.tensor([
                 [9, 8, 7],
                 [6, 5, 4],
                 [3, 2, 1]
-            ]).unsqueeze(0),
+            ]),
         ),
     ],
 )
