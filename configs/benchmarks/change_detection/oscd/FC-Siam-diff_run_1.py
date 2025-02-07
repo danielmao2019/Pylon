@@ -39,8 +39,10 @@ from runners import SupervisedSingleTaskTrainer
 config['runner'] = SupervisedSingleTaskTrainer
 
 # dataset config
-from configs.common.datasets.change_detection.oscd import config as dataset_config
-config.update(dataset_config)
+from configs.common.datasets.change_detection.train.oscd import config as train_dataset_config
+config.update(train_dataset_config)
+from configs.common.datasets.change_detection.val.oscd import config as val_dataset_config
+config.update(val_dataset_config)
 
 # model config
 from configs.common.models.change_detection.fc_siam import model_config
