@@ -102,7 +102,6 @@ class ChangeStarCollator(BaseCollator):
         Returns:
             Dict[str, Dict[str, Any]]: The processed batch.
         """
-        batch_size = len(datapoints)
         datapoints = transpose_buffer(datapoints)
 
         # Process inputs
