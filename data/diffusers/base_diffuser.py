@@ -3,7 +3,7 @@
 from typing import Tuple, List, Dict, Any
 import math
 import torch
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 
 
 class BaseDiffuser(torch.utils.data.Dataset, torch.nn.Module):
