@@ -2,6 +2,11 @@ import data.collators.change_star_collator
 import torch
 import data
 import metrics
+from .air_change import config as air_change_cfg
+from .cdd import config as cdd_cfg
+from .levir_cd import config as levir_cd_cfg
+from .oscd import config as oscd_cfg
+from .sysu_cd import config as sysu_cd_cfg
 
 
 transforms_config = {
@@ -16,18 +21,12 @@ transforms_config = {
     },
 }
 
-collate_fn_cfg = {
+change_star_v1_collate_fn_cfg = {
     'class': data.collators.ChangeStarCollator,
     'args': {
         'method': "eval",
     },
 }
-
-from .air_change import config as air_change_cfg
-from .cdd import config as cdd_cfg
-from .levir_cd import config as levir_cd_cfg
-from .oscd import config as oscd_cfg
-from .sysu_cd import config as sysu_cd_cfg
 
 config = {
     'val_datasets': [
@@ -45,14 +44,21 @@ config = {
         oscd_cfg['val_dataset'],
         sysu_cd_cfg['val_dataset'],
     ],
-    'val_dataloader': {
+    'val_dataloaders': [{
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_cfg,
+            'collate_fn': change_star_v1_collate_fn_cfg,
         },
-    },
+    }] + list(map(lambda x: {
+        'class': torch.utils.data.DataLoader,
+        'args': {
+            'batch_size': 1,
+            'num_workers': 4,
+            'collate_fn': x['val_dataloader']['args']['collate_fn'],
+        },
+    }, [air_change_cfg, cdd_cfg, levir_cd_cfg, oscd_cfg, sysu_cd_cfg])),
     'metric': {
         'class': metrics.vision_2d.ChangeStarMetric,
         'args': {},

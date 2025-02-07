@@ -27,14 +27,14 @@ config = {
         oscd_cfg['val_dataset'],
         sysu_cd_cfg['val_dataset'],
     ],
-    'val_dataloader': {
+    'val_dataloaders': list(map(lambda x: {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_cfg,
+            'collate_fn': x['val_dataloader']['args']['collate_fn'],
         },
-    },
+    }, [air_change_cfg, cdd_cfg, levir_cd_cfg, oscd_cfg, sysu_cd_cfg])),
     'metric': {
         'class': metrics.vision_2d.SemanticSegmentationMetric,
         'args': {
