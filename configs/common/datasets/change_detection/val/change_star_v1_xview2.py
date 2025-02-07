@@ -40,6 +40,22 @@ config = {
             'collate_fn': collate_fn_cfg,
         },
     },
+    'test_dataset': {
+        'class': data.datasets.xView2Dataset,
+        'args': {
+            'data_root': "./data/datasets/soft_links/xView2",
+            'split': "hold",
+            'transforms_cfg': transforms_config,
+        },
+    },
+    'test_dataloader': {
+        'class': torch.utils.data.DataLoader,
+        'args': {
+            'batch_size': 1,
+            'num_workers': 4,
+            'collate_fn': collate_fn_cfg,
+        },
+    },
     'metric': {
         'class': metrics.vision_2d.ChangeStarMetric,
         'args': {},

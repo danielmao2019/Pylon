@@ -43,13 +43,13 @@ class LevirCdDataset(BaseDataset):
         rm test.zip
         rm train.zip
         # create softlink
-        ln -s <data_root_path> <Pylon_path>/data/datasets/soft_links/LEVIR_CD
+        ln -s <data_root_path> <Pylon_path>/data/datasets/soft_links/LEVIR-CD
         # verify softlink status
-        stat <Pylon_path>/data/datasets/soft_links/LEVIR_CD
+        stat <Pylon_path>/data/datasets/soft_links/LEVIR-CD
     Used in:
     """
 
-    SPLIT_OPTIONS = ['train', 'test', 'val']
+    SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = {
         'train': 445,
         'val': 64,
@@ -64,7 +64,6 @@ class LevirCdDataset(BaseDataset):
     }
     NUM_CLASSES = 2
     SHA1SUM = '610f742580165b4af94ffae295dbab8986a92b69'
-
 
     def _init_annotations(self) -> None:
         """

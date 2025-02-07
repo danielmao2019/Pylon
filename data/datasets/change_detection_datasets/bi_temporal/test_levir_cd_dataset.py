@@ -4,9 +4,9 @@ import torch
 
 
 @pytest.mark.parametrize("dataset", [
-    (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR_CD", split='train')),
-    (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR_CD", split='test')),
-    (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR_CD", split='val')),
+    (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR-CD", split='train')),
+    (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR-CD", split='test')),
+    (LevirCdDataset(data_root="./data/datasets/soft_links/LEVIR-CD", split='val')),
 ])
 def test_levir_cd(dataset: torch.utils.data.Dataset) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)

@@ -3,7 +3,7 @@ import data
 import criteria
 
 
-transforms_config = {
+transforms_cfg = {
     'class': data.transforms.Compose,
     'args': {
         'transforms': [
@@ -15,30 +15,30 @@ transforms_config = {
     },
 }
 
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
             'meta_info': {
-                'date_1': list,
-                'date_2': list,
+                'image_size': torch.Tensor,
+                'crop_loc': torch.Tensor,
+                'crop_size': torch.Tensor,
             },
         },
     },
 }
 
-class_dist = torch.Tensor(data.datasets.OSCDDataset.CLASS_DIST['train']).to(torch.float32)
-num_classes = data.datasets.OSCDDataset.NUM_CLASSES
+class_dist = torch.Tensor(data.datasets.AirChangeDataset.CLASS_DIST['train']).to(torch.float32)
+num_classes = data.datasets.AirChangeDataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
 config = {
     'train_dataset': {
-        'class': data.datasets.OSCDDataset,
+        'class': data.datasets.AirChangeDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/OSCD",
+            'data_root': "./data/datasets/soft_links/AirChange",
             'split': "train",
-            'transforms_cfg': transforms_config,
-            'bands': None,
+            'transforms_cfg': transforms_cfg,
         },
     },
     'train_dataloader': {
@@ -46,7 +46,7 @@ config = {
         'args': {
             'batch_size': 4,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'criterion': {
