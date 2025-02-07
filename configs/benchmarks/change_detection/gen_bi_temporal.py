@@ -38,10 +38,10 @@ def main(dataset: str, model: str) -> None:
     config += '\n'
     # add optimizer config
     config += f"# optimizer config\n"
-    config += f"from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config as optimizer_config\n"
-    config += f"from configs.common.optimizers.standard import adam_optimizer_config\n"
-    config += f"optimizer_config['args']['optimizer_config'] = adam_optimizer_config\n"
-    config += f"config['optimizer'] = optimizer_config\n"
+    config += f"from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config as optimizer_cfg\n"
+    config += f"from configs.common.optimizers.change_detection.optimizers import sgd_optimizer_cfg\n"
+    config += f"optimizer_cfg['args']['optimizer_config'] = sgd_optimizer_cfg\n"
+    config += f"config['optimizer'] = optimizer_cfg\n"
     config += '\n'
     # add seeds
     relpath = os.path.join("benchmarks", "change_detection", dataset)
