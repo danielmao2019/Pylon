@@ -4,7 +4,7 @@ import glob
 import time
 import torch
 from runners import SupervisedSingleTaskTrainer
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 from utils.io import save_json
 from utils.progress import check_epoch_finished
 

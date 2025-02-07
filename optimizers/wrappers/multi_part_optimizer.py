@@ -1,6 +1,6 @@
 from typing import Dict, Any, Optional
 from optimizers import BaseOptimizer
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 from utils.input_checks import check_write_file
 from utils.io import save_json
 

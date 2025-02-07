@@ -2,7 +2,7 @@ from typing import Tuple, List, Dict, Union, Optional
 import torch
 import time
 from optimizers import BaseOptimizer
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 from utils.logging import Logger
 
 

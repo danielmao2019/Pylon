@@ -8,7 +8,7 @@ import random
 import torch
 from data.transforms.compose import Compose
 from utils.input_checks import check_read_dir
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 from utils.ops import apply_tensor_op
 
 

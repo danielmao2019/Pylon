@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict, Union, Any
 import torch
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 
 
 class ProjectionDatasetWrapper(torch.utils.data.Dataset):
