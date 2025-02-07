@@ -62,7 +62,7 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
         for val_dataloader in self.val_dataloaders:
             self.metric.reset_buffer()
             for idx, dp in enumerate(val_dataloader):
-                self._eval_step_(dp=dp, metric=self.metric)
+                self._eval_step_(dp=dp)
                 self.logger.flush(prefix=f"Validation on {val_dataloader.dataset.__class__.__name__} [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(val_dataloader)}].")
             results[val_dataloader.dataset.__class__.__name__] = self.metric.summarize(output_path=None)
         # after validation loop
