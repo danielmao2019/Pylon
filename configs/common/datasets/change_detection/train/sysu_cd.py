@@ -22,6 +22,10 @@ collate_fn_config = {
     },
 }
 
+class_dist = torch.Tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']).to(torch.float32)
+num_classes = data.datasets.SYSU_CD_Dataset.NUM_CLASSES
+class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
+
 config = {
     'train_dataset': {
         'class': data.datasets.SYSU_CD_Dataset,
@@ -42,9 +46,7 @@ config = {
     'criterion': {
         'class': criteria.vision_2d.SemanticSegmentationCriterion,
         'args': {
-            'class_weights': tuple((
-                data.datasets.SYSU_CD_Dataset.NUM_CLASSES*(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))/torch.sum(1/torch.tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']))
-            ).tolist()),
+            'class_weights': tuple(class_weights.tolist()),
         },
     },
 }
