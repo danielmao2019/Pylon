@@ -6,7 +6,7 @@ from utils.builders import build_from_config
 
 def build_scheduler(trainer: BaseTrainer, cfg: dict) -> torch.optim.lr_scheduler._LRScheduler:
     assert isinstance(cfg, dict) and set(cfg.keys()) == {'class', 'args'}
-    cfg['args']['optimizer'] = trainer.optimizer
+    cfg['args']['optimizer'] = trainer.optimizer.optimizer
     if cfg['class'] == torch.optim.lr_scheduler.LambdaLR:
         assert set(cfg['args'].keys()).issubset({'optimizer', 'lr_lambda'}), f"{cfg['args'].keys()=}"
         lr_lambda_cfg = cfg['args']['lr_lambda']
