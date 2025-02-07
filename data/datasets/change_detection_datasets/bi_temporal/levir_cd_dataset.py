@@ -49,7 +49,7 @@ class LevirCdDataset(BaseDataset):
     Used in:
     """
 
-    SPLIT_OPTIONS = ['train', 'test', 'val']
+    SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = {
         'train': 445,
         'val': 64,
