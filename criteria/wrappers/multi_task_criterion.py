@@ -2,7 +2,7 @@ from typing import Dict, Optional
 import torch
 from ..base_criterion import BaseCriterion
 from utils.input_checks import check_write_file
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 
 
 class MultiTaskCriterion(BaseCriterion):

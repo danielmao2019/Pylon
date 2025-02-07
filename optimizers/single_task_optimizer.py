@@ -1,6 +1,6 @@
 from typing import Any
 from optimizers import BaseOptimizer
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 
 
 class SingleTaskOptimizer(BaseOptimizer):
