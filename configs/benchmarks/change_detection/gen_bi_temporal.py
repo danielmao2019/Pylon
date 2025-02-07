@@ -14,7 +14,7 @@ def add_heading(config: str) -> str:
     return config
 
 
-def main(model: str, dataset: str) -> None:
+def main(dataset: str, model: str) -> None:
     with open(f"./configs/common/template.py", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
@@ -59,8 +59,8 @@ def main(model: str, dataset: str) -> None:
 
 if __name__ == "__main__":
     import itertools
-    for model, dataset in itertools.product(
-        ['FC-EF', 'FC-Siam-conc', 'FC-Siam-diff'],
+    for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
+        ['FC-EF', 'FC-Siam-conc', 'FC-Siam-diff'],
     ):
-        main(model, dataset)
+        main(dataset, model)
