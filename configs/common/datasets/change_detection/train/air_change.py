@@ -1,7 +1,7 @@
 import torch
 import data
 import criteria
-from .transforms_cfg import transforms_cfg
+from ._transforms_cfg import transforms_cfg
 
 
 collate_fn_cfg = {
