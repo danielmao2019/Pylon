@@ -1,7 +1,7 @@
 from typing import Sequence, Dict, Union
 import torch
 from ..base_criterion import BaseCriterion
-from utils.builder import build_from_config
+from utils.builders import build_from_config
 
 
 class AuxiliaryOutputsCriterion(BaseCriterion):
