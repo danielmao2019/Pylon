@@ -1,7 +1,8 @@
-import torch
+from typing import Tuple, List, Union
 import random
-from typing import Tuple
+import torch
 from data.transforms import BaseTransform
+from data.transforms import Crop
 
 
 class RandomCrop(BaseTransform):
@@ -21,31 +22,16 @@ class RandomCrop(BaseTransform):
 
         self.size = size
 
-    def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
-        """
-        Randomly crops a given tensor based on the available region.
-
-        Args:
-            tensor (torch.Tensor): The input tensor to crop. Must have at least 2 dimensions.
-
-        Returns:
-            torch.Tensor: The randomly cropped tensor.
-        """
-        assert tensor.ndim >= 2, f"Tensor must have at least 2 dimensions, but got {tensor.shape=}"
-
-        # Extract the crop width and height
+    def __call__(self, *args) -> Union[torch.Tensor, List[torch.Tensor]]:
+        assert all(t.shape[-2:] == args[0].shape[-2:] for t in args)
         crop_width, crop_height = self.size
-
-        # Get the original image dimensions (assumed last two dimensions are H, W)
-        img_height, img_width = tensor.shape[-2:]
-
-        # Ensure the crop size is valid
+        img_height, img_width = args[0].shape[-2:]
         if crop_width > img_width or crop_height > img_height:
-            raise ValueError(f"Crop size {self.size} exceeds tensor dimensions {tensor.shape[-2:]}")
-
-        # Sample a random top-left corner for cropping
+            raise ValueError(f"Crop size {self.size} exceeds tensor dimensions {args[0].shape[-2:]}")
         x_start = random.randint(0, img_width - crop_width)
         y_start = random.randint(0, img_height - crop_height)
-
-        # Perform cropping
-        return tensor[..., y_start:y_start + crop_height, x_start:x_start + crop_width]
+        transform = Crop(loc=(x_start, y_start), size=self.size)
+        result = [transform(arg) for arg in args]
+        if len(result) == 1:
+            result = result[0]
+        return result
