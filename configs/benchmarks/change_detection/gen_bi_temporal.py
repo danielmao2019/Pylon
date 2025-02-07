@@ -15,7 +15,7 @@ def add_heading(config: str) -> str:
 
 
 def main(dataset: str, model: str) -> None:
-    with open(f"./configs/common/template.py", mode='r') as f:
+    with open(f"./configs/benchmarks/change_detection/template.py", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
@@ -35,13 +35,6 @@ def main(dataset: str, model: str) -> None:
     config += f"config['model'] = model_config\n"
     config += f"config['model']['args']['arch'] = \"{model}\"\n"
     config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
-    config += '\n'
-    # add optimizer config
-    config += f"# optimizer config\n"
-    config += f"from configs.common.optimizers.single_task_optimizer import single_task_optimizer_config as optimizer_config\n"
-    config += f"from configs.common.optimizers.standard import adam_optimizer_config\n"
-    config += f"optimizer_config['args']['optimizer_config'] = adam_optimizer_config\n"
-    config += f"config['optimizer'] = optimizer_config\n"
     config += '\n'
     # add seeds
     relpath = os.path.join("benchmarks", "change_detection", dataset)
