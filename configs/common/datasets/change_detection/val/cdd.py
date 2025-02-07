@@ -28,9 +28,9 @@ collate_fn_cfg = {
 
 config = {
     'val_dataset': {
-        'class': data.datasets.LevirCdDataset,
+        'class': data.datasets.CDDDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/LEVIR_CD",
+            'data_root': "./data/datasets/soft_links/CDD",
             'split': "val",
             'transforms_cfg': transforms_cfg,
         },
@@ -44,9 +44,9 @@ config = {
         },
     },
     'test_dataset': {
-        'class': data.datasets.LevirCdDataset,
+        'class': data.datasets.CDDDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/LEVIR_CD",
+            'data_root': "./data/datasets/soft_links/CDD",
             'split': "test",
             'transforms_cfg': transforms_cfg,
         },

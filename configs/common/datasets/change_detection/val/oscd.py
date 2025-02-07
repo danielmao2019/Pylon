@@ -3,7 +3,7 @@ import data
 import metrics
 
 
-transforms_config = {
+transforms_cfg = {
     'class': data.transforms.Compose,
     'args': {
         'transforms': [
@@ -15,7 +15,7 @@ transforms_config = {
     },
 }
 
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
@@ -33,7 +33,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/OSCD",
             'split': "test",
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
             'bands': None,
         },
     },
@@ -42,7 +42,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'metric': {

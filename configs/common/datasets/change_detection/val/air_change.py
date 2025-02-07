@@ -20,7 +20,9 @@ collate_fn_cfg = {
     'args': {
         'collators': {
             'meta_info': {
-                'image_resolution': torch.Tensor,
+                'image_size': torch.Tensor,
+                'crop_loc': torch.Tensor,
+                'crop_size': torch.Tensor,
             },
         },
     },
@@ -28,30 +30,14 @@ collate_fn_cfg = {
 
 config = {
     'val_dataset': {
-        'class': data.datasets.LevirCdDataset,
+        'class': data.datasets.AirChangeDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/LEVIR_CD",
-            'split': "val",
-            'transforms_cfg': transforms_cfg,
-        },
-    },
-    'val_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'batch_size': 1,
-            'num_workers': 4,
-            'collate_fn': collate_fn_cfg,
-        },
-    },
-    'test_dataset': {
-        'class': data.datasets.LevirCdDataset,
-        'args': {
-            'data_root': "./data/datasets/soft_links/LEVIR_CD",
+            'data_root': "./data/datasets/soft_links/AirChange",
             'split': "test",
             'transforms_cfg': transforms_cfg,
         },
     },
-    'test_dataloader': {
+    'val_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 1,
