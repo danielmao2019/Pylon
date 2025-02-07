@@ -35,8 +35,8 @@ config = {
     },
 }
 
-from runners import SupervisedSingleTaskTrainer
-config['runner'] = SupervisedSingleTaskTrainer
+from runners import MultiValDatasetTrainer
+config['runner'] = MultiValDatasetTrainer
 
 # dataset config
 from configs.common.datasets.change_detection.train.change_star_v1_xview2 import config as train_dataset_config

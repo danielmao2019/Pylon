@@ -19,8 +19,8 @@ def main() -> None:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
-    config += f"from runners import SupervisedSingleTaskTrainer\n"
-    config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
+    config += f"from runners import MultiValDatasetTrainer\n"
+    config += f"config['runner'] = MultiValDatasetTrainer\n"
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"

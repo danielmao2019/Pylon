@@ -35,8 +35,8 @@ config = {
     },
 }
 
-from runners import SupervisedSingleTaskTrainer
-config['runner'] = SupervisedSingleTaskTrainer
+from runners import MultiValDatasetTrainer
+config['runner'] = MultiValDatasetTrainer
 
 # dataset config
 from configs.common.datasets.change_detection.train.ppsl_whu_bd import config as train_dataset_config
