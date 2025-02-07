@@ -37,7 +37,6 @@ config = {
             'data_root': "./data/datasets/soft_links/LEVIR_CD",
             'split': "train",
             'transforms_cfg': transforms_config,
-            'bands': None,
         },
     },
     'train_dataloader': {

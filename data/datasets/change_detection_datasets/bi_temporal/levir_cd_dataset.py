@@ -65,7 +65,6 @@ class LevirCdDataset(BaseDataset):
     NUM_CLASSES = 2
     SHA1SUM = '610f742580165b4af94ffae295dbab8986a92b69'
 
-
     def _init_annotations(self) -> None:
         """
         Initialize dataset annotations.
