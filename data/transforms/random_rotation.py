@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple
+from typing import Tuple, List, Union, Optional
 import random
 import torch
 import torchvision.transforms.functional as TF
@@ -32,19 +32,13 @@ class RandomRotation(BaseTransform):
         self.choices = choices
         self.range = range
 
-    def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
-        """
-        Applies a random rotation to the tensor.
-
-        Args:
-            tensor (torch.Tensor): A 2D or 3D tensor (CxHxW or HxW).
-
-        Returns:
-            torch.Tensor: Rotated tensor.
-        """
+    def __call__(self, *args) -> Union[torch.Tensor, List[torch.Tensor]]:
         if self.choices is not None:
             degrees = random.choice(self.choices)
         else:
             degrees = random.randint(self.range[0], self.range[1] - 1)  # Right exclusive range
-
-        return TF.rotate(tensor, degrees)
+        transform = lambda x: TF.rotate(x, degrees)
+        result = [transform(arg) for arg in args]
+        if len(result) == 1:
+            result = result[0]
+        return result
