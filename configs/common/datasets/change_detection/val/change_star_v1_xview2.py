@@ -23,32 +23,29 @@ collate_fn_cfg = {
     },
 }
 
+from .air_change import config as air_change_cfg
+from .cdd import config as cdd_cfg
+from .levir_cd import config as levir_cd_cfg
+from .oscd import config as oscd_cfg
+from .sysu_cd import config as sysu_cd_cfg
+
 config = {
-    'val_dataset': {
-        'class': data.datasets.xView2Dataset,
-        'args': {
-            'data_root': "./data/datasets/soft_links/xView2",
-            'split': "test",
-            'transforms_cfg': transforms_config,
+    'val_datasets': [
+        {
+            'class': data.datasets.xView2Dataset,
+            'args': {
+                'data_root': "./data/datasets/soft_links/xView2",
+                'split': "test",
+                'transforms_cfg': transforms_config,
+            },
         },
-    },
+        air_change_cfg['val_dataset'],
+        cdd_cfg['val_dataset'],
+        levir_cd_cfg['val_dataset'],
+        oscd_cfg['val_dataset'],
+        sysu_cd_cfg['val_dataset'],
+    ],
     'val_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'batch_size': 1,
-            'num_workers': 4,
-            'collate_fn': collate_fn_cfg,
-        },
-    },
-    'test_dataset': {
-        'class': data.datasets.xView2Dataset,
-        'args': {
-            'data_root': "./data/datasets/soft_links/xView2",
-            'split': "hold",
-            'transforms_cfg': transforms_config,
-        },
-    },
-    'test_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 1,
