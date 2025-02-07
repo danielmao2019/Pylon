@@ -1,9 +1,11 @@
-from typing import List
+from typing import List, Dict, Any
 import os
 import glob
 import time
 import torch
 from runners import SupervisedSingleTaskTrainer
+import metrics
+import utils
 from utils.builder import build_from_config
 from utils.io import save_json
 from utils.progress import check_epoch_finished
@@ -48,6 +50,30 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
         else:
             self.test_dataloader = None
 
+    def _init_metric_(self):
+        self.logger.info("Initializing metric...")
+        if self.config.get('metrics', None):
+            assert type(self.config['metrics']) == list
+            self.metrics = list(map(lambda x: build_from_config(x), self.config['metrics']))
+        else:
+            self.metrics = None
+
+    def _eval_step_(self, dp: Dict[str, Dict[str, Any]], metric: metrics.BaseMetric) -> None:
+        r"""
+        Args:
+            dp (Dict[str, Dict[str, Any]]): a dictionary containing inputs, labels, and meta info.
+        """
+        # init time
+        start_time = time.time()
+        # do computation
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            dp['outputs'] = self.model(dp['inputs'])
+            dp['scores'] = metric(y_pred=dp['outputs'], y_true=dp['labels'])
+        # update logger
+        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
+        # log time
+        self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+
     def _val_epoch_(self) -> None:
         if not (self.val_dataloaders and self.model):
             self.logger.info("Skipped validation epoch.")
@@ -57,12 +83,13 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
         # do validation loop
         self.model.eval()
         results = {}
-        for val_dataloader in self.val_dataloaders:
-            self.metric.reset_buffer()
+        assert len(self.metrics) == len(self.val_dataloaders)
+        for val_dataloader, metric in zip(self.val_dataloaders, self.metrics):
+            metric.reset_buffer()
             for idx, dp in enumerate(val_dataloader):
-                self._eval_step_(dp=dp)
+                self._eval_step_(dp=dp, metric=metric)
                 self.logger.flush(prefix=f"Validation on {val_dataloader.dataset.__class__.__name__} [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(val_dataloader)}].")
-            results[val_dataloader.dataset.__class__.__name__] = self.metric.summarize(output_path=None)
+            results[val_dataloader.dataset.__class__.__name__] = metric.summarize(output_path=None)
         # after validation loop
         self._after_val_loop_(results)
         # log time

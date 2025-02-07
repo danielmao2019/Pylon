@@ -35,10 +35,5 @@ config = {
             'collate_fn': x['val_dataloader']['args']['collate_fn'],
         },
     }, [air_change_cfg, cdd_cfg, levir_cd_cfg, oscd_cfg, sysu_cd_cfg])),
-    'metric': {
-        'class': metrics.vision_2d.SemanticSegmentationMetric,
-        'args': {
-            'num_classes': 2,
-        },
-    },
+    'metric': list(map(lambda x: x['metric'], [air_change_cfg, cdd_cfg, levir_cd_cfg, oscd_cfg, sysu_cd_cfg])),
 }
