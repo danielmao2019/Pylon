@@ -19,14 +19,14 @@ def main() -> None:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
-    config += f"from runners import SupervisedSingleTaskTrainer\n"
-    config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
+    config += f"from runners import MultiValDatasetTrainer\n"
+    config += f"config['runner'] = MultiValDatasetTrainer\n"
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"
     config += f"from configs.common.datasets.change_detection.train.ppsl_whu_bd import config as train_dataset_config\n" 
     config += f"config.update(train_dataset_config)\n"
-    config += f"from configs.common.datasets.change_detection.val.levir_cd import config as val_dataset_config\n" 
+    config += f"from configs.common.datasets.change_detection.val.all_bi_temporal import config as val_dataset_config\n" 
     config += f"config.update(val_dataset_config)\n"
     config += '\n'
     # add model config
@@ -50,8 +50,8 @@ def main() -> None:
     os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
         seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"whu_bd_levir_cd_run_{idx}") + "\"\n"
-        with open(os.path.join("./configs", relpath, f"whu_bd_levir_cd_run_{idx}.py"), mode='w') as f:
+        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"whu_bd_run_{idx}") + "\"\n"
+        with open(os.path.join("./configs", relpath, f"whu_bd_run_{idx}.py"), mode='w') as f:
             f.write(seeded_config)
 
 
