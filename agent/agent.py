@@ -440,6 +440,7 @@ class Agent:
                         'git', 'checkout', 'main', '&&', 'git', 'pull', '&&',
                         # conda environment
                         'source', '~/miniconda3/bin/activate', self.conda_env, '&&',
+                        'mkdir', '-p', os.path.dirname(error_log), '&&',
                         # launch command
                         "MKL_SERVICE_FORCE_INTEL=1",
                         f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
