@@ -20,8 +20,9 @@ collate_fn_cfg = {
     'args': {
         'collators': {
             'meta_info': {
-                'date_1': list,
-                'date_2': list,
+                'image_size': torch.Tensor,
+                'crop_loc': torch.Tensor,
+                'crop_size': torch.Tensor,
             },
         },
     },
@@ -29,12 +30,11 @@ collate_fn_cfg = {
 
 config = {
     'val_dataset': {
-        'class': data.datasets.OSCDDataset,
+        'class': data.datasets.AirChangeDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/OSCD",
+            'data_root': "./data/datasets/soft_links/AirChange",
             'split': "test",
             'transforms_cfg': transforms_cfg,
-            'bands': None,
         },
     },
     'val_dataloader': {

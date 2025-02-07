@@ -42,9 +42,6 @@ class AirChangeDataset(BaseDataset):
         'test': [4016897, 197887],
     }
 
-    def __init__(self, *args, **kwargs) -> None:
-        super(AirChangeDataset, self).__init__(*args, **kwargs)
-
     def _init_cropping_configs(self) -> None:
 
         # Define regions of the L shape (x_start, x_end, y_start, y_end)
