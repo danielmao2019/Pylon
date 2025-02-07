@@ -39,7 +39,7 @@ from runners import SupervisedSingleTaskTrainer
 config['runner'] = SupervisedSingleTaskTrainer
 
 # dataset config
-from configs.common.datasets.change_detection.xview2 import config as dataset_config
+from configs.common.datasets.change_detection.train.change_star_v1_xview2 import config as dataset_config
 config.update(dataset_config)
 
 # model config
