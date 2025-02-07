@@ -39,8 +39,10 @@ from runners import SupervisedSingleTaskTrainer
 config['runner'] = SupervisedSingleTaskTrainer
 
 # dataset config
-from configs.common.datasets.change_detection.train.ppsl_whu_bd import config as dataset_config
-config.update(dataset_config)
+from configs.common.datasets.change_detection.train.ppsl_whu_bd import config as train_dataset_config
+config.update(train_dataset_config)
+from configs.common.datasets.change_detection.val.levir_cd import config as val_dataset_config
+config.update(val_dataset_config)
 
 # model config
 from configs.common.models.change_detection.ppsl_model import model_config

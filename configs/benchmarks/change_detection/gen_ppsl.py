@@ -24,8 +24,10 @@ def main() -> None:
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"
-    config += f"from configs.common.datasets.change_detection.ppsl_whu_bd_levir_cd import config as dataset_config\n" 
-    config += f"config.update(dataset_config)\n"
+    config += f"from configs.common.datasets.change_detection.train.ppsl_whu_bd import config as train_dataset_config\n" 
+    config += f"config.update(train_dataset_config)\n"
+    config += f"from configs.common.datasets.change_detection.val.levir_cd import config as val_dataset_config\n" 
+    config += f"config.update(val_dataset_config)\n"
     config += '\n'
     # add model config
     config += f"# model config\n"
