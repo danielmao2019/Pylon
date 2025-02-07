@@ -29,21 +29,14 @@ change_star_v1_collate_fn_cfg = {
 }
 
 config = {
-    'val_datasets': [
-        {
-            'class': data.datasets.xView2Dataset,
-            'args': {
-                'data_root': "./data/datasets/soft_links/xView2",
-                'split': "test",
-                'transforms_cfg': transforms_config,
-            },
+    'val_datasets': [{
+        'class': data.datasets.xView2Dataset,
+        'args': {
+            'data_root': "./data/datasets/soft_links/xView2",
+            'split': "test",
+            'transforms_cfg': transforms_config,
         },
-        air_change_cfg['val_dataset'],
-        cdd_cfg['val_dataset'],
-        levir_cd_cfg['val_dataset'],
-        oscd_cfg['val_dataset'],
-        sysu_cd_cfg['val_dataset'],
-    ],
+    }] + list(map(lambda x: x['val_dataset'], [air_change_cfg, cdd_cfg, levir_cd_cfg, oscd_cfg, sysu_cd_cfg])),
     'val_dataloaders': [{
         'class': torch.utils.data.DataLoader,
         'args': {
