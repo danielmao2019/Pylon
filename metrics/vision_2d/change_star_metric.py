@@ -19,15 +19,16 @@ class ChangeStarMetric(SingleTaskMetric):
         """Override parent class __call__ method.
         """
         assert set(y_pred.keys()) == set(['change', 'semantic_1', 'semantic_2'])
-        assert set(y_true.keys()) == set(['change', 'semantic_1', 'semantic_2'])
-        change_scores = self.change_metric(y_pred=y_pred['change'], y_true=y_true['change'])
-        semantic_1_scores = self.semantic_metric(y_pred=y_pred['semantic_1'], y_true=y_true['semantic_1'])
-        semantic_2_scores = self.semantic_metric(y_pred=y_pred['semantic_2'], y_true=y_true['semantic_2'])
-        scores = {
-            'change': change_scores,
-            'semantic_1': semantic_1_scores,
-            'semantic_2': semantic_2_scores,
-        }
+        if set(y_true.keys()) == {'change', 'semantic_1', 'semantic_2'}:
+            scores = {
+                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change']),
+                'semantic_1': self.semantic_metric(y_pred=y_pred['semantic_1'], y_true=y_true['semantic_1']),
+                'semantic_2': self.semantic_metric(y_pred=y_pred['semantic_2'], y_true=y_true['semantic_2']),
+            }
+        elif set(y_true.keys()) == {'change_map'}:
+            scores = {
+                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change_map']),
+            }
         scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
         self.buffer.append(scores)
         return scores
@@ -40,13 +41,16 @@ class ChangeStarMetric(SingleTaskMetric):
             'change': metrics.vision_2d.SemanticSegmentationMetric._summarize(
                 buffer=buffer['change'], num_classes=2,
             ),
-            'semantic_1': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                buffer=buffer['semantic_1'], num_classes=5,
-            ),
-            'semantic_2': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                buffer=buffer['semantic_2'], num_classes=5,
-            ),
         }
+        if len(buffer) == 3:
+            result.update({
+                'semantic_1': metrics.vision_2d.SemanticSegmentationMetric._summarize(
+                    buffer=buffer['semantic_1'], num_classes=5,
+                ),
+                'semantic_2': metrics.vision_2d.SemanticSegmentationMetric._summarize(
+                    buffer=buffer['semantic_2'], num_classes=5,
+                ),
+            })
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
