@@ -9,12 +9,12 @@ from .oscd import config as oscd_cfg
 from .sysu_cd import config as sysu_cd_cfg
 
 
-transforms_config = {
+transforms_cfg = {
     'class': data.transforms.Compose,
     'args': {
         'transforms': [
             (
-                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
+                data.transforms.RandomCrop(size=(224, 224)),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'lbl_1'), ('labels', 'lbl_2')]
             ),
         ],
@@ -34,7 +34,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/xView2",
             'split': "test",
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
         },
     }] + list(map(lambda x: x['val_dataset'], [air_change_cfg, cdd_cfg, levir_cd_cfg, oscd_cfg, sysu_cd_cfg])),
     'val_dataloaders': [{
