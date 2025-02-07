@@ -10,7 +10,7 @@ class BaseCollator:
         Initialize the BaseCollator with optional custom collators.
 
         Args:
-            collators: A dictionary specifying custom collate functions for 
+            collators: A dictionary specifying custom collate functions for
                        specific keys. The structure is `Dict[key1, Dict[key2, Callable]]`.
         """
         self.collators = collators or {}
@@ -31,7 +31,7 @@ class BaseCollator:
         for key1, sub_dict in datapoints.items():
             # Transpose the second level
             datapoints[key1] = transpose_buffer(sub_dict)
-            
+
             for key2, values in datapoints[key1].items():
                 # Check for custom collator
                 if key1 in self.collators and key2 in self.collators[key1]:
