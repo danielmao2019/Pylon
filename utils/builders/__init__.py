@@ -1,7 +1,7 @@
 """
 UTILS.BUILDERS API
 """
-from utils.builders import build_from_config
+from utils.builders.builder import build_from_config
 
 
 __all__ = (
