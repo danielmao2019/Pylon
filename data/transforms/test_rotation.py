@@ -62,7 +62,7 @@ import torch
 )
 def test_rotation(input_tensor, degrees, expected_output):
     """Test Rotation transform with fixed degrees."""
-    transform = Rotation(degrees=degrees)
+    transform = Rotation(angle=degrees)
     rotated_tensor = transform(input_tensor)
 
     assert rotated_tensor.shape == expected_output.shape, f"Expected shape {expected_output.shape}, got {rotated_tensor.shape}"

@@ -3,6 +3,7 @@ import random
 import torch
 import torchvision.transforms.functional as TF
 from data.transforms import BaseTransform
+from data.transforms import Rotation
 
 
 class RandomRotation(BaseTransform):
@@ -42,7 +43,7 @@ class RandomRotation(BaseTransform):
         else:
             angle = random.randint(self.range[0], self.range[1] - 1)  # Right exclusive range
         angle = float(angle)
-        transform = lambda x: TF.rotate(x, angle)
+        transform = Rotation(angle)
         result = [transform(arg) for arg in args]
         if len(result) == 1:
             result = result[0]
