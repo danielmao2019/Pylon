@@ -8,7 +8,7 @@ class Randomize(BaseTransform):
 
     def __init__(self, transform: Callable, p: float) -> None:
         assert callable(transform), f"{type(callable)=}"
-        assert not isinstance(transform, BaseTransform) and not isinstance(transform, Compose), f"{type(callable)=}"
+        assert type(transform) not in {BaseTransform, Compose}, f"{type(transform)=}"
         self.transform = transform
         assert type(p) in [int, float], f"{type(p)=}"
         assert 0 <= p <= 1, f"{p=}"
@@ -18,4 +18,7 @@ class Randomize(BaseTransform):
         if random.uniform(0, 1) < self.p:
             return self.transform(*args)
         else:
-            return list(args)
+            if len(args) == 1:
+                return args[0]
+            else:
+                return list(args)
