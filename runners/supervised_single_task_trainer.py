@@ -12,12 +12,12 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
     def _init_optimizer_(self) -> None:
         r"""Requires self.model.
         """
-        self.logger.info("Initializing optimizer...")
-        # input checks
-        assert 'optimizer' in self.config, f"{self.config.keys()=}"
         # check dependencies
         for name in ['model', 'train_dataloader', 'criterion', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None
+        self.logger.info("Initializing optimizer...")
+        # input checks
+        assert 'optimizer' in self.config, f"{self.config.keys()=}"
         # initialize optimizer
         optimizer_config = self.config['optimizer']
         optimizer_config['args']['optimizer_config']['args']['params'] = self.model.parameters()

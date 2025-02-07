@@ -1,19 +1,8 @@
 import torch
 import data
 import criteria
+from ._transforms_cfg import transforms_cfg
 
-
-transforms_config = {
-    'class': data.transforms.Compose,
-    'args': {
-        'transforms': [
-            (
-                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
-                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
-            ),
-        ],
-    },
-}
 
 collate_fn_config = {
     'class': data.collators.BaseCollator,
@@ -32,7 +21,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/SYSU-CD",
             'split': "train",
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
         },
     },
     'train_dataloader': {

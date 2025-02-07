@@ -1,21 +1,10 @@
 import torch
 import data
 import metrics
+from ._transforms_cfg import transforms_cfg
 
 
-transforms_config = {
-    'class': data.transforms.Compose,
-    'args': {
-        'transforms': [
-            (
-                data.transforms.resize.ResizeMaps(size=(256, 256), antialias=True),
-                [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
-            ),
-        ],
-    },
-}
-
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {},
@@ -28,7 +17,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/SYSU-CD",
             'split': "val",
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
         },
     },
     'val_dataloader': {
@@ -36,7 +25,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'test_dataset': {
@@ -44,7 +33,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/SYSU-CD",
             'split': "test",
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
         },
     },
     'test_dataloader': {
@@ -52,7 +41,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'metric': {
