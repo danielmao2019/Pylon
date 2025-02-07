@@ -29,11 +29,9 @@ class DiceLoss(torch.nn.Module):
         assert y_pred.ndimension() == 4, "y_pred must have shape [B, C, H, W]."
         assert y_true.ndimension() == 3, "y_true must have shape [B, H, W]."
         #assert y_pred.shape == y_true.shape
+        
         #onehot encoding
         num_classes = y_pred.shape[1]
-
-        #use onehot in scikit
-
         true_1_hot = torch.eye(num_classes)[y_true]
         true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
         
