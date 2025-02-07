@@ -64,8 +64,9 @@ def y_true():
     
 @pytest.fixture
 def expected():
-  return torch.tensor(0.485033)
+  return torch.tensor(0.5063)
 
 def test_dice_loss(y_pred, y_true, expected):
   criterion = DiceLoss()
   assert torch.tensor(True) == torch.isclose(criterion(y_pred, y_true), expected, rtol=1e-4)
+  

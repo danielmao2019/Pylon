@@ -37,9 +37,11 @@ class DiceLoss(torch.nn.Module):
         true_1_hot = torch.eye(num_classes)[y_true]
         true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
         
-        #probas = torch.nn.functional.softmax(y_pred, dim=1)
+        probas = torch.nn.functional.softmax(y_pred, dim=1)
+        assert all(torch.isclose(torch.sum(probas, dim=1) == 1, torch.ones(size=(y_pred.shape[2], y_pred.shape[3]), dtype=torch.bool)).tolist())
 
-        dims = (y_pred.shape[0],) + tuple(range(2, y_true.ndimension()))# check dim here
-        intersection = torch.sum(y_pred * true_1_hot, dims)
-        cardinality = torch.sum(y_pred + true_1_hot, dims)
-        return (2*intersection/cardinality).mean()
+        dims = (y_pred.shape[0],) + tuple(range(2, y_true.ndimension()))
+        intersection = torch.sum(probas * true_1_hot, dims)
+        cardinality = torch.sum(probas + true_1_hot, dims)
+        dice_loss = (2. * intersection / (cardinality)).mean()
+        return (1 - dice_loss)
