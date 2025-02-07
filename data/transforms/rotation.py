@@ -21,7 +21,7 @@ class Rotation(BaseTransform):
             torch.Tensor: Rotated tensor.
         """
         assert tensor.ndim >= 2, f"Tensor must have at least 2 dimensions, but got {tensor.shape=}"
-        if tensor.dim > 2:
+        if tensor.ndim > 2:
             return TF.rotate(tensor, self.angle)
         else:
             return TF.rotate(tensor.unsqueeze(0), self.angle).squeeze(0)
