@@ -4,7 +4,7 @@ import metrics
 from ._transforms_cfg import transforms_cfg
 
 
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {},
@@ -25,7 +25,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'test_dataset': {
@@ -41,7 +41,7 @@ config = {
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'metric': {
