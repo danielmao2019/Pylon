@@ -28,7 +28,7 @@ collate_fn_cfg = {
     },
 }
 
-class_dist = torch.Tensor(data.datasets.AirChangeDataset.CLASS_DIST['train'], dtype=torch.float32)
+class_dist = torch.Tensor(data.datasets.AirChangeDataset.CLASS_DIST['train']).to(torch.float32)
 num_classes = data.datasets.AirChangeDataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 

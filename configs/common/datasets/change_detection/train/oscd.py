@@ -27,7 +27,7 @@ collate_fn_config = {
     },
 }
 
-class_dist = torch.Tensor(data.datasets.OSCDDataset.CLASS_DIST['train'], dtype=torch.float32)
+class_dist = torch.Tensor(data.datasets.OSCDDataset.CLASS_DIST['train']).to(torch.float32)
 num_classes = data.datasets.OSCDDataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
