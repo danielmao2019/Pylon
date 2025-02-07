@@ -2,14 +2,7 @@ from typing import Dict, Any
 import torch
 from .base_trainer import BaseTrainer
 import optimizers
-from utils.builders import build_from_config
-
-try:
-    # torch 2.x
-    from torch.optim.lr_scheduler import LRScheduler
-except:
-    # torch 1.x
-    from torch.optim.lr_scheduler import _LRScheduler as LRScheduler
+import utils
 
 
 class SupervisedSingleTaskTrainer(BaseTrainer):
@@ -28,22 +21,20 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         # initialize optimizer
         optimizer_config = self.config['optimizer']
         optimizer_config['args']['optimizer_config']['args']['params'] = self.model.parameters()
-        self.optimizer = build_from_config(optimizer_config)
+        self.optimizer = utils.builders.build_from_config(optimizer_config)
 
     def _init_scheduler_(self):
+        # check dependencies
+        for name in ['optimizer', 'train_dataloader', 'tot_epochs']:
+            assert hasattr(self, name) and getattr(self, name) is not None
         self.logger.info("Initializing scheduler...")
+        # input checks
         assert 'scheduler' in self.config
-        # build lr lambda
-        assert hasattr(self, 'train_dataloader') and isinstance(self.train_dataloader, torch.utils.data.DataLoader)
-        self.config['scheduler']['args']['lr_lambda'] = build_from_config(
-            steps=len(self.train_dataloader), config=self.config['scheduler']['args']['lr_lambda'],
-        )
-        # build scheduler
-        assert hasattr(self, 'optimizer') and isinstance(self.optimizer, optimizers.SingleTaskOptimizer)
+        assert isinstance(self.train_dataloader, torch.utils.data.DataLoader)
+        assert isinstance(self.optimizer, optimizers.SingleTaskOptimizer)
         assert hasattr(self.optimizer, 'optimizer') and isinstance(self.optimizer.optimizer, torch.optim.Optimizer)
-        self.scheduler: LRScheduler = build_from_config(
-            optimizer=self.optimizer.optimizer, config=self.config['scheduler'],
-        )
+        # build scheduler
+        self.scheduler = utils.builders.build_scheduler(trainer=self, cfg=self.config['scheduler'])
 
     def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         r"""Set gradients in single-task learning setting.
