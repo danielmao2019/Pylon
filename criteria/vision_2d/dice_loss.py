@@ -15,7 +15,7 @@ class DiceLoss(SingleTaskCriterion):
 
     def __init__(
         self,
-        class_weights: Optional[Tuple[float, ...]],
+        class_weights: Optional[Tuple[float, ...]] = None,
         reduction: Optional[str] = 'mean',
         device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
