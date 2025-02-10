@@ -24,6 +24,7 @@ class DiceLoss(SingleTaskCriterion):
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
             class_weights = torch.tensor(class_weights, dtype=torch.float32, device=device)
+            class_weights = class_weights / class_weights.sum()
         self.class_weights = class_weights
         assert reduction in self.REDUCTION_OPTIONS, f"{reduction=}"
         self.reduction = reduction
@@ -59,7 +60,10 @@ class DiceLoss(SingleTaskCriterion):
         total = torch.sum(y_pred + y_true, dim=(2, 3))
         class_dice_loss = 1 - 2 * inter / total
         assert class_dice_loss.shape == (B, C), f"{class_dice_loss.shape=}"
-        dice_loss = torch.sum(self.class_weights.view((B, C)) * class_dice_loss, dim=1)
+        dice_loss = torch.sum(class_dice_loss * (
+            self.class_weights.view((B, C)) if self.class_weights else
+            1 / C * torch.ones(size=(C,), dtype=torch.float32, device=class_dice_loss.device)
+        ), dim=1)
         assert dice_loss.shape == (B,), f"{dice_loss.shape=}"
         if self.reduction == 'mean':
             dice_loss = dice_loss.mean(dim=0)
