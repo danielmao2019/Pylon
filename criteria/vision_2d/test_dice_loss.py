@@ -2,9 +2,11 @@ import pytest
 import torch
 from .dice_loss import DiceLoss
 
+
 @pytest.fixture
 def y_pred():
-  return torch.tensor([[[[0.0386, 0.9645, 0.8292, 0.0196, 0.3464],
+    return torch.tensor([
+        [[[0.0386, 0.9645, 0.8292, 0.0196, 0.3464],
           [0.7008, 0.8797, 0.0763, 0.2584, 0.3067],
           [0.7858, 0.8736, 0.5556, 0.5184, 0.8900],
           [0.8904, 0.1982, 0.4975, 0.1508, 0.6437],
@@ -42,31 +44,35 @@ def y_pred():
           [0.0379, 0.4512, 0.8742, 0.7042, 0.4112],
           [0.2072, 0.1684, 0.1351, 0.1274, 0.7180]]]])
 
+
 @pytest.fixture
 def y_true():
-    return torch.tensor([[[0, 0, 1, 1, 0],
-            [0, 0, 0, 1, 0],
-            [1, 0, 0, 0, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 0, 1]],
+    return torch.tensor([
+        [[0, 0, 1, 1, 0],
+         [0, 0, 0, 1, 0],
+         [1, 0, 0, 0, 0],
+         [0, 1, 0, 1, 0],
+         [0, 1, 0, 0, 1]],
 
-            [[0, 0, 0, 0, 1],
-            [0, 1, 0, 0, 0],
-            [1, 0, 1, 0, 0],
-            [1, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0]],
+        [[0, 0, 0, 0, 1],
+         [0, 1, 0, 0, 0],
+         [1, 0, 1, 0, 0],
+         [1, 0, 0, 0, 0],
+         [0, 0, 1, 1, 0]],
 
-            [[1, 1, 0, 1, 0],
-            [0, 0, 0, 1, 1],
-            [0, 0, 1, 1, 1],
-            [1, 1, 1, 0, 1],
-            [1, 1, 0, 1, 1]]])
-    
+        [[1, 1, 0, 1, 0],
+         [0, 0, 0, 1, 1],
+         [0, 0, 1, 1, 1],
+         [1, 1, 1, 0, 1],
+         [1, 1, 0, 1, 1]]])
+
+
 @pytest.fixture
 def expected():
-  return torch.tensor(0.5063)
+    return torch.tensor(0.5063)
+
 
 def test_dice_loss(y_pred, y_true, expected):
-  criterion = DiceLoss()
-  assert torch.tensor(True) == torch.isclose(criterion(y_pred, y_true), expected, rtol=1e-4)
-  
+    # TODO: test class_weights and reduction
+    criterion = DiceLoss()
+    assert torch.isclose(criterion(y_pred, y_true), expected, rtol=1e-4).item()
