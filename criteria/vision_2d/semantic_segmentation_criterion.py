@@ -1,7 +1,7 @@
 from typing import Tuple, Optional
 import torch
 import torchvision
-from criteria.wrappers.single_task_criterion import SingleTaskCriterion
+from criteria.wrappers import SingleTaskCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
