@@ -15,10 +15,9 @@ class SNUNet_CD_Criterion(SingleTaskCriterion):
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Override parent class __call__ method.
         """
-        assert set(y_pred.keys()) == set(['change_map', 'semantic'])
-        assert set(y_true.keys()) == set(['change_map', 'semantic'])
-        semantic_loss = self.semantic_criterion(y_pred=y_pred['semantic'], y_true=y_true['semantic'])
-        dice_loss = self.dice_criterion(y_pred=y_pred['change_map'], y_true=y_true['change_map'])
+        assert set(y_true.keys()) == set(['change_map'])
+        semantic_loss = self.semantic_criterion(y_pred=y_pred, y_true=y_true['change_map'])
+        dice_loss = self.dice_criterion(y_pred=y_pred, y_true=y_true['change_map'])
         total_loss = dice_loss + semantic_loss
         assert total_loss.numel() == 1, f"{total_loss.shape=}"
         self.buffer.append(total_loss.detach().cpu())
