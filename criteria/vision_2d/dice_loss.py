@@ -29,27 +29,14 @@ class DiceLoss(SingleTaskCriterion):
         assert reduction in self.REDUCTION_OPTIONS, f"{reduction=}"
         self.reduction = reduction
 
-<<<<<<< HEAD
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""Computes the Sørensen-Dice loss.
         Args:
             y_true: a tensor of shape [B, H, W].
             y_pred: a tensor of shape [B, C, H, W]. Corresponds to output logits from the model.
-=======
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        """Computes the Sørensen–Dice loss.
-        Note that PyTorch optimizers minimize a loss. In this
-        case, we would like to maximize the dice loss so we
-        return the negated dice loss.
-        Args:
-            y_true: a tensor of shape [B, H, W].
-            y_pred: a tensor of shape [B, C, H, W]. Corresponds to
-                the raw output or y_pred of the model.
->>>>>>> f
         Returns:
             dice_loss: the Sørensen-Dice loss.
         """
-<<<<<<< HEAD
         # input checks
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
         # match resolution
@@ -86,24 +73,3 @@ class DiceLoss(SingleTaskCriterion):
             pass
         assert dice_loss.shape == (() if self.reduction != 'none' else (B,)), f"{dice_loss.shape=}, {self.reduction=}"
         return dice_loss
-=======
-        assert isinstance(y_pred, torch.Tensor), "y_pred must be a PyTorch tensor."
-        assert isinstance(y_true, torch.Tensor), "y_true must be a PyTorch tensor."
-        assert y_pred.ndimension() == 4, "y_pred must have shape [B, C, H, W]."
-        assert y_true.ndimension() == 3, "y_true must have shape [B, H, W]."
-        #assert y_pred.shape == y_true.shape
-        #onehot encoding
-        num_classes = y_pred.shape[1]
-
-        #use onehot in scikit
-
-        true_1_hot = torch.eye(num_classes)[y_true]
-        true_1_hot = true_1_hot.permute(0, 3, 1, 2).float()
-        
-        #probas = torch.nn.functional.softmax(y_pred, dim=1)
-
-        dims = (y_pred.shape[0],) + tuple(range(2, y_true.ndimension()))# check dim here
-        intersection = torch.sum(y_pred * true_1_hot, dims)
-        cardinality = torch.sum(y_pred + true_1_hot, dims)
-        return (2*intersection/cardinality).mean()
->>>>>>> f
