@@ -38,8 +38,9 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
         config += '\n'
     elif model.startswith("ChangeFormer"):
-        config += f"from configs.common.models.change_detection.change_former import change_former_v{model[-1]}_config as model_config\n"
+        config += f"from configs.common.models.change_detection.change_former import model_config\n"
         config += f"config['model'] = model_config\n"
+        config += f"config['model']['args']['version'] = {model[-1]}\n"
         config += '\n'
     else:
         raise NotImplementedError
