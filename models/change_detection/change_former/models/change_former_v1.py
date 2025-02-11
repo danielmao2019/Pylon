@@ -1,3 +1,4 @@
+from typing import Dict
 import torch
 from models.change_detection.change_former.modules.tenc import Tenc
 from models.change_detection.change_former.modules.conv_projection_base import convprojection_base
@@ -15,7 +16,8 @@ class ChangeFormerV1(torch.nn.Module):
         self.output_softmax     = decoder_softmax
         self.active             = torch.nn.Softmax(dim=1)
 
-    def forward(self, x1, x2):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        x1, x2 = inputs['img_1'], inputs['img_2']
 
         fx1 = self.Tenc(x1)
         fx2 = self.Tenc(x2)

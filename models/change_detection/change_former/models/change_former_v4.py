@@ -1,3 +1,4 @@
+from typing import Dict
 import torch
 from models.change_detection.change_former.modules.encoder_transformer_x2 import EncoderTransformer_x2
 from models.change_detection.change_former.modules.decoder_transformer_x2 import DecoderTransformer_x2
@@ -22,7 +23,8 @@ class ChangeFormerV4(torch.nn.Module):
                     in_channels = self.embed_dims, embedding_dim= 256, output_nc=output_nc,
                     decoder_softmax = decoder_softmax, feature_strides=[2, 4, 8, 16, 32])
 
-    def forward(self, x1, x2):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        x1, x2 = inputs['img_1'], inputs['img_2']
 
         [fx1, fx2] = [self.Tenc_x2(x1), self.Tenc_x2(x2)]
 
