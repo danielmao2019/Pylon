@@ -57,8 +57,10 @@ from configs.common.datasets.change_detection.val.cdd import config as val_datas
 config.update(val_dataset_config)
 
 # model config
-from configs.common.models.change_detection.change_former import change_former_v5_config as model_config
+import models
+from configs.common.models.change_detection.change_former import model_config
 config['model'] = model_config
+config['model']['class'] = models.change_detection.ChangeFormerV5
 
 # seeds
 config['init_seed'] = 52377982
