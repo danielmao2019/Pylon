@@ -31,11 +31,20 @@ def main(dataset: str, model: str) -> None:
     config += '\n'
     # add model config
     config += f"# model config\n"
-    config += f"from configs.common.models.change_detection.fc_siam import model_config\n"
-    config += f"config['model'] = model_config\n"
-    config += f"config['model']['args']['arch'] = \"{model}\"\n"
-    config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
-    config += '\n'
+    if model.startswith("FC-"):
+        config += f"from configs.common.models.change_detection.fc_siam import model_config\n"
+        config += f"config['model'] = model_config\n"
+        config += f"config['model']['args']['arch'] = \"{model}\"\n"
+        config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
+        config += '\n'
+    elif model.startswith("ChangeFormer"):
+        config += f"import models\n"
+        config += f"from configs.common.models.change_detection.change_former import model_config\n"
+        config += f"config['model'] = model_config\n"
+        config += f"config['model']['class'] = models.change_detection.{model}\n"
+        config += '\n'
+    else:
+        raise NotImplementedError
     # add seeds
     relpath = os.path.join("benchmarks", "change_detection", dataset)
     seeded_configs: List[str] = utils.configs.generate_seeds(
@@ -54,6 +63,9 @@ if __name__ == "__main__":
     import itertools
     for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
-        ['FC-EF', 'FC-Siam-conc', 'FC-Siam-diff'],
+        [
+            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff',
+            'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
+        ],
     ):
         main(dataset, model)
