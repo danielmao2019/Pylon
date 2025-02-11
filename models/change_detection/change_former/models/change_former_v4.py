@@ -28,8 +28,4 @@ class ChangeFormerV4(torch.nn.Module):
 
         cp = self.TDec_x2(fx1, fx2)
 
-        # # Save to mat
-        # save_to_mat(x1, x2, fx1, fx2, cp, "ChangeFormerV4")
-
-        # exit()
         return cp

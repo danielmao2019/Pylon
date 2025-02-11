@@ -8,10 +8,10 @@ class ChangeFormerV2(torch.nn.Module):
     def __init__(self, input_nc=3, output_nc=2, decoder_softmax=False):
         super(ChangeFormerV2, self).__init__()
         #Transformer Encoder
-        self.Tenc   = Tenc()
+        self.Tenc = Tenc()
 
         #Transformer Decoder
-        self.TDec   = TDec( input_transform='multiple_select', in_index=[0, 1, 2, 3], align_corners=True,
+        self.TDec = TDec(input_transform='multiple_select', in_index=[0, 1, 2, 3], align_corners=True,
                             in_channels = [64, 128, 320, 512], embedding_dim= 32, output_nc=output_nc,
                             decoder_softmax = decoder_softmax, feature_strides=[4, 8, 16, 32])
         #Final activation
