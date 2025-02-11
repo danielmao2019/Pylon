@@ -13,8 +13,8 @@ class DecoderTransformer_x2(torch.nn.Module):
     """
     Transformer Decoder
     """
-    def __init__(self, input_transform='multiple_select', in_index=[0, 1, 2, 3, 4], align_corners=True, 
-                    in_channels = [32, 64, 128, 256, 512], embedding_dim= 64, output_nc=2, 
+    def __init__(self, input_transform='multiple_select', in_index=[0, 1, 2, 3, 4], align_corners=True,
+                    in_channels = [32, 64, 128, 256, 512], embedding_dim= 64, output_nc=2,
                     decoder_softmax = False, feature_strides=[2, 4, 8, 16, 32]):
         super(DecoderTransformer_x2, self).__init__()
         assert len(feature_strides) == len(in_channels)
@@ -66,10 +66,10 @@ class DecoderTransformer_x2(torch.nn.Module):
 
         #Final prediction
         self.change_probability = ConvLayer(self.embedding_dim, self.output_nc, kernel_size=3, stride=1, padding=1)
-        
+
         #Final activation
         self.output_softmax     = decoder_softmax
-        self.active             = torch.nn.Sigmoid() 
+        self.active             = torch.nn.Sigmoid()
 
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.
@@ -107,7 +107,7 @@ class DecoderTransformer_x2(torch.nn.Module):
         n, _, h, w = c5_1.shape
 
         outputs = [] #Multi-scale outputs adding here
-        
+
         _c5_1 = self.linear_c5(c5_1).permute(0,2,1).reshape(n, -1, c5_1.shape[2], c5_1.shape[3])
         _c5_2 = self.linear_c5(c5_2).permute(0,2,1).reshape(n, -1, c5_2.shape[2], c5_2.shape[3])
         _c5   = self.diff_c5(torch.cat((_c5_1, _c5_2), dim=1)) #Difference of features at x1/32 scale

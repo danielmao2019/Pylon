@@ -37,7 +37,7 @@ class EncoderTransformer_x2(torch.nn.Module):
             sr_ratio=sr_ratios[0])
             for i in range(depths[0])])
         self.norm1 = norm_layer(embed_dims[0])
-        
+
         # Stage-2 (x1/4 scale)
         cur += depths[0]
         self.block2 = torch.nn.ModuleList([Block(
@@ -46,7 +46,7 @@ class EncoderTransformer_x2(torch.nn.Module):
             sr_ratio=sr_ratios[1])
             for i in range(depths[1])])
         self.norm2 = norm_layer(embed_dims[1])
-       
+
        # Stage-3 (x1/8 scale)
         cur += depths[1]
         self.block3 = torch.nn.ModuleList([Block(
@@ -55,7 +55,7 @@ class EncoderTransformer_x2(torch.nn.Module):
             sr_ratio=sr_ratios[2])
             for i in range(depths[2])])
         self.norm3 = norm_layer(embed_dims[2])
-        
+
         # Stage-4 (x1/16 scale)
         cur += depths[2]
         self.block4 = torch.nn.ModuleList([Block(
@@ -64,7 +64,7 @@ class EncoderTransformer_x2(torch.nn.Module):
             sr_ratio=sr_ratios[3])
             for i in range(depths[3])])
         self.norm4 = norm_layer(embed_dims[3])
-        
+
         # Stage-5 (x1/32 scale)
         cur += depths[3]
         self.block5 = torch.nn.ModuleList([Block(
@@ -112,7 +112,7 @@ class EncoderTransformer_x2(torch.nn.Module):
     def forward_features(self, x):
         B = x.shape[0]
         outs = []
-    
+
         # stage 1
         x1, H1, W1 = self.patch_embed1(x)
         for i, blk in enumerate(self.block1):

@@ -43,13 +43,13 @@ class Attention_dec(torch.nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, H, W):
-        
+
         B, N, C = x.shape
         task_q = self.task_query
-        
+
         # This is because we fix the task parameters to be of a certain dimension, so with varying batch size, we just stack up the same queries to operate on the entire batch
         if B>1:
-            
+
             task_q = task_q.unsqueeze(0).repeat(B,1,1,1)
             task_q = task_q.squeeze(1)
 

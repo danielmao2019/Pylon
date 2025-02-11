@@ -42,7 +42,7 @@ class Attention(torch.nn.Module):
                 m.bias.data.zero_()
 
     def forward(self, x, H, W):
-        
+
         B, N, C = x.shape
         q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
 

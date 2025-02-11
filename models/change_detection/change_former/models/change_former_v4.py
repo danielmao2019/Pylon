@@ -16,10 +16,10 @@ class ChangeFormerV4(torch.nn.Module):
                  num_heads=[2, 2, 4, 8, 16], mlp_ratios=[2, 2, 2, 2, 2], qkv_bias=False, qk_scale=None, drop_rate=0.,
                  attn_drop_rate=0., drop_path_rate=0., norm_layer=torch.nn.LayerNorm,
                  depths=self.depths, sr_ratios=[8, 4, 2, 1, 1])
-        
+
         #Transformer Decoder
-        self.TDec_x2 = DecoderTransformer_x2(input_transform='multiple_select', in_index=[0, 1, 2, 3, 4], align_corners=True, 
-                    in_channels = self.embed_dims, embedding_dim= 256, output_nc=output_nc, 
+        self.TDec_x2 = DecoderTransformer_x2(input_transform='multiple_select', in_index=[0, 1, 2, 3, 4], align_corners=True,
+                    in_channels = self.embed_dims, embedding_dim= 256, output_nc=output_nc,
                     decoder_softmax = decoder_softmax, feature_strides=[2, 4, 8, 16, 32])
 
     def forward(self, x1, x2):
