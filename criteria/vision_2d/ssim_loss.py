@@ -2,6 +2,7 @@ import math
 import torch
 import torch.nn.functional as F
 from criteria.wrappers import SingleTaskCriterion
+from typing import Optional
 
 
 def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
@@ -11,6 +12,7 @@ def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tens
     Args:
         window_size (int): The size of the window.
         sigma (float): Standard deviation of the Gaussian distribution.
+        device (torch.device): The device on which to create the tensor.
     
     Returns:
         torch.Tensor: Normalized 1D Gaussian kernel.
@@ -29,16 +31,26 @@ def create_window(window_size: int, channels: int, device: torch.device) -> torc
     Args:
         window_size (int): Size of the Gaussian window.
         channels (int): Number of input channels.
+        device (torch.device): The device to create the window on.
     
     Returns:
         torch.Tensor: A 4D tensor representing the Gaussian window for convolution.
     """
-    _1D_window = gaussian(window_size, sigma=1.5, device).unsqueeze(1)
+    _1D_window = gaussian(window_size, sigma=1.5, device=device).unsqueeze(1)
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
     return _2D_window.expand(channels, 1, window_size, window_size).contiguous()
 
 
-def compute_ssim(img1: torch.Tensor, img2: torch.Tensor, window: torch.Tensor, window_size: int, channels: int, size_average: bool = True) -> torch.Tensor:
+def compute_ssim(
+    img1: torch.Tensor,
+    img2: torch.Tensor,
+    window: torch.Tensor,
+    window_size: int,
+    channels: int,
+    C1: float,
+    C2: float,
+    size_average: bool = True
+) -> torch.Tensor:
     """
     Computes the Structural Similarity Index (SSIM) between two images.
     
@@ -48,6 +60,8 @@ def compute_ssim(img1: torch.Tensor, img2: torch.Tensor, window: torch.Tensor, w
         window (torch.Tensor): Precomputed Gaussian window.
         window_size (int): Size of the Gaussian window.
         channels (int): Number of channels in the images.
+        C1 (float): Constant to stabilize division by weak denominators.
+        C2 (float): Constant to stabilize division by weak denominators.
         size_average (bool): Whether to average the SSIM map.
     
     Returns:
@@ -64,9 +78,6 @@ def compute_ssim(img1: torch.Tensor, img2: torch.Tensor, window: torch.Tensor, w
     sigma2_sq = F.conv2d(img2 * img2, window, padding=window_size // 2, groups=channels) - mu2_sq
     sigma12 = F.conv2d(img1 * img2, window, padding=window_size // 2, groups=channels) - mu1_mu2
     
-    C1 = 0.01 ** 2
-    C2 = 0.03 ** 2
-    
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
     
     return ssim_map.mean() if size_average else ssim_map.mean(dim=(1, 2, 3))
@@ -82,6 +93,8 @@ class SSIMLoss(SingleTaskCriterion):
         channels: Optional[int] = 1,
         size_average: Optional[bool] = True,
         device: Optional[torch.device] = torch.device('cuda'),
+        C1: Optional[float] = 0.01 ** 2,
+        C2: Optional[float] = 0.03 ** 2,
     ):
         """
         Initializes SSIMLoss with a precomputed Gaussian window.
@@ -90,12 +103,23 @@ class SSIMLoss(SingleTaskCriterion):
             window_size (int): Size of the Gaussian window.
             channels (int): Number of channels in input images.
             size_average (bool): Whether to average the SSIM map.
+            device (torch.device): Device to store the window.
+            C1 (float): SSIM stability constant.
+            C2 (float): SSIM stability constant.
         """
         super().__init__()
+        
+        if window_size % 2 == 0:
+            raise ValueError("window_size must be an odd number")
+        
         self.window_size = window_size
         self.channels = channels
         self.size_average = size_average
-        self.window = create_window(window_size, channels, device=device)
+        self.C1 = C1
+        self.C2 = C2
+        
+        # Register window as buffer to ensure it moves with the model
+        self.register_buffer("window", create_window(window_size, channels, device=device))
     
     def forward(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
         """
@@ -116,4 +140,4 @@ class SSIMLoss(SingleTaskCriterion):
         # Move window to the same device and type as img1
         window = self.window.to(img1.device).type_as(img1)
         
-        return compute_ssim(img1, img2, window, self.window_size, self.channels, self.size_average)
+        return compute_ssim(img1, img2, window, self.window_size, self.channels, self.C1, self.C2, self.size_average)
