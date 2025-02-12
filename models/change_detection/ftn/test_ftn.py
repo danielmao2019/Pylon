@@ -1,5 +1,5 @@
 import torch
-import models
+from .model import FTN
 
 
 def test_ftn() -> None:
@@ -7,5 +7,5 @@ def test_ftn() -> None:
         f'img_{idx}': torch.zeros(size=(1, 3, 224, 224))
         for idx in [1, 2]
     }
-    model = models.change_detection.FTN()
+    model = FTN()
     _ = model(inputs)
