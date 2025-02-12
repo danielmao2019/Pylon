@@ -22,7 +22,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/OSCD",
             'split': "test",
-            'transforms_cfg': transforms_cfg,
+            'transforms_cfg': transforms_cfg((224, 224)),
             'bands': None,
         },
     },

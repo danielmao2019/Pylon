@@ -15,7 +15,7 @@ class DecoderTransformer_x2(torch.nn.Module):
     """
     def __init__(self, input_transform='multiple_select', in_index=[0, 1, 2, 3, 4], align_corners=True,
                     in_channels = [32, 64, 128, 256, 512], embedding_dim= 64, output_nc=2,
-                    decoder_softmax = False, feature_strides=[2, 4, 8, 16, 32]):
+                    feature_strides=[2, 4, 8, 16, 32]):
         super(DecoderTransformer_x2, self).__init__()
         assert len(feature_strides) == len(in_channels)
         assert min(feature_strides) == feature_strides[0]
@@ -66,10 +66,6 @@ class DecoderTransformer_x2(torch.nn.Module):
 
         #Final prediction
         self.change_probability = ConvLayer(self.embedding_dim, self.output_nc, kernel_size=3, stride=1, padding=1)
-
-        #Final activation
-        self.output_softmax     = decoder_softmax
-        self.active             = torch.nn.Sigmoid()
 
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.
@@ -148,11 +144,5 @@ class DecoderTransformer_x2(torch.nn.Module):
         x = self.dense_2x(x)
         cp = self.change_probability(x)
         outputs.append(cp)
-
-        if self.output_softmax:
-            temp = outputs
-            outputs = []
-            for pred in temp:
-                outputs.append(self.active(pred))
 
         return outputs

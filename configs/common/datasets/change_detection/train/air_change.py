@@ -2,7 +2,6 @@ import torch
 import data
 import criteria
 from ._transforms_cfg import transforms_cfg
-transforms_cfg['args']['transforms'] = transforms_cfg['args']['transforms'][1:]
 
 
 collate_fn_cfg = {
@@ -28,7 +27,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/AirChange",
             'split': "train",
-            'transforms_cfg': transforms_cfg,
+            'transforms_cfg': transforms_cfg((112, 112)),
         },
     },
     'train_dataloader': {

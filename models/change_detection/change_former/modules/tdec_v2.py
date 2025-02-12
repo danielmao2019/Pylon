@@ -10,7 +10,7 @@ class TDecV2(torch.nn.Module):
 
     def __init__(self, input_transform='multiple_select', in_index=[0, 1, 2, 3], align_corners=True,
                     in_channels = [64, 128, 256, 512], embedding_dim= 256, output_nc=2,
-                    decoder_softmax = False, feature_strides=[4, 8, 16, 32]):
+                    feature_strides=[4, 8, 16, 32]):
         super(TDecV2, self).__init__()
         assert len(feature_strides) == len(in_channels)
         assert min(feature_strides) == feature_strides[0]
@@ -42,10 +42,6 @@ class TDecV2(torch.nn.Module):
         self.pix_shuffle_conv   = torch.nn.Conv2d(in_channels=self.embedding_dim, out_channels=16*output_nc, kernel_size=3, stride=1, padding=1)
         self.relu = torch.nn.ReLU()
         self.pix_shuffle        = torch.nn.PixelShuffle(4)
-
-        #Final activation
-        self.output_softmax     = decoder_softmax
-        self.active             = torch.nn.Softmax(dim=1)
 
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.
@@ -102,17 +98,7 @@ class TDecV2(torch.nn.Module):
 
         _c = self.linear_fuse(torch.cat([torch.abs(_c4_1-_c4_2), torch.abs(_c3_1-_c3_2), torch.abs(_c2_1-_c2_2), torch.abs(_c1_1-_c1_2)], dim=1))
 
-        # x = self.dense_2x(x)
-        # x = self.convd1x(x)
-        # x = self.dense_1x(x)
-
-        # cp = self.change_probability(x)
-
-        # cp = F.interpolate(_c, scale_factor=4, mode="nearest")
         x  = self.relu(self.pix_shuffle_conv(_c))
         cp = self.pix_shuffle(x)
-
-        if self.output_softmax:
-            cp = self.active(cp)
 
         return cp
