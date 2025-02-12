@@ -21,7 +21,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/LEVIR-CD",
             'split': "val",
-            'transforms_cfg': transforms_cfg,
+            'transforms_cfg': transforms_cfg(224),
         },
     },
     'val_dataloader': {

@@ -21,7 +21,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/SYSU-CD",
             'split': "train",
-            'transforms_cfg': transforms_cfg,
+            'transforms_cfg': transforms_cfg(224),
         },
     },
     'train_dataloader': {
