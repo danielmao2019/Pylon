@@ -38,11 +38,14 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
         config += '\n'
     elif model.startswith("ChangeFormer"):
+        if dataset == "AirChange":
+            return
         config += f"import models\n"
         config += f"from configs.common.models.change_detection.change_former import model_config\n"
         config += f"config['model'] = model_config\n"
         config += f"config['model']['class'] = models.change_detection.{model}\n"
         config += '\n'
+        config += f"from configs.common.datasets.change_detection._transforms_cfg import transforms_cfg\n"
         config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(256)\n"
         config += '\n'
         config += f"import criteria\n"
