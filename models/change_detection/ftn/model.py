@@ -15,6 +15,7 @@ class FTN(torch.nn.Module):
         img1, img2 = inputs['img_1'], inputs['img_2']
         x, x_downsample1, x_downsample2 = self.encoder1(img1, img2)
         out = self.decoder(x, x_downsample1, x_downsample2)  # out = [x_p, x_2, x_3, x_4]
-        assert isinstance(out, list)
+        assert isinstance(out, tuple)
+        assert len(out) == 4
         assert all(isinstance(x, torch.Tensor) for x in out)
         return out
