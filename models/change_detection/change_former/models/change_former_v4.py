@@ -6,7 +6,7 @@ from models.change_detection.change_former.modules.decoder_transformer_x2 import
 
 class ChangeFormerV4(torch.nn.Module):
 
-    def __init__(self, input_nc=3, output_nc=2, decoder_softmax=False):
+    def __init__(self, input_nc=3, output_nc=2):
         super(ChangeFormerV4, self).__init__()
         #Transformer Encoder
         self.embed_dims = [32, 64, 128, 320, 512]
@@ -21,7 +21,7 @@ class ChangeFormerV4(torch.nn.Module):
         #Transformer Decoder
         self.TDec_x2 = DecoderTransformer_x2(input_transform='multiple_select', in_index=[0, 1, 2, 3, 4], align_corners=True,
                     in_channels = self.embed_dims, embedding_dim= 256, output_nc=output_nc,
-                    decoder_softmax = decoder_softmax, feature_strides=[2, 4, 8, 16, 32])
+                    feature_strides=[2, 4, 8, 16, 32])
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         x1, x2 = inputs['img_1'], inputs['img_2']
