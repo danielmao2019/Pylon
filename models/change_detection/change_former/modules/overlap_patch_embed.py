@@ -14,8 +14,8 @@ class OverlapPatchEmbed(torch.nn.Module):
 
         self.img_size = img_size
         self.patch_size = patch_size
-        self.H, self.W = img_size[0] // patch_size[0], img_size[1] // patch_size[1]
-        self.num_patches = self.H * self.W
+        # self.H, self.W = img_size[0] // patch_size[0], img_size[1] // patch_size[1]
+        # self.num_patches = self.H * self.W
         self.proj = torch.nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=stride,
                               padding=(patch_size[0] // 2, patch_size[1] // 2))
         self.norm = torch.nn.LayerNorm(embed_dim)

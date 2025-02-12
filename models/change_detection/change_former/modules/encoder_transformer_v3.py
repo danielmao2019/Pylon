@@ -17,14 +17,22 @@ class EncoderTransformer_v3(torch.nn.Module):
         self.embed_dims     = embed_dims
 
         # patch embedding definitions
-        self.patch_embed1 = OverlapPatchEmbed(img_size=img_size, patch_size=7, stride=4, in_chans=in_chans,
-                                              embed_dim=embed_dims[0])
-        self.patch_embed2 = OverlapPatchEmbed(img_size=img_size // 4, patch_size=patch_size, stride=2, in_chans=embed_dims[0],
-                                              embed_dim=embed_dims[1])
-        self.patch_embed3 = OverlapPatchEmbed(img_size=img_size // 8, patch_size=patch_size, stride=2, in_chans=embed_dims[1],
-                                              embed_dim=embed_dims[2])
-        self.patch_embed4 = OverlapPatchEmbed(img_size=img_size // 16, patch_size=patch_size, stride=2, in_chans=embed_dims[2],
-                                              embed_dim=embed_dims[3])
+        self.patch_embed1 = OverlapPatchEmbed(
+            img_size=img_size, patch_size=7, stride=4,
+            in_chans=in_chans, embed_dim=embed_dims[0],
+        )
+        self.patch_embed2 = OverlapPatchEmbed(
+            img_size=img_size // 4, patch_size=patch_size, stride=2,
+            in_chans=embed_dims[0], embed_dim=embed_dims[1],
+        )
+        self.patch_embed3 = OverlapPatchEmbed(
+            img_size=img_size // 8, patch_size=patch_size, stride=2,
+            in_chans=embed_dims[1], embed_dim=embed_dims[2],
+        )
+        self.patch_embed4 = OverlapPatchEmbed(
+            img_size=img_size // 16, patch_size=patch_size, stride=2,
+            in_chans=embed_dims[2], embed_dim=embed_dims[3],
+        )
 
         # Stage-1 (x1/4 scale)
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(depths))]
