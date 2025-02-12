@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from criteria.wrappers import SingleTaskCriterion
 
 
-def gaussian(window_size: int, sigma: float) -> torch.Tensor:
+def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
     """
     Generates a 1D Gaussian kernel.
     
@@ -18,10 +18,11 @@ def gaussian(window_size: int, sigma: float) -> torch.Tensor:
     gauss = torch.tensor([
         math.exp(-(x - window_size // 2) ** 2 / (2 * sigma ** 2))
         for x in range(window_size)
-    ])
+    ], device=device)
     return gauss / gauss.sum()
 
-def create_window(window_size: int, channels: int) -> torch.Tensor:
+
+def create_window(window_size: int, channels: int, device: torch.device) -> torch.Tensor:
     """
     Creates a 2D Gaussian window for SSIM computation.
     
@@ -32,9 +33,10 @@ def create_window(window_size: int, channels: int) -> torch.Tensor:
     Returns:
         torch.Tensor: A 4D tensor representing the Gaussian window for convolution.
     """
-    _1D_window = gaussian(window_size, sigma=1.5).unsqueeze(1)
+    _1D_window = gaussian(window_size, sigma=1.5, device).unsqueeze(1)
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
     return _2D_window.expand(channels, 1, window_size, window_size).contiguous()
+
 
 def compute_ssim(img1: torch.Tensor, img2: torch.Tensor, window: torch.Tensor, window_size: int, channels: int, size_average: bool = True) -> torch.Tensor:
     """
@@ -69,11 +71,18 @@ def compute_ssim(img1: torch.Tensor, img2: torch.Tensor, window: torch.Tensor, w
     
     return ssim_map.mean() if size_average else ssim_map.mean(dim=(1, 2, 3))
 
+
 class SSIMLoss(SingleTaskCriterion):
     """
     SSIM-based loss function for image similarity.
     """
-    def __init__(self, window_size: int = 11, channels: int = 1, size_average: bool = True):
+    def __init__(
+        self,
+        window_size: Optional[int] = 11,
+        channels: Optional[int] = 1,
+        size_average: Optional[bool] = True,
+        device: Optional[torch.device] = torch.device('cuda'),
+    ):
         """
         Initializes SSIMLoss with a precomputed Gaussian window.
         
@@ -86,7 +95,7 @@ class SSIMLoss(SingleTaskCriterion):
         self.window_size = window_size
         self.channels = channels
         self.size_average = size_average
-        self.window = create_window(window_size, channels)
+        self.window = create_window(window_size, channels, device=device)
     
     def forward(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
         """
