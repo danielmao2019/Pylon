@@ -38,7 +38,7 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
         config += '\n'
     elif model.startswith("ChangeFormer"):
-        if dataset == "AirChange":
+        if dataset == "air_change":
             return
         config += f"import models\n"
         config += f"from configs.common.models.change_detection.change_former import model_config\n"
