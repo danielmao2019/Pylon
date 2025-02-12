@@ -1,6 +1,6 @@
 import torch
 from models.change_detection.ftn.modules.patch.patch_expand import PatchExpand
-from models.change_detection.ftn.modules.swin_transformer_block import SwinTransformerBlock
+from models.change_detection.ftn.modules.swin.swin_transformer_block import SwinTransformerBlock
 
 
 class BasicLayer_up(torch.nn.Module):

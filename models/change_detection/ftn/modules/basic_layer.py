@@ -1,5 +1,5 @@
 import torch
-from models.change_detection.ftn.modules.swin_transformer_block import SwinTransformerBlock
+from models.change_detection.ftn.modules.swin.swin_transformer_block import SwinTransformerBlock
 
 
 class BasicLayer(torch.nn.Module):

@@ -1,6 +1,6 @@
 import copy
 import torch
-from models.change_detection.ftn.encoder.swin_trans_encoder import SwinTransEncoder
+from models.change_detection.ftn.modules.swin.swin_trans_encoder import SwinTransEncoder
 
 
 class encoder1(torch.nn.Module):
