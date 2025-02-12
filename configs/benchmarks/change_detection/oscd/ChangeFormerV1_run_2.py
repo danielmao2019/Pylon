@@ -62,7 +62,7 @@ from configs.common.models.change_detection.change_former import model_config
 config['model'] = model_config
 config['model']['class'] = models.change_detection.ChangeFormerV1
 
-from configs.common.datasets.change_detection._transforms_cfg import transforms_cfg
+from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
 config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(256)
 
 import criteria
