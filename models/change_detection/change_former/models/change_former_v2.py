@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Dict
 import torch
 from models.change_detection.change_former.modules.tenc import Tenc
 from models.change_detection.change_former.modules.tdec import TDec
@@ -16,7 +16,7 @@ class ChangeFormerV2(torch.nn.Module):
                             in_channels = [64, 128, 320, 512], embedding_dim= 32, output_nc=output_nc,
                             feature_strides=[4, 8, 16, 32])
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> List[torch.Tensor]:
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         x1, x2 = inputs['img_1'], inputs['img_2']
 
         fx1 = self.Tenc(x1)
