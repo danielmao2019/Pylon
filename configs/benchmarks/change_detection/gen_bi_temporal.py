@@ -43,6 +43,8 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model'] = model_config\n"
         config += f"config['model']['class'] = models.change_detection.{model}\n"
         config += '\n'
+        config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(256)\n"
+        config += '\n'
         config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion\n"
         config += '\n'
