@@ -42,8 +42,6 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.models.change_detection.change_former import model_config\n"
         config += f"config['model'] = model_config\n"
         config += f"config['model']['class'] = models.change_detection.{model}\n"
-        if int(model[-1]) in {4, 5, 6}:
-            config += f"config['model']['args']['img_size'] = 224\n"
         config += '\n'
         config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion\n"
