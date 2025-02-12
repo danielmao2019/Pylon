@@ -1,16 +1,17 @@
+from typing import Optional
 import copy
 import torch
 from models.change_detection.ftn.modules.swin.swin_trans_encoder import SwinTransEncoder
 
 
 class encoder1(torch.nn.Module):
-    def __init__(self):
+    def __init__(self, pretrained_path: Optional[str] = "./models/change_detection/ftn/swin_pretrain_224.pth"):
         super(encoder1, self).__init__()
         self.encoder1 = SwinTransEncoder(img_size=224, patch_size=4, in_chans=3, num_classes=2, embed_dim=128,
                                          depths=[2, 2, 18, 2], depths_decoder=[4, 4, 4, 4], num_heads=[4, 8, 16, 32],
                                          window_size=7)
-        self.pretrained_path = 'swin_pretrain_224.pth'
-        # self.load_from()
+        self.pretrained_path = pretrained_path
+        self.load_from()
 
     def load_from(self):
         pretrained_path = self.pretrained_path
