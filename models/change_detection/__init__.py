@@ -8,6 +8,7 @@ from models.change_detection.change_former.models.change_former_v3 import Change
 from models.change_detection.change_former.models.change_former_v4 import ChangeFormerV4
 from models.change_detection.change_former.models.change_former_v5 import ChangeFormerV5
 from models.change_detection.change_former.models.change_former_v6 import ChangeFormerV6
+from models.change_detection.ftn.model import FTN
 from models.change_detection.change_star.change_star import ChangeStar
 from models.change_detection.i3pe.i3pe_model import I3PEModel
 from models.change_detection.ppsl_model import PPSLModel
@@ -22,6 +23,7 @@ __all__ = (
     'ChangeFormerV4',
     'ChangeFormerV5',
     'ChangeFormerV6',
+    'FTN',
     'ChangeStar',
     'I3PEModel',
     'PPSLModel',
