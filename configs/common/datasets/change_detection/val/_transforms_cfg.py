@@ -1,13 +1,14 @@
+from typing import Tuple
 import data
 
 
-def transforms_cfg(img_size: int) -> dict:
+def transforms_cfg(size: Tuple[int, int]) -> dict:
     return {
         'class': data.transforms.Compose,
         'args': {
             'transforms': [
                 (
-                    data.transforms.RandomCrop(size=(img_size, img_size)),
+                    data.transforms.RandomCrop(size=size),
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
                 ),
             ],
