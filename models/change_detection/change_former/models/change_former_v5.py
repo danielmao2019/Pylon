@@ -7,7 +7,7 @@ from models.change_detection.change_former.modules.decoder_transformer_v3 import
 
 class ChangeFormerV5(torch.nn.Module):
 
-    def __init__(self, input_nc=3, output_nc=2, embed_dim=256):
+    def __init__(self, img_size: int, input_nc=3, output_nc=2, embed_dim=256):
         super(ChangeFormerV5, self).__init__()
         #Transformer Encoder
         self.embed_dims = [64, 128, 320, 512]
@@ -17,7 +17,7 @@ class ChangeFormerV5(torch.nn.Module):
         self.attn_drop = 0.0
         self.drop_path_rate = 0.1
 
-        self.Tenc_x2 = EncoderTransformer_v3(img_size=256, patch_size = 4, in_chans=input_nc, num_classes=output_nc, embed_dims=self.embed_dims,
+        self.Tenc_x2 = EncoderTransformer_v3(img_size=img_size, patch_size = 4, in_chans=input_nc, num_classes=output_nc, embed_dims=self.embed_dims,
                  num_heads = [1, 2, 5, 8], mlp_ratios=[4, 4, 4, 4], qkv_bias=True, qk_scale=None, drop_rate=self.drop_rate,
                  attn_drop_rate = self.attn_drop, drop_path_rate=self.drop_path_rate, norm_layer=partial(torch.nn.LayerNorm, eps=1e-6),
                  depths=self.depths, sr_ratios=[8, 4, 2, 1])
