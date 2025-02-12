@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Union
 from functools import partial
 import torch
 from models.change_detection.change_former.modules.encoder_transformer_v3 import EncoderTransformer_v3
@@ -27,11 +27,14 @@ class ChangeFormerV6(torch.nn.Module):
                     in_channels = self.embed_dims, embedding_dim= self.embedding_dim, output_nc=output_nc,
                     feature_strides=[2, 4, 8, 16])
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> List[torch.Tensor]:
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[torch.Tensor, List[torch.Tensor]]:
         x1, x2 = inputs['img_1'], inputs['img_2']
 
         [fx1, fx2] = [self.Tenc_x2(x1), self.Tenc_x2(x2)]
 
         cp = self.TDec_x2(fx1, fx2)
+
+        if not self.training:
+            cp = cp[-1]
 
         return cp
