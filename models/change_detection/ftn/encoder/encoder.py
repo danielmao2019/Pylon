@@ -10,7 +10,7 @@ class encoder1(torch.nn.Module):
                                          depths=[2, 2, 18, 2], depths_decoder=[4, 4, 4, 4], num_heads=[4, 8, 16, 32],
                                          window_size=7)
         self.pretrained_path = 'swin_pretrain_224.pth'
-        self.load_from()
+        # self.load_from()
 
     def load_from(self):
         pretrained_path = self.pretrained_path

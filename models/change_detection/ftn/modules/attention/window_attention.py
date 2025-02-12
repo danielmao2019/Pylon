@@ -1,3 +1,7 @@
+import torch
+from timm.models.layers import trunc_normal_
+
+
 class WindowAttention(torch.nn.Module):
     r""" Window based multi-head self attention (W-MSA) module with relative position bias.
     It supports both of shifted and non-shifted window.

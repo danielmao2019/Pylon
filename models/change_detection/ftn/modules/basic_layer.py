@@ -1,4 +1,6 @@
-from 
+import torch
+from models.change_detection.ftn.modules.swin_transformer_block import SwinTransformerBlock
+
 
 class BasicLayer(torch.nn.Module):
     """ A basic Swin Transformer layer for one stage.
@@ -51,7 +53,7 @@ class BasicLayer(torch.nn.Module):
     def forward(self, x):
         for blk in self.blocks:
             if self.use_checkpoint:
-                x = checkpoint.checkpoint(blk, x)
+                x = torch.utils.checkpoint.checkpoint(blk, x)
             else:
                 x = blk(x)
         if self.downsample is not None:

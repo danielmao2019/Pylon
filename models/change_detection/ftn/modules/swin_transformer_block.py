@@ -1,5 +1,8 @@
 import torch
-from models.change_detection.ftn.modules.attention.channel_attention import ChannelAttention_1
+from timm.models.layers import DropPath, to_2tuple
+from models.change_detection.ftn.modules.mlp import Mlp
+from models.change_detection.ftn.modules.attention.window_attention import WindowAttention
+from models.change_detection.ftn.utils import window_partition, window_reverse
 
 
 class SwinTransformerBlock(torch.nn.Module):

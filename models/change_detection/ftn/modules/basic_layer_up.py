@@ -1,4 +1,6 @@
 import torch
+from models.change_detection.ftn.modules.patch.patch_expand import PatchExpand
+from models.change_detection.ftn.modules.swin_transformer_block import SwinTransformerBlock
 
 
 class BasicLayer_up(torch.nn.Module):
@@ -52,7 +54,7 @@ class BasicLayer_up(torch.nn.Module):
     def forward(self, x):
         for blk in self.blocks:
             if self.use_checkpoint:
-                x = checkpoint.checkpoint(blk, x)
+                x = torch.utils.checkpoint.checkpoint(blk, x)
             else:
                 x = blk(x)
         if self.upsample is not None:
