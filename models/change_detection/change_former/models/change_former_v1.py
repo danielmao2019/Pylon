@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import List, Dict
 import torch
 from models.change_detection.change_former.modules.tenc import Tenc
 from models.change_detection.change_former.modules.conv_projection_base import convprojection_base
@@ -14,7 +14,7 @@ class ChangeFormerV1(torch.nn.Module):
         self.convproj           = convprojection_base()
         self.change_probability = ConvLayer(8, output_nc, kernel_size=3, stride=1, padding=1)
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> List[torch.Tensor]:
         x1, x2 = inputs['img_1'], inputs['img_2']
 
         fx1 = self.Tenc(x1)
