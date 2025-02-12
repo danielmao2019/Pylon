@@ -1,12 +1,12 @@
 from typing import Dict
-from criteria.vision_2d import SemanticSegmentationCriterion
+from criteria.wrappers import SingleTaskCriterion
 import torch
 
 
-class PPSLCriterion(SemanticSegmentationCriterion):
+class PPSLCriterion(SingleTaskCriterion):
 
-    def __init__(self, *args, **kwargs) -> None:
-        super(PPSLCriterion, self).__init__(*args, **kwargs)
+    def __init__(self) -> None:
+        super(PPSLCriterion, self).__init__()
         self.change_criterion = torch.nn.CrossEntropyLoss()
         self.semantic_criterion = torch.nn.CrossEntropyLoss()
 

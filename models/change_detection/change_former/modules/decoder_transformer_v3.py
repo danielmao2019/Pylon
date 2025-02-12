@@ -15,7 +15,7 @@ class DecoderTransformer_v3(torch.nn.Module):
     """
     def __init__(self, input_transform='multiple_select', in_index=[0, 1, 2, 3], align_corners=True,
                     in_channels = [32, 64, 128, 256], embedding_dim= 64, output_nc=2,
-                    decoder_softmax = False, feature_strides=[2, 4, 8, 16]):
+                    feature_strides=[2, 4, 8, 16]):
         super(DecoderTransformer_v3, self).__init__()
         #assert
         assert len(feature_strides) == len(in_channels)
@@ -62,10 +62,6 @@ class DecoderTransformer_v3(torch.nn.Module):
         self.convd1x    = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
         self.dense_1x   = torch.nn.Sequential(ResidualBlock(self.embedding_dim))
         self.change_probability = ConvLayer(self.embedding_dim, self.output_nc, kernel_size=3, stride=1, padding=1)
-
-        #Final activation
-        self.output_softmax     = decoder_softmax
-        self.active             = torch.nn.Sigmoid()
 
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.
@@ -139,12 +135,6 @@ class DecoderTransformer_v3(torch.nn.Module):
         #Linear Fusion of difference image from all scales
         _c = self.linear_fuse(torch.cat((_c4_up, _c3_up, _c2_up, _c1), dim=1))
 
-        # #Dropout
-        # if dropout_ratio > 0:
-        #     self.dropout = torch.nn.Dropout2d(dropout_ratio)
-        # else:
-        #     self.dropout = None
-
         #Upsampling x2 (x1/2 scale)
         x = self.convd2x(_c)
         #Residual block
@@ -158,11 +148,5 @@ class DecoderTransformer_v3(torch.nn.Module):
         cp = self.change_probability(x)
 
         outputs.append(cp)
-
-        if self.output_softmax:
-            temp = outputs
-            outputs = []
-            for pred in temp:
-                outputs.append(self.active(pred))
 
         return outputs

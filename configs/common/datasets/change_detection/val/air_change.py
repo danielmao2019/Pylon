@@ -2,7 +2,6 @@ import torch
 import data
 import metrics
 from ._transforms_cfg import transforms_cfg
-transforms_cfg['args']['transforms'] = transforms_cfg['args']['transforms'][1:]
 
 
 collate_fn_cfg = {
@@ -24,7 +23,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/AirChange",
             'split': "test",
-            'transforms_cfg': transforms_cfg,
+            'transforms_cfg': transforms_cfg((784, 448)),
         },
     },
     'val_dataloader': {
