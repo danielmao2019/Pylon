@@ -2,13 +2,13 @@ from typing import Dict
 import torch
 import criteria
 from criteria.wrappers import SingleTaskCriterion
-from dice_loss import DiceLoss
+from criteria.vision_2d.dice_loss import DiceLoss
 
 
-class SNUNet_CD_Criterion(SingleTaskCriterion):
+class SNUNetCDCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
-        super(SNUNet_CD_Criterion, self).__init__()
+        super(SNUNetCDCriterion, self).__init__()
         self.semantic_criterion = lambda y_pred, y_true :criteria.vision_2d.SemanticSegmentationCriterion(y_pred, y_true)
         self.dice_criterion = lambda y_pred, y_true: criteria.vision_2d.DiceLoss(y_pred, y_true)
 

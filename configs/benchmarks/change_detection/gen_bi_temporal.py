@@ -51,6 +51,12 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion\n"
         config += '\n'
+    elif model == 'SNUNet_ECAM':
+        config += f"import models\n"
+        config += f"from configs.common.models.change_detection.change_former import model_config\n"
+        config += f"config['model'] = model_config\n"
+        config += f"config['model']['class'] = models.change_detection.{model}\n"
+        config += '\n'
     else:
         raise NotImplementedError
     # add seeds
