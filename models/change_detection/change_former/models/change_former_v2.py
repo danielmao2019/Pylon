@@ -27,5 +27,6 @@ class ChangeFormerV2(torch.nn.Module):
             DI.append(torch.abs(fx1[i] - fx2[i]))
 
         cp = self.TDec(DI)
+        assert type(cp) == torch.Tensor, f"{type(cp)=}"
 
         return cp

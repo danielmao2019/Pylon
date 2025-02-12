@@ -29,6 +29,7 @@ class ChangeFormerV4(torch.nn.Module):
         [fx1, fx2] = [self.Tenc_x2(x1), self.Tenc_x2(x2)]
 
         cp = self.TDec_x2(fx1, fx2)
+        assert type(cp) == list, f"{type(cp)=}"
 
         if not self.training:
             cp = cp[-1]

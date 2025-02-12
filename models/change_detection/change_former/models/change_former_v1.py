@@ -27,5 +27,6 @@ class ChangeFormerV1(torch.nn.Module):
         cp = self.convproj(DI)
 
         cp = self.change_probability(cp)
+        assert type(cp) == torch.Tensor, f"{type(cp)=}"
 
         return cp

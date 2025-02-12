@@ -26,5 +26,6 @@ class ChangeFormerV3(torch.nn.Module):
         fx2 = self.Tenc(x2)
 
         cp = self.TDec(fx1, fx2)
+        assert type(cp) == torch.Tensor, f"{type(cp)=}"
 
         return cp
