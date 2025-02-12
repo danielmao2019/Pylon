@@ -61,7 +61,6 @@ import models
 from configs.common.models.change_detection.change_former import model_config
 config['model'] = model_config
 config['model']['class'] = models.change_detection.ChangeFormerV4
-config['model']['args']['img_size'] = 224
 
 import criteria
 config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion
