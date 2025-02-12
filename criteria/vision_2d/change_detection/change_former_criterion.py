@@ -10,9 +10,10 @@ class ChangeFormerCriterion(SemanticSegmentationCriterion):
             y_pred = [y_pred]
         assert isinstance(y_pred, list) and all(isinstance(x, torch.Tensor) for x in y_pred)
         assert type(y_true) == dict and set(y_true.keys()) == {'change_map'}
-        multi_scale_losses = torch.stack([
-            self.criterion(x, y_true['change_map']) for x in y_pred
-        ])
+        multi_scale_losses = torch.stack([self.criterion(
+            torch.nn.functional.interpolate(x, size=y_true['change_map'].shape[-2:], mode='nearest'),
+            y_true['change_map'],
+        ) for x in y_pred])
         total_loss = multi_scale_losses.mean()
         assert total_loss.ndim == 0, f"{total_loss.shape=}"
         self.buffer.append(total_loss.detach().cpu())
