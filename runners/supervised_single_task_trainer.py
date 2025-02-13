@@ -14,7 +14,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         """
         # check dependencies
         for name in ['model', 'train_dataloader', 'criterion', 'logger']:
-            assert hasattr(self, name) and getattr(self, name) is not None
+            assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
         self.logger.info("Initializing optimizer...")
         # input checks
         assert 'optimizer' in self.config, f"{self.config.keys()=}"
