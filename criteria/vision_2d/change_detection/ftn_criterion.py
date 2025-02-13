@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import Tuple, Dict
 import torch
 from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
@@ -12,9 +12,9 @@ class FTNCriterion(SingleTaskCriterion):
         self.ssim_loss = SSIMLoss()
         self.iou_loss = IoULoss()
 
-    def __call__(self, y_pred: List[torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def __call__(self, y_pred: Tuple[torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         # input checks
-        assert isinstance(y_pred, list) and len(y_pred) == 4
+        assert isinstance(y_pred, tuple) and len(y_pred) == 4, f"{type(y_pred)=}, {len(y_pred)=}"
         assert all(isinstance(x, torch.Tensor) for x in y_pred)
         assert isinstance(y_true, dict) and set(y_true.keys()) == {'change_map'}
         # compute losses
