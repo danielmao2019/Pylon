@@ -1,10 +1,10 @@
 from typing import Sequence, Dict, Union
 import torch
-from ..base_criterion import BaseCriterion
+from criteria.wrapers import SingleTaskCriterion
 from utils.builders import build_from_config
 
 
-class AuxiliaryOutputsCriterion(BaseCriterion):
+class AuxiliaryOutputsCriterion(SingleTaskCriterion):
     __doc__ = r"""Compare multiple predictions to the same ground truth and sum all losses.
     """
 
@@ -28,5 +28,5 @@ class AuxiliaryOutputsCriterion(BaseCriterion):
         ])
         assert loss.ndim == 0, f"{loss.shape=}"
         # log loss
-        self.buffer.append(loss)
+        self.buffer.append(loss.detach().cpu())
         return loss
