@@ -71,4 +71,5 @@ def test_window_registered_on_correct_device():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     loss_fn = SSIMLoss(device=device)
 
-    assert loss_fn.window.device == device, "Window should be on the same device as specified in SSIMLoss"
+    assert loss_fn.window.device.type == device.type, \
+        f"Window should be on the same device as specified in SSIMLoss. Got {loss_fn.window.device} and {device}."
