@@ -1,4 +1,4 @@
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Optional
 import torch
 from criteria.wrappers import SingleTaskCriterion, AuxiliaryOutputsCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
@@ -6,10 +6,10 @@ from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
 
 class FTNCriterion(SingleTaskCriterion):
 
-    def __init__(self) -> None:
+    def __init__(self, num_classes: Optional[int] = 2) -> None:
         super(FTNCriterion, self).__init__()
         self.ce_criterion = AuxiliaryOutputsCriterion(SemanticSegmentationCriterion())
-        self.ssim_criterion = AuxiliaryOutputsCriterion(SSIMLoss())
+        self.ssim_criterion = AuxiliaryOutputsCriterion(SSIMLoss(channels=num_classes))
         self.iou_criterion = AuxiliaryOutputsCriterion(IoULoss())
 
     def __call__(self, y_pred: Tuple[torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
