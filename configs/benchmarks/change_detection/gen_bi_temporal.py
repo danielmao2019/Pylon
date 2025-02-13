@@ -40,6 +40,8 @@ def main(dataset: str, model: str) -> None:
     elif model == "SNUNet_ECAM":
         config += f"from configs.common.models.change_detection.snunet import model_config\n"
         config += f"config['model'] = model_config\n"
+        config += f"import criteria\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.SNUNetCDCriterion, 'args': {{}}}}\n "
         config += '\n'
     elif model.startswith("ChangeFormer"):
         if dataset == "air_change":
