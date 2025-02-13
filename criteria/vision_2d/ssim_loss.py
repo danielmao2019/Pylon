@@ -116,23 +116,23 @@ class SSIMLoss(SingleTaskCriterion):
 
         self.register_buffer("window", create_window(window_size, channels, device=device))
 
-    def forward(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
+    def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
         Computes the SSIM loss between two images.
 
         Args:
-            img1 (torch.Tensor): First image tensor with shape (N, C, H, W).
-            img2 (torch.Tensor): Second image tensor with shape (N, C, H, W).
+            y_pred (torch.Tensor): First image tensor with shape (N, C, H, W).
+            y_true (torch.Tensor): Second image tensor with shape (N, C, H, W).
 
         Returns:
             torch.Tensor: SSIM loss value.
         """
-        if img1.dim() != 4 or img2.dim() != 4:
+        if y_pred.dim() != 4 or y_true.dim() != 4:
             raise ValueError("Input images must have shape (N, C, H, W)")
-        if img1.size(1) != self.channels or img2.size(1) != self.channels:
+        if y_pred.size(1) != self.channels or y_true.size(1) != self.channels:
             raise ValueError(f"Input images must have {self.channels} channels")
 
-        ssim_vals = compute_ssim(img1, img2, self.window, self.window_size, self.channels, self.C1, self.C2)
+        ssim_vals = compute_ssim(y_pred, y_true, self.window, self.window_size, self.channels, self.C1, self.C2)
 
         if self.reduction == "mean":
             return ssim_vals.mean()
