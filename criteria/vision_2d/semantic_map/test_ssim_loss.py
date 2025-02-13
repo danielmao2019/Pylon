@@ -14,14 +14,14 @@ def test_ssim_loss(reduction, batch_size, channels, image_size):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Create dummy images
-    img1 = torch.rand((batch_size, channels, *image_size), device=device)
-    img2 = torch.rand((batch_size, channels, *image_size), device=device)
+    y_pred = torch.rand((batch_size, channels, *image_size), device=device)
+    y_true = torch.rand((batch_size, *image_size), device=device)
 
     # Initialize SSIM loss
     loss_fn = SSIMLoss(window_size=11, channels=channels, reduction=reduction, device=device)
 
     # Compute loss
-    loss = loss_fn(img1, img2)
+    loss = loss_fn(y_pred, y_true)
 
     # Check output type and shape
     assert isinstance(loss, torch.Tensor), "Loss should be a torch.Tensor"
