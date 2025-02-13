@@ -25,7 +25,7 @@ def test_ssim_loss(reduction, batch_size, channels, image_size):
 
     # Check output type and shape
     assert isinstance(loss, torch.Tensor), "Loss should be a torch.Tensor"
-    
+
     assert loss.shape == (), f"Expected scalar output but got shape {loss.shape}"
 
     # Check values are finite
