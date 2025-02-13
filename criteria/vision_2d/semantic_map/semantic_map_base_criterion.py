@@ -42,12 +42,12 @@ class SemanticMapBaseCriterion(SingleTaskCriterion, ABC):
         B, C, _, _ = y_pred.shape
         y_pred = torch.nn.functional.softmax(y_pred, dim=1)
         y_true = torch.eye(C, dtype=torch.float32, device=y_true.device)[y_true].permute(0, 3, 1, 2)
-        assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
         assert torch.all(torch.isclose(torch.sum(y_pred, dim=1, keepdim=True), torch.ones_like(y_pred)))
         assert torch.all(torch.isclose(torch.sum(y_true, dim=1, keepdim=True), torch.ones_like(y_pred)))
         # match resolution
         if y_pred.shape[-2:] != y_true.shape[-2:]:
             y_true = torch.nn.functional.interpolate(y_true, size=y_pred.shape[-2:], mode='nearest')
+        assert y_pred.shape == y_true.shape, f"{y_pred.shape=}, {y_true.shape=}"
         # compute loss
         loss = self._compute_semantic_map_loss(y_pred=y_pred, y_true=y_true)
         assert loss.shape == (B, C), f"{loss.shape=}"
