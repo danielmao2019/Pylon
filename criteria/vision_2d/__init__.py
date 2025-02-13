@@ -6,6 +6,7 @@ from criteria.vision_2d.normal_estimation_criterion import NormalEstimationCrite
 from criteria.vision_2d.spatial_cross_entropy_criterion import SpatialCrossEntropyCriterion
 from criteria.vision_2d.semantic_segmentation_criterion import SemanticSegmentationCriterion
 from criteria.vision_2d.instance_segmentation_criterion import InstanceSegmentationCriterion
+from criteria.vision_2d.iou_loss import IoULoss
 from criteria.vision_2d.dice_loss import DiceLoss
 from criteria.vision_2d.ssim_loss import SSIMLoss
 # Change Detection Specific
@@ -21,6 +22,7 @@ __all__ = (
     'SpatialCrossEntropyCriterion',
     'SemanticSegmentationCriterion',
     'InstanceSegmentationCriterion',
+    'IoULoss',
     'DiceLoss',
     'SSIMLoss',
     # Change Detection Specific
