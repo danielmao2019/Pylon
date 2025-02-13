@@ -2,7 +2,7 @@ from typing import Optional
 import math
 import torch
 import torch.nn.functional as F
-from criteria.wrappers import SingleTaskCriterion
+from criteria.vision_2d import SemanticMapBaseCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -79,10 +79,10 @@ def compute_ssim(
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
 
-    return ssim_map.mean(dim=[1, 2, 3])
+    return ssim_map.mean(dim=[2, 3])
 
 
-class SSIMLoss(SingleTaskCriterion):
+class SSIMLoss(SemanticMapBaseCriterion):
     """
     Structural Similarity Index (SSIM) Loss.
     """
@@ -90,34 +90,30 @@ class SSIMLoss(SingleTaskCriterion):
         self,
         window_size: Optional[int] = 11,
         channels: Optional[int] = 1,
-        reduction: Optional[str] = "mean",
-        device: Optional[torch.device] = torch.device('cuda'),
         C1: Optional[float] = 0.01 ** 2,
         C2: Optional[float] = 0.03 ** 2,
+        **kwargs,
     ) -> None:
         """
         Args:
             window_size (Optional[int]): Size of the Gaussian window. Default is 11.
             channels (Optional[int]): Number of channels in the input images. Default is 1.
-            reduction (Optional[str]): Specifies the reduction to apply: 'mean', 'sum', or 'none'. Default is 'mean'.
-            device (Optional[torch.device]): Device to place the Gaussian window on. Default is CUDA.
             C1 (Optional[float]): Stability constant for luminance comparison. Default is 0.01^2.
             C2 (Optional[float]): Stability constant for contrast comparison. Default is 0.03^2.
         """
-        super().__init__()
+        super(SSIMLoss, self).__init__(**kwargs)
 
         if window_size % 2 == 0:
             raise ValueError("window_size must be an odd number")
 
         self.window_size = window_size
         self.channels = channels
-        self.reduction = reduction
         self.C1 = C1
         self.C2 = C2
 
-        self.register_buffer("window", create_window(window_size, channels, device=device))
+        self.register_buffer("window", create_window(window_size, channels, device=self.device))
 
-    def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_semantic_map_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
         Computes the SSIM loss between two images.
 
@@ -128,26 +124,4 @@ class SSIMLoss(SingleTaskCriterion):
         Returns:
             torch.Tensor: SSIM loss value.
         """
-        # input checks
-        check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
-        B, C, _, _ = y_pred.shape
-
-        # convert logits to probability distribution
-        y_pred = torch.nn.functional.softmax(y_pred, dim=1)
-        assert torch.all(torch.isclose(torch.sum(y_pred, dim=1, keepdim=True), torch.ones_like(y_pred)))
-
-        # one-hot encoding
-        y_true = torch.eye(C, dtype=torch.float32, device=y_true.device)[y_true]
-        y_true = y_true.permute(0, 3, 1, 2)
-
-        ssim_vals = compute_ssim(y_pred, y_true, self.window, self.window_size, self.channels, self.C1, self.C2)
-        assert ssim_vals.shape == (B, C), f"{ssim_vals.shape=}"
-
-        if self.reduction == "mean":
-            return ssim_vals.mean()
-        elif self.reduction == "sum":
-            return ssim_vals.sum()
-        elif self.reduction == "none":
-            return ssim_vals
-        else:
-            raise ValueError("Invalid reduction type. Choose from 'mean', 'sum', or 'none'.")
+        return compute_ssim(y_pred, y_true, self.window, self.window_size, self.channels, self.C1, self.C2)
