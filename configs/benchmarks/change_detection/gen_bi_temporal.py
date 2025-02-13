@@ -37,6 +37,12 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model']['args']['arch'] = \"{model}\"\n"
         config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
         config += '\n'
+    elif model == "SNUNet_ECAM":
+        config += f"from configs.common.models.change_detection.snunet import model_config\n"
+        config += f"config['model'] = model_config\n"
+        config += f"import criteria\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.SNUNetCDCriterion, 'args': {{}}}}\n "
+        config += '\n'
     elif model.startswith("ChangeFormer"):
         if dataset == "air_change":
             return
@@ -79,7 +85,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
         [
-            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff',
+            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN',
         ],
