@@ -52,6 +52,9 @@ def main(dataset: str, model: str) -> None:
         config += f"config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion\n"
         config += '\n'
     elif model == "FTN":
+        config += f"import models\n"
+        config += f"from configs.common.models.change_detection.ftn import model_config\n"
+        config += f"config['model'] = model_config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.FTNCriterion, 'args': {{}}}}\n"
         config += '\n'
