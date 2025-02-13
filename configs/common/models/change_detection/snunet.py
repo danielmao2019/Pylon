@@ -1,5 +1,4 @@
 import models
-import models.change_detection.snunet
 
 
 model_config = {
