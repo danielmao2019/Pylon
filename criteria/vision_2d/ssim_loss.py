@@ -7,12 +7,12 @@ from typing import Optional
 
 def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
     """
-    Generates a 1D Gaussian kernel.
+    Creates a 1D Gaussian kernel.
     
     Args:
-        window_size (int): The size of the window.
-        sigma (float): Standard deviation of the Gaussian distribution.
-        device (torch.device): The device on which to create the tensor.
+        window_size (int): Size of the Gaussian window.
+        sigma (float): Standard deviation of the Gaussian.
+        device (torch.device): Device to place the tensor on.
     
     Returns:
         torch.Tensor: Normalized 1D Gaussian kernel.
@@ -30,11 +30,11 @@ def create_window(window_size: int, channels: int, device: torch.device) -> torc
     
     Args:
         window_size (int): Size of the Gaussian window.
-        channels (int): Number of input channels.
-        device (torch.device): The device to create the window on.
+        channels (int): Number of channels.
+        device (torch.device): Device to place the tensor on.
     
     Returns:
-        torch.Tensor: A 4D tensor representing the Gaussian window for convolution.
+        torch.Tensor: 4D Gaussian window tensor with shape (channels, 1, window_size, window_size).
     """
     _1D_window = gaussian(window_size, sigma=1.5, device=device).unsqueeze(1)
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
@@ -49,23 +49,21 @@ def compute_ssim(
     channels: int,
     C1: float,
     C2: float,
-    size_average: bool = True
 ) -> torch.Tensor:
     """
-    Computes the Structural Similarity Index (SSIM) between two images.
+    Computes the SSIM index between two images.
     
     Args:
-        img1 (torch.Tensor): First input image of shape (N, C, H, W).
-        img2 (torch.Tensor): Second input image of shape (N, C, H, W).
+        img1 (torch.Tensor): First image tensor with shape (N, C, H, W).
+        img2 (torch.Tensor): Second image tensor with shape (N, C, H, W).
         window (torch.Tensor): Precomputed Gaussian window.
         window_size (int): Size of the Gaussian window.
-        channels (int): Number of channels in the images.
-        C1 (float): Constant to stabilize division by weak denominators.
-        C2 (float): Constant to stabilize division by weak denominators.
-        size_average (bool): Whether to average the SSIM map.
+        channels (int): Number of channels.
+        C1 (float): Stability constant for luminance comparison.
+        C2 (float): Stability constant for contrast comparison.
     
     Returns:
-        torch.Tensor: SSIM score.
+        torch.Tensor: SSIM values with shape (N,).
     """
     mu1 = F.conv2d(img1, window, padding=window_size // 2, groups=channels)
     mu2 = F.conv2d(img2, window, padding=window_size // 2, groups=channels)
@@ -80,32 +78,30 @@ def compute_ssim(
     
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
     
-    return ssim_map.mean() if size_average else ssim_map.mean(dim=(1, 2, 3))
+    return ssim_map.mean(dim=[1, 2, 3])
 
 
 class SSIMLoss(SingleTaskCriterion):
     """
-    SSIM-based loss function for image similarity.
+    Structural Similarity Index (SSIM) Loss.
     """
     def __init__(
         self,
         window_size: Optional[int] = 11,
         channels: Optional[int] = 1,
-        size_average: Optional[bool] = True,
+        reduction: Optional[str] = "mean",
         device: Optional[torch.device] = torch.device('cuda'),
         C1: Optional[float] = 0.01 ** 2,
         C2: Optional[float] = 0.03 ** 2,
-    ):
+    ) -> None:
         """
-        Initializes SSIMLoss with a precomputed Gaussian window.
-        
         Args:
-            window_size (int): Size of the Gaussian window.
-            channels (int): Number of channels in input images.
-            size_average (bool): Whether to average the SSIM map.
-            device (torch.device): Device to store the window.
-            C1 (float): SSIM stability constant.
-            C2 (float): SSIM stability constant.
+            window_size (Optional[int]): Size of the Gaussian window. Default is 11.
+            channels (Optional[int]): Number of channels in the input images. Default is 1.
+            reduction (Optional[str]): Specifies the reduction to apply: 'mean', 'sum', or 'none'. Default is 'mean'.
+            device (Optional[torch.device]): Device to place the Gaussian window on. Default is CUDA.
+            C1 (Optional[float]): Stability constant for luminance comparison. Default is 0.01^2.
+            C2 (Optional[float]): Stability constant for contrast comparison. Default is 0.03^2.
         """
         super().__init__()
         
@@ -114,11 +110,10 @@ class SSIMLoss(SingleTaskCriterion):
         
         self.window_size = window_size
         self.channels = channels
-        self.size_average = size_average
+        self.reduction = reduction
         self.C1 = C1
         self.C2 = C2
         
-        # Register window as buffer to ensure it moves with the model
         self.register_buffer("window", create_window(window_size, channels, device=device))
     
     def forward(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
@@ -126,8 +121,8 @@ class SSIMLoss(SingleTaskCriterion):
         Computes the SSIM loss between two images.
         
         Args:
-            img1 (torch.Tensor): First input image of shape (N, C, H, W).
-            img2 (torch.Tensor): Second input image of shape (N, C, H, W).
+            img1 (torch.Tensor): First image tensor with shape (N, C, H, W).
+            img2 (torch.Tensor): Second image tensor with shape (N, C, H, W).
         
         Returns:
             torch.Tensor: SSIM loss value.
@@ -137,7 +132,13 @@ class SSIMLoss(SingleTaskCriterion):
         if img1.size(1) != self.channels or img2.size(1) != self.channels:
             raise ValueError(f"Input images must have {self.channels} channels")
         
-        # Move window to the same device and type as img1
-        window = self.window.to(img1.device).type_as(img1)
+        ssim_vals = compute_ssim(img1, img2, self.window, self.window_size, self.channels, self.C1, self.C2)
         
-        return compute_ssim(img1, img2, window, self.window_size, self.channels, self.C1, self.C2, self.size_average)
+        if self.reduction == "mean":
+            return ssim_vals.mean()
+        elif self.reduction == "sum":
+            return ssim_vals.sum()
+        elif self.reduction == "none":
+            return ssim_vals
+        else:
+            raise ValueError("Invalid reduction type. Choose from 'mean', 'sum', or 'none'.")
