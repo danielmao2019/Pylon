@@ -20,7 +20,7 @@ def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tens
     gauss = torch.tensor([
         math.exp(-(x - window_size // 2) ** 2 / (2 * sigma ** 2))
         for x in range(window_size)
-    ], device=device)
+    ], dtype=torch.float32, device=device)
     return gauss / gauss.sum()
 
 
