@@ -1,8 +1,9 @@
+from typing import Optional
 import math
 import torch
 import torch.nn.functional as F
 from criteria.wrappers import SingleTaskCriterion
-from typing import Optional
+from utils.input_checks import check_semantic_segmentation
 
 
 def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
@@ -127,12 +128,20 @@ class SSIMLoss(SingleTaskCriterion):
         Returns:
             torch.Tensor: SSIM loss value.
         """
-        if y_pred.dim() != 4 or y_true.dim() != 4:
-            raise ValueError("Input images must have shape (N, C, H, W)")
-        if y_pred.size(1) != self.channels or y_true.size(1) != self.channels:
-            raise ValueError(f"Input images must have {self.channels} channels")
+        # input checks
+        check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
+        B, C, _, _ = y_pred.shape
+
+        # convert logits to probability distribution
+        y_pred = torch.nn.functional.softmax(y_pred, dim=1)
+        assert torch.all(torch.isclose(torch.sum(y_pred, dim=1, keepdim=True), torch.ones_like(y_pred)))
+
+        # one-hot encoding
+        y_true = torch.eye(C, dtype=torch.float32, device=y_true.device)[y_true]
+        y_true = y_true.permute(0, 3, 1, 2)
 
         ssim_vals = compute_ssim(y_pred, y_true, self.window, self.window_size, self.channels, self.C1, self.C2)
+        assert ssim_vals.shape == (B, C), f"{ssim_vals.shape=}"
 
         if self.reduction == "mean":
             return ssim_vals.mean()
