@@ -14,8 +14,8 @@ def test_ssim_loss(reduction, batch_size, channels, image_size):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Create dummy images
-    y_pred = torch.rand((batch_size, channels, *image_size), device=device)
-    y_true = torch.rand((batch_size, *image_size), device=device)
+    y_pred = torch.rand(size=(batch_size, channels, *image_size), device=device)
+    y_true = torch.randint(size=(batch_size, *image_size), low=0, high=channels, device=device)
 
     # Initialize SSIM loss
     loss_fn = SSIMLoss(window_size=11, channels=channels, reduction=reduction, device=device)
