@@ -38,9 +38,6 @@ class SemanticMapBaseCriterion(SingleTaskCriterion, ABC):
         # sanity checks
         assert hasattr(self, '_compute_semantic_map_loss')
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
-        # match resolution
-        if y_pred.shape[-2:] != y_true.shape[-2:]:
-            y_true = torch.nn.functional.interpolate(y_true, size=y_pred.shape[-2:], mode='nearest')
         # convert to probability distributions
         B, C, _, _ = y_pred.shape
         y_pred = torch.nn.functional.softmax(y_pred, dim=1)
