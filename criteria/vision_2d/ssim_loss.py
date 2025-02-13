@@ -8,12 +8,12 @@ from typing import Optional
 def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
     """
     Creates a 1D Gaussian kernel.
-    
+
     Args:
         window_size (int): Size of the Gaussian window.
         sigma (float): Standard deviation of the Gaussian.
         device (torch.device): Device to place the tensor on.
-    
+
     Returns:
         torch.Tensor: Normalized 1D Gaussian kernel.
     """
@@ -27,12 +27,12 @@ def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tens
 def create_window(window_size: int, channels: int, device: torch.device) -> torch.Tensor:
     """
     Creates a 2D Gaussian window for SSIM computation.
-    
+
     Args:
         window_size (int): Size of the Gaussian window.
         channels (int): Number of channels.
         device (torch.device): Device to place the tensor on.
-    
+
     Returns:
         torch.Tensor: 4D Gaussian window tensor with shape (channels, 1, window_size, window_size).
     """
@@ -52,7 +52,7 @@ def compute_ssim(
 ) -> torch.Tensor:
     """
     Computes the SSIM index between two images.
-    
+
     Args:
         img1 (torch.Tensor): First image tensor with shape (N, C, H, W).
         img2 (torch.Tensor): Second image tensor with shape (N, C, H, W).
@@ -61,23 +61,23 @@ def compute_ssim(
         channels (int): Number of channels.
         C1 (float): Stability constant for luminance comparison.
         C2 (float): Stability constant for contrast comparison.
-    
+
     Returns:
         torch.Tensor: SSIM values with shape (N,).
     """
     mu1 = F.conv2d(img1, window, padding=window_size // 2, groups=channels)
     mu2 = F.conv2d(img2, window, padding=window_size // 2, groups=channels)
-    
+
     mu1_sq = mu1.pow(2)
     mu2_sq = mu2.pow(2)
     mu1_mu2 = mu1 * mu2
-    
+
     sigma1_sq = F.conv2d(img1 * img1, window, padding=window_size // 2, groups=channels) - mu1_sq
     sigma2_sq = F.conv2d(img2 * img2, window, padding=window_size // 2, groups=channels) - mu2_sq
     sigma12 = F.conv2d(img1 * img2, window, padding=window_size // 2, groups=channels) - mu1_mu2
-    
+
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
-    
+
     return ssim_map.mean(dim=[1, 2, 3])
 
 
@@ -104,26 +104,26 @@ class SSIMLoss(SingleTaskCriterion):
             C2 (Optional[float]): Stability constant for contrast comparison. Default is 0.03^2.
         """
         super().__init__()
-        
+
         if window_size % 2 == 0:
             raise ValueError("window_size must be an odd number")
-        
+
         self.window_size = window_size
         self.channels = channels
         self.reduction = reduction
         self.C1 = C1
         self.C2 = C2
-        
+
         self.register_buffer("window", create_window(window_size, channels, device=device))
-    
+
     def forward(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
         """
         Computes the SSIM loss between two images.
-        
+
         Args:
             img1 (torch.Tensor): First image tensor with shape (N, C, H, W).
             img2 (torch.Tensor): Second image tensor with shape (N, C, H, W).
-        
+
         Returns:
             torch.Tensor: SSIM loss value.
         """
@@ -131,9 +131,9 @@ class SSIMLoss(SingleTaskCriterion):
             raise ValueError("Input images must have shape (N, C, H, W)")
         if img1.size(1) != self.channels or img2.size(1) != self.channels:
             raise ValueError(f"Input images must have {self.channels} channels")
-        
+
         ssim_vals = compute_ssim(img1, img2, self.window, self.window_size, self.channels, self.C1, self.C2)
-        
+
         if self.reduction == "mean":
             return ssim_vals.mean()
         elif self.reduction == "sum":
