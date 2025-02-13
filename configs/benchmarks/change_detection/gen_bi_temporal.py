@@ -51,6 +51,10 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion\n"
         config += '\n'
+    elif model == "FTN":
+        config += f"import criteria\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.FTNCriterion, 'args': {{}}}}\n"
+        config += '\n'
     else:
         raise NotImplementedError
     # add seeds
@@ -74,6 +78,7 @@ if __name__ == "__main__":
         [
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
+            'FTN',
         ],
     ):
         main(dataset, model)

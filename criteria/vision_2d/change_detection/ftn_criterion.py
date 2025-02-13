@@ -1,14 +1,15 @@
 from typing import List, Dict
 import torch
 from criteria.wrappers import SingleTaskCriterion
+from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
 
 
 class FTNCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
-        self.ce_loss = None
-        self.ssim_loss = None
-        self.iou_loss = None
+        self.ce_loss = SemanticSegmentationCriterion()
+        self.ssim_loss = SSIMLoss()
+        self.iou_loss = IoULoss()
 
     def __call__(self, y_pred: List[torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         # input checks
