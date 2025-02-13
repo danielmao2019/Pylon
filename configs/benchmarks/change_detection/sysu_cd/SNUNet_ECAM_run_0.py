@@ -57,10 +57,8 @@ from configs.common.datasets.change_detection.val.sysu_cd import config as val_d
 config.update(val_dataset_config)
 
 # model config
-import models
-from configs.common.models.change_detection.change_former import model_config
+from configs.common.models.change_detection.snunet import model_config
 config['model'] = model_config
-config['model']['class'] = models.change_detection.SNUNet_ECAM
 
 # seeds
 config['init_seed'] = 57272912
