@@ -1,6 +1,6 @@
 from typing import Sequence, Dict, Union
 import torch
-from criteria.wrapers import SingleTaskCriterion
+from .single_task_criterion import SingleTaskCriterion
 from utils.builders import build_from_config
 
 
