@@ -1,6 +1,6 @@
 from typing import Tuple, Dict
 import torch
-from criteria.wrappers import SingleTaskCriterion
+from criteria.wrappers import SingleTaskCriterion, AuxiliaryOutputsCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
 
 
@@ -8,9 +8,9 @@ class FTNCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
         super(FTNCriterion, self).__init__()
-        self.ce_loss = SemanticSegmentationCriterion()
-        self.ssim_loss = SSIMLoss()
-        self.iou_loss = IoULoss()
+        self.ce_criterion = AuxiliaryOutputsCriterion(SemanticSegmentationCriterion())
+        self.ssim_criterion = AuxiliaryOutputsCriterion(SSIMLoss())
+        self.iou_criterion = AuxiliaryOutputsCriterion(IoULoss())
 
     def __call__(self, y_pred: Tuple[torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         # input checks
@@ -18,19 +18,11 @@ class FTNCriterion(SingleTaskCriterion):
         assert all(isinstance(x, torch.Tensor) for x in y_pred)
         assert isinstance(y_true, dict) and set(y_true.keys()) == {'change_map'}
         # compute losses
-        ce_losses = torch.stack([
-            self.ce_loss(x, torch.nn.functional.interpolate(y_true['change_map'], size=x.shape[-2:], mode='nearest'))
-            for x in y_pred
-        ], dim=0)
-        ssim_losses = torch.stack([
-            self.ssim_loss(torch.nn.Softmax(dim=1)(x), torch.nn.functional.interpolate(y_true['change_map'], size=x.shape[-2:], mode='nearest'))
-            for x in y_pred
-        ], dim=0)
-        iou_losses = torch.stack([
-            self.iou_loss(torch.nn.Softmax(dim=1)(x), torch.nn.functional.interpolate(y_true['change_map'], size=x.shape[-2:], mode='nearest'))
-            for x in y_pred
-        ], dim=0)
-        total_loss = torch.sum(ce_losses) + torch.sum(ssim_losses) + torch.sum(iou_losses)
+        ce_loss = self.ce_criterion(y_pred, y_true['change_map'])
+        ssim_loss = self.ssim_criterion(y_pred, y_true['change_map'])
+        iou_loss = self.iou_criterion(y_pred, y_true['change_map'])
+        total_loss = ce_loss + ssim_loss + iou_loss
         assert total_loss.ndim == 0, f"{total_loss.shape=}"
+        # log loss
         self.buffer.append(total_loss.detach().cpu())
         return total_loss
