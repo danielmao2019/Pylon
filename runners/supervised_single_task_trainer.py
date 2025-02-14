@@ -10,7 +10,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
     """
 
     def _init_optimizer_(self) -> None:
-        r"""Requires self.model.
+        r"""Requires self.model and self.logger.
         """
         # check dependencies
         for name in ['model', 'train_dataloader', 'criterion', 'logger']:
