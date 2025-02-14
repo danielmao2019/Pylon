@@ -3,8 +3,7 @@ from runners import BaseTrainer
 import time
 import torch
 import utils
-from utils.builder import build_from_config
-import schedulers
+from utils.builders import build_from_config
 
 
 class GANTrainer(BaseTrainer):
