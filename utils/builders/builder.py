@@ -8,7 +8,7 @@ def build_from_config(config: Any, **kwargs) -> Any:
         config (Any): A config dict for building objects or any built object.
         kwargs: keyword arguments only used for building objects from `config`.
     """
-    if type(config) == dict and set(config.keys()) == set(['class', 'args']):
+    if type(config) == dict and set(config.keys()) == {'class', 'args'}:
         # merge args
         assert type(kwargs) == dict, f"{type(kwargs)=}"
         assert set(config.keys()) & set(kwargs.keys()) == set(), f"{config.keys()=}, {kwargs.keys()=}"

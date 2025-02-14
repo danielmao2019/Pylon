@@ -9,6 +9,13 @@ sgd_optimizer_config = {
     },
 }
 
+rmsprop_optimizer_config = {
+    'class': torch.optim.RMSprop,
+    'args': {
+        'lr': 1.0e-04,
+    },
+}
+
 adam_optimizer_config = {
     'class': torch.optim.Adam,
     'args': {
