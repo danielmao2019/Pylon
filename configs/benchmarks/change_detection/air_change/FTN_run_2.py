@@ -57,9 +57,9 @@ from configs.common.datasets.change_detection.val.air_change import config as va
 config.update(val_dataset_config)
 
 # model config
-import models
 from configs.common.models.change_detection.ftn import model_config
 config['model'] = model_config
+
 import criteria
 config['criterion'] = {'class': criteria.vision_2d.FTNCriterion, 'args': {}}
 
