@@ -24,22 +24,25 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
         }
 
         # prepare labels
-        real_label = torch.ones (size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
-        fake_label = torch.zeros(size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
+        real_label = torch.ones(
+            size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device, requires_grad=False,
+        )
+        fake_label = torch.zeros(
+            size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device, requires_grad=False,
+        )
         dp['labels'].update({'real_label': real_label, 'fake_label': fake_label})
-
-        # compute losses
-        dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
 
         # update generator
         self.optimizer.optimizers['generator'].zero_grad()
-        dp['losses']['generator'].backward(retain_graph=True)
+        g_loss = self.criterion.task_criteria['generator'](y_pred=dp['outputs'], y_true=dp['labels'])
+        g_loss.backward(retain_graph=True)
         self.optimizer.optimizers['generator'].step()
         self.scheduler.schedulers['generator'].step()
 
         # update discriminator
         self.optimizer.optimizers['discriminator'].zero_grad()
-        dp['losses']['discriminator'].backward()
+        d_loss = self.criterion.task_criteria['discriminator'](y_pred=dp['outputs'], y_true=dp['labels'])
+        d_loss.backward()
         self.optimizer.optimizers['discriminator'].step()
         self.scheduler.schedulers['discriminator'].step()
 
