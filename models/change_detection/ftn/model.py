@@ -18,4 +18,6 @@ class FTN(torch.nn.Module):
         assert isinstance(out, tuple)
         assert len(out) == 4
         assert all(isinstance(x, torch.Tensor) for x in out)
+        if not self.training:
+            out = out[0]
         return out
