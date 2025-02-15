@@ -14,8 +14,8 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
         # compute outputs
         gen_image = self.model.generator(dp['inputs'])
         change_map = dp['labels']['change_map']
-        change_map = torch.eye(gen_image.size(1), dtype=torch.float32, device=change_map.device)[change_map].permute(0, 3, 1, 2)
-        dp['labels']['change_map'] = change_map
+        change_map_one_hot = torch.eye(gen_image.size(1), dtype=torch.float32, device=change_map.device)[change_map].permute(0, 3, 1, 2)
+        dp['labels']['change_map'] = change_map_one_hot
         dp['outputs'] = {
             'gen_image': gen_image,
             'pred_real': self.model.discriminator(dp['labels']['change_map']),
