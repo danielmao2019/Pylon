@@ -1,16 +1,15 @@
-from typing import Dict
+from typing import Dict, Optional
 import torch
-from models.change_detection.csa_cdgan.modules import constants as ct
 from models.change_detection.csa_cdgan.modules import attention as at
 
 
 class CSA_CDGAN_Generator(torch.nn.Module):
 
-    def __init__(self, isize, nc, nz, ndf, n_extra_layers=0):
+    def __init__(self, isize, nc, nz, ndf, n_extra_layers=0, num_classes: int = None):
         super(CSA_CDGAN_Generator, self).__init__()
         assert isize % 16 == 0, "isize has to be a multiple of 16"
         self._init_enc(nc, nz, ndf, n_extra_layers)
-        self._init_dec(nz, ndf, n_extra_layers)
+        self._init_dec(nz, ndf, n_extra_layers, num_classes)
         self._init_att()
 
     def _init_enc(self, nc, nz, ndf, n_extra_layers) -> None:
@@ -41,7 +40,7 @@ class CSA_CDGAN_Generator(torch.nn.Module):
             torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False),
             )
 
-    def _init_dec(self, nz, ndf, n_extra_layers) -> None:
+    def _init_dec(self, nz, ndf, n_extra_layers, num_classes: int) -> None:
         self.d4 = torch.nn.Sequential(
             torch.nn.ConvTranspose2d(nz, ndf*4, 3, 1, 1, bias=False),
             torch.nn.BatchNorm2d(ndf*4),
@@ -65,10 +64,7 @@ class CSA_CDGAN_Generator(torch.nn.Module):
                             torch.nn.BatchNorm2d(ndf))
             self.d_extra_layers.add_module('extra-layers-{0}-{1}-relu'.format(ndf, ndf),
                             torch.nn.ReLU(inplace=True))
-        self.d1 = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(ndf*2, ct.GT_C, 4, 2, 1, bias=False),
-            torch.nn.Sigmoid(),
-            )
+        self.d1 = torch.nn.ConvTranspose2d(ndf*2, num_classes, 4, 2, 1, bias=False)
 
     def _init_att(self) -> None:
         self.at1 = at.csa_layer(1)

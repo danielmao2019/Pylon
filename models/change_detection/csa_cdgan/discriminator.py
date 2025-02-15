@@ -23,19 +23,14 @@ class CSA_CDGAN_Discriminator(torch.nn.Module):
             torch.nn.Conv2d(ndf, ndf*2, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf*2),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            )
+        )
         self.e3 = torch.nn.Sequential(
             torch.nn.Conv2d(ndf*2, ndf*4, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf*4),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            )
-        self.toplayer = torch.nn.Sequential(
-            torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False),
-            torch.nn.Sigmoid(),
-            ) 
-        self.avgpool = torch.nn.Sequential(
-            torch.torch.nn.AdaptiveAvgPool2d(1),
-            )
+        )
+        self.toplayer = torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False)
+        self.avgpool = torch.torch.nn.AdaptiveAvgPool2d(1)
 
     def forward(self,x):
         x = self.e1(x)

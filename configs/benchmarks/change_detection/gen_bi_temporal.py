@@ -41,7 +41,7 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.models.change_detection.snunet import model_config\n"
         config += f"config['model'] = model_config\n"
         config += f"import criteria\n"
-        config += f"config['criterion'] = {{'class': criteria.vision_2d.SNUNetCDCriterion, 'args': {{}}}}\n "
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.SNUNetCDCriterion, 'args': {{}}}}\n "
         config += '\n'
     elif model.startswith("ChangeFormer"):
         if dataset == "air_change":
@@ -55,14 +55,21 @@ def main(dataset: str, model: str) -> None:
         config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))\n"
         config += '\n'
         config += f"import criteria\n"
-        config += f"config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion\n"
+        config += f"config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion\n"
         config += '\n'
     elif model == "FTN":
         config += f"from configs.common.models.change_detection.ftn import model_config\n"
         config += f"config['model'] = model_config\n"
         config += '\n'
         config += f"import criteria\n"
-        config += f"config['criterion'] = {{'class': criteria.vision_2d.FTNCriterion, 'args': {{}}}}\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.FTNCriterion, 'args': {{}}}}\n"
+        config += '\n'
+    elif model == "CSA_CDGAN":
+        config += f"from configs.common.models.change_detection.csa_cdgan import model_config\n"
+        config += f"config['model'] = model_config\n"
+        config += '\n'
+        config += f"from configs.common.criteria.change_detection.csa_cdgan import criterion_cfg\n"
+        config += f"config['criterion'] = criterion_cfg\n"
         config += '\n'
     else:
         raise NotImplementedError

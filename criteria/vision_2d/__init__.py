@@ -12,12 +12,7 @@ from criteria.vision_2d.semantic_map.iou_loss import IoULoss
 from criteria.vision_2d.semantic_map.dice_loss import DiceLoss
 from criteria.vision_2d.semantic_map.ssim_loss import SSIMLoss
 # Change Detection Specific
-from criteria.vision_2d.change_detection.symmetric_change_detection_criterion import SymmetricChangeDetectionCriterion
-from criteria.vision_2d.change_detection.change_former_criterion import ChangeFormerCriterion
-from criteria.vision_2d.change_detection.ftn_criterion import FTNCriterion
-from criteria.vision_2d.change_detection.change_star_criterion import ChangeStarCriterion
-from criteria.vision_2d.change_detection.ppsl_criterion import PPSLCriterion
-from criteria.vision_2d.change_detection.snunet_criterion import SNUNetCDCriterion
+from criteria.vision_2d import change_detection
 
 
 __all__ = (
@@ -32,10 +27,5 @@ __all__ = (
     'DiceLoss',
     'SSIMLoss',
     # Change Detection Specific
-    'SymmetricChangeDetectionCriterion',
-    'ChangeFormerCriterion',
-    'FTNCriterion',
-    'ChangeStarCriterion',
-    'PPSLCriterion',
-    'SNUNetCDCriterion',
+    'change_detection',
 )
