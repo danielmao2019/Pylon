@@ -66,7 +66,7 @@ config['criterion'] = criterion_cfg
 from configs.common.optimizers.gans.csa_cdgan import optimizer_config
 config['optimizer'] = optimizer_config
 
-from configs.common.scheduelrs.gans.gan import scheduler_cfg
+from configs.common.schedulers.gans.gan import scheduler_cfg
 config['scheduler'] = scheduler_cfg
 
 from runners.gan_trainers import CSA_CDGAN_Trainer
