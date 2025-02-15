@@ -63,6 +63,9 @@ config['model'] = model_config
 from configs.common.criteria.change_detection.csa_cdgan import criterion_cfg
 config['criterion'] = criterion_cfg
 
+from configs.common.optimizers.gans.csa_cdgan import optimizer_config
+config['optimizer'] = optimizer_config
+
 from runners.gan_trainers import CSA_CDGAN_Trainer
 config['runner'] = CSA_CDGAN_Trainer
 
