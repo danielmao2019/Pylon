@@ -2,7 +2,7 @@
 including the native PyTorch for loop.
 """
 from typing import List, Dict
-from .supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import os
 import json
 import torch
@@ -16,9 +16,9 @@ import schedulers
 dataset_config = {
     'class': data.datasets.random_datasets.ClassificationRandomDataset,
     'args': {
-        'num_examples': 32,
+        'num_examples': 10,
         'num_classes': 10,
-        'image_res': (224, 224),
+        'image_res': (64, 64),
         'initial_seed': 0,
     },
 }
@@ -38,8 +38,8 @@ class TestModel(torch.nn.Module):
 config = {
     'work_dir': "./logs/test_supervised_single_task_trainer",
     'init_seed': 0,
-    'epochs': 25,
-    'train_seeds': [0] * 25,
+    'epochs': 100,
+    'train_seeds': [0] * 100,
     # ==================================================
     # dataloaders
     # ==================================================
@@ -47,7 +47,7 @@ config = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 32,
+            'batch_size': 1,
             'num_workers': 8,
         },
     },
@@ -71,17 +71,17 @@ config = {
     'model': {
         'class': TestModel,
         'args': {
-            'model': torchvision.models.AlexNet(num_classes=10),
+            'model': torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10),
         },
     },
     'criterion': {
-        'class': criteria.wrappers.PyTorchCriterionWrapper,
+        'class': criteria.PyTorchCriterionWrapper,
         'args': {
             'criterion': torch.nn.CrossEntropyLoss(reduction='mean'),
         },
     },
     'metric': {
-        'class': metrics.common.ConfusionMatrix,
+        'class': metrics.ConfusionMatrix,
         'args': {
             'num_classes': 10,
         },
@@ -99,7 +99,7 @@ config = {
         'class': torch.optim.lr_scheduler.LambdaLR,
         'args': {
             'lr_lambda': {
-                'class': schedulers.WarmupLambda,
+                'class': schedulers.ConstantLambda,
                 'args': {},
             },
         },
@@ -116,7 +116,41 @@ def test_supervised_single_task_trainer() -> None:
         epoch_dir = os.path.join(config['work_dir'], f"epoch_{idx}")
         with open(os.path.join(epoch_dir, "validation_scores.json")) as f:
             acc.append(json.load(f)['accuracy'])
-    import matplotlib.pyplot as plt
     plt.figure()
     plt.plot(acc)
-    plt.savefig(os.path.join(config['work_dir'], "acc.png"))
+    plt.savefig(os.path.join(config['work_dir'], "acc_trainer.png"))
+
+
+def test_pytorch() -> None:
+    dataset = dataset_config['class'](**dataset_config['args'])
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=1, shuffle=True)
+    model = torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10)
+    criterion = config['criterion']['class'](**config['criterion']['args'])
+    metric = config['metric']['class'](**config['metric']['args'])
+    optimizer = torch.optim.SGD(params=model.parameters(), lr=1e-03)
+    all_accuracies: List[float] = []
+    for _ in range(config['epochs']):
+        # train epoch
+        model.train()
+        for example in dataloader:
+            outputs = model(example['inputs']['image'])
+            loss = criterion(y_pred=outputs, y_true=example['labels']['target'])
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        # val epoch
+        model.eval()
+        metric.reset_buffer()
+        for example in dataloader:
+            outputs = model(example['inputs']['image'])
+            metric(y_pred=outputs, y_true=example['labels']['target'])
+        all_accuracies.append(metric.summarize()['accuracy'])
+    plt.figure()
+    plt.plot(all_accuracies)
+    plt.savefig(os.path.join(config['work_dir'], "acc_pytorch.png"))
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    test_supervised_single_task_trainer()
+    test_pytorch()
