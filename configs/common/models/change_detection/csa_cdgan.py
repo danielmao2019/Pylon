@@ -19,7 +19,7 @@ model_config = {
             'args': {
                 'isize': 256,
                 'nc': 2,
-                'nz': 100,
+                'nz': 1,
                 'ndf': 64,
                 'n_extra_layers': 3,
             },
