@@ -48,7 +48,7 @@ class CSA_CDGAN_Criterion(MultiTaskCriterion):
             'discriminator': CSA_CDGAN_DiscriminatorCriterion(),
         }
         self.task_names = set(self.task_criteria.keys())
-        super(CSA_CDGAN_Criterion, self).__init__()
+        self.reset_buffer()
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # input checks
