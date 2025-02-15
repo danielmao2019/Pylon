@@ -29,7 +29,6 @@ class MTLOptimizer(BaseOptimizer):
         super(MTLOptimizer, self).__init__()
         self.optimizer = build_from_config(config=optimizer_config)
         self.logger = logger if logger is not None else Logger()
-        torch.autograd.set_detect_anomaly(True)
         self._init_shared_params_mask_(loss_dict=losses, shared_rep=shared_rep)
         self._init_shared_params_shapes_()
         self.num_tasks: int = len(losses)
