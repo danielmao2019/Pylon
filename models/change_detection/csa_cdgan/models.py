@@ -1,3 +1,4 @@
+from typing import Dict
 import torch
 import utils
 
@@ -9,5 +10,6 @@ class CSA_CDGAN(torch.nn.Module):
         self.generator = utils.builders.build_from_config(generator_cfg)
         self.discriminator = utils.builders.build_from_config(discriminator_cfg)
 
-    def forward(self):
-        raise NotImplementedError
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        assert not self.training
+        return self.generator(inputs)
