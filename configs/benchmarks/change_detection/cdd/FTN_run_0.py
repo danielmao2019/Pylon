@@ -61,7 +61,7 @@ from configs.common.models.change_detection.ftn import model_config
 config['model'] = model_config
 
 import criteria
-config['criterion'] = {'class': criteria.vision_2d.FTNCriterion, 'args': {}}
+config['criterion'] = {'class': criteria.vision_2d.change_detection.FTNCriterion, 'args': {}}
 
 # seeds
 config['init_seed'] = 58471565

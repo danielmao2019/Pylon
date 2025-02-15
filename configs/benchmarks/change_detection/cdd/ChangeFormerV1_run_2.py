@@ -66,7 +66,7 @@ from configs.common.datasets.change_detection.train._transforms_cfg import trans
 config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))
 
 import criteria
-config['criterion']['class'] = criteria.vision_2d.ChangeFormerCriterion
+config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion
 
 # seeds
 config['init_seed'] = 57352194

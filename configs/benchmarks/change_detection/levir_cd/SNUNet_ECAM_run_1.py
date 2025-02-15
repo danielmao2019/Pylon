@@ -60,7 +60,7 @@ config.update(val_dataset_config)
 from configs.common.models.change_detection.snunet import model_config
 config['model'] = model_config
 import criteria
-config['criterion'] = {'class': criteria.vision_2d.SNUNetCDCriterion, 'args': {}}
+config['criterion'] = {'class': criteria.vision_2d.change_detection.SNUNetCDCriterion, 'args': {}}
  
 # seeds
 config['init_seed'] = 53780356
