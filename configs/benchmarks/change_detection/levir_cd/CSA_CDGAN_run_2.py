@@ -68,6 +68,7 @@ config['optimizer'] = optimizer_config
 
 from configs.common.scheduelrs.gans.gan import scheduler_cfg
 config['scheduler'] = scheduler_cfg
+
 from runners.gan_trainers import CSA_CDGAN_Trainer
 config['runner'] = CSA_CDGAN_Trainer
 
