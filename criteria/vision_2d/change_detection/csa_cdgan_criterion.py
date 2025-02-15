@@ -43,12 +43,12 @@ class CSA_CDGAN_DiscriminatorCriterion(SingleTaskCriterion):
 class CSA_CDGAN_Criterion(MultiTaskCriterion):
 
     def __init__(self, g_weight: float, d_weight: float) -> None:
-        super(MultiTaskCriterion, self).__init__()
         self.task_criteria = {
             'generator': CSA_CDGAN_GeneratorCriterion(g_weight, d_weight),
             'discriminator': CSA_CDGAN_DiscriminatorCriterion(),
         }
         self.task_names = set(self.task_criteria.keys())
+        super(MultiTaskCriterion, self).__init__()
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # input checks

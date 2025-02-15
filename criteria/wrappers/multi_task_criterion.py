@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 import torch
-from ..base_criterion import BaseCriterion
+from criteria import BaseCriterion
 from utils.input_checks import check_write_file
 from utils.builders import build_from_config
 
@@ -10,12 +10,12 @@ class MultiTaskCriterion(BaseCriterion):
     """
 
     def __init__(self, criterion_configs: dict) -> None:
-        super(MultiTaskCriterion, self).__init__()
         self.task_criteria = {
             task: build_from_config(config=criterion_configs[task])
             for task in criterion_configs
         }
         self.task_names = set(criterion_configs.keys())
+        super(MultiTaskCriterion, self).__init__()
 
     def reset_buffer(self):
         r"""Reset each criterion.
