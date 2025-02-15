@@ -51,5 +51,7 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
             'G': self.scheduler.schedulers['generator'].get_last_lr(),
             'D': self.scheduler.schedulers['discriminator'].get_last_lr(),
         }})
-        self.logger.update_buffer(utils.logging.log_losses(losses=dp['losses']))
+        self.logger.update_buffer(utils.logging.log_losses(losses={
+            'G': g_loss, 'D': d_loss,
+        }))
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
