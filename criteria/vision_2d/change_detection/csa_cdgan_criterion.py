@@ -6,7 +6,7 @@ from criteria.wrappers import SingleTaskCriterion, MultiTaskCriterion
 class CSA_CDGAN_GeneratorCriterion(SingleTaskCriterion):
 
     def __init__(self, g_weight: float, d_weight: float) -> None:
-        super(CSA_CDGAN_Criterion, self).__init__()
+        super(CSA_CDGAN_GeneratorCriterion, self).__init__()
         _g_weight = g_weight / (g_weight + d_weight)
         _d_weight = d_weight / (g_weight + d_weight)
         self.g_weight = _g_weight
@@ -48,7 +48,7 @@ class CSA_CDGAN_Criterion(MultiTaskCriterion):
             'discriminator': CSA_CDGAN_DiscriminatorCriterion(),
         }
         self.task_names = set(self.task_criteria.keys())
-        super(MultiTaskCriterion, self).__init__()
+        super(CSA_CDGAN_Criterion, self).__init__()
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         # input checks
