@@ -48,6 +48,6 @@ class CSA_CDGAN_Discriminator(torch.nn.Module):
         x = self.e3(x)
         x = self.toplayer(x)
         x = self.avgpool(x)
-        x = x.squeeze(3).squeeze(2)
-        assert x.ndim == 2
+        x = x.squeeze()
+        assert x.ndim == 1, f"{x.shape=}"
         return x
