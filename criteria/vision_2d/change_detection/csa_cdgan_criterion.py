@@ -16,7 +16,7 @@ class CSA_CDGAN_GeneratorCriterion(SingleTaskCriterion):
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         err_d_fake = self.l_bce(y_pred['pred_fake_g'], y_true['fake_label'])
-        err_g = self.l_con(y_pred['gen_image'], y_true['change_map'])
+        err_g = self.l_con(torch.nn.functional.softmax(y_pred['gen_image'], dim=1), y_true['change_map'])
         err_g_total = self.g_weight * err_g + self.d_weight * err_d_fake
         assert err_g_total.ndim == 0, f"{err_g_total.shape=}"
         # log loss
