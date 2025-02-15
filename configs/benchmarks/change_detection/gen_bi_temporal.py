@@ -74,6 +74,8 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.optimizers.gans.csa_cdgan import optimizer_config\n"
         config += f"config['optimizer'] = optimizer_config\n"
         config += '\n'
+        config += f"from configs.common.scheduelrs.gans.gan import scheduler_cfg\n"
+        config += f"config['scheduler'] = scheduler_cfg\n"
         config += f"from runners.gan_trainers import CSA_CDGAN_Trainer\n"
         config += f"config['runner'] = CSA_CDGAN_Trainer\n"
         config += '\n'
