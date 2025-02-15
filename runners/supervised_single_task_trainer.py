@@ -13,7 +13,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         r"""Requires self.model and self.logger.
         """
         # check dependencies
-        for name in ['model', 'train_dataloader', 'criterion', 'logger']:
+        for name in ['model', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
         self.logger.info("Initializing optimizer...")
         # input checks
@@ -25,7 +25,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
 
     def _init_scheduler_(self):
         # check dependencies
-        for name in ['optimizer', 'train_dataloader', 'tot_epochs']:
+        for name in ['optimizer', 'train_dataloader', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None
         self.logger.info("Initializing scheduler...")
         # input checks
