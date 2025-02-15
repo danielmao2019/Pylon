@@ -444,7 +444,7 @@ class Agent:
                         # launch command
                         "MKL_SERVICE_FORCE_INTEL=1",
                         f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
-                        'python', 'project/main.py', '--config-filepath', run,
+                        'python', 'main.py', '--config-filepath', run,
                         '2>', error_log,
                         *([';', 'exec', 'bash'] if self.keep_tmux else []),
                     '"',
