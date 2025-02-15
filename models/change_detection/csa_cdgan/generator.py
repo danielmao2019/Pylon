@@ -1,6 +1,6 @@
-from typing import Dict, Optional
+from typing import Dict
 import torch
-from models.change_detection.csa_cdgan.modules import attention as at
+from models.change_detection.csa_cdgan import attention as at
 
 
 class CSA_CDGAN_Generator(torch.nn.Module):
@@ -20,12 +20,18 @@ class CSA_CDGAN_Generator(torch.nn.Module):
             )
         self.e_extra_layers = torch.nn.Sequential()
         for t in range(n_extra_layers):
-            self.e_extra_layers.add_module('extra-layers-{0}-{1}-conv'.format(t, ndf),
-                            torch.nn.Conv2d(ndf, ndf, 3, 1, 1, bias=False))
-            self.e_extra_layers.add_module('extra-layers-{0}-{1}-batchnorm'.format(t, ndf),
-                            torch.nn.BatchNorm2d(ndf))
-            self.e_extra_layers.add_module('extra-layers-{0}-{1}-relu'.format(t, ndf),
-                            torch.nn.LeakyReLU(0.2, inplace=True))
+            self.e_extra_layers.add_module(
+                'extra-layers-{0}-{1}-conv'.format(t, ndf),
+                torch.nn.Conv2d(ndf, ndf, 3, 1, 1, bias=False),
+            )
+            self.e_extra_layers.add_module(
+                'extra-layers-{0}-{1}-batchnorm'.format(t, ndf),
+                torch.nn.BatchNorm2d(ndf),
+            )
+            self.e_extra_layers.add_module(
+                'extra-layers-{0}-{1}-relu'.format(t, ndf),
+                torch.nn.LeakyReLU(0.2, inplace=True),
+            )
         self.e2 = torch.nn.Sequential(
             torch.nn.Conv2d(ndf, ndf*2, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf*2),
@@ -58,12 +64,18 @@ class CSA_CDGAN_Generator(torch.nn.Module):
             )
         self.d_extra_layers = torch.nn.Sequential()
         for t in range(n_extra_layers):
-            self.d_extra_layers.add_module('extra-layers-{0}-{1}-conv'.format(ndf*2, ndf),
-                            torch.nn.Conv2d(ndf*2, ndf, 3, 1, 1, bias=False))
-            self.d_extra_layers.add_module('extra-layers-{0}-{1}-batchnorm'.format(ndf, ndf),
-                            torch.nn.BatchNorm2d(ndf))
-            self.d_extra_layers.add_module('extra-layers-{0}-{1}-relu'.format(ndf, ndf),
-                            torch.nn.ReLU(inplace=True))
+            self.d_extra_layers.add_module(
+                'extra-layers-{0}-{1}-conv'.format(ndf*2, ndf),
+                torch.nn.Conv2d(ndf*2, ndf, 3, 1, 1, bias=False),
+            )
+            self.d_extra_layers.add_module(
+                'extra-layers-{0}-{1}-batchnorm'.format(ndf, ndf),
+                torch.nn.BatchNorm2d(ndf),
+            )
+            self.d_extra_layers.add_module(
+                'extra-layers-{0}-{1}-relu'.format(ndf, ndf),
+                torch.nn.ReLU(inplace=True),
+            )
         self.d1 = torch.nn.ConvTranspose2d(ndf*2, num_classes, 4, 2, 1, bias=False)
 
     def _init_att(self) -> None:
