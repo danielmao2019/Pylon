@@ -2,10 +2,10 @@ import models
 
 
 model_config = {
-    'class': models.change_detection.CSA_CDGAN,
+    'class': models.change_detection.csa_cdgan.CSA_CDGAN,
     'args': {
         'generator_cfg': {
-            'class': models.change_detection.csa_cdgan.generator.CSA_CDGAN_Generator,
+            'class': models.change_detection.csa_cdgan.CSA_CDGAN_Generator,
             'args': {
                 'isize': 256,
                 'nc': 3 * 2,
@@ -15,7 +15,7 @@ model_config = {
             },
         },
         'discriminator_cfg': {
-            'class': models.change_detection.csa_cdgan.generator.CSA_CDGAN_Discriminator,
+            'class': models.change_detection.csa_cdgan.CSA_CDGAN_Discriminator,
             'args': {
                 'isize': 256,
                 'nc': 2,
