@@ -10,7 +10,7 @@ class CSA_CDGAN_Discriminator(torch.nn.Module):
             torch.nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf),
             torch.nn.ReLU(True),
-            )
+        )
         self.e_extra_layers = torch.nn.Sequential()
         for t in range(n_extra_layers):
             self.e_extra_layers.add_module(
