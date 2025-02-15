@@ -13,19 +13,20 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
 
         # compute outputs
         gen_image = self.model.generator(dp['inputs'])
-        pred_real = self.model.discriminator(dp['labels']['change_map'])
+        change_map = dp['labels']['change_map']
+        change_map = torch.eye(gen_image.size(1), dtype=torch.float32, device=change_map.device)[change_map].permute(0, 3, 1, 2)
+        dp['labels']['change_map'] = change_map
         dp['outputs'] = {
-            'gen_image': gen_image, 'pred_real': pred_real,
+            'gen_image': gen_image,
+            'pred_real': self.model.discriminator(dp['labels']['change_map']),
             'pred_fake_g': self.model.discriminator(gen_image).detach(),
             'pred_fake_d': self.model.discriminator(gen_image.detach()),
         }
 
         # prepare labels
-        change_map = dp['labels']['change_map']
-        change_map = torch.eye(gen_image.size(1), dtype=torch.float32, device=change_map.device)[change_map].permute(0, 3, 1, 2)
         real_label = torch.ones (size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
         fake_label = torch.zeros(size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
-        dp['labels'] = {'change_map': change_map, 'real_label': real_label, 'fake_label': fake_label}
+        dp['labels'].update({'change_map': change_map, 'real_label': real_label, 'fake_label': fake_label})
 
         # compute losses
         dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
