@@ -59,3 +59,6 @@ class CSA_CDGAN_Criterion(MultiTaskCriterion, torch.nn.Module):
             for task in self.task_names
         )
         return losses
+
+    def to(self, *args, **kwargs) -> None:
+        return self
