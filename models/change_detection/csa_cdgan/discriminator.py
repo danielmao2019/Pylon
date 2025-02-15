@@ -30,14 +30,15 @@ class CSA_CDGAN_Discriminator(torch.nn.Module):
             torch.nn.LeakyReLU(0.2, inplace=True),
         )
         self.toplayer = torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False)
-        self.avgpool = torch.torch.nn.AdaptiveAvgPool2d(1)
+        self.avgpool = torch.torch.nn.AdaptiveAvgPool2d(output_size=1)
 
-    def forward(self,x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.e1(x)
         x = self.e_extra_layers(x)
         x = self.e2(x)
         x = self.e3(x)
         x = self.toplayer(x)
         x = self.avgpool(x)
-        x = x.view(-1,1).squeeze(1)
+        x = x.squeeze(3).squeeze(2)
+        assert x.ndim == 2
         return x
