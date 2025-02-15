@@ -1,11 +1,11 @@
-from typing import Dict
+from typing import Dict, Optional
 import torch
 from models.change_detection.csa_cdgan import attention as at
 
 
 class CSA_CDGAN_Generator(torch.nn.Module):
 
-    def __init__(self, isize, nc, nz, ndf, n_extra_layers=0, num_classes: int = None):
+    def __init__(self, isize, nc, nz, ndf, n_extra_layers=0, num_classes: Optional[int] = 2):
         super(CSA_CDGAN_Generator, self).__init__()
         assert isize % 16 == 0, "isize has to be a multiple of 16"
         self._init_enc(nc, nz, ndf, n_extra_layers)
