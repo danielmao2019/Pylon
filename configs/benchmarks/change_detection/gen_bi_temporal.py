@@ -71,6 +71,9 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.criteria.change_detection.csa_cdgan import criterion_cfg\n"
         config += f"config['criterion'] = criterion_cfg\n"
         config += '\n'
+        config += f"from runners.gan_trainers import CSA_CDGAN_Trainer\n"
+        config += f"config['runner'] = CSA_CDGAN_Trainer\n"
+        config += '\n'
     else:
         raise NotImplementedError
     # add seeds
