@@ -40,7 +40,7 @@ class CSA_CDGAN_DiscriminatorCriterion(SingleTaskCriterion):
         return err_d_total
 
 
-class CSA_CDGAN_Criterion(MultiTaskCriterion):
+class CSA_CDGAN_Criterion(MultiTaskCriterion, torch.nn.Module):
 
     def __init__(self, g_weight: float, d_weight: float) -> None:
         self.task_criteria = {
