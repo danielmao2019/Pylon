@@ -1,3 +1,4 @@
+from typing import Dict
 import torch
 from models.change_detection.csa_cdgan.modules import constants as ct
 from models.change_detection.csa_cdgan.modules import attention as at
@@ -8,6 +9,11 @@ class CSA_CDGAN_Generator(torch.nn.Module):
     def __init__(self, isize, nc, nz, ndf, n_extra_layers=0):
         super(CSA_CDGAN_Generator, self).__init__()
         assert isize % 16 == 0, "isize has to be a multiple of 16"
+        self._init_enc(nc, nz, ndf, n_extra_layers)
+        self._init_dec(nz, ndf, n_extra_layers)
+        self._init_att()
+
+    def _init_enc(self, nc, nz, ndf, n_extra_layers) -> None:
         self.e1 = torch.nn.Sequential(
             torch.nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf),
@@ -34,6 +40,8 @@ class CSA_CDGAN_Generator(torch.nn.Module):
         self.e4 = torch.nn.Sequential(
             torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False),
             )
+
+    def _init_dec(self, nz, ndf, n_extra_layers) -> None:
         self.d4 = torch.nn.Sequential(
             torch.nn.ConvTranspose2d(nz, ndf*4, 3, 1, 1, bias=False),
             torch.nn.BatchNorm2d(ndf*4),
@@ -61,37 +69,39 @@ class CSA_CDGAN_Generator(torch.nn.Module):
             torch.nn.ConvTranspose2d(ndf*2, ct.GT_C, 4, 2, 1, bias=False),
             torch.nn.Sigmoid(),
             )
-        #attention module
 
+    def _init_att(self) -> None:
         self.at1 = at.csa_layer(1)
         self.at2 = at.csa_layer(1)
         self.at3 = at.csa_layer(1)
         self.at4 = at.csa_layer(1)
-        
-    def forward(self,x):
-        
+
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        assert isinstance(inputs, dict) and set(inputs.keys()) == {'img_1', 'img_2'}
+        x = torch.cat([inputs['img_1'], inputs['img_2']], dim=1)
+
         e1 = self.e1(x)
         e_el = self.e_extra_layers(e1)
         e2 = self.e2(e_el)
         e3 = self.e3(e2)
         e4 = self.e4(e3)
         d4 = self.d4(e4)
-        
+
         d4 = self.at4(d4)
-        
+
         c34 = torch.cat((e3,d4),1)
         d3 = self.d3(c34)
         d3 = self.at3(d3)
-        
+
         c23 = torch.cat((e2,d3),1)
         d2 = self.d2(c23)
         d2 = self.at2(d2)
-        
+
         cel2 = torch.cat((e_el,d2),1)
         d_el = self.d_extra_layers(cel2)
         e_el = self.at1(d_el)
-        
+
         c11 = torch.cat((e1,d_el),1)
         d1 = self.d1(c11)
-        
+
         return d1
