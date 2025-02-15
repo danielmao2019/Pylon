@@ -2,6 +2,7 @@ from typing import Dict
 import time
 import torch
 from runners.gan_trainers import GAN_BaseTrainer
+import utils
 
 
 class CSA_CDGAN_Trainer(GAN_BaseTrainer):
@@ -9,29 +10,38 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
     def _train_step(self, dp: Dict[str, Dict[str, torch.Tensor]]) -> None:
         # init time
         start_time = time.time()
-        # do computation
-        real_label = torch.ones (size=(x1.shape[0],), dtype=torch.float32, device=device)
-        fake_label = torch.zeros(size=(x1.shape[0],), dtype=torch.float32, device=device)
-        gen_image = self.model.generator(x)
-        pred_real = self.model.discriminator(gt)
-        pred_fake = self.model.discriminator(gen_image).detach()
 
-        # compute loss
-        err_d_fake = l_bce(pred_fake, fake_label)
-        err_g = l_con(gen_image, gt)
-        err_g_total = ct.G_WEIGHT*err_g + ct.D_WEIGHT*err_d_fake
+        # prepare y_pred and y_true
+        real_label = torch.ones (size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
+        fake_label = torch.zeros(size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
+        gen_image = self.model.generator(dp['inputs'])
+        pred_real = self.model.discriminator(dp['labels']['change_map'])
+        dp['outputs'] = {
+            'gen_image': gen_image, 'pred_real': pred_real,
+            'pred_fake_g': self.model.discriminator(gen_image).detach(),
+            'pred_fake_d': self.model.discriminator(gen_image.detach()),
+        }
+        dp['labels'].update({'real_label': real_label, 'fake_label': fake_label})
 
-        pred_fake_ = self.model.discriminator(gen_image.detach())
-        err_d_real = l_bce(pred_real, real_label)
-        err_d_fake_ = l_bce(pred_fake_, fake_label)
-        err_d_total = (err_d_real + err_d_fake_) * 0.5
+        # compute losses
+        dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
 
         # update generator
         self.optimizer.optimizers['generator'].zero_grad()
-        err_g_total.backward(retain_graph = True)
+        dp['losses']['generator'].backward(retain_graph=True)
         self.optimizer.optimizers['generator'].step()
+        self.scheduler.schedulers['generator'].step()
 
         # update discriminator
         self.optimizer.optimizers['discriminator'].zero_grad()
-        err_d_total.backward()
+        dp['losses']['discriminator'].backward()
         self.optimizer.optimizers['discriminator'].step()
+        self.scheduler.schedulers['discriminator'].step()
+
+        # update logger
+        self.logger.update_buffer({"learning_rate": {
+            'G': self.scheduler.schedulers['generator'].get_last_lr(),
+            'D': self.scheduler.schedulers['discriminator'].get_last_lr(),
+        }})
+        self.logger.update_buffer(utils.logging.log_losses(losses=dp['losses']))
+        self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
