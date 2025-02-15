@@ -26,7 +26,7 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
         # prepare labels
         real_label = torch.ones (size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
         fake_label = torch.zeros(size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device)
-        dp['labels'].update({'change_map': change_map, 'real_label': real_label, 'fake_label': fake_label})
+        dp['labels'].update({'real_label': real_label, 'fake_label': fake_label})
 
         # compute losses
         dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
