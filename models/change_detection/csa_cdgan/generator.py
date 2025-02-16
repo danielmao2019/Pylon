@@ -17,7 +17,7 @@ class CSA_CDGAN_Generator(torch.nn.Module):
             torch.nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf),
             torch.nn.ReLU(True),
-            )
+        )
         self.e_extra_layers = torch.nn.Sequential()
         for t in range(n_extra_layers):
             self.e_extra_layers.add_module(
@@ -36,15 +36,15 @@ class CSA_CDGAN_Generator(torch.nn.Module):
             torch.nn.Conv2d(ndf, ndf*2, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf*2),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            )
+        )
         self.e3 = torch.nn.Sequential(
             torch.nn.Conv2d(ndf*2, ndf*4, 4, 2, 1, bias=False),
             torch.nn.BatchNorm2d(ndf*4),
             torch.nn.LeakyReLU(0.2, inplace=True),
-            )
+        )
         self.e4 = torch.nn.Sequential(
             torch.nn.Conv2d(ndf*4, nz, 3, 1, 1, bias=False),
-            )
+        )
 
     def _init_dec(self, nz, ndf, n_extra_layers, num_classes: int) -> None:
         self.d4 = torch.nn.Sequential(
