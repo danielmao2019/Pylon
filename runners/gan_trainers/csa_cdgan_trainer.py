@@ -10,13 +10,13 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
     def _train_step_(self, dp: Dict[str, Dict[str, torch.Tensor]]) -> None:
         # init time
         start_time = time.time()
+        dp['labels']['change_map'] = dp['labels']['change_map'].unsqueeze(1).to(torch.float32)
         real_label = torch.ones(
             size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device, requires_grad=False,
         )
         fake_label = torch.zeros(
             size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device, requires_grad=False,
         )
-        dp['labels']['change_map'] = dp['labels']['change_map'].unsqueeze(1).to(torch.float32)
 
         # compute outputs
         gen_image = self.model.generator(dp['inputs'])
