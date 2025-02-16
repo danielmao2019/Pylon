@@ -12,13 +12,14 @@ model_config = {
                 'nz': 100,
                 'ndf': 64,
                 'n_extra_layers': 3,
+                'num_classes': 1,
             },
         },
         'discriminator_cfg': {
             'class': models.change_detection.csa_cdgan.CSA_CDGAN_Discriminator,
             'args': {
                 'isize': 256,
-                'nc': 2,
+                'nc': 1,
                 'nz': 1,
                 'ndf': 64,
                 'n_extra_layers': 3,

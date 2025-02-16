@@ -16,25 +16,20 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
         fake_label = torch.zeros(
             size=(dp['inputs']['img_1'].shape[0],), dtype=torch.float32, device=self.device, requires_grad=False,
         )
-        change_map = torch.eye(2, dtype=torch.float32, device=self.device)[dp['labels']['change_map']].permute(0, 3, 1, 2)
-        del dp['labels']['change_map']
-        dp['labels']['change_map'] = change_map.detach().clone()
+        dp['labels']['change_map'] = dp['labels']['change_map'].unsqueeze(1).to(torch.float32)
 
         # compute outputs
         gen_image = self.model.generator(dp['inputs'])
-        dp['outputs'] = {
-            'gen_image': gen_image,
-            'pred_real': self.model.discriminator(dp['labels']['change_map']),
-            # 'pred_fake_g': self.model.discriminator(gen_image).detach(),
-        }
+        pred_real = self.model.discriminator(dp['labels']['change_map'])
 
         # prepare labels
-        g_loss = self.criterion.task_criteria['generator'](y_pred=dp['outputs'], y_true=dp['labels'])
+        g_loss = torch.nn.L1Loss()(gen_image, dp['labels']['change_map'])
 
         # update discriminator
-        dp['outputs']['pred_fake_d'] = self.model.discriminator(gen_image.detach())
-        dp['labels'].update({'real_label': real_label, 'fake_label': fake_label})
-        d_loss = self.criterion.task_criteria['discriminator'](y_pred=dp['outputs'], y_true=dp['labels'])
+        pred_fake_d = self.model.discriminator(gen_image.detach())
+        err_d_real = torch.nn.BCELoss()(pred_real, real_label)
+        err_d_fake = torch.nn.BCELoss()(pred_fake_d, fake_label)
+        d_loss = (err_d_real + err_d_fake) * 0.5
 
         # update generator
         self.optimizer.optimizers['generator'].zero_grad()
