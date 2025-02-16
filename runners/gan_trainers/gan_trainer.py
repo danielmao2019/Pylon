@@ -19,12 +19,14 @@ class GANTrainer(GAN_BaseTrainer):
             size=(image.size(0),), dtype=torch.float32, device=image.device, requires_grad=False,
         )
         gen_image = self.model.generator(dp['inputs'])
+
         # update generator
         G_loss = self.criterion(self.model.discriminator(gen_image), real_tensor)
         self.optimizer.optimizers['generator'].zero_grad()
         G_loss.backward(retain_graph=True)
         self.optimizer.optimizers['generator'].step()
         self.scheduler.schedulers['generator'].step()
+
         # update discriminator
         D_loss = (
             self.criterion(self.model.discriminator(image), real_tensor) +
@@ -34,6 +36,7 @@ class GANTrainer(GAN_BaseTrainer):
         D_loss.backward(retain_graph=False)
         self.optimizer.optimizers['discriminator'].step()
         self.scheduler.schedulers['discriminator'].step()
+
         # update logger
         self.logger.update_buffer({"learning_rate": {
             'G': self.scheduler.schedulers['generator'].get_last_lr(),
