@@ -36,9 +36,9 @@ class CSA_CDGAN_DiscriminatorCriterion(SingleTaskCriterion):
 
 class CSA_CDGAN_Criterion(MultiTaskCriterion, torch.nn.Module):
 
-    def __init__(self, g_weight: float, d_weight: float) -> None:
+    def __init__(self) -> None:
         self.task_criteria = {
-            'generator': CSA_CDGAN_GeneratorCriterion(g_weight, d_weight),
+            'generator': CSA_CDGAN_GeneratorCriterion(),
             'discriminator': CSA_CDGAN_DiscriminatorCriterion(),
         }
         self.task_names = set(self.task_criteria.keys())
