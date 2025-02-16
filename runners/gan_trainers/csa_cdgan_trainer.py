@@ -22,18 +22,18 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
         gen_image = self.model.generator(dp['inputs'])
         g_loss = torch.nn.L1Loss()(gen_image, dp['labels']['change_map'])
 
+        # update generator
+        self.optimizer.optimizers['generator'].zero_grad()
+        g_loss.backward(retain_graph=True)
+        self.optimizer.optimizers['generator'].step()
+        self.scheduler.schedulers['generator'].step()
+
         # update discriminator
         pred_real = self.model.discriminator(dp['labels']['change_map'])
         pred_fake_d = self.model.discriminator(gen_image.detach())
         err_d_real = torch.nn.BCELoss()(pred_real, real_label)
         err_d_fake = torch.nn.BCELoss()(pred_fake_d, fake_label)
         d_loss = (err_d_real + err_d_fake) * 0.5
-
-        # update generator
-        self.optimizer.optimizers['generator'].zero_grad()
-        g_loss.backward(retain_graph=True)
-        self.optimizer.optimizers['generator'].step()
-        self.scheduler.schedulers['generator'].step()
 
         self.optimizer.optimizers['discriminator'].zero_grad()
         d_loss.backward()
