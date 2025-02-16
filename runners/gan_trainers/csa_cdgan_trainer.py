@@ -20,12 +20,10 @@ class CSA_CDGAN_Trainer(GAN_BaseTrainer):
 
         # compute outputs
         gen_image = self.model.generator(dp['inputs'])
-        pred_real = self.model.discriminator(dp['labels']['change_map'])
-
-        # prepare labels
         g_loss = torch.nn.L1Loss()(gen_image, dp['labels']['change_map'])
 
         # update discriminator
+        pred_real = self.model.discriminator(dp['labels']['change_map'])
         pred_fake_d = self.model.discriminator(gen_image.detach())
         err_d_real = torch.nn.BCELoss()(pred_real, real_label)
         err_d_fake = torch.nn.BCELoss()(pred_fake_d, fake_label)
