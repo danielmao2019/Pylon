@@ -38,28 +38,30 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model']['args']['in_channels'] = {6 if model == 'FC-EF' else 3}\n"
         config += '\n'
     elif model == "SNUNet_ECAM":
-        config += f"from configs.common.models.change_detection.snunet import model_config\n"
-        config += f"config['model'] = model_config\n"
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.SNUNet_ECAM, 'args': {{}}}}\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.SNUNetCDCriterion, 'args': {{}}}}\n"
         config += '\n'
     elif model == "DSIFN":
-        config += f"from configs.common.models.change_detection.dsifn import model_config\n"
-        config += f"config['model'] = model_config\n"
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.DSIFN, 'args': {{}}}}\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.DSIFNCriterion, 'args': {{}}}}\n"
         config += '\n'
+    elif model == "TinyCD":
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.TinyCD, 'args': {{}}}}\n"
+        config += '\n'
     elif model.startswith("ChangeFormer"):
         if dataset == "air_change":
             return
         config += f"import models\n"
-        config += f"from configs.common.models.change_detection.change_former import model_config\n"
-        config += f"config['model'] = model_config\n"
-        config += f"config['model']['class'] = models.change_detection.{model}\n"
+        config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
         config += '\n'
         config += f"from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg\n"
         config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))\n"
@@ -69,8 +71,8 @@ def main(dataset: str, model: str) -> None:
         config += f"config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion\n"
         config += '\n'
     elif model == "FTN":
-        config += f"from configs.common.models.change_detection.ftn import model_config\n"
-        config += f"config['model'] = model_config\n"
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.FTN, 'args': {{}}}}\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
@@ -116,7 +118,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
         [
-            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN',
+            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN',
             'CSA_CDGAN',

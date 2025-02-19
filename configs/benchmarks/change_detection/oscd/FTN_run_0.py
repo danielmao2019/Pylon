@@ -57,8 +57,8 @@ from configs.common.datasets.change_detection.val.oscd import config as val_data
 config.update(val_dataset_config)
 
 # model config
-from configs.common.models.change_detection.ftn import model_config
-config['model'] = model_config
+import models
+config['model'] = {'class': models.change_detection.FTN, 'args': {}}
 
 # criterion config
 import criteria
