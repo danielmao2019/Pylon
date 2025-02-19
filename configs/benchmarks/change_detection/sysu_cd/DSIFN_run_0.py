@@ -57,8 +57,8 @@ from configs.common.datasets.change_detection.val.sysu_cd import config as val_d
 config.update(val_dataset_config)
 
 # model config
-from configs.common.models.change_detection.dsifn import model_config
-config['model'] = model_config
+import models
+config['model'] = {'class': models.change_detection.DSIFN, 'args': {}}
 
 # criterion config
 import criteria
