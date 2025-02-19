@@ -1,6 +1,6 @@
 from typing import Tuple, Dict
 import torch
-from criteria.wrappers import SingleTaskCriterion, AuxiliaryOutputsCriterion
+from criteria.wrappers import SingleTaskCriterion, SpatialPyTorchCriterionWrapper, AuxiliaryOutputsCriterion
 from criteria.vision_2d import DiceLoss
 
 
@@ -8,7 +8,7 @@ class DSIFNCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
         super(DSIFNCriterion, self).__init__()
-        self.bce_loss = AuxiliaryOutputsCriterion(torch.nn.BCEWithLogitsLoss())
+        self.bce_loss = AuxiliaryOutputsCriterion(SpatialPyTorchCriterionWrapper(torch.nn.BCEWithLogitsLoss()))
         self.dice_loss = AuxiliaryOutputsCriterion(DiceLoss())
 
     def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -19,8 +19,6 @@ class DSIFNCriterion(SingleTaskCriterion):
         assert set(y_true.keys()) == {'change_map'}
         # prepare y_true
         y_true = y_true['change_map'].type(torch.float32).unsqueeze(1)
-        if y_pred.shape[-2:] != y_true.shape[-2:]:
-            y_true = torch.nn.functional.interpolate(y_true, size=y_pred.shape[-2:], mode='nearest')
         # compute losses
         bce_loss = self.bce_loss(y_pred, y_true)
         dice_loss = self.dice_loss(y_pred, y_true)
