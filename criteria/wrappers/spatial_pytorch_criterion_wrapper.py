@@ -1,7 +1,6 @@
 import torch
 from criteria.wrappers import SingleTaskCriterion
 from utils.builders import build_from_config
-from utils.input_checks import check_semantic_segmentation
 
 
 class SpatialPyTorchCriterionWrapper(SingleTaskCriterion):

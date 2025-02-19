@@ -18,9 +18,9 @@ class DSIFNCriterion(SingleTaskCriterion):
         assert isinstance(y_true, dict)
         assert set(y_true.keys()) == {'change_map'}
         # prepare y_true
-        y_true = y_true['change_map'].type(torch.float32).unsqueeze(1)
+        y_true = y_true['change_map']
         # compute losses
-        bce_loss = self.bce_loss(y_pred, y_true)
+        bce_loss = self.bce_loss(y_pred, y_true.type(torch.float32).unsqueeze(1))
         dice_loss = self.dice_loss(y_pred, y_true)
         total_loss = bce_loss + dice_loss
         assert total_loss.ndim == 0, f"{total_loss.shape=}"
