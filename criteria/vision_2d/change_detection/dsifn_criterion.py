@@ -17,7 +17,7 @@ class DSIFNCriterion(SingleTaskCriterion):
         assert isinstance(y_true, dict)
         assert set(y_true.keys()) == {'change_map'}
         y_pred = list(map(lambda x: torch.sigmoid(x), y_pred))
-        y_true = y_true['change_map']
+        y_true = y_true['change_map'].unsqueeze(1)
         bce_loss = self.bce_loss(y_pred, y_true)
         dice_loss = self.dice_loss(y_pred, y_true)
         total_loss = bce_loss + dice_loss
