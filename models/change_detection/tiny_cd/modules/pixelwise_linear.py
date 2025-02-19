@@ -8,7 +8,6 @@ class PixelwiseLinear(torch.nn.Module):
         self,
         fin: List[int],
         fout: List[int],
-        last_activation: torch.nn.Module = None,
     ) -> None:
         assert len(fout) == len(fin)
         super(PixelwiseLinear, self).__init__()
@@ -19,8 +18,6 @@ class PixelwiseLinear(torch.nn.Module):
                 torch.nn.Sequential(
                     torch.nn.Conv2d(fin[i], fout[i], kernel_size=1, bias=True),
                     torch.nn.PReLU()
-                    if i < n - 1 or last_activation is None
-                    else last_activation,
                 )
                 for i in range(n)
             ]

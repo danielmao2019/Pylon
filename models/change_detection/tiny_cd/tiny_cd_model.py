@@ -43,7 +43,7 @@ class TinyCD(torch.nn.Module):
         )
 
         # Final classification layer:
-        self._classify = PixelwiseLinear(fin=[32, 16, 8], fout=[16, 8, 2], last_activation=None)
+        self._classify = PixelwiseLinear(fin=[32, 16, 8], fout=[16, 8, 2])
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         ref, test = inputs['img_1'], inputs['img_2']
