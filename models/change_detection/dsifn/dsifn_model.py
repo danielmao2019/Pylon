@@ -126,4 +126,7 @@ class DSIFN(torch.nn.Module):
 
         branch_5_out = self.sigmoid(self.o5_conv4(x))
 
-        return branch_5_out,branch_4_out,branch_3_out,branch_2_out,branch_1_out
+        if self.training:
+            return branch_5_out, branch_4_out, branch_3_out, branch_2_out, branch_1_out
+        else:
+            return branch_5_out
