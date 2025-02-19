@@ -8,9 +8,9 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
     __doc__ = r"""Compare multiple predictions to the same ground truth and sum all losses.
     """
 
-    def __init__(self, cfg: dict) -> None:
+    def __init__(self, criterion_cfg: dict) -> None:
         super(AuxiliaryOutputsCriterion, self).__init__()
-        self.criterion = build_from_config(config=cfg)
+        self.criterion = build_from_config(config=criterion_cfg)
 
     def __call__(
         self,
