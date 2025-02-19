@@ -21,7 +21,7 @@ class DSIFNCriterion(SingleTaskCriterion):
         y_true = y_true['change_map']
         # compute losses
         bce_loss = self.bce_loss(y_pred, y_true.type(torch.float32).unsqueeze(1))
-        dice_loss = self.dice_loss(torch.cat(y_pred, 1-y_pred, dim=1), y_true)
+        dice_loss = self.dice_loss(tuple(map(lambda x: torch.cat(x, 1-x, dim=1), y_pred)), y_true)
         total_loss = bce_loss + dice_loss
         assert total_loss.ndim == 0, f"{total_loss.shape=}"
         # log loss
