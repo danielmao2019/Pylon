@@ -7,7 +7,7 @@ from models.change_detection.tiny_cd.modules.up_mask import UpMask
 from models.change_detection.tiny_cd.utils import get_backbone
 
 
-class TinyCDModel(torch.nn.Module):
+class TinyCD(torch.nn.Module):
 
     def __init__(
         self,
@@ -16,7 +16,7 @@ class TinyCDModel(torch.nn.Module):
         output_layer_bkbn="3",
         freeze_backbone=False,
     ):
-        super(TinyCDModel, self).__init__()
+        super(TinyCD, self).__init__()
 
         # Load the pretrained backbone according to parameters:
         self._backbone = get_backbone(
