@@ -59,7 +59,7 @@ def main(dataset: str, model: str) -> None:
         if dataset == "air_change":
             return
         config += f"import models\n"
-        config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}} = \n"
+        config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
         config += '\n'
         config += f"from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg\n"
         config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))\n"
