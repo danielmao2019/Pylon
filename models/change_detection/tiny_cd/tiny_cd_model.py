@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 import torch
 from models.change_detection.tiny_cd.modules.mixing_block import MixingBlock
 from models.change_detection.tiny_cd.modules.pixelwise_linear import PixelwiseLinear
@@ -45,7 +45,8 @@ class TinyCDModel(torch.nn.Module):
         # Final classification layer:
         self._classify = PixelwiseLinear([32, 16, 8], [16, 8, 1], torch.nn.Sigmoid())
 
-    def forward(self, ref: torch.Tensor, test: torch.Tensor) -> torch.Tensor:
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        ref, test = inputs['img_1'], inputs['img_2']
         features = self._encode(ref, test)
         latents = self._decode(features)
         return self._classify(latents)
