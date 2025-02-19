@@ -12,11 +12,16 @@ class DSIFNCriterion(SingleTaskCriterion):
         self.dice_loss = AuxiliaryOutputsCriterion(DiceLoss())
 
     def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+        # input checks
         assert isinstance(y_pred, tuple)
         assert all(isinstance(x, torch.Tensor) for x in y_pred)
         assert isinstance(y_true, dict)
         assert set(y_true.keys()) == {'change_map'}
+        # prepare y_true
         y_true = y_true['change_map'].type(torch.float32).unsqueeze(1)
+        if y_pred.shape[-2:] != y_true.shape[-2:]:
+            y_true = torch.nn.functional.interpolate(y_true, size=y_pred.shape[-2:], mode='nearest')
+        # compute losses
         bce_loss = self.bce_loss(y_pred, y_true)
         dice_loss = self.dice_loss(y_pred, y_true)
         total_loss = bce_loss + dice_loss
