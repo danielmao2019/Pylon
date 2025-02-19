@@ -16,7 +16,7 @@ class DSIFNCriterion(SingleTaskCriterion):
         assert all(isinstance(x, torch.Tensor) for x in y_pred)
         assert isinstance(y_true, dict)
         assert set(y_true.keys()) == {'change_map'}
-        y_true = y_true['change_map'].unsqueeze(1)
+        y_true = y_true['change_map'].type(torch.float32).unsqueeze(1)
         bce_loss = self.bce_loss(y_pred, y_true)
         dice_loss = self.dice_loss(y_pred, y_true)
         total_loss = bce_loss + dice_loss
