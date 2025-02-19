@@ -41,6 +41,7 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.models.change_detection.snunet import model_config\n"
         config += f"config['model'] = model_config\n"
         config += '\n'
+        config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.SNUNetCDCriterion, 'args': {{}}}}\n"
         config += '\n'
@@ -48,6 +49,7 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.models.change_detection.dsifn import model_config\n"
         config += f"config['model'] = model_config\n"
         config += '\n'
+        config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.DSIFNCriterion, 'args': {{}}}}\n"
         config += '\n'
@@ -62,6 +64,7 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg\n"
         config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))\n"
         config += '\n'
+        config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion\n"
         config += '\n'
@@ -69,6 +72,7 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.models.change_detection.ftn import model_config\n"
         config += f"config['model'] = model_config\n"
         config += '\n'
+        config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.FTNCriterion, 'args': {{}}}}\n"
         config += '\n'
@@ -76,12 +80,15 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.models.change_detection.csa_cdgan import model_config\n"
         config += f"config['model'] = model_config\n"
         config += '\n'
+        config += f"# criterion config\n"
         config += f"from configs.common.criteria.change_detection.csa_cdgan import criterion_cfg\n"
         config += f"config['criterion'] = criterion_cfg\n"
         config += '\n'
+        config += f"# optimizer config\n"
         config += f"from configs.common.optimizers.gans.csa_cdgan import optimizer_config\n"
         config += f"config['optimizer'] = optimizer_config\n"
         config += '\n'
+        config += f"# scheduler config\n"
         config += f"from configs.common.schedulers.gans.gan import scheduler_cfg\n"
         config += f"config['scheduler'] = scheduler_cfg\n"
         config += '\n'

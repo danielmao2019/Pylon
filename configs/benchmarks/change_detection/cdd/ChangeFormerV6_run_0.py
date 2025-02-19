@@ -65,6 +65,7 @@ config['model']['class'] = models.change_detection.ChangeFormerV6
 from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
 config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))
 
+# criterion config
 import criteria
 config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion
 

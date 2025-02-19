@@ -60,6 +60,7 @@ config.update(val_dataset_config)
 from configs.common.models.change_detection.ftn import model_config
 config['model'] = model_config
 
+# criterion config
 import criteria
 config['criterion'] = {'class': criteria.vision_2d.change_detection.FTNCriterion, 'args': {}}
 
