@@ -2,7 +2,7 @@
 MODELS.CHANGE_DETECTION API
 """
 # Bi-Temporal Models
-from models.change_detection.fully_convolutional_siamese_networks import FullyConvolutionalSiameseNetwork
+from models.change_detection.fc_siam.fully_convolutional_siamese_networks import FullyConvolutionalSiameseNetwork
 from models.change_detection.snunet.snunet import SNUNet_ECAM
 from models.change_detection.change_former.models.change_former_v1 import ChangeFormerV1
 from models.change_detection.change_former.models.change_former_v2 import ChangeFormerV2
@@ -15,7 +15,7 @@ from models.change_detection import csa_cdgan
 # Single-Temporal Models
 from models.change_detection.change_star.change_star import ChangeStar
 from models.change_detection.i3pe.i3pe_model import I3PEModel
-from models.change_detection.ppsl_model import PPSLModel
+from models.change_detection.ppsl.ppsl_model import PPSLModel
 # from models.change_detection.cyws_3d.cyws_3d import CYWS3D
 
 
