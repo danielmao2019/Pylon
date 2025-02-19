@@ -60,12 +60,15 @@ config.update(val_dataset_config)
 from configs.common.models.change_detection.csa_cdgan import model_config
 config['model'] = model_config
 
+# criterion config
 from configs.common.criteria.change_detection.csa_cdgan import criterion_cfg
 config['criterion'] = criterion_cfg
 
+# optimizer config
 from configs.common.optimizers.gans.csa_cdgan import optimizer_config
 config['optimizer'] = optimizer_config
 
+# scheduler config
 from configs.common.schedulers.gans.gan import scheduler_cfg
 config['scheduler'] = scheduler_cfg
 
