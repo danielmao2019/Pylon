@@ -1,5 +1,6 @@
 from typing import Tuple, Dict
 import torch
+from models.change_detection.dsifn.vgg_16_base import vgg16_base
 from models.change_detection.dsifn.channel_attention import ChannelAttention
 from models.change_detection.dsifn.spatial_attention import SpatialAttention
 from models.change_detection.dsifn.utils import conv2d_bn
@@ -7,15 +8,15 @@ from models.change_detection.dsifn.utils import conv2d_bn
 
 class DSIFN(torch.nn.Module):
 
-    def __init__(self, feature_extractor: torch.nn.Module) -> None:
+    def __init__(self) -> None:
         super(DSIFN, self).__init__()
-        self.feature_extractor = feature_extractor
+        self.vgg16_base = vgg16_base()
         self.sa1 = SpatialAttention()
         self.sa2= SpatialAttention()
         self.sa3 = SpatialAttention()
         self.sa4 = SpatialAttention()
         self.sa5 = SpatialAttention()
-        
+
         self.sigmoid = torch.nn.Sigmoid()
 
         # branch1
@@ -64,8 +65,8 @@ class DSIFN(torch.nn.Module):
         self.o5_conv4 = torch.nn.Conv2d(16, 1, 1)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, ...]:
-        t1_list = self.feature_extractor(inputs['img_1'])
-        t2_list = self.feature_extractor(inputs['img_2'])
+        t1_list = self.vgg16_base(inputs['img_1'])
+        t2_list = self.vgg16_base(inputs['img_2'])
 
         t1_f_l3,t1_f_l8,t1_f_l15,t1_f_l22,t1_f_l29 = t1_list[0],t1_list[1],t1_list[2],t1_list[3],t1_list[4]
         t2_f_l3,t2_f_l8,t2_f_l15,t2_f_l22,t2_f_l29,= t2_list[0],t2_list[1],t2_list[2],t2_list[3],t2_list[4]

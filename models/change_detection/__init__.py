@@ -4,6 +4,7 @@ MODELS.CHANGE_DETECTION API
 # Bi-Temporal Models
 from models.change_detection.fc_siam.fully_convolutional_siamese_networks import FullyConvolutionalSiameseNetwork
 from models.change_detection.snunet.snunet import SNUNet_ECAM
+from models.change_detection.dsifn.dsifn_model import DSIFN
 from models.change_detection.change_former.models.change_former_v1 import ChangeFormerV1
 from models.change_detection.change_former.models.change_former_v2 import ChangeFormerV2
 from models.change_detection.change_former.models.change_former_v3 import ChangeFormerV3
@@ -23,6 +24,7 @@ __all__ = (
     # Bi-Temporal Models
     'FullyConvolutionalSiameseNetwork',
     'SNUNet_ECAM',
+    'DSIFN',
     'ChangeFormerV1',
     'ChangeFormerV2',
     'ChangeFormerV3',
