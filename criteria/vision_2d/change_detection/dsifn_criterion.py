@@ -7,6 +7,7 @@ from criteria.vision_2d import DiceLoss
 class DSIFNCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
+        super(DSIFNCriterion, self).__init__()
         self.bce_loss = AuxiliaryOutputsCriterion(torch.nn.BCELoss())
         self.dice_loss = AuxiliaryOutputsCriterion(DiceLoss())
 
