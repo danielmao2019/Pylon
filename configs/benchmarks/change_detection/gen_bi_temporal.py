@@ -54,7 +54,9 @@ def main(dataset: str, model: str) -> None:
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.DSIFNCriterion, 'args': {{}}}}\n"
         config += '\n'
     elif model == "TinyCD":
-        config += f""
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.TinyCD, 'args': {{}}}}\n"
+        config += '\n'
     elif model.startswith("ChangeFormer"):
         if dataset == "air_change":
             return
