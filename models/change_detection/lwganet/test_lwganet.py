@@ -53,24 +53,3 @@ def test_lwganet_l2() -> None:
     
     # Clean up the process group.
     dist.destroy_process_group()
-    
-    '''
-    for reference 
-    
-    # run the model
-        output, output2, output3, output4 = model(pre_img_var, post_img_var)
-        loss = BCEDiceLoss(output, target_var) + BCEDiceLoss(output2, target_var) + \
-               BCEDiceLoss(output3, target_var) + BCEDiceLoss(output4, target_var)
-
-        pred = torch.where(output > 0.5, torch.ones_like(output), torch.zeros_like(output)).long()
-        
-    def BCEDiceLoss(inputs, targets):
-    # print(inputs.shape, targets.shape)
-    bce = F.binary_cross_entropy(inputs, targets)
-    inter = (inputs * targets).sum()
-    eps = 1e-5
-    dice = (2 * inter + eps) / (inputs.sum() + targets.sum() + eps)
-    # print(bce.item(), inter.item(), inputs.sum().item(), dice.item())
-    return bce + 1 - dice
-        
-    '''
