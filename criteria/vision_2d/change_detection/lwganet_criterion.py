@@ -20,4 +20,4 @@ class LWGANetCriterion(SingleTaskCriterion):
         bce_loss += (self.bce_criterion(y_pred=mask, y_true=y_true['change_map']) for mask in y_pred.values()) 
         dice_loss += (self.dice_criterion(y_pred=mask, y_true=y_true['change_map']) for mask in y_pred.values()) 
         
-        return bce_loss + 4 - dice_loss
+        return bce_loss + dice_loss
