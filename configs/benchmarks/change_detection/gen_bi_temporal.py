@@ -114,7 +114,7 @@ def main(dataset: str, model: str) -> None:
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.LWGANetCriterion, 'args': {{}}}}\n"
         config += '\n'
         config += f'# setup distributed computing'
-        config += f'if not dist.is_initialized():dist.init_process_group(backend={'nccl'},init_method={'tcp://127.0.0.1:23456'},rank=0,world_size=1)'
+        config += f"if not dist.is_initialized():dist.init_process_group(backend={{'nccl'}},init_method={{'tcp://127.0.0.1:23456'}},rank=0,world_size=1)"
     else:
         raise NotImplementedError
     # add seeds
@@ -139,7 +139,7 @@ if __name__ == "__main__":
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN', 'SRCNet',
-            'CSA_CDGAN',
+            'CSA_CDGAN', 'LWGANet',
         ],
     ):
         main(dataset, model)
