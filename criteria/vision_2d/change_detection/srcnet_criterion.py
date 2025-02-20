@@ -11,7 +11,7 @@ class SRCNetCriterion(SingleTaskCriterion):
     def __init__(self):
         super(SRCNetCriterion, self).__init__()
         self.edge_loss = EdgeLoss(KSIZE=7)
-        self.focal_loss = FocalLoss(gamma=0, alpha=None)
+        self.focal_loss = FocalLoss(alpha=1, beta=0)
         self.dice_loss = DiceLoss()
 
     def calloss(self, prediction, target, sigmas):
