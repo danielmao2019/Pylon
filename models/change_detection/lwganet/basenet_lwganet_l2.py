@@ -40,4 +40,4 @@ class BaseNet_LWGANet_L2(torch.nn.Module):
         mask_p5 = torch.nn.functional.interpolate(mask_p5, scale_factor=(32, 32), mode='bilinear')
         mask_p5 = torch.sigmoid(mask_p5)
 
-        return mask_p2, mask_p3, mask_p4, mask_p5
+        return {'mask_p2': mask_p2, 'mask_p3': mask_p3, 'mask_p4': mask_p4, 'mask_p5': mask_p5}
