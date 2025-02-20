@@ -2,6 +2,7 @@ from typing import Optional
 import torch
 import torch.nn.functional as F
 from criteria.wrappers import SingleTaskCriterion
+from utils.input_checks import check_classification, check_semantic_segmentation
 
 
 class FocalLoss(SingleTaskCriterion):
@@ -10,15 +11,27 @@ class FocalLoss(SingleTaskCriterion):
         """
         Initialize the FocalLoss with alpha and beta parameters.
         Args:
-            alpha (float): Balancing factor for class imbalance. Default is 1.0.
-            beta (float): Focusing parameter to adjust the rate at which
+            alpha (float | int): Balancing factor for class imbalance. Default is 1.0.
+            beta (float | int): Focusing parameter to adjust the rate at which
                           easy examples are down-weighted. Default is 2.0.
         """
         super(FocalLoss, self).__init__()
-        assert isinstance(alpha, float), f"{type(alpha)=}"
+        assert isinstance(alpha, (float, int)), f"{type(alpha)=}"
         self.alpha = alpha
-        assert isinstance(beta, float), f"{type(beta)=}"
+        assert isinstance(beta, (float, int)), f"{type(beta)=}"
         self.beta = beta
+
+    @staticmethod
+    def _prepare_focal(tensor: torch.Tensor) -> torch.Tensor:
+        assert tensor.ndim in {3, 4}
+        if tensor.ndim == 3:
+            tensor = tensor.flatten()
+        elif tensor.ndim == 4:
+            N, C, H, W = tensor.shape
+            tensor = tensor.view((N, C, H*W))
+            tensor = tensor.transpose(1, 2)
+            tensor = tensor.contiguous().view(N*H*W, C)
+        return tensor
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
@@ -30,9 +43,14 @@ class FocalLoss(SingleTaskCriterion):
             torch.Tensor: Scalar focal loss value.
         """
         # Input checks
-        assert isinstance(y_pred, torch.Tensor) and y_pred.ndim == 2
-        assert isinstance(y_true, torch.Tensor) and y_true.ndim == 1
-        assert y_pred.size(0) == y_true.size(0), f"{y_pred.shape=}, {y_true.shape=}"
+        try:
+            check_classification(y_pred, y_true)
+        except:
+            check_semantic_segmentation(y_pred, y_true)
+            y_pred = self._prepare_focal(y_pred)
+            y_true = self._prepare_focal(y_true)
+            check_classification(y_pred, y_true)
+        assert y_pred.size(1) == 2  # support only binary case
 
         # Convert logits to probabilities using softmax
         probs = F.softmax(y_pred, dim=-1)
