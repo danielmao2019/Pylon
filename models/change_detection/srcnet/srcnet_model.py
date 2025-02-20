@@ -1,3 +1,4 @@
+from typing import Tuple, Dict, Union
 import torch
 from models.change_detection.srcnet.modules.patch_emb import PatchEmb
 from models.change_detection.srcnet.modules.festage import FEStage
@@ -32,7 +33,8 @@ class SRCNet(torch.nn.Module):
         # Loss
         self.sigma = torch.nn.Parameter(torch.ones(3))
 
-    def forward(self, a, b):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[Tuple[torch.Tensor, ...], torch.Tensor]:
+        a, b = inputs['img_1'], inputs['img_2']
         if self.training:
             a, b = self.randomAB(a, b)
         # Patch Embedding
@@ -49,7 +51,10 @@ class SRCNet(torch.nn.Module):
         out = self.patchup(x)
         out = self.gelu(self.norm(out))
         out = self.final(out)
-        return (out,), (Dis,), (diff,), self.sigma
+        if self.training:
+            return out, Dis, diff, self.sigma
+        else:
+            return out
 
     def randomAB(self, a, b):
         shape = (a.shape[0], 1, 1, 1)

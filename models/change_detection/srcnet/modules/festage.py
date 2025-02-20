@@ -1,4 +1,6 @@
 import torch
+from models.change_detection.srcnet.modules.src_block import SRCBlock
+from models.change_detection.srcnet.modules.pim import PIM
 
 
 class FEStage(torch.nn.Module):
