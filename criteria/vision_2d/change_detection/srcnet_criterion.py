@@ -32,7 +32,6 @@ class SRCNetCriterion(SingleTaskCriterion):
         sigmas = sigma
         sigmas = sigmas * sigmas
 
-        prediction = F.softmax(prediction, dim=1)
         loss += self.calloss(prediction, target, sigmas)
         loss += self.calloss(Dis, target, sigmas)
         loss += dif
@@ -92,7 +91,7 @@ class EdgeLoss(SingleTaskCriterion):
             y_pred = y_pred.contiguous().view(-1, y_pred.size(2))
 
         y_true = y_true.view(-1, 1)
-        # logpt = F.log_softmax(input)
+        y_pred = torch.nn.functional.softmax(y_pred, dim=1)
         logpt = torch.log(y_pred + 1e-10)
         logpt = logpt.gather(1, y_true)
         logpt = logpt.view(-1)
