@@ -13,6 +13,7 @@ from models.change_detection.change_former.models.change_former_v4 import Change
 from models.change_detection.change_former.models.change_former_v5 import ChangeFormerV5
 from models.change_detection.change_former.models.change_former_v6 import ChangeFormerV6
 from models.change_detection.ftn.model import FTN
+from models.change_detection.srcnet.srcnet_model import SRCNet
 from models.change_detection import csa_cdgan
 # Single-Temporal Models
 from models.change_detection.change_star.change_star import ChangeStar
@@ -34,6 +35,7 @@ __all__ = (
     'ChangeFormerV5',
     'ChangeFormerV6',
     'FTN',
+    'SRCNet',
     'csa_cdgan',
     # Single-Temporal Models
     'ChangeStar',
