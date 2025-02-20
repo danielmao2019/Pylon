@@ -46,10 +46,10 @@ def test_lwganet_l2() -> None:
     #check paper to determine model output
     
     
-    assert result['mask_p2'].shape == torch.Size([16, 1, 128, 128]), f'{mask_p2.shape=}'
-    assert result['mask_p3'].shape == torch.Size([16, 1, 128, 128]), f'{mask_p3.shape=}'
-    assert result['mask_p4'].shape == torch.Size([16, 1, 128, 128]), f'{mask_p4.shape=}'
-    assert result['mask_p5'].shape == torch.Size([16, 1, 128, 128]), f'{mask_p5.shape=}'
+    assert result['mask_p2'].shape == torch.Size([16, 1, 128, 128])
+    assert result['mask_p3'].shape == torch.Size([16, 1, 128, 128])
+    assert result['mask_p4'].shape == torch.Size([16, 1, 128, 128])
+    assert result['mask_p5'].shape == torch.Size([16, 1, 128, 128])
     
     # Clean up the process group.
     dist.destroy_process_group()
