@@ -10,6 +10,7 @@ from criteria.vision_2d.change_detection.srcnet_criterion import SRCNetCriterion
 from criteria.vision_2d.change_detection.csa_cdgan_criterion import CSA_CDGAN_Criterion
 from criteria.vision_2d.change_detection.change_star_criterion import ChangeStarCriterion
 from criteria.vision_2d.change_detection.ppsl_criterion import PPSLCriterion
+from criteria.vision_2d.change_detection.lwganet_criterion import LWGANetCriterion
 
 
 __all__ = (
@@ -22,4 +23,5 @@ __all__ = (
     'CSA_CDGAN_Criterion',
     'ChangeStarCriterion',
     'PPSLCriterion',
+    'LWGANetCriterion'
 )
