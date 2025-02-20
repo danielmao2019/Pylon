@@ -23,5 +23,5 @@ __all__ = (
     'CSA_CDGAN_Criterion',
     'ChangeStarCriterion',
     'PPSLCriterion',
-    'LWGANetCriterion'
+    'LWGANetCriterion',
 )
