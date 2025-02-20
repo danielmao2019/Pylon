@@ -80,7 +80,7 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
     elif model == "SRCNet":
         config += f"import models\n"
-        config += f"config['model] = {{'class': models.change_detection.SRCNet, 'args': {{}}}}\n"
+        config += f"config['model'] = {{'class': models.change_detection.SRCNet, 'args': {{}}}}\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
