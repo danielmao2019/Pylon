@@ -17,7 +17,7 @@ class SRCNetCriterion(SingleTaskCriterion):
     def calloss(self, prediction, target, sigmas):
         focal = self.focal_loss(prediction, target)
         dice = self.dice_loss(prediction, target)
-        edge = self.edge_loss.edgeLoss(prediction, target)
+        edge = self.edge_loss(prediction, target)
         return focal / sigmas[0] + dice / sigmas[1] + edge / sigmas[2]
 
     def __call__(self, y_pred: Tuple[torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
