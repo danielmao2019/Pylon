@@ -53,23 +53,6 @@ model_base_cfg['args'].update({
     'patchembed_version': "v2",
 })
 
-model_mini_cfg = copy.deepcopy(model_cfg_template)
-model_mini_cfg['args'].update({
-    'pretrained': None,  # not provided by the authors
-    'drop_path_rate': 0.2,
-    'dims': 96,
-    'depths': [ 2, 2, 4, 2 ],
-    'ssm_d_state': 1,
-    'ssm_dt_rank': "auto",
-    'ssm_ratio': 2.0,
-    'ssm_conv': 3,
-    'ssm_conv_bias': False,
-    'forward_type': "v2",
-    'mlp_ratio': -1.0,
-    'downsample_version': "v3",
-    'patchembed_version': "v2",
-})
-
 model_small_cfg = copy.deepcopy(model_cfg_template)
 model_small_cfg['args'].update({
     'pretrained': "./models/change_detection/change_mamba/checkpoints/vssm_small_0229_ckpt_epoch_222.pth",
@@ -100,6 +83,23 @@ model_tiny_cfg['args'].update({
     'ssm_conv_bias': False,
     'forward_type': "v3noz",
     'mlp_ratio': 4.0,
+    'downsample_version': "v3",
+    'patchembed_version': "v2",
+})
+
+model_mini_cfg = copy.deepcopy(model_cfg_template)
+model_mini_cfg['args'].update({
+    'pretrained': None,  # not provided by the authors
+    'drop_path_rate': 0.2,
+    'dims': 96,
+    'depths': [ 2, 2, 4, 2 ],
+    'ssm_d_state': 1,
+    'ssm_dt_rank': "auto",
+    'ssm_ratio': 2.0,
+    'ssm_conv': 3,
+    'ssm_conv_bias': False,
+    'forward_type': "v2",
+    'mlp_ratio': -1.0,
     'downsample_version': "v3",
     'patchembed_version': "v2",
 })
