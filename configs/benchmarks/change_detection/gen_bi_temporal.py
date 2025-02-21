@@ -105,6 +105,16 @@ def main(dataset: str, model: str) -> None:
         config += f"from runners.gan_trainers import CSA_CDGAN_Trainer\n"
         config += f"config['runner'] = CSA_CDGAN_Trainer\n"
         config += '\n'
+    elif model == "LWGANet":
+        config += f"from configs.common.models.change_detection.lwganet import model_config\n"
+        config += f"config['model'] = model_config\n"
+        config += '\n'
+        config += f"# criterion config\n"
+        config += f"import criteria\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.LWGANetCriterion, 'args': {{}}}}\n"
+        config += '\n'
+        config += f'# setup distributed computing\n'
+        config += f"if not torch.distributed.is_initialized():\n\ttorch.distributed.init_process_group(backend=\'nccl\',init_method=\'tcp://127.0.0.1:23456\',rank=0,world_size=1)"
     else:
         raise NotImplementedError
     # add seeds
@@ -129,7 +139,7 @@ if __name__ == "__main__":
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN', 'SRCNet',
-            'CSA_CDGAN',
+            'CSA_CDGAN', 'LWGANet',
         ],
     ):
         main(dataset, model)
