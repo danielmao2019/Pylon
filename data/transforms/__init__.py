@@ -6,9 +6,8 @@ from data.transforms.compose import Compose
 from data.transforms.randomize import Randomize
 from data.transforms import normalize
 from data.transforms import resize
+from data.transforms import crop
 from data.transforms.flip import Flip
-from data.transforms.crop import Crop
-from data.transforms.random_crop import RandomCrop
 from data.transforms.rotation import Rotation
 from data.transforms.random_rotation import RandomRotation
 
@@ -19,9 +18,8 @@ __all__ = (
     'Randomize',
     'normalize',
     'resize',
+    'crop',
     'Flip',
-    'Crop',
-    'RandomCrop',
     'Rotation',
     'RandomRotation',
 )

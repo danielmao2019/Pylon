@@ -25,9 +25,17 @@ class ResizeMaps(BaseTransform):
             AssertionError: If the target size is not a tuple of two integers.
         """
         super(ResizeMaps, self).__init__()
+        # initialize resize op
+        if 'interpolation' in kwargs:
+            if kwargs['interpolation'] == "bilinear":
+                kwargs['interpolation'] = torchvision.transforms.functional.InterpolationMode.BILINEAR
+            elif kwargs['interpolation'] == "nearest":
+                kwargs['interpolation'] = torchvision.transforms.functional.InterpolationMode.NEAREST
+            else:
+                raise ValueError(f"Unsupported interpolation mode: {kwargs['interpolation']}")
         self.resize = torchvision.transforms.Resize(**kwargs)
+        # initialize target size
         target_size = (self.resize.size,) * 2 if isinstance(self.resize.size, int) else tuple(self.resize.size)
-
         assert isinstance(target_size, tuple), f"Expected tuple for target_size, got {type(target_size)}"
         assert len(target_size) == 2, f"Expected a tuple of length 2, got {len(target_size)}"
         assert all(isinstance(dim, int) for dim in target_size), (
