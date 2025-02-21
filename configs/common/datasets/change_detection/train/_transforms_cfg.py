@@ -7,7 +7,7 @@ def transforms_cfg(size: Tuple[int, int], first: Optional[str] = "RandomCrop") -
     assert first in {"RandomCrop", "ResizeMaps"}
     if first == "RandomCrop":
         first_transform = [(
-            data.transforms.RandomCrop(size=size),
+            data.transforms.crop.RandomCrop(size=size),
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )]
     else:
