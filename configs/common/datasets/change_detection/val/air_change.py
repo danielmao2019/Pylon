@@ -23,7 +23,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/AirChange",
             'split': "test",
-            'transforms_cfg': transforms_cfg(size=(784, 448)),
+            'transforms_cfg': transforms_cfg(first="RandomCrop", size=(112, 112), resize=(224, 224)),
         },
     },
     'val_dataloader': {
