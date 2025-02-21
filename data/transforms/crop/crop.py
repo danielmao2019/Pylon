@@ -36,9 +36,9 @@ class Crop(BaseTransform):
 
         if resize is not None:
             if interpolation == "bilinear":
-                interp_mode = torchvision.transforms.InterpolationMode.BILINEAR
+                interp_mode = torchvision.transforms.functional.InterpolationMode.BILINEAR
             elif interpolation == "nearest":
-                interp_mode = torchvision.transforms.InterpolationMode.NEAREST
+                interp_mode = torchvision.transforms.functional.InterpolationMode.NEAREST
             else:
                 raise ValueError(f"Unsupported interpolation mode: {interpolation}")
 
