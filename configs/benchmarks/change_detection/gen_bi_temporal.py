@@ -105,9 +105,9 @@ def main(dataset: str, model: str) -> None:
         config += f"from runners.gan_trainers import CSA_CDGAN_Trainer\n"
         config += f"config['runner'] = CSA_CDGAN_Trainer\n"
         config += '\n'
-    elif model == "ChangeMamba":
-        config += f"import models\n"
-        config += f"config['model'] = {{'class': models.change_detection.STMambaBCD, 'args': {{}}}}\n"
+    elif model.startswith("ChangeMamba"):
+        config += f"from configs.common.models.change_detection.change_mamba import model_{model.split('-')[1].lower()}_cfg as model_cfg\n"
+        config += f"config['model'] = model_cfg\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
@@ -138,7 +138,7 @@ if __name__ == "__main__":
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN', 'SRCNet',
             'CSA_CDGAN',
-            'ChangeMamba',
+            'ChangeMamba-Base', 'ChangeMamba-Small', 'ChangeMamba-Tiny',
         ],
     ):
         main(dataset, model)
