@@ -15,6 +15,7 @@ from models.change_detection.change_former.models.change_former_v6 import Change
 from models.change_detection.ftn.model import FTN
 from models.change_detection.srcnet.srcnet_model import SRCNet
 from models.change_detection import csa_cdgan
+from models.change_detection.change_mamba.st_mamba_bcd import STMambaBCD
 # Single-Temporal Models
 from models.change_detection.change_star.change_star import ChangeStar
 from models.change_detection.i3pe.i3pe_model import I3PEModel
@@ -37,6 +38,7 @@ __all__ = (
     'FTN',
     'SRCNet',
     'csa_cdgan',
+    'STMambaBCD',
     # Single-Temporal Models
     'ChangeStar',
     'I3PEModel',
