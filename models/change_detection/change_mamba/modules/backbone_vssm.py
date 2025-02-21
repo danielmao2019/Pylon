@@ -4,6 +4,7 @@ from models.change_detection.change_mamba.modules.vmamba import VSSM, LayerNorm2
 
 
 class Backbone_VSSM(VSSM):
+
     def __init__(self, out_indices=(0, 1, 2, 3), pretrained=None, norm_layer='ln2d', **kwargs):
         # norm_layer='ln'
         kwargs.update(norm_layer=norm_layer)

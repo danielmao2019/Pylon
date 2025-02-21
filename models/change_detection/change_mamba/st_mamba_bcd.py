@@ -7,6 +7,9 @@ from models.change_detection.change_mamba.modules.change_decoder import ChangeDe
 
 
 class STMambaBCD(torch.nn.Module):
+    __doc__ = r"""
+    Download backbone pretrained weights: https://zenodo.org/records/14037770
+    """
 
     def __init__(self, pretrained, **kwargs):
         super(STMambaBCD, self).__init__()
