@@ -8,7 +8,14 @@ from models.change_detection.change_mamba.modules.change_decoder import ChangeDe
 
 class STMambaBCD(torch.nn.Module):
     __doc__ = r"""
-    Download backbone pretrained weights: https://zenodo.org/records/14037770
+    Download backbone pretrained weights:
+    ```bash
+    cd models/change_detection/change_mamba
+    mkdir -p checkpoints
+    cd checkpoints
+    wget https://zenodo.org/records/14037770/files/vssm_base_0229_ckpt_epoch_237.pth?download=1 -O vssm_base_0229_ckpt_epoch_237.pth
+    wget https://zenodo.org/records/14037770/files/vssm_small_0229_ckpt_epoch_222.pth?download=1 -O vssm_small_0229_ckpt_epoch_222.pth
+    wget https://zenodo.org/records/14037770/files/vssm_tiny_0230_ckpt_epoch_262.pth?download=1 -O vssm_tiny_0230_ckpt_epoch_262.pth
     """
 
     def __init__(self, pretrained, **kwargs):
