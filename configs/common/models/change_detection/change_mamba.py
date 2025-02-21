@@ -38,6 +38,7 @@ model_cfg_template = {
 
 model_base_cfg = deepcopy.copy(model_cfg_template)
 model_base_cfg['args'].update({
+    'pretrained': "./models/change_detection/change_mamba/checkpoints/vssm_base_0229_ckpt_epoch_237.pth",
     'DROP_PATH_RATE': 0.6,
     'EMBED_DIM': 128,
     'DEPTHS': [ 2, 2, 15, 2 ],
@@ -52,9 +53,9 @@ model_base_cfg['args'].update({
     'PATCHEMBED': "v2",
 })
 
-
 model_mini_cfg = deepcopy.copy(model_cfg_template)
 model_mini_cfg['args'].update({
+    'pretrained': None,  # not provided by the authors
     'DROP_PATH_RATE': 0.2,
     'EMBED_DIM': 96,
     'DEPTHS': [ 2, 2, 4, 2 ],
@@ -71,6 +72,7 @@ model_mini_cfg['args'].update({
 
 model_small_cfg = deepcopy.copy(model_cfg_template)
 model_small_cfg['args'].update({
+    'pretrained': "./models/change_detection/change_mamba/checkpoints/vssm_small_0229_ckpt_epoch_222.pth",
     'DROP_PATH_RATE': 0.3,
     'EMBED_DIM': 96,
     'DEPTHS': [ 2, 2, 15, 2 ],
@@ -87,6 +89,7 @@ model_small_cfg['args'].update({
 
 model_tiny_cfg = deepcopy.copy(model_cfg_template)
 model_tiny_cfg['args'].update({
+    'pretrained': "./models/change_detection/change_mamba/checkpoints/vssm_tiny_0230_ckpt_epoch_262.pth",
     'DROP_PATH_RATE': 0.2,
     'EMBED_DIM': 96,
     'DEPTHS': [ 2, 2, 4, 2 ],
