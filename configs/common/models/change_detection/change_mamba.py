@@ -18,6 +18,7 @@ model_cfg_template = {
         'norm_layer': "ln",
         'gmlp': False,
         'num_classes': 1000,  # this is used to initialize VSSM.classifier, which is unused
+        'use_checkpoint': True,
         # architecture-specific
         'pretrained': None,
         'drop_path_rate': None,
