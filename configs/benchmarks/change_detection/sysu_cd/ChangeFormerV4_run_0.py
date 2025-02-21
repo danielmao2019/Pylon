@@ -61,7 +61,8 @@ import models
 config['model'] = {'class': models.change_detection.ChangeFormerV4, 'args': {}}
 
 from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
-config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))
+config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
+config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
 
 # criterion config
 import criteria
