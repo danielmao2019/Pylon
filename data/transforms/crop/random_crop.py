@@ -6,6 +6,7 @@ from data.transforms.crop import Crop
 
 
 class RandomCrop(BaseTransform):
+
     def __init__(
         self,
         size: Tuple[int, int],
