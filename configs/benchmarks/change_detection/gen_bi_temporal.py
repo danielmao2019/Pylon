@@ -110,6 +110,7 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model'] = {{'class': models.change_detection.STMambaBCD, 'args': {{}}}}\n"
         config += '\n'
         config += f"# criterion config\n"
+        config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.STMambaBCDCriterion, 'args': {{}}}}\n"
         config += '\n'
     else:

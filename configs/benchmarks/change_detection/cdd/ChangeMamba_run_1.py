@@ -61,6 +61,7 @@ import models
 config['model'] = {'class': models.change_detection.STMambaBCD, 'args': {}}
 
 # criterion config
+import criteria
 config['criterion'] = {'class': criteria.vision_2d.change_detection.STMambaBCDCriterion, 'args': {}}
 
 # seeds
