@@ -106,15 +106,15 @@ def main(dataset: str, model: str) -> None:
         config += f"config['runner'] = CSA_CDGAN_Trainer\n"
         config += '\n'
     elif model == "LWGANet":
-        config += f"from configs.common.models.change_detection.csa_cdgan import model_config\n"
+        config += f"from configs.common.models.change_detection.lwganet import model_config\n"
         config += f"config['model'] = model_config\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.LWGANetCriterion, 'args': {{}}}}\n"
         config += '\n'
-        config += f'# setup distributed computing'
-        config += f"if not dist.is_initialized():dist.init_process_group(backend={{'nccl'}},init_method={{'tcp://127.0.0.1:23456'}},rank=0,world_size=1)"
+        config += f'# setup distributed computing\n'
+        config += f"if not torch.distributed.is_initialized():\n\ttorch.distributed.init_process_group(backend=\'nccl\',init_method=\'tcp://127.0.0.1:23456\',rank=0,world_size=1)"
     else:
         raise NotImplementedError
     # add seeds
