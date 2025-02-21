@@ -25,7 +25,7 @@ class Decoder(torch.nn.Module):
             torch.nn.BatchNorm2d(self.mid_d),
             torch.nn.ReLU(inplace=True)
         )
-        self.cls = torch.nn.Conv2d(self.mid_d, 1, kernel_size=1)
+        self.cls = torch.nn.Conv2d(self.mid_d, 2, kernel_size=1)
 
     def forward(self, d2, d3, d4, d5):
         # high-level
