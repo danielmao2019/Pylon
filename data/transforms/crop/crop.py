@@ -1,17 +1,27 @@
-from typing import Tuple
+from typing import Tuple, Optional
 import torch
+import torchvision
+import data
 from data.transforms import BaseTransform
 
 
 class Crop(BaseTransform):
 
-    def __init__(self, loc: Tuple[int, int], size: Tuple[int, int]) -> None:
+    def __init__(
+        self,
+        loc: Tuple[int, int],
+        size: Tuple[int, int],
+        resize: Optional[Tuple[int, int]] = None,
+        interpolation: Optional[str] = 'bilinear',
+    ) -> None:
         """
         Initializes the Crop transform with a location and resolution.
 
         Args:
             loc (Tuple[int, int]): The (x, y) starting location of the crop.
             size (Tuple[int, int]): The (width, height) resolution of the crop.
+            resize (Optional[Tuple[int, int]]): Target size to resize the cropped tensor. Default is None.
+            interpolation (Optional[str]): Interpolation mode for resizing. Default is 'bilinear'.
 
         Raises:
             ValueError: If loc or size are not valid tuples of two positive integers.
@@ -24,18 +34,23 @@ class Crop(BaseTransform):
         self.loc = loc
         self.size = size
 
+        if resize is not None:
+            self.resize_op = data.transforms.resize.ResizeMaps(size=resize, interpolation=interpolation)
+        else:
+            self.resize_op = None
+
     def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
         """
         Crops a given tensor based on the provided location and resolution.
 
         Args:
-            tensor (torch.Tensor): The input tensor to crop. Must have at least 2 dimensions.
+            tensor (torch.Tensor): The input tensor to crop. Must have at least 2 spatial dimensions.
 
         Returns:
-            torch.Tensor: The cropped tensor.
+            torch.Tensor: The cropped (and possibly resized) tensor.
         """
         assert tensor.ndim >= 2, f"Tensor must have at least 2 dimensions, but got {tensor.shape=}"
-        
+
         # Extract crop parameters
         x_start, y_start = self.loc
         crop_width, crop_height = self.size
@@ -50,4 +65,9 @@ class Crop(BaseTransform):
 
         # Perform cropping
         tensor = tensor[..., y_start:y_end, x_start:x_end]
+
+        # Perform resizing if applicable
+        if self.resize_op is not None:
+            tensor = self.resize_op(tensor)
+
         return tensor

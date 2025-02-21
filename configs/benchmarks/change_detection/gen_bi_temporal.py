@@ -58,13 +58,16 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model'] = {{'class': models.change_detection.TinyCD, 'args': {{}}}}\n"
         config += '\n'
     elif model.startswith("ChangeFormer"):
-        if dataset == "air_change":
-            return
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
         config += '\n'
         config += f"from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg\n"
-        config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg((256, 256))\n"
+        if dataset == "air_change":
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(first='ResizeMaps', size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(112, 112), resize=(256, 256))\n"
+        else:
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
