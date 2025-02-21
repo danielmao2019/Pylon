@@ -32,12 +32,11 @@ class BaseNet_LWGANet_L2(torch.nn.Module):
 
         # change map
         mask_p2 = torch.nn.functional.interpolate(mask_p2, scale_factor=(4, 4), mode='bilinear')
-        mask_p2 = torch.sigmoid(mask_p2)
         mask_p3 = torch.nn.functional.interpolate(mask_p3, scale_factor=(8, 8), mode='bilinear')
-        mask_p3 = torch.sigmoid(mask_p3)
         mask_p4 = torch.nn.functional.interpolate(mask_p4, scale_factor=(16, 16), mode='bilinear')
-        mask_p4 = torch.sigmoid(mask_p4)
         mask_p5 = torch.nn.functional.interpolate(mask_p5, scale_factor=(32, 32), mode='bilinear')
-        mask_p5 = torch.sigmoid(mask_p5)
 
-        return {'mask_p2': mask_p2, 'mask_p3': mask_p3, 'mask_p4': mask_p4, 'mask_p5': mask_p5}
+        if self.training:
+            return {'mask_p2': mask_p2, 'mask_p3': mask_p3, 'mask_p4': mask_p4, 'mask_p5': mask_p5}
+        else:
+            return torch.where(mask_p2 > 0.5, torch.ones_like(mask_p2), torch.zeros_like(mask_p2))
