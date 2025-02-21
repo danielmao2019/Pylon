@@ -26,7 +26,7 @@ config = {
             'source': source_dataset,
             'dataset_size': len(source_dataset),
             'exchange_ratio': 0.75,
-            'transforms_cfg': transforms_cfg((224, 224)),
+            'transforms_cfg': transforms_cfg(size=(224, 224)),
         },
     },
     'train_dataloader': {

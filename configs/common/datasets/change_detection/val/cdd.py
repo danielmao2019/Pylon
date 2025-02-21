@@ -21,7 +21,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/CDD",
             'split': "val",
-            'transforms_cfg': transforms_cfg((224, 224)),
+            'transforms_cfg': transforms_cfg(size=(224, 224)),
         },
     },
     'val_dataloader': {

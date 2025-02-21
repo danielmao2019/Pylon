@@ -27,7 +27,7 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/AirChange",
             'split': "train",
-            'transforms_cfg': transforms_cfg((224, 224), first='ResizeMaps'),
+            'transforms_cfg': transforms_cfg(first='ResizeMaps', size=(224, 224)),
         },
     },
     'train_dataloader': {
