@@ -6,17 +6,17 @@ model_cfg_template = {
     'class': models.change_detection.STMambaBCD,
     'args': {
         # common
-        'PATCH_SIZE': 4,
-        'IN_CHANS': 3,
-        'SSM_RANK_RATIO': 2.0,
-        'SSM_ACT_LAYER': "silu",
-        'SSM_DROP_RATE': 0.0,
-        'SSM_INIT': "v0",
-        'MLP_ACT_LAYER': "gelu",
-        'MLP_DROP_RATE': 0.0,
-        'PATCH_NORM': True,
-        'NORM_LAYER': "ln",
-        'GMLP': False,
+        'patch_size': 4,
+        'in_chans': 3,
+        'ssm_rank_ratio': 2.0,
+        'ssm_act_layer': "silu",
+        'ssm_drop_rate': 0.0,
+        'ssm_init': "v0",
+        'mlp_act_layer': "gelu",
+        'mlp_drop_rate': 0.0,
+        'patch_norm': True,
+        'norm_layer': "ln",
+        'gmlp': False,
         'num_classes': 1000,  # this is used to initialize VSSM.classifier, which is unused
         # architecture-specific
         'pretrained': None,
