@@ -4,6 +4,7 @@ import data
 
 
 def transforms_cfg(size: Tuple[int, int], first: Optional[str] = "RandomCrop") -> dict:
+    assert first in {"RandomCrop", "ResizeMaps"}
     if first == "RandomCrop":
         first_transform = [(
             data.transforms.RandomCrop(size=size),
