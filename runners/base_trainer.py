@@ -12,7 +12,7 @@ import criteria
 import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
-from utils.progress import check_epoch_finished
+from utils.automation.progress import check_epoch_finished
 
 
 class BaseTrainer(ABC):

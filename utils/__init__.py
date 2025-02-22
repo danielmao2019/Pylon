@@ -13,7 +13,7 @@ from utils.automation import configs
 from utils import determinism
 from utils import gradients
 from utils import io
-from utils import progress
+from utils.automation import progress
 
 from utils import object_detection
 from utils import semantic_segmentation
