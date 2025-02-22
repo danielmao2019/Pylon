@@ -50,8 +50,8 @@ def get_index2pids(server: str) -> List[List[str]]:
 
 def get_all_p(server: str) -> Dict[str, Dict[str, str]]:
     cmd = ['ssh', server, "ps", "-eo", "pid,user,lstart,cmd"]
-    out = subprocess.check_output(cmd)
-    lines = out.decode().strip().splitlines()[1:]
+    out = subprocess.check_output(cmd).decode().splitlines()
+    lines = out[1:]
     result: Dict[str, Dict[str, str]] = {}
     for line in lines:
         if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
@@ -74,9 +74,10 @@ def get_server_status(server: str) -> List[Dict[str, Any]]:
 
 def get_user_pids(server: str) -> List[str]:
     cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-eo', 'pid']
-    outputs = subprocess.check_output(cmd).decode().strip()
-    result: List[str] = list(map(lambda x: x.strip(), outputs.split('\n')))
-    return result
+    result: List[str] = subprocess.check_output(cmd).decode().splitlines()
+    assert result[0].strip() == "PID", f"{result[0]=}"
+    result = result[1:]
+    return list(map(lambda x: x.strip(), result))
 
 
 def find_running(server: str) -> List[Dict[str, Any]]:
@@ -98,10 +99,13 @@ def find_running(server: str) -> List[Dict[str, Any]]:
             if pid not in user_pids:
                 continue
             cmd = ['ssh', server, 'ps', '-p', pid, '-eo', 'cmd']
-            running = subprocess.check_output(cmd).decode().strip()
+            command = subprocess.check_output(cmd).decode().splitlines()
+            assert command[0].strip() == "CMD", f"{command[0]=}"
+            assert len(command) == 2
+            command = command[1]
             all_running.append({
                 'server': server,
                 'gpu_index': gpu_index,
-                'command': running
+                'command': command
             })
     return all_running
