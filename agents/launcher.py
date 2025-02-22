@@ -8,8 +8,8 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 import utils
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.automation.run_status import get_session_progress, get_all_p, has_stuck, has_failed, parse_config
-from utils.automation.gpu_status import get_server_status
+from utils.automation.run_status import get_session_progress, has_stuck, has_failed, parse_config
+from utils.automation.gpu_status import get_server_status, get_all_p
 from agents import BaseAgent
 
 
