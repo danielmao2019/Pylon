@@ -256,7 +256,8 @@ class Launcher(BaseAgent):
         return all_idle_gpus
 
     def _remove_stuck(self) -> None:
-        stuck_cfgs = list(filter(has_stuck, self.config_files))
+        all_running = find_running()
+        stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
         stuck_cfgs_info = {}
         for server in self.servers:
             server_pids = get_all_p(server)

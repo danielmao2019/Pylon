@@ -79,7 +79,7 @@ def get_user_pids(server: str) -> List[str]:
     return result
 
 
-def find_running(self) -> List[Dict[str, Any]]:
+def find_running(server: str) -> List[Dict[str, Any]]:
     r"""This function finds all GPU processes launched by the user.
 
     Returns:
@@ -91,21 +91,20 @@ def find_running(self) -> List[Dict[str, Any]]:
         }
     """
     all_running: List[Dict[str, Any]] = []
-    for server in self.servers:
-        gpu_pids = get_index2pids(server)
-        user_pids = get_user_pids(server)
-        for gpu_index in range(len(gpu_pids)):
-            for pid in gpu_pids[gpu_index]:
-                if pid not in user_pids:
-                    continue
-                cmd = ' '.join([
-                    'ps', '-p', pid, '-o', 'cmd=',
-                ])
-                cmd = f"ssh {server} '" + cmd + "'"
-                running = subprocess.check_output(cmd, shell=True, text=True).strip()
-                all_running.append({
-                    'server': server,
-                    'gpu_index': gpu_index,
-                    'command': running
-                })
+    gpu_pids = get_index2pids(server)
+    user_pids = get_user_pids(server)
+    for gpu_index in range(len(gpu_pids)):
+        for pid in gpu_pids[gpu_index]:
+            if pid not in user_pids:
+                continue
+            cmd = ' '.join([
+                'ps', '-p', pid, '-o', 'cmd=',
+            ])
+            cmd = f"ssh {server} '" + cmd + "'"
+            running = subprocess.check_output(cmd, shell=True, text=True).strip()
+            all_running.append({
+                'server': server,
+                'gpu_index': gpu_index,
+                'command': running
+            })
     return all_running
