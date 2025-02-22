@@ -2,7 +2,7 @@ import os
 
 
 def get_work_dir(config_file: str) -> str:
-    return os.path.splitext(os.path.join("./logs", os.path.relpath(config_file, start="./configs")))[0]
+    return os.path.join("./logs", os.path.splitext(os.path.relpath(config_file, start="./configs"))[0])
 
 
 def get_config(work_dir: str) -> str:
