@@ -9,7 +9,7 @@ import time
 import glob
 import random
 import utils
-from utils.automation.run_status import check_epoch_finished
+from utils.automation.run_status import get_session_progress, has_failed
 from agents import BaseAgent
 
 
@@ -55,37 +55,6 @@ class Launcher(BaseAgent):
     # session status checking
     # ====================================================================================================
 
-    def _is_running(self, work_dir: str) -> bool:
-        # input checks
-        assert os.path.isdir(work_dir), f"{work_dir=}"
-        # determine if session is running
-        logs = glob.glob(os.path.join(work_dir, "train_val*.log"))
-        if len(logs) == 0:
-            return False
-        last_update = max([os.path.getmtime(fp) for fp in logs])
-        return time.time() - last_update <= self.sleep_time
-
-    def _get_session_progress(self, work_dir: str) -> int:
-        idx = 0
-        while True:
-            if idx >= self.epochs:
-                break
-            if not check_epoch_finished(
-                epoch_dir=os.path.join(work_dir, f"epoch_{idx}"),
-                expected_files=self.expected_files,
-                check_load=False,
-            ):
-                break
-            idx += 1
-        return idx
-
-    def _has_finished(self, work_dir: str) -> bool:
-        assert os.path.isdir(work_dir), f"{work_dir=}"
-        return self._get_session_progress(work_dir) == self.epochs
-
-    def _has_failed(self, work_dir: str) -> bool:
-        return not self._is_running(work_dir) and not self._has_finished(work_dir)
-
     def _find_missing_runs(self) -> List[str]:
         r"""
         Returns:
@@ -94,7 +63,7 @@ class Launcher(BaseAgent):
         result: List[str] = []
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
-            if not os.path.isdir(work_dir) or self._has_failed(work_dir):
+            if not os.path.isdir(work_dir) or has_failed(work_dir):
                 result.append(config_file)
         return result
 
@@ -215,7 +184,7 @@ class Launcher(BaseAgent):
         result: int = 0
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
-            cur_epochs = self._get_session_progress(work_dir)
+            cur_epochs = get_session_progress(work_dir)
             percentage = int(cur_epochs / self.epochs * 100)
             result += percentage
         result: float = round(result / len(self.config_files), 2)
