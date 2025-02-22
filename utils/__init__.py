@@ -9,7 +9,7 @@ from utils import models
 from utils import ops
 from utils import paper
 
-from utils import configs
+from utils.automation import configs
 from utils import determinism
 from utils import gradients
 from utils import io
