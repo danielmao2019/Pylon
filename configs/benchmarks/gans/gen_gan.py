@@ -44,7 +44,7 @@ def main() -> None:
     config += '\n'
     # add seeds
     relpath = os.path.join("benchmarks", "gans", "gan")
-    seeded_configs: List[str] = utils.configs.generate_seeds(
+    seeded_configs: List[str] = utils.automation.configs.generate_seeds(
         template_config=config, base_seed=relpath,
     )
     # save to disk

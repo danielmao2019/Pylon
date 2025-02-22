@@ -1,31 +1,27 @@
 from typing import List, Dict, Any, Optional
 import os
-import subprocess
+import time
+import random
 import threading
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
-import time
-import glob
-import json
-import random
-import torch
-import matplotlib.pyplot as plt
-import tqdm
 import utils
-from utils.ops import transpose_buffer
-from utils.progress import check_epoch_finished
+from utils.automation.run_status import get_session_progress, has_failed
+from utils.automation.gpu_status import get_server_status
+from agents import BaseAgent
 
 
-class Agent:
+class Launcher(BaseAgent):
 
     def __init__(
         self,
+        config_files: List[str],
+        expected_files: List[str],
         project_dir: str,
         conda_env: str,
-        config_files: List[str],
         servers: List[str],
-        expected_files: List[str],
+        log_path: str,
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
         keep_tmux: Optional[bool] = False,
@@ -37,15 +33,14 @@ class Agent:
             expected_files (List[str]): the expected files under a work dir to check for.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
         """
+        super(Launcher, self).__init__(config_files=config_files, expected_files=expected_files)
         self.project_dir = project_dir
         self.conda_env = conda_env
-        self.config_files = config_files
         self.servers = servers
-        self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
-        self.logger = utils.logging.Logger(filepath="./project/run_agent.log")
+        self.logger = utils.logging.Logger(filepath=log_path)
         self._init_status()
 
     def _init_status(self) -> None:
@@ -56,127 +51,6 @@ class Agent:
             time.sleep(1)
         self.logger.info("Done.")
 
-    # ====================================================================================================
-    # session status checking
-    # ====================================================================================================
-
-    def _is_running(self, work_dir: str) -> bool:
-        # input checks
-        assert os.path.isdir(work_dir), f"{work_dir=}"
-        # determine if session is running
-        logs = glob.glob(os.path.join(work_dir, "train_val*.log"))
-        if len(logs) == 0:
-            return False
-        last_update = max([os.path.getmtime(fp) for fp in logs])
-        return time.time() - last_update <= self.sleep_time
-
-    def _get_session_progress(self, work_dir: str) -> int:
-        idx = 0
-        while True:
-            if idx >= self.epochs:
-                break
-            if not check_epoch_finished(
-                epoch_dir=os.path.join(work_dir, f"epoch_{idx}"),
-                expected_files=self.expected_files,
-                check_load=False,
-            ):
-                break
-            idx += 1
-        return idx
-
-    def _has_finished(self, work_dir: str) -> bool:
-        assert os.path.isdir(work_dir), f"{work_dir=}"
-        return self._get_session_progress(work_dir) == self.epochs
-
-    def _has_failed(self, work_dir: str) -> bool:
-        return not self._is_running(work_dir) and not self._has_finished(work_dir)
-
-    def _find_missing_runs(self) -> List[str]:
-        r"""
-        Returns:
-            result (List[str]): the config filepaths for the missing experiment runs.
-        """
-        result: List[str] = []
-        for config_file in self.config_files:
-            work_dir = Agent._get_work_dir(config_file)
-            if not os.path.isdir(work_dir) or self._has_failed(work_dir):
-                result.append(config_file)
-        return result
-
-    # ====================================================================================================
-    # GPU status checking
-    # ====================================================================================================
-
-    @staticmethod
-    def _build_mapping(output: str) -> Dict[str, List[str]]:
-        lines = output.decode().strip().splitlines()
-        assert type(lines) == list
-        assert all([type(elem) == str for elem in lines])
-        lines = [line.strip().split(", ") for line in lines]
-        assert all([len(line) == 2 for line in lines])
-        result: Dict[str, List[str]] = {}
-        for line in lines:
-            result[line[0]] = result.get(line[0], []) + [line[1]]
-        return result
-
-    @staticmethod
-    def _get_index2util(server: str) -> List[Dict[str, int]]:
-        fmem_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,memory.free', '--format=csv,noheader,nounits']
-        util_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,utilization.gpu', '--format=csv,noheader,nounits']
-        fmem_out: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(fmem_cmd))
-        util_out: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(util_cmd))
-        index2fmem: List[int] = []
-        index2util: List[int] = []
-        for index in fmem_out:
-            assert len(fmem_out[index]) == 1
-            index2fmem.append(int(fmem_out[index][0]))
-        for index in util_out:
-            assert len(util_out[index]) == 1
-            index2util.append(int(util_out[index][0]))
-        result: List[Dict[str, int]] = [{
-            'fmem': fmem,
-            'util': util,
-        } for fmem, util in zip(index2fmem, index2util)]
-        return result
-
-    @staticmethod
-    def _get_index2pids(server: str) -> List[List[str]]:
-        index2gpu_uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader']
-        gpu_uuid2pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader']
-        index2gpu_uuid: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(index2gpu_uuid_cmd))
-        gpu_uuid2pids: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(gpu_uuid2pids_cmd))
-        num_gpus = len(index2gpu_uuid)
-        result: List[List[str]] = [None] * num_gpus
-        for idx in range(num_gpus):
-            assert len(index2gpu_uuid[str(idx)]) == 1
-            gpu_uuid = index2gpu_uuid[str(idx)][0]
-            result[idx] = gpu_uuid2pids.get(gpu_uuid, [])
-        return result
-
-    @staticmethod
-    def _get_all_p(server: str) -> Dict[str, Dict[str, str]]:
-        cmd = ['ssh', server, "ps", "-eo", "pid,user,lstart,cmd"]
-        out = subprocess.check_output(cmd)
-        lines = out.decode().strip().splitlines()[1:]
-        result: Dict[str, Dict[str, str]] = {}
-        for line in lines:
-            if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
-                continue
-            parts = line.split()
-            result[parts[0]] = {'pid': parts[0], 'user': parts[1], 'start': ' '.join(parts[2:7]), 'cmd': ' '.join(parts[7:])}
-        return result
-
-    @staticmethod
-    def _get_server_status(server: str) -> List[Dict[str, Any]]:
-        index2pids = Agent._get_index2pids(server)
-        all_p = Agent._get_all_p(server)
-        index2util = Agent._get_index2util(server)
-        result: List[Dict[str, Any]] = [{
-            'processes': [all_p[pid] for pid in pids if pid in all_p],
-            'util': util,
-        } for pids, util in zip(index2pids, index2util)]
-        return result
-
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
             for server in self.servers:
@@ -185,7 +59,7 @@ class Agent:
                     self.status[server] = []
                 # retrieve
                 try:
-                    server_status = Agent._get_server_status(server)
+                    server_status = get_server_status(server)
                 except Exception as e:
                     self.logger.error(f"{server=}, {e}")
                     continue
@@ -220,7 +94,7 @@ class Agent:
         result: int = 0
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
-            cur_epochs = self._get_session_progress(work_dir)
+            cur_epochs = get_session_progress(work_dir=work_dir, expected_files=self.expected_files, epochs=self.epochs)
             percentage = int(cur_epochs / self.epochs * 100)
             result += percentage
         result: float = round(result / len(self.config_files), 2)
@@ -337,46 +211,22 @@ class Agent:
         app.run_server(debug=True, port=port)
 
     # ====================================================================================================
-    # GPU status checking - level 2
+    # experiment management
     # ====================================================================================================
 
-    @staticmethod
-    def _get_user_pids(server: str) -> List[str]:
-        cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-o', 'pid=']
-        outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
-        result: List[str] = list(map(lambda x: x.strip(), outputs.split('\n')))
-        return result
-
-    def _find_running(self) -> List[Dict[str, Any]]:
-        r"""This function finds all GPU processes launched by the user.
-
+    def _find_missing_runs(self) -> List[str]:
+        r"""
         Returns:
-            all_running (List[Dict[str, Any]]): a list of dictionaries with the following fields
-            {
-                server (str): a string in <user_name>@<server_ip> format.
-                gpu_index (int): index of GPU on the server.
-                command (str): the command this GPU is running by the user.
-            }
+            result (List[str]): the config filepaths for the missing experiment runs.
         """
-        all_running: List[Dict[str, Any]] = []
-        for server in self.servers:
-            gpu_pids = Agent._get_index2pids(server)
-            user_pids = Agent._get_user_pids(server)
-            for gpu_index in range(len(gpu_pids)):
-                for pid in gpu_pids[gpu_index]:
-                    if pid not in user_pids:
-                        continue
-                    cmd = ' '.join([
-                        'ps', '-p', pid, '-o', 'cmd=',
-                    ])
-                    cmd = f"ssh {server} '" + cmd + "'"
-                    running = subprocess.check_output(cmd, shell=True, text=True).strip()
-                    all_running.append({
-                        'server': server,
-                        'gpu_index': gpu_index,
-                        'command': running
-                    })
-        return all_running
+        result: List[str] = []
+        for config_file in self.config_files:
+            work_dir = self._get_work_dir(config_file)
+            if not os.path.isdir(work_dir) or has_failed(
+                work_dir, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
+            ):
+                result.append(config_file)
+        return result
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
@@ -403,10 +253,6 @@ class Agent:
                         'gpu_index': idx,
                     })
         return all_idle_gpus
-
-    # ====================================================================================================
-    # experiment management
-    # ====================================================================================================
 
     def _launch_missing(self, num_jobs: int) -> bool:
         r"""
@@ -462,78 +308,3 @@ class Agent:
                 self.logger.info("All done.")
             self.logger.info("")
             time.sleep(self.sleep_time)
-
-    # ====================================================================================================
-    # plotting
-    # ====================================================================================================
-
-    def _plot_training_losses_single(self, config_file: str) -> None:
-        # load training losses
-        work_dir = Agent._get_work_dir(config_file)
-        logs: List[Dict[str, torch.Tensor]] = []
-        idx = 0
-        while True:
-            epoch_dir = os.path.join(work_dir, f"epoch_{idx}")
-            if not all([
-                os.path.isfile(os.path.join(epoch_dir, filename))
-                for filename in self.expected_files
-            ]):
-                break
-            logs.append(torch.load(os.path.join(epoch_dir, "training_losses.pt")))
-            idx += 1
-        logs: Dict[str, List[torch.Tensor]] = transpose_buffer(logs)
-        # plot training losses
-        for key in logs:
-            plt.figure()
-            plt.plot(torch.stack(logs[key], dim=0).tolist())
-            plt.xlabel("Iteration")
-            plt.ylabel("Loss")
-            plt.title(f"Training Losses: {key}")
-            # save to disk
-            output_dir = os.path.join(work_dir, "visualization")
-            os.makedirs(output_dir, exist_ok=True)
-            plt.savefig(os.path.join(output_dir, f"training_losses_{key}.png"))
-        return
-
-    def _plot_validation_scores_single(self, config_file: str) -> None:
-        # load validation scores
-        work_dir = Agent._get_work_dir(config_file)
-        logs: List[Dict[str, float]] = []
-        idx = 0
-        while True:
-            epoch_dir = os.path.join(work_dir, f"epoch_{idx}")
-            if not all([
-                os.path.isfile(os.path.join(epoch_dir, filename))
-                for filename in self.expected_files
-            ]):
-                break
-            logs.append(json.load(os.path.join(epoch_dir, "validation_scores.json")))
-            idx += 1
-        logs: Dict[str, List[torch.Tensor]] = transpose_buffer(logs)
-        # plot validation scores
-        for key in logs:
-            plt.figure()
-            plt.plot(torch.stack(logs[key], dim=0).tolist())
-            plt.xlabel("Epoch")
-            plt.ylabel("Score")
-            plt.title(f"Validation Scores: {key}")
-            # save to disk
-            output_dir = os.path.join(work_dir, "visualization")
-            os.makedirs(output_dir, exist_ok=True)
-            plt.savefig(os.path.join(output_dir, f"validation_scores_{key}.png"))
-        return
-
-    def plot_training_losses_all(self) -> None:
-        for config_file in tqdm.tqdm(self.config_files):
-            self._plot_training_losses_single(config_file)
-
-    def plot_validation_scores_all(self) -> None:
-        for config_file in tqdm.tqdm(self.config_files):
-            self._plot_validation_scores_single(config_file)
-
-    # ====================================================================================================
-    # ====================================================================================================
-
-    @staticmethod
-    def _get_work_dir(config_file: str) -> str:
-        return os.path.splitext(os.path.join("./logs", os.path.relpath(config_file, start="./configs")))[0]
