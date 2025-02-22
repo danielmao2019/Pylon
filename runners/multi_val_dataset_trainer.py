@@ -6,7 +6,7 @@ import torch
 from runners import SupervisedSingleTaskTrainer
 from utils.builders import build_from_config
 from utils.io import save_json
-from utils.automation.progress import check_epoch_finished
+from utils.automation.run_status import check_epoch_finished
 
 
 class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):

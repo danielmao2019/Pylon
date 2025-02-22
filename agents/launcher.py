@@ -9,7 +9,7 @@ import time
 import glob
 import random
 import utils
-from utils.automation.progress import check_epoch_finished
+from utils.automation.run_status import check_epoch_finished
 from agents import BaseAgent
 
 
