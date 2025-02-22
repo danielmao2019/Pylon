@@ -120,7 +120,7 @@ def main(dataset: str, model: str) -> None:
         raise NotImplementedError
     # add seeds
     relpath = os.path.join("benchmarks", "change_detection", dataset)
-    seeded_configs: List[str] = utils.configs.generate_seeds(
+    seeded_configs: List[str] = utils.automation.configs.generate_seeds(
         template_config=config, base_seed=relpath,
     )
     # save to disk

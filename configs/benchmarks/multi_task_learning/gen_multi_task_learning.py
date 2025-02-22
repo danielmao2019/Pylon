@@ -59,7 +59,7 @@ def gen_single_task_configs(dataset_name: str, model_name: str, task_name: str) 
     config += '\n'
     # add seeds
     relpath: str = os.path.join("benchmarks", "multi_task_learning", dataset_name, model_name)
-    seeded_configs: List[str] = utils.configs.generate_seeds(
+    seeded_configs: List[str] = utils.automation.configs.generate_seeds(
         template_config=config,
         base_seed=os.path.join(relpath, f"single_task_{task_name}"),
     )
@@ -101,7 +101,7 @@ def gen_method_configs(dataset_name: str, model_name: str, method_name: str) -> 
     config += '\n'
     # add seeds
     relpath: str = os.path.join("benchmarks", "multi_task_learning", dataset_name, model_name)
-    seeded_configs: List[str] = utils.configs.generate_seeds(
+    seeded_configs: List[str] = utils.automation.configs.generate_seeds(
         template_config=config,
         base_seed=os.path.join(relpath, method_name),
     )
