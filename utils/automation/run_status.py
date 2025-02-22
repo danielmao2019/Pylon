@@ -32,13 +32,13 @@ def get_session_progress(work_dir: str, expected_files: List[str], epochs: int) 
     return idx
 
 
-def has_finished(work_dir: str, epochs: int) -> bool:
+def has_finished(work_dir: str, expected_files: List[str], epochs: int) -> bool:
     assert os.path.isdir(work_dir), f"{work_dir=}"
-    return get_session_progress(work_dir) == epochs
+    return get_session_progress(work_dir, expected_files=expected_files, epochs=epochs) == epochs
 
 
-def has_failed(work_dir: str, sleep_time: int, epochs: int) -> bool:
-    return not is_running(work_dir, sleep_time) and not has_finished(work_dir, epochs)
+def has_failed(work_dir: str, sleep_time: int, expected_files: List[str], epochs: int) -> bool:
+    return not is_running(work_dir, sleep_time) and not has_finished(work_dir, expected_files=expected_files, epochs=epochs)
 
 
 def _check_file_loadable(filepath: str) -> bool:

@@ -222,7 +222,9 @@ class Launcher(BaseAgent):
         result: List[str] = []
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
-            if not os.path.isdir(work_dir) or has_failed(work_dir, sleep_time=self.sleep_time, epochs=self.epochs):
+            if not os.path.isdir(work_dir) or has_failed(
+                work_dir, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
+            ):
                 result.append(config_file)
         return result
 
