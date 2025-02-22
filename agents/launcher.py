@@ -7,25 +7,21 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 import time
 import glob
-import json
 import random
-import torch
-import matplotlib.pyplot as plt
-import tqdm
 import utils
-from utils.ops import transpose_buffer
 from utils.progress import check_epoch_finished
+from agents import BaseAgent
 
 
-class Agent:
+class Launcher(BaseAgent):
 
     def __init__(
         self,
+        config_files: List[str],
+        expected_files: List[str],
         project_dir: str,
         conda_env: str,
-        config_files: List[str],
         servers: List[str],
-        expected_files: List[str],
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
         keep_tmux: Optional[bool] = False,
@@ -37,11 +33,10 @@ class Agent:
             expected_files (List[str]): the expected files under a work dir to check for.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
         """
+        super(Launcher, self).__init__(config_files=config_files, expected_files=expected_files)
         self.project_dir = project_dir
         self.conda_env = conda_env
-        self.config_files = config_files
         self.servers = servers
-        self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
@@ -98,7 +93,7 @@ class Agent:
         """
         result: List[str] = []
         for config_file in self.config_files:
-            work_dir = Agent._get_work_dir(config_file)
+            work_dir = self._get_work_dir(config_file)
             if not os.path.isdir(work_dir) or self._has_failed(work_dir):
                 result.append(config_file)
         return result
@@ -123,8 +118,8 @@ class Agent:
     def _get_index2util(server: str) -> List[Dict[str, int]]:
         fmem_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,memory.free', '--format=csv,noheader,nounits']
         util_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,utilization.gpu', '--format=csv,noheader,nounits']
-        fmem_out: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(fmem_cmd))
-        util_out: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(util_cmd))
+        fmem_out: Dict[str, List[str]] = Launcher._build_mapping(subprocess.check_output(fmem_cmd))
+        util_out: Dict[str, List[str]] = Launcher._build_mapping(subprocess.check_output(util_cmd))
         index2fmem: List[int] = []
         index2util: List[int] = []
         for index in fmem_out:
@@ -143,8 +138,8 @@ class Agent:
     def _get_index2pids(server: str) -> List[List[str]]:
         index2gpu_uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader']
         gpu_uuid2pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader']
-        index2gpu_uuid: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(index2gpu_uuid_cmd))
-        gpu_uuid2pids: Dict[str, List[str]] = Agent._build_mapping(subprocess.check_output(gpu_uuid2pids_cmd))
+        index2gpu_uuid: Dict[str, List[str]] = Launcher._build_mapping(subprocess.check_output(index2gpu_uuid_cmd))
+        gpu_uuid2pids: Dict[str, List[str]] = Launcher._build_mapping(subprocess.check_output(gpu_uuid2pids_cmd))
         num_gpus = len(index2gpu_uuid)
         result: List[List[str]] = [None] * num_gpus
         for idx in range(num_gpus):
@@ -168,9 +163,9 @@ class Agent:
 
     @staticmethod
     def _get_server_status(server: str) -> List[Dict[str, Any]]:
-        index2pids = Agent._get_index2pids(server)
-        all_p = Agent._get_all_p(server)
-        index2util = Agent._get_index2util(server)
+        index2pids = Launcher._get_index2pids(server)
+        all_p = Launcher._get_all_p(server)
+        index2util = Launcher._get_index2util(server)
         result: List[Dict[str, Any]] = [{
             'processes': [all_p[pid] for pid in pids if pid in all_p],
             'util': util,
@@ -185,7 +180,7 @@ class Agent:
                     self.status[server] = []
                 # retrieve
                 try:
-                    server_status = Agent._get_server_status(server)
+                    server_status = Launcher._get_server_status(server)
                 except Exception as e:
                     self.logger.error(f"{server=}, {e}")
                     continue
@@ -360,8 +355,8 @@ class Agent:
         """
         all_running: List[Dict[str, Any]] = []
         for server in self.servers:
-            gpu_pids = Agent._get_index2pids(server)
-            user_pids = Agent._get_user_pids(server)
+            gpu_pids = Launcher._get_index2pids(server)
+            user_pids = Launcher._get_user_pids(server)
             for gpu_index in range(len(gpu_pids)):
                 for pid in gpu_pids[gpu_index]:
                     if pid not in user_pids:
@@ -462,78 +457,3 @@ class Agent:
                 self.logger.info("All done.")
             self.logger.info("")
             time.sleep(self.sleep_time)
-
-    # ====================================================================================================
-    # plotting
-    # ====================================================================================================
-
-    def _plot_training_losses_single(self, config_file: str) -> None:
-        # load training losses
-        work_dir = Agent._get_work_dir(config_file)
-        logs: List[Dict[str, torch.Tensor]] = []
-        idx = 0
-        while True:
-            epoch_dir = os.path.join(work_dir, f"epoch_{idx}")
-            if not all([
-                os.path.isfile(os.path.join(epoch_dir, filename))
-                for filename in self.expected_files
-            ]):
-                break
-            logs.append(torch.load(os.path.join(epoch_dir, "training_losses.pt")))
-            idx += 1
-        logs: Dict[str, List[torch.Tensor]] = transpose_buffer(logs)
-        # plot training losses
-        for key in logs:
-            plt.figure()
-            plt.plot(torch.stack(logs[key], dim=0).tolist())
-            plt.xlabel("Iteration")
-            plt.ylabel("Loss")
-            plt.title(f"Training Losses: {key}")
-            # save to disk
-            output_dir = os.path.join(work_dir, "visualization")
-            os.makedirs(output_dir, exist_ok=True)
-            plt.savefig(os.path.join(output_dir, f"training_losses_{key}.png"))
-        return
-
-    def _plot_validation_scores_single(self, config_file: str) -> None:
-        # load validation scores
-        work_dir = Agent._get_work_dir(config_file)
-        logs: List[Dict[str, float]] = []
-        idx = 0
-        while True:
-            epoch_dir = os.path.join(work_dir, f"epoch_{idx}")
-            if not all([
-                os.path.isfile(os.path.join(epoch_dir, filename))
-                for filename in self.expected_files
-            ]):
-                break
-            logs.append(json.load(os.path.join(epoch_dir, "validation_scores.json")))
-            idx += 1
-        logs: Dict[str, List[torch.Tensor]] = transpose_buffer(logs)
-        # plot validation scores
-        for key in logs:
-            plt.figure()
-            plt.plot(torch.stack(logs[key], dim=0).tolist())
-            plt.xlabel("Epoch")
-            plt.ylabel("Score")
-            plt.title(f"Validation Scores: {key}")
-            # save to disk
-            output_dir = os.path.join(work_dir, "visualization")
-            os.makedirs(output_dir, exist_ok=True)
-            plt.savefig(os.path.join(output_dir, f"validation_scores_{key}.png"))
-        return
-
-    def plot_training_losses_all(self) -> None:
-        for config_file in tqdm.tqdm(self.config_files):
-            self._plot_training_losses_single(config_file)
-
-    def plot_validation_scores_all(self) -> None:
-        for config_file in tqdm.tqdm(self.config_files):
-            self._plot_validation_scores_single(config_file)
-
-    # ====================================================================================================
-    # ====================================================================================================
-
-    @staticmethod
-    def _get_work_dir(config_file: str) -> str:
-        return os.path.splitext(os.path.join("./logs", os.path.relpath(config_file, start="./configs")))[0]
