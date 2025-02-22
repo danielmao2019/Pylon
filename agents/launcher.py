@@ -300,10 +300,10 @@ class Launcher(BaseAgent):
             os.system(cmd)
         return False
 
-    def spawn(self, num_job: Optional[int] = 1) -> None:
+    def spawn(self, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
-            done = self._launch_missing(num_job)
+            done = self._launch_missing(num_jobs=num_jobs)
             if done:
                 self.logger.info("All done.")
             self.logger.info("")
