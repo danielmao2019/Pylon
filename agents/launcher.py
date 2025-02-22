@@ -263,11 +263,13 @@ class Launcher(BaseAgent):
         stuck_cfgs_info = {}
         for server in self.servers:
             server_pids = get_all_p(server)
-            server_pids = {
-                parse_config(server_pids[pid]['cmd']): (server, pid)
-                for pid in server_pids if parse_config(server_pids[pid]['cmd']) in stuck_cfgs
-            }
-            stuck_cfgs_info.update(server_pids)
+            for pid in server_pids:
+                try:
+                    cfg = parse_config(server_pids[pid]['cmd'])
+                    if cfg in stuck_cfgs:
+                        stuck_cfgs_info[cfg] = (server, pid)
+                except:
+                    pass
         self.logger.info(f"{stuck_cfgs_info=}")
 
     def _launch_missing(self, num_jobs: int) -> bool:
