@@ -1,25 +1,6 @@
 from typing import List, Optional
-import os
 import random
 import re
-
-
-bool_pattern = "(True|False)"
-int_pattern = "(?:\+|-)?\d+"
-float_pattern = "(?:(?:(?:\+|-)?\d+\.\d+)|(?:\d+\.?\d*e(?:\+|-)?\d+))"
-str_pattern = "\"[^\"]*\""
-list_int_pattern = f"\[(?:{int_pattern}(?:, )?)*\]"
-list_float_pattern = f"\[(?:{float_pattern}(?:, )?)*\]"
-
-
-def _update_config(config, key, val, type_pattern) -> str:
-    pattern = f"'{key}': {type_pattern},"
-    assert len(re.findall(pattern=pattern, string=config)) == 1, f"{pattern=}, {config=}"
-    config = re.sub(
-        pattern=pattern, string=config,
-        repl=f"'{key}': {str(val)},",
-    )
-    return config
 
 
 def generate_seeds(
