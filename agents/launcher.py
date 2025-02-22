@@ -51,26 +51,6 @@ class Launcher(BaseAgent):
             time.sleep(1)
         self.logger.info("Done.")
 
-    # ====================================================================================================
-    # session status checking
-    # ====================================================================================================
-
-    def _find_missing_runs(self) -> List[str]:
-        r"""
-        Returns:
-            result (List[str]): the config filepaths for the missing experiment runs.
-        """
-        result: List[str] = []
-        for config_file in self.config_files:
-            work_dir = self._get_work_dir(config_file)
-            if not os.path.isdir(work_dir) or has_failed(work_dir):
-                result.append(config_file)
-        return result
-
-    # ====================================================================================================
-    # GPU status checking
-    # ====================================================================================================
-
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
             for server in self.servers:
@@ -231,39 +211,20 @@ class Launcher(BaseAgent):
         app.run_server(debug=True, port=port)
 
     # ====================================================================================================
-    # GPU status checking - level 2
+    # experiment management
     # ====================================================================================================
 
-    def _find_running(self) -> List[Dict[str, Any]]:
-        r"""This function finds all GPU processes launched by the user.
-
+    def _find_missing_runs(self) -> List[str]:
+        r"""
         Returns:
-            all_running (List[Dict[str, Any]]): a list of dictionaries with the following fields
-            {
-                server (str): a string in <user_name>@<server_ip> format.
-                gpu_index (int): index of GPU on the server.
-                command (str): the command this GPU is running by the user.
-            }
+            result (List[str]): the config filepaths for the missing experiment runs.
         """
-        all_running: List[Dict[str, Any]] = []
-        for server in self.servers:
-            gpu_pids = get_index2pids(server)
-            user_pids = get_user_pids(server)
-            for gpu_index in range(len(gpu_pids)):
-                for pid in gpu_pids[gpu_index]:
-                    if pid not in user_pids:
-                        continue
-                    cmd = ' '.join([
-                        'ps', '-p', pid, '-o', 'cmd=',
-                    ])
-                    cmd = f"ssh {server} '" + cmd + "'"
-                    running = subprocess.check_output(cmd, shell=True, text=True).strip()
-                    all_running.append({
-                        'server': server,
-                        'gpu_index': gpu_index,
-                        'command': running
-                    })
-        return all_running
+        result: List[str] = []
+        for config_file in self.config_files:
+            work_dir = self._get_work_dir(config_file)
+            if not os.path.isdir(work_dir) or has_failed(work_dir):
+                result.append(config_file)
+        return result
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
@@ -290,10 +251,6 @@ class Launcher(BaseAgent):
                         'gpu_index': idx,
                     })
         return all_idle_gpus
-
-    # ====================================================================================================
-    # experiment management
-    # ====================================================================================================
 
     def _launch_missing(self, num_jobs: int) -> bool:
         r"""
