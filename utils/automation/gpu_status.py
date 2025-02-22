@@ -48,7 +48,7 @@ def get_index2pids(server: str) -> List[List[str]]:
     return result
 
 
-def _get_all_p(server: str) -> Dict[str, Dict[str, str]]:
+def get_all_p(server: str) -> Dict[str, Dict[str, str]]:
     cmd = ['ssh', server, "ps", "-eo", "pid,user,lstart,cmd"]
     out = subprocess.check_output(cmd)
     lines = out.decode().strip().splitlines()[1:]
@@ -63,7 +63,7 @@ def _get_all_p(server: str) -> Dict[str, Dict[str, str]]:
 
 def get_server_status(server: str) -> List[Dict[str, Any]]:
     index2pids = get_index2pids(server)
-    all_p = _get_all_p(server)
+    all_p = get_all_p(server)
     index2util = _get_index2util(server)
     result: List[Dict[str, Any]] = [{
         'processes': [all_p[pid] for pid in pids if pid in all_p],

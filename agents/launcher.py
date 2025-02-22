@@ -8,7 +8,7 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 import utils
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.automation.run_status import get_session_progress, has_failed
+from utils.automation.run_status import get_session_progress, get_all_p, has_stuck, has_failed, parse_config
 from utils.automation.gpu_status import get_server_status
 from agents import BaseAgent
 
@@ -255,6 +255,18 @@ class Launcher(BaseAgent):
                     })
         return all_idle_gpus
 
+    def _remove_stuck(self) -> None:
+        stuck_cfgs = list(filter(has_stuck, self.config_files))
+        stuck_cfgs_info = {}
+        for server in self.servers:
+            server_pids = get_all_p(server)
+            server_pids = {
+                parse_config(server_pids[pid]['cmd']): (server, pid)
+                for pid in server_pids if parse_config(server_pids[pid]['cmd']) in stuck_cfgs
+            }
+            stuck_cfgs_info.update(server_pids)
+        self.logger.info(f"{stuck_cfgs_info=}")
+
     def _launch_missing(self, num_jobs: int) -> bool:
         r"""
         Returns:
@@ -304,6 +316,7 @@ class Launcher(BaseAgent):
     def spawn(self, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
+            self._remove_stuck()
             done = self._launch_missing(num_jobs=num_jobs)
             if done:
                 self.logger.info("All done.")

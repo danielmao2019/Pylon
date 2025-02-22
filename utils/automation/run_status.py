@@ -38,13 +38,15 @@ def has_finished(work_dir: str, expected_files: List[str], epochs: int) -> bool:
     return get_session_progress(work_dir, expected_files=expected_files, epochs=epochs) == epochs
 
 
+def parse_config(cmd: str) -> str:
+    parts = cmd.split(' ')
+    for idx, part in enumerate(parts):
+        if part == "--config-filepath":
+            return parts[idx+1]
+
+
 def has_stuck(work_dir: str, all_running: List[Dict[str, Any]]) -> bool:
-    def _parse_config(cmd: str) -> str:
-        parts = cmd.split(' ')
-        for idx, part in enumerate(parts):
-            if part == "--config-filepath":
-                return parts[idx+1]
-    all_running_configs = list(map(lambda x: _parse_config(x['command']), all_running))
+    all_running_configs = list(map(lambda x: parse_config(x['command']), all_running))
     all_running_work_dirs = list(map(get_work_dir, all_running_configs))
     return (not is_running(work_dir)) and (work_dir in all_running_work_dirs)
 
