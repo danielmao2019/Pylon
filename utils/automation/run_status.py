@@ -46,10 +46,10 @@ def parse_config(cmd: str) -> str:
     raise RuntimeError(f"Not able to parse config filepath from command {cmd}.")
 
 
-def has_stuck(work_dir: str, all_running: List[Dict[str, Any]]) -> bool:
+def has_stuck(work_dir: str, all_running: List[Dict[str, Any]], sleep_time: Optional[int] = 86400) -> bool:
     all_running_configs = list(map(lambda x: parse_config(x['command']), all_running))
     all_running_work_dirs = list(map(get_work_dir, all_running_configs))
-    return (not is_running(work_dir)) and (work_dir in all_running_work_dirs)
+    return (not is_running(work_dir, sleep_time=sleep_time)) and (work_dir in all_running_work_dirs)
 
 
 def has_failed(work_dir: str, sleep_time: int, expected_files: List[str], epochs: int) -> bool:
