@@ -38,15 +38,23 @@ def has_finished(work_dir: str, expected_files: List[str], epochs: int) -> bool:
 
 
 def parse_config(cmd: str) -> str:
+    assert 'python' in cmd
+    assert '--config-filepath' in cmd
     parts = cmd.split(' ')
     for idx, part in enumerate(parts):
         if part == "--config-filepath":
             return parts[idx+1]
-    raise RuntimeError(f"Not able to parse config filepath from command {cmd}.")
+    assert 0
 
 
 def has_stuck(work_dir: str, all_running: List[Dict[str, Any]], sleep_time: Optional[int] = 86400) -> bool:
-    all_running_configs = list(map(lambda x: parse_config(x['command']), all_running))
+    all_running_configs = []
+    for running in all_running:
+        try:
+            cfg = parse_config(running['command'])
+            all_running_configs.append(cfg)
+        except:
+            pass
     all_running_work_dirs = list(map(get_work_dir, all_running_configs))
     return (not is_running(work_dir, sleep_time=sleep_time)) and (work_dir in all_running_work_dirs)
 
