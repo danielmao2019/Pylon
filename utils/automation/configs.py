@@ -12,7 +12,7 @@ list_int_pattern = f"\[(?:{int_pattern}(?:, )?)*\]"
 list_float_pattern = f"\[(?:{float_pattern}(?:, )?)*\]"
 
 
-def update_config(config, key, val, type_pattern) -> str:
+def _update_config(config, key, val, type_pattern) -> str:
     pattern = f"'{key}': {type_pattern},"
     assert len(re.findall(pattern=pattern, string=config)) == 1, f"{pattern=}, {config=}"
     config = re.sub(
