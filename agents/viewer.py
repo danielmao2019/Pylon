@@ -5,6 +5,7 @@ import torch
 import tqdm
 import matplotlib.pyplot as plt
 from utils.ops import transpose_buffer
+from utils.automation.cfg_log_conversion import get_work_dir
 from agents import BaseAgent
 
 
@@ -12,7 +13,7 @@ class Viewer(BaseAgent):
 
     def _plot_training_losses_single(self, config_file: str) -> None:
         # load training losses
-        work_dir = self._get_work_dir(config_file)
+        work_dir = get_work_dir(config_file)
         logs: List[Dict[str, torch.Tensor]] = []
         idx = 0
         while True:
@@ -40,7 +41,7 @@ class Viewer(BaseAgent):
 
     def _plot_validation_scores_single(self, config_file: str) -> None:
         # load validation scores
-        work_dir = self._get_work_dir(config_file)
+        work_dir = get_work_dir(config_file)
         logs: List[Dict[str, float]] = []
         idx = 0
         while True:

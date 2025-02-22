@@ -48,22 +48,21 @@ def get_index2pids(server: str) -> List[List[str]]:
     return result
 
 
-def _get_all_p(server: str) -> Dict[str, Dict[str, str]]:
-    cmd = ['ssh', server, "ps", "-eo", "pid,user,lstart,cmd"]
-    out = subprocess.check_output(cmd)
-    lines = out.decode().strip().splitlines()[1:]
+def get_all_p(server: str) -> Dict[str, Dict[str, str]]:
+    cmd = ['ssh', server, "ps", "-eo", "pid=,user=,lstart=,cmd="]
+    lines = subprocess.check_output(cmd).decode().splitlines()
     result: Dict[str, Dict[str, str]] = {}
     for line in lines:
         if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
             continue
-        parts = line.split()
+        parts = line.strip().split()
         result[parts[0]] = {'pid': parts[0], 'user': parts[1], 'start': ' '.join(parts[2:7]), 'cmd': ' '.join(parts[7:])}
     return result
 
 
 def get_server_status(server: str) -> List[Dict[str, Any]]:
     index2pids = get_index2pids(server)
-    all_p = _get_all_p(server)
+    all_p = get_all_p(server)
     index2util = _get_index2util(server)
     result: List[Dict[str, Any]] = [{
         'processes': [all_p[pid] for pid in pids if pid in all_p],
@@ -74,12 +73,11 @@ def get_server_status(server: str) -> List[Dict[str, Any]]:
 
 def get_user_pids(server: str) -> List[str]:
     cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-o', 'pid=']
-    outputs = subprocess.check_output(cmd, shell=True, text=True).strip()
-    result: List[str] = list(map(lambda x: x.strip(), outputs.split('\n')))
-    return result
+    result: List[str] = subprocess.check_output(cmd).decode().splitlines()
+    return list(map(lambda x: x.strip(), result))
 
 
-def find_running(self) -> List[Dict[str, Any]]:
+def find_running(server: str) -> List[Dict[str, Any]]:
     r"""This function finds all GPU processes launched by the user.
 
     Returns:
@@ -91,21 +89,21 @@ def find_running(self) -> List[Dict[str, Any]]:
         }
     """
     all_running: List[Dict[str, Any]] = []
-    for server in self.servers:
-        gpu_pids = get_index2pids(server)
-        user_pids = get_user_pids(server)
-        for gpu_index in range(len(gpu_pids)):
-            for pid in gpu_pids[gpu_index]:
-                if pid not in user_pids:
-                    continue
-                cmd = ' '.join([
-                    'ps', '-p', pid, '-o', 'cmd=',
-                ])
-                cmd = f"ssh {server} '" + cmd + "'"
-                running = subprocess.check_output(cmd, shell=True, text=True).strip()
-                all_running.append({
-                    'server': server,
-                    'gpu_index': gpu_index,
-                    'command': running
-                })
+    gpu_pids = get_index2pids(server)
+    user_pids = get_user_pids(server)
+    for gpu_index in range(len(gpu_pids)):
+        for pid in gpu_pids[gpu_index]:
+            if pid not in user_pids:
+                continue
+            cmd = ['ssh', server, 'ps', '-p', pid, '-o', 'cmd=']
+            command = subprocess.check_output(cmd).decode().splitlines()
+            assert len(command) == 1, f"{command=}, {pid=}"
+            command = command[0].strip()
+            if "from multiprocessing.spawn import spawn_main; spawn_main" in command:
+                continue
+            all_running.append({
+                'server': server,
+                'gpu_index': gpu_index,
+                'command': command
+            })
     return all_running
