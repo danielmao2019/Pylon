@@ -8,9 +8,8 @@ from .cfg_log_conversion import get_work_dir
 
 
 def is_running(work_dir: str, sleep_time: int) -> bool:
-    # input checks
-    assert os.path.isdir(work_dir), f"{work_dir=}"
-    # determine if session is running
+    if not os.path.isdir(work_dir):
+        return False
     logs = glob.glob(os.path.join(work_dir, "train_val*.log"))
     if len(logs) == 0:
         return False
