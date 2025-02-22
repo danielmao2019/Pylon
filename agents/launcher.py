@@ -21,6 +21,7 @@ class Launcher(BaseAgent):
         project_dir: str,
         conda_env: str,
         servers: List[str],
+        log_path: str,
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
         keep_tmux: Optional[bool] = False,
@@ -39,7 +40,7 @@ class Launcher(BaseAgent):
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
-        self.logger = utils.logging.Logger(filepath="./project/run_agent.log")
+        self.logger = utils.logging.Logger(filepath=log_path)
         self._init_status()
 
     def _init_status(self) -> None:
