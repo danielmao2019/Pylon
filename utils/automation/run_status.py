@@ -43,6 +43,7 @@ def parse_config(cmd: str) -> str:
     for idx, part in enumerate(parts):
         if part == "--config-filepath":
             return parts[idx+1]
+    raise RuntimeError(f"Not able to parse config filepath from command {cmd}.")
 
 
 def has_stuck(work_dir: str, all_running: List[Dict[str, Any]]) -> bool:

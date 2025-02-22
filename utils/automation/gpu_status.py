@@ -99,6 +99,8 @@ def find_running(server: str) -> List[Dict[str, Any]]:
             command = subprocess.check_output(cmd).decode().splitlines()
             assert len(command) == 1, f"{command=}, {pid=}"
             command = command[0].strip()
+            if "from multiprocessing.spawn import spawn_main; spawn_main" in command:
+                continue
             all_running.append({
                 'server': server,
                 'gpu_index': gpu_index,
