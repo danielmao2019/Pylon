@@ -9,7 +9,7 @@ from dash.dependencies import Input, Output
 import utils
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import get_session_progress, has_stuck, has_failed, parse_config
-from utils.automation.gpu_status import get_server_status, get_all_p
+from utils.automation.gpu_status import get_server_status, get_all_p, find_running
 from agents import BaseAgent
 
 
@@ -256,7 +256,9 @@ class Launcher(BaseAgent):
         return all_idle_gpus
 
     def _remove_stuck(self) -> None:
-        all_running = find_running()
+        all_running = []
+        for server in self.servers:
+            all_running.extend(find_running(server))
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
         stuck_cfgs_info = {}
         for server in self.servers:
