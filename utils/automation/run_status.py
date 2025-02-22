@@ -1,15 +1,15 @@
-from typing import List, Optional
+from typing import List, Dict, Any, Optional
 import os
 import glob
 import json
 import time
 import torch
+from .cfg_log_conversion import get_work_dir
 
 
 def is_running(work_dir: str, sleep_time: int) -> bool:
-    # input checks
-    assert os.path.isdir(work_dir), f"{work_dir=}"
-    # determine if session is running
+    if not os.path.isdir(work_dir):
+        return False
     logs = glob.glob(os.path.join(work_dir, "train_val*.log"))
     if len(logs) == 0:
         return False
@@ -35,6 +35,28 @@ def get_session_progress(work_dir: str, expected_files: List[str], epochs: int) 
 def has_finished(work_dir: str, expected_files: List[str], epochs: int) -> bool:
     assert os.path.isdir(work_dir), f"{work_dir=}"
     return get_session_progress(work_dir, expected_files=expected_files, epochs=epochs) == epochs
+
+
+def parse_config(cmd: str) -> str:
+    assert 'python' in cmd
+    assert '--config-filepath' in cmd
+    parts = cmd.split(' ')
+    for idx, part in enumerate(parts):
+        if part == "--config-filepath":
+            return parts[idx+1]
+    assert 0
+
+
+def has_stuck(work_dir: str, all_running: List[Dict[str, Any]], sleep_time: Optional[int] = 86400) -> bool:
+    all_running_configs = []
+    for running in all_running:
+        try:
+            cfg = parse_config(running['command'])
+            all_running_configs.append(cfg)
+        except:
+            pass
+    all_running_work_dirs = list(map(get_work_dir, all_running_configs))
+    return (not is_running(work_dir, sleep_time=sleep_time)) and (work_dir in all_running_work_dirs)
 
 
 def has_failed(work_dir: str, sleep_time: int, expected_files: List[str], epochs: int) -> bool:

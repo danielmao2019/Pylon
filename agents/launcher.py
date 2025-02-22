@@ -7,8 +7,9 @@ import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 import utils
-from utils.automation.run_status import get_session_progress, has_failed
-from utils.automation.gpu_status import get_server_status
+from utils.automation.cfg_log_conversion import get_work_dir
+from utils.automation.run_status import get_session_progress, has_stuck, has_failed, parse_config
+from utils.automation.gpu_status import get_server_status, get_all_p, find_running
 from agents import BaseAgent
 
 
@@ -93,7 +94,7 @@ class Launcher(BaseAgent):
     def _get_progress(self) -> float:
         result: int = 0
         for config_file in self.config_files:
-            work_dir = self._get_work_dir(config_file)
+            work_dir = get_work_dir(config_file)
             cur_epochs = get_session_progress(work_dir=work_dir, expected_files=self.expected_files, epochs=self.epochs)
             percentage = int(cur_epochs / self.epochs * 100)
             result += percentage
@@ -221,7 +222,7 @@ class Launcher(BaseAgent):
         """
         result: List[str] = []
         for config_file in self.config_files:
-            work_dir = self._get_work_dir(config_file)
+            work_dir = get_work_dir(config_file)
             if not os.path.isdir(work_dir) or has_failed(
                 work_dir, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
             ):
@@ -254,6 +255,23 @@ class Launcher(BaseAgent):
                     })
         return all_idle_gpus
 
+    def _remove_stuck(self) -> None:
+        all_running = []
+        for server in self.servers:
+            all_running.extend(find_running(server))
+        stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
+        stuck_cfgs_info = {}
+        for server in self.servers:
+            server_pids = get_all_p(server)
+            for pid in server_pids:
+                try:
+                    cfg = parse_config(server_pids[pid]['cmd'])
+                    if cfg in stuck_cfgs:
+                        stuck_cfgs_info[cfg] = (server, pid)
+                except:
+                    pass
+        self.logger.info(f"{stuck_cfgs_info=}")
+
     def _launch_missing(self, num_jobs: int) -> bool:
         r"""
         Returns:
@@ -272,7 +290,7 @@ class Launcher(BaseAgent):
         gpu_pool = gpu_pool[:num_launch]
         missing_runs = missing_runs[:num_launch]
         for gpu, run in zip(gpu_pool, missing_runs):
-            error_log = os.path.join(self._get_work_dir(run), "error.log")
+            error_log = os.path.join(get_work_dir(run), "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
             cmd = ' '.join([
@@ -300,10 +318,11 @@ class Launcher(BaseAgent):
             os.system(cmd)
         return False
 
-    def spawn(self, num_job: Optional[int] = 1) -> None:
+    def spawn(self, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
-            done = self._launch_missing(num_job)
+            self._remove_stuck()
+            done = self._launch_missing(num_jobs=num_jobs)
             if done:
                 self.logger.info("All done.")
             self.logger.info("")
