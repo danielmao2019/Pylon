@@ -49,14 +49,13 @@ def get_index2pids(server: str) -> List[List[str]]:
 
 
 def get_all_p(server: str) -> Dict[str, Dict[str, str]]:
-    cmd = ['ssh', server, "ps", "-eo", "pid,user,lstart,cmd"]
-    out = subprocess.check_output(cmd).decode().splitlines()
-    lines = out[1:]
+    cmd = ['ssh', server, "ps", "-eo", "pid=,user=,lstart=,cmd="]
+    lines = subprocess.check_output(cmd).decode().splitlines()
     result: Dict[str, Dict[str, str]] = {}
     for line in lines:
         if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
             continue
-        parts = line.split()
+        parts = line.strip().split()
         result[parts[0]] = {'pid': parts[0], 'user': parts[1], 'start': ' '.join(parts[2:7]), 'cmd': ' '.join(parts[7:])}
     return result
 
