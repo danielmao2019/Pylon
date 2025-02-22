@@ -94,7 +94,7 @@ class Launcher(BaseAgent):
         result: int = 0
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
-            cur_epochs = get_session_progress(work_dir)
+            cur_epochs = get_session_progress(work_dir=work_dir, expected_files=self.expected_files, epochs=self.epochs)
             percentage = int(cur_epochs / self.epochs * 100)
             result += percentage
         result: float = round(result / len(self.config_files), 2)
@@ -222,7 +222,7 @@ class Launcher(BaseAgent):
         result: List[str] = []
         for config_file in self.config_files:
             work_dir = self._get_work_dir(config_file)
-            if not os.path.isdir(work_dir) or has_failed(work_dir):
+            if not os.path.isdir(work_dir) or has_failed(work_dir, sleep_time=self.sleep_time, epochs=self.epochs):
                 result.append(config_file)
         return result
 

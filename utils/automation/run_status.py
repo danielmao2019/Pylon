@@ -6,7 +6,7 @@ import time
 import torch
 
 
-def is_running(work_dir: str, sleep_time) -> bool:
+def is_running(work_dir: str, sleep_time: int) -> bool:
     # input checks
     assert os.path.isdir(work_dir), f"{work_dir=}"
     # determine if session is running
@@ -37,8 +37,8 @@ def has_finished(work_dir: str, epochs: int) -> bool:
     return get_session_progress(work_dir) == epochs
 
 
-def has_failed(work_dir: str) -> bool:
-    return not is_running(work_dir) and not has_finished(work_dir)
+def has_failed(work_dir: str, sleep_time: int, epochs: int) -> bool:
+    return not is_running(work_dir, sleep_time) and not has_finished(work_dir, epochs)
 
 
 def _check_file_loadable(filepath: str) -> bool:
