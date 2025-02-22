@@ -73,10 +73,8 @@ def get_server_status(server: str) -> List[Dict[str, Any]]:
 
 
 def get_user_pids(server: str) -> List[str]:
-    cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-eo', 'pid']
+    cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-o', 'pid=']
     result: List[str] = subprocess.check_output(cmd).decode().splitlines()
-    assert result[0].strip() == "PID", f"{result[0]=}"
-    result = result[1:]
     return list(map(lambda x: x.strip(), result))
 
 
@@ -98,11 +96,10 @@ def find_running(server: str) -> List[Dict[str, Any]]:
         for pid in gpu_pids[gpu_index]:
             if pid not in user_pids:
                 continue
-            cmd = ['ssh', server, 'ps', '-p', pid, '-eo', 'cmd']
+            cmd = ['ssh', server, 'ps', '-p', pid, '-o', 'cmd=']
             command = subprocess.check_output(cmd).decode().splitlines()
-            assert command[0].strip() == "CMD", f"{command[0]=}"
-            assert len(command) == 2
-            command = command[1]
+            assert len(command) == 1, f"{command=}, {pid=}"
+            command = command[0].strip()
             all_running.append({
                 'server': server,
                 'gpu_index': gpu_index,
