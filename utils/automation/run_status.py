@@ -1,9 +1,10 @@
-from typing import List, Optional
+from typing import List, Dict, Any, Optional
 import os
 import glob
 import json
 import time
 import torch
+from .cfg_log_conversion import get_work_dir
 
 
 def is_running(work_dir: str, sleep_time: int) -> bool:
@@ -35,6 +36,17 @@ def get_session_progress(work_dir: str, expected_files: List[str], epochs: int) 
 def has_finished(work_dir: str, expected_files: List[str], epochs: int) -> bool:
     assert os.path.isdir(work_dir), f"{work_dir=}"
     return get_session_progress(work_dir, expected_files=expected_files, epochs=epochs) == epochs
+
+
+def has_stuck(work_dir: str, all_running: List[Dict[str, Any]]) -> bool:
+    def _parse_config(cmd: str) -> str:
+        parts = cmd.split(' ')
+        for idx, part in enumerate(parts):
+            if part == "--config-filepath":
+                return parts[idx+1]
+    all_running_configs = list(map(lambda x: _parse_config(x['command']), all_running))
+    all_running_work_dirs = list(map(get_work_dir, all_running_configs))
+    return (not is_running(work_dir)) and (work_dir in all_running_work_dirs)
 
 
 def has_failed(work_dir: str, sleep_time: int, expected_files: List[str], epochs: int) -> bool:

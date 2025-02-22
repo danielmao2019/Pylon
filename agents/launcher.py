@@ -7,6 +7,7 @@ import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 import utils
+from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import get_session_progress, has_failed
 from utils.automation.gpu_status import get_server_status
 from agents import BaseAgent
@@ -93,7 +94,7 @@ class Launcher(BaseAgent):
     def _get_progress(self) -> float:
         result: int = 0
         for config_file in self.config_files:
-            work_dir = self._get_work_dir(config_file)
+            work_dir = get_work_dir(config_file)
             cur_epochs = get_session_progress(work_dir=work_dir, expected_files=self.expected_files, epochs=self.epochs)
             percentage = int(cur_epochs / self.epochs * 100)
             result += percentage
@@ -221,7 +222,7 @@ class Launcher(BaseAgent):
         """
         result: List[str] = []
         for config_file in self.config_files:
-            work_dir = self._get_work_dir(config_file)
+            work_dir = get_work_dir(config_file)
             if not os.path.isdir(work_dir) or has_failed(
                 work_dir, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
             ):
@@ -272,7 +273,7 @@ class Launcher(BaseAgent):
         gpu_pool = gpu_pool[:num_launch]
         missing_runs = missing_runs[:num_launch]
         for gpu, run in zip(gpu_pool, missing_runs):
-            error_log = os.path.join(self._get_work_dir(run), "error.log")
+            error_log = os.path.join(get_work_dir(run), "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
             cmd = ' '.join([
