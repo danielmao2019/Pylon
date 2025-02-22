@@ -1,15 +1,14 @@
 from typing import List, Dict, Any, Optional
 import os
-import subprocess
+import time
+import random
 import threading
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
-import time
-import random
 import utils
 from utils.automation.run_status import get_session_progress, has_failed
-from utils.automation.gpu_status import get_server_status, get_index2pids, get_user_pids
+from utils.automation.gpu_status import get_server_status
 from agents import BaseAgent
 
 
