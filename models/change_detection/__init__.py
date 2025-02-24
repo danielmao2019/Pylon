@@ -22,6 +22,7 @@ from models.change_detection.bifa.bifa_model import BiFA
 from models.change_detection.cdx_former.cdx_former_model import CDXFormer
 from models.change_detection import csa_cdgan
 from models.change_detection.change_mamba.st_mamba_bcd import STMambaBCD
+from models.change_detection.bit_cd.model import BASE_Transformer
 # Single-Temporal Models
 from models.change_detection.change_star.change_star import ChangeStar
 from models.change_detection.i3pe.i3pe_model import I3PEModel
@@ -51,6 +52,7 @@ __all__ = (
     'CDXFormer',
     'csa_cdgan',
     'STMambaBCD',
+    'BASE_Transformer',
     # Single-Temporal Models
     'ChangeStar',
     'I3PEModel',
