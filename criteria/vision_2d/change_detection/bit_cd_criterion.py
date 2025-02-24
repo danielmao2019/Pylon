@@ -9,7 +9,7 @@ class BitCdCriterion(SingleTaskCriterion):
     def __init__(self) -> None:
         super(BitCdCriterion, self).__init__()
         # unbounded
-        self.ce_criterion = torch.nn.CrossEntropyLoss(reduction='mean')
+        self.ce_criterion = torch.nn.CrossEntropyLoss(reduction='mean', ignore_index=255)
 
     def __call__(self, y_pred, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Override parent class __call__ method.
