@@ -134,23 +134,3 @@ class BASE_Transformer(ResNet):
         # forward small cnn
         x = self.classifier(x)
         return x
-    
-# def Bit_Cd(args, init_type='normal', init_gain=0.02, gpu_ids=[]):
-#     if args.net_G == 'base_resnet18':
-#         net = ResNet(input_nc=3, output_nc=2, output_sigmoid=False)
-
-#     elif args.net_G == 'base_transformer_pos_s4':
-#         net = BASE_Transformer(input_nc=3, output_nc=2, token_len=4, resnet_stages_num=4,
-#                              with_pos='learned')
-
-#     elif args.net_G == 'base_transformer_pos_s4_dd8':
-#         net = BASE_Transformer(input_nc=3, output_nc=2, token_len=4, resnet_stages_num=4,
-#                              with_pos='learned', enc_depth=1, dec_depth=8)
-
-#     elif args.net_G == 'base_transformer_pos_s4_dd8_dedim8':
-#         net = BASE_Transformer(input_nc=3, output_nc=2, token_len=4, resnet_stages_num=4,
-#                              with_pos='learned', enc_depth=1, dec_depth=8, decoder_dim_head=8)
-
-#     else:
-#         raise NotImplementedError('Generator model name [%s] is not recognized' % args.net_G)
-#     return init_net(net, init_type, init_gain, gpu_ids)
