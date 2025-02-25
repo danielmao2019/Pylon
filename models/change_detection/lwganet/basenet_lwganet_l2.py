@@ -9,10 +9,10 @@ class BaseNet_LWGANet_L2(torch.nn.Module):
     def __init__(self, pretrained=True, preptrained_path=None):
         super().__init__()
         self.backbone = LWGANet_L2_1242_e96_k11_RELU(pretrained=pretrained, pretrained_path=preptrained_path)
-        channles = [96, 96, 192, 384, 768]
+        channels = [96, 96, 192, 384, 768]
         self.en_d = 32
         self.mid_d = self.en_d * 2
-        self.swa = NeighborFeatureAggregation(channles, self.mid_d)
+        self.swa = NeighborFeatureAggregation(channels, self.mid_d)
         self.tfm = TemporalFusionModule(self.mid_d, self.en_d * 2)
         self.decoder = Decoder(self.en_d * 2)
 
@@ -39,4 +39,4 @@ class BaseNet_LWGANet_L2(torch.nn.Module):
         if self.training:
             return {'mask_p2': mask_p2, 'mask_p3': mask_p3, 'mask_p4': mask_p4, 'mask_p5': mask_p5}
         else:
-            return torch.where(mask_p2 > 0.5, torch.ones_like(mask_p2), torch.zeros_like(mask_p2))
+            return mask_p2
