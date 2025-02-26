@@ -11,6 +11,7 @@ from criteria.vision_2d.semantic_map.semantic_segmentation_criterion import Sema
 from criteria.vision_2d.semantic_map.iou_loss import IoULoss
 from criteria.vision_2d.semantic_map.dice_loss import DiceLoss
 from criteria.vision_2d.semantic_map.ssim_loss import SSIMLoss
+from criteria.vision_2d.semantic_map.ce_dice_loss import CEDiceLoss
 # Change Detection Specific
 from criteria.vision_2d import change_detection
 
@@ -26,6 +27,7 @@ __all__ = (
     'IoULoss',
     'DiceLoss',
     'SSIMLoss',
+    'CEDiceLoss',
     # Change Detection Specific
     'change_detection',
 )
