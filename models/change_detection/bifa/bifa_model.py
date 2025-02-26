@@ -1,5 +1,6 @@
 from functools import partial
 import math
+import torch
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from mmcv.runner import load_checkpoint
 from mmseg.utils import get_root_logger
@@ -480,21 +481,23 @@ class mit_b0(MixVisionTransformer):
             qkv_bias=True, norm_layer=partial(nn.LayerNorm, eps=1e-6), depths=[2, 2, 2, 2], sr_ratios=[8, 4, 2, 1],
             drop_rate=0.0, drop_path_rate=0.1)
 
+
 class BiFA(nn.Module):
-    def __init__(self, backbone="mit_b5"):
+    def __init__(self):
         super().__init__()
-        if backbone == "mit_b0":
-            self.segformer = mit_b0()
-            self.ckpt = torch.load(r"E:\pertrain_weight\segformer\mit_b0.pth")
-            self.segformer.load_state_dict(self.ckpt, False)
-            self.head = SegFormerHead(in_channels=[32, 64, 160, 256],
-                                      in_index=[0, 1, 2, 3],
-                                      feature_strides=[4, 8, 16, 32],
-                                      channels=128,
-                                      dropout_ratio=0.1,
-                                      num_classes=2,  # 64, 2
-                                      align_corners=False,
-                                      decoder_params=dict({"embed_dim": 768}))
+        self.segformer = mit_b0()
+        self.ckpt = torch.load(r"E:\pertrain_weight\segformer\mit_b0.pth")
+        self.segformer.load_state_dict(self.ckpt, False)
+        self.head = SegFormerHead(
+            in_channels=[32, 64, 160, 256],
+            in_index=[0, 1, 2, 3],
+            feature_strides=[4, 8, 16, 32],
+            channels=128,
+            dropout_ratio=0.1,
+            num_classes=2,  # 64, 2
+            align_corners=False,
+            decoder_params=dict({"embed_dim": 768}),
+        )
         self.ckpt.pop("head.weight")
         self.ckpt.pop("head.bias")
         self.diffflow1 = DiffFlowN(inplane=32, h=64, w=64)
