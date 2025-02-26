@@ -6,7 +6,7 @@ from models.change_detection.bifa.bifa_help.implicit_help import ifa_simfpn
 
 def get_syncbn():
     return nn.BatchNorm2d
-    # return nn.SyncBatchNorm
+
 
 class ASPP(nn.Module):
     """
