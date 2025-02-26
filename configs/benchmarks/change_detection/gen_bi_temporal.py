@@ -89,6 +89,13 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.SRCNetCriterion, 'args': {{}}}}\n"
         config += '\n'
+    elif model == 'BiFA':
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.BiFA, 'args': {{}}}}\n"
+        config += '\n'
+        config += f"import criteria\n"
+        config += f"config['criteria'] = {{'class': criteria.vision_2d.CEDiceLoss, 'args': {{}}}}\n"
+        config += '\n'
     elif model == "CSA_CDGAN":
         config += f"from configs.common.models.change_detection.csa_cdgan import model_config\n"
         config += f"config['model'] = model_config\n"
@@ -139,7 +146,7 @@ if __name__ == "__main__":
         [
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
-            'FTN', 'SRCNet',
+            'FTN', 'SRCNet', 'BiFA',
             'CSA_CDGAN',
             'ChangeMamba-Base', 'ChangeMamba-Small', 'ChangeMamba-Tiny',
         ],
