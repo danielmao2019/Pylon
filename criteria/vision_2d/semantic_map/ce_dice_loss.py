@@ -7,7 +7,7 @@ from criteria.vision_2d import DiceLoss
 class CEDiceLoss(SingleTaskCriterion):
 
     COMBINE_OPTIONS = {'mean', 'sum'}
-    
+
     def __init__(self, combine='sum') -> None:
         super(CEDiceLoss, self).__init__()
         assert combine in self.COMBINE_OPTIONS
