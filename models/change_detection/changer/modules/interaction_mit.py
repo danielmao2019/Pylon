@@ -22,8 +22,7 @@ class IA_MixVisionTransformer(MixVisionTransformer):
             self.ccs.append(build_from_config(ia_cfg))
         self.ccs = nn.ModuleList(self.ccs)
     
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> List[torch.Tensor]:
-        x1, x2 = inputs['img_1'], inputs['img_2']
+    def forward(self, x1, x2) -> List[torch.Tensor]:
         outs = []
         for i, layer in enumerate(self.layers):
             x1, hw_shape = layer[0](x1)
