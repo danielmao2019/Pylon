@@ -71,9 +71,9 @@ decoder_cfg = {
 
 interaction_cfg = (
     None,
-    dict(type='SpatialExchange', p=1/2),
-    dict(type='ChannelExchange', p=1/2),
-    dict(type='ChannelExchange', p=1/2),
+    {'class': models.change_detection.changer.SpatialExchange, 'args': {'p': 1/2}},
+    {'class': models.change_detection.changer.ChannelExchange, 'args': {'p': 1/2}},
+    {'class': models.change_detection.changer.ChannelExchange, 'args': {'p': 1/2}},
 )
 
 sampler_cfg = dict(type='mmseg.OHEMPixelSampler', thresh=0.7, min_kept=100000)

@@ -1,9 +1,10 @@
 from typing import List, Dict
 import torch
 import torch.nn as nn
-
 from mmseg.models.utils import nlc_to_nchw
 from mmseg.models.backbones import MixVisionTransformer
+from models.change_detection.changer.modules.interaction_layer import TwoIdentity
+from utils.builders.builder import build_from_config
 
 
 class IA_MixVisionTransformer(MixVisionTransformer):
@@ -17,8 +18,8 @@ class IA_MixVisionTransformer(MixVisionTransformer):
         self.ccs = []
         for ia_cfg in interaction_cfg:
             if ia_cfg is None:
-                ia_cfg = dict(type='TwoIdentity')
-            self.ccs.append(MODELS.build(ia_cfg))
+                ia_cfg = {'class': TwoIdentity, 'args': {}}
+            self.ccs.append(build_from_config(ia_cfg))
         self.ccs = nn.ModuleList(self.ccs)
     
     def forward(self, inputs: Dict[str, torch.Tensor]) -> List[torch.Tensor]:
