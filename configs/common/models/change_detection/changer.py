@@ -1,4 +1,6 @@
+import copy
 import models
+import mmseg
 
 
 mit_cfg = {
@@ -67,7 +69,72 @@ decoder_cfg = {
     },
 }
 
-changer_mit_b0_cfg = {
-    'encoder_cfg': mit_cfg,
-    'decoder_cfg': decoder_cfg,
+interaction_cfg = (
+    None,
+    dict(type='SpatialExchange', p=1/2),
+    dict(type='ChannelExchange', p=1/2),
+    dict(type='ChannelExchange', p=1/2),
+)
+
+sampler_cfg = {
+    'class': mmseg.OHEMPixelSampler,
+    'args': {
+        'thresh': 0.7,
+        'min_kept': 100000,
+    },
 }
+
+# ==================================================
+# mit b0
+# ==================================================
+
+changer_mit_b0_cfg = {
+    'encoder_cfg': copy.deepcopy(mit_cfg),
+    'decoder_cfg': copy.deepcopy(decoder_cfg),
+}
+changer_mit_b0_cfg['encoder_cfg']['args']['pretrained'] = "./models/change_detection/changer/checkpoints/mit_bi.pth"
+changer_mit_b0_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
+changer_mit_b0_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
+
+# ==================================================
+# mit b1
+# ==================================================
+
+changer_mit_b1_cfg = {
+    'encoder_cfg': copy.deepcopy(mit_cfg),
+    'decoder_cfg': copy.deepcopy(decoder_cfg),
+}
+changer_mit_b1_cfg['encoder_cfg']['args']['embed_dims'] = 64
+changer_mit_b1_cfg['decoder_cfg']['args']['in_channels'] = [64, 128, 320, 512]
+
+# ==================================================
+# r18
+# ==================================================
+
+changer_r18_cfg = {
+    'encoder_cfg': copy.deepcopy(r18_cfg),
+    'decoder_cfg': copy.deepcopy(decoder_cfg),
+}
+changer_r18_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
+changer_r18_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
+
+# ==================================================
+# s50
+# ==================================================
+
+changer_s50_cfg = {
+    'encoder_cfg': copy.deepcopy(s50_cfg),
+    'decoder_cfg': copy.deepcopy(decoder_cfg),
+}
+changer_s50_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
+changer_s50_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
+
+# ==================================================
+# s101
+# ==================================================
+
+changer_s101_cfg = {
+    'encoder_cfg': copy.deepcopy(s50_cfg),
+    'decoder_cfg': copy.deepcopy(decoder_cfg),
+}
+changer_s101_cfg['encoder']['args'].update({'depth': 101, 'stem_channels': 128})
