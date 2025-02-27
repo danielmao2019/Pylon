@@ -480,7 +480,7 @@ class BiFA(nn.Module):
     Segformer checkpoint download: https://pan.baidu.com/s/1zxet_fQy6eZZQS3Ak9ChlQ
     """
 
-    def __init__(self, checkpoint_filepath: str):
+    def __init__(self, checkpoint_filepath: Optional[str] = ".models/change_detection/bifa/mit_b0.pth"):
         super().__init__()
         self.segformer = mit_b0()
         self.ckpt = torch.load(checkpoint_filepath)
