@@ -1,15 +1,12 @@
-# Copyright (c) Open-CD. All rights reserved.
 import torch
 import torch.nn as nn
+from torch.nn import functional as F
+from mmengine.model import BaseModule, Sequential
 from mmcv.cnn import Conv2d, ConvModule, build_activation_layer
 from mmcv.cnn.bricks.drop import build_dropout
-from mmengine.model import BaseModule, Sequential
-from torch.nn import functional as F
-
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 from mmseg.models.utils import resize
-from opencd.registry import MODELS
-from ..necks.feature_fusion import FeatureFusionNeck
+from models.change_detection.changer.feature_fusion import FeatureFusionNeck
 
 
 class FDAF(BaseModule):
@@ -145,7 +142,6 @@ class MixFFN(BaseModule):
         return identity + self.dropout_layer(out)
 
 
-@MODELS.register_module()
 class Changer(BaseDecodeHead):
     """The Head of Changer.
 
