@@ -95,22 +95,22 @@ changer_mit_b0_cfg = {
         'decoder_cfg': copy.deepcopy(decoder_cfg),
     },
 }
-changer_mit_b0_cfg['encoder_cfg']['args'].update({
+changer_mit_b0_cfg['args']['encoder_cfg']['args'].update({
     'pretrained': "./models/change_detection/changer/checkpoints/mit_b0.pth",
     'interaction_cfg': interaction_cfg,
 })
-changer_mit_b0_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
+changer_mit_b0_cfg['args']['decoder_cfg']['args']['sampler'] = sampler_cfg
 
 # ==================================================
 # mit b1
 # ==================================================
 
 changer_mit_b1_cfg = copy.deepcopy(changer_mit_b0_cfg)
-changer_mit_b1_cfg['encoder_cfg']['args'].update({
+changer_mit_b1_cfg['args']['encoder_cfg']['args'].update({
     'pretrained': "./models/change_detection/changer/checkpoints/mit_b1.pth",
     'embed_dims': 64, 'num_heads': [1, 2, 5, 8], 'num_layers': [2, 2, 2, 2],
 })
-changer_mit_b1_cfg['decoder_cfg']['args']['in_channels'] = [64, 128, 320, 512]
+changer_mit_b1_cfg['args']['decoder_cfg']['args']['in_channels'] = [64, 128, 320, 512]
 
 # ==================================================
 # r18
@@ -123,8 +123,8 @@ changer_r18_cfg = {
         'decoder_cfg': copy.deepcopy(decoder_cfg),
     },
 }
-changer_r18_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
-changer_r18_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
+changer_r18_cfg['args']['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
+changer_r18_cfg['args']['decoder_cfg']['args']['sampler'] = sampler_cfg
 
 # ==================================================
 # s50
@@ -137,12 +137,12 @@ changer_s50_cfg = {
         'decoder_cfg': copy.deepcopy(decoder_cfg),
     },
 }
-changer_s50_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
-changer_s50_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
+changer_s50_cfg['args']['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
+changer_s50_cfg['args']['decoder_cfg']['args']['sampler'] = sampler_cfg
 
 # ==================================================
 # s101
 # ==================================================
 
 changer_s101_cfg = copy.deepcopy(changer_s50_cfg)
-changer_s101_cfg['encoder']['args'].update({'depth': 101, 'stem_channels': 128})
+changer_s101_cfg['args']['encoder']['args'].update({'depth': 101, 'stem_channels': 128})
