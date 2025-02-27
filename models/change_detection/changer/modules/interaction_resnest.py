@@ -1,6 +1,6 @@
 from mmseg.models.backbones.resnest import Bottleneck
 from mmseg.models.utils import ResLayer
-from models.change_detection.changer.modules.ia_resnet import IA_ResNetV1d
+from models.change_detection.changer.modules.interaction_resnet import IA_ResNetV1d
 
 
 class IA_ResNeSt(IA_ResNetV1d):
