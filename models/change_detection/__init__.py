@@ -14,6 +14,7 @@ from models.change_detection.change_former.models.change_former_v5 import Change
 from models.change_detection.change_former.models.change_former_v6 import ChangeFormerV6
 from models.change_detection.ftn.model import FTN
 from models.change_detection.srcnet.srcnet_model import SRCNet
+from models.change_detection.bifa.bifa_model import BiFA
 from models.change_detection import csa_cdgan
 from models.change_detection.change_mamba.st_mamba_bcd import STMambaBCD
 # Single-Temporal Models
@@ -37,6 +38,7 @@ __all__ = (
     'ChangeFormerV6',
     'FTN',
     'SRCNet',
+    'BiFA',
     'csa_cdgan',
     'STMambaBCD',
     # Single-Temporal Models
