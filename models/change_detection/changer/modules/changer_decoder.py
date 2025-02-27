@@ -6,7 +6,7 @@ from mmcv.cnn import Conv2d, ConvModule, build_activation_layer
 from mmcv.cnn.bricks.drop import build_dropout
 from mmseg.models.decode_heads.decode_head import BaseDecodeHead
 from mmseg.models.utils import resize
-from models.change_detection.changer.feature_fusion import FeatureFusionNeck
+from models.change_detection.changer.modules.feature_fusion import FeatureFusionNeck
 
 
 class FDAF(BaseModule):
