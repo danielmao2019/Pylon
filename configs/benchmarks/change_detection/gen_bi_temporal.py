@@ -57,8 +57,10 @@ def main(dataset: str, model: str) -> None:
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.TinyCD, 'args': {{}}}}\n"
         config += '\n'
-    elif model == "Changer":
-        config
+    elif model.startswith("Changer"):
+        config += f"from configs.common.models.change_detection.changer import changer_{model[len('Changer-'):].replace('-', '_').lower()}_cfg as model_cfg\n"
+        config += f"config['model'] = model_cfg\n"
+        config += '\n'
     elif model.startswith("ChangeFormer"):
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
@@ -146,7 +148,8 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
         [
-            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD', 'Changer',
+            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
+            'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN', 'SRCNet', 'BiFA',
             'CSA_CDGAN',
