@@ -76,13 +76,7 @@ interaction_cfg = (
     dict(type='ChannelExchange', p=1/2),
 )
 
-sampler_cfg = {
-    'class': mmseg.structures.OHEMPixelSampler,
-    'args': {
-        'thresh': 0.7,
-        'min_kept': 100000,
-    },
-}
+sampler_cfg = dict(type='mmseg.OHEMPixelSampler', thresh=0.7, min_kept=100000)
 
 # ==================================================
 # mit b0

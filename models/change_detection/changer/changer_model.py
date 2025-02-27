@@ -6,6 +6,7 @@ from utils.builders.builder import build_from_config
 class Changer(torch.nn.Module):
 
     def __init__(self, encoder_cfg, decoder_cfg) -> None:
+        super(Changer, self).__init__()
         self.encoder = build_from_config(encoder_cfg)
         self.decoder = build_from_config(decoder_cfg)
 
