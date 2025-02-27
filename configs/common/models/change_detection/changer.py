@@ -145,4 +145,4 @@ changer_s50_cfg['args']['decoder_cfg']['args']['sampler'] = sampler_cfg
 # ==================================================
 
 changer_s101_cfg = copy.deepcopy(changer_s50_cfg)
-changer_s101_cfg['args']['encoder']['args'].update({'depth': 101, 'stem_channels': 128})
+changer_s101_cfg['args']['encoder_cfg']['args'].update({'depth': 101, 'stem_channels': 128})
