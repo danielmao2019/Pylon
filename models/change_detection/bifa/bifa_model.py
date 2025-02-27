@@ -1,3 +1,4 @@
+from typing import Dict, Optional
 from functools import partial
 import math
 import torch
@@ -503,7 +504,8 @@ class BiFA(nn.Module):
         self.diffflow4 = DiffFlowN(inplane=256, h=8, w=8)
         self.ifa = fpn_ifa(in_planes=256, ultra_pe=True, pos_dim=24, no_aspp=True, require_grad=True)
 
-    def forward(self, x1, x2):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        x1, x2 = inputs['img_1'], inputs['img_2']
         diff_list = []
 
         # stage 1
