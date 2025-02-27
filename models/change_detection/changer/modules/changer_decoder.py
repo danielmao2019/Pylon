@@ -142,7 +142,7 @@ class MixFFN(BaseModule):
         return identity + self.dropout_layer(out)
 
 
-class Changer(BaseDecodeHead):
+class ChangerDecoder(BaseDecodeHead):
     """The Head of Changer.
 
     This head is the implementation of
