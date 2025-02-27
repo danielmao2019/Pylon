@@ -149,7 +149,7 @@ if __name__ == "__main__":
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
         [
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
-            'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50',
+            'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50', 'Changer-s101',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN', 'SRCNet', 'BiFA',
             'CSA_CDGAN',
