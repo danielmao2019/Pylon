@@ -118,7 +118,7 @@ class IA_ResNet(ResNet):
             x1, x2 = self.ccs[i](x1, x2)
             if i in self.out_indices:
                 outs.append(torch.cat([x1, x2], dim=1))
-        return tuple(outs)
+        return outs
 
 
 class IA_ResNetV1c(IA_ResNet):
