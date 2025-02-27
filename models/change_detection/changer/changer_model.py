@@ -4,6 +4,14 @@ from utils.builders.builder import build_from_config
 
 
 class Changer(torch.nn.Module):
+    __doc__ = r"""
+    Download model checkpoint:
+    ```bash
+    cd models/change_detection/changer
+    mkdir -p checkpoints
+    wget https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/segformer/mit_b0_20220624-7e0fe6dd.pth
+    wget https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/segformer/mit_b1_20220624-02e5a6a1.pth
+    """
 
     def __init__(self, encoder_cfg, decoder_cfg) -> None:
         super(Changer, self).__init__()
