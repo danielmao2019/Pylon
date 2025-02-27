@@ -1,5 +1,7 @@
 from typing import List, Dict
 import torch
+import torch.nn as nn
+
 from mmseg.models.utils import nlc_to_nchw
 from mmseg.models.backbones import MixVisionTransformer
 
@@ -11,6 +13,13 @@ class IA_MixVisionTransformer(MixVisionTransformer):
         super().__init__(**kwargs)
         assert self.num_stages == len(interaction_cfg), \
             'The length of the `interaction_cfg` should be same as the `num_stages`.'
+        # cross-correlation
+        self.ccs = []
+        for ia_cfg in interaction_cfg:
+            if ia_cfg is None:
+                ia_cfg = dict(type='TwoIdentity')
+            self.ccs.append(MODELS.build(ia_cfg))
+        self.ccs = nn.ModuleList(self.ccs)
     
     def forward(self, inputs: Dict[str, torch.Tensor]) -> List[torch.Tensor]:
         x1, x2 = inputs['img_1'], inputs['img_2']
@@ -27,6 +36,7 @@ class IA_MixVisionTransformer(MixVisionTransformer):
             x1 = nlc_to_nchw(x1, hw_shape)
             x2 = nlc_to_nchw(x2, hw_shape)
 
+            x1, x2 = self.ccs[i](x1, x2)
             if i in self.out_indices:
                 outs.append(torch.cat([x1, x2], dim=1))
         return outs
