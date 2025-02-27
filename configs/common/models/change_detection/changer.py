@@ -77,7 +77,7 @@ interaction_cfg = (
 )
 
 sampler_cfg = {
-    'class': mmseg.OHEMPixelSampler,
+    'class': mmseg.structures.OHEMPixelSampler,
     'args': {
         'thresh': 0.7,
         'min_kept': 100000,
