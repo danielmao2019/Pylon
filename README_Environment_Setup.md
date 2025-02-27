@@ -5,7 +5,10 @@ conda update -n base -c defaults conda -y
 conda create --name Pylon python=3.10 -y
 conda activate Pylon
 pip install --upgrade pip
-conda install pytorch==1.13.1 torchvision==0.14.1 pytorch-cuda=11.7 -c pytorch -c nvidia -y
+conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia -y
+pip install -U openmim
+mim install mmengine mmcv==2.0.0 mmdet
+pip install mmsegmentation==1.0.0
 conda install timm einops scipy scikit-learn scikit-image pycocotools opencv rasterio pytest matplotlib imageio dash tqdm -c conda-forge -y
 pip install fvcore triton jsbeautifier
 ```
