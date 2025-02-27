@@ -1,6 +1,5 @@
 import copy
 import models
-import mmseg
 
 
 mit_cfg = {
