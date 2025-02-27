@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from mmseg.models.backbones import ResNet
+from utils.builders.builder import build_from_config
 
 
 class IA_ResNet(ResNet):
@@ -91,7 +92,7 @@ class IA_ResNet(ResNet):
         for ia_cfg in interaction_cfg:
             if ia_cfg is None:
                 ia_cfg = dict(type='TwoIdentity')
-            self.ccs.append(MODELS.build(ia_cfg))
+            self.ccs.append(build_from_config(ia_cfg))
         self.ccs = nn.ModuleList(self.ccs)
     
     def forward(self, x1, x2):
