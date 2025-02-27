@@ -89,8 +89,11 @@ sampler_cfg = {
 # ==================================================
 
 changer_mit_b0_cfg = {
-    'encoder_cfg': copy.deepcopy(mit_cfg),
-    'decoder_cfg': copy.deepcopy(decoder_cfg),
+    'class': models.change_detection.changer.Changer,
+    'args': {
+        'encoder_cfg': copy.deepcopy(mit_cfg),
+        'decoder_cfg': copy.deepcopy(decoder_cfg),
+    },
 }
 changer_mit_b0_cfg['encoder_cfg']['args'].update({
     'pretrained': "./models/change_detection/changer/checkpoints/mit_b0.pth",
@@ -114,8 +117,11 @@ changer_mit_b1_cfg['decoder_cfg']['args']['in_channels'] = [64, 128, 320, 512]
 # ==================================================
 
 changer_r18_cfg = {
-    'encoder_cfg': copy.deepcopy(r18_cfg),
-    'decoder_cfg': copy.deepcopy(decoder_cfg),
+    'class': models.change_detection.changer.Changer,
+    'args': {
+        'encoder_cfg': copy.deepcopy(r18_cfg),
+        'decoder_cfg': copy.deepcopy(decoder_cfg),
+    },
 }
 changer_r18_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
 changer_r18_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
@@ -125,8 +131,11 @@ changer_r18_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
 # ==================================================
 
 changer_s50_cfg = {
-    'encoder_cfg': copy.deepcopy(s50_cfg),
-    'decoder_cfg': copy.deepcopy(decoder_cfg),
+    'class': models.change_detection.changer.Changer,
+    'args': {
+        'encoder_cfg': copy.deepcopy(s50_cfg),
+        'decoder_cfg': copy.deepcopy(decoder_cfg),
+    },
 }
 changer_s50_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
 changer_s50_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
