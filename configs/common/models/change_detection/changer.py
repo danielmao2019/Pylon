@@ -4,7 +4,7 @@ import mmseg
 
 
 mit_cfg = {
-    'class': models.change_detection.changer.modules.ia_mix_vision_transformer.IA_MixVisionTransformer,
+    'class': models.change_detection.changer.modules.interaction_mit.IA_MixVisionTransformer,
     'args': {
         'in_channels': 3,
         'embed_dims': 32,
@@ -23,7 +23,7 @@ mit_cfg = {
 }
 
 r18_cfg = {
-    'class': models.change_detection.changer.modules.ia_resnet.IA_ResNetV1c,
+    'class': models.change_detection.changer.modules.interaction_resnet.IA_ResNetV1c,
     'args': {
         'depth': 18,
         'num_stages': 4,
@@ -38,7 +38,7 @@ r18_cfg = {
 }
 
 s50_cfg = {
-    'class': models.change_detection.changer.modules.ia_resnest.IA_ResNeSt,
+    'class': models.change_detection.changer.modules.interaction_resnest.IA_ResNeSt,
     'args': {
         'depth': 50,
         'num_stages': 4,

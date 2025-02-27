@@ -12,7 +12,7 @@ class Changer(torch.nn.Module):
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         feats = self.encoder(inputs['img_1'], inputs['img_2'])
-        assert isinstance(feats, list)
+        assert isinstance(feats, list), f"{type(feats)=}"
         assert len(feats) == 4
         assert all(isinstance(x, torch.Tensor) for x in feats)
         out = self.decoder(feats)
