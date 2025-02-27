@@ -57,6 +57,8 @@ def main(dataset: str, model: str) -> None:
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.TinyCD, 'args': {{}}}}\n"
         config += '\n'
+    elif model == "Changer":
+        config
     elif model.startswith("ChangeFormer"):
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
@@ -144,7 +146,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
         [
-            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
+            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD', 'Changer',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'FTN', 'SRCNet', 'BiFA',
             'CSA_CDGAN',
