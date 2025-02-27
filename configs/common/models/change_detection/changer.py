@@ -92,19 +92,21 @@ changer_mit_b0_cfg = {
     'encoder_cfg': copy.deepcopy(mit_cfg),
     'decoder_cfg': copy.deepcopy(decoder_cfg),
 }
-changer_mit_b0_cfg['encoder_cfg']['args']['pretrained'] = "./models/change_detection/changer/checkpoints/mit_bi.pth"
-changer_mit_b0_cfg['encoder_cfg']['args']['interaction_cfg'] = interaction_cfg
+changer_mit_b0_cfg['encoder_cfg']['args'].update({
+    'pretrained': "./models/change_detection/changer/checkpoints/mit_b0.pth",
+    'interaction_cfg': interaction_cfg,
+})
 changer_mit_b0_cfg['decoder_cfg']['args']['sampler'] = sampler_cfg
 
 # ==================================================
 # mit b1
 # ==================================================
 
-changer_mit_b1_cfg = {
-    'encoder_cfg': copy.deepcopy(mit_cfg),
-    'decoder_cfg': copy.deepcopy(decoder_cfg),
-}
-changer_mit_b1_cfg['encoder_cfg']['args']['embed_dims'] = 64
+changer_mit_b1_cfg = copy.deepcopy(changer_mit_b0_cfg)
+changer_mit_b1_cfg['encoder_cfg']['args'].update({
+    'pretrained': "./models/change_detection/changer/checkpoints/mit_b1.pth",
+    'embed_dims': 64, 'num_heads': [1, 2, 5, 8], 'num_layers': [2, 2, 2, 2],
+})
 changer_mit_b1_cfg['decoder_cfg']['args']['in_channels'] = [64, 128, 320, 512]
 
 # ==================================================
