@@ -2,8 +2,6 @@ from functools import partial
 import math
 import torch
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
-from mmcv.runner import load_checkpoint
-from mmseg.utils import get_root_logger
 from models.change_detection.bifa.modules.segformer_head import SegFormerHead
 from models.change_detection.bifa.modules.my_transformer import *
 from models.change_detection.bifa.bifa_help.ImplicitFunction import fpn_ifa
@@ -369,11 +367,6 @@ class MixVisionTransformer(nn.Module):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def init_weights(self, pretrained=None):
-        if isinstance(pretrained, str):
-            logger = get_root_logger()
-            load_checkpoint(self, pretrained, map_location='cpu', strict=False, logger=logger)
-
     def reset_drop_path(self, drop_path_rate):
         dpr = [x.item() for x in torch.linspace(0, drop_path_rate, sum(self.depths))]
         cur = 0
@@ -483,10 +476,14 @@ class mit_b0(MixVisionTransformer):
 
 
 class BiFA(nn.Module):
-    def __init__(self):
+    __doc__ = r"""
+    Segformer checkpoint download: https://pan.baidu.com/s/1zxet_fQy6eZZQS3Ak9ChlQ
+    """
+
+    def __init__(self, checkpoint_filepath: str):
         super().__init__()
         self.segformer = mit_b0()
-        self.ckpt = torch.load(r"E:\pertrain_weight\segformer\mit_b0.pth")
+        self.ckpt = torch.load(checkpoint_filepath)
         self.segformer.load_state_dict(self.ckpt, False)
         self.head = SegFormerHead(
             in_channels=[32, 64, 160, 256],

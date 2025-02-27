@@ -6,11 +6,9 @@
 from abc import ABCMeta, abstractmethod
 import torch.nn as nn
 import torch
-from mmcv.cnn import normal_init
-from mmcv.runner import auto_fp16
-from mmseg.core import build_pixel_sampler
 from mmcv.cnn import ConvModule
-from mmseg.ops import resize
+from mmseg.structures import build_pixel_sampler
+from mmseg.models.utils import resize
 
 
 class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
@@ -133,10 +131,6 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
             assert isinstance(in_index, int)
             self.in_channels = in_channels
 
-    def init_weights(self):
-        """Initialize weights of classification layer."""
-        normal_init(self.conv_seg, mean=0, std=0.01)
-
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.
 
@@ -164,7 +158,6 @@ class BaseDecodeHead(nn.Module, metaclass=ABCMeta):
 
         return inputs
 
-    @auto_fp16()
     @abstractmethod
     def forward(self, inputs):
         """Placeholder of forward function."""
