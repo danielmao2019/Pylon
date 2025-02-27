@@ -36,7 +36,7 @@ class FDAF(BaseModule):
         conv_cfg=None
         norm_cfg=dict(type='IN')
         act_cfg=dict(type='GELU')
-        
+
         kernel_size = 5
         self.flow_make = Sequential(
             nn.Conv2d(in_channels*2, in_channels*2, kernel_size=kernel_size, padding=(kernel_size-1)//2, bias=True, groups=in_channels*2),
@@ -53,10 +53,10 @@ class FDAF(BaseModule):
         f1, f2 = torch.chunk(flow, 2, dim=1)
         x1_feat = self.warp(x1, f1) - x2
         x2_feat = self.warp(x2, f2) - x1
-        
+
         if fusion_policy == None:
             return x1_feat, x2_feat
-        
+
         output = FeatureFusionNeck.fusion(x1_feat, x2_feat, fusion_policy)
         return output
 
@@ -176,9 +176,9 @@ class Changer(BaseDecodeHead):
             out_channels=self.channels // 2,
             kernel_size=1,
             norm_cfg=self.norm_cfg)
-        
+
         self.neck_layer = FDAF(in_channels=self.channels // 2)
-        
+
         # projection head
         self.discriminator = MixFFN(
             embed_dims=self.channels,
@@ -186,7 +186,7 @@ class Changer(BaseDecodeHead):
             ffn_drop=0.,
             dropout_layer=dict(type='DropPath', drop_prob=0.),
             act_cfg=dict(type='GELU'))
-                
+
     def base_forward(self, inputs):
         outs = []
         for idx in range(len(inputs)):
@@ -200,7 +200,7 @@ class Changer(BaseDecodeHead):
                     align_corners=self.align_corners))
 
         out = self.fusion_conv(torch.cat(outs, dim=1))
-        
+
         return out
 
     def forward(self, inputs):
@@ -212,7 +212,7 @@ class Changer(BaseDecodeHead):
             f1, f2 = torch.chunk(input, 2, dim=1)
             inputs1.append(f1)
             inputs2.append(f2)
-        
+
         out1 = self.base_forward(inputs1)
         out2 = self.base_forward(inputs2)
         out = self.neck_layer(out1, out2, 'concat')

@@ -6,7 +6,7 @@ class FeatureFusionNeck(BaseModule):
     """Feature Fusion Neck.
 
     Args:
-        policy (str): The operation to fuse features. candidates 
+        policy (str): The operation to fuse features. candidates
             are `concat`, `sum`, `diff` and `abs_diff`.
         in_channels (Sequence(int)): Input channels.
         channels (int): Channels after modules, before conv_seg.
@@ -27,11 +27,11 @@ class FeatureFusionNeck(BaseModule):
     @staticmethod
     def fusion(x1, x2, policy):
         """Specify the form of feature fusion"""
-        
+
         _fusion_policies = ['concat', 'sum', 'diff', 'abs_diff']
         assert policy in _fusion_policies, 'The fusion policies {} are ' \
             'supported'.format(_fusion_policies)
-        
+
         if policy == 'concat':
             x = torch.cat([x1, x2], dim=1)
         elif policy == 'sum':
