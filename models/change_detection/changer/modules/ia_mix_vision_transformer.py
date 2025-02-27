@@ -1,6 +1,5 @@
 from typing import List, Dict
 import torch
-import torch.nn as nn
 from mmseg.models.utils import nlc_to_nchw
 from mmseg.models.backbones import MixVisionTransformer
 
