@@ -72,8 +72,8 @@ def main(dataset: str, model: str) -> None:
         else:
             config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
             config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+        config += '\n'
         if int(model[-1]) in {4, 5, 6}:
-            config += '\n'
             config += f"# criterion config\n"
             config += f"import criteria\n"
             config += f"""config['criterion'] = {{
