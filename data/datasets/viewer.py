@@ -90,7 +90,7 @@ def update_index(prev_clicks, next_clicks, current_idx):
         return current_idx - 1
     elif trigger_id == 'next-btn' and current_idx < len(dataset) - 1:
         return current_idx + 1
-    return current_idx, html.Div(str(current_idx))
+    return current_idx, html.P(str(current_idx))
 
 @app.callback(
     Output('datapoint-display', 'children'),
