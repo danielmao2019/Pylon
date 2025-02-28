@@ -9,7 +9,8 @@ import utils
 
 # Load dataset instance
 from ...configs.common.datasets.change_detection.train.cdd import config
-train_dataset = utils.builders.build_from_config(config['train_dataset'])
+dataset = utils.builders.build_from_config(config['train_dataset'])
+transforms = config['train_dataset']['transforms_cfg']
 
 # Dash app setup
 app = dash.Dash(__name__)
@@ -35,7 +36,7 @@ def format_value(value):
 # Get available transformations
 available_transforms = [
     {'label': t.__class__.__name__, 'value': t.__class__.__name__}
-    for t in train_dataset.transform.transforms  # Use train_dataset.transform instead of transforms_cfg
+    for t in dataset.transform.transforms  # Use train_dataset.transform instead of transforms_cfg
 ]
 
 # Layout
@@ -76,18 +77,18 @@ def update_index(prev_clicks, next_clicks, current_idx):
 
     if trigger_id == 'prev-btn' and current_idx > 0:
         return current_idx - 1
-    elif trigger_id == 'next-btn' and current_idx < len(train_dataset) - 1:
+    elif trigger_id == 'next-btn' and current_idx < len(dataset) - 1:
         return current_idx + 1
     return current_idx
 
 @app.callback(
-    Output('datapoint-display', 'children'),
     Input('current-idx', 'data'),
     Input('transform-selector', 'value')
+    Output('datapoint-display', 'children'),
 )
 def update_datapoint(current_idx, selected_transforms):
     """Display datapoint details and images."""
-    datapoint = train_dataset[current_idx]
+    datapoint = dataset[current_idx]
 
     display_items = []
 
