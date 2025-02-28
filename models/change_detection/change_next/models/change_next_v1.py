@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import List, Dict, Union
 import torch
 from models.change_detection.change_next.modules.change_next import MSCAN
 from models.change_detection.change_former.modules.decoder_transformer_v3 import DecoderTransformer_v3
@@ -29,10 +29,12 @@ class ChangeNextV1(torch.nn.Module):
             feature_strides=[2, 4, 8, 16],
         )
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[torch.Tensor, List[torch.Tensor]]:
         x1, x2 = inputs['img_1'], inputs['img_2']
         [fx1, fx2] = [self.Tenc_x2(x1), self.Tenc_x2(x2)]
 
         cp = self.Decode(fx1, fx2)
 
+        if not self.training:
+            cp = cp[-1]
         return cp
