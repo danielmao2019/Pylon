@@ -88,17 +88,27 @@ def update_index(prev_clicks, next_clicks, current_idx):
 )
 def update_datapoint(current_idx, selected_transforms):
     """Apply selected transformations and display datapoint details and images."""
-    datapoint = dataset[current_idx]
-    transformed_inputs = {}
-    
-    # Apply selected transformations dynamically
-    for transform in transforms_cfg['args']['transforms']:
-        transform_instance, keys = transform
-        if transform_instance.__class__.__name__ in selected_transforms:
-            for key_pair in keys:
-                category, key = key_pair if isinstance(key_pair, tuple) else (key_pair[0], key_pair[1])
-                datapoint[category][key] = transform_instance(datapoint[category][key])
-    
+    # Load datapoint
+    inputs, labels, meta_info = dataset._load_datapoint(current_idx)
+    datapoint = {
+        'inputs': inputs,
+        'labels': labels,
+        'meta_info': meta_info,
+    }
+
+    # Filter and apply only selected transformations
+    filtered_transforms_cfg = {
+        'class': Compose,
+        'args': {
+            'transforms': [
+                transform for transform in transforms_cfg['args']['transforms']
+                if transform[0].__class__.__name__ in selected_transforms
+            ]
+        }
+    }
+    active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
+    datapoint = active_transforms(datapoint)
+
     display_items = []
 
     # Display inputs (images)
