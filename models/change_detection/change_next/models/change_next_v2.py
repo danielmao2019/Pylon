@@ -32,7 +32,8 @@ class ChangeNextV2(torch.nn.Module):
                                         channels=embed_dim,
                                         dropout_ratio=0.1, num_classes=2, input_transform='multiple_select',
                                         align_corners=False, feature_strides=[2, 4, 8, 16],
-                                        embedding_dim=self.embedding_dim, output_nc=output_nc, decoder_softmax=False)
+                                        embedding_dim=self.embedding_dim, output_nc=output_nc,
+                                        )
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         x1, x2 = inputs['img_1'], inputs['img_2']

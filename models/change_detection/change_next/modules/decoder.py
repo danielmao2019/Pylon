@@ -212,7 +212,7 @@ class ChangeNeXtDecoder(nn.Module):
 
     def __init__(self, interpolate_mode='bilinear', num_heads=4, m=0.9, trans_with_mlp=True, trans_depth=1,
                  att_type="XCA",in_channels=[64, 128, 320, 512],in_index=[0, 1, 2, 3],channels=256,
-        dropout_ratio=0.1,num_classes=2,input_transform='multiple_select',align_corners=False,feature_strides=[2, 4, 8, 16],embedding_dim=256,output_nc=2,decoder_softmax=False):
+        dropout_ratio=0.1,num_classes=2,input_transform='multiple_select',align_corners=False,feature_strides=[2, 4, 8, 16],embedding_dim=256,output_nc=2):
         super(ChangeNeXtDecoder, self).__init__()
         self.in_channels =in_channels
         self.in_index = in_index
@@ -282,11 +282,6 @@ class ChangeNeXtDecoder(nn.Module):
         self.convd1x = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
         self.dense_1x = nn.Sequential(ResidualBlock(self.embedding_dim))
         self.change_probability = ConvLayer(self.embedding_dim, self.output_nc, kernel_size=3, stride=1, padding=1)
-
-        # Final activation
-        self.output_softmax = decoder_softmax
-        self.active = nn.Sigmoid()
-
         self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=1)
 
     def _transform_inputs(self, inputs):
@@ -374,12 +369,6 @@ class ChangeNeXtDecoder(nn.Module):
         # Final prediction
         cp = self.change_probability(x)
         outputs.append(cp)
-
-        if self.output_softmax:
-            temp = outputs
-            outputs = []
-            for pred in temp:
-                outputs.append(self.active(pred))
 
         return outputs
 
