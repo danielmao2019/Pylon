@@ -72,17 +72,18 @@ def main(dataset: str, model: str) -> None:
         else:
             config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
             config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
-        config += '\n'
-        config += f"# criterion config\n"
-        config += f"import criteria\n"
-        config += f"""config['criterion'] = {{
+        if int(model[-1]) in {4, 5, 6}:
+            config += '\n'
+            config += f"# criterion config\n"
+            config += f"import criteria\n"
+            config += f"""config['criterion'] = {{
     'class': criteria.wrappers.AuxiliaryOutputsCriterion,
     'args': {{
         'criterion_cfg': config['criterion'],
         'reduction': 'mean',
     }},
 }}\n"""
-        config += '\n'
+            config += '\n'
     elif model.startswith("ChangeNext"):
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
