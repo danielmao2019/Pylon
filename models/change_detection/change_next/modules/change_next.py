@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import to_2tuple, DropPath
-from models.change_detection.change_former.modules.dwconv import DWConv
 
 
 class Mlp(nn.Module):
@@ -333,6 +332,16 @@ class OverlapPatchEmbed(nn.Module):
         x = x.flatten(2).transpose(1, 2)
 
         return x, H, W
+
+
+class DWConv(nn.Module):
+    def __init__(self, dim=768):
+        super(DWConv, self).__init__()
+        self.dwconv = nn.Conv2d(dim, dim, 3, 1, 1, bias=True, groups=dim)
+
+    def forward(self, x):
+        x = self.dwconv(x)
+        return x
 
 
 class MSCAN(nn.Module):
