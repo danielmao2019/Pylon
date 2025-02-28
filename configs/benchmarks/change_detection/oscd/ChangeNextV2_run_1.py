@@ -62,7 +62,7 @@ config['model'] = {'class': models.change_detection.ChangeNextV2, 'args': {}}
 
 from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
 config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
-config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
+config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(224, 224), resize=(256, 256))
 
 # criterion config
 import criteria

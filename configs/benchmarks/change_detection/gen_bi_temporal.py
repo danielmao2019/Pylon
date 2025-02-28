@@ -69,6 +69,9 @@ def main(dataset: str, model: str) -> None:
         if dataset == "air_change":
             config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(first='ResizeMaps', size=(256, 256))\n"
             config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(112, 112), resize=(256, 256))\n"
+        elif dataset == "oscd":
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(224, 224), resize=(256, 256))\n"
         else:
             config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
             config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
@@ -92,6 +95,9 @@ def main(dataset: str, model: str) -> None:
         if dataset == "air_change":
             config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(first='ResizeMaps', size=(256, 256))\n"
             config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(112, 112), resize=(256, 256))\n"
+        elif dataset == "oscd":
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(224, 224), resize=(256, 256))\n"
         else:
             config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
             config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
