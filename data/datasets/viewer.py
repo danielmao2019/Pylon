@@ -128,7 +128,7 @@ def update_datapoint(current_idx, selected_transform_indices):
     input_fig_2 = px.imshow(img_2)
     input_fig_2.update_layout(coloraxis_showscale=False, title='Image 2')
     change_map_fig = px.imshow(change_map, color_continuous_scale='viridis')
-    change_map_fig.update_layout(coloraxis_showscale=False, title='Change Map', margin={'t': 100})
+    change_map_fig.update_layout(coloraxis_showscale=False, title='Change Map')
 
     return html.Div([
         html.Div([
