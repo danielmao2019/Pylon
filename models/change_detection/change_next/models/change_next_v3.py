@@ -28,7 +28,7 @@ class ChangeNextV3(torch.nn.Module):
                                         dropout_ratio=0.1, num_classes=2, input_transform='multiple_select',
                                         align_corners=False, feature_strides=[2, 4, 8, 16],
                                         embedding_dim=self.embedding_dim, output_nc=output_nc,
-                                        decoder_softmax=False)
+                                        )
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[torch.Tensor, List[torch.Tensor]]:
         x1, x2 = inputs['img_1'], inputs['img_2']
