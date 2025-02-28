@@ -305,7 +305,7 @@ class Block(nn.Module):
             self.attn(self.norm1(x)))
         x = x + self.drop_path(
             self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) *
-            self.mlp(self.norm2(x)))
+            self.mlp(self.norm2(x), H, W))
         x = x.view(B, C, N).permute(0, 2, 1)
         return x
 
@@ -403,10 +403,8 @@ class MSCAN(nn.Module):
             block = getattr(self, f"block{i + 1}")
             norm = getattr(self, f"norm{i + 1}")
             x, H, W = patch_embed(x)
-            # print(H.device)
             for blk in block:
                 x = blk(x, H, W)
-            # print(x.device)
             x = norm(x)
             x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2)
             outs.append(x)
