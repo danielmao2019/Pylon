@@ -5,6 +5,9 @@ from models.change_detection.cdx_former.modules.cdx_lstm import CDXLSTM
 
 
 class CDXFormer(torch.nn.Module):
+    __doc__ = r"""
+    Backbone pretrained weights download: https://drive.google.com/drive/folders/1BrZU0339JAFpKsQf4kdS0EpeeFgrBvBJ?usp=drive_link
+    """
 
     def __init__(self) -> None:
         self.encoder = SeaFormer_L(pretrained=True)

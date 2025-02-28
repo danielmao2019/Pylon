@@ -4,7 +4,6 @@ from torch import nn
 import torch.nn.functional as F
 
 from mmcv.cnn import build_norm_layer
-from timm.models.registry import register_model
 
 
 def _make_divisible(v, divisor, min_value=None):
@@ -413,7 +412,6 @@ class SeaFormer(nn.Module):
         return res
 
 
-@register_model
 def SeaFormer_T(pretrained=False, **kwargs):
     model_cfgs = dict(
         cfg1=[
@@ -451,7 +449,6 @@ def SeaFormer_T(pretrained=False, **kwargs):
         drop_path_rate=model_cfgs['drop_path_rate'])
 
 
-@register_model
 def SeaFormer_S(pretrained=False, **kwargs):
     model_cfgs = dict(
         cfg1=[
@@ -489,7 +486,6 @@ def SeaFormer_S(pretrained=False, **kwargs):
         drop_path_rate=model_cfgs['drop_path_rate'])
 
 
-@register_model
 def SeaFormer_B(pretrained=False, **kwargs):
     model_cfgs = dict(
         cfg1=[
@@ -528,8 +524,7 @@ def SeaFormer_B(pretrained=False, **kwargs):
 
 # download link of the pretrained backbone weight 
 # https://drive.google.com/drive/folders/1BrZU0339JAFpKsQf4kdS0EpeeFgrBvBJ?usp=drive_link
-@register_model
-def SeaFormer_L(pretrained=False, weights='rscd/models/backbones/review_pretrain/SeaFormer_L_cls_79.9.pth.tar', **kwargs):
+def SeaFormer_L(pretrained=False, weights='./models/change_detection/cdx_former/SeaFormer_L_cls_79.9.pth.tar', **kwargs):
     model_cfgs = dict(
         cfg1=[
             # k,  t,  c, s
