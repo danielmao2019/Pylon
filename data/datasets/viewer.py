@@ -5,6 +5,7 @@ import numpy as np
 import sys
 import torch
 sys.path.append("../..")
+import data
 import utils
 
 # Load dataset instance
@@ -101,7 +102,7 @@ def update_datapoint(current_idx, selected_transform_indices):
 
     # Filter transforms by selected indices
     filtered_transforms_cfg = {
-        'class': Compose,
+        'class': data.transforms.Compose,
         'args': {
             'transforms': [
                 transform for i, transform in enumerate(transforms_cfg['args']['transforms'])
