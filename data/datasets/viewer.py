@@ -57,7 +57,7 @@ app.layout = html.Div([
     
     html.Div(id='control', children=[
         html.Div(id='navigation', children=[
-            html.P(id='index', style={'margin-bottom': '10px'}),
+            html.P(id='index', children='index=0', style={'margin-bottom': '10px'}),
             html.Button("Prev", id='prev-btn', n_clicks=0, style={'margin-bottom': '10px'}),
             html.Button("Next", id='next-btn', n_clicks=0, style={'margin-bottom': '10px'}),
         ]),
@@ -92,7 +92,7 @@ def update_index(prev_clicks, next_clicks, current_idx):
         current_idx = current_idx + 1
     else:
         pass
-    return current_idx, str(current_idx)
+    return current_idx, f"index={current_idx}"
 
 @app.callback(
     Output('datapoint-display', 'children'),
