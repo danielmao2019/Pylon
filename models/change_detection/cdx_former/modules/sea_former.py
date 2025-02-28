@@ -3,7 +3,6 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 
-from mmcv.cnn import ConvModule
 from mmcv.cnn import build_norm_layer
 from timm.models.registry import register_model
 

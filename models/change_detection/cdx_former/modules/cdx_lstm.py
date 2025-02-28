@@ -1,9 +1,10 @@
 import torch
 from torch import nn
 from torch.cuda.amp import autocast
-from rscd.models.decoderheads.vision_lstm import ViLBlock, SequenceTraversal
+from models.change_detection.cdx_former.vision_lstm import ViLBlock, SequenceTraversal
 from torch.nn import functional as F
 from functools import partial
+
 
 class ViLLayer(nn.Module):
     def __init__(self, dim, d_state = 16, d_conv = 4, expand = 2):
