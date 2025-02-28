@@ -13,6 +13,9 @@ from models.change_detection.change_former.models.change_former_v3 import Change
 from models.change_detection.change_former.models.change_former_v4 import ChangeFormerV4
 from models.change_detection.change_former.models.change_former_v5 import ChangeFormerV5
 from models.change_detection.change_former.models.change_former_v6 import ChangeFormerV6
+from models.change_detection.change_next.models.change_next_v1 import ChangeNextV1
+from models.change_detection.change_next.models.change_next_v2 import ChangeNextV2
+from models.change_detection.change_next.models.change_next_v3 import ChangeNextV3
 from models.change_detection.ftn.model import FTN
 from models.change_detection.srcnet.srcnet_model import SRCNet
 from models.change_detection.bifa.bifa_model import BiFA
@@ -38,6 +41,9 @@ __all__ = (
     'ChangeFormerV4',
     'ChangeFormerV5',
     'ChangeFormerV6',
+    'ChangeNextV1',
+    'ChangeNextV2',
+    'ChangeNextV3',
     'FTN',
     'SRCNet',
     'BiFA',
