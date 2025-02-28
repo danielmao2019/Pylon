@@ -33,10 +33,13 @@ def format_value(value):
         return f"Torch Tensor {value.tolist()}"
     return str(value)
 
-# Get available transformations
+# Generate dropdown options with transform indices
 available_transforms = [
-    {'label': t.__class__.__name__, 'value': t.__class__.__name__}
-    for t in dataset.transform.transforms  # Use train_dataset.transform instead of transforms_cfg
+    {
+        'label': f"{i} - {t[0].__class__.__name__} ({[key_pair for key_pair in t[1]]})",
+        'value': i
+    }
+    for i, t in enumerate(transforms_cfg['args']['transforms'])
 ]
 
 # Layout
@@ -51,12 +54,12 @@ app.layout = html.Div([
     html.Hr(),
     html.Div(id='datapoint-display'),
 
-    html.Label("Select Active Transformations:"),
+    html.Label("Select Active Transformations (Ordered by Index):"),
     dcc.Dropdown(
         id='transform-selector',
         options=available_transforms,
         multi=True,
-        value=[t['value'] for t in available_transforms]
+        value=[t['value'] for t in available_transforms]  # Default to all selected
     )
 ])
 
@@ -86,7 +89,7 @@ def update_index(prev_clicks, next_clicks, current_idx):
     Input('current-idx', 'data'),
     Input('transform-selector', 'value')
 )
-def update_datapoint(current_idx, selected_transforms):
+def update_datapoint(current_idx, selected_transform_indices):
     """Apply selected transformations and display datapoint details and images."""
     # Load datapoint
     inputs, labels, meta_info = dataset._load_datapoint(current_idx)
@@ -96,16 +99,18 @@ def update_datapoint(current_idx, selected_transforms):
         'meta_info': meta_info,
     }
 
-    # Filter and apply only selected transformations
+    # Filter transforms by selected indices
     filtered_transforms_cfg = {
         'class': Compose,
         'args': {
             'transforms': [
-                transform for transform in transforms_cfg['args']['transforms']
-                if transform[0].__class__.__name__ in selected_transforms
+                transform for i, transform in enumerate(transforms_cfg['args']['transforms'])
+                if i in selected_transform_indices
             ]
         }
     }
+    
+    # Build the transformation pipeline with only selected transforms
     active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
     datapoint = active_transforms(datapoint)
 
