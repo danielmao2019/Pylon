@@ -27,15 +27,21 @@ class ResizeMaps(BaseTransform):
         super(ResizeMaps, self).__init__()
         # initialize resize op
         if 'interpolation' in kwargs:
-            if kwargs['interpolation'] == "bilinear":
+            if kwargs['interpolation'] is None:
+                pass
+            elif kwargs['interpolation'] == "bilinear":
                 kwargs['interpolation'] = torchvision.transforms.functional.InterpolationMode.BILINEAR
             elif kwargs['interpolation'] == "nearest":
                 kwargs['interpolation'] = torchvision.transforms.functional.InterpolationMode.NEAREST
             else:
                 raise ValueError(f"Unsupported interpolation mode: {kwargs['interpolation']}")
-        self.resize = torchvision.transforms.Resize(**kwargs)
+        if kwargs['interpolation']:
+            self.resize_op = torchvision.transforms.Resize(**kwargs)
+        else:
+            self.resize_op = None
+            self.kwargs = kwargs
         # initialize target size
-        target_size = (self.resize.size,) * 2 if isinstance(self.resize.size, int) else tuple(self.resize.size)
+        target_size = (self.resize_op.size,) * 2 if isinstance(self.resize_op.size, int) else tuple(self.resize_op.size)
         assert isinstance(target_size, tuple), f"Expected tuple for target_size, got {type(target_size)}"
         assert len(target_size) == 2, f"Expected a tuple of length 2, got {len(target_size)}"
         assert all(isinstance(dim, int) for dim in target_size), (
@@ -62,47 +68,18 @@ class ResizeMaps(BaseTransform):
         """
         if x.ndim < 2:
             raise ValueError(f"Unsupported tensor dimensions: {x.ndim}. Expected at least 2D tensors.")
-
-        if x.ndim == 2:  # Special case for pure 2D tensors (H, W)
-            return self._call_2d(x)
-        else:  # Tensors with shape (..., H, W)
-            return self._call_nd(x)
-
-    def _call_2d(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Resizes a 2D tensor (H, W).
-
-        Args:
-            x (torch.Tensor): Input 2D tensor.
-
-        Returns:
-            torch.Tensor: Resized 2D tensor.
-        """
-        assert x.ndim == 2, f"Expected a 2D tensor, got {x.ndim}D tensor with shape {x.shape}"
-
-        # Temporarily add batch and channel dimensions for resizing
-        x = x.unsqueeze(0)  # Shape: (1, H, W)
-        x = self.resize(x)  # Resize: Shape (1, target_H, target_W)
-        x = x.squeeze(0)  # Remove batch and channel dimensions: (target_H, target_W)
-
-        assert x.shape == self.target_size, f"Resized tensor shape mismatch: expected {self.target_size}, got {x.shape}"
-        return x
-
-    def _call_nd(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Resizes a tensor with shape (..., H, W).
-
-        Args:
-            x (torch.Tensor): Input tensor with shape (..., H, W).
-
-        Returns:
-            torch.Tensor: Resized tensor with shape (..., target_H, target_W).
-        """
-        assert x.ndim >= 3, f"Expected a tensor with shape (..., H, W), got {x.ndim}D tensor with shape {x.shape}"
-
-        # Apply resizing directly
-        x = self.resize(x)
+        if not self.resize_op:
+            interpolation = (
+                torchvision.transforms.functional.InterpolationMode.BILINEAR
+                if torch.is_floating_point(x) else
+                torchvision.transforms.functional.InterpolationMode.NEAREST
+            )
+            self.kwargs['interpolation'] = interpolation
+            resize_op = torchvision.transforms.Resize(self.kwargs)
+        else:
+            resize_op = self.resize_op
+        x = x.unsqueeze(-3)
+        x = resize_op(x)
+        x = x.squeeze(-3)
         expected_shape = (*x.shape[:-2], *self.target_size)  # (..., target_H, target_W)
-
         assert x.shape == expected_shape, f"Resized tensor shape mismatch: expected {expected_shape}, got {x.shape}"
-        return x
