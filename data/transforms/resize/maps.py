@@ -25,7 +25,6 @@ class ResizeMaps(BaseTransform):
             AssertionError: If the target size is not a tuple of two integers.
         """
         super(ResizeMaps, self).__init__()
-        # initialize resize op
         if 'interpolation' in kwargs:
             if kwargs['interpolation'] is None:
                 pass
@@ -40,14 +39,6 @@ class ResizeMaps(BaseTransform):
         else:
             self.resize_op = None
             self.kwargs = kwargs
-        # initialize target size
-        target_size = (self.resize_op.size,) * 2 if isinstance(self.resize_op.size, int) else tuple(self.resize_op.size)
-        assert isinstance(target_size, tuple), f"Expected tuple for target_size, got {type(target_size)}"
-        assert len(target_size) == 2, f"Expected a tuple of length 2, got {len(target_size)}"
-        assert all(isinstance(dim, int) for dim in target_size), (
-            f"Both elements of target_size must be integers, got {target_size}"
-        )
-        self.target_size = target_size
 
     def _call_single_(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -81,5 +72,11 @@ class ResizeMaps(BaseTransform):
         x = x.unsqueeze(-3)
         x = resize_op(x)
         x = x.squeeze(-3)
-        expected_shape = (*x.shape[:-2], *self.target_size)  # (..., target_H, target_W)
+        # sanity check
+        assert isinstance(resize_op.size, tuple)
+        assert len(resize_op.size) == 2
+        assert all(isinstance(s, int) for s in resize_op.size)
+        expected_shape = (*x.shape[:-2], *resize_op.size)  # (..., target_H, target_W)
         assert x.shape == expected_shape, f"Resized tensor shape mismatch: expected {expected_shape}, got {x.shape}"
+        # return
+        return x
