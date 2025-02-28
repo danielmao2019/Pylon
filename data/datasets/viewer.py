@@ -118,27 +118,33 @@ def update_datapoint(current_idx, selected_transform_indices):
     active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
     datapoint = active_transforms(datapoint)
 
-    display_items = []
+    # Layout for change detection dataset
+    img_1 = tensor_to_image(datapoint['inputs']['img_1'])
+    img_2 = tensor_to_image(datapoint['inputs']['img_2'])
+    change_map = tensor_to_image(datapoint['labels']['change_map'])
 
-    # Display inputs (images)
-    for key, value in datapoint['inputs'].items():
-        img = tensor_to_image(value)
-        if img is not None:
-            fig = px.imshow(img)
-            fig.update_layout(coloraxis_showscale=False)
-            display_items.append(html.Div([html.H5(key), dcc.Graph(figure=fig)]))
-        else:
-            display_items.append(html.P(f"{key}: {format_value(value)}"))
+    input_fig_1 = px.imshow(img_1)
+    input_fig_1.update_layout(coloraxis_showscale=False, title='Image 1')
+    input_fig_2 = px.imshow(img_2)
+    input_fig_2.update_layout(coloraxis_showscale=False, title='Image 2')
+    change_map_fig = px.imshow(change_map, color_continuous_scale='viridis')
+    change_map_fig.update_layout(coloraxis_showscale=False, title='Change Map')
 
-    # Display labels
-    for key, value in datapoint['labels'].items():
-        display_items.append(html.P(f"{key}: {format_value(value)}"))
-
-    # Display metadata
-    for key, value in datapoint['meta_info'].items():
-        display_items.append(html.P(f"{key}: {format_value(value)}"))
-
-    return display_items
+    # Display section
+    return html.Div([
+        html.Div([
+            html.Div([dcc.Graph(figure=input_fig_1)]),
+            html.Div([dcc.Graph(figure=input_fig_2)])
+        ], style={'width': '50%', 'display': 'inline-block'}),
+        html.Div([
+            dcc.Graph(figure=change_map_fig)
+        ], style={'width': '50%', 'display': 'inline-block'}),
+        html.Hr(),
+        html.Div([
+            html.H5("Metadata"),
+            *[html.P(f"{key}: {format_value(value)}") for key, value in datapoint['meta_info'].items()]
+        ])
+    ])
 
 if __name__ == '__main__':
     app.run_server(debug=True)
