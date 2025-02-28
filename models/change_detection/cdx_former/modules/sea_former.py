@@ -1,4 +1,3 @@
-# Code is borrowed from https://github.com/fudan-zvg/SeaFormer
 import math
 import torch
 from torch import nn
