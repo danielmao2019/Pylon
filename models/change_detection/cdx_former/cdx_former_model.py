@@ -10,6 +10,7 @@ class CDXFormer(torch.nn.Module):
     """
 
     def __init__(self) -> None:
+        super(CDXFormer, self).__init__()
         self.encoder = SeaFormer_L(pretrained=True)
         self.decoder = CDXLSTM([64, 128, 192, 256])
 
