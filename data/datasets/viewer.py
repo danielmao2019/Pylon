@@ -87,10 +87,12 @@ def update_index(prev_clicks, next_clicks, current_idx):
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if trigger_id == 'prev-btn' and current_idx > 0:
-        return current_idx - 1
+        current_idx = current_idx - 1
     elif trigger_id == 'next-btn' and current_idx < len(dataset) - 1:
-        return current_idx + 1
-    return current_idx, html.P(str(current_idx))
+        current_idx = current_idx + 1
+    else:
+        assert 0
+    return current_idx, str(current_idx)
 
 @app.callback(
     Output('datapoint-display', 'children'),
