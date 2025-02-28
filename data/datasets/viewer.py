@@ -55,11 +55,16 @@ available_transforms = [
 app.layout = html.Div([
     dcc.Store(id='current-idx', data=0),  # Store current index in memory
     
-    html.Div([
-        html.Button("Previous", id='prev-btn', n_clicks=0, style={'margin-bottom': '10px'}),
-        html.Button("Next", id='next-btn', n_clicks=0, style={'margin-bottom': '10px'}),
-        html.Label("Select Active Transformations (Ordered by Index):"),
-        html.Div(available_transforms)
+    html.Div(id='control', children=[
+        html.Div(id='navigation', children=[
+            html.P(id='index', style={'margin-bottom': '10px'}),
+            html.Button("Prev", id='prev-btn', n_clicks=0, style={'margin-bottom': '10px'}),
+            html.Button("Next", id='next-btn', n_clicks=0, style={'margin-bottom': '10px'}),
+        ]),
+        html.Div(id='transforms', children=[
+            html.Label("Select Active Transformations:"),
+            html.Div(available_transforms)
+        ]),
     ], style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top'}),
     
     html.Div(id='datapoint-display', style={'width': '75%', 'display': 'inline-block', 'padding-left': '20px'})
@@ -67,6 +72,7 @@ app.layout = html.Div([
 
 @app.callback(
     Output('current-idx', 'data'),
+    Output('index', 'children'),
     Input('prev-btn', 'n_clicks'),
     Input('next-btn', 'n_clicks'),
     State('current-idx', 'data'),
@@ -84,7 +90,7 @@ def update_index(prev_clicks, next_clicks, current_idx):
         return current_idx - 1
     elif trigger_id == 'next-btn' and current_idx < len(dataset) - 1:
         return current_idx + 1
-    return current_idx
+    return current_idx, html.Div(str(current_idx))
 
 @app.callback(
     Output('datapoint-display', 'children'),
@@ -138,7 +144,6 @@ def update_datapoint(current_idx, selected_transform_indices):
         html.Div([
             dcc.Graph(figure=change_map_fig)
         ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'middle'}),
-        html.Hr(),
         html.Div([
             html.H5("Metadata"),
             *[html.P(f"{key}: {format_value(value)}") for key, value in datapoint['meta_info'].items()]
