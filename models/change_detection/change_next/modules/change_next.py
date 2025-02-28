@@ -305,7 +305,7 @@ class Block(nn.Module):
             self.attn(self.norm1(x)))
         x = x + self.drop_path(
             self.layer_scale_2.unsqueeze(-1).unsqueeze(-1) *
-            self.mlp(self.norm2(x), H, W))
+            self.mlp(self.norm2(x)))
         x = x.view(B, C, N).permute(0, 2, 1)
         return x
 
