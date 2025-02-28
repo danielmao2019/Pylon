@@ -49,23 +49,23 @@ available_transforms = [
 # Layout
 app.layout = html.Div([
     dcc.Store(id='current-idx', data=0),  # Store current index in memory
-
+    
     html.Div([
-        html.Button("Previous", id='prev-btn', n_clicks=0, style={'margin-right': '10px'}),
-        html.Button("Next", id='next-btn', n_clicks=0)
-    ], style={'margin-bottom': '10px'}),
-
-    html.Hr(),
-    html.Div(id='datapoint-display'),
-
-    html.Label("Select Active Transformations (Ordered by Index):"),
-    dcc.Dropdown(
-        id='transform-selector',
-        options=available_transforms,
-        multi=True,
-        value=[t['value'] for t in available_transforms]  # Default to all selected
-    )
-])
+        html.Div([
+            html.Button("Previous", id='prev-btn', n_clicks=0, style={'margin-bottom': '10px'}),
+            html.Button("Next", id='next-btn', n_clicks=0, style={'margin-bottom': '10px'})
+        ]),
+        html.Label("Select Active Transformations (Ordered by Index):"),
+        dcc.Dropdown(
+            id='transform-selector',
+            options=available_transforms,
+            multi=True,
+            value=[t['value'] for t in available_transforms]  # Default to all selected
+        )
+    ], style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top'}),
+    
+    html.Div(id='datapoint-display', style={'width': '75%', 'display': 'inline-block', 'padding-left': '20px'})
+], style={'display': 'flex'})
 
 @app.callback(
     Output('current-idx', 'data'),
@@ -130,21 +130,20 @@ def update_datapoint(current_idx, selected_transform_indices):
     change_map_fig = px.imshow(change_map, color_continuous_scale='viridis')
     change_map_fig.update_layout(coloraxis_showscale=False, title='Change Map')
 
-    # Display section
     return html.Div([
         html.Div([
-            html.Div([dcc.Graph(figure=input_fig_1)]),
-            html.Div([dcc.Graph(figure=input_fig_2)])
-        ], style={'width': '50%', 'display': 'inline-block'}),
+            dcc.Graph(figure=input_fig_1),
+            dcc.Graph(figure=input_fig_2)
+        ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'top'}),
         html.Div([
             dcc.Graph(figure=change_map_fig)
-        ], style={'width': '50%', 'display': 'inline-block'}),
+        ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '15%'}),
         html.Hr(),
         html.Div([
             html.H5("Metadata"),
             *[html.P(f"{key}: {format_value(value)}") for key, value in datapoint['meta_info'].items()]
         ])
-    ])
+    ], style={'display': 'flex'})
 
 if __name__ == '__main__':
     app.run_server(debug=True)
