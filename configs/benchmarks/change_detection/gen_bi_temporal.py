@@ -77,6 +77,10 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion\n"
         config += '\n'
+    elif model.startswith("ChangeNext"):
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
+        config += '\n'
     elif model == "FTN":
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.FTN, 'args': {{}}}}\n"
@@ -151,6 +155,7 @@ if __name__ == "__main__":
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
             'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50', 'Changer-s101',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
+            'ChangeNextV1', 'ChangeNextV2', 'ChangeNextV3',
             'FTN', 'SRCNet', 'BiFA',
             'CSA_CDGAN',
             'ChangeMamba-Base', 'ChangeMamba-Small', 'ChangeMamba-Tiny',
