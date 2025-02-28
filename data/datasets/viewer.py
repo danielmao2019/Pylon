@@ -1,17 +1,20 @@
+import os
+import torch
+import numpy as np
 import dash
 from dash import dcc, html, Input, Output, State
 import plotly.express as px
-import numpy as np
 import sys
-import torch
 sys.path.append("../..")
 import data
 import utils
 
 # Load dataset instance
-from ...configs.common.datasets.change_detection.train.cdd import config
-dataset = utils.builders.build_from_config(config['train_dataset'])
-transforms_cfg = config['train_dataset']['transforms_cfg']
+from configs.common.datasets.change_detection.train.cdd import config
+dataset_cfg = config['train_dataset']
+dataset_cfg['args']['data_root'] = os.path.relpath(dataset_cfg['args']['data_root'], start="./data/datasets")
+transforms_cfg = dataset_cfg['args']['transforms_cfg']
+dataset = utils.builders.build_from_config(dataset_cfg)
 
 # Dash app setup
 app = dash.Dash(__name__)
