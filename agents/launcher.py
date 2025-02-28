@@ -3,6 +3,7 @@ import os
 import time
 import random
 import threading
+import subprocess
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
@@ -215,7 +216,7 @@ class Launcher(BaseAgent):
     # experiment management
     # ====================================================================================================
 
-    def _find_missing_runs(self) -> List[str]:
+    def _find_missing_runs(self, all_running: List[Dict[str, Any]]) -> List[str]:
         r"""
         Returns:
             result (List[str]): the config filepaths for the missing experiment runs.
@@ -224,7 +225,7 @@ class Launcher(BaseAgent):
         for config_file in self.config_files:
             work_dir = get_work_dir(config_file)
             if not os.path.isdir(work_dir) or has_failed(
-                work_dir, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
+                work_dir, all_running=all_running, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
             ):
                 result.append(config_file)
         return result
@@ -255,10 +256,7 @@ class Launcher(BaseAgent):
                     })
         return all_idle_gpus
 
-    def _remove_stuck(self) -> None:
-        all_running = []
-        for server in self.servers:
-            all_running.extend(find_running(server))
+    def _remove_stuck(self, all_running: List[Dict[str, Any]]) -> None:
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
         stuck_cfgs_info = {}
         for server in self.servers:
@@ -270,14 +268,17 @@ class Launcher(BaseAgent):
                         stuck_cfgs_info[cfg] = (server, pid)
                 except:
                     pass
-        self.logger.info(f"{stuck_cfgs_info=}")
+        self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
+        for server, pid in stuck_cfgs_info.values():
+            cmd = ['ssh', server, 'kill', '-9', pid]
+            subprocess.check_output(cmd)
 
-    def _launch_missing(self, num_jobs: int) -> bool:
+    def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:
         r"""
         Returns:
             done (bool): nothing more to launch.
         """
-        missing_runs: List[str] = self._find_missing_runs()
+        missing_runs: List[str] = self._find_missing_runs(all_running)
         if len(missing_runs) == 0:
             return True
         gpu_pool: List[Dict[str, Any]] = self._find_idle_gpus(num_jobs)
@@ -321,8 +322,11 @@ class Launcher(BaseAgent):
     def spawn(self, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
-            self._remove_stuck()
-            done = self._launch_missing(num_jobs=num_jobs)
+            all_running = []
+            for server in self.servers:
+                all_running.extend(find_running(server))
+            self._remove_stuck(all_running)
+            done = self._launch_missing(all_running, num_jobs=num_jobs)
             if done:
                 self.logger.info("All done.")
             self.logger.info("")

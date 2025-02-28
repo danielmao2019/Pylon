@@ -59,8 +59,12 @@ def has_stuck(work_dir: str, all_running: List[Dict[str, Any]], sleep_time: Opti
     return (not is_running(work_dir, sleep_time=sleep_time)) and (work_dir in all_running_work_dirs)
 
 
-def has_failed(work_dir: str, sleep_time: int, expected_files: List[str], epochs: int) -> bool:
-    return not is_running(work_dir, sleep_time) and not has_finished(work_dir, expected_files=expected_files, epochs=epochs)
+def has_failed(work_dir: str, all_running: List[Dict[str, Any]], sleep_time: int, expected_files: List[str], epochs: int) -> bool:
+    return (
+        not is_running(work_dir, sleep_time)
+        and not has_finished(work_dir, expected_files=expected_files, epochs=epochs)
+        and not has_stuck(work_dir, all_running)
+    )
 
 
 def _check_file_loadable(filepath: str) -> bool:
