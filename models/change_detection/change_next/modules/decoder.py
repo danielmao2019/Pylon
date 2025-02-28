@@ -4,8 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from timm.models.layers import trunc_normal_
 from mmcv.cnn import ConvModule
-from mmseg.ops import resize
-from mmseg.models.utils import SelfAttentionBlock
+from mmseg.models.utils import resize, SelfAttentionBlock
 
 
 class Class_Token_Seg3(nn.Module):
