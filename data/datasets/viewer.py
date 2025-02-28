@@ -37,12 +37,17 @@ def format_value(value):
         return f"Torch Tensor {value.tolist()}"
     return str(value)
 
-# Generate dropdown options with transform indices
+# Generate checkbox options with transform indices
 available_transforms = [
-    {
-        'label': f"{i} - {t[0].__class__.__name__} ({[key_pair for key_pair in t[1]]})",
-        'value': i
-    }
+    html.Div([
+        dcc.Checklist(
+            id={'type': 'transform-checkbox', 'index': i},
+            options=[
+                {'label': f"{i} - {t[0].__class__.__name__} ({[key_pair for key_pair in t[1]]})", 'value': i}
+            ],
+            value=[i]
+        )
+    ])
     for i, t in enumerate(transforms_cfg['args']['transforms'])
 ]
 
@@ -51,17 +56,10 @@ app.layout = html.Div([
     dcc.Store(id='current-idx', data=0),  # Store current index in memory
     
     html.Div([
-        html.Div([
-            html.Button("Previous", id='prev-btn', n_clicks=0, style={'margin-bottom': '10px'}),
-            html.Button("Next", id='next-btn', n_clicks=0, style={'margin-bottom': '10px'})
-        ]),
+        html.Button("Previous", id='prev-btn', n_clicks=0, style={'margin-bottom': '10px'}),
+        html.Button("Next", id='next-btn', n_clicks=0, style={'margin-bottom': '10px'}),
         html.Label("Select Active Transformations (Ordered by Index):"),
-        dcc.Dropdown(
-            id='transform-selector',
-            options=available_transforms,
-            multi=True,
-            value=[t['value'] for t in available_transforms]  # Default to all selected
-        )
+        html.Div(available_transforms)
     ], style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top'}),
     
     html.Div(id='datapoint-display', style={'width': '75%', 'display': 'inline-block', 'padding-left': '20px'})
@@ -91,10 +89,12 @@ def update_index(prev_clicks, next_clicks, current_idx):
 @app.callback(
     Output('datapoint-display', 'children'),
     Input('current-idx', 'data'),
-    Input('transform-selector', 'value')
+    Input({'type': 'transform-checkbox', 'index': dash.ALL}, 'value')
 )
 def update_datapoint(current_idx, selected_transform_indices):
     """Apply selected transformations and display datapoint details and images."""
+    selected_transform_indices = [i[0] for i in selected_transform_indices if i]
+    
     # Load datapoint
     inputs, labels, meta_info = dataset._load_datapoint(current_idx)
     datapoint = {
@@ -128,7 +128,7 @@ def update_datapoint(current_idx, selected_transform_indices):
     input_fig_2 = px.imshow(img_2)
     input_fig_2.update_layout(coloraxis_showscale=False, title='Image 2')
     change_map_fig = px.imshow(change_map, color_continuous_scale='viridis')
-    change_map_fig.update_layout(coloraxis_showscale=False, title='Change Map')
+    change_map_fig.update_layout(coloraxis_showscale=False, title='Change Map', margin={'t': 100})
 
     return html.Div([
         html.Div([
@@ -137,7 +137,7 @@ def update_datapoint(current_idx, selected_transform_indices):
         ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'top'}),
         html.Div([
             dcc.Graph(figure=change_map_fig)
-        ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'top', 'margin-top': '15%'}),
+        ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'middle'}),
         html.Hr(),
         html.Div([
             html.H5("Metadata"),
