@@ -66,7 +66,7 @@ class ResizeMaps(BaseTransform):
                 torchvision.transforms.functional.InterpolationMode.NEAREST
             )
             self.kwargs['interpolation'] = interpolation
-            resize_op = torchvision.transforms.Resize(self.kwargs)
+            resize_op = torchvision.transforms.Resize(**self.kwargs)
         else:
             resize_op = self.resize_op
         x = x.unsqueeze(-3)
