@@ -11,7 +11,7 @@ class RandomCrop(BaseTransform):
         self,
         size: Tuple[int, int],
         resize: Optional[Tuple[int, int]] = None,
-        interpolation: Optional[str] = 'bilinear',
+        interpolation: Optional[str] = None,
     ) -> None:
         """
         Initializes the RandomCrop transform with a crop size.
@@ -19,7 +19,7 @@ class RandomCrop(BaseTransform):
         Args:
             size (Tuple[int, int]): The (width, height) resolution of the crop.
             resize (Optional[Tuple[int, int]]): Target size to resize the cropped tensor. Default is None.
-            interpolation (Optional[str]): Interpolation mode for resizing. Default is 'bilinear'.
+            interpolation (Optional[str]): Interpolation mode for resizing. Default is None.
 
         Raises:
             ValueError: If size is not a valid tuple of two positive integers.
