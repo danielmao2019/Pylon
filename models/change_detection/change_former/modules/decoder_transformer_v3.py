@@ -56,7 +56,7 @@ class DecoderTransformer_v3(torch.nn.Module):
             torch.nn.BatchNorm2d(self.embedding_dim)
         )
 
-        #Final predction head
+        #Final prediction head
         self.convd2x    = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
         self.dense_2x   = torch.nn.Sequential(ResidualBlock(self.embedding_dim))
         self.convd1x    = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
