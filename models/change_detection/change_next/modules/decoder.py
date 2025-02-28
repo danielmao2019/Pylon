@@ -94,8 +94,6 @@ class TransformerClassToken3(nn.Module):
             norm_cfg=norm_cfg,
             act_cfg=act_cfg)
 
-        # self.conv = nn.Conv2d(dim*3, dim, kernel_size=3, stride=1, padding=1)
-        # self.conv2 = nn.Conv2d(dim*2,dim, kernel_size=3, stride=1, padding=1)
         self.apply(self._init_weights)
 
     def _init_weights(self, m):
@@ -150,6 +148,7 @@ def make_prediction(in_channels, out_channels):
         nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
     )
 
+
 class UpsampleConvLayer(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride):
       super(UpsampleConvLayer, self).__init__()
@@ -158,6 +157,8 @@ class UpsampleConvLayer(torch.nn.Module):
     def forward(self, x):
         out = self.conv2d(x)
         return out
+
+
 class ResidualBlock(torch.nn.Module):
     def __init__(self, channels):
         super(ResidualBlock, self).__init__()
@@ -171,17 +172,18 @@ class ResidualBlock(torch.nn.Module):
         out = self.conv2(out) * 0.1
         out = torch.add(out, residual)
         return out
+
+
 class ConvLayer(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, padding):
         super(ConvLayer, self).__init__()
-#         reflection_padding = kernel_size // 2
-#         self.reflection_pad = nn.ReflectionPad2d(reflection_padding)
         self.conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
 
     def forward(self, x):
-#         out = self.reflection_pad(x)
         out = self.conv2d(x)
         return out
+
+
 class MLP(nn.Module):
     """
     Linear Embedding
@@ -198,7 +200,9 @@ class MLP(nn.Module):
 
 norm_cfg = dict(type='BN', requires_grad=True)
 act_cfg=dict(type='ReLU')
-class  ChangeNeXtDecoder(nn.Module):
+
+
+class ChangeNeXtDecoder(nn.Module):
     """The all mlp Head of segformer.
     This head is the implementation of
     `Segformer <https://arxiv.org/abs/2105.15203>` _.
@@ -211,8 +215,6 @@ class  ChangeNeXtDecoder(nn.Module):
                  att_type="XCA",in_channels=[64, 128, 320, 512],in_index=[0, 1, 2, 3],channels=256,
         dropout_ratio=0.1,num_classes=2,input_transform='multiple_select',align_corners=False,feature_strides=[2, 4, 8, 16],embedding_dim=256,output_nc=2,decoder_softmax=False):
         super(ChangeNeXtDecoder, self).__init__()
-        #super().__init__(input_transform='multiple_select',num_heads=1,att_type="SelfAttention",trans_with_mlp=False,align_corners=False,)
-        # self.conv_seg = nn.Conv2d(self.channels*3, self.num_classes, kernel_size=1)
         self.in_channels =in_channels
         self.in_index = in_index
         self.channels = 256,
@@ -226,17 +228,6 @@ class  ChangeNeXtDecoder(nn.Module):
         num_inputs = len(self.in_channels)
         self.num_heads = num_heads
         assert num_inputs == len(self.in_index)
-
-        #self.convs = nn.ModuleList()
-        # for i in range(num_inputs):
-        #     self.convs.append(
-        #         ConvModule(
-        #             in_channels=self.in_channels[i],
-        #             out_channels=self.channels,
-        #             kernel_size=1,
-        #             stride=1,
-        #             norm_cfg=self.norm_cfg,
-        #             act_cfg=self.act_cfg))
 
         self.class_token = Class_Token_Seg3(dim=channels, num_heads=1, num_classes=num_classes)
         self.trans = TransformerClassToken3(dim=channels, depth=trans_depth, num_heads=num_heads,
@@ -286,9 +277,7 @@ class  ChangeNeXtDecoder(nn.Module):
                       kernel_size=1),
             nn.BatchNorm2d(self.embedding_dim)
         )
-        # attation
-        # self.cam = ChannelAttention(filters[0] * 4, ratio=16)
-        # Final predction head
+        # Final prediction head
         self.convd2x = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
         self.dense_2x = nn.Sequential(ResidualBlock(self.embedding_dim))
         self.convd1x = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
@@ -299,20 +288,8 @@ class  ChangeNeXtDecoder(nn.Module):
         self.output_softmax = decoder_softmax
         self.active = nn.Sigmoid()
 
-        # self.fusion_conv = ConvModule(
-        #     in_channels=output_nc * num_inputs,
-        #     out_channels=output_nc,
-        #     kernel_size=1,
-        #     norm_cfg=self.norm_cfg)
         self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=1)
 
-        # self.cls_token = nn.Parameter(torch.zeros(1, self.num_classes, self.channels))
-        # self.register_buffer("cls_token",torch.randn(1, self.num_classes, self.channels))
-        # trunc_normal_(self.cls_token, std=.02)
-
-        # parameter for momemtum update tokens
-        # self.t=0
-        # self.m=m
     def _transform_inputs(self, inputs):
         """Transform inputs for decoder.
         Args:
@@ -340,10 +317,9 @@ class  ChangeNeXtDecoder(nn.Module):
 
     def cls_seg(self, feat):
         """Classify each pixel."""
-        # if self.dropout is not None:
-        #     feat = self.dropout(feat)
         output = self.conv_seg(feat)
         return output
+
     def forward(self, input1,input2,gt_semantic_seg=None):
         # Receive 4 stage backbone feature map: 1/4, 1/8, 1/16, 1/32
         x_1 = self._transform_inputs(input1)
@@ -351,42 +327,27 @@ class  ChangeNeXtDecoder(nn.Module):
         outputs = []
         c1_1, c2_1, c3_1, c4_1 = x_1
         c1_2, c2_2, c3_2, c4_2 = x_2
-        # print(c4_1.shape)
         n, _, h, w = c4_1.shape
 
-        #print(c4_1.shape)
-        # _c4_1 = self.linear_c4(c4_1)
-        #print(_c4_1.shape)
-        #print(c4_1.shape)
-
         _c4_1 = self.linear_c4(c4_1).permute(0, 2, 1).reshape(n, -1, c4_1.shape[2], c4_1.shape[3])
-        #print("_c4_1",_c4_1.shape)
         _c4_2 = self.linear_c4(c4_2).permute(0, 2, 1).reshape(n, -1, c4_2.shape[2], c4_2.shape[3])
         _c4 = self.diff_c4(torch.cat((_c4_1, _c4_2), dim=1)) #[2, 256, 8, 8]
         p_c4 = self.make_pred_c4(_c4)                #[2, 2, 8, 8]]
-        #print("p_c4", p_c4.shape)
-        #print("_c4",_c4.shape)
         outputs.append(p_c4)
         _c4_up = resize(_c4, size=c1_2.size()[2:], mode='bilinear', align_corners=False)
-        # torch.Size([6, 256, 64, 64])
         # Stage 3: x1/16 scale
         _c3_1 = self.linear_c3(c3_1).permute(0, 2, 1).reshape(n, -1, c3_1.shape[2], c3_1.shape[3])
         _c3_2 = self.linear_c3(c3_2).permute(0, 2, 1).reshape(n, -1, c3_2.shape[2], c3_2.shape[3])
         _c3 = self.diff_c3(torch.cat((_c3_1, _c3_2), dim=1)) + F.interpolate(_c4, scale_factor=2, mode="bilinear")  #[2, 256, 16, 16]
-        #print("_c3", _c3.shape)
 
         p_c3 = self.make_pred_c3(_c3)                 #[2, 2, 16, 16]
-        #print("p_c3", p_c3.shape)
         outputs.append(p_c3)
         _c3_up = resize(_c3, size=c1_2.size()[2:], mode='bilinear', align_corners=False)
-        # print(_c3_up.shape) #torch.Size([6, 256, 64, 64])
         # Stage 2: x1/8 scale
         _c2_1 = self.linear_c2(c2_1).permute(0, 2, 1).reshape(n, -1, c2_1.shape[2], c2_1.shape[3])
         _c2_2 = self.linear_c2(c2_2).permute(0, 2, 1).reshape(n, -1, c2_2.shape[2], c2_2.shape[3])
         _c2 = self.diff_c2(torch.cat((_c2_1, _c2_2), dim=1)) + F.interpolate(_c3, scale_factor=2, mode="bilinear") #[2, 256, 32, 32]
-        #print("_c2", _c2.shape)
         p_c2 = self.make_pred_c2(_c2)   #[2, 2, 32, 32]
-        #print("p_c2", p_c2.shape)
         outputs.append(p_c2)
         _c2_up = resize(_c2, size=c1_2.size()[2:], mode='bilinear', align_corners=False)
 
@@ -394,21 +355,13 @@ class  ChangeNeXtDecoder(nn.Module):
         _c1_1 = self.linear_c1(c1_1).permute(0, 2, 1).reshape(n, -1, c1_1.shape[2], c1_1.shape[3])
         _c1_2 = self.linear_c1(c1_2).permute(0, 2, 1).reshape(n, -1, c1_2.shape[2], c1_2.shape[3])
         _c1 = self.diff_c1(torch.cat((_c1_1, _c1_2), dim=1)) + F.interpolate(_c2, scale_factor=2, mode="bilinear")  #[2, 256, 64, 64]
-        #print("_c1", _c1.shape)
         p_c1 = self.make_pred_c1(_c1)   #[2, 2, 64, 64]
-        #print("p_c1", p_c1.shape)
         outputs.append(p_c1)
-        #print(_c4_up.shape)
         _c = self.linear_fuse(torch.cat((_c4_up, _c3_up, _c2_up, _c1), dim=1))
-        #_c = self.fusion_conv(torch.cat((_c4_up, _c3_up, _c2_up, _c1), dim=1))
-        #print(_c.shape)
-        # 时空信息增强
 
         out_cls_mid, cls_tokens = self.class_token(_c)
         out_new = self.trans(_c, cls_tokens, out_cls_mid)
 
-        # out_cls = self.cls_seg(out_new)
-        # print(out_cls.shape)
         # Linear Fusion of difference image from all scales
         # Upsampling x2 (x1/2 scale)
         x = self.convd2x(out_new)
@@ -421,7 +374,6 @@ class  ChangeNeXtDecoder(nn.Module):
 
         # Final prediction
         cp = self.change_probability(x)
-        #print(cp.shape)
         outputs.append(cp)
 
         if self.output_softmax:
@@ -429,63 +381,8 @@ class  ChangeNeXtDecoder(nn.Module):
             outputs = []
             for pred in temp:
                 outputs.append(self.active(pred))
-        #for i in outputs:        # torch.Size([6, 2, 8, 8]) torch.Size([6, 2, 16, 16]) torch.Size([6, 2, 32, 32]) torch.Size([6, 2, 64, 64]) torch.Size([6, 2, 256, 256])
-            #print(i.shape)
-        #out = self.fusion_conv(torch.cat(outputs, dim=1))
-        # out_cls_mid, cls_tokens = self.class_token(out)
-        # out_new = self.trans(out, cls_tokens, out_cls_mid)  # bxcxhxw
-        # out_cls = self.cls_seg(out_new)  # bxclsxhxw
 
         return outputs
-
-        #return out_cls, out_cls_mid
-
-
-class PagFM(nn.Module):
-    def __init__(self, in_channels, mid_channels, after_relu=False, with_channel=False, BatchNorm=nn.BatchNorm2d):
-        super(PagFM, self).__init__()
-        self.with_channel = with_channel
-        self.after_relu = after_relu
-        self.f_x = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels,
-                      kernel_size=1, bias=False),
-            BatchNorm(mid_channels)
-        )
-        self.f_y = nn.Sequential(
-            nn.Conv2d(in_channels, mid_channels,
-                      kernel_size=1, bias=False),
-            BatchNorm(mid_channels)
-        )
-        if with_channel:
-            self.up = nn.Sequential(
-                nn.Conv2d(mid_channels, in_channels,
-                          kernel_size=1, bias=False),
-                BatchNorm(in_channels)
-            )
-        if after_relu:
-            self.relu = nn.ReLU(inplace=True)
-
-    def forward(self, x, y):
-        input_size = x.size()
-        if self.after_relu:
-            y = self.relu(y)
-            x = self.relu(x)
-
-        y_q = self.f_y(y)
-        y_q = F.interpolate(y_q, size=[input_size[2], input_size[3]],
-                            mode='bilinear', align_corners=False)
-        x_k = self.f_x(x)
-
-        if self.with_channel:
-            sim_map = torch.sigmoid(self.up(x_k * y_q))
-        else:
-            sim_map = torch.sigmoid(torch.sum(x_k * y_q, dim=1).unsqueeze(1))
-
-        y = F.interpolate(y, size=[input_size[2], input_size[3]],
-                          mode='bilinear', align_corners=False)
-        x = (1 - sim_map) * x + sim_map * y
-
-        return x
 
 
 class PagFM2(nn.Module):
@@ -549,253 +446,3 @@ class PagFM2(nn.Module):
         x = (1 - sim_map) * x + sim_map * y
 
         return x
-
-
-class  NewCDDecoder(nn.Module):
-    """The all mlp Head of segformer.
-    This head is the implementation of
-    `Segformer <https://arxiv.org/abs/2105.15203>` _.
-    Args:
-        interpolate_mode: The interpolate mode of MLP head upsample operation.
-            Default: 'bilinear'.
-    """
-
-    def __init__(self, interpolate_mode='bilinear', num_heads=4, m=0.9, trans_with_mlp=True, trans_depth=1,
-                 att_type="XCA",in_channels=[64, 128, 320, 512],in_index=[0, 1, 2, 3],channels=256,
-        dropout_ratio=0.1,num_classes=2,input_transform='multiple_select',align_corners=False,feature_strides=[2, 4, 8, 16],embedding_dim=256,output_nc=2,decoder_softmax=False):
-        super(NewCDDecoder, self).__init__()
-        #super().__init__(input_transform='multiple_select',num_heads=1,att_type="SelfAttention",trans_with_mlp=False,align_corners=False,)
-        # self.conv_seg = nn.Conv2d(self.channels*3, self.num_classes, kernel_size=1)
-        self.in_channels =in_channels
-        self.in_index = in_index
-        self.channels = 256,
-        self.dropout_ratio = 0.1
-        self.num_classes = 150
-        self.input_transform = 'multiple_select'
-        self.align_corners = False
-        self.norm_cfg=norm_cfg
-        self.act_cfg = act_cfg
-        self.interpolate_mode = interpolate_mode
-        num_inputs = len(self.in_channels)
-        self.num_heads = num_heads
-        assert num_inputs == len(self.in_index)
-
-        #self.convs = nn.ModuleList()
-        # for i in range(num_inputs):
-        #     self.convs.append(
-        #         ConvModule(
-        #             in_channels=self.in_channels[i],
-        #             out_channels=self.channels,
-        #             kernel_size=1,
-        #             stride=1,
-        #             norm_cfg=self.norm_cfg,
-        #             act_cfg=self.act_cfg))
-
-        self.class_token = Class_Token_Seg3(dim=channels, num_heads=1, num_classes=num_classes)
-        self.trans = TransformerClassToken3(dim=channels, depth=trans_depth, num_heads=num_heads,
-                                            trans_with_mlp=trans_with_mlp, att_type=att_type, norm_cfg=norm_cfg,
-                                            act_cfg=act_cfg)
-
-        assert len(feature_strides) == len(in_channels)
-        assert min(feature_strides) == feature_strides[0]
-
-        # settings
-        self.feature_strides = feature_strides
-        self.input_transform = input_transform
-        self.in_index = in_index
-        self.align_corners = align_corners
-        self.in_channels = in_channels
-        self.embedding_dim = embedding_dim
-        self.output_nc = output_nc
-        c1_in_channels, c2_in_channels, c3_in_channels, c4_in_channels = self.in_channels
-
-        # MLP decoder heads
-        self.linear_c4 = MLP(input_dim=c4_in_channels, embed_dim=self.embedding_dim)
-        self.linear_c3 = MLP(input_dim=c3_in_channels, embed_dim=self.embedding_dim)
-        self.linear_c2 = MLP(input_dim=c2_in_channels, embed_dim=self.embedding_dim)
-        self.linear_c1 = MLP(input_dim=c1_in_channels, embed_dim=self.embedding_dim)
-
-        # convolutional Difference Modules
-        # self.diff_c4 = conv_diff(in_channels=2 * self.embedding_dim, out_channels=self.embedding_dim)
-        # self.diff_c3 = conv_diff(in_channels=2 * self.embedding_dim, out_channels=self.embedding_dim)
-        # self.diff_c2 = conv_diff(in_channels=2 * self.embedding_dim, out_channels=self.embedding_dim)
-        # self.diff_c1 = conv_diff(in_channels=2 * self.embedding_dim, out_channels=self.embedding_dim)
-
-        # fusion
-        self.fusion_c4 = PagFM2(self.embedding_dim, mid_channels=self.embedding_dim)
-        self.fusion_c3 = PagFM2(in_channels=self.embedding_dim, mid_channels=self.embedding_dim)
-        self.fusion_c2 = PagFM2(in_channels=self.embedding_dim, mid_channels=self.embedding_dim)
-        self.fusion_c1 = PagFM2(in_channels=self.embedding_dim, mid_channels=self.embedding_dim)
-
-        # taking outputs from middle of the encoder
-        self.make_pred_c4 = make_prediction(in_channels=self.embedding_dim, out_channels=self.output_nc)
-        self.make_pred_c3 = make_prediction(in_channels=self.embedding_dim, out_channels=self.output_nc)
-        self.make_pred_c2 = make_prediction(in_channels=self.embedding_dim, out_channels=self.output_nc)
-        self.make_pred_c1 = make_prediction(in_channels=self.embedding_dim, out_channels=self.output_nc)
-
-        self.fusion_conv = ConvModule(
-            in_channels=self.embedding_dim * num_inputs,
-            out_channels=self.embedding_dim,
-            kernel_size=1,
-            norm_cfg=self.norm_cfg)
-
-        # Final linear fusion layer
-        self.linear_fuse = nn.Sequential(
-            nn.Conv2d(in_channels=self.embedding_dim * len(in_channels), out_channels=self.embedding_dim,
-                      kernel_size=1),
-            nn.BatchNorm2d(self.embedding_dim)
-        )
-        # attation
-        # self.cam = ChannelAttention(filters[0] * 4, ratio=16)
-        # Final predction head
-        self.convd2x = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
-        self.dense_2x = nn.Sequential(ResidualBlock(self.embedding_dim))
-        self.convd1x = UpsampleConvLayer(self.embedding_dim, self.embedding_dim, kernel_size=4, stride=2)
-        self.dense_1x = nn.Sequential(ResidualBlock(self.embedding_dim))
-        self.change_probability = ConvLayer(self.embedding_dim, self.output_nc, kernel_size=3, stride=1, padding=1)
-
-        # Final activation
-        self.output_softmax = decoder_softmax
-        self.active = nn.Sigmoid()
-
-        # self.fusion_conv = ConvModule(
-        #     in_channels=output_nc * num_inputs,
-        #     out_channels=output_nc,
-        #     kernel_size=1,
-        #     norm_cfg=self.norm_cfg)
-        self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=1)
-
-        # self.cls_token = nn.Parameter(torch.zeros(1, self.num_classes, self.channels))
-        # self.register_buffer("cls_token",torch.randn(1, self.num_classes, self.channels))
-        # trunc_normal_(self.cls_token, std=.02)
-
-        # parameter for momemtum update tokens
-        # self.t=0
-        # self.m=m
-    def _transform_inputs(self, inputs):
-        """Transform inputs for decoder.
-        Args:
-            inputs (list[Tensor]): List of multi-level img features.
-        Returns:
-            Tensor: The transformed inputs
-        """
-
-        if self.input_transform == 'resize_concat':
-            inputs = [inputs[i] for i in self.in_index]
-            upsampled_inputs = [
-                resize(
-                    input=x,
-                    size=inputs[0].shape[2:],
-                    mode='bilinear',
-                    align_corners=self.align_corners) for x in inputs
-            ]
-            inputs = torch.cat(upsampled_inputs, dim=1)
-        elif self.input_transform == 'multiple_select':
-            inputs = [inputs[i] for i in self.in_index]
-        else:
-            inputs = inputs[self.in_index]
-
-        return inputs
-
-    def cls_seg(self, feat):
-        """Classify each pixel."""
-        # if self.dropout is not None:
-        #     feat = self.dropout(feat)
-        output = self.conv_seg(feat)
-        return output
-    def forward(self, input1,input2,gt_semantic_seg=None):
-        # Receive 4 stage backbone feature map: 1/4, 1/8, 1/16, 1/32
-        x_1 = self._transform_inputs(input1)
-        x_2 = self._transform_inputs(input2)
-        outputs = []
-        c1_1, c2_1, c3_1, c4_1 = x_1
-        c1_2, c2_2, c3_2, c4_2 = x_2
-        # print(c4_1.shape)
-        n, _, h, w = c4_1.shape
-
-        #print(c4_1.shape)
-        # _c4_1 = self.linear_c4(c4_1)
-        # print(_c4_1.shape)
-        #print(c4_1.shape)
-
-        _c4_1 = self.linear_c4(c4_1).permute(0, 2, 1).reshape(n, -1, c4_1.shape[2], c4_1.shape[3])
-        #print("_c4_1",_c4_1.shape)
-        _c4_2 = self.linear_c4(c4_2).permute(0, 2, 1).reshape(n, -1, c4_2.shape[2], c4_2.shape[3])
-        #print(_c4_2.shape)
-
-        #_c4 = self.diff_c4(torch.cat((_c4_1, _c4_2), dim=1))
-        _c4 = self.fusion_c4(_c4_1,_c4_2)
-
-
-        p_c4 = self.make_pred_c4(_c4)
-
-        outputs.append(p_c4)
-        _c4_up = resize(_c4, size=c1_2.size()[2:], mode='bilinear', align_corners=False)
-        # torch.Size([6, 256, 64, 64])
-        # Stage 3: x1/16 scale
-        _c3_1 = self.linear_c3(c3_1).permute(0, 2, 1).reshape(n, -1, c3_1.shape[2], c3_1.shape[3])
-        _c3_1 = self.linear_c3(c3_2).permute(0, 2, 1).reshape(n, -1, c3_2.shape[2], c3_2.shape[3])
-        #_c3 = self.diff_c3(torch.cat((_c3_1, _c3_2), dim=1)) + F.interpolate(_c4, scale_factor=2, mode="bilinear")
-        _c3 = self.fusion_c3(_c3_1, _c3_1)
-
-        p_c3 = self.make_pred_c3(_c3)
-        outputs.append(p_c3)
-        _c3_up = resize(_c3, size=c1_2.size()[2:], mode='bilinear', align_corners=False)
-        # print(_c3_up.shape) #torch.Size([6, 256, 64, 64])
-        # Stage 2: x1/8 scale
-        _c2_1 = self.linear_c2(c2_1).permute(0, 2, 1).reshape(n, -1, c2_1.shape[2], c2_1.shape[3])
-        _c2_2 = self.linear_c2(c2_2).permute(0, 2, 1).reshape(n, -1, c2_2.shape[2], c2_2.shape[3])
-        #_c2 = self.diff_c2(torch.cat((_c2_1, _c2_2), dim=1)) + F.interpolate(_c3, scale_factor=2, mode="bilinear")
-        _c2 = self.fusion_c2(_c2_1, _c2_1)
-
-        p_c2 = self.make_pred_c2(_c2)
-        outputs.append(p_c2)
-        _c2_up = resize(_c2, size=c1_2.size()[2:], mode='bilinear', align_corners=False)
-
-        # Stage 1: x1/4 scale
-        _c1_1 = self.linear_c1(c1_1).permute(0, 2, 1).reshape(n, -1, c1_1.shape[2], c1_1.shape[3])
-        _c1_2 = self.linear_c1(c1_2).permute(0, 2, 1).reshape(n, -1, c1_2.shape[2], c1_2.shape[3])
-        #_c1 = self.diff_c1(torch.cat((_c1_1, _c1_2), dim=1)) + F.interpolate(_c2, scale_factor=2, mode="bilinear")
-        _c1 = self.fusion_c1(_c1_1, _c1_1)
-
-        p_c1 = self.make_pred_c1(_c1)
-        outputs.append(p_c1)
-        #print(_c4_up.shape)
-        _c = self.linear_fuse(torch.cat((_c4_up, _c3_up, _c2_up, _c1), dim=1))
-        #_c = self.fusion_conv(torch.cat((_c4_up, _c3_up, _c2_up, _c1), dim=1))
-        #print(_c.shape)
-        # 时空信息增强
-
-        out_cls_mid, cls_tokens = self.class_token(_c)
-        out_new = self.trans(_c, cls_tokens, out_cls_mid)
-
-        # out_cls = self.cls_seg(out_new)
-        # print(out_cls.shape)
-        # Linear Fusion of difference image from all scales
-        # Upsampling x2 (x1/2 scale)
-        x = self.convd2x(out_new)
-        # Residual block
-        x = self.dense_2x(x)
-        # Upsampling x2 (x1 scale)
-        x = self.convd1x(x)
-        # Residual block
-        x = self.dense_1x(x)
-
-        # Final prediction
-        cp = self.change_probability(x)
-        #print(cp.shape)
-        outputs.append(cp)
-
-        if self.output_softmax:
-            temp = outputs
-            outputs = []
-            for pred in temp:
-                outputs.append(self.active(pred))
-        #for i in outputs:        # torch.Size([6, 2, 8, 8]) torch.Size([6, 2, 16, 16]) torch.Size([6, 2, 32, 32]) torch.Size([6, 2, 64, 64]) torch.Size([6, 2, 256, 256])
-            #print(i.shape)
-        #out = self.fusion_conv(torch.cat(outputs, dim=1))
-        # out_cls_mid, cls_tokens = self.class_token(out)
-        # out_new = self.trans(out, cls_tokens, out_cls_mid)  # bxcxhxw
-        # out_cls = self.cls_seg(out_new)  # bxclsxhxw
-
-        return outputs
