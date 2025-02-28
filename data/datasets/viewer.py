@@ -91,7 +91,7 @@ def update_index(prev_clicks, next_clicks, current_idx):
     elif trigger_id == 'next-btn' and current_idx < len(dataset) - 1:
         current_idx = current_idx + 1
     else:
-        assert 0
+        pass
     return current_idx, str(current_idx)
 
 @app.callback(
