@@ -10,7 +10,7 @@ import utils
 # Load dataset instance
 from ...configs.common.datasets.change_detection.train.cdd import config
 dataset = utils.builders.build_from_config(config['train_dataset'])
-transforms = config['train_dataset']['transforms_cfg']
+transforms_cfg = config['train_dataset']['transforms_cfg']
 
 # Dash app setup
 app = dash.Dash(__name__)
@@ -82,14 +82,23 @@ def update_index(prev_clicks, next_clicks, current_idx):
     return current_idx
 
 @app.callback(
+    Output('datapoint-display', 'children'),
     Input('current-idx', 'data'),
     Input('transform-selector', 'value')
-    Output('datapoint-display', 'children'),
 )
 def update_datapoint(current_idx, selected_transforms):
-    """Display datapoint details and images."""
+    """Apply selected transformations and display datapoint details and images."""
     datapoint = dataset[current_idx]
-
+    transformed_inputs = {}
+    
+    # Apply selected transformations dynamically
+    for transform in transforms_cfg['args']['transforms']:
+        transform_instance, keys = transform
+        if transform_instance.__class__.__name__ in selected_transforms:
+            for key_pair in keys:
+                category, key = key_pair if isinstance(key_pair, tuple) else (key_pair[0], key_pair[1])
+                datapoint[category][key] = transform_instance(datapoint[category][key])
+    
     display_items = []
 
     # Display inputs (images)
