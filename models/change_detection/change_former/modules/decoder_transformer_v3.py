@@ -51,8 +51,11 @@ class DecoderTransformer_v3(torch.nn.Module):
 
         #Final linear fusion layer
         self.linear_fuse = torch.nn.Sequential(
-            torch.nn.Conv2d(   in_channels=self.embedding_dim*len(in_channels), out_channels=self.embedding_dim,
-                                        kernel_size=1),
+            torch.nn.Conv2d(
+                in_channels=self.embedding_dim*len(in_channels),
+                out_channels=self.embedding_dim,
+                kernel_size=1,
+            ),
             torch.nn.BatchNorm2d(self.embedding_dim)
         )
 
