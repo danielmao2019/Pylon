@@ -66,7 +66,13 @@ config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCr
 
 # criterion config
 import criteria
-config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion
+config['criterion'] = {
+    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
+    'args': {
+        'criterion_cfg': config['criterion'],
+        'reduction': 'mean',
+    },
+}
 
 # seeds
 config['init_seed'] = 57708735
