@@ -73,9 +73,38 @@ def main(dataset: str, model: str) -> None:
             config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
             config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
         config += '\n'
+        if int(model[-1]) in {4, 5, 6}:
+            config += f"# criterion config\n"
+            config += f"import criteria\n"
+            config += f"""config['criterion'] = {{
+    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
+    'args': {{
+        'criterion_cfg': config['criterion'],
+        'reduction': 'mean',
+    }},
+}}\n"""
+            config += '\n'
+    elif model.startswith("ChangeNext"):
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.{model}, 'args': {{}}}}\n"
+        config += '\n'
+        config += f"from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg\n"
+        if dataset == "air_change":
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(first='ResizeMaps', size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(112, 112), resize=(256, 256))\n"
+        else:
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+        config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
-        config += f"config['criterion']['class'] = criteria.vision_2d.change_detection.ChangeFormerCriterion\n"
+        config += f"""config['criterion'] = {{
+    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
+    'args': {{
+        'criterion_cfg': config['criterion'],
+        'reduction': 'mean',
+    }},
+}}\n"""
         config += '\n'
     elif model == "FTN":
         config += f"import models\n"
@@ -151,6 +180,7 @@ if __name__ == "__main__":
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
             'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50', 'Changer-s101',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
+            'ChangeNextV1', 'ChangeNextV2', 'ChangeNextV3',
             'FTN', 'SRCNet', 'BiFA',
             'CSA_CDGAN',
             'ChangeMamba-Base', 'ChangeMamba-Small', 'ChangeMamba-Tiny',
