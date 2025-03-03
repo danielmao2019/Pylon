@@ -2,6 +2,7 @@
 # Please do not attempt to modify manually.
 import torch
 import data
+import models
 import criteria
 import metrics
 import optimizers

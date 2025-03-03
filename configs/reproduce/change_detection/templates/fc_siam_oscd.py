@@ -1,5 +1,6 @@
 import torch
 import data
+import models
 import criteria
 import metrics
 import optimizers
