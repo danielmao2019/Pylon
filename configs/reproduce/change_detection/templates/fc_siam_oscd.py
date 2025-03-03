@@ -61,7 +61,7 @@ config = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 4,
+            'batch_size': 32,
             'num_workers': 4,
             'collate_fn': collate_fn_config,
         },
