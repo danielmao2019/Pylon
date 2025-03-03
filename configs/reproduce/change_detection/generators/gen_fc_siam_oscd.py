@@ -22,8 +22,8 @@ def main(arch: str, bands: str) -> None:
     config = add_heading(config)
     # add dataset config
     config += f"# dataset config\n"
-    config += f"config['train_dataset']['args']['bands'] = {bands}\n"
-    config += f"config['val_dataset']['args']['bands'] = {bands}\n"
+    config += f"config['train_dataset']['args']['bands'] = \"{bands}\"\n"
+    config += f"config['val_dataset']['args']['bands'] = \"{bands}\"\n"
     config += '\n'
     # add model config
     config += f"# model config\n"
