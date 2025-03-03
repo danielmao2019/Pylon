@@ -8,7 +8,7 @@ import optimizers
 import runners
 
 
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
@@ -68,7 +68,7 @@ config = {
         'args': {
             'batch_size': 32,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'criterion': {
