@@ -39,7 +39,7 @@ config = {
                 'args': {
                     'transforms': [
                         (
-                            data.transforms.crop.RandomCrop(size=size, resize=resize, interpolation=None),
+                            data.transforms.crop.RandomCrop(size=(96, 96), interpolation=None),
                             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                         ),
                         (
@@ -54,14 +54,6 @@ config = {
                             data.transforms.Randomize(transform=data.transforms.Flip(axis=-2), p=0.5),
                             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                         ),
-                        (
-                            data.transforms.Randomize(torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5), p=0.5),
-                            ('inputs', 'img_1'),
-                        ),
-                        (
-                            data.transforms.Randomize(torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5), p=0.5),
-                            ('inputs', 'img_2'),
-                        ),
                     ],
                 },
             },
@@ -71,7 +63,7 @@ config = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 4,
+            'batch_size': 32,
             'num_workers': 4,
             'collate_fn': collate_fn_config,
         },
@@ -87,7 +79,17 @@ config = {
         'args': {
             'data_root': "./data/datasets/soft_links/OSCD",
             'split': "test",
-            'transforms_cfg': transforms_cfg(size=(224, 224)),
+            'transforms_cfg': {
+                'class': data.transforms.Compose,
+                'args': {
+                    'transforms': [
+                        (
+                            data.transforms.crop.RandomCrop(size=(96, 96), interpolation=None),
+                            [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
+                        ),
+                    ],
+                },
+            },
             'bands': None,
         },
     },
@@ -99,14 +101,14 @@ config = {
             'collate_fn': collate_fn_cfg,
         },
     },
+    'test_dataset': None,
+    'test_dataloader': None,
     'metric': {
         'class': metrics.vision_2d.SemanticSegmentationMetric,
         'args': {
             'num_classes': 2,
         },
     },
-    'test_dataset': None,
-    'test_dataloader': None,
     # model config
     'model': {
         'class': models.change_detection.FullyConvolutionalSiameseNetwork,
