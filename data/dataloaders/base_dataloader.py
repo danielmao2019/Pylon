@@ -22,7 +22,7 @@ class BaseDataloader(torch.utils.data.DataLoader):
             f"last_mode must be one of {'drop', 'keep', 'fill'}. Got {last_mode}."
         
         if last_mode == 'fill':
-            sampler = data.sampler.FillLastBatchSampler(dataset, batch_size, shuffle=shuffle)
+            sampler = data.samplers.FillLastBatchSampler(dataset, batch_size, shuffle=shuffle)
             for key in ['batch_size', 'shuffle', 'sampler', 'drop_last']:
                 if key in kwargs:
                     del kwargs[key]
