@@ -1,6 +1,7 @@
 import os
-import torch
+import random
 import numpy as np
+import torch
 import dash
 from dash import dcc, html, Input, Output, State
 import plotly.express as px
@@ -24,9 +25,12 @@ def tensor_to_image(tensor):
     img = tensor.cpu().numpy()
     if img.ndim == 2:  # Grayscale image
         return img
-    elif img.ndim == 3 and img.shape[0] == 3:  # RGB image (C, H, W) -> (H, W, C)
+    elif img.ndim == 3:  # RGB image (C, H, W) -> (H, W, C)
+        if img.shape[0] > 3:
+            img = img[random.sample(range(img.shape[0]), 3), :, :]
         return np.transpose(img, (1, 2, 0))
-    return None  # Non-image tensor
+    else:
+        raise ValueError
 
 def format_value(value):
     """Format values for display, truncating large tensors."""
