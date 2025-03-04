@@ -141,7 +141,7 @@ class OSCDDataset(BaseDataset):
             elif self.bands == '13ch':
                 img = utils.io.load_image(
                     filepaths=self.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
-                    dtype=torch.float32, normalize=True,
+                    dtype=torch.float32, normalization='mean-std',
                     height=self.annotations[idx]['meta_info']['height'],
                     width=self.annotations[idx]['meta_info']['width'],
                 )
@@ -152,7 +152,7 @@ class OSCDDataset(BaseDataset):
                         lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in self.bands,
                         self.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
                     )),
-                    dtype=torch.float32, normalize=True,
+                    dtype=torch.float32, normalization='mean-std',
                     height=self.annotations[idx]['meta_info']['height'],
                     width=self.annotations[idx]['meta_info']['width'],
                 )
