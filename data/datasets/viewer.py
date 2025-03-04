@@ -10,7 +10,7 @@ import data
 import utils
 
 # Load dataset instance
-from configs.common.datasets.change_detection.train.cdd import config
+from configs.reproduce.change_detection.fc_siam_oscd.fc_siam_oscd_Siam_conc_13ch_run_0 import config
 dataset_cfg = config['train_dataset']
 dataset_cfg['args']['data_root'] = os.path.relpath(dataset_cfg['args']['data_root'], start="./data/datasets")
 transforms_cfg = dataset_cfg['args']['transforms_cfg']
