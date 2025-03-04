@@ -5,7 +5,7 @@ import scipy
 import numpy
 import torch
 from data.datasets import BaseDataset
-from utils.io import load_image
+import utils
 
 
 class PASCALContextDataset(BaseDataset):
@@ -204,15 +204,15 @@ class PASCALContextDataset(BaseDataset):
         return inputs, labels, meta_info
 
     def _load_image(self, idx: int) -> Dict[str, torch.Tensor]:
-        return {'image': load_image(
-            filepath=self.annotations[idx]['image'], dtype=torch.float32,
-            sub=None, div=255.,
+        return {'image': utils.io.load_image(
+            filepath=self.annotations[idx]['image'],
+            dtype=torch.float32, sub=None, div=255.,
         )}
 
     def _load_semantic(self, idx: int) -> Dict[str, torch.Tensor]:
-        return {'semantic_segmentation': load_image(
-            filepath=self.annotations[idx]['semantic'], dtype=torch.int64,
-            sub=None, div=None,
+        return {'semantic_segmentation': utils.io.load_image(
+            filepath=self.annotations[idx]['semantic'],
+            dtype=torch.int64, sub=None, div=None,
         )}
 
     def _load_parts(self, idx: int) -> Dict[str, torch.Tensor]:
@@ -249,9 +249,9 @@ class PASCALContextDataset(BaseDataset):
         }
 
     def _load_normal(self, idx: int) -> Dict[str, torch.Tensor]:
-        _tmp = load_image(
-            filepath=self.annotations[idx]['normal'], dtype=torch.float32,
-            sub=None, div=255.,
+        _tmp = utils.io.load_image(
+            filepath=self.annotations[idx]['normal'],
+            dtype=torch.float32, sub=None, div=255.,
         )
         _tmp = _tmp * 2 - 1
 
@@ -266,9 +266,9 @@ class PASCALContextDataset(BaseDataset):
         return {'normal_estimation': normal}
 
     def _load_saliency(self, idx: int) -> Dict[str, torch.Tensor]:
-        saliency = load_image(
-            filepath=self.annotations[idx]['saliency'], dtype=torch.float32,
-            sub=None, div=255.,
+        saliency = utils.io.load_image(
+            filepath=self.annotations[idx]['saliency'],
+            dtype=torch.float32, sub=None, div=255.,
         )
         saliency = (saliency > 0.5).type(torch.float32)
         return {'saliency_estimation': saliency}

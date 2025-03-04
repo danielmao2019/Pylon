@@ -2,7 +2,7 @@ from typing import Tuple, List, Dict, Any, Optional
 import os
 import torch
 from data.datasets import BaseDataset
-from utils.io import load_image
+import utils
 
 
 class CelebADataset(BaseDataset):
@@ -116,9 +116,9 @@ class CelebADataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        inputs = {'image': load_image(
-            filepath=self.annotations[idx][0], dtype=torch.float32,
-            sub=None, div=255.,
+        inputs = {'image': utils.io.load_image(
+            filepath=self.annotations[idx][0],
+            dtype=torch.float32, sub=None, div=255.,
         )}
         labels = {}
         if self.use_landmarks:
