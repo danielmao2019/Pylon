@@ -70,7 +70,10 @@ def _load_image(filepath: str) -> torch.Tensor:
     Returns:
         A PyTorch tensor representing the image.
     """
+    # input checks
     check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg', '.bmp'])
+
+    # load image
     image = Image.open(filepath)
     mode = image.mode
     # convert to torch.Tensor
@@ -121,6 +124,8 @@ def _load_multispectral_image(
         check_read_file(path=path, ext=['.tif', '.tiff'])
     if len(filepaths) == 0:
         raise ValueError(f"Provided list of file paths is empty.")
+    assert height is None or isinstance(height, int)
+    assert width is None or isinstance(width, int)
     if len(filepaths) == 1 and (height is not None or width is not None):
         raise ValueError("Height and width should be None when loading a single file.")
 
@@ -162,6 +167,12 @@ def _normalize(
 ) -> torch.Tensor:
     """Normalize the image using subtraction, division, or min-max normalization."""
     # input checks
+    assert isinstance(image, torch.Tensor)
+    assert all((
+        arg is None or
+        isinstance(arg, (float, list, tuple, torch.Tensor))
+    ) for arg in [sub, div])
+    assert normalize is None or isinstance(normalize, bool)
     if normalize and (sub is not None or div is not None):
         raise ValueError("'normalize' cannot be used together with 'sub' or 'div'.")
 
@@ -184,10 +195,6 @@ def _normalize(
             value_tensor = value_tensor.expand(num_channels)
         return value_tensor.view(-1, 1, 1) if ndim == 3 else value_tensor
 
-    if normalize:
-        min_val, max_val = image.min(), image.max()
-        image = (image - min_val) / (max_val - min_val + 1e-6)  # Avoid division by zero
-
     if sub is not None:
         sub_tensor = prepare_tensor(sub, image.size(0) if image.ndim == 3 else 1, image.ndim)
         image = image - sub_tensor
@@ -196,6 +203,10 @@ def _normalize(
         div_tensor = prepare_tensor(div, image.size(0) if image.ndim == 3 else 1, image.ndim)
         div_tensor = torch.where(div_tensor.abs() < 1.0e-6, 1.0e-6, div_tensor)  # Avoid division by zero issues
         image = image / div_tensor
+
+    if normalize:
+        min_val, max_val = image.min(), image.max()
+        image = (image - min_val) / (max_val - min_val + 1e-6)  # Avoid division by zero
 
     return image
 
