@@ -12,8 +12,8 @@ def load_image(
     filepaths: Optional[Union[str, List[str]]] = None,
     height: Optional[int] = None,
     width: Optional[int] = None,
-    sub: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
-    div: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
+    sub: Optional[Union[float, int, Sequence[float], Sequence[int], torch.Tensor]] = None,
+    div: Optional[Union[float, int, Sequence[float], Sequence[int], torch.Tensor]] = None,
     normalization: Optional[Literal["min-max", "mean-std"]] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> torch.Tensor:
@@ -159,8 +159,8 @@ def _load_multispectral_image(
 
 def _normalize(
     image: torch.Tensor,
-    sub: Optional[Union[float, Sequence[float], torch.Tensor]],
-    div: Optional[Union[float, Sequence[float], torch.Tensor]],
+    sub: Optional[Union[float, int, Sequence[float], Sequence[int], torch.Tensor]],
+    div: Optional[Union[float, int, Sequence[float], Sequence[int], torch.Tensor]],
     normalization: Optional[str] = "min-max",
 ) -> torch.Tensor:
     """Normalize the image using subtraction, division, min-max, or mean-std normalization."""
@@ -168,7 +168,7 @@ def _normalize(
     assert isinstance(image, torch.Tensor)
     assert normalization in {None, "min-max", "mean-std"}, f"Invalid normalization method: {normalization}"
     assert all((
-        arg is None or isinstance(arg, (float, list, tuple, torch.Tensor))
+        arg is None or isinstance(arg, (float, int, list, tuple, torch.Tensor))
     ) for arg in [sub, div])
     if normalization and (sub is not None or div is not None):
         raise ValueError("'normalization' cannot be used together with 'sub' or 'div'.")
