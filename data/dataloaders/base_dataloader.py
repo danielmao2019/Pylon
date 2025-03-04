@@ -3,7 +3,7 @@ import torch
 import data
 
 
-class BaseDataloader(torch.utils.data.DataLoader):
+class BaseDataLoader(torch.utils.data.DataLoader):
     def __init__(
         self,
         dataset: torch.utils.data.Dataset,
@@ -26,7 +26,7 @@ class BaseDataloader(torch.utils.data.DataLoader):
             for key in ['batch_size', 'shuffle', 'sampler', 'drop_last']:
                 if key in kwargs:
                     del kwargs[key]
-            super(BaseDataloader, self).__init__(dataset, batch_sampler=sampler, **kwargs)
+            super(BaseDataLoader, self).__init__(dataset, batch_sampler=sampler, **kwargs)
         else:
             drop_last = (last_mode == 'drop')
-            super(BaseDataloader, self).__init__(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, **kwargs)
+            super(BaseDataLoader, self).__init__(dataset, batch_size=batch_size, shuffle=shuffle, drop_last=drop_last, **kwargs)

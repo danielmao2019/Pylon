@@ -1,5 +1,5 @@
 import pytest
-from .base_dataloader import BaseDataloader
+from .base_dataloader import BaseDataLoader
 import torch
 
 
@@ -31,7 +31,7 @@ class TestDataset(torch.utils.data.Dataset):
 ])
 def test_base_dataloader(dataset_size, batch_size, last_mode, expected_num_batches, expected_last_batch_size):
     dataset = TestDataset(size=dataset_size)
-    dataloader = BaseDataloader(dataset, batch_size=batch_size, last_mode=last_mode)
+    dataloader = BaseDataLoader(dataset, batch_size=batch_size, last_mode=last_mode)
 
     batches = list(dataloader)
     assert len(batches) == expected_num_batches, f"Expected {expected_num_batches} batches, got {len(batches)}"
@@ -44,10 +44,10 @@ def test_base_dataloader(dataset_size, batch_size, last_mode, expected_num_batch
 @pytest.mark.parametrize("shuffle", [True, False])
 def test_dataloader_shuffle_behavior(shuffle):
     dataset = TestDataset(size=50)
-    dataloader = BaseDataloader(dataset, batch_size=10, shuffle=shuffle)
+    dataloader = BaseDataLoader(dataset, batch_size=10, shuffle=shuffle)
 
     batches1 = list(dataloader)
-    batches2 = list(BaseDataloader(dataset, batch_size=10, shuffle=shuffle))
+    batches2 = list(BaseDataLoader(dataset, batch_size=10, shuffle=shuffle))
 
     if shuffle:
         assert not all(torch.equal(b1, b2) for b1, b2 in zip(batches1, batches2)), "Shuffled batches should not be identical"
@@ -57,5 +57,5 @@ def test_dataloader_shuffle_behavior(shuffle):
 
 def test_dataloader_with_empty_dataset():
     dataset = TestDataset(size=0)
-    dataloader = BaseDataloader(dataset, batch_size=10, last_mode='fill')
+    dataloader = BaseDataLoader(dataset, batch_size=10, last_mode='fill')
     assert len(list(dataloader)) == 0, "Dataloader should yield no batches for an empty dataset"

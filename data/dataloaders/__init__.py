@@ -1,9 +1,9 @@
 """
 DATA.DATALOADERS API
 """
-from data.dataloaders.base_dataloader import BaseDataloader
+from data.dataloaders.base_dataloader import BaseDataLoader
 
 
 __all__ = (
-    'BaseDataloader',
+    'BaseDataLoader',
 )
