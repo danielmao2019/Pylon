@@ -158,8 +158,18 @@ def _normalize(
     image: torch.Tensor,
     sub: Optional[Union[float, Sequence[float], torch.Tensor]],
     div: Optional[Union[float, Sequence[float], torch.Tensor]],
+    normalize: Optional[bool],
 ) -> torch.Tensor:
-    """Normalize the image by subtracting and dividing channel-wise values."""
+    """Normalize the image using subtraction, division, or min-max normalization."""
+    # input checks
+    if normalize and (sub is not None or div is not None):
+        raise ValueError("'normalize' cannot be used together with 'sub' or 'div'.")
+
+    # If no normalization is required, return as is
+    if sub is None and div is None and not normalize:
+        return image
+
+    # normalize image
     image = image.to(torch.float32)
 
     def prepare_tensor(value, num_channels, ndim):
@@ -172,9 +182,11 @@ def _normalize(
             )
         if value_tensor.numel() == 1:
             value_tensor = value_tensor.expand(num_channels)
-        if ndim == 3:  # Reshape for broadcasting
-            return value_tensor.view(-1, 1, 1)
-        return value_tensor  # Keep shape for 2D tensors (H, W)
+        return value_tensor.view(-1, 1, 1) if ndim == 3 else value_tensor
+
+    if normalize:
+        min_val, max_val = image.min(), image.max()
+        image = (image - min_val) / (max_val - min_val + 1e-6)  # Avoid division by zero
 
     if sub is not None:
         sub_tensor = prepare_tensor(sub, image.size(0) if image.ndim == 3 else 1, image.ndim)
@@ -182,7 +194,7 @@ def _normalize(
 
     if div is not None:
         div_tensor = prepare_tensor(div, image.size(0) if image.ndim == 3 else 1, image.ndim)
-        div_tensor = torch.where(div_tensor.abs() < 1.0e-06, 1.0e-06, div_tensor)  # Avoids division by zero issues
+        div_tensor = torch.where(div_tensor.abs() < 1.0e-6, 1.0e-6, div_tensor)  # Avoid division by zero issues
         image = image / div_tensor
 
     return image
