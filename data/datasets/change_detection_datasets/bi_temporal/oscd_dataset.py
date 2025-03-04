@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Any, Optional
+from typing import Tuple, List, Dict, Union, Any, Optional
 import os
 import glob
 from datetime import datetime
@@ -57,9 +57,12 @@ class OSCDDataset(BaseDataset):
     # initialization methods
     # ====================================================================================================
 
-    def __init__(self, bands: Optional[List[str]] = None, **kwargs) -> None:
-        if bands is not None:
-            assert type(bands) == list and all(type(x) == str for x in bands), f"{bands=}"
+    def __init__(self, bands: Optional[Union[str, List[str]]] = '3ch', **kwargs) -> None:
+        assert (
+            (bands is None)
+            or (bands in {'3ch', '13ch'})
+            or (isinstance(bands, list) and all(isinstance(b, str) for b in bands))
+        )
         self.bands = bands
         super(OSCDDataset, self).__init__(**kwargs)
 
@@ -129,12 +132,20 @@ class OSCDDataset(BaseDataset):
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:
         inputs: Dict[str, torch.Tensor] = {}
         for input_idx in [1, 2]:
-            if self.bands is None:
+            if self.bands is None or self.bands == '3ch':
                 img = utils.io.load_image(
                     filepath=self.annotations[idx]['inputs'][f'png_input_{input_idx}_filepath'],
                     dtype=torch.float32, sub=None, div=255.0,
                 )
+            elif self.bands == '13ch':
+                img = utils.io.load_image(
+                    filepaths=self.annotations[idx]['inputs'][f'tif_input_{input_idx}_filepaths'],
+                    dtype=torch.float32, sub=None, div=None,
+                    height=self.annotations[idx]['meta_info']['height'],
+                    width=self.annotations[idx]['meta_info']['width'],
+                )
             else:
+                assert isinstance(self.bands, list)
                 img = utils.io.load_image(
                     filepaths=list(filter(
                         lambda x: os.path.splitext(os.path.basename(x))[0].split('_')[-1] in self.bands,
