@@ -17,9 +17,10 @@ def load_image(
     filepaths: Optional[Union[str, List[str]]] = None,
     height: Optional[int] = None,
     width: Optional[int] = None,
-    dtype: Optional[torch.dtype] = None,
     sub: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
     div: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
+    normalize: Optional[bool] = None,
+    dtype: Optional[torch.dtype] = None,
 ) -> torch.Tensor:
     """
     Load an image or bands from file(s) into a PyTorch tensor.
@@ -29,9 +30,10 @@ def load_image(
         filepaths: List of filepaths for bands in a .tif image or a single .tif file.
         height: Desired height for resizing bands (optional).
         width: Desired width for resizing bands (optional).
-        dtype: Desired output data type for the tensor (e.g., torch.float32).
         sub: Value(s) to subtract from the image for normalization.
         div: Value(s) to divide the image by for normalization.
+        normalize: If True, applies min-max normalization. Cannot be used with sub or div.
+        dtype: Desired output data type for the tensor (e.g., torch.float32).
 
     Returns:
         A PyTorch tensor of the loaded image.
@@ -39,17 +41,6 @@ def load_image(
     # Ensure only one input type is provided
     if (filepath is not None) == (filepaths is not None):
         raise ValueError("Exactly one of 'filepath' or 'filepaths' must be provided.")
-    if filepath is not None:
-        check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg', '.bmp'])
-
-    # Normalize filepaths to a list
-    if isinstance(filepaths, str):
-        filepaths = [filepaths]  # Convert single .tif file to list for consistency
-    if filepaths is not None:
-        assert isinstance(filepaths, list), \
-            f"'filepaths' must be a list. Got {type(filepaths)}."
-        for path in filepaths:
-            check_read_file(path=path, ext=['.tif', '.tiff'])
 
     # Load image data
     if filepath:
@@ -58,8 +49,7 @@ def load_image(
         image: torch.Tensor = _load_multispectral_image(filepaths, height, width)
 
     # Apply normalization
-    if sub is not None or div is not None:
-        image = _normalize(image, sub=sub, div=div)
+    image = _normalize(image, sub=sub, div=div, normalize=normalize)
 
     # Convert data type if specified
     if dtype is not None:
@@ -80,6 +70,7 @@ def _load_image(filepath: str) -> torch.Tensor:
     Returns:
         A PyTorch tensor representing the image.
     """
+    check_read_file(path=filepath, ext=['.png', '.jpg', '.jpeg', '.bmp'])
     image = Image.open(filepath)
     mode = image.mode
     # convert to torch.Tensor
@@ -106,7 +97,7 @@ def _load_image(filepath: str) -> torch.Tensor:
 
 
 def _load_multispectral_image(
-    filepaths: List[str],
+    filepaths: Union[str, List[str]],
     height: Optional[int] = None,
     width: Optional[int] = None,
 ) -> torch.Tensor:
@@ -121,12 +112,19 @@ def _load_multispectral_image(
     Returns:
         A PyTorch tensor where each band is a channel.
     """
-    if not isinstance(filepaths, list) or len(filepaths) == 0:
-        raise ValueError(f"Invalid filepaths: {filepaths}")
-
+    # input checks
+    if isinstance(filepaths, str):
+        filepaths = [filepaths]
+    assert isinstance(filepaths, list), \
+        f"'filepaths' must be a list. Got {type(filepaths)}."
+    for path in filepaths:
+        check_read_file(path=path, ext=['.tif', '.tiff'])
+    if len(filepaths) == 0:
+        raise ValueError(f"Provided list of file paths is empty.")
     if len(filepaths) == 1 and (height is not None or width is not None):
         raise ValueError("Height and width should be None when loading a single file.")
 
+    # load multi-spectral image
     bands: List[torch.Tensor] = []
 
     for path in filepaths:
