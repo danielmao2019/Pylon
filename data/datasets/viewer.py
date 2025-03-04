@@ -23,6 +23,7 @@ app = dash.Dash(__name__)
 def tensor_to_image(tensor):
     """Convert a PyTorch tensor to a displayable image."""
     img = tensor.cpu().numpy()
+    img = (img-img.min())/(img.max()-img.min())
     if img.ndim == 2:  # Grayscale image
         return img
     elif img.ndim == 3:  # RGB image (C, H, W) -> (H, W, C)
