@@ -1,4 +1,4 @@
-from typing import List, Sequence, Dict, Union, Any, Optional
+from typing import Literal, List, Sequence, Dict, Union, Any, Optional
 import os
 import json
 import jsbeautifier
@@ -19,7 +19,7 @@ def load_image(
     width: Optional[int] = None,
     sub: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
     div: Optional[Union[float, Sequence[float], torch.Tensor]] = None,
-    normalize: Optional[bool] = None,
+    normalization: Optional[Literal["min-max", "mean-std"]] = None,
     dtype: Optional[torch.dtype] = None,
 ) -> torch.Tensor:
     """
@@ -28,15 +28,18 @@ def load_image(
     Args:
         filepath: Path to a single image file (.png, .jpg, .jpeg, .bmp).
         filepaths: List of filepaths for bands in a .tif image or a single .tif file.
-        height: Desired height for resizing bands (optional).
-        width: Desired width for resizing bands (optional).
-        sub: Value(s) to subtract from the image for normalization.
-        div: Value(s) to divide the image by for normalization.
-        normalize: If True, applies min-max normalization. Cannot be used with sub or div.
-        dtype: Desired output data type for the tensor (e.g., torch.float32).
+        height: Optional target height for resizing the image.
+        width: Optional target width for resizing the image.
+        sub: Scalar, sequence, or tensor to subtract from the image for normalization.
+        div: Scalar, sequence, or tensor to divide the image by for normalization.
+        normalization: Normalization method to apply:
+            - "min-max": Rescales pixel values to [0, 1].
+            - "mean-std": Standardizes the image using mean and standard deviation.
+            Cannot be used together with `sub` or `div`.
+        dtype: Desired output tensor data type (e.g., torch.float32).
 
     Returns:
-        A PyTorch tensor of the loaded image.
+        A PyTorch tensor containing the loaded image data.
     """
     # Ensure only one input type is provided
     if (filepath is not None) == (filepaths is not None):
@@ -49,7 +52,7 @@ def load_image(
         image: torch.Tensor = _load_multispectral_image(filepaths, height, width)
 
     # Apply normalization
-    image = _normalize(image, sub=sub, div=div, normalize=normalize)
+    image = _normalize(image, sub=sub, div=div, normalization=normalization)
 
     # Convert data type if specified
     if dtype is not None:
