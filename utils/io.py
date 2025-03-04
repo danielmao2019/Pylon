@@ -163,21 +163,20 @@ def _normalize(
     image: torch.Tensor,
     sub: Optional[Union[float, Sequence[float], torch.Tensor]],
     div: Optional[Union[float, Sequence[float], torch.Tensor]],
-    normalize: Optional[bool],
+    normalization: Optional[str] = "min-max",
 ) -> torch.Tensor:
-    """Normalize the image using subtraction, division, or min-max normalization."""
+    """Normalize the image using subtraction, division, min-max, or mean-std normalization."""
     # input checks
     assert isinstance(image, torch.Tensor)
+    assert normalization in {None, "min-max", "mean-std"}, f"Invalid normalization method: {normalization}"
     assert all((
-        arg is None or
-        isinstance(arg, (float, list, tuple, torch.Tensor))
+        arg is None or isinstance(arg, (float, list, tuple, torch.Tensor))
     ) for arg in [sub, div])
-    assert normalize is None or isinstance(normalize, bool)
-    if normalize and (sub is not None or div is not None):
-        raise ValueError("'normalize' cannot be used together with 'sub' or 'div'.")
+    if normalization and (sub is not None or div is not None):
+        raise ValueError("'normalization' cannot be used together with 'sub' or 'div'.")
 
     # If no normalization is required, return as is
-    if sub is None and div is None and not normalize:
+    if sub is None and div is None and normalization is None:
         return image
 
     # normalize image
@@ -186,7 +185,6 @@ def _normalize(
     def prepare_tensor(value, num_channels, ndim):
         """Prepare a broadcastable normalization tensor."""
         value_tensor = torch.as_tensor(value, dtype=torch.float32)
-
         if value_tensor.numel() not in {1, num_channels}:
             raise ValueError(
                 f"Normalization value must match the number of channels or be scalar. Got {value_tensor.numel()} values for {num_channels} channels."
@@ -204,9 +202,14 @@ def _normalize(
         div_tensor = torch.where(div_tensor.abs() < 1.0e-6, 1.0e-6, div_tensor)  # Avoid division by zero issues
         image = image / div_tensor
 
-    if normalize:
+    if normalization == "min-max":
         min_val, max_val = image.min(), image.max()
         image = (image - min_val) / (max_val - min_val + 1e-6)  # Avoid division by zero
+
+    elif normalization == "mean-std":
+        mean_val, std_val = image.mean(), image.std()
+        std_val = torch.where(std_val < 1.0e-6, 1.0e-6, std_val)  # Avoid division by zero
+        image = (image - mean_val) / std_val
 
     return image
 
