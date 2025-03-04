@@ -171,7 +171,8 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         if self.indices is None:
             return
         assert type(self.annotations) == list, f"{type(self.annotations)=}"
-        assert all(0 <= x < len(self.annotations) for x in self.indices)
+        assert all(0 <= x < len(self.annotations) for x in self.indices), \
+            f"{len(self.annotations)=}, {min(self.indices)=}, {max(self.indices)=}"
         self.annotations = [self.annotations[idx] for idx in self.indices]
 
     def _init_transforms(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
