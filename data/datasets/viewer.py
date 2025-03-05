@@ -123,8 +123,8 @@ def update_datapoint(current_idx, selected_transform_indices):
             'transforms': [
                 transform for i, transform in enumerate(transforms_cfg['args']['transforms'])
                 if i in selected_transform_indices
-            ]
-        }
+            ],
+        },
     }
     
     # Build the transformation pipeline with only selected transforms
@@ -146,15 +146,18 @@ def update_datapoint(current_idx, selected_transform_indices):
     return html.Div([
         html.Div([
             dcc.Graph(figure=input_fig_1),
-            dcc.Graph(figure=input_fig_2)
+            html.P(f"{img_1.shape=}, {img_1.dtype=}, {img_1.min()=}, {img_1.max()=}"),
+            dcc.Graph(figure=input_fig_2),
+            html.P(f"{img_2.shape=}, {img_2.dtype=}, {img_2.min()=}, {img_2.max()=}"),
         ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'top'}),
         html.Div([
-            dcc.Graph(figure=change_map_fig)
+            dcc.Graph(figure=change_map_fig),
+            html.P(f"{change_map.shape=}, {change_map.dtype=}, {change_map.min()=}, {change_map.max()=}"),
         ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'middle'}),
         html.Div([
             html.H5("Metadata"),
             *[html.P(f"{key}: {format_value(value)}") for key, value in datapoint['meta_info'].items()]
-        ])
+        ], style={'width': '10%', 'display': 'inline-block', 'vertical-align': 'middle'}),
     ], style={'display': 'flex'})
 
 if __name__ == '__main__':
