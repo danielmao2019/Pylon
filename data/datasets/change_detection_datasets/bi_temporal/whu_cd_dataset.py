@@ -33,8 +33,8 @@ class WHU_CD_Dataset(BaseDataset):
     NUM_CLASSES = 2
     # this is a rough estimate using 5 initializations due to randomness in the dataset
     CLASS_DIST = {
-        'train': [302740256, 14323049],
-        'test': [163865856, 6265578],
+        'train': [302740032, 14323049],
+        'test': [163865840, 6265578],
     }
     Image.MAX_IMAGE_PIXELS = None
     
@@ -53,9 +53,9 @@ class WHU_CD_Dataset(BaseDataset):
         assert 'cropped_images' in os.listdir(inputs_image1_root)
         assert 'cropped_images' in os.listdir(inputs_image2_root)
         assert 'cropped_images' in os.listdir(labels_root)
-        img_1_filepaths = glob.glob(os.path.join(inputs_image1_root, 'cropped_images', '*.png'))
-        img_2_filepaths = glob.glob(os.path.join(inputs_image2_root, 'cropped_images', '*.png'))
-        change_map_filepaths = glob.glob(os.path.join(labels_root, 'cropped_images', '*.png'))
+        img_1_filepaths = glob.glob(os.path.join(inputs_image1_root, 'cropped_images', '*.tif'))
+        img_2_filepaths = glob.glob(os.path.join(inputs_image2_root, 'cropped_images', '*.tif'))
+        change_map_filepaths = glob.glob(os.path.join(labels_root, 'cropped_images', '*.tif'))
         assert len(img_1_filepaths) == len(img_2_filepaths)
         assert len(img_1_filepaths) == len(change_map_filepaths)
         self.annotations = []
@@ -90,8 +90,6 @@ class WHU_CD_Dataset(BaseDataset):
         assert os.path.isfile(input_dir[0])
         if not os.path.exists(output_dir):
             image = Image.open(input_dir[0])
-            if image.mode == '1':  # 1-bit images are not ideal for further processing
-                image = image.convert('L')
             width, height = image.size
             patch_size = 256
             patches = []
