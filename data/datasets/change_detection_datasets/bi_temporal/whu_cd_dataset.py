@@ -72,14 +72,14 @@ class WHU_CD_Dataset(BaseDataset):
         # assertion
         inputs = {
             f"img_{input_idx}": utils.io.load_image(
-                filepath=self.annotations[idx][f"img_{input_idx}_path"],
+                filepaths=self.annotations[idx][f"img_{input_idx}_path"],
                 dtype=torch.float32,
             ) for input_idx in [1, 2]
         }
         labels = {
             'change_map': utils.io.load_image(
-                filepath=self.annotations[idx]['change_map_path'],
-                dtype=torch.int64, div=255.0,
+                filepaths=self.annotations[idx]['change_map_path'],
+                dtype=torch.int64,
             )
         }
         meta_info = self.annotations[idx]
@@ -105,5 +105,5 @@ class WHU_CD_Dataset(BaseDataset):
                 os.makedirs(output_dir)
             # Save each patch as a separate TIFF file named from 0.tif to n.tif
             for idx, patch in enumerate(patches):
-                patch_filename = os.path.join(output_dir, f"{idx}.png")
+                patch_filename = os.path.join(output_dir, f"{idx}.tif")
                 patch.save(patch_filename)
