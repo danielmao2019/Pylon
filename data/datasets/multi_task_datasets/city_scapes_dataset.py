@@ -5,7 +5,7 @@ import random
 import torch
 import matplotlib.pyplot as plt
 from data.datasets import BaseDataset
-from utils.io import load_image
+import utils
 
 
 class CityScapesDataset(BaseDataset):
@@ -192,26 +192,30 @@ class CityScapesDataset(BaseDataset):
         return inputs, labels, meta_info
 
     def _get_image_(self, idx: int) -> Dict[str, torch.Tensor]:
-        return {'image': load_image(
-            filepath=self.annotations[idx]['image'], dtype=torch.float32,
-            sub=self.IMAGE_MEAN[::-1], div=255.0,
+        return {'image': utils.io.load_image(
+            filepath=self.annotations[idx]['image'],
+            dtype=torch.float32, sub=self.IMAGE_MEAN[::-1], div=255.0,
         )}
 
     def _get_depth_label_(self, idx: int) -> Dict[str, torch.Tensor]:
-        return {'depth_estimation': load_image(
-            filepath=self.annotations[idx]['depth'], dtype=torch.float32,
-            sub=None, div=self.DEPTH_STD,
+        return {'depth_estimation': utils.io.load_image(
+            filepath=self.annotations[idx]['depth'],
+            dtype=torch.float32, sub=None, div=self.DEPTH_STD,
         )}
 
     def _get_segmentation_labels_(self, idx: int) -> Dict[str, torch.Tensor]:
         # get semantic segmentation labels
-        semantic = load_image(filepath=self.annotations[idx]['semantic'], dtype=torch.int64)
+        semantic = utils.io.load_image(
+            filepath=self.annotations[idx]['semantic'], dtype=torch.int64,
+        )
         for void_class in self.SEMANTIC_VOID:
             semantic[semantic == void_class] = self.IGNORE_INDEX
         for valid in self.VALID_CLASSES:
             semantic[semantic == valid] = self.CLASS_MAP[valid]
         # get instance segmentation labels
-        instance = load_image(filepath=self.annotations[idx]['instance'], dtype=torch.int64)
+        instance = utils.io.load_image(
+            filepath=self.annotations[idx]['instance'], dtype=torch.int64,
+        )
         instance[semantic == self.IGNORE_INDEX] = self.IGNORE_INDEX
         for void_class in self.INSTANCE_VOID:
             instance[instance == void_class] = self.IGNORE_INDEX

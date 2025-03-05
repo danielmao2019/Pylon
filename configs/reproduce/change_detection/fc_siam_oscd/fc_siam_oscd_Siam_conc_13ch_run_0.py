@@ -128,10 +128,8 @@ config = {
         'class': optimizers.SingleTaskOptimizer,
         'args': {
             'optimizer_config': {
-                'class': torch.optim.SGD,
+                'class': torch.optim.Adam,
                 'args': {
-                    'lr': 1.0e-03,
-                    'momentum': 0.9,
                     'weight_decay': 1.0e-04,
                 },
             },
@@ -143,7 +141,7 @@ config = {
         'args': {
             'optimizer': None,
             'total_iters': None,
-            'power': 0.9,
+            'power': 0.95,
         },
     },
 }
