@@ -2,16 +2,14 @@ from typing import Dict
 import torch
 import criteria
 from criteria.wrappers import SingleTaskCriterion
-from criteria.vision_2d import DiceLoss
 
 
 class LWGANetCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
         super(LWGANetCriterion, self).__init__()
-        # unbounded
-        self.ce_criterion = torch.nn.CrossEntropyLoss()
-        self.dice_criterion = DiceLoss()
+        self.ce_criterion = criteria.vision_2d.SemanticSegmentationCriterion()
+        self.dice_criterion = criteria.vision_2d.DiceLoss()
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Override parent class __call__ method.
