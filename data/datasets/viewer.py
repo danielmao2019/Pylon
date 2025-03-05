@@ -1,6 +1,7 @@
 import os
-import torch
+import random
 import numpy as np
+import torch
 import dash
 from dash import dcc, html, Input, Output, State
 import plotly.express as px
@@ -10,7 +11,7 @@ import data
 import utils
 
 # Load dataset instance
-from configs.common.datasets.change_detection.train.cdd import config
+from configs.reproduce.change_detection.fc_siam_oscd.fc_siam_oscd_Siam_conc_13ch_run_0 import config
 dataset_cfg = config['train_dataset']
 dataset_cfg['args']['data_root'] = os.path.relpath(dataset_cfg['args']['data_root'], start="./data/datasets")
 transforms_cfg = dataset_cfg['args']['transforms_cfg']
@@ -22,11 +23,15 @@ app = dash.Dash(__name__)
 def tensor_to_image(tensor):
     """Convert a PyTorch tensor to a displayable image."""
     img = tensor.cpu().numpy()
+    img = (img-img.min())/(img.max()-img.min())
     if img.ndim == 2:  # Grayscale image
         return img
-    elif img.ndim == 3 and img.shape[0] == 3:  # RGB image (C, H, W) -> (H, W, C)
+    elif img.ndim == 3:  # RGB image (C, H, W) -> (H, W, C)
+        if img.shape[0] > 3:
+            img = img[random.sample(range(img.shape[0]), 3), :, :]
         return np.transpose(img, (1, 2, 0))
-    return None  # Non-image tensor
+    else:
+        raise ValueError
 
 def format_value(value):
     """Format values for display, truncating large tensors."""
@@ -118,8 +123,8 @@ def update_datapoint(current_idx, selected_transform_indices):
             'transforms': [
                 transform for i, transform in enumerate(transforms_cfg['args']['transforms'])
                 if i in selected_transform_indices
-            ]
-        }
+            ],
+        },
     }
     
     # Build the transformation pipeline with only selected transforms
@@ -141,15 +146,18 @@ def update_datapoint(current_idx, selected_transform_indices):
     return html.Div([
         html.Div([
             dcc.Graph(figure=input_fig_1),
-            dcc.Graph(figure=input_fig_2)
+            html.P(f"{img_1.shape=}, {img_1.dtype=}, {img_1.min()=}, {img_1.max()=}"),
+            dcc.Graph(figure=input_fig_2),
+            html.P(f"{img_2.shape=}, {img_2.dtype=}, {img_2.min()=}, {img_2.max()=}"),
         ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'top'}),
         html.Div([
-            dcc.Graph(figure=change_map_fig)
+            dcc.Graph(figure=change_map_fig),
+            html.P(f"{change_map.shape=}, {change_map.dtype=}, {change_map.min()=}, {change_map.max()=}"),
         ], style={'width': '45%', 'display': 'inline-block', 'vertical-align': 'middle'}),
         html.Div([
             html.H5("Metadata"),
             *[html.P(f"{key}: {format_value(value)}") for key, value in datapoint['meta_info'].items()]
-        ])
+        ], style={'width': '10%', 'display': 'inline-block', 'vertical-align': 'middle'}),
     ], style={'display': 'flex'})
 
 if __name__ == '__main__':
