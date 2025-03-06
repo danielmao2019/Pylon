@@ -91,7 +91,7 @@ class SiameseKPConv(UnwrappedUnetBasedModel):
         data = data1.clone()
         data.x = data1.x - data0.x[nn_list[1,:],:]
         innermost = False
-        if not isinstance(self.inner_modules[0], Identity):
+        if not isinstance(self.inner_modules[0], torch.nn.Identity):
             stack_down.append(data)
             data = self.inner_modules[0](data)
             innermost = True
