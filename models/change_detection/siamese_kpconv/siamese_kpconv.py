@@ -1,38 +1,22 @@
-from typing import Any
-import logging
-from omegaconf.dictconfig import DictConfig
-from omegaconf.listconfig import ListConfig
+from typing import Dict, Any
+import torch
 from torch.nn import Sequential, Dropout, Linear
-import torch.nn.functional as F
 from torch import nn
-from plyfile import PlyData, PlyElement
-import numpy as np
 
 from torch_points3d.core.common_modules import FastBatchNorm1d
 from torch_points3d.modules.KPConv import *
 from torch_points3d.core.base_conv.partial_dense import *
 from torch_points3d.core.common_modules import MultiHeadClassifier
-from torch_points3d.models.base_model import BaseModel
 from torch_points3d.models.base_architectures.unet import UnwrappedUnetBasedModel
-from torch_points3d.datasets.multiscale_data import MultiScaleBatch
-from torch_geometric.data import Data
 from torch_geometric.nn import knn
 
-from torch_points3d.datasets.change_detection.pair import PairBatch, PairMultiScaleBatch
-
-
-log = logging.getLogger(__name__)
+from torch_points3d.datasets.change_detection.pair import PairMultiScaleBatch
 
 
 class SiameseKPConv(UnwrappedUnetBasedModel):
     def __init__(self, option, model_type, dataset, modules):
         # Extract parameters from the dataset
         self._num_classes = dataset.num_classes
-        self._weight_classes = dataset.weight_classes
-        # No ponderation if weights for the corresponding number of class are available
-        if self._weight_classes is not None:
-            if len(self._weight_classes) != self._num_classes:
-                self._weight_classes = None
         try:
             self._ignore_label = dataset.ignore_label
         except:
@@ -45,7 +29,7 @@ class SiameseKPConv(UnwrappedUnetBasedModel):
                 )
             self._class_to_seg = dataset.class_to_segments
             self._num_categories = len(self._class_to_seg)
-            log.info("Using category information for the predictions with %i categories", self._num_categories)
+            print("Using category information for the predictions with %i categories", self._num_categories)
         else:
             self._num_categories = 0
 
@@ -82,60 +66,18 @@ class SiameseKPConv(UnwrappedUnetBasedModel):
 
             self.FC_layer.add_module("Class", Lin(in_feat, self._num_classes, bias=False))
             self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
-        self.loss_names = ["loss_cd"]
 
-        self.lambda_reg = self.get_from_opt(option, ["loss_weights", "lambda_reg"])
-        if self.lambda_reg:
-            self.loss_names += ["loss_reg"]
-
-        self.lambda_internal_losses = self.get_from_opt(option, ["loss_weights", "lambda_internal_losses"])
-        self.last_feature = None
         self.visual_names = ["data_visual"]
         print('total : ' + str(sum(p.numel() for p in self.parameters() if p.requires_grad)))
         print('upconv : ' + str(sum(p.numel() for p in self.up_modules.parameters() if p.requires_grad)))
         print('downconv : ' + str(sum(p.numel() for p in self.down_modules.parameters() if p.requires_grad)))
 
-    def set_class_weight(self,dataset):
-        self._weight_classes = dataset.weight_classes
-        # No ponderation if weights for the corresponding number of class are available
-        if len(self._weight_classes) != self._num_classes:
-            print('number of weights different of the number of classes')
-            self._weight_classes = None
-
-    def set_input(self, data, device):
-        data = data.to(device)
-        data.x = add_ones(data.pos, data.x, True)
-        self.batch_idx = data.batch
-        if isinstance(data, PairMultiScaleBatch):
-            self.pre_computed = data.multiscale
-            self.upsample = data.upsample
-        else:
-            self.pre_computed = None
-            self.upsample = None
-        if getattr(data, "pos_target", None) is not None:
-            data.x_target = add_ones(data.pos_target, data.x_target, True)
-            if isinstance(data, PairMultiScaleBatch):
-                self.pre_computed_target = data.multiscale_target
-                self.upsample_target = data.upsample_target
-                del data.multiscale_target
-                del data.upsample_target
-            else:
-                self.pre_computed_target = None
-                self.upsample_target = None
-
-            self.input0, self.input1 = data.to_data()
-            self.batch_idx_target = data.batch_target
-            self.labels = data.y.to(device)
-        else:
-            self.input = data
-            self.labels = None
-
-    def forward(self, compute_loss = True, *args, **kwargs) -> Any:
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Any:
         """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
         stack_down = []
 
-        data0 = self.input0
-        data1 = self.input1
+        data0 = inputs['pc_0']
+        data1 = inputs['pc_1']
 
         for i in range(len(self.down_modules) - 1):
             data0 = self.down_modules[i](data0, precomputed=self.pre_computed)
@@ -160,19 +102,13 @@ class SiameseKPConv(UnwrappedUnetBasedModel):
                 data = self.up_modules[i]((data, stack_down.pop()))
             else:
                 data = self.up_modules[i]((data, stack_down.pop()), precomputed=self.upsample_target)
-        self.last_feature = data.x
+        last_feature = data.x
         if self._use_category:
-            self.output = self.FC_layer(self.last_feature, self.category)
+            output = self.FC_layer(last_feature, self.category)
         else:
-            self.output = self.FC_layer(self.last_feature)
+            output = self.FC_layer(last_feature)
 
-        if self.labels is not None and compute_loss:
-            self.compute_loss()
-
-        self.data_visual = self.input1
-        self.data_visual.pred = torch.max(self.output, -1)[1]
-
-        return self.output
+        return output
 
     def reset_final_layer(self, cuda = True):
         if self._use_category:
