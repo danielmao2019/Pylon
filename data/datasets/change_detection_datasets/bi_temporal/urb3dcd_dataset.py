@@ -80,12 +80,12 @@ class Urb3DCDDataset(BaseDataset):
         """Prepares centers for random sampling."""
         self._centres_for_sampling = []
         
-        for datapoint_idx in range(len(self.annotations)):
-            data = self._load_point_cloud_pair(datapoint_idx)
+        for idx in range(len(self.annotations)):
+            data = self._load_point_cloud_pair(idx)
             low_res = self._grid_sampling(data['pc_1'])
             centres = torch.empty((low_res.shape[0], 5), dtype=torch.float)
             centres[:, :3] = low_res
-            centres[:, 3] = datapoint_idx  # Store datapoint index
+            centres[:, 3] = idx  # Store datapoint index
             centres[:, 4] = data['change_map']
             self._centres_for_sampling.append(centres)
         
@@ -118,12 +118,12 @@ class Urb3DCDDataset(BaseDataset):
         self.grid_regular_centers = []
         grid_sampling = GridSampling3D(size=self._radius / 2)
         
-        for datapoint_idx in range(len(self.annotations)):
-            data = self._load_point_cloud_pair(datapoint_idx)
+        for idx in range(len(self.annotations)):
+            data = self._load_point_cloud_pair(idx)
             grid_sample_centers = grid_sampling(data['pc_1'])
             centres = torch.empty((grid_sample_centers.shape[0], 4), dtype=torch.float)
             centres[:, :3] = grid_sample_centers
-            centres[:, 3] = datapoint_idx  # Store datapoint index
+            centres[:, 3] = idx  # Store datapoint index
             self.grid_regular_centers.append(centres)
         
         self.grid_regular_centers = torch.cat(self.grid_regular_centers, 0)
@@ -198,7 +198,7 @@ class Urb3DCDDataset(BaseDataset):
             return {'pc_0': pc0, 'pc_1': pc1, 'change_map': change_map, 
                     'point_idx_pc0': sample['point_idx_pc0'], 
                     'point_idx_pc1': sample['point_idx_pc1'], 
-                    'datapoint_idx': sample['datapoint_idx']}
+                    'idx': sample['idx']}
         except Exception as e:
             print(f"Normalization failed: {e}")
             print(f"pc_0 shape: {pc0.shape}, pc_1 shape: {pc1.shape}")
@@ -207,10 +207,10 @@ class Urb3DCDDataset(BaseDataset):
     def _get_fixed_sample(self, idx):
         """Retrieves a fixed sample without normalization."""
         while idx < self._centres_for_sampling_fixed.shape[0]:
-            centre, datapoint_idx = self._extract_centre_info(self._centres_for_sampling_fixed, idx)
-            data = self._load_point_cloud_pair(datapoint_idx)
+            centre, sample_idx = self._extract_centre_info(self._centres_for_sampling_fixed, idx)
+            data = self._load_point_cloud_pair(sample_idx)
             
-            sample = self._sample_cylinder(data, centre, datapoint_idx)
+            sample = self._sample_cylinder(data, centre, sample_idx)
 
             if sample:
                 return sample
@@ -221,10 +221,10 @@ class Urb3DCDDataset(BaseDataset):
     def _get_regular_sample(self, idx):
         """Retrieves a regular sample without normalization."""
         while idx < self.grid_regular_centers.shape[0]:
-            centre, datapoint_idx = self._extract_centre_info(self.grid_regular_centers, idx)
-            data = self._load_point_cloud_pair(datapoint_idx)
+            centre, sample_idx = self._extract_centre_info(self.grid_regular_centers, idx)
+            data = self._load_point_cloud_pair(sample_idx)
             
-            sample = self._sample_cylinder(data, centre, datapoint_idx, apply_transform=True)
+            sample = self._sample_cylinder(data, centre, sample_idx, apply_transform=True)
 
             if sample:
                 return sample
@@ -243,18 +243,18 @@ class Urb3DCDDataset(BaseDataset):
 
         centre_idx = int(random.random() * (valid_centres.shape[0] - 1))
         centre = valid_centres[centre_idx]
-        datapoint_idx = centre[3].int()
-        data = self._load_point_cloud_pair(datapoint_idx)
+        sample_idx = centre[3].int()
+        data = self._load_point_cloud_pair(sample_idx)
         
-        return self._sample_cylinder(data, centre[:3], datapoint_idx, apply_transform=True)
+        return self._sample_cylinder(data, centre[:3], sample_idx, apply_transform=True)
 
-    def _sample_cylinder(self, data, centre, datapoint_idx, apply_transform=False):
+    def _sample_cylinder(self, data, centre, idx, apply_transform=False):
         """Applies cylindrical sampling and optional transformations."""
         cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
 
         # Sample points using the KDTrees
-        point_idx_pc0 = cylinder_sampler.query(data['kdtree_0'], data['pc_0'])
-        point_idx_pc1 = cylinder_sampler.query(data['kdtree_1'], data['pc_1'])
+        point_idx_pc0 = cylinder_sampler(data['kdtree_0'], data['pc_0'])
+        point_idx_pc1 = cylinder_sampler(data['kdtree_1'], data['pc_1'])
 
         return {
             'pc_0': data['pc_0'][point_idx_pc0], 
@@ -262,11 +262,11 @@ class Urb3DCDDataset(BaseDataset):
             'change_map': data['change_map'][point_idx_pc1],
             'point_idx_pc0': point_idx_pc0, 
             'point_idx_pc1': point_idx_pc1, 
-            'datapoint_idx': datapoint_idx
+            'idx': idx
         }
 
     def _extract_centre_info(self, centres, idx):
         """Extracts center position and datapoint index from the given array."""
         centre = centres[idx, :3]
-        datapoint_idx = centres[idx, 3].int()
-        return centre, datapoint_idx
+        sample_idx = centres[idx, 3].int()
+        return centre, sample_idx

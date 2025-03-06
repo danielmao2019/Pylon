@@ -23,8 +23,8 @@ class CylinderSampling:
             self._centre = np.expand_dims(self._centre, 0)
         self._align_origin = align_origin
 
-    def query(self, kdtree: KDTree, points: torch.Tensor) -> torch.Tensor:
-        """Query points within the cylinder using a KDTree
+    def __call__(self, kdtree: KDTree, points: torch.Tensor) -> torch.Tensor:
+        """Sample points within the cylinder using a KDTree
 
         Parameters
         ----------
