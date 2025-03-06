@@ -54,6 +54,9 @@ class Urb3DSimulCombined(Dataset):
     during training and validation. Default sampling radius is 2m.
     If sample_per_epoch is not specified, samples are placed on a 2m grid.
     """
+
+    INPUT_NAMES = ['pc_0', 'pc_1', 'kdtree_0', 'kdtree_1']
+    LABEL_NAMES = ['change_map']
     
     def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", *args, **kwargs):
         self._sample_per_epoch = sample_per_epoch
