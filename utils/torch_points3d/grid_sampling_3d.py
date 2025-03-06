@@ -1,3 +1,6 @@
+import torch
+
+
 class GridSampling3D:
     """ Clusters points into voxels with size :attr:`size`.
     Parameters
