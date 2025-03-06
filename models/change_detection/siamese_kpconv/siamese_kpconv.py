@@ -10,8 +10,6 @@ from torch_points3d.core.common_modules import MultiHeadClassifier
 from torch_points3d.models.base_architectures.unet import UnwrappedUnetBasedModel
 from torch_geometric.nn import knn
 
-from torch_points3d.datasets.change_detection.pair import PairMultiScaleBatch
-
 
 class SiameseKPConv(UnwrappedUnetBasedModel):
     def __init__(self, option, model_type, dataset, modules):
