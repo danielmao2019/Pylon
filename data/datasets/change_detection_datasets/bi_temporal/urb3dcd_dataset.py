@@ -36,22 +36,34 @@ class Urb3DCDDataset(BaseDataset):
         'val': 'Val',
         'test': 'Test'
     }
+    VERSION_MAP = {
+        1: {
+            'dir': 'IEEE_Dataset_V1',
+            'subdir': '1-Lidar05',
+            'nameInPly': 'Urb3DSimul'
+        },
+        2: {
+            'dir': 'IEEE_Dataset_V2_Lid05_MS',
+            'subdir': 'Lidar05',
+            'nameInPly': 'params'
+        }
+    }
 
-    def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", version="v1", *args, **kwargs):
+    def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, version=1, *args, **kwargs):
+        if version not in self.VERSION_MAP:
+            raise ValueError(f"Version {version} is not supported. Must be one of {list(self.VERSION_MAP.keys())}")
+        
         self._sample_per_epoch = sample_per_epoch
         self._radius = radius
         self.fix_samples = fix_samples
-        self.nameInPly = nameInPly
         self.version = version
         self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
         super(Urb3DCDDataset, self).__init__(*args, **kwargs)
 
     def _init_annotations(self) -> None:
         """Initialize file paths for point clouds."""
-        if self.version == "v1":
-            base_dir = os.path.join(self.data_root, "IEEE_Dataset_V1", "1-Lidar05", self.SPLIT_MAP[self.split])
-        else:
-            raise ValueError(f"Version {self.version} is not supported yet")
+        version_info = self.VERSION_MAP[self.version]
+        base_dir = os.path.join(self.data_root, version_info['dir'], version_info['subdir'], self.SPLIT_MAP[self.split])
 
         # Find all point cloud pairs using glob
         pc0_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud0.ply"), recursive=True))
@@ -130,7 +142,7 @@ class Urb3DCDDataset(BaseDataset):
     
     def _load_point_cloud_pair(self, idx: int) -> Dict[str, Any]:
         """Loads a pair of point clouds and builds KDTrees for them."""
-        pc0, pc1, change_map = self.clouds_loader(idx, nameInPly=self.nameInPly)
+        pc0, pc1, change_map = self.clouds_loader(idx)
         
         data = {
             'pc_0': pc0,
@@ -160,9 +172,10 @@ class Urb3DCDDataset(BaseDataset):
         meta_info = self.annotations[idx].copy()
         return inputs, labels, meta_info
 
-    def clouds_loader(self, idx: int, nameInPly="params"):
+    def clouds_loader(self, idx: int):
         """Loads point clouds from files."""
         print("Loading " + self.annotations[idx]['pc_1_filepath'])
+        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
         pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
         pc1 = pc[:, :3]
         change_map = pc[:, 3].long()  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
