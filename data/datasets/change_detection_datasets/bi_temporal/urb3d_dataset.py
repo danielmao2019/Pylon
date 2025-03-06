@@ -50,7 +50,7 @@ class Urb3DSimulCombined(BaseDataset):
     IGNORE_LABEL = -1
 
     def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", *args, **kwargs):
-        super(Urb3DSimulCombined, self).__init__()
+        super(Urb3DSimulCombined, self).__init__(*args, **kwargs)
         self._sample_per_epoch = sample_per_epoch
         self._radius = radius
         self.fix_samples = fix_samples
