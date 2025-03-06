@@ -49,7 +49,6 @@ OBJECT_COLOR = np.asarray(
 OBJECT_LABEL = {name: i for i, name in INV_OBJECT_LABEL.items()}
 
 
-
 class Urb3DSimulCombined(Dataset):
     """Combined class that supports both sphere and cylinder sampling within an area
     during training and validation. Default sampling radius is 2m.
@@ -100,8 +99,8 @@ class Urb3DSimulCombined(Dataset):
         self._centres_for_sampling = []
         
         for i in range(len(self.filesPC0)):
-            pair = self._add_kdtree(i, False)
-            dataPC1 = Data(pos=pair.pos_target, y=pair.y)
+            data = self._add_kdtree(i, False)
+            dataPC1 = Data(pos=data['pos_target'], y=data['y'])
             low_res = self._grid_sampling(dataPC1)
             centres = torch.empty((low_res.pos.shape[0], 5), dtype=torch.float)
             centres[:, :3] = low_res.pos
@@ -139,8 +138,8 @@ class Urb3DSimulCombined(Dataset):
         grid_sampling = GridSampling3D(size=self._radius / 2)
         
         for i in range(len(self.filesPC0)):
-            pair = self._add_kdtree(i, False)
-            dataPC1 = Data(pos=pair.pos_target, y=pair.y)
+            data = self._add_kdtree(i, False)
+            dataPC1 = Data(pos=data['pos_target'], y=data['y'])
             grid_sample_centers = grid_sampling(dataPC1.clone())
             centres = torch.empty((grid_sample_centers.pos.shape[0], 4), dtype=torch.float)
             centres[:, :3] = grid_sample_centers.pos
@@ -152,17 +151,21 @@ class Urb3DSimulCombined(Dataset):
     def _add_kdtree(self, i, use_cylinder: bool):
         """Loads and processes point cloud pairs."""
         pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
-        pair = Pair(pos=pc0, pos_target=pc1, y=label)
+        data = {
+            'pos': pc0,
+            'pos_target': pc1,
+            'y': label
+        }
         
         # Handle different KDTree initialization based on cylinder vs sphere mode
         if use_cylinder:
-            pair.KDTREE_KEY_PC0 = KDTree(np.asarray(pc0[:, :-1]), leaf_size=10)
-            pair.KDTREE_KEY_PC1 = KDTree(np.asarray(pc1[:, :-1]), leaf_size=10)
+            data['KDTREE_KEY_PC0'] = KDTree(np.asarray(pc0[:, :-1]), leaf_size=10)
+            data['KDTREE_KEY_PC1'] = KDTree(np.asarray(pc1[:, :-1]), leaf_size=10)
         else:
-            pair.KDTREE_KEY_PC0 = KDTree(np.asarray(pc0), leaf_size=10)
-            pair.KDTREE_KEY_PC1 = KDTree(np.asarray(pc1), leaf_size=10)
+            data['KDTREE_KEY_PC0'] = KDTree(np.asarray(pc0), leaf_size=10)
+            data['KDTREE_KEY_PC1'] = KDTree(np.asarray(pc1), leaf_size=10)
             
-        return pair
+        return data
 
     def __len__(self):
         return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers.shape[0]
