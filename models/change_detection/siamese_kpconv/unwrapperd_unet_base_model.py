@@ -1,7 +1,5 @@
 from torch import nn
-from omegaconf.listconfig import ListConfig
 from omegaconf.dictconfig import DictConfig
-import logging
 import copy
 
 from torch_points3d.datasets.base_dataset import BaseDataset
