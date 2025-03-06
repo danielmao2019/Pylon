@@ -8,10 +8,10 @@ from .urb3dcd_dataset import Urb3DCDDataset
     {"sample_per_epoch": 0, "radius": 2, "fix_samples": False},  # Grid sampling mode
     {"sample_per_epoch": 100, "radius": 2, "fix_samples": True},  # Fixed sampling mode
 ])
-def test_urb3dcd_dataset(dataset_params, tmp_path):
+def test_urb3dcd_dataset(dataset_params):
     # Create a dataset instance
     dataset = Urb3DCDDataset(
-        data_root=str(tmp_path),  # Use temporary directory for testing
+        data_root="./data/datasets/soft_links/Urb3DCD",
         **dataset_params
     )
     
