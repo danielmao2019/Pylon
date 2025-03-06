@@ -1,10 +1,10 @@
+import torch
 from torch import nn
 from omegaconf.dictconfig import DictConfig
 import copy
 
 from torch_points3d.datasets.base_dataset import BaseDataset
 from torch_points3d.models.base_model import BaseModel
-from torch_points3d.core.common_modules.base_modules import Identity
 from torch_points3d.utils.config import is_list
 
 SPECIAL_NAMES = ["radius", "max_num_neighbors", "block_names"]
@@ -138,7 +138,7 @@ class UnwrappedUnetBasedModel(BaseModel):
             for inner in inners:
                 self.inner_modules.append(inner)
         else:
-            self.inner_modules.append(Identity())
+            self.inner_modules.append(torch.nn.Identity())
 
         # Down modules
         for i in range(len(opt.down_conv.down_conv_nn)):
@@ -211,34 +211,3 @@ class UnwrappedUnetBasedModel(BaseModel):
                 break
 
         return flattenedOpts
-
-    def forward(self, data, precomputed_down=None, precomputed_up=None, **kwargs):
-        """This method does a forward on the Unet assuming symmetrical skip connections
-
-        Parameters
-        ----------
-        data: torch.geometric.Data
-            Data object that contains all info required by the modules
-        precomputed_down: torch.geometric.Data
-            Precomputed data that will be passed to the down convs
-        precomputed_up: torch.geometric.Data
-            Precomputed data that will be passed to the up convs
-        """
-        stack_down = []
-        for i in range(len(self.down_modules) - 1):
-            data = self.down_modules[i](data, precomputed=precomputed_down)
-            stack_down.append(data)
-        data = self.down_modules[-1](data, precomputed=precomputed_down)
-
-        if not isinstance(self.inner_modules[0], Identity):
-            stack_down.append(data)
-            data = self.inner_modules[0](data)
-
-        sampling_ids = self._collect_sampling_ids(stack_down)
-
-        for i in range(len(self.up_modules)):
-            data = self.up_modules[i]((data, stack_down.pop()), precomputed=precomputed_up)
-
-        for key, value in sampling_ids.items():
-            setattr(data, key, value)
-        return data
