@@ -112,11 +112,11 @@ class Urb3DSimul(Dataset):
 
 
 class Urb3DSimulSphere(Urb3DSimul):
-    """ Small variation of Urb3DCD that allows random sampling of spheres
-    within an Area during training and validation. Spheres have a radius of 2m. If sample_per_epoch is not specified, spheres
-    are taken on a 2m grid.
+    """Variation of Urb3DCD that allows random sphere sampling within an area
+    during training and validation. Spheres have a 2m radius.
+    If sample_per_epoch is not specified, spheres are placed on a 2m grid.
     """
-
+    
     def __init__(self, sample_per_epoch=100, radius=2, fix_cyl=False, *args, **kwargs):
         self._sample_per_epoch = sample_per_epoch
         self._radius = radius
@@ -126,65 +126,75 @@ class Urb3DSimulSphere(Urb3DSimul):
         self._prepare_centers()
 
     def __len__(self):
-        if self._sample_per_epoch > 0:
-            return self._sample_per_epoch
-        else:
-            return self.grid_regular_centers.shape[0]
+        return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers.shape[0]
 
     def _prepare_centers(self):
+        """Prepares centers based on whether random sampling or grid sampling is used."""
+        if self._sample_per_epoch > 0:
+            self._prepare_random_sampling()
+        else:
+            self._prepare_grid_sampling()
+
+    def _prepare_random_sampling(self):
+        """Prepares centers for random sphere sampling."""
         self._centres_for_sampling = []
-        grid_sampling = GridSampling3D(size=self._radius / 2)
-        self.grid_regular_centers = []
+        
         for i in range(len(self.filesPC0)):
             pair = self._load_save(i)
-            if self._sample_per_epoch > 0:
-                dataPC1 = Data(pos=pair.pos_target, y=pair.y)
-                low_res = self._grid_sphere_sampling(dataPC1)
-                centres = torch.empty((low_res.pos.shape[0], 5), dtype=torch.float)
-                centres[:, :3] = low_res.pos
-                centres[:, 3] = i
-                centres[:, 4] = low_res.y
-                self._centres_for_sampling.append(centres)
-            else:
-                # Get regular center on PC1, PC0 will be sampled using the same center
-                dataPC1 = Data(pos=pair.pos_target, y=pair.y)
-                grid_sample_centers = grid_sampling(dataPC1.clone())
-                centres = torch.empty((grid_sample_centers.pos.shape[0], 4), dtype=torch.float)
-                centres[:, :3] = grid_sample_centers.pos
-                centres[:, 3] = i
-                self.grid_regular_centers.append(centres)
-
-        if self._sample_per_epoch > 0:
-            self._centres_for_sampling = torch.cat(self._centres_for_sampling, 0)
-            uni, uni_counts = np.unique(np.asarray(self._centres_for_sampling[:, -1]), return_counts=True)
-            print(uni_counts)
-            uni_counts = np.sqrt(uni_counts.mean() / uni_counts)
-            self._label_counts = uni_counts / np.sum(uni_counts)
-            print(self._label_counts)
-            self._labels = uni
-            self.weight_classes = torch.from_numpy(self._label_counts).type(torch.float)
-            if self.fix_cyl:
-                self._centres_for_sampling_fixed = []
-                # choice of cylinders for all the training
-                np.random.seed(1)
-                chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
-                uni, uni_counts = np.unique(chosen_labels, return_counts=True)
-                print("fixed cylinder", uni, uni_counts)
-                for c in range(uni.shape[0]):
-                    valid_centres = self._centres_for_sampling[self._centres_for_sampling[:, -1] == uni[c]]
-                    centres_idx = np.random.randint(low = 0, high=valid_centres.shape[0], size=(uni_counts[c],1))
-                    self._centres_for_sampling_fixed.append(np.squeeze(valid_centres[centres_idx,:], axis=1))
-                self._centres_for_sampling_fixed = torch.cat(self._centres_for_sampling_fixed, 0)
-        else:
-            self.grid_regular_centers = torch.cat(self.grid_regular_centers, 0)
-
+            dataPC1 = Data(pos=pair.pos_target, y=pair.y)
+            low_res = self._grid_sphere_sampling(dataPC1)
+            centres = torch.empty((low_res.pos.shape[0], 5), dtype=torch.float)
+            centres[:, :3] = low_res.pos
+            centres[:, 3] = i
+            centres[:, 4] = low_res.y
+            self._centres_for_sampling.append(centres)
+        
+        self._centres_for_sampling = torch.cat(self._centres_for_sampling, 0)
+        labels, label_counts = np.unique(self._centres_for_sampling[:, -1].numpy(), return_counts=True)
+        self._label_counts = np.sqrt(label_counts.mean() / label_counts)
+        self._label_counts /= np.sum(self._label_counts)
+        self._labels = labels
+        self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float)
+        
+        if self.fix_cyl:
+            self._prepare_fixed_sampling()
+    
+    def _prepare_fixed_sampling(self):
+        """Fixes the sampled cylinders for consistency across epochs."""
+        np.random.seed(1)
+        chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
+        unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
+        
+        self._centres_for_sampling_fixed = []
+        for label, count in zip(unique_labels, label_counts):
+            valid_centres = self._centres_for_sampling[self._centres_for_sampling[:, -1] == label]
+            selected_idx = np.random.randint(low=0, high=valid_centres.shape[0], size=(count,))
+            self._centres_for_sampling_fixed.append(valid_centres[selected_idx])
+        
+        self._centres_for_sampling_fixed = torch.cat(self._centres_for_sampling_fixed, 0)
+    
+    def _prepare_grid_sampling(self):
+        """Prepares centers for regular grid sphere sampling."""
+        self.grid_regular_centers = []
+        grid_sampling = GridSampling3D(size=self._radius / 2)
+        
+        for i in range(len(self.filesPC0)):
+            pair = self._load_save(i)
+            dataPC1 = Data(pos=pair.pos_target, y=pair.y)
+            grid_sample_centers = grid_sampling(dataPC1.clone())
+            centres = torch.empty((grid_sample_centers.pos.shape[0], 4), dtype=torch.float)
+            centres[:, :3] = grid_sample_centers.pos
+            centres[:, 3] = i
+            self.grid_regular_centers.append(centres)
+        
+        self.grid_regular_centers = torch.cat(self.grid_regular_centers, 0)
+    
     def _load_save(self, i):
+        """Loads and processes point cloud pairs."""
         pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
         pair = Pair(pos=pc0, pos_target=pc1, y=label)
-        tree = KDTree(np.asarray(pc0), leaf_size=10)
-        pair.KDTREE_KEY_PC0 = tree
-        tree = KDTree(np.asarray(pc1), leaf_size=10)
-        pair.KDTREE_KEY_PC1 = tree
+        pair.KDTREE_KEY_PC0 = KDTree(np.asarray(pc0), leaf_size=10)
+        pair.KDTREE_KEY_PC1 = KDTree(np.asarray(pc1), leaf_size=10)
         return pair
 
 
