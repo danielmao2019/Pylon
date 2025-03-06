@@ -1,25 +1,17 @@
 from typing import Tuple, Dict, Any
 import os
-import os.path as osp
 import random
 import numpy as np
 import torch
 from plyfile import PlyData, PlyElement
 from sklearn.neighbors import KDTree
-import csv
-import pickle
 
 from torch_points3d.core.data_transform import GridSampling3D, CylinderSampling
 from torch_points3d.datasets.change_detection.base_siamese_dataset import BaseSiameseDataset
-from torch_points3d.metrics.urb3DCD_tracker import Urb3DCDTracker
-
-from matplotlib import cm
 
 from data.datasets import BaseDataset
 import utils
 
-
-viridis = cm.get_cmap('viridis', URB3DCD_NUM_CLASSES)
 
 INV_OBJECT_LABEL = {
     0: "unchanged",
@@ -319,7 +311,7 @@ class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
             sample_per_epoch=self.sample_per_epoch,
             DA=self.DA,
             pre_transform=self.pre_transform,
-            preprocessed_dir=osp.join(self.preprocessed_dir, "Train"),
+            preprocessed_dir=os.path.join(self.preprocessed_dir, "Train"),
             reload_preproc=self.dataset_opt.load_preprocessed,
             nameInPly=self.dataset_opt.nameInPly,
             fix_cyl=self.dataset_opt.fix_cyl,
@@ -330,7 +322,7 @@ class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
             radius=self.radius,
             sample_per_epoch= int(self.sample_per_epoch / 2),
             pre_transform=self.pre_transform,
-            preprocessed_dir=osp.join(self.preprocessed_dir, "Val"),
+            preprocessed_dir=os.path.join(self.preprocessed_dir, "Val"),
             reload_preproc=self.dataset_opt.load_preprocessed,
             nameInPly=self.dataset_opt.nameInPly,
             fix_cyl=self.dataset_opt.fix_cyl,
@@ -341,7 +333,7 @@ class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
             radius=self.radius,
             sample_per_epoch=-1,
             pre_transform=self.pre_transform,
-            preprocessed_dir=osp.join(self.preprocessed_dir, "Test"),
+            preprocessed_dir=os.path.join(self.preprocessed_dir, "Test"),
             reload_preproc=self.dataset_opt.load_preprocessed,
             nameInPly=self.dataset_opt.nameInPly,
         )
@@ -380,17 +372,6 @@ class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
                 Save location
             """
         to_ply(pos, label, file, color=color)
-
-    def get_tracker(self, wandb_log: bool, tensorboard_log: bool, full_pc=False, full_res=False):
-        """Factory method for the tracker
-            Arguments:
-                wandb_log - Log using weight and biases
-                tensorboard_log - Log using tensorboard
-            Returns:
-                [BaseTracker] -- tracker
-            """
-        return Urb3DCDTracker(self, wandb_log=wandb_log, use_tensorboard=tensorboard_log,
-                                 full_pc=full_pc, full_res=full_res, ignore_label=IGNORE_LABEL)
 
 
 ################################### UTILS #######################################
