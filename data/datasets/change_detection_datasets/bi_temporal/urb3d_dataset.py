@@ -12,7 +12,6 @@ import pickle
 
 from torch_points3d.core.data_transform import GridSampling3D, CylinderSampling
 from torch_points3d.datasets.change_detection.base_siamese_dataset import BaseSiameseDataset
-from torch_points3d.datasets.change_detection.pair import Pair, MultiScalePair
 from torch_points3d.metrics.urb3DCD_tracker import Urb3DCDTracker
 
 from matplotlib import cm
