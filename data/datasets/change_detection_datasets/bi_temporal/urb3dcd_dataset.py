@@ -1,5 +1,6 @@
 from typing import Tuple, Dict, Any
 import os
+import glob
 import random
 import numpy as np
 import torch
@@ -29,34 +30,43 @@ class Urb3DCDDataset(BaseDataset):
     }
     CLASS_LABELS = {name: i for i, name in INV_OBJECT_LABEL.items()}
     IGNORE_LABEL = -1
+    SPLIT_OPTIONS = {'train', 'val', 'test'}
+    SPLIT_MAP = {
+        'train': 'TrainLarge-1c',  # Using the largest training set by default
+        'val': 'Val',
+        'test': 'Test'
+    }
 
-    def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", *args, **kwargs):
+    def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", version="v1", *args, **kwargs):
         super(Urb3DCDDataset, self).__init__(*args, **kwargs)
         self._sample_per_epoch = sample_per_epoch
         self._radius = radius
         self.fix_samples = fix_samples
         self.nameInPly = nameInPly
+        self.version = version
         self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
         self._init_annotations()
 
     def _init_annotations(self) -> None:
         """Initialize file paths for point clouds."""
-        filesPC0 = []
-        filesPC1 = []
-        globPath = os.scandir(self.data_root)
-        for dir in globPath:
-            if dir.is_dir():
-                curDir = os.scandir(dir)
-                for f in curDir:
-                    if f.name == "pointCloud0.ply":
-                        filesPC0.append(f.path)
-                    elif f.name == "pointCloud1.ply":
-                        filesPC1.append(f.path)
-                curDir.close()
-        globPath.close()
+        if self.version == "v1":
+            base_dir = os.path.join(self.data_root, "IEEE_Dataset_V1", "1-Lidar05", self.SPLIT_MAP[self.split])
+        else:
+            raise ValueError(f"Version {self.version} is not supported yet")
+
+        # Find all point cloud pairs using glob
+        pc0_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud0.ply"), recursive=True))
+        pc1_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud1.ply"), recursive=True))
+
+        if len(pc0_files) != len(pc1_files):
+            raise ValueError(f"Number of pointCloud0 files ({len(pc0_files)}) does not match pointCloud1 files ({len(pc1_files)})")
+
+        if len(pc0_files) == 0:
+            raise ValueError(f"No point cloud pairs found in {base_dir}")
+
         self.annotations = [
-            {'pc_0_filepath': filePC0, 'pc_1_filepath': filePC1}
-            for filePC0, filePC1 in zip(filesPC0, filesPC1)
+            {'pc_0_filepath': pc0, 'pc_1_filepath': pc1}
+            for pc0, pc1 in zip(pc0_files, pc1_files)
         ]
         self._prepare_centers()
 
