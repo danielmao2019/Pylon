@@ -5,7 +5,6 @@ import random
 import numpy as np
 import torch
 from plyfile import PlyData, PlyElement
-from torch_geometric.data import Data, Dataset
 from sklearn.neighbors import KDTree
 import csv
 import pickle
@@ -16,12 +15,10 @@ from torch_points3d.metrics.urb3DCD_tracker import Urb3DCDTracker
 
 from matplotlib import cm
 
+from data.datasets import BaseDataset
 import utils
 
 
-IGNORE_LABEL: int = -1
-
-URB3DCD_NUM_CLASSES = 7
 viridis = cm.get_cmap('viridis', URB3DCD_NUM_CLASSES)
 
 INV_OBJECT_LABEL = {
@@ -46,10 +43,9 @@ OBJECT_COLOR = np.asarray(
         [255, 0, 0],  # 'mobileObjects'
     ]
 )
-OBJECT_LABEL = {name: i for i, name in INV_OBJECT_LABEL.items()}
 
 
-class Urb3DSimulCombined(Dataset):
+class Urb3DSimulCombined(BaseDataset):
     """Combined class that supports both sphere and cylinder sampling within an area
     during training and validation. Default sampling radius is 2m.
     If sample_per_epoch is not specified, samples are placed on a 2m grid.
@@ -57,19 +53,18 @@ class Urb3DSimulCombined(Dataset):
 
     INPUT_NAMES = ['pc_0', 'pc_1', 'kdtree_0', 'kdtree_1']
     LABEL_NAMES = ['change_map']
-    
+    NUM_CLASSES = 7
+    CLASS_LABELS = {name: i for i, name in INV_OBJECT_LABEL.items()}
+    IGNORE_LABEL = -1
+
     def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", *args, **kwargs):
+        super(Urb3DSimulCombined, self).__init__()
         self._sample_per_epoch = sample_per_epoch
         self._radius = radius
-        self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
         self.fix_samples = fix_samples
-        super(Urb3DSimulCombined, self).__init__()
-        self.class_labels = OBJECT_LABEL
-        self._ignore_label = IGNORE_LABEL
         self.nameInPly = nameInPly
+        self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
         self._init_annotations()
-        self.num_classes = URB3DCD_NUM_CLASSES
-        self._prepare_centers()
 
     def _init_annotations(self) -> None:
         """Initialize file paths for point clouds."""
@@ -90,6 +85,7 @@ class Urb3DSimulCombined(Dataset):
             {'pc_0_filepath': filePC0, 'pc_1_filepath': filePC1}
             for filePC0, filePC1 in zip(filesPC0, filesPC1)
         ]
+        self._prepare_centers()
 
     def _prepare_centers(self):
         """Prepares centers based on whether random sampling or grid sampling is used."""
