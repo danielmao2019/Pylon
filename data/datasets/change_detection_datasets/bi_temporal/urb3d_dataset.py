@@ -1,3 +1,4 @@
+from typing import Tuple, Dict, Any
 import os
 import os.path as osp
 import random
@@ -60,12 +61,9 @@ class Urb3DSimul(Dataset):
         super(Urb3DSimul, self).__init__(None, None, pre_transform)
         self.class_labels = OBJECT_LABEL
         self._ignore_label = IGNORE_LABEL
-        self.preprocessed_dir = preprocessed_dir
-        if not osp.isdir(self.preprocessed_dir):
-            os.makedirs(self.preprocessed_dir)
         self.filePaths = filePaths
         self.nameInPly = nameInPly
-        self._get_paths()
+        self._init_annotations()
         self.split = split
         self.DA = DA
         self.pre_transform = pre_transform
@@ -74,58 +72,29 @@ class Urb3DSimul(Dataset):
         self.reload_preproc = reload_preproc
         self.reload_trees = reload_trees
         self.num_classes = URB3DCD_NUM_CLASSES
-        self.nb_elt_class = torch.zeros(self.num_classes)
-        self.filesPC0_prepoc = [None] * len(self.filesPC0)
-        self.filesPC1_prepoc = [None] * len(self.filesPC1)
-        self.process(comp_normal=comp_norm)
-        self.weight_classes = 1 - self.nb_elt_class / self.nb_elt_class.sum()
 
-    def _get_paths(self):
-        self.filesPC0 = []
-        self.filesPC1 = []
+    def _init_annotations(self) -> None:
+        filesPC0 = []
+        filesPC1 = []
         globPath = os.scandir(self.filePaths)
         for dir in globPath:
             if dir.is_dir():
                 curDir = os.scandir(dir)
                 for f in curDir:
                     if f.name == "pointCloud0.ply":
-                        self.filesPC0.append(f.path)
+                        filesPC0.append(f.path)
                     elif f.name == "pointCloud1.ply":
-                        self.filesPC1.append(f.path)
+                        filesPC1.append(f.path)
                 curDir.close()
         globPath.close()
+        self.annotations = [
+            {'pc_0_filepath': filePC0, 'pc_1_filepath': filePC1}
+            for filePC0, filePC1 in zip(filesPC0, filesPC1)
+        ]
 
-    def size(self):
-        return len(self.filesPC0)
-
-    def hand_craft_process(self,comp_normal=False):
-        existfile = True
-        for idx in range(len(self.filesPC0)):
-            exist_file = existfile and osp.isfile(osp.join(self.preprocessed_dir, 'pc0_{}.pt'.format(idx)))
-            exist_file = existfile and osp.isfile(osp.join(self.preprocessed_dir, 'pc1_{}.pt'.format(idx)))
-        if not self.reload_preproc or not exist_file:
-            for idx in range(len(self.filesPC0)):
-                pc0, pc1, label = self.clouds_loader(idx, nameInPly=self.nameInPly)
-                pc0 = Data(pos=pc0)
-                pc1 = Data(pos=pc1, y=label)
-                if comp_normal:
-                    normal0 = getFeaturesfromPDAL(pc0.pos.numpy())
-                    pc0.norm = torch.from_numpy(normal0)
-                    normal1 = getFeaturesfromPDAL(pc1.pos.numpy())
-                    pc1.norm = torch.from_numpy(normal1)
-                if self.pre_transform is not None:
-                    pc0 = self.pre_transform(pc0)
-                    pc1 = self.pre_transform(pc1)
-                cpt = torch.bincount(pc1.y)
-                for c in range(cpt.shape[0]):
-                    self.nb_elt_class[c] += cpt[c]
-                torch.save(pc0, osp.join(self.preprocessed_dir, 'pc0_{}.pt'.format(idx)))
-                torch.save(pc1, osp.join(self.preprocessed_dir, 'pc1_{}.pt'.format(idx)))
-
-    def process(self, comp_normal = False):
-        self.hand_craft_process(comp_normal)
-
-    def get(self, idx):
+    def _load_datapoint(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
         if self.pre_transform is not None:
             pc0, pc1, label = self._preproc_clouds_loader(idx)
         else:
@@ -135,20 +104,23 @@ class Urb3DSimul(Dataset):
         else:
             batch = Pair(pos=pc0, pos_target=pc1, y=label)
             batch.normalise()
-        return batch.contiguous()
+        inputs = {
+            'pc_0': pc0,
+            'pc_1': pc1,
+        }
+        labels = {
+            'change_map': label,
+        }
+        meta_info = self.annotations[idx]
+        return inputs, labels, meta_info
 
-    def clouds_loader(self, area, nameInPly = "params"):
-        print("Loading " + self.filesPC1[area])
-        pc = self.cloud_loader(self.filesPC1[area], nameInPly=nameInPly)
+    def clouds_loader(self, idx: int, nameInPly = "params"):
+        print("Loading " + self.filesPC1[idx])
+        pc = utils.io.load_point_cloud(self.filesPC1[idx], nameInPly=nameInPly)
         pc1 = pc[:, :3]
-        gt = pc[:, 3].long() #/!\ Labels should be at the 4th column 0:X 1:Y 2:Z 3:LAbel
-        pc0 = self.cloud_loader(self.filesPC0[area], nameInPly=nameInPly)[:, :3]
+        gt = pc[:, 3].long()  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:LAbel
+        pc0 = utils.io.load_point_cloud(self.filesPC0[idx], nameInPly=nameInPly)[:, :3]
         return pc0.type(torch.float), pc1.type(torch.float), gt
-
-    def _preproc_clouds_loader(self, area):
-        data_pc0 = torch.load(osp.join(self.preprocessed_dir, 'pc0_{}.pt'.format(area)))
-        data_pc1 = torch.load(osp.join(self.preprocessed_dir, 'pc1_{}.pt'.format(area)))
-        return data_pc0.pos, data_pc1.pos, data_pc1.y
 
 
 class Urb3DSimulSphere(Urb3DSimul):
