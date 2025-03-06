@@ -31,6 +31,7 @@ from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC
 from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
+from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
 ## Single-Temporal
 from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import Bi2SingleTemporal
 from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
@@ -63,6 +64,7 @@ __all__ = (
     'AirChangeDataset',
     'CDDDataset',
     'SYSU_CD_Dataset',
+    'Urb3DCDDataset',
     ## Single-Temporal
     'Bi2SingleTemporal',
     'I3PEDataset',

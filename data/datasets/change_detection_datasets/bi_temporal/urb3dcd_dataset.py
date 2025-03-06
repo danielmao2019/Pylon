@@ -3,17 +3,13 @@ import os
 import random
 import numpy as np
 import torch
-from plyfile import PlyData, PlyElement
 from sklearn.neighbors import KDTree
-
 from torch_points3d.core.data_transform import GridSampling3D, CylinderSampling
-from torch_points3d.datasets.change_detection.base_siamese_dataset import BaseSiameseDataset
-
 from data.datasets import BaseDataset
 import utils
 
 
-class Urb3DSimulCombined(BaseDataset):
+class Urb3DCDDataset(BaseDataset):
     """Combined class that supports both sphere and cylinder sampling within an area
     during training and validation. Default sampling radius is 2m.
     If sample_per_epoch is not specified, samples are placed on a 2m grid.
@@ -35,7 +31,7 @@ class Urb3DSimulCombined(BaseDataset):
     IGNORE_LABEL = -1
 
     def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", *args, **kwargs):
-        super(Urb3DSimulCombined, self).__init__(*args, **kwargs)
+        super(Urb3DCDDataset, self).__init__(*args, **kwargs)
         self._sample_per_epoch = sample_per_epoch
         self._radius = radius
         self.fix_samples = fix_samples
