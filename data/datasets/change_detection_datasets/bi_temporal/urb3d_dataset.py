@@ -51,18 +51,24 @@ OBJECT_LABEL = {name: i for i, name in INV_OBJECT_LABEL.items()}
 
 
 
-class Urb3DSimul(Dataset):
+class Urb3DSimulCombined(Dataset):
+    """Combined class that supports both sphere and cylinder sampling within an area
+    during training and validation. Default sampling radius is 2m.
+    If sample_per_epoch is not specified, samples are placed on a 2m grid.
     """
-    Definition of Urb3DCD Dataset
-    """
-
-    def __init__(self, nameInPly="params", comp_norm = False ):
-        super(Urb3DSimul, self).__init__(None, None, None)
+    
+    def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", *args, **kwargs):
+        self._sample_per_epoch = sample_per_epoch
+        self._radius = radius
+        self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
+        self.fix_samples = fix_samples
+        super(Urb3DSimulCombined, self).__init__()
         self.class_labels = OBJECT_LABEL
         self._ignore_label = IGNORE_LABEL
         self.nameInPly = nameInPly
         self._init_annotations()
         self.num_classes = URB3DCD_NUM_CLASSES
+        self._prepare_centers()
 
     def _init_annotations(self) -> None:
         filesPC0 = []
@@ -83,52 +89,6 @@ class Urb3DSimul(Dataset):
             for filePC0, filePC1 in zip(filesPC0, filesPC1)
         ]
 
-    def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
-    ]:
-        pc0, pc1, label = self.clouds_loader(idx, nameInPly=self.nameInPly)
-        if (hasattr(pc0, "multiscale")):
-            batch = MultiScalePair(pos=pc0, pos_target=pc1, y=label)
-        else:
-            batch = Pair(pos=pc0, pos_target=pc1, y=label)
-            batch.normalise()
-        inputs = {
-            'pc_0': pc0,
-            'pc_1': pc1,
-        }
-        labels = {
-            'change_map': label,
-        }
-        meta_info = self.annotations[idx]
-        return inputs, labels, meta_info
-
-    def clouds_loader(self, idx: int, nameInPly = "params"):
-        print("Loading " + self.filesPC1[idx])
-        pc = utils.io.load_point_cloud(self.filesPC1[idx], nameInPly=nameInPly)
-        pc1 = pc[:, :3]
-        gt = pc[:, 3].long()  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:LAbel
-        pc0 = utils.io.load_point_cloud(self.filesPC0[idx], nameInPly=nameInPly)[:, :3]
-        return pc0.type(torch.float), pc1.type(torch.float), gt
-
-
-class Urb3DSimulCombined(Urb3DSimul):
-    """Combined class that supports both sphere and cylinder sampling within an area
-    during training and validation. Default sampling radius is 2m.
-    If sample_per_epoch is not specified, samples are placed on a 2m grid.
-    """
-    
-    def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, use_cylinder=True, *args, **kwargs):
-        self._sample_per_epoch = sample_per_epoch
-        self._radius = radius
-        self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
-        self.fix_samples = fix_samples
-        self.use_cylinder = use_cylinder
-        super().__init__(*args, **kwargs)
-        self._prepare_centers()
-
-    def __len__(self):
-        return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers.shape[0]
-
     def _prepare_centers(self):
         """Prepares centers based on whether random sampling or grid sampling is used."""
         if self._sample_per_epoch > 0:
@@ -141,7 +101,7 @@ class Urb3DSimulCombined(Urb3DSimul):
         self._centres_for_sampling = []
         
         for i in range(len(self.filesPC0)):
-            pair = self._load_save(i)
+            pair = self._add_kdtree(i, False)
             dataPC1 = Data(pos=pair.pos_target, y=pair.y)
             low_res = self._grid_sampling(dataPC1)
             centres = torch.empty((low_res.pos.shape[0], 5), dtype=torch.float)
@@ -180,7 +140,7 @@ class Urb3DSimulCombined(Urb3DSimul):
         grid_sampling = GridSampling3D(size=self._radius / 2)
         
         for i in range(len(self.filesPC0)):
-            pair = self._load_save(i)
+            pair = self._add_kdtree(i, False)
             dataPC1 = Data(pos=pair.pos_target, y=pair.y)
             grid_sample_centers = grid_sampling(dataPC1.clone())
             centres = torch.empty((grid_sample_centers.pos.shape[0], 4), dtype=torch.float)
@@ -190,13 +150,13 @@ class Urb3DSimulCombined(Urb3DSimul):
         
         self.grid_regular_centers = torch.cat(self.grid_regular_centers, 0)
     
-    def _load_save(self, i):
+    def _add_kdtree(self, i, use_cylinder: bool):
         """Loads and processes point cloud pairs."""
         pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
         pair = Pair(pos=pc0, pos_target=pc1, y=label)
         
         # Handle different KDTree initialization based on cylinder vs sphere mode
-        if self.use_cylinder:
+        if use_cylinder:
             pair.KDTREE_KEY_PC0 = KDTree(np.asarray(pc0[:, :-1]), leaf_size=10)
             pair.KDTREE_KEY_PC1 = KDTree(np.asarray(pc1[:, :-1]), leaf_size=10)
         else:
@@ -205,35 +165,68 @@ class Urb3DSimulCombined(Urb3DSimul):
             
         return pair
 
+    def __len__(self):
+        return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers.shape[0]
+
+    def _load_datapoint(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
+        pc0, pc1, change_map = self.get(idx)
+        inputs = {
+            'pc_0': pc0,
+            'pc_1': pc1,
+        }
+        labels = {
+            'change_map': change_map,
+        }
+        meta_info = self.annotations[idx].copy()
+        return inputs, labels, meta_info
+
+    def clouds_loader(self, idx: int, nameInPly = "params"):
+        print("Loading " + self.filesPC1[idx])
+        pc = utils.io.load_point_cloud(self.filesPC1[idx], nameInPly=nameInPly)
+        pc1 = pc[:, :3]
+        gt = pc[:, 3].long()  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:LAbel
+        pc0 = utils.io.load_point_cloud(self.filesPC0[idx], nameInPly=nameInPly)[:, :3]
+        return pc0.type(torch.float), pc1.type(torch.float), gt
+
+    def _normalize(self, pc0, pc1):
+        min0 = torch.unsqueeze(pc0.min(0)[0], 0)
+        min1 = torch.unsqueeze(pc1.min(0)[0], 0)
+        minG = torch.cat((min0, min1), axis=0).min(0)[0]
+        # normalizing data with the same xmin ymin zmin
+        # Keeping scale of data
+        pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
+        pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
+        pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
+
+        pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
+        pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
+        pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
+
     def get(self, idx):
         """Main method to get a sample and handle normalization in one place."""
         if self._sample_per_epoch > 0:
-            pair_sample = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
+            pc0, pc1, change_map = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
         else:
-            pair_sample = self._get_regular_sample(idx)
+            pc0, pc1, change_map = self._get_regular_sample(idx)
             
-        # Apply normalization once here instead of in each method
-        if pair_sample:
-            try:
-                pair_sample.normalise()
-                return pair_sample
-            except Exception as e:
-                print(f"Normalization failed: {e}")
-                print(f"pos shape: {pair_sample.pos.shape}, pos_target shape: {pair_sample.pos_target.shape}")
-                return None
-        
+        try:
+            pc0, pc1 = self.normalize(pc0, pc1)
+            pc0, pc1, change_map
+        except Exception as e:
+            print(f"Normalization failed: {e}")
+            print(f"pos shape: {pc0.shape}, pos_target shape: {pc1.shape}")
+            return None
         return None
 
     def _get_fixed_sample(self, idx):
         """Retrieves a fixed sample without normalization."""
         while idx < self._centres_for_sampling_fixed.shape[0]:
             centre, area_sel = self._extract_centre_info(self._centres_for_sampling_fixed, idx)
-            pair = self._load_save(area_sel)
+            pair = self._add_kdtree(area_sel, True)
             
-            if self.use_cylinder:
-                pair_sample = self._sample_cylinder(pair, centre, area_sel)
-            else:
-                pair_sample = self._sample_sphere(pair, centre, area_sel)
+            pair_sample = self._sample_cylinder(pair, centre, area_sel)
 
             if pair_sample:
                 return pair_sample
@@ -245,12 +238,9 @@ class Urb3DSimulCombined(Urb3DSimul):
         """Retrieves a regular sample without normalization."""
         while idx < self.grid_regular_centers.shape[0]:
             centre, area_sel = self._extract_centre_info(self.grid_regular_centers, idx)
-            pair = self._load_save(area_sel)
+            pair = self._add_kdtree(area_sel, True)
             
-            if self.use_cylinder:
-                pair_sample = self._sample_cylinder(pair, centre, area_sel, apply_transform=True)
-            else:
-                pair_sample = self._sample_sphere(pair, centre, area_sel, apply_transform=True)
+            pair_sample = self._sample_cylinder(pair, centre, area_sel, apply_transform=True)
 
             if pair_sample:
                 return pair_sample
@@ -270,12 +260,9 @@ class Urb3DSimulCombined(Urb3DSimul):
         centre_idx = int(random.random() * (valid_centres.shape[0] - 1))
         centre = valid_centres[centre_idx]
         area_sel = centre[3].int()
-        pair = self._load_save(area_sel)
+        pair = self._add_kdtree(area_sel, True)
         
-        if self.use_cylinder:
-            return self._sample_cylinder(pair, centre[:3], area_sel, apply_transform=True)
-        else:
-            return self._sample_sphere(pair, centre[:3], area_sel, apply_transform=True)
+        return self._sample_cylinder(pair, centre[:3], area_sel, apply_transform=True)
 
     def _sample_cylinder(self, pair, centre, area_sel, apply_transform=False):
         """Applies cylindrical sampling and optional transformations."""
@@ -293,28 +280,12 @@ class Urb3DSimulCombined(Urb3DSimul):
         return Pair(pos=dataPC0_cyl.pos, pos_target=dataPC1_cyl.pos, y=dataPC1_cyl.y,
                     idx=dataPC0_cyl.idx, idx_target=dataPC1_cyl.idx, area=area_sel)
 
-    def _sample_sphere(self, pair, centre, area_sel, apply_transform=False):
-        """Applies spherical sampling and optional transformations."""
-        # Implement sphere sampling similar to cylinder sampling
-        sphere_sampler = SphereSampling(self._radius, centre, align_origin=False)
-        
-        dataPC0 = Data(pos=pair.pos, idx=torch.arange(pair.pos.shape[0]))
-        setattr(dataPC0, SphereSampling.KDTREE_KEY, pair.KDTREE_KEY_PC0)
-
-        dataPC1 = Data(pos=pair.pos_target, y=pair.y, idx=torch.arange(pair.pos_target.shape[0]))
-        setattr(dataPC1, SphereSampling.KDTREE_KEY, pair.KDTREE_KEY_PC1)
-
-        dataPC0_sphere = sphere_sampler(dataPC0)
-        dataPC1_sphere = sphere_sampler(dataPC1)
-
-        return Pair(pos=dataPC0_sphere.pos, pos_target=dataPC1_sphere.pos, y=dataPC1_sphere.y,
-                   idx=dataPC0_sphere.idx, idx_target=dataPC1_sphere.idx, area=area_sel)
-
     def _extract_centre_info(self, centres, idx):
         """Extracts center position and area selection from the given array."""
         centre = centres[idx, :3]
         area_sel = centres[idx, 3].int()
         return centre, area_sel
+
 
 class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
     """ Wrapper around Semantic Kitti that creates train and test datasets.
