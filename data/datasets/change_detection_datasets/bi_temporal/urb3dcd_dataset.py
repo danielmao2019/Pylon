@@ -38,14 +38,13 @@ class Urb3DCDDataset(BaseDataset):
     }
 
     def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, nameInPly="params", version="v1", *args, **kwargs):
-        super(Urb3DCDDataset, self).__init__(*args, **kwargs)
         self._sample_per_epoch = sample_per_epoch
         self._radius = radius
         self.fix_samples = fix_samples
         self.nameInPly = nameInPly
         self.version = version
         self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
-        self._init_annotations()
+        super(Urb3DCDDataset, self).__init__(*args, **kwargs)
 
     def _init_annotations(self) -> None:
         """Initialize file paths for point clouds."""
