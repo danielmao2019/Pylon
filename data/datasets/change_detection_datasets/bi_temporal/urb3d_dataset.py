@@ -1,37 +1,22 @@
 import os
 import os.path as osp
-from itertools import repeat, product
-import numpy as np
-import h5py
-import torch
 import random
-import glob
-import csv
+import numpy as np
+import torch
 from plyfile import PlyData, PlyElement
-from torch_geometric.data import Data, extract_zip, Dataset
-from torch_geometric.data.dataset import files_exist
-from torch_geometric.data import DataLoader
-import torch_geometric.transforms as T
-import logging
-from sklearn.neighbors import NearestNeighbors, KDTree
-from tqdm.auto import tqdm as tq
+from torch_geometric.data import Data, Dataset
+from sklearn.neighbors import KDTree
 import csv
-import pandas as pd
 import pickle
-import gdown
-import shutil
 
-from torch_points3d.core.data_transform import GridSampling3D, CylinderSampling, SphereSampling
+from torch_points3d.core.data_transform import GridSampling3D, CylinderSampling
 from torch_points3d.datasets.change_detection.base_siamese_dataset import BaseSiameseDataset
 from torch_points3d.datasets.change_detection.pair import Pair, MultiScalePair
-from torch_points3d.metrics.change_detection_tracker import CDTracker
 from torch_points3d.metrics.urb3DCD_tracker import Urb3DCDTracker
 
-
-import matplotlib.pyplot as plt
 from matplotlib import cm
-from matplotlib.colors import ListedColormap, LinearSegmentedColormap
 
+import utils
 
 
 IGNORE_LABEL: int = -1
@@ -48,17 +33,6 @@ INV_OBJECT_LABEL = {
     5: "vegetationRemoved",
     6: "mobileObjects"
 }
-
-# INV_OBJECT_LABEL = {i:"class " + str(i) for i in range(URB3DSIMUL_NUM_CLASSES)}
-#V1
-# OBJECT_COLOR = np.asarray(
-#     [
-#         [67, 1, 84],  # 'unchanged'
-#         [0, 150, 128],  # 'newlyBuilt'
-#         [255, 208, 0],  # 'deconstructed'
-#
-#     ]
-# )
 
 #V2
 OBJECT_COLOR = np.asarray(
@@ -104,10 +78,7 @@ class Urb3DSimul(Dataset):
         self.filesPC0_prepoc = [None] * len(self.filesPC0)
         self.filesPC1_prepoc = [None] * len(self.filesPC1)
         self.process(comp_normal=comp_norm)
-        if self.nb_elt_class.sum() == 0:
-            self.get_nb_elt_class()
         self.weight_classes = 1 - self.nb_elt_class / self.nb_elt_class.sum()
-
 
     def _get_paths(self):
         self.filesPC0 = []
@@ -124,17 +95,8 @@ class Urb3DSimul(Dataset):
                 curDir.close()
         globPath.close()
 
-
     def size(self):
         return len(self.filesPC0)
-
-    def get_nb_elt_class(self):
-        self.nb_elt_class = torch.zeros(self.num_classes)
-        for idx in range(len(self.filesPC0)):
-            pc1 = torch.load(osp.join(self.preprocessed_dir, 'pc1_{}.pt'.format(idx)))
-            cpt = torch.bincount(pc1.y)
-            for c in range(cpt.shape[0]):
-                self.nb_elt_class[c] += cpt[c]
 
     def hand_craft_process(self,comp_normal=False):
         existfile = True
@@ -187,41 +149,6 @@ class Urb3DSimul(Dataset):
         data_pc0 = torch.load(osp.join(self.preprocessed_dir, 'pc0_{}.pt'.format(area)))
         data_pc1 = torch.load(osp.join(self.preprocessed_dir, 'pc1_{}.pt'.format(area)))
         return data_pc0.pos, data_pc1.pos, data_pc1.y
-
-    def read_from_ply(self,filename, nameInPly="params", name_feat="label_ch"):
-        """read XYZ for each vertex."""
-        assert os.path.isfile(filename)
-        with open(filename, "rb") as f:
-            plydata = PlyData.read(f)
-            num_verts = plydata[nameInPly].count
-            vertices = np.zeros(shape=[num_verts, 4], dtype=np.float32)
-            vertices[:, 0] = plydata[nameInPly].data["x"]
-            vertices[:, 1] = plydata[nameInPly].data["y"]
-            vertices[:, 2] = plydata[nameInPly].data["z"]
-            vertices[:, 3] = plydata[nameInPly].data[name_feat]
-        return vertices
-
-
-    def cloud_loader(self, pathPC, cuda=False, nameInPly=None, name_feat = "label_ch"):
-        """
-      load a tile and returns points features (normalized xyz + intensity) and
-      ground truth
-      INPUT:
-      pathPC = string, path to the tile of PC
-      OUTPUT
-      pc_data, [n x 3] float array containing points coordinates and intensity
-      lbs, [n] long int array, containing the points semantic labels
-      """
-        if nameInPly is None:
-            pc_data = self.read_from_ply(pathPC, nameInPly="params", name_feat=name_feat)
-        else:
-            pc_data = self.read_from_ply(pathPC, nameInPly=nameInPly, name_feat=name_feat)
-        # load the point cloud data
-        pc_data = torch.from_numpy(pc_data)
-
-        if cuda:  # put the cloud data on the GPU memory
-            pc_data = pc_data.cuda()
-        return pc_data
 
 
 class Urb3DSimulSphere(Urb3DSimul):
