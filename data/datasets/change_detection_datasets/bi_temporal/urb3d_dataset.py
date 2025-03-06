@@ -72,6 +72,7 @@ class Urb3DSimulCombined(Dataset):
         self._prepare_centers()
 
     def _init_annotations(self) -> None:
+        """Initialize file paths for point clouds."""
         filesPC0 = []
         filesPC1 = []
         globPath = os.scandir(self.data_root)
@@ -101,14 +102,13 @@ class Urb3DSimulCombined(Dataset):
         """Prepares centers for random sampling."""
         self._centres_for_sampling = []
         
-        for i in range(len(self.filesPC0)):
-            data = self._add_kdtree(i, False)
-            dataPC1 = Data(pos=data['pos_target'], y=data['y'])
-            low_res = self._grid_sampling(dataPC1)
-            centres = torch.empty((low_res.pos.shape[0], 5), dtype=torch.float)
-            centres[:, :3] = low_res.pos
+        for i in range(len(self.annotations)):
+            data = self._load_point_cloud_pair(i)
+            low_res = self._grid_sampling(data['pc_1'])
+            centres = torch.empty((low_res.shape[0], 5), dtype=torch.float)
+            centres[:, :3] = low_res
             centres[:, 3] = i
-            centres[:, 4] = low_res.y
+            centres[:, 4] = data['change_map']
             self._centres_for_sampling.append(centres)
         
         self._centres_for_sampling = torch.cat(self._centres_for_sampling, 0)
@@ -140,34 +140,27 @@ class Urb3DSimulCombined(Dataset):
         self.grid_regular_centers = []
         grid_sampling = GridSampling3D(size=self._radius / 2)
         
-        for i in range(len(self.filesPC0)):
-            data = self._add_kdtree(i, False)
-            dataPC1 = Data(pos=data['pos_target'], y=data['y'])
-            grid_sample_centers = grid_sampling(dataPC1.clone())
-            centres = torch.empty((grid_sample_centers.pos.shape[0], 4), dtype=torch.float)
-            centres[:, :3] = grid_sample_centers.pos
+        for i in range(len(self.annotations)):
+            data = self._load_point_cloud_pair(i)
+            grid_sample_centers = grid_sampling(data['pc_1'])
+            centres = torch.empty((grid_sample_centers.shape[0], 4), dtype=torch.float)
+            centres[:, :3] = grid_sample_centers
             centres[:, 3] = i
             self.grid_regular_centers.append(centres)
         
         self.grid_regular_centers = torch.cat(self.grid_regular_centers, 0)
     
-    def _add_kdtree(self, i, use_cylinder: bool):
-        """Loads and processes point cloud pairs."""
-        pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
-        data = {
-            'pos': pc0,
-            'pos_target': pc1,
-            'y': label
-        }
+    def _load_point_cloud_pair(self, idx: int) -> Dict[str, Any]:
+        """Loads a pair of point clouds and builds KDTrees for them."""
+        pc0, pc1, change_map = self.clouds_loader(idx, nameInPly=self.nameInPly)
         
-        # Handle different KDTree initialization based on cylinder vs sphere mode
-        if use_cylinder:
-            data['KDTREE_KEY_PC0'] = KDTree(np.asarray(pc0[:, :-1]), leaf_size=10)
-            data['KDTREE_KEY_PC1'] = KDTree(np.asarray(pc1[:, :-1]), leaf_size=10)
-        else:
-            data['KDTREE_KEY_PC0'] = KDTree(np.asarray(pc0), leaf_size=10)
-            data['KDTREE_KEY_PC1'] = KDTree(np.asarray(pc1), leaf_size=10)
-            
+        data = {
+            'pc_0': pc0,
+            'pc_1': pc1,
+            'change_map': change_map,
+            'kdtree_0': KDTree(np.asarray(pc0), leaf_size=10),
+            'kdtree_1': KDTree(np.asarray(pc1), leaf_size=10),
+        }
         return data
 
     def __len__(self):
@@ -180,6 +173,8 @@ class Urb3DSimulCombined(Dataset):
         inputs = {
             'pc_0': pc0,
             'pc_1': pc1,
+            'kdtree_0': self._loaded_data[idx]['kdtree_0'],
+            'kdtree_1': self._loaded_data[idx]['kdtree_1'],
         }
         labels = {
             'change_map': change_map,
@@ -187,24 +182,23 @@ class Urb3DSimulCombined(Dataset):
         meta_info = self.annotations[idx].copy()
         return inputs, labels, meta_info
 
-    def clouds_loader(self, idx: int, nameInPly = "params"):
-        print("Loading " + self.filesPC1[idx])
-        pc = utils.io.load_point_cloud(self.filesPC1[idx], nameInPly=nameInPly)
+    def clouds_loader(self, idx: int, nameInPly="params"):
+        """Loads point clouds from files."""
+        print("Loading " + self.annotations[idx]['pc_1_filepath'])
+        pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
         pc1 = pc[:, :3]
-        gt = pc[:, 3].long()  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:LAbel
-        pc0 = utils.io.load_point_cloud(self.filesPC0[idx], nameInPly=nameInPly)[:, :3]
-        return pc0.type(torch.float), pc1.type(torch.float), gt
+        change_map = pc[:, 3].long()  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
+        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)[:, :3]
+        return pc0.type(torch.float), pc1.type(torch.float), change_map
 
     def _normalize(self, pc0, pc1):
+        """Normalizes point clouds."""
         min0 = torch.unsqueeze(pc0.min(0)[0], 0)
         min1 = torch.unsqueeze(pc1.min(0)[0], 0)
         minG = torch.cat((min0, min1), axis=0).min(0)[0]
-        # normalizing data with the same xmin ymin zmin
-        # Keeping scale of data
         pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
         pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
         pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
-
         pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
         pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
         pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
@@ -219,23 +213,23 @@ class Urb3DSimulCombined(Dataset):
         if sample is None:
             return None
         
-        pc0, pc1, change_map = sample['pos'], sample['pos_target'], sample['y']
+        pc0, pc1, change_map = sample['pc_0'], sample['pc_1'], sample['change_map']
             
         try:
-            pc0, pc1 = self.normalize(pc0, pc1)
-            return {'pos': pc0, 'pos_target': pc1, 'y': change_map, 
+            pc0, pc1 = self._normalize(pc0, pc1)
+            return {'pc_0': pc0, 'pc_1': pc1, 'change_map': change_map, 
                     'idx': sample['idx'], 'idx_target': sample['idx_target'], 
                     'area': sample['area']}
         except Exception as e:
             print(f"Normalization failed: {e}")
-            print(f"pos shape: {pc0.shape}, pos_target shape: {pc1.shape}")
+            print(f"pc_0 shape: {pc0.shape}, pc_1 shape: {pc1.shape}")
             return None
 
     def _get_fixed_sample(self, idx):
         """Retrieves a fixed sample without normalization."""
         while idx < self._centres_for_sampling_fixed.shape[0]:
             centre, area_sel = self._extract_centre_info(self._centres_for_sampling_fixed, idx)
-            data = self._add_kdtree(area_sel, True)
+            data = self._load_point_cloud_pair(area_sel)
             
             sample = self._sample_cylinder(data, centre, area_sel)
 
@@ -249,7 +243,7 @@ class Urb3DSimulCombined(Dataset):
         """Retrieves a regular sample without normalization."""
         while idx < self.grid_regular_centers.shape[0]:
             centre, area_sel = self._extract_centre_info(self.grid_regular_centers, idx)
-            data = self._add_kdtree(area_sel, True)
+            data = self._load_point_cloud_pair(area_sel)
             
             sample = self._sample_cylinder(data, centre, area_sel, apply_transform=True)
 
@@ -271,7 +265,7 @@ class Urb3DSimulCombined(Dataset):
         centre_idx = int(random.random() * (valid_centres.shape[0] - 1))
         centre = valid_centres[centre_idx]
         area_sel = centre[3].int()
-        data = self._add_kdtree(area_sel, True)
+        data = self._load_point_cloud_pair(area_sel)
         
         return self._sample_cylinder(data, centre[:3], area_sel, apply_transform=True)
 
@@ -279,21 +273,16 @@ class Urb3DSimulCombined(Dataset):
         """Applies cylindrical sampling and optional transformations."""
         cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
 
-        dataPC0 = Data(pos=data['pos'], idx=torch.arange(data['pos'].shape[0]))
-        setattr(dataPC0, CylinderSampling.KDTREE_KEY, data['KDTREE_KEY_PC0'])
-
-        dataPC1 = Data(pos=data['pos_target'], y=data['y'], idx=torch.arange(data['pos_target'].shape[0]))
-        setattr(dataPC1, CylinderSampling.KDTREE_KEY, data['KDTREE_KEY_PC1'])
-
-        dataPC0_cyl = cylinder_sampler(dataPC0)
-        dataPC1_cyl = cylinder_sampler(dataPC1)
+        # Sample points using the KDTrees
+        idx_pc0 = cylinder_sampler.query(data['kdtree_0'], data['pc_0'])
+        idx_pc1 = cylinder_sampler.query(data['kdtree_1'], data['pc_1'])
 
         return {
-            'pos': dataPC0_cyl.pos, 
-            'pos_target': dataPC1_cyl.pos, 
-            'y': dataPC1_cyl.y,
-            'idx': dataPC0_cyl.idx, 
-            'idx_target': dataPC1_cyl.idx, 
+            'pc_0': data['pc_0'][idx_pc0], 
+            'pc_1': data['pc_1'][idx_pc1], 
+            'change_map': data['change_map'][idx_pc1],
+            'idx': idx_pc0, 
+            'idx_target': idx_pc1, 
             'area': area_sel
         }
 
