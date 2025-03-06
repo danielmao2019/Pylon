@@ -1,3 +1,8 @@
+import numpy as np
+import torch
+from sklearn.neighbors import KDTree
+
+
 class CylinderSampling:
     """ Samples points within a cylinder
 
@@ -6,46 +11,40 @@ class CylinderSampling:
     radius : float
         Radius of the cylinder
     cylinder_centre : torch.Tensor or np.array
-        Centre of the cylinder (1D array that contains (x,y,z) or (x,y))
+        Centre of the cylinder (1D array that contains (x,y,z))
     align_origin : bool, optional
         move resulting point cloud to origin
     """
 
-    KDTREE_KEY = KDTREE_KEY
-
-    def __init__(self, radius, cylinder_centre, align_origin=True):
+    def __init__(self, radius, cylinder_centre, align_origin=False):
         self._radius = radius
-        if cylinder_centre.shape[0] == 3:
-            cylinder_centre = cylinder_centre[:-1]
         self._centre = np.asarray(cylinder_centre)
         if len(self._centre.shape) == 1:
             self._centre = np.expand_dims(self._centre, 0)
         self._align_origin = align_origin
 
-    def __call__(self, data):
-        num_points = data.pos.shape[0]
-        if not hasattr(data, self.KDTREE_KEY):
-            tree = KDTree(np.asarray(data.pos[:, :-1]), leaf_size=50)
-            setattr(data, self.KDTREE_KEY, tree)
-        else:
-            tree = getattr(data, self.KDTREE_KEY)
+    def query(self, kdtree: KDTree, points: torch.Tensor) -> torch.Tensor:
+        """Query points within the cylinder using a KDTree
 
-        t_center = torch.FloatTensor(self._centre)
-        ind = torch.LongTensor(tree.query_radius(self._centre, r=self._radius)[0])
+        Parameters
+        ----------
+        kdtree : KDTree
+            KDTree built from points
+        points : torch.Tensor
+            Points to sample from
 
-        new_data = Data()
-        for key in set(data.keys):
-            if key == self.KDTREE_KEY:
-                continue
-            item = data[key]
-            if torch.is_tensor(item) and num_points == item.shape[0]:
-                item = item[ind]
-                if self._align_origin and key == "pos":  # Center the cylinder.
-                    item[:, :-1] -= t_center
-            elif torch.is_tensor(item):
-                item = item.clone()
-            setattr(new_data, key, item)
-        return new_data
+        Returns
+        -------
+        torch.Tensor
+            Indices of points within the cylinder
+        """
+        # Get indices of points within radius
+        indices = torch.LongTensor(kdtree.query_radius(self._centre, r=self._radius)[0])
+        
+        if self._align_origin and len(indices) > 0:
+            points[indices] = points[indices] - torch.FloatTensor(self._centre)
+            
+        return indices
 
     def __repr__(self):
         return "{}(radius={}, center={}, align_origin={})".format(
