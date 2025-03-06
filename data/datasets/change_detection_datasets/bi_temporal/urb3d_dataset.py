@@ -56,27 +56,18 @@ class Urb3DSimul(Dataset):
     Definition of Urb3DCD Dataset
     """
 
-    def __init__(self, filePaths="", split="train", DA=False, pre_transform=None, transform=None, preprocessed_dir="",
-                 reload_preproc=False, reload_trees=False, nameInPly="params", comp_norm = False ):
-        super(Urb3DSimul, self).__init__(None, None, pre_transform)
+    def __init__(self, nameInPly="params", comp_norm = False ):
+        super(Urb3DSimul, self).__init__(None, None, None)
         self.class_labels = OBJECT_LABEL
         self._ignore_label = IGNORE_LABEL
-        self.filePaths = filePaths
         self.nameInPly = nameInPly
         self._init_annotations()
-        self.split = split
-        self.DA = DA
-        self.pre_transform = pre_transform
-        self.transform = None
-        self.manual_transform = transform
-        self.reload_preproc = reload_preproc
-        self.reload_trees = reload_trees
         self.num_classes = URB3DCD_NUM_CLASSES
 
     def _init_annotations(self) -> None:
         filesPC0 = []
         filesPC1 = []
-        globPath = os.scandir(self.filePaths)
+        globPath = os.scandir(self.data_root)
         for dir in globPath:
             if dir.is_dir():
                 curDir = os.scandir(dir)
@@ -95,10 +86,7 @@ class Urb3DSimul(Dataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        if self.pre_transform is not None:
-            pc0, pc1, label = self._preproc_clouds_loader(idx)
-        else:
-            pc0, pc1, label = self.clouds_loader(idx, nameInPly=self.nameInPly)
+        pc0, pc1, label = self.clouds_loader(idx, nameInPly=self.nameInPly)
         if (hasattr(pc0, "multiscale")):
             batch = MultiScalePair(pos=pc0, pos_target=pc1, y=label)
         else:
@@ -127,28 +115,6 @@ class Urb3DSimulSphere(Urb3DSimul):
     """ Small variation of Urb3DCD that allows random sampling of spheres
     within an Area during training and validation. Spheres have a radius of 2m. If sample_per_epoch is not specified, spheres
     are taken on a 2m grid.
-
-    http://buildingparser.stanford.edu/dataset.html
-
-    Parameters
-    ----------
-    root: str
-        path to the directory where the data will be saved
-    test_area: int
-        number between 1 and 6 that denotes the area used for testing
-    train: bool
-        Is this a train split or not
-    pre_collate_transform:
-        Transforms to be applied before the data is assembled into samples (apply fusing here for example)
-    keep_instance: bool
-        set to True if you wish to keep instance data
-    sample_per_epoch
-        Number of spheres that are randomly sampled at each epoch (-1 for fixed grid)
-    radius
-        radius of each sphere
-    pre_transform
-    transform
-    pre_filter
     """
 
     def __init__(self, sample_per_epoch=100, radius=2, fix_cyl=False, *args, **kwargs):
@@ -158,8 +124,6 @@ class Urb3DSimulSphere(Urb3DSimul):
         self.fix_cyl = fix_cyl
         super().__init__(*args, **kwargs)
         self._prepare_centers()
-        # Trees are built in case it needs, now don't need to compute anymore trees
-        self.reload_trees = True
 
     def __len__(self):
         if self._sample_per_epoch > 0:
@@ -215,193 +179,106 @@ class Urb3DSimulSphere(Urb3DSimul):
             self.grid_regular_centers = torch.cat(self.grid_regular_centers, 0)
 
     def _load_save(self, i):
-        if self.pre_transform is not None:
-            pc0, pc1, label = self._preproc_clouds_loader(i)
-        else:
-            pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
+        pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
         pair = Pair(pos=pc0, pos_target=pc1, y=label)
-        path = self.filesPC0[i]
-        name_tree = os.path.basename(path).split(".")[0] + "_radius" + str(int(self._radius)) + "_" + str(i) + ".p"
-        path_treesPC0 = os.path.join(self.preprocessed_dir, "tp3DTree", name_tree)  # osp.dirname(path)
-        if self.reload_trees and osp.isfile(path_treesPC0):
-            file = open(path_treesPC0, "rb")
-            tree = pickle.load(file)
-            file.close()
-            pair.KDTREE_KEY_PC0 = tree
-        else:
-            # tree not existing yet should be saved
-            # test if tp3D directory exists
-            if not osp.isdir(os.path.join(self.preprocessed_dir, "tp3DTree")):
-                os.makedirs(osp.join(self.preprocessed_dir, "tp3DTree"))
-            tree = KDTree(np.asarray(pc0), leaf_size=10)
-            file = open(path_treesPC0, "wb")
-            pickle.dump(tree, file)
-            file.close()
-            pair.KDTREE_KEY_PC0 = tree
-
-        path = self.filesPC1[i]
-        name_tree = os.path.basename(path).split(".")[0] + "_radius" + str(int(self._radius)) + "_" + str(i) + ".p"
-        path_treesPC1 = os.path.join(self.preprocessed_dir, "tp3DTree", name_tree)
-        if self.reload_trees and osp.isfile(path_treesPC1):
-            file = open(path_treesPC1, "rb")
-            tree = pickle.load(file)
-            file.close()
-            pair.KDTREE_KEY_PC1 = tree
-        else:
-            # tree not existing yet should be saved
-            # test if tp3D directory exists
-            if not os.path.isdir(os.path.join(self.preprocessed_dir, "tp3DTree")):
-                os.makedirs(os.path.join(self.preprocessed_dir, "tp3DTree"))
-            tree = KDTree(np.asarray(pc1), leaf_size=10)
-            file = open(path_treesPC1, "wb")
-            pickle.dump(tree, file)
-            file.close()
-            pair.KDTREE_KEY_PC1 = tree
+        tree = KDTree(np.asarray(pc0), leaf_size=10)
+        pair.KDTREE_KEY_PC0 = tree
+        tree = KDTree(np.asarray(pc1), leaf_size=10)
+        pair.KDTREE_KEY_PC1 = tree
         return pair
 
 
 class Urb3DSimulCylinder(Urb3DSimulSphere):
     def get(self, idx):
         if self._sample_per_epoch > 0:
-            if self.fix_cyl:
-                pair_correct = False
-                while not pair_correct and idx < self._centres_for_sampling_fixed.shape[0]:
-                    centre = self._centres_for_sampling_fixed[idx, :3]
-                    area_sel = self._centres_for_sampling_fixed[idx, 3].int()  # ---> ici choix du pc correspondant si pls pc chargés
-                    pair = self._load_save(area_sel)
-                    cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
-                    dataPC0 = Data(pos=pair.pos, idx=torch.arange(pair.pos.shape[0]).reshape(-1))
-                    setattr(dataPC0, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC0)
-                    dataPC1 = Data(pos=pair.pos_target, y=pair.y, idx=torch.arange(pair.pos_target.shape[0]).reshape(-1))
-                    setattr(dataPC1, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC1)
-                    dataPC0_cyl = cylinder_sampler(dataPC0)
-                    dataPC1_cyl = cylinder_sampler(dataPC1)
-                    pair_cylinders = Pair(pos=dataPC0_cyl.pos, pos_target=dataPC1_cyl.pos, y=dataPC1_cyl.y,
-                                          idx=dataPC0_cyl.idx, idx_target=dataPC1_cyl.idx, area=area_sel)
-                    try:
-                        pair_cylinders.normalise()
-                        pair_correct = True
-                    except:
-                        print(pair_cylinders.pos.shape)
-                        print(pair_cylinders.pos_target.shape)
-                        idx += 1
+            return self._get_fixed_sample(idx) if self.fix_cyl else self._get_random()
+        return self._get_regular_sample(idx)
+
+    def _get_fixed_sample(self, idx):
+        """Retrieves a fixed cylindrical sample, ensuring it meets normalization criteria."""
+        while idx < self._centres_for_sampling_fixed.shape[0]:
+            centre, area_sel = self._extract_centre_info(self._centres_for_sampling_fixed, idx)
+            pair = self._load_save(area_sel)
+            pair_cylinders = self._sample_cylinder(pair, centre, area_sel)
+
+            if pair_cylinders and self._normalize_pair(pair_cylinders):
                 return pair_cylinders
-            else:
-                return self._get_random()
-        else:
-            pair_correct = False
-            while not pair_correct and idx<self.grid_regular_centers.shape[0]:
-                centre = self.grid_regular_centers[idx, :3]
-                area_sel = self.grid_regular_centers[idx, 3].int()
-                pair = self._load_save(area_sel)
-                cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
-                dataPC0 = Data(pos=pair.pos, idx=torch.arange(pair.pos.shape[0]).reshape(-1))
-                setattr(dataPC0, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC0)
-                dataPC1 = Data(pos=pair.pos_target, y=pair.y, idx=torch.arange(pair.pos_target.shape[0]).reshape(-1))
-                setattr(dataPC1, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC1)
-                dataPC0_cyl = cylinder_sampler(dataPC0)
-                dataPC1_cyl = cylinder_sampler(dataPC1)
-                try:
-                    if self.manual_transform is not None:
-                        dataPC0_cyl = self.manual_transform(dataPC0_cyl)
-                        dataPC1_cyl = self.manual_transform(dataPC1_cyl)
-                    pair_cylinders = Pair(pos=dataPC0_cyl.pos, pos_target=dataPC1_cyl.pos, y=dataPC1_cyl.y,
-                                          idx=dataPC0_cyl.idx, idx_target=dataPC1_cyl.idx, area=area_sel)
-                    if self.DA:
-                        pair_cylinders.data_augment()
-                    pair_cylinders.normalise()
-                    pair_correct = True
-                except:
-                    print('pair not correct')
-                    idx += 1
-            return pair_cylinders
+            
+            idx += 1
+        return None  # Return None if no valid pair is found
+
+    def _get_regular_sample(self, idx):
+        """Retrieves a regular cylindrical sample, ensuring it meets normalization criteria."""
+        while idx < self.grid_regular_centers.shape[0]:
+            centre, area_sel = self._extract_centre_info(self.grid_regular_centers, idx)
+            pair = self._load_save(area_sel)
+            pair_cylinders = self._sample_cylinder(pair, centre, area_sel, apply_transform=True)
+
+            if pair_cylinders and self._normalize_pair(pair_cylinders):
+                return pair_cylinders
+
+            print('pair not correct')
+            idx += 1
+        return None  # Return None if no valid pair is found
 
     def _get_random(self):
-        # Random cylinder biased towards getting more low frequency classes
+        """Randomly selects a cylindrical sample with bias toward low-frequency classes."""
         chosen_label = np.random.choice(self._labels, p=self._label_counts)
         valid_centres = self._centres_for_sampling[self._centres_for_sampling[:, 4] == chosen_label]
+
+        if valid_centres.shape[0] == 0:
+            return None  # Return None if no valid centers exist for the chosen label
+
         centre_idx = int(random.random() * (valid_centres.shape[0] - 1))
         centre = valid_centres[centre_idx]
-        #  choice of the corresponding PC if several PCs are loaded
         area_sel = centre[3].int()
         pair = self._load_save(area_sel)
-        cylinder_sampler = CylinderSampling(self._radius, centre[:3], align_origin=False)
-        dataPC0 = Data(pos=pair.pos)
-        setattr(dataPC0, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC0)
-        dataPC1 = Data(pos=pair.pos_target, y=pair.y)
-        setattr(dataPC1, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC1)
-        dataPC0_cyl = cylinder_sampler(dataPC0)
-        dataPC1_cyl = cylinder_sampler(dataPC1)
-        if self.manual_transform is not None:
-            dataPC0_cyl = self.manual_transform(dataPC0_cyl)
-            dataPC1_cyl = self.manual_transform(dataPC1_cyl)
-        pair_cyl = Pair(pos=dataPC0_cyl.pos, pos_target=dataPC1_cyl.pos, y=dataPC1_cyl.y)
-        if self.DA:
-            pair_cyl.data_augment()
-        pair_cyl.normalise()
+        pair_cyl = self._sample_cylinder(pair, centre[:3], area_sel, apply_transform=True)
+
+        if pair_cyl:
+            pair_cyl.normalise()
         return pair_cyl
 
+    def _sample_cylinder(self, pair, centre, area_sel, apply_transform=False):
+        """Applies cylindrical sampling and optional transformations."""
+        cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
+
+        dataPC0 = Data(pos=pair.pos, idx=torch.arange(pair.pos.shape[0]))
+        setattr(dataPC0, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC0)
+
+        dataPC1 = Data(pos=pair.pos_target, y=pair.y, idx=torch.arange(pair.pos_target.shape[0]))
+        setattr(dataPC1, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC1)
+
+        dataPC0_cyl = cylinder_sampler(dataPC0)
+        dataPC1_cyl = cylinder_sampler(dataPC1)
+
+        return Pair(pos=dataPC0_cyl.pos, pos_target=dataPC1_cyl.pos, y=dataPC1_cyl.y,
+                    idx=dataPC0_cyl.idx, idx_target=dataPC1_cyl.idx, area=area_sel)
+
+    def _extract_centre_info(self, centres, idx):
+        """Extracts center position and area selection from the given array."""
+        centre = centres[idx, :3]
+        area_sel = centres[idx, 3].int()
+        return centre, area_sel
+
+    def _normalize_pair(self, pair_cylinders):
+        """Attempts to normalize the pair, handling errors gracefully."""
+        try:
+            pair_cylinders.normalise()
+            return True
+        except Exception as e:
+            print(f"Normalization failed: {e}")
+            print(f"pos shape: {pair_cylinders.pos.shape}, pos_target shape: {pair_cylinders.pos_target.shape}")
+            return False
+
     def _load_save(self, i):
-        if self.pre_transform is not None:
-            pc0, pc1, label = self._preproc_clouds_loader(i)
-        else:
-            pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
+        """Loads and constructs a Pair object with KDTree keys."""
+        pc0, pc1, label = self.clouds_loader(i, nameInPly=self.nameInPly)
         pair = Pair(pos=pc0, pos_target=pc1, y=label)
-        pair = self._get_tree(pair, i)
-        return pair
 
-    def _get_tree(self, pair, i):
-        path = self.filesPC0[i]
-        name_tree = os.path.basename(path).split(".")[0] + "_2D_radius" + str(int(self._radius)) + "_" + str(i) + ".p"
-        path_treesPC0 = os.path.join(self.preprocessed_dir, "tp3DTree", name_tree)
-        if self.reload_trees and osp.isfile(path_treesPC0):
-            try:
-                file = open(path_treesPC0, "rb")
-                tree = pickle.load(file)
-                file.close()
-                pair.KDTREE_KEY_PC0 = tree
-            except:
-                print('not able to load tree')
-                print(file)
-                print(pair)
-                tree = KDTree(np.asarray(pair.pos[:, :-1]), leaf_size=10)
-                pair.KDTREE_KEY_PC0 = tree
-        else:
-            # tree not existing yet should be saved
-            # test if tp3D directory is existing
-            if not os.path.isdir(os.path.join(self.preprocessed_dir, "tp3DTree")):
-                os.makedirs(os.path.join(self.preprocessed_dir, "tp3DTree"))
-            tree = KDTree(np.asarray(pair.pos[:, :-1]), leaf_size=10)
-            file = open(path_treesPC0, "wb")
-            pickle.dump(tree, file)
-            file.close()
-            pair.KDTREE_KEY_PC0 = tree
+        pair.KDTREE_KEY_PC0 = KDTree(np.asarray(pc0[:, :-1]), leaf_size=10)
+        pair.KDTREE_KEY_PC1 = KDTree(np.asarray(pc1[:, :-1]), leaf_size=10)
 
-        path = self.filesPC1[i]
-        name_tree = os.path.basename(path).split(".")[0] + "_2D_radius" + str(int(self._radius)) + "_" + str(i) + ".p"
-        path_treesPC1 = os.path.join(self.preprocessed_dir, "tp3DTree", name_tree)
-        if self.reload_trees and osp.isfile(path_treesPC1):
-            try:
-                file = open(path_treesPC1, "rb")
-                tree = pickle.load(file)
-                file.close()
-                pair.KDTREE_KEY_PC1 = tree
-            except:
-                print('not able to load tree')
-                print(file)
-                print(pair)
-                tree = KDTree(np.asarray(pair.pos_target[:, :-1]), leaf_size=10)
-                pair.KDTREE_KEY_PC1 = tree
-        else:
-            # tree not existing yet should be saved
-            # test if tp3D directory is existing
-            if not os.path.isdir(os.path.join(self.preprocessed_dir, "tp3DTree")):
-                os.makedirs(os.path.join(self.preprocessed_dir, "tp3DTree"))
-            tree = KDTree(np.asarray(pair.pos_target[:, :-1]), leaf_size=10)
-            file = open(path_treesPC1, "wb")
-            pickle.dump(tree, file)
-            file.close()
-            pair.KDTREE_KEY_PC1 = tree
         return pair
 
 
@@ -437,7 +314,6 @@ class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
             pre_transform=self.pre_transform,
             preprocessed_dir=osp.join(self.preprocessed_dir, "Train"),
             reload_preproc=self.dataset_opt.load_preprocessed,
-            reload_trees=self.dataset_opt.load_trees,
             nameInPly=self.dataset_opt.nameInPly,
             fix_cyl=self.dataset_opt.fix_cyl,
         )
@@ -449,7 +325,6 @@ class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
             pre_transform=self.pre_transform,
             preprocessed_dir=osp.join(self.preprocessed_dir, "Val"),
             reload_preproc=self.dataset_opt.load_preprocessed,
-            reload_trees=self.dataset_opt.load_trees,
             nameInPly=self.dataset_opt.nameInPly,
             fix_cyl=self.dataset_opt.fix_cyl,
         )
@@ -461,7 +336,6 @@ class Urb3DCDDataset(BaseSiameseDataset): #Urb3DCDDataset Urb3DSimulDataset
             pre_transform=self.pre_transform,
             preprocessed_dir=osp.join(self.preprocessed_dir, "Test"),
             reload_preproc=self.dataset_opt.load_preprocessed,
-            reload_trees=self.dataset_opt.load_trees,
             nameInPly=self.dataset_opt.nameInPly,
         )
 
