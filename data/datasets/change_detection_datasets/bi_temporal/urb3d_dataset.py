@@ -206,29 +206,35 @@ class Urb3DSimulCombined(Dataset):
     def get(self, idx):
         """Main method to get a sample and handle normalization in one place."""
         if self._sample_per_epoch > 0:
-            pc0, pc1, change_map = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
+            sample = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
         else:
-            pc0, pc1, change_map = self._get_regular_sample(idx)
+            sample = self._get_regular_sample(idx)
+            
+        if sample is None:
+            return None
+        
+        pc0, pc1, change_map = sample['pos'], sample['pos_target'], sample['y']
             
         try:
             pc0, pc1 = self.normalize(pc0, pc1)
-            pc0, pc1, change_map
+            return {'pos': pc0, 'pos_target': pc1, 'y': change_map, 
+                    'idx': sample['idx'], 'idx_target': sample['idx_target'], 
+                    'area': sample['area']}
         except Exception as e:
             print(f"Normalization failed: {e}")
             print(f"pos shape: {pc0.shape}, pos_target shape: {pc1.shape}")
             return None
-        return None
 
     def _get_fixed_sample(self, idx):
         """Retrieves a fixed sample without normalization."""
         while idx < self._centres_for_sampling_fixed.shape[0]:
             centre, area_sel = self._extract_centre_info(self._centres_for_sampling_fixed, idx)
-            pair = self._add_kdtree(area_sel, True)
+            data = self._add_kdtree(area_sel, True)
             
-            pair_sample = self._sample_cylinder(pair, centre, area_sel)
+            sample = self._sample_cylinder(data, centre, area_sel)
 
-            if pair_sample:
-                return pair_sample
+            if sample:
+                return sample
             
             idx += 1
         return None
@@ -237,12 +243,12 @@ class Urb3DSimulCombined(Dataset):
         """Retrieves a regular sample without normalization."""
         while idx < self.grid_regular_centers.shape[0]:
             centre, area_sel = self._extract_centre_info(self.grid_regular_centers, idx)
-            pair = self._add_kdtree(area_sel, True)
+            data = self._add_kdtree(area_sel, True)
             
-            pair_sample = self._sample_cylinder(pair, centre, area_sel, apply_transform=True)
+            sample = self._sample_cylinder(data, centre, area_sel, apply_transform=True)
 
-            if pair_sample:
-                return pair_sample
+            if sample:
+                return sample
 
             print('pair not correct')
             idx += 1
@@ -259,25 +265,31 @@ class Urb3DSimulCombined(Dataset):
         centre_idx = int(random.random() * (valid_centres.shape[0] - 1))
         centre = valid_centres[centre_idx]
         area_sel = centre[3].int()
-        pair = self._add_kdtree(area_sel, True)
+        data = self._add_kdtree(area_sel, True)
         
-        return self._sample_cylinder(pair, centre[:3], area_sel, apply_transform=True)
+        return self._sample_cylinder(data, centre[:3], area_sel, apply_transform=True)
 
-    def _sample_cylinder(self, pair, centre, area_sel, apply_transform=False):
+    def _sample_cylinder(self, data, centre, area_sel, apply_transform=False):
         """Applies cylindrical sampling and optional transformations."""
         cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
 
-        dataPC0 = Data(pos=pair.pos, idx=torch.arange(pair.pos.shape[0]))
-        setattr(dataPC0, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC0)
+        dataPC0 = Data(pos=data['pos'], idx=torch.arange(data['pos'].shape[0]))
+        setattr(dataPC0, CylinderSampling.KDTREE_KEY, data['KDTREE_KEY_PC0'])
 
-        dataPC1 = Data(pos=pair.pos_target, y=pair.y, idx=torch.arange(pair.pos_target.shape[0]))
-        setattr(dataPC1, CylinderSampling.KDTREE_KEY, pair.KDTREE_KEY_PC1)
+        dataPC1 = Data(pos=data['pos_target'], y=data['y'], idx=torch.arange(data['pos_target'].shape[0]))
+        setattr(dataPC1, CylinderSampling.KDTREE_KEY, data['KDTREE_KEY_PC1'])
 
         dataPC0_cyl = cylinder_sampler(dataPC0)
         dataPC1_cyl = cylinder_sampler(dataPC1)
 
-        return Pair(pos=dataPC0_cyl.pos, pos_target=dataPC1_cyl.pos, y=dataPC1_cyl.y,
-                    idx=dataPC0_cyl.idx, idx_target=dataPC1_cyl.idx, area=area_sel)
+        return {
+            'pos': dataPC0_cyl.pos, 
+            'pos_target': dataPC1_cyl.pos, 
+            'y': dataPC1_cyl.y,
+            'idx': dataPC0_cyl.idx, 
+            'idx_target': dataPC1_cyl.idx, 
+            'area': area_sel
+        }
 
     def _extract_centre_info(self, centres, idx):
         """Extracts center position and area selection from the given array."""
