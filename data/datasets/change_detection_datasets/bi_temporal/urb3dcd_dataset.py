@@ -95,7 +95,7 @@ class Urb3DCDDataset(BaseDataset):
         for idx in range(len(self.annotations)):
             data = self._load_point_cloud_pair(idx)
             low_res = self._grid_sampling(data['pc_1'])
-            centres = torch.empty((low_res.shape[0], 5), dtype=torch.float)
+            centres = torch.empty((low_res.shape[0], 5), dtype=torch.float32)
             centres[:, :3] = low_res
             centres[:, 3] = idx  # Store datapoint index
             centres[:, 4] = data['change_map']
@@ -106,7 +106,7 @@ class Urb3DCDDataset(BaseDataset):
         self._label_counts = np.sqrt(label_counts.mean() / label_counts)
         self._label_counts /= np.sum(self._label_counts)
         self._labels = labels
-        self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float)
+        self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
         
         if self.fix_samples:
             self._prepare_fixed_sampling()
@@ -133,7 +133,7 @@ class Urb3DCDDataset(BaseDataset):
         for idx in range(len(self.annotations)):
             data = self._load_point_cloud_pair(idx)
             grid_sample_centers = grid_sampling(data['pc_1'])
-            centres = torch.empty((grid_sample_centers.shape[0], 4), dtype=torch.float)
+            centres = torch.empty((grid_sample_centers.shape[0], 4), dtype=torch.float32)
             centres[:, :3] = grid_sample_centers
             centres[:, 3] = idx  # Store datapoint index
             self.grid_regular_centers.append(centres)
@@ -176,11 +176,14 @@ class Urb3DCDDataset(BaseDataset):
         """Loads point clouds from files."""
         print("Loading " + self.annotations[idx]['pc_1_filepath'])
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
+        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)
+        assert pc0.size(1) == 3, f"{pc0.shape=}"
+        # pc0 = pc0[:, :3]
         pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
+        assert pc.size(1) == 4, f"{pc.shape=}"
         pc1 = pc[:, :3]
-        change_map = pc[:, 3].long()  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
-        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)[:, :3]
-        return pc0.type(torch.float), pc1.type(torch.float), change_map
+        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
+        return pc0.type(torch.float32), pc1.type(torch.float32), change_map.long()
 
     def _normalize(self, pc0, pc1):
         """Normalizes point clouds."""
