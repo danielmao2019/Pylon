@@ -183,7 +183,7 @@ class Urb3DCDDataset(BaseDataset):
         assert pc.size(1) == 4, f"{pc.shape=}"
         pc1 = pc[:, :3]
         change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
-        return pc0.type(torch.float32), pc1.type(torch.float32), change_map.long()
+        return pc0.type(torch.float32), pc1.type(torch.float32), change_map.type(torch.int64)
 
     def _normalize(self, pc0, pc1):
         """Normalizes point clouds."""
