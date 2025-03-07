@@ -15,6 +15,7 @@ def test_urb3dcd_dataset(dataset_params):
         **dataset_params
     )
     
+    # Test basic dataset properties
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert dataset.NUM_CLASSES == 7
     assert len(dataset.INPUT_NAMES) == 4
@@ -25,6 +26,51 @@ def test_urb3dcd_dataset(dataset_params):
     assert len(dataset.INV_OBJECT_LABEL) == dataset.NUM_CLASSES
     assert len(dataset.CLASS_LABELS) == dataset.NUM_CLASSES
     assert all(dataset.CLASS_LABELS[name] == idx for idx, name in dataset.INV_OBJECT_LABEL.items())
+
+    # Test data loading and validation
+    if len(dataset) > 0:  # Only test if dataset is not empty
+        # Test first few samples
+        for idx in range(min(3, len(dataset))):
+            sample = dataset.get(idx)
+            if sample is not None:
+                # Validate point clouds
+                _validate_point_cloud(sample['pc_0'], 'pc_0')
+                _validate_point_cloud(sample['pc_1'], 'pc_1')
+                
+                # Validate KDTrees
+                if 'kdtree_0' in sample:
+                    _validate_kdtree(sample['kdtree_0'], 'kdtree_0')
+                if 'kdtree_1' in sample:
+                    _validate_kdtree(sample['kdtree_1'], 'kdtree_1')
+                
+                # Validate change map
+                if 'change_map' in sample:
+                    _validate_change_map(sample['change_map'])
+                
+                # Test point indices if present
+                if 'point_idx_pc0' in sample:
+                    assert isinstance(sample['point_idx_pc0'], torch.Tensor)
+                    assert sample['point_idx_pc0'].dtype == torch.long
+                if 'point_idx_pc1' in sample:
+                    assert isinstance(sample['point_idx_pc1'], torch.Tensor)
+                    assert sample['point_idx_pc1'].dtype == torch.long
+
+        # Test fixed sampling consistency if enabled
+        if dataset_params['fix_samples']:
+            first_sample = dataset.get(0)
+            second_sample = dataset.get(0)
+            if first_sample is not None and second_sample is not None:
+                assert torch.allclose(first_sample['pc_0'], second_sample['pc_0'])
+                assert torch.allclose(first_sample['pc_1'], second_sample['pc_1'])
+                assert torch.equal(first_sample['change_map'], second_sample['change_map'])
+
+        # Test grid sampling mode
+        if dataset_params['sample_per_epoch'] == 0:
+            assert hasattr(dataset, 'grid_regular_centers')
+            assert isinstance(dataset.grid_regular_centers, dict)
+            assert 'pos' in dataset.grid_regular_centers
+            assert 'idx' in dataset.grid_regular_centers
+            assert 'change_map' in dataset.grid_regular_centers
 
 
 def _validate_point_cloud(pc: torch.Tensor, name: str):
