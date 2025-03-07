@@ -53,8 +53,21 @@ class CylinderSampling:
         if 'pos' not in data_dict:
             raise ValueError("Data dictionary must have 'pos' key")
 
+        # Add debug prints
+        print(f"Cylinder sampling debug:")
+        print(f"  Center: {self._center}")
+        print(f"  Radius: {self._radius}")
+        print(f"  Input points shape: {data_dict['pos'].shape}")
+        print(f"  Input points bounds: min={data_dict['pos'].min(0)[0]}, max={data_dict['pos'].max(0)[0]}")
+
         # Query points within radius - still need to convert to numpy for scikit-learn KDTree
         indices = torch.LongTensor(kdtree.query_radius(self._center.cpu().numpy(), r=self._radius)[0])
+        print(f"  Found {len(indices)} points within radius")
+
+        if len(indices) == 0:
+            print("  WARNING: No points found within cylinder radius!")
+            print(f"  First few input points: {data_dict['pos'][:5]}")
+
         if self._center.device.type != 'cpu':
             indices = indices.to(self._center.device)
         

@@ -303,7 +303,7 @@ class Urb3DCDDataset(BaseDataset):
         
         # Sample cylinder
         sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
-        
+            
         if sample is None:
             raise ValueError(f"Failed to load datapoint at index {idx}")
         
@@ -342,16 +342,35 @@ class Urb3DCDDataset(BaseDataset):
         Args:
             pc0: First point cloud (N, 3)
             pc1: Second point cloud (M, 3)
+
+        Raises:
+            ValueError: If both point clouds are empty.
         """
-        min0 = torch.unsqueeze(pc0.min(0)[0], 0)
-        min1 = torch.unsqueeze(pc1.min(0)[0], 0)
+        if pc0.shape[0] == 0 and pc1.shape[0] == 0:
+            raise ValueError("Cannot normalize: both point clouds are empty")
+        
+        # If one point cloud is empty, use the other's min values
+        if pc0.shape[0] == 0:
+            min0 = torch.unsqueeze(pc1.min(0)[0], 0)
+            min1 = min0
+        elif pc1.shape[0] == 0:
+            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
+            min1 = min0
+        else:
+            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
+            min1 = torch.unsqueeze(pc1.min(0)[0], 0)
+        
         minG = torch.cat((min0, min1), axis=0).min(0)[0]
-        pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
-        pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
-        pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
-        pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
-        pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
-        pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
+        
+        if pc0.shape[0] > 0:
+            pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
+            pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
+            pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
+        
+        if pc1.shape[0] > 0:
+            pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
+            pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
+            pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
 
     def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int, apply_transform: bool = False) -> Dict[str, torch.Tensor]:
         """Apply cylindrical sampling and optional transformations.
@@ -371,6 +390,9 @@ class Urb3DCDDataset(BaseDataset):
             - point_idx_pc1: Point indices in second point cloud
             - idx: Point cloud index
         """
+        print(f"\nSampling cylinder at center {center}, radius {self._radius}")
+        print(f"Point cloud shapes: pc_0={data['pc_0'].shape}, pc_1={data['pc_1'].shape}")
+        
         cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
         
         # Create data dictionaries for both point clouds
@@ -379,12 +401,14 @@ class Urb3DCDDataset(BaseDataset):
             'pos': data['pc_1'],
             'change_map': data['change_map']
         }
-        
+
         # Sample points using the KDTrees
+        print("\nSampling pc_0:")
         sampled_data_0 = cylinder_sampler(data['kdtree_0'], data_dict_0)
+        print("\nSampling pc_1:")
         sampled_data_1 = cylinder_sampler(data['kdtree_1'], data_dict_1)
         
-        return {
+        result = {
             'pc_0': sampled_data_0['pos'],
             'pc_1': sampled_data_1['pos'],
             'change_map': sampled_data_1['change_map'],
@@ -392,3 +416,8 @@ class Urb3DCDDataset(BaseDataset):
             'point_idx_pc1': sampled_data_1['point_idx'],
             'idx': idx
         }
+        
+        print(f"\nSampling results:")
+        print(f"  pc_0 shape: {result['pc_0'].shape}")
+        print(f"  pc_1 shape: {result['pc_1'].shape}")
+        return result
