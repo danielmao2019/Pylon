@@ -52,33 +52,32 @@ def test_urb3dcd_dataset(dataset_params):
     assert len(dataset.CLASS_LABELS) == dataset.NUM_CLASSES
     assert all(dataset.CLASS_LABELS[name] == idx for idx, name in dataset.INV_OBJECT_LABEL.items())
 
-    # Test data loading and validation
-    if len(dataset) > 0:  # Only test if dataset is not empty
-        # Test first few samples
-        for idx in range(min(3, len(dataset))):
-            inputs, labels, meta_info = dataset[idx]
-            
-            # Validate point clouds
-            _validate_point_cloud(inputs['pc_0'], 'pc_0')
-            _validate_point_cloud(inputs['pc_1'], 'pc_1')
-            
-            # Validate KDTrees
-            _validate_kdtree(inputs['kdtree_0'], 'kdtree_0')
-            _validate_kdtree(inputs['kdtree_1'], 'kdtree_1')
-            
-            # Validate change map
-            _validate_change_map(labels['change_map'])
-            
-            # Validate point count consistency
-            _validate_point_count_consistency(inputs['pc_1'], labels['change_map'])
-            
-            # Test point indices if present
-            assert 'point_idx_pc0' in meta_info
-            assert 'point_idx_pc1' in meta_info
-            assert isinstance(meta_info['point_idx_pc0'], torch.Tensor)
-            assert isinstance(meta_info['point_idx_pc1'], torch.Tensor)
-            assert meta_info['point_idx_pc0'].dtype == torch.long
-            assert meta_info['point_idx_pc1'].dtype == torch.long
+    assert len(dataset) > 0
+    # Test first few samples
+    for idx in range(min(3, len(dataset))):
+        inputs, labels, meta_info = dataset[idx]
+        
+        # Validate point clouds
+        _validate_point_cloud(inputs['pc_0'], 'pc_0')
+        _validate_point_cloud(inputs['pc_1'], 'pc_1')
+        
+        # Validate KDTrees
+        _validate_kdtree(inputs['kdtree_0'], 'kdtree_0')
+        _validate_kdtree(inputs['kdtree_1'], 'kdtree_1')
+        
+        # Validate change map
+        _validate_change_map(labels['change_map'])
+        
+        # Validate point count consistency
+        _validate_point_count_consistency(inputs['pc_1'], labels['change_map'])
+        
+        # Test point indices if present
+        assert 'point_idx_pc0' in meta_info
+        assert 'point_idx_pc1' in meta_info
+        assert isinstance(meta_info['point_idx_pc0'], torch.Tensor)
+        assert isinstance(meta_info['point_idx_pc1'], torch.Tensor)
+        assert meta_info['point_idx_pc0'].dtype == torch.long
+        assert meta_info['point_idx_pc1'].dtype == torch.long
 
 
 @pytest.mark.parametrize("radius", [1.0, 2.0, 3.0])
