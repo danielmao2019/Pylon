@@ -25,6 +25,14 @@ def _validate_change_map(change_map: torch.Tensor):
     assert all(val in range(7) for val in unique_values), f"Unexpected values in change_map: {unique_values}"
 
 
+def _validate_point_count_consistency(pc1: torch.Tensor, change_map: torch.Tensor):
+    """Validate that pc_1 and change_map have the same number of points."""
+    assert pc1.size(0) == change_map.size(0), (
+        f"Number of points in pc_1 ({pc1.size(0)}) does not match "
+        f"number of points in change_map ({change_map.size(0)})"
+    )
+
+
 @pytest.mark.parametrize("dataset_params", [
     {"sample_per_epoch": 100, "radius": 2, "fix_samples": False},
     {"sample_per_epoch": 0, "radius": 2, "fix_samples": False},  # Grid sampling mode
@@ -66,6 +74,9 @@ def test_urb3dcd_dataset(dataset_params):
             
             # Validate change map
             _validate_change_map(labels['change_map'])
+            
+            # Validate point count consistency
+            _validate_point_count_consistency(inputs['pc_1'], labels['change_map'])
             
             # Test point indices if present
             assert 'point_idx_pc0' in meta_info
