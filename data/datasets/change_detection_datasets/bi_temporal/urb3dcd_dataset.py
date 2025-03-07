@@ -230,21 +230,6 @@ class Urb3DCDDataset(BaseDataset):
         
         return self._sample_cylinder(self._loaded_data[sample_idx], center, sample_idx)
 
-    def _get_regular_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
-        """Retrieves a regular sample without normalization."""
-        while idx < self.grid_regular_centers['pos'].shape[0]:
-            center, sample_idx = self._extract_center_info(self.grid_regular_centers, idx)
-            data = self._load_point_cloud_pair(sample_idx)
-            
-            sample = self._sample_cylinder(data, center, sample_idx, apply_transform=True)
-
-            if sample:
-                return sample
-
-            print('pair not correct')
-            idx += 1
-        return None
-
     def _get_random(self) -> Optional[Dict[str, torch.Tensor]]:
         """Randomly selects a sample without normalization."""
         chosen_label = np.random.choice(self._labels, p=self._label_counts)
@@ -264,6 +249,21 @@ class Urb3DCDDataset(BaseDataset):
         data = self._load_point_cloud_pair(sample_idx)
         
         return self._sample_cylinder(data, center, sample_idx, apply_transform=True)
+
+    def _get_regular_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
+        """Retrieves a regular sample without normalization."""
+        while idx < self.grid_regular_centers['pos'].shape[0]:
+            center, sample_idx = self._extract_center_info(self.grid_regular_centers, idx)
+            data = self._load_point_cloud_pair(sample_idx)
+            
+            sample = self._sample_cylinder(data, center, sample_idx, apply_transform=True)
+
+            if sample:
+                return sample
+
+            print('pair not correct')
+            idx += 1
+        return None
 
     def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int, apply_transform: bool = False) -> Dict[str, torch.Tensor]:
         """Applies cylindrical sampling and optional transformations."""
