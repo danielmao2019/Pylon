@@ -22,29 +22,35 @@ def consecutive_cluster(src):
     return inv, perm
 
 
-def grid_cluster(coords: torch.Tensor, size: torch.Tensor) -> torch.Tensor:
-    """Clusters points based on a regular grid.
-    
-    Parameters
-    ----------
-    coords : torch.Tensor
-        Point coordinates of shape (N, 3)
-    size : torch.Tensor
-        Grid size in each dimension
-        
-    Returns
-    -------
-    torch.Tensor
-        Cluster indices for each point
+def grid_cluster(
+    pos: torch.Tensor,
+    size: torch.Tensor,
+    start: Optional[torch.Tensor] = None,
+    end: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """A clustering algorithm, which overlays a regular grid of user-defined
+    size over a point cloud and clusters all points within a voxel.
+
+    Args:
+        pos (Tensor): D-dimensional position of points.
+        size (Tensor): Size of a voxel in each dimension.
+        start (Tensor, optional): Start position of the grid (in each
+            dimension). (default: :obj:`None`)
+        end (Tensor, optional): End position of the grid (in each
+            dimension). (default: :obj:`None`)
+
+    :rtype: :class:`LongTensor`
+
+    .. code-block:: python
+
+        import torch
+        from torch_cluster import grid_cluster
+
+        pos = torch.Tensor([[0, 0], [11, 9], [2, 8], [2, 2], [8, 3]])
+        size = torch.Tensor([5, 5])
+        cluster = grid_cluster(pos, size)
     """
-    # Convert to integer grid coordinates
-    coords = coords.div(size.view(1, -1), rounding_mode='floor').long()
-    
-    # Convert to linear indices
-    # Use large multipliers to ensure unique indices across dimensions
-    cluster = coords[:, 0] + coords[:, 1] * 100000 + coords[:, 2] * 10000000000
-    
-    return cluster
+    return torch.ops.torch_cluster.grid(pos, size, start, end)
 
 
 def group_data(points, cluster, unique_pos_indices, mode="mean"):
