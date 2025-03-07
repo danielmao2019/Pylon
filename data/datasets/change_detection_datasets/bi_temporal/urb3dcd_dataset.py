@@ -154,9 +154,18 @@ class Urb3DCDDataset(BaseDataset):
         
         for idx in range(len(self.annotations)):
             data = self._load_point_cloud_pair(idx)
-            grid_sample_centers = self._grid_sampling(data['pc_1'])
-            centres = torch.empty((grid_sample_centers.shape[0], 4), dtype=torch.float32)
-            centres[:, :3] = grid_sample_centers
+            
+            # Create data dictionary for grid sampling
+            data_dict = {
+                'pos': data['pc_1']
+            }
+            
+            # Apply grid sampling
+            sampled_data = self._grid_sampling(data_dict)
+            
+            # Create centers with sampled positions and index
+            centres = torch.empty((sampled_data['pos'].shape[0], 4), dtype=torch.float32)
+            centres[:, :3] = sampled_data['pos']
             centres[:, 3] = idx  # Store datapoint index
             self.grid_regular_centers.append(centres)
         
