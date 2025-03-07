@@ -82,7 +82,39 @@ class Urb3DCDDataset(BaseDataset):
             for pc0, pc1 in zip(pc0_files, pc1_files)
         ]
 
-        # Prepare centers
+        # Get all potential centers
+        all_centers = self._prepare_all_centers(file_pairs)
+
+        # Calculate label statistics for balanced sampling if needed
+        if self._sample_per_epoch > 0:
+            labels, label_counts = np.unique(all_centers['change_map'].numpy(), return_counts=True)
+            self._label_counts = np.sqrt(label_counts.mean() / label_counts)
+            self._label_counts /= np.sum(self._label_counts)
+            self._labels = labels
+            self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
+
+        # Prepare annotations based on sampling mode
+        if self._sample_per_epoch > 0:
+            if self.fix_samples:
+                self.annotations = self._prepare_fixed_centers(all_centers)
+            else:
+                self.annotations = self._prepare_random_centers(all_centers)
+        else:
+            self.annotations = self._prepare_grid_centers(all_centers)
+
+    def _prepare_all_centers(self, file_pairs: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Prepare all potential centers by grid sampling each point cloud pair.
+        
+        Parameters
+        ----------
+        file_pairs : List[Dict[str, str]]
+            List of dictionaries containing file paths for point cloud pairs
+            
+        Returns
+        -------
+        Dict[str, Any]
+            Dictionary containing all potential centers and their metadata
+        """
         centers_list = []
         for idx, files in enumerate(file_pairs):
             data = self._load_point_cloud_pair(idx, files)
@@ -101,30 +133,13 @@ class Urb3DCDDataset(BaseDataset):
             centers_list.append(centers)
 
         # Convert to single dictionary with concatenated tensors
-        all_centers = {
+        return {
             'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
             'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
             'change_map': torch.cat([c['change_map'] for c in centers_list], dim=0),
             'pc_0_filepath': [c['pc_0_filepath'] for c in centers_list],
             'pc_1_filepath': [c['pc_1_filepath'] for c in centers_list]
         }
-
-        # Calculate label statistics for balanced sampling if needed
-        if self._sample_per_epoch > 0:
-            labels, label_counts = np.unique(all_centers['change_map'].numpy(), return_counts=True)
-            self._label_counts = np.sqrt(label_counts.mean() / label_counts)
-            self._label_counts /= np.sum(self._label_counts)
-            self._labels = labels
-            self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
-
-        # Prepare annotations based on sampling mode
-        if self._sample_per_epoch > 0:
-            if self.fix_samples:
-                self.annotations = self._prepare_fixed_centers(all_centers)
-            else:
-                self.annotations = self._prepare_random_centers(all_centers)
-        else:
-            self.annotations = self._prepare_grid_centers(all_centers)
 
     def _prepare_fixed_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Prepare fixed centers with balanced sampling."""
