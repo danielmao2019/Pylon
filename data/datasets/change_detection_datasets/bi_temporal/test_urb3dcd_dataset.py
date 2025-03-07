@@ -42,11 +42,13 @@ def _validate_point_count_consistency(pc1: torch.Tensor, change_map: torch.Tenso
 def test_urb3dcd_dataset(dataset_params):
     """Test the Urb3DCDDataset class."""
     # Create a dataset instance
+    print("Initializing dataset...")
     dataset = Urb3DCDDataset(
         data_root="./data/datasets/soft_links/Urb3DCD",
         **dataset_params
     )
-    
+    print("Dataset initialized.")
+
     # Verify class labels mapping
     assert len(dataset.INV_OBJECT_LABEL) == dataset.NUM_CLASSES
     assert len(dataset.CLASS_LABELS) == dataset.NUM_CLASSES
@@ -54,6 +56,7 @@ def test_urb3dcd_dataset(dataset_params):
 
     assert len(dataset) > 0
     # Test first few samples
+    print(f"Testing samples...")
     for idx in range(min(3, len(dataset))):
         inputs, labels, meta_info = dataset[idx]
         
