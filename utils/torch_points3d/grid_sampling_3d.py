@@ -6,18 +6,14 @@ from sklearn.neighbors import KDTree
 
 def consecutive_cluster(src: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Convert a cluster index tensor to consecutive indices.
-    
-    Parameters
-    ----------
-    src : torch.Tensor
-        Input cluster indices
-        
-    Returns
-    -------
-    inv : torch.Tensor
-        Cluster indices converted to consecutive numbers
-    perm : torch.Tensor
-        Indices of unique elements in original ordering
+
+    Args:
+        src: Input cluster indices tensor.
+
+    Returns:
+        A tuple containing:
+        - inv: Cluster indices converted to consecutive numbers
+        - perm: Indices of unique elements in original ordering
     """
     unique, inv = torch.unique(src, sorted=True, return_inverse=True)
     perm = torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device)
@@ -31,17 +27,18 @@ def grid_cluster(
     start: Optional[torch.Tensor] = None,
     end: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
-    """A clustering algorithm, which overlays a regular grid of user-defined
-    size over a point cloud and clusters all points within a voxel.
+    """Cluster points into voxels using a regular grid.
 
     Args:
-        pos (Tensor): D-dimensional position of points
-        size (Tensor): Size of a voxel in each dimension
-        start (Tensor, optional): Start position of the grid (in each dimension)
-        end (Tensor, optional): End position of the grid (in each dimension)
+        pos: D-dimensional position of points (N, D).
+        size: Size of a voxel in each dimension (D,).
+        start: Optional start position of the grid in each dimension (D,).
+            If None, uses minimum point coordinates.
+        end: Optional end position of the grid in each dimension (D,).
+            If None, uses maximum point coordinates.
 
     Returns:
-        Tensor: Cluster indices for each point
+        Cluster indices for each point (N,).
     """
     # If start/end not provided, compute them from point cloud bounds
     if start is None:
@@ -76,18 +73,21 @@ def group_data(
     unique_pos_indices: Optional[torch.Tensor] = None,
     mode: str = "last"
 ) -> Dict[str, torch.Tensor]:
-    """Group data based on indices in cluster.
-    
-    Parameters
-    ----------
-    data_dict : Dict[str, torch.Tensor]
-        Dictionary containing tensors to be grouped
-    cluster : torch.Tensor
-        Cluster indices for each point
-    unique_pos_indices : torch.Tensor
-        Indices to select points for 'last' mode
-    mode : str
-        'mean' or 'last'
+    """Group data based on cluster indices.
+
+    Args:
+        data_dict: Dictionary containing tensors to be grouped.
+            Must contain 'pos' and optionally 'change_map'.
+        cluster: Cluster indices for each point (N,).
+            Required for 'mean' mode.
+        unique_pos_indices: Indices to select points for 'last' mode (M,).
+            Required for 'last' mode.
+        mode: Grouping mode, either 'mean' or 'last'.
+            - 'mean': Average points within each cluster
+            - 'last': Select last point from each cluster
+
+    Returns:
+        Dictionary containing grouped tensors with same keys as input.
     """
     assert mode in ["mean", "last"]
     if mode == "mean" and cluster is None:
@@ -131,7 +131,14 @@ def group_data(
 
 
 class GridSampling3D:
-    """Clusters points into voxels with specified size."""
+    """Clusters points into voxels with specified size.
+
+    Args:
+        size: Size of voxels in each dimension.
+        mode: Grouping mode, either 'mean' or 'last'.
+            - 'mean': Average points within each voxel
+            - 'last': Select last point from each voxel
+    """
 
     def __init__(self, size: float, mode: str = "mean") -> None:
         self._grid_size = size
@@ -142,15 +149,16 @@ class GridSampling3D:
     def __call__(self, data_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """Sample points and associated data by grouping them into voxels.
 
-        Parameters
-        ----------
-        data_dict : Dict[str, torch.Tensor]
-            Dictionary containing points and attributes
+        Args:
+            data_dict: Dictionary containing points and attributes.
+                Must contain 'pos' key with points of shape (N, D), D >= 3.
 
-        Returns
-        -------
-        Dict[str, torch.Tensor]
-            Sampled data dictionary
+        Returns:
+            Dictionary containing sampled data with same keys as input.
+            Points are grouped into voxels according to the specified mode.
+
+        Raises:
+            ValueError: If 'pos' key is missing or points have less than 3 dimensions.
         """
         if 'pos' not in data_dict:
             raise ValueError("Data dictionary must have 'pos' key")

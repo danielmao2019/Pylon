@@ -61,7 +61,14 @@ class Urb3DCDDataset(BaseDataset):
         super(Urb3DCDDataset, self).__init__(*args, **kwargs)
 
     def _init_annotations(self) -> None:
-        """Initialize file paths and prepare centers for sampling."""
+        """Initialize file paths and prepare centers for sampling.
+
+        This method performs the following steps:
+        1. Gets file paths for point cloud pairs
+        2. Prepares all potential centers using grid sampling
+        3. Calculates label statistics if needed for balanced sampling
+        4. Prepares final annotations based on sampling mode (fixed, random, or grid)
+        """
         # Get file paths
         version_info = self.VERSION_MAP[self.version]
         base_dir = os.path.join(self.data_root, version_info['dir'], version_info['subdir'], self.SPLIT_MAP[self.split])
@@ -104,16 +111,18 @@ class Urb3DCDDataset(BaseDataset):
 
     def _prepare_all_centers(self, file_pairs: List[Dict[str, str]]) -> Dict[str, Any]:
         """Prepare all potential centers by grid sampling each point cloud pair.
-        
-        Parameters
-        ----------
-        file_pairs : List[Dict[str, str]]
-            List of dictionaries containing file paths for point cloud pairs
-            
-        Returns
-        -------
-        Dict[str, Any]
-            Dictionary containing all potential centers and their metadata
+
+        Args:
+            file_pairs: List of dictionaries containing file paths for point cloud pairs.
+                Each dictionary must have 'pc_0_filepath' and 'pc_1_filepath' keys.
+
+        Returns:
+            A dictionary containing concatenated tensors for:
+            - pos: Center positions (N, 3)
+            - idx: Point cloud indices (N,)
+            - change_map: Change labels (N,)
+            - pc_0_filepath: List of file paths for first point clouds
+            - pc_1_filepath: List of file paths for second point clouds
         """
         centers_list = []
         for idx, files in enumerate(file_pairs):
@@ -142,7 +151,19 @@ class Urb3DCDDataset(BaseDataset):
         }
 
     def _prepare_fixed_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Prepare fixed centers with balanced sampling."""
+        """Prepare fixed centers with balanced sampling.
+
+        Args:
+            all_centers: Dictionary containing all potential centers and their metadata.
+                Must contain 'pos', 'idx', 'change_map', 'pc_0_filepath', and 'pc_1_filepath'.
+
+        Returns:
+            List of dictionaries, each containing center information for one sample:
+            - pos: Center position (3,)
+            - idx: Point cloud index (scalar)
+            - pc_0_filepath: File path for first point cloud
+            - pc_1_filepath: File path for second point cloud
+        """
         np.random.seed(1)
         chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
         unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
@@ -163,7 +184,19 @@ class Urb3DCDDataset(BaseDataset):
         return fixed_centers
 
     def _prepare_random_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Prepare random centers with balanced sampling."""
+        """Prepare random centers with balanced sampling.
+
+        Args:
+            all_centers: Dictionary containing all potential centers and their metadata.
+                Must contain 'pos', 'idx', 'change_map', 'pc_0_filepath', and 'pc_1_filepath'.
+
+        Returns:
+            List of dictionaries, each containing center information for one sample:
+            - pos: Center position (3,)
+            - idx: Point cloud index (scalar)
+            - pc_0_filepath: File path for first point cloud
+            - pc_1_filepath: File path for second point cloud
+        """
         np.random.seed(1)
         chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch,))
         random_centers = []
@@ -181,7 +214,19 @@ class Urb3DCDDataset(BaseDataset):
         return random_centers
 
     def _prepare_grid_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Prepare grid centers for systematic coverage."""
+        """Prepare grid centers for systematic coverage.
+
+        Args:
+            all_centers: Dictionary containing all potential centers and their metadata.
+                Must contain 'pos', 'idx', 'change_map', 'pc_0_filepath', and 'pc_1_filepath'.
+
+        Returns:
+            List of dictionaries, each containing center information for one sample:
+            - pos: Center position (3,)
+            - idx: Point cloud index (scalar)
+            - pc_0_filepath: File path for first point cloud
+            - pc_1_filepath: File path for second point cloud
+        """
         grid_centers = []
         for i in range(len(all_centers['pos'])):
             grid_centers.append({
@@ -193,7 +238,21 @@ class Urb3DCDDataset(BaseDataset):
         return grid_centers
 
     def _load_point_cloud_pair(self, idx: int, files: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-        """Loads a pair of point clouds and builds KDTrees for them."""
+        """Load a pair of point clouds and build KDTrees for them.
+
+        Args:
+            idx: Index of the point cloud pair to load.
+            files: Optional dictionary containing file paths. If None, uses self.annotations[idx].
+                Must contain 'pc_0_filepath' and 'pc_1_filepath' keys.
+
+        Returns:
+            Dictionary containing:
+            - pc_0: First point cloud (N, 3)
+            - pc_1: Second point cloud (M, 3)
+            - change_map: Change labels for second point cloud (M,)
+            - kdtree_0: KDTree for first point cloud
+            - kdtree_1: KDTree for second point cloud
+        """
         if files is None:
             files = self.annotations[idx]
         print("Loading " + files['pc_1_filepath'])
@@ -272,7 +331,12 @@ class Urb3DCDDataset(BaseDataset):
             raise
 
     def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
-        """Normalizes point clouds."""
+        """Normalize point clouds by centering them at the origin.
+
+        Args:
+            pc0: First point cloud (N, 3)
+            pc1: Second point cloud (M, 3)
+        """
         min0 = torch.unsqueeze(pc0.min(0)[0], 0)
         min1 = torch.unsqueeze(pc1.min(0)[0], 0)
         minG = torch.cat((min0, min1), axis=0).min(0)[0]
@@ -284,7 +348,23 @@ class Urb3DCDDataset(BaseDataset):
         pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
 
     def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int, apply_transform: bool = False) -> Dict[str, torch.Tensor]:
-        """Applies cylindrical sampling and optional transformations."""
+        """Apply cylindrical sampling and optional transformations.
+
+        Args:
+            data: Dictionary containing point clouds and attributes.
+            center: Center position for cylinder sampling (3,).
+            idx: Point cloud index.
+            apply_transform: Whether to apply transformations.
+
+        Returns:
+            Dictionary containing:
+            - pc_0: Sampled first point cloud
+            - pc_1: Sampled second point cloud
+            - change_map: Sampled change labels
+            - point_idx_pc0: Point indices in first point cloud
+            - point_idx_pc1: Point indices in second point cloud
+            - idx: Point cloud index
+        """
         cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
         
         # Create data dictionaries for both point clouds
