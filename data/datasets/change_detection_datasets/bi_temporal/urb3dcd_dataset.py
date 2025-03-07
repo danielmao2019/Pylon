@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, Optional
+from typing import Tuple, Dict, Any, Optional, List
 import os
 import glob
 import random
@@ -109,60 +109,73 @@ class Urb3DCDDataset(BaseDataset):
             'pc_1_filepath': [c['pc_1_filepath'] for c in centers_list]
         }
 
-        if self._sample_per_epoch > 0:  # Random/Fixed sampling mode
-            # Calculate label statistics for balanced sampling
+        # Calculate label statistics for balanced sampling if needed
+        if self._sample_per_epoch > 0:
             labels, label_counts = np.unique(all_centers['change_map'].numpy(), return_counts=True)
             self._label_counts = np.sqrt(label_counts.mean() / label_counts)
             self._label_counts /= np.sum(self._label_counts)
             self._labels = labels
             self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
 
+        # Prepare annotations based on sampling mode
+        if self._sample_per_epoch > 0:
             if self.fix_samples:
-                # Pre-select fixed samples
-                np.random.seed(1)
-                chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
-                unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
-                
-                fixed_centers = []
-                for label, count in zip(unique_labels, label_counts):
-                    mask = all_centers['change_map'] == label
-                    valid_pos = all_centers['pos'][mask]
-                    valid_idx = all_centers['idx'][mask]
-                    selected_indices = np.random.randint(low=0, high=valid_pos.shape[0], size=(count,))
-                    for idx in selected_indices:
-                        fixed_centers.append({
-                            'pos': valid_pos[idx],
-                            'idx': valid_idx[idx],
-                            'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
-                            'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
-                        })
-                self.annotations = fixed_centers
+                self.annotations = self._prepare_fixed_centers(all_centers)
             else:
-                # Pre-select random labels for balanced sampling
-                np.random.seed(1)
-                chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch,))
-                self.annotations = []
-                for label in chosen_labels:
-                    mask = all_centers['change_map'] == label
-                    valid_pos = all_centers['pos'][mask]
-                    valid_idx = all_centers['idx'][mask]
-                    idx = np.random.randint(low=0, high=valid_pos.shape[0])
-                    self.annotations.append({
-                        'pos': valid_pos[idx],
-                        'idx': valid_idx[idx],
-                        'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
-                        'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
-                    })
-        else:  # Grid sampling mode
-            # Convert all centers to list of dictionaries
-            self.annotations = []
-            for i in range(len(all_centers['pos'])):
-                self.annotations.append({
-                    'pos': all_centers['pos'][i],
-                    'idx': all_centers['idx'][i],
-                    'pc_0_filepath': all_centers['pc_0_filepath'][all_centers['idx'][i]],
-                    'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][i]]
+                self.annotations = self._prepare_random_centers(all_centers)
+        else:
+            self.annotations = self._prepare_grid_centers(all_centers)
+
+    def _prepare_fixed_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Prepare fixed centers with balanced sampling."""
+        np.random.seed(1)
+        chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
+        unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
+        
+        fixed_centers = []
+        for label, count in zip(unique_labels, label_counts):
+            mask = all_centers['change_map'] == label
+            valid_pos = all_centers['pos'][mask]
+            valid_idx = all_centers['idx'][mask]
+            selected_indices = np.random.randint(low=0, high=valid_pos.shape[0], size=(count,))
+            for idx in selected_indices:
+                fixed_centers.append({
+                    'pos': valid_pos[idx],
+                    'idx': valid_idx[idx],
+                    'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
+                    'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
                 })
+        return fixed_centers
+
+    def _prepare_random_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Prepare random centers with balanced sampling."""
+        np.random.seed(1)
+        chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch,))
+        random_centers = []
+        for label in chosen_labels:
+            mask = all_centers['change_map'] == label
+            valid_pos = all_centers['pos'][mask]
+            valid_idx = all_centers['idx'][mask]
+            idx = np.random.randint(low=0, high=valid_pos.shape[0])
+            random_centers.append({
+                'pos': valid_pos[idx],
+                'idx': valid_idx[idx],
+                'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
+                'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
+            })
+        return random_centers
+
+    def _prepare_grid_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Prepare grid centers for systematic coverage."""
+        grid_centers = []
+        for i in range(len(all_centers['pos'])):
+            grid_centers.append({
+                'pos': all_centers['pos'][i],
+                'idx': all_centers['idx'][i],
+                'pc_0_filepath': all_centers['pc_0_filepath'][all_centers['idx'][i]],
+                'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][i]]
+            })
+        return grid_centers
 
     def _load_point_cloud_pair(self, idx: int, files: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """Loads a pair of point clouds and builds KDTrees for them."""
