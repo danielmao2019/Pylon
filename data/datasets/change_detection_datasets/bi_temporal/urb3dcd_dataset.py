@@ -243,56 +243,6 @@ class Urb3DCDDataset(BaseDataset):
             })
         return grid_centers
 
-    def _load_point_cloud_pair(self, idx: int, files: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-        """Load a pair of point clouds and build KDTrees for them.
-
-        Args:
-            idx: Index of the point cloud pair to load.
-            files: Optional dictionary containing file paths. If None, uses self.annotations[idx].
-                Must contain 'pc_0_filepath' and 'pc_1_filepath' keys.
-
-        Returns:
-            Dictionary containing:
-            - pc_0: First point cloud (N, 3)
-            - pc_1: Second point cloud (M, 3)
-            - change_map: Change labels for second point cloud (M,)
-            - kdtree_0: KDTree for first point cloud
-            - kdtree_1: KDTree for second point cloud
-        """
-        if files is None:
-            files = self.annotations[idx]
-        print("Loading " + files['pc_1_filepath'])
-        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
-        
-        # Load first point cloud
-        pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
-        assert pc0.size(1) == 4, f"{pc0.shape=}"
-        pc0 = pc0[:, :3]
-        
-        # Load second point cloud
-        pc = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
-        assert pc.size(1) == 4, f"{pc.shape=}"
-        pc1 = pc[:, :3]
-        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
-        
-        # Convert to correct types
-        pc0 = pc0.type(torch.float32)
-        pc1 = pc1.type(torch.float32)
-        change_map = change_map.type(torch.int64)
-        
-        # Build KDTrees and return data
-        data = {
-            'pc_0': pc0,
-            'pc_1': pc1,
-            'change_map': change_map,
-            'kdtree_0': KDTree(np.asarray(pc0), leaf_size=10),
-            'kdtree_1': KDTree(np.asarray(pc1), leaf_size=10),
-        }
-        return data
-
-    def __len__(self) -> int:
-        return len(self.annotations)
-
     def _load_datapoint(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a datapoint for the parent class interface.
         
@@ -411,41 +361,52 @@ class Urb3DCDDataset(BaseDataset):
             
         return True
 
-    def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
-        """Normalize point clouds by centering them at the origin.
+    def _load_point_cloud_pair(self, idx: int, files: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """Load a pair of point clouds and build KDTrees for them.
 
         Args:
-            pc0: First point cloud (N, 3)
-            pc1: Second point cloud (M, 3)
+            idx: Index of the point cloud pair to load.
+            files: Optional dictionary containing file paths. If None, uses self.annotations[idx].
+                Must contain 'pc_0_filepath' and 'pc_1_filepath' keys.
 
-        Raises:
-            ValueError: If both point clouds are empty.
+        Returns:
+            Dictionary containing:
+            - pc_0: First point cloud (N, 3)
+            - pc_1: Second point cloud (M, 3)
+            - change_map: Change labels for second point cloud (M,)
+            - kdtree_0: KDTree for first point cloud
+            - kdtree_1: KDTree for second point cloud
         """
-        if pc0.shape[0] == 0 and pc1.shape[0] == 0:
-            raise ValueError("Cannot normalize: both point clouds are empty")
+        if files is None:
+            files = self.annotations[idx]
+        print("Loading " + files['pc_1_filepath'])
+        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
         
-        # If one point cloud is empty, use the other's min values
-        if pc0.shape[0] == 0:
-            min0 = torch.unsqueeze(pc1.min(0)[0], 0)
-            min1 = min0
-        elif pc1.shape[0] == 0:
-            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
-            min1 = min0
-        else:
-            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
-            min1 = torch.unsqueeze(pc1.min(0)[0], 0)
+        # Load first point cloud
+        pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
+        assert pc0.size(1) == 4, f"{pc0.shape=}"
+        pc0 = pc0[:, :3]
         
-        minG = torch.cat((min0, min1), axis=0).min(0)[0]
+        # Load second point cloud
+        pc = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
+        assert pc.size(1) == 4, f"{pc.shape=}"
+        pc1 = pc[:, :3]
+        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
         
-        if pc0.shape[0] > 0:
-            pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
-            pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
-            pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
+        # Convert to correct types
+        pc0 = pc0.type(torch.float32)
+        pc1 = pc1.type(torch.float32)
+        change_map = change_map.type(torch.int64)
         
-        if pc1.shape[0] > 0:
-            pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
-            pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
-            pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
+        # Build KDTrees and return data
+        data = {
+            'pc_0': pc0,
+            'pc_1': pc1,
+            'change_map': change_map,
+            'kdtree_0': KDTree(np.asarray(pc0), leaf_size=10),
+            'kdtree_1': KDTree(np.asarray(pc1), leaf_size=10),
+        }
+        return data
 
     def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int, apply_transform: bool = False) -> Dict[str, torch.Tensor]:
         """Apply cylindrical sampling and optional transformations.
@@ -496,3 +457,39 @@ class Urb3DCDDataset(BaseDataset):
         print(f"  pc_0 shape: {result['pc_0'].shape}")
         print(f"  pc_1 shape: {result['pc_1'].shape}")
         return result
+
+    def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
+        """Normalize point clouds by centering them at the origin.
+
+        Args:
+            pc0: First point cloud (N, 3)
+            pc1: Second point cloud (M, 3)
+
+        Raises:
+            ValueError: If both point clouds are empty.
+        """
+        if pc0.shape[0] == 0 and pc1.shape[0] == 0:
+            raise ValueError("Cannot normalize: both point clouds are empty")
+        
+        # If one point cloud is empty, use the other's min values
+        if pc0.shape[0] == 0:
+            min0 = torch.unsqueeze(pc1.min(0)[0], 0)
+            min1 = min0
+        elif pc1.shape[0] == 0:
+            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
+            min1 = min0
+        else:
+            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
+            min1 = torch.unsqueeze(pc1.min(0)[0], 0)
+        
+        minG = torch.cat((min0, min1), axis=0).min(0)[0]
+        
+        if pc0.shape[0] > 0:
+            pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
+            pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
+            pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
+        
+        if pc1.shape[0] > 0:
+            pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
+            pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
+            pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
