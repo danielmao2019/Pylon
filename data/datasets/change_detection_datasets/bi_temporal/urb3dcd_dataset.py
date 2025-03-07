@@ -90,7 +90,7 @@ class Urb3DCDDataset(BaseDataset):
 
     def _prepare_random_sampling(self):
         """Prepares centers for random sampling."""
-        self._centres_for_sampling = []
+        self._centers_for_sampling = []
         
         for idx in range(len(self.annotations)):
             data = self._load_point_cloud_pair(idx)
@@ -105,20 +105,20 @@ class Urb3DCDDataset(BaseDataset):
             sampled_data = self._grid_sampling(data_dict)
             
             # Create a single dictionary for all sampled points
-            centres = {
+            centers = {
                 'pos': sampled_data['pos'],
                 'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
                 'change_map': sampled_data['change_map']
             }
-            self._centres_for_sampling.append(centres)
+            self._centers_for_sampling.append(centers)
         
         # Convert to tensors for efficient indexing
-        all_pos = torch.cat([c['pos'] for c in self._centres_for_sampling], dim=0)
-        all_idx = torch.cat([c['idx'] for c in self._centres_for_sampling], dim=0)
-        all_change_map = torch.cat([c['change_map'] for c in self._centres_for_sampling], dim=0)
+        all_pos = torch.cat([c['pos'] for c in self._centers_for_sampling], dim=0)
+        all_idx = torch.cat([c['idx'] for c in self._centers_for_sampling], dim=0)
+        all_change_map = torch.cat([c['change_map'] for c in self._centers_for_sampling], dim=0)
         
         # Store as a single dictionary
-        self._centres_for_sampling = {
+        self._centers_for_sampling = {
             'pos': all_pos,
             'idx': all_idx,
             'change_map': all_change_map
@@ -140,13 +140,13 @@ class Urb3DCDDataset(BaseDataset):
         chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
         unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
         
-        self._centres_for_sampling_fixed = []
+        self._centers_for_sampling_fixed = []
         for label, count in zip(unique_labels, label_counts):
-            valid_centres = self._centres_for_sampling['pos'][self._centres_for_sampling['change_map'] == label]
-            selected_idx = np.random.randint(low=0, high=valid_centres.shape[0], size=(count,))
-            self._centres_for_sampling_fixed.append(valid_centres[selected_idx])
+            valid_centers = self._centers_for_sampling['pos'][self._centers_for_sampling['change_map'] == label]
+            selected_idx = np.random.randint(low=0, high=valid_centers.shape[0], size=(count,))
+            self._centers_for_sampling_fixed.append(valid_centers[selected_idx])
         
-        self._centres_for_sampling_fixed = torch.cat(self._centres_for_sampling_fixed, 0)
+        self._centers_for_sampling_fixed = torch.cat(self._centers_for_sampling_fixed, 0)
     
     def _prepare_grid_sampling(self):
         """Prepares centers for regular grid sampling."""
@@ -164,10 +164,10 @@ class Urb3DCDDataset(BaseDataset):
             sampled_data = self._grid_sampling(data_dict)
             
             # Create centers with sampled positions and index
-            centres = torch.empty((sampled_data['pos'].shape[0], 4), dtype=torch.float32)
-            centres[:, :3] = sampled_data['pos']
-            centres[:, 3] = idx  # Store datapoint index
-            self.grid_regular_centers.append(centres)
+            centers = torch.empty((sampled_data['pos'].shape[0], 4), dtype=torch.float32)
+            centers[:, :3] = sampled_data['pos']
+            centers[:, 3] = idx  # Store datapoint index
+            self.grid_regular_centers.append(centers)
         
         self.grid_regular_centers = torch.cat(self.grid_regular_centers, 0)
     
@@ -253,11 +253,11 @@ class Urb3DCDDataset(BaseDataset):
 
     def _get_fixed_sample(self, idx):
         """Retrieves a fixed sample without normalization."""
-        while idx < self._centres_for_sampling_fixed.shape[0]:
-            centre, sample_idx = self._extract_centre_info(self._centres_for_sampling_fixed, idx)
+        while idx < self._centers_for_sampling_fixed.shape[0]:
+            center, sample_idx = self._extract_center_info(self._centers_for_sampling_fixed, idx)
             data = self._load_point_cloud_pair(sample_idx)
             
-            sample = self._sample_cylinder(data, centre, sample_idx)
+            sample = self._sample_cylinder(data, center, sample_idx)
 
             if sample:
                 return sample
@@ -268,10 +268,10 @@ class Urb3DCDDataset(BaseDataset):
     def _get_regular_sample(self, idx):
         """Retrieves a regular sample without normalization."""
         while idx < self.grid_regular_centers.shape[0]:
-            centre, sample_idx = self._extract_centre_info(self.grid_regular_centers, idx)
+            center, sample_idx = self._extract_center_info(self.grid_regular_centers, idx)
             data = self._load_point_cloud_pair(sample_idx)
             
-            sample = self._sample_cylinder(data, centre, sample_idx, apply_transform=True)
+            sample = self._sample_cylinder(data, center, sample_idx, apply_transform=True)
 
             if sample:
                 return sample
@@ -283,21 +283,21 @@ class Urb3DCDDataset(BaseDataset):
     def _get_random(self):
         """Randomly selects a sample without normalization."""
         chosen_label = np.random.choice(self._labels, p=self._label_counts)
-        valid_centres = self._centres_for_sampling['pos'][self._centres_for_sampling['change_map'] == chosen_label]
+        valid_centers = self._centers_for_sampling['pos'][self._centers_for_sampling['change_map'] == chosen_label]
 
-        if valid_centres.shape[0] == 0:
+        if valid_centers.shape[0] == 0:
             return None
 
-        centre_idx = int(random.random() * (valid_centres.shape[0] - 1))
-        centre = valid_centres[centre_idx]
-        sample_idx = centre[3].int()
+        center_idx = int(random.random() * (valid_centers.shape[0] - 1))
+        center = valid_centers[center_idx]
+        sample_idx = center[3].int()
         data = self._load_point_cloud_pair(sample_idx)
         
-        return self._sample_cylinder(data, centre[:3], sample_idx, apply_transform=True)
+        return self._sample_cylinder(data, center[:3], sample_idx, apply_transform=True)
 
-    def _sample_cylinder(self, data, centre, idx, apply_transform=False):
+    def _sample_cylinder(self, data, center, idx, apply_transform=False):
         """Applies cylindrical sampling and optional transformations."""
-        cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
+        cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
         
         # Create data dictionaries for both point clouds
         data_dict_0 = {'pos': data['pc_0']}
@@ -319,8 +319,8 @@ class Urb3DCDDataset(BaseDataset):
             'idx': idx
         }
 
-    def _extract_centre_info(self, centres, idx):
+    def _extract_center_info(self, centers, idx):
         """Extracts center position and datapoint index from the given array."""
-        centre = centres[idx, :3]
-        sample_idx = centres[idx, 3].int()
-        return centre, sample_idx
+        center = centers[idx, :3]
+        sample_idx = centers[idx, 3].int()
+        return center, sample_idx
