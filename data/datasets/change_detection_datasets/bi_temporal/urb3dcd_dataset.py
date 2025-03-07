@@ -164,12 +164,12 @@ class Urb3DCDDataset(BaseDataset):
             - pc_0_filepath: File path for first point cloud
             - pc_1_filepath: File path for second point cloud
         """
-        torch.manual_seed(1)
-        chosen_labels = torch.multinomial(self._label_counts, self._sample_per_epoch, replacement=True)
-        unique_labels, label_counts = torch.unique(chosen_labels, return_counts=True)
+        random.seed(1)
+        chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
+        unique_labels, counts = torch.unique(torch.tensor(chosen_labels), return_counts=True)
         
         fixed_centers = []
-        for label, count in zip(unique_labels, label_counts):
+        for label, count in zip(unique_labels, counts):
             mask = all_centers['change_map'] == label
             valid_pos = all_centers['pos'][mask]
             valid_idx = all_centers['idx'][mask]
@@ -197,8 +197,8 @@ class Urb3DCDDataset(BaseDataset):
             - pc_0_filepath: File path for first point cloud
             - pc_1_filepath: File path for second point cloud
         """
-        torch.manual_seed(1)
-        chosen_labels = torch.multinomial(self._label_counts, self._sample_per_epoch, replacement=True)
+        random.seed(1)
+        chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
         random_centers = []
         for label in chosen_labels:
             mask = all_centers['change_map'] == label
