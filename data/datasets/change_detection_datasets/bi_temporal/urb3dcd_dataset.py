@@ -294,7 +294,7 @@ class Urb3DCDDataset(BaseDataset):
         return len(self.annotations)
 
     def _load_datapoint(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Try to get a valid datapoint with non-empty point clouds.
+        """Load a datapoint for the parent class interface.
         
         If the sampled point clouds are empty, it will try different sampling locations
         until it finds a valid sample or reaches the maximum number of attempts.
@@ -313,72 +313,103 @@ class Urb3DCDDataset(BaseDataset):
         attempts = 0
         
         while attempts < max_attempts:
-            try:
-                # Get center info
-                center_info = self.annotations[idx]
+            print(f"Attempt {attempts+1}/{max_attempts}: Loading datapoint from index {idx}")
+            
+            # Get center info
+            center_info = self.annotations[idx]
+            
+            # Load point clouds
+            data = self._load_point_cloud_pair(idx)
+            
+            # Sample cylinder
+            sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
                 
-                # Load point clouds
-                data = self._load_point_cloud_pair(idx)
-                
-                # Sample cylinder
-                sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
-                    
-                if sample is None:
-                    raise ValueError(f"Failed to load datapoint at index {idx}")
-                
-                pc0, pc1 = sample['pc_0'], sample['pc_1']
-                
-                # Check if point clouds are empty
-                if pc0.size(0) == 0 or pc1.size(0) == 0:
-                    print(f"Attempt {attempts+1}: Sampled empty point cloud. pc_0: {pc0.size(0)} points, pc_1: {pc1.size(0)} points")
-                    # Try another random index
-                    if len(self.annotations) > 1:
-                        idx = random.randint(0, len(self.annotations) - 1)
-                        while idx == original_idx and len(self.annotations) > 1:
-                            idx = random.randint(0, len(self.annotations) - 1)
-                        attempts += 1
-                        continue
-                    else:
-                        # If there's only one annotation, try with different center positions
-                        center_info['pos'] = center_info['pos'] + torch.randn_like(center_info['pos']) * self._radius * 0.5
-                        attempts += 1
-                        continue
-                
-                # Normalize point clouds
-                self._normalize(pc0, pc1)
-                
-                # Prepare return values in format expected by parent class
-                inputs = {
-                    'pc_0': pc0,
-                    'pc_1': pc1,
-                    'kdtree_0': data['kdtree_0'],
-                    'kdtree_1': data['kdtree_1'],
-                }
-                labels = {
-                    'change_map': sample['change_map'],
-                }
-                meta_info = {
-                    'pc_0_filepath': center_info['pc_0_filepath'],
-                    'pc_1_filepath': center_info['pc_1_filepath'],
-                    'point_idx_pc0': sample['point_idx_pc0'],
-                    'point_idx_pc1': sample['point_idx_pc1'],
-                    'idx': sample['idx']
-                }
-                return inputs, labels, meta_info
-            except Exception as e:
-                print(f"Attempt {attempts+1} failed: {e}")
-                attempts += 1
+            if sample is None:
+                print(f"Failed to sample cylinder at index {idx}")
                 # Try another random index
                 if len(self.annotations) > 1:
                     idx = random.randint(0, len(self.annotations) - 1)
-                    while idx == original_idx and len(self.annotations) > 1:
-                        idx = random.randint(0, len(self.annotations) - 1)
+                attempts += 1
+                continue
+            
+            pc0, pc1 = sample['pc_0'], sample['pc_1']
+            change_map = sample['change_map']
+            
+            # Validate the datapoint
+            if not self._is_valid_datapoint(pc0, pc1, change_map):
+                print(f"Validation failed for index {idx}")
+                # Pick another random index
+                if len(self.annotations) > 1:
+                    new_idx = random.randint(0, len(self.annotations) - 1)
+                    # Try to get a different index if possible
+                    while new_idx == idx and len(self.annotations) > 1:
+                        new_idx = random.randint(0, len(self.annotations) - 1)
+                    idx = new_idx
                 else:
                     # If there's only one annotation, try with different center positions
-                    center_info = self.annotations[idx].copy()
                     center_info['pos'] = center_info['pos'] + torch.randn_like(center_info['pos']) * self._radius * 0.5
+                
+                attempts += 1
+                continue
+            
+            # Normalize point clouds
+            self._normalize(pc0, pc1)
+            
+            # Prepare return values in format expected by parent class
+            inputs = {
+                'pc_0': pc0,
+                'pc_1': pc1,
+                'kdtree_0': data['kdtree_0'],
+                'kdtree_1': data['kdtree_1'],
+            }
+            labels = {
+                'change_map': change_map,
+            }
+            meta_info = {
+                'pc_0_filepath': center_info['pc_0_filepath'],
+                'pc_1_filepath': center_info['pc_1_filepath'],
+                'point_idx_pc0': sample['point_idx_pc0'],
+                'point_idx_pc1': sample['point_idx_pc1'],
+                'idx': sample['idx']
+            }
+            print(f"Successfully loaded valid datapoint from index {idx}")
+            return inputs, labels, meta_info
         
         raise ValueError(f"Failed to find valid datapoint after {max_attempts} attempts starting from index {original_idx}")
+
+    def _is_valid_datapoint(self, pc0: torch.Tensor, pc1: torch.Tensor, change_map: torch.Tensor) -> bool:
+        """Check if a datapoint is valid.
+        
+        A datapoint is valid if both point clouds and the change map are not empty.
+        
+        Args:
+            pc0: First point cloud.
+            pc1: Second point cloud.
+            change_map: Change map labels.
+            
+        Returns:
+            True if the datapoint is valid, False otherwise.
+        """
+        if pc0.size(0) == 0:
+            print(f"Invalid datapoint: First point cloud (pc_0) is empty with {pc0.size(0)} points")
+            return False
+            
+        if pc1.size(0) == 0:
+            print(f"Invalid datapoint: Second point cloud (pc_1) is empty with {pc1.size(0)} points")
+            return False
+            
+        if change_map.size(0) == 0:
+            print(f"Invalid datapoint: Change map is empty with {change_map.size(0)} points")
+            return False
+            
+        # If we have at least some minimum number of points, consider it valid
+        # This threshold can be adjusted based on requirements
+        min_points = 5
+        if pc0.size(0) < min_points or pc1.size(0) < min_points:
+            print(f"Invalid datapoint: Not enough points. pc_0: {pc0.size(0)} points, pc_1: {pc1.size(0)} points")
+            return False
+            
+        return True
 
     def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
         """Normalize point clouds by centering them at the origin.
