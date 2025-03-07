@@ -1,5 +1,7 @@
-from typing import Optional
+from typing import Dict, Any, Optional
 import torch
+import numpy as np
+from sklearn.neighbors import KDTree
 
 
 def consecutive_cluster(src):
@@ -68,58 +70,64 @@ def grid_cluster(
     return cluster
 
 
-def group_data(points, cluster, unique_pos_indices, mode="mean"):
-    """Group points based on cluster indices.
+def group_data(data_dict: Dict[str, torch.Tensor], cluster=None, unique_pos_indices=None, mode="last"):
+    """Group data based on indices in cluster.
     
     Parameters
     ----------
-    points : torch.Tensor
-        Input points
+    data_dict : Dict[str, torch.Tensor]
+        Dictionary containing tensors to be grouped
     cluster : torch.Tensor
         Cluster indices for each point
     unique_pos_indices : torch.Tensor
         Indices to select points for 'last' mode
     mode : str
         'mean' or 'last'
-        
-    Returns
-    -------
-    torch.Tensor
-        Grouped points
     """
+    assert mode in ["mean", "last"]
+    if mode == "mean" and cluster is None:
+        raise ValueError("In mean mode the cluster argument needs to be specified")
+    if mode == "last" and unique_pos_indices is None:
+        raise ValueError("In last mode the unique_pos_indices argument needs to be specified")
+
+    result_dict = {}
+    
+    # Handle positions (continuous data)
+    pos = data_dict['pos']
     if mode == "last":
-        return points[unique_pos_indices]
-    elif mode == "mean":
-        # Manual mean computation using scatter_add
+        result_dict['pos'] = pos[unique_pos_indices]
+    else:  # mode == "mean"
         num_clusters = cluster.max().item() + 1
-        sum_points = torch.zeros((num_clusters, points.shape[1]), dtype=points.dtype, device=points.device)
-        counts = torch.zeros(num_clusters, dtype=points.dtype, device=points.device)
-        
-        # Sum points in each cluster
-        for i in range(points.shape[0]):
-            c = cluster[i]
-            sum_points[c] += points[i]
-            counts[c] += 1
-            
-        # Compute means
-        means = sum_points / counts.unsqueeze(1)
-        return means
-    else:
-        raise ValueError(f"Mode {mode} not supported")
+        summed = torch.zeros((num_clusters, pos.size(1)),
+                          dtype=pos.dtype, device=pos.device)
+        counts = torch.zeros(num_clusters, dtype=torch.float, device=pos.device)
+        for i in range(pos.size(0)):
+            summed[cluster[i]] += pos[i]
+            counts[cluster[i]] += 1
+        result_dict['pos'] = summed / counts.unsqueeze(1)
+    
+    # Handle change map if present (categorical data)
+    if 'change_map' in data_dict:
+        change_map = data_dict['change_map']
+        if mode == "last":
+            result_dict['change_map'] = change_map[unique_pos_indices]
+        else:  # mode == "mean"
+            num_clusters = cluster.max().item() + 1
+            change_min = change_map.min()
+            one_hot = torch.zeros((change_map.size(0), change_map.max() - change_min + 1),
+                               device=change_map.device)
+            one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
+            summed = torch.zeros((num_clusters, one_hot.size(1)),
+                              device=change_map.device)
+            for i in range(change_map.size(0)):
+                summed[cluster[i]] += one_hot[i]
+            result_dict['change_map'] = summed.argmax(dim=1) + change_min
+
+    return result_dict
 
 
 class GridSampling3D:
-    """Clusters points into voxels with size :attr:`size`.
-    
-    Parameters
-    ----------
-    size: float
-        Size of a voxel (in each dimension).
-    mode: string
-        The mode can be either `last` or `mean`.
-        If mode is `mean`, all the points within a cell will be averaged
-        If mode is `last`, one point per cell will be selected
-    """
+    """Clusters points into voxels with specified size."""
 
     def __init__(self, size, mode="mean"):
         self._grid_size = size
@@ -127,22 +135,23 @@ class GridSampling3D:
         if mode not in ["mean", "last"]:
             raise ValueError(f"Mode {mode} not supported. Use 'mean' or 'last'")
 
-    def __call__(self, points: torch.Tensor) -> torch.Tensor:
-        """Sample points by grouping them into voxels.
+    def __call__(self, data_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """Sample points and associated data by grouping them into voxels.
 
         Parameters
         ----------
-        points : torch.Tensor
-            Input points of shape (N, 3) or (N, D) where D >= 3
+        data_dict : Dict[str, torch.Tensor]
+            Dictionary containing points and attributes
 
         Returns
         -------
-        torch.Tensor
-            Sampled points
+        Dict[str, torch.Tensor]
+            Sampled data dictionary
         """
-        if not isinstance(points, torch.Tensor):
-            points = torch.tensor(points)
+        if 'pos' not in data_dict:
+            raise ValueError("Data dictionary must have 'pos' key")
         
+        points = data_dict['pos']
         if points.shape[1] < 3:
             raise ValueError("Points must have at least 3 dimensions (x, y, z)")
 
@@ -157,10 +166,8 @@ class GridSampling3D:
         # Get consecutive cluster indices and permutation
         cluster, unique_pos_indices = consecutive_cluster(cluster)
         
-        # Group points using the provided logic
-        sampled_points = group_data(points, cluster, unique_pos_indices, mode=self._mode)
-        
-        return sampled_points
+        # Group all data attributes
+        return group_data(data_dict, cluster, unique_pos_indices, mode=self._mode)
 
     def __repr__(self):
         return "{}(grid_size={}, mode={})".format(

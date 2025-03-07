@@ -94,15 +94,38 @@ class Urb3DCDDataset(BaseDataset):
         
         for idx in range(len(self.annotations)):
             data = self._load_point_cloud_pair(idx)
-            low_res = self._grid_sampling(data['pc_1'])
-            centres = torch.empty((low_res.shape[0], 5), dtype=torch.float32)
-            centres[:, :3] = low_res
-            centres[:, 3] = idx  # Store datapoint index
-            centres[:, 4] = data['change_map']
+            
+            # Create data dictionary for grid sampling
+            data_dict = {
+                'pos': data['pc_1'],
+                'change_map': data['change_map']
+            }
+            
+            # Apply grid sampling
+            sampled_data = self._grid_sampling(data_dict)
+            
+            # Create a single dictionary for all sampled points
+            centres = {
+                'pos': sampled_data['pos'],
+                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
+                'change_map': sampled_data['change_map']
+            }
             self._centres_for_sampling.append(centres)
         
-        self._centres_for_sampling = torch.cat(self._centres_for_sampling, 0)
-        labels, label_counts = np.unique(self._centres_for_sampling[:, -1].numpy(), return_counts=True)
+        # Convert to tensors for efficient indexing
+        all_pos = torch.cat([c['pos'] for c in self._centres_for_sampling], dim=0)
+        all_idx = torch.cat([c['idx'] for c in self._centres_for_sampling], dim=0)
+        all_change_map = torch.cat([c['change_map'] for c in self._centres_for_sampling], dim=0)
+        
+        # Store as a single dictionary
+        self._centres_for_sampling = {
+            'pos': all_pos,
+            'idx': all_idx,
+            'change_map': all_change_map
+        }
+        
+        # Calculate label statistics
+        labels, label_counts = np.unique(all_change_map.numpy(), return_counts=True)
         self._label_counts = np.sqrt(label_counts.mean() / label_counts)
         self._label_counts /= np.sum(self._label_counts)
         self._labels = labels
@@ -119,7 +142,7 @@ class Urb3DCDDataset(BaseDataset):
         
         self._centres_for_sampling_fixed = []
         for label, count in zip(unique_labels, label_counts):
-            valid_centres = self._centres_for_sampling[self._centres_for_sampling[:, -1] == label]
+            valid_centres = self._centres_for_sampling['pos'][self._centres_for_sampling['change_map'] == label]
             selected_idx = np.random.randint(low=0, high=valid_centres.shape[0], size=(count,))
             self._centres_for_sampling_fixed.append(valid_centres[selected_idx])
         
@@ -252,7 +275,7 @@ class Urb3DCDDataset(BaseDataset):
     def _get_random(self):
         """Randomly selects a sample without normalization."""
         chosen_label = np.random.choice(self._labels, p=self._label_counts)
-        valid_centres = self._centres_for_sampling[self._centres_for_sampling[:, 4] == chosen_label]
+        valid_centres = self._centres_for_sampling['pos'][self._centres_for_sampling['change_map'] == chosen_label]
 
         if valid_centres.shape[0] == 0:
             return None
@@ -267,17 +290,24 @@ class Urb3DCDDataset(BaseDataset):
     def _sample_cylinder(self, data, centre, idx, apply_transform=False):
         """Applies cylindrical sampling and optional transformations."""
         cylinder_sampler = CylinderSampling(self._radius, centre, align_origin=False)
-
+        
+        # Create data dictionaries for both point clouds
+        data_dict_0 = {'pos': data['pc_0']}
+        data_dict_1 = {
+            'pos': data['pc_1'],
+            'change_map': data['change_map']
+        }
+        
         # Sample points using the KDTrees
-        point_idx_pc0 = cylinder_sampler(data['kdtree_0'], data['pc_0'])
-        point_idx_pc1 = cylinder_sampler(data['kdtree_1'], data['pc_1'])
-
+        sampled_data_0 = cylinder_sampler(data['kdtree_0'], data_dict_0)
+        sampled_data_1 = cylinder_sampler(data['kdtree_1'], data_dict_1)
+        
         return {
-            'pc_0': data['pc_0'][point_idx_pc0], 
-            'pc_1': data['pc_1'][point_idx_pc1], 
-            'change_map': data['change_map'][point_idx_pc1],
-            'point_idx_pc0': point_idx_pc0, 
-            'point_idx_pc1': point_idx_pc1, 
+            'pc_0': sampled_data_0['pos'],
+            'pc_1': sampled_data_1['pos'],
+            'change_map': sampled_data_1['change_map'],
+            'point_idx_pc0': sampled_data_0['point_idx'],
+            'point_idx_pc1': sampled_data_1['point_idx'],
             'idx': idx
         }
 

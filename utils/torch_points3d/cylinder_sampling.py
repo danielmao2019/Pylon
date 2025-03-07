@@ -1,50 +1,53 @@
-import numpy as np
+from typing import Dict
 import torch
+import numpy as np
 from sklearn.neighbors import KDTree
 
 
 class CylinderSampling:
-    """ Samples points within a cylinder
+    """Sample points within a cylinder."""
 
-    Parameters
-    ----------
-    radius : float
-        Radius of the cylinder
-    cylinder_centre : torch.Tensor or np.array
-        Centre of the cylinder (1D array that contains (x,y,z))
-    align_origin : bool, optional
-        move resulting point cloud to origin
-    """
-
-    def __init__(self, radius, cylinder_centre, align_origin=False):
+    def __init__(self, radius, centre, align_origin=True):
         self._radius = radius
-        self._centre = np.asarray(cylinder_centre)
-        if len(self._centre.shape) == 1:
-            self._centre = np.expand_dims(self._centre, 0)
+        self._centre = np.asarray(centre).reshape(1, -1)
         self._align_origin = align_origin
 
-    def __call__(self, kdtree: KDTree, points: torch.Tensor) -> torch.Tensor:
-        """Sample points within the cylinder using a KDTree
+    def __call__(self, kdtree: KDTree, data_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        """Sample points within the cylinder.
 
         Parameters
         ----------
         kdtree : KDTree
-            KDTree built from points
-        points : torch.Tensor
-            Points to sample from
+            KDTree built from the points
+        data_dict : Dict[str, torch.Tensor]
+            Dictionary containing points and attributes
 
         Returns
         -------
-        torch.Tensor
-            Indices of points within the cylinder
+        Dict[str, torch.Tensor]
+            Sampled data dictionary
         """
-        # Get indices of points within radius
+        if 'pos' not in data_dict:
+            raise ValueError("Data dictionary must have 'pos' key")
+
+        # Query points within radius
         indices = torch.LongTensor(kdtree.query_radius(self._centre, r=self._radius)[0])
         
-        if self._align_origin and len(indices) > 0:
-            points[indices] = points[indices] - torch.FloatTensor(self._centre)
-            
-        return indices
+        # Sample position data
+        pos = data_dict['pos']
+        sampled_pos = pos[indices]
+        if self._align_origin:
+            t_center = torch.FloatTensor(self._centre)
+            sampled_pos = sampled_pos.clone()
+            sampled_pos[:, :self._centre.shape[1]] -= t_center
+        
+        result_dict = {'pos': sampled_pos}
+        
+        # Sample change map if present
+        if 'change_map' in data_dict:
+            result_dict['change_map'] = data_dict['change_map'][indices]
+        results_dict['point_idx'] = indices
+        return result_dict
 
     def __repr__(self):
         return "{}(radius={}, center={}, align_origin={})".format(
