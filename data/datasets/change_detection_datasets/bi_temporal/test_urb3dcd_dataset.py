@@ -1,9 +1,11 @@
+from typing import Dict, Any, List, Optional, Union, Tuple
 import pytest
 import torch
+from sklearn.neighbors import KDTree
 from .urb3dcd_dataset import Urb3DCDDataset
 
 
-def _validate_point_cloud(pc: torch.Tensor, name: str):
+def _validate_point_cloud(pc: torch.Tensor, name: str) -> None:
     """Validate a point cloud tensor."""
     assert isinstance(pc, torch.Tensor), f"{name} should be a torch.Tensor"
     assert pc.ndim == 2, f"{name} should have 2 dimensions (N x 3), got {pc.ndim}"
@@ -11,13 +13,12 @@ def _validate_point_cloud(pc: torch.Tensor, name: str):
     assert pc.dtype == torch.float, f"{name} should be of dtype torch.float"
 
 
-def _validate_kdtree(kdtree, name: str):
+def _validate_kdtree(kdtree: KDTree, name: str) -> None:
     """Validate a KDTree object."""
-    from sklearn.neighbors import KDTree
     assert isinstance(kdtree, KDTree), f"{name} should be a sklearn.neighbors.KDTree"
 
 
-def _validate_change_map(change_map: torch.Tensor):
+def _validate_change_map(change_map: torch.Tensor) -> None:
     """Validate the change map tensor."""
     assert isinstance(change_map, torch.Tensor), "change_map should be a torch.Tensor"
     assert change_map.dtype == torch.long, "change_map should be of dtype torch.long"
@@ -26,7 +27,7 @@ def _validate_change_map(change_map: torch.Tensor):
         f"Unexpected values in change_map: {unique_values}"
 
 
-def _validate_point_count_consistency(pc1: torch.Tensor, change_map: torch.Tensor):
+def _validate_point_count_consistency(pc1: torch.Tensor, change_map: torch.Tensor) -> None:
     """Validate that pc_1 and change_map have the same number of points."""
     assert pc1.size(0) == change_map.size(0), (
         f"Number of points in pc_1 ({pc1.size(0)}) does not match "
@@ -39,7 +40,7 @@ def _validate_point_count_consistency(pc1: torch.Tensor, change_map: torch.Tenso
     {"sample_per_epoch": 0, "radius": 2, "fix_samples": False},  # Grid sampling mode
     {"sample_per_epoch": 100, "radius": 2, "fix_samples": True},  # Fixed sampling mode
 ])
-def test_urb3dcd_dataset(dataset_params):
+def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> None:
     """Test the Urb3DCDDataset class."""
     # Create a dataset instance
     print("Initializing dataset...")
@@ -87,20 +88,20 @@ def test_urb3dcd_dataset(dataset_params):
 
 
 @pytest.mark.parametrize("radius", [1.0, 2.0, 3.0])
-def test_sampling_radius(radius, tmp_path):
+def test_sampling_radius(radius: float) -> None:
     """Test that sampling radius parameter is respected."""
     dataset = Urb3DCDDataset(
-        data_root=str(tmp_path),
+        data_root="./data/datasets/soft_links/Urb3DCD",
         sample_per_epoch=100,
         radius=radius
     )
     assert dataset._radius == radius
 
 
-def test_fixed_samples_consistency(tmp_path):
+def test_fixed_samples_consistency() -> None:
     """Test that fixed sampling mode produces consistent results."""
     dataset = Urb3DCDDataset(
-        data_root=str(tmp_path),
+        data_root="./data/datasets/soft_links/Urb3DCD",
         sample_per_epoch=100,
         fix_samples=True
     )
@@ -120,10 +121,10 @@ def test_fixed_samples_consistency(tmp_path):
         assert torch.equal(labels1['change_map'], labels2['change_map'])
 
 
-def test_grid_sampling_mode(tmp_path):
+def test_grid_sampling_mode() -> None:
     """Test grid sampling mode (sample_per_epoch=0)."""
     dataset = Urb3DCDDataset(
-        data_root=str(tmp_path),
+        data_root="./data/datasets/soft_links/Urb3DCD",
         sample_per_epoch=0,
         radius=2
     )
