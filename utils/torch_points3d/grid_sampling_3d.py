@@ -2,37 +2,6 @@ from typing import Optional
 import torch
 
 
-def grid_cluster(
-    pos: torch.Tensor,
-    size: torch.Tensor,
-    start: Optional[torch.Tensor] = None,
-    end: Optional[torch.Tensor] = None,
-) -> torch.Tensor:
-    """A clustering algorithm, which overlays a regular grid of user-defined
-    size over a point cloud and clusters all points within a voxel.
-
-    Args:
-        pos (Tensor): D-dimensional position of points.
-        size (Tensor): Size of a voxel in each dimension.
-        start (Tensor, optional): Start position of the grid (in each
-            dimension). (default: :obj:`None`)
-        end (Tensor, optional): End position of the grid (in each
-            dimension). (default: :obj:`None`)
-
-    :rtype: :class:`LongTensor`
-
-    .. code-block:: python
-
-        import torch
-        from torch_cluster import grid_cluster
-
-        pos = torch.Tensor([[0, 0], [11, 9], [2, 8], [2, 2], [8, 3]])
-        size = torch.Tensor([5, 5])
-        cluster = grid_cluster(pos, size)
-    """
-    return torch.ops.torch_cluster.grid(pos, size, start, end)
-
-
 def consecutive_cluster(src):
     """Convert a cluster index tensor to consecutive indices.
     
@@ -52,6 +21,47 @@ def consecutive_cluster(src):
     perm = torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device)
     perm = inv.new_empty(unique.size(0)).scatter_(0, inv, perm)
     return inv, perm
+
+
+def grid_cluster(
+    pos: torch.Tensor,
+    size: torch.Tensor,
+    start: Optional[torch.Tensor] = None,
+    end: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    """A clustering algorithm, which overlays a regular grid of user-defined
+    size over a point cloud and clusters all points within a voxel.
+
+    Args:
+        pos (Tensor): D-dimensional position of points
+        size (Tensor): Size of a voxel in each dimension
+        start (Tensor, optional): Start position of the grid (in each dimension)
+        end (Tensor, optional): End position of the grid (in each dimension)
+
+    Returns:
+        Tensor: Cluster indices for each point
+    """
+    # If start/end not provided, compute them from point cloud bounds
+    if start is None:
+        start = pos.min(dim=0)[0]
+    if end is None:
+        end = pos.max(dim=0)[0]
+
+    # Shift points to start at origin
+    pos = pos - start
+
+    # Get grid coordinates for each point
+    grid_coords = torch.div(pos, size, rounding_mode='floor').long()
+
+    # Compute cluster index using grid coordinates
+    # Use different multipliers for each dimension to ensure unique indices
+    multipliers = torch.tensor([1, 100000, 10000000000], 
+                             dtype=torch.long, 
+                             device=pos.device)[:grid_coords.shape[1]]
+    
+    cluster = (grid_coords * multipliers).sum(dim=1)
+    
+    return cluster
 
 
 def group_data(points, cluster, unique_pos_indices, mode="mean"):
@@ -132,11 +142,13 @@ class GridSampling3D:
         if points.shape[1] < 3:
             raise ValueError("Points must have at least 3 dimensions (x, y, z)")
 
-        # Round coordinates to grid
-        coords = points[:, :3] / self._grid_size
-        
         # Get cluster indices using grid_cluster
-        cluster = grid_cluster(coords, torch.tensor([1., 1., 1.]))
+        cluster = grid_cluster(
+            points[:, :3],
+            torch.tensor([self._grid_size, self._grid_size, self._grid_size], 
+                        dtype=points.dtype, 
+                        device=points.device)
+        )
         
         # Get consecutive cluster indices and permutation
         cluster, unique_pos_indices = consecutive_cluster(cluster)
