@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Union
 import torch
 import numpy as np
 from sklearn.neighbors import KDTree
@@ -7,7 +7,7 @@ from sklearn.neighbors import KDTree
 class CylinderSampling:
     """Sample points within a cylinder."""
 
-    def __init__(self, radius, center, align_origin=True):
+    def __init__(self, radius: float, center: Union[torch.Tensor, np.ndarray], align_origin: bool = True) -> None:
         self._radius = radius
         self._center = np.asarray(center).reshape(1, -1)
         self._align_origin = align_origin
@@ -52,7 +52,7 @@ class CylinderSampling:
 
         return result_dict
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{}(radius={}, center={}, align_origin={})".format(
             self.__class__.__name__, self._radius, self._center, self._align_origin
         )

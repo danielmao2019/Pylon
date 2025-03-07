@@ -1,10 +1,10 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 import torch
 import numpy as np
 from sklearn.neighbors import KDTree
 
 
-def consecutive_cluster(src):
+def consecutive_cluster(src: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Convert a cluster index tensor to consecutive indices.
     
     Parameters
@@ -70,7 +70,12 @@ def grid_cluster(
     return cluster
 
 
-def group_data(data_dict: Dict[str, torch.Tensor], cluster=None, unique_pos_indices=None, mode="last"):
+def group_data(
+    data_dict: Dict[str, torch.Tensor],
+    cluster: Optional[torch.Tensor] = None,
+    unique_pos_indices: Optional[torch.Tensor] = None,
+    mode: str = "last"
+) -> Dict[str, torch.Tensor]:
     """Group data based on indices in cluster.
     
     Parameters
@@ -129,7 +134,7 @@ def group_data(data_dict: Dict[str, torch.Tensor], cluster=None, unique_pos_indi
 class GridSampling3D:
     """Clusters points into voxels with specified size."""
 
-    def __init__(self, size, mode="mean"):
+    def __init__(self, size: float, mode: str = "mean") -> None:
         self._grid_size = size
         self._mode = mode
         if mode not in ["mean", "last"]:
@@ -169,7 +174,7 @@ class GridSampling3D:
         # Group all data attributes
         return group_data(data_dict, cluster, unique_pos_indices, mode=self._mode)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "{}(grid_size={}, mode={})".format(
             self.__class__.__name__, self._grid_size, self._mode
         )

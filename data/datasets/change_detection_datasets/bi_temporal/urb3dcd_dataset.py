@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 import os
 import glob
 import random
@@ -49,7 +49,7 @@ class Urb3DCDDataset(BaseDataset):
         }
     }
 
-    def __init__(self, sample_per_epoch=100, radius=2, fix_samples=False, version=1, *args, **kwargs):
+    def __init__(self, sample_per_epoch: int = 100, radius: float = 2, fix_samples: bool = False, version: int = 1, *args, **kwargs) -> None:
         if version not in self.VERSION_MAP:
             raise ValueError(f"Version {version} is not supported. Must be one of {list(self.VERSION_MAP.keys())}")
         
@@ -81,14 +81,14 @@ class Urb3DCDDataset(BaseDataset):
         ]
         self._prepare_centers()
 
-    def _prepare_centers(self):
+    def _prepare_centers(self) -> None:
         """Prepares centers based on whether random sampling or grid sampling is used."""
         if self._sample_per_epoch > 0:
             self._prepare_random_sampling()
         else:
             self._prepare_grid_sampling()
 
-    def _prepare_random_sampling(self):
+    def _prepare_random_sampling(self) -> None:
         """Prepares centers for random sampling."""
         self._centers_for_sampling = []
         
@@ -134,7 +134,7 @@ class Urb3DCDDataset(BaseDataset):
         if self.fix_samples:
             self._prepare_fixed_sampling()
     
-    def _prepare_fixed_sampling(self):
+    def _prepare_fixed_sampling(self) -> None:
         """Fixes the sampled locations for consistency across epochs."""
         np.random.seed(1)
         chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
@@ -148,7 +148,7 @@ class Urb3DCDDataset(BaseDataset):
         
         self._centers_for_sampling_fixed = torch.cat(self._centers_for_sampling_fixed, 0)
     
-    def _prepare_grid_sampling(self):
+    def _prepare_grid_sampling(self) -> None:
         """Prepares centers for regular grid sampling."""
         self.grid_regular_centers = []
         
@@ -192,7 +192,7 @@ class Urb3DCDDataset(BaseDataset):
         }
         return data
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers['pos'].shape[0]
 
     def _load_datapoint(self, idx: int) -> Tuple[
@@ -211,7 +211,7 @@ class Urb3DCDDataset(BaseDataset):
         meta_info = self.annotations[idx].copy()
         return inputs, labels, meta_info
 
-    def clouds_loader(self, idx: int):
+    def clouds_loader(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Loads point clouds from files."""
         print("Loading " + self.annotations[idx]['pc_1_filepath'])
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
@@ -224,7 +224,7 @@ class Urb3DCDDataset(BaseDataset):
         change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
         return pc0.type(torch.float32), pc1.type(torch.float32), change_map.type(torch.int64)
 
-    def _normalize(self, pc0, pc1):
+    def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
         """Normalizes point clouds."""
         min0 = torch.unsqueeze(pc0.min(0)[0], 0)
         min1 = torch.unsqueeze(pc1.min(0)[0], 0)
@@ -236,7 +236,7 @@ class Urb3DCDDataset(BaseDataset):
         pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
         pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
 
-    def get(self, idx):
+    def get(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
         """Main method to get a sample and handle normalization in one place."""
         if self._sample_per_epoch > 0:
             sample = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
@@ -259,7 +259,7 @@ class Urb3DCDDataset(BaseDataset):
             print(f"pc_0 shape: {pc0.shape}, pc_1 shape: {pc1.shape}")
             return None
 
-    def _get_fixed_sample(self, idx):
+    def _get_fixed_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
         """Retrieves a fixed sample without normalization."""
         while idx < self._centers_for_sampling_fixed['pos'].shape[0]:
             center, sample_idx = self._extract_center_info(self._centers_for_sampling_fixed, idx)
@@ -273,7 +273,7 @@ class Urb3DCDDataset(BaseDataset):
             idx += 1
         return None
 
-    def _get_regular_sample(self, idx):
+    def _get_regular_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
         """Retrieves a regular sample without normalization."""
         while idx < self.grid_regular_centers['pos'].shape[0]:
             center, sample_idx = self._extract_center_info(self.grid_regular_centers, idx)
@@ -288,7 +288,7 @@ class Urb3DCDDataset(BaseDataset):
             idx += 1
         return None
 
-    def _get_random(self):
+    def _get_random(self) -> Optional[Dict[str, torch.Tensor]]:
         """Randomly selects a sample without normalization."""
         chosen_label = np.random.choice(self._labels, p=self._label_counts)
         mask = self._centers_for_sampling['change_map'] == chosen_label
@@ -308,7 +308,7 @@ class Urb3DCDDataset(BaseDataset):
         
         return self._sample_cylinder(data, center, sample_idx, apply_transform=True)
 
-    def _sample_cylinder(self, data, center, idx, apply_transform=False):
+    def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int, apply_transform: bool = False) -> Dict[str, torch.Tensor]:
         """Applies cylindrical sampling and optional transformations."""
         cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
         
@@ -332,7 +332,7 @@ class Urb3DCDDataset(BaseDataset):
             'idx': idx
         }
 
-    def _extract_center_info(self, centers_dict, idx):
+    def _extract_center_info(self, centers_dict: Dict[str, torch.Tensor], idx: int) -> Tuple[torch.Tensor, int]:
         """Extracts center position and datapoint index from the centers dictionary.
         
         Parameters
