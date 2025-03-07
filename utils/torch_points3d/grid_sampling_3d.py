@@ -47,19 +47,21 @@ def grid_cluster(
     if end is None:
         end = pos.max(dim=0)[0]
 
-    # Shift points to start at origin
+    # Shift points to start at origin and get grid coordinates
     pos = pos - start
-
-    # Get grid coordinates for each point
     grid_coords = torch.div(pos, size, rounding_mode='floor').long()
 
-    # Compute cluster index using grid coordinates
-    # Use different multipliers for each dimension to ensure unique indices
-    multipliers = torch.tensor([1, 100000, 10000000000], 
-                             dtype=torch.long, 
-                             device=pos.device)[:grid_coords.shape[1]]
+    # Compute grid dimensions
+    grid_size = torch.div(end - start, size, rounding_mode='ceil').long()
     
-    cluster = (grid_coords * multipliers).sum(dim=1)
+    # Normalize coordinates to be non-negative
+    grid_coords = grid_coords - grid_coords.min(dim=0)[0]
+    
+    # Compute unique cell index using row-major ordering
+    # This is more robust than Morton encoding for large coordinate ranges
+    strides = torch.tensor([1, grid_size[0], grid_size[0] * grid_size[1]], 
+                          device=pos.device, dtype=torch.long)
+    cluster = (grid_coords * strides.view(1, -1)).sum(dim=1)
     
     return cluster
 
