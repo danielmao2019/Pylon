@@ -181,8 +181,26 @@ class Urb3DCDDataset(BaseDataset):
     
     def _load_point_cloud_pair(self, idx: int) -> Dict[str, Any]:
         """Loads a pair of point clouds and builds KDTrees for them."""
-        pc0, pc1, change_map = self.clouds_loader(idx)
+        print("Loading " + self.annotations[idx]['pc_1_filepath'])
+        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
         
+        # Load first point cloud
+        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)
+        assert pc0.size(1) == 4, f"{pc0.shape=}"
+        pc0 = pc0[:, :3]
+        
+        # Load second point cloud
+        pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
+        assert pc.size(1) == 4, f"{pc.shape=}"
+        pc1 = pc[:, :3]
+        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
+        
+        # Convert to correct types
+        pc0 = pc0.type(torch.float32)
+        pc1 = pc1.type(torch.float32)
+        change_map = change_map.type(torch.int64)
+        
+        # Build KDTrees and return data
         data = {
             'pc_0': pc0,
             'pc_1': pc1,
@@ -195,34 +213,44 @@ class Urb3DCDDataset(BaseDataset):
     def __len__(self) -> int:
         return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers['pos'].shape[0]
 
-    def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
-    ]:
-        pc0, pc1, change_map = self.get(idx)
-        inputs = {
-            'pc_0': pc0,
-            'pc_1': pc1,
-            'kdtree_0': self._loaded_data[idx]['kdtree_0'],
-            'kdtree_1': self._loaded_data[idx]['kdtree_1'],
-        }
-        labels = {
-            'change_map': change_map,
-        }
-        meta_info = self.annotations[idx].copy()
-        return inputs, labels, meta_info
-
-    def clouds_loader(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Loads point clouds from files."""
-        print("Loading " + self.annotations[idx]['pc_1_filepath'])
-        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
-        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)
-        assert pc0.size(1) == 4, f"{pc0.shape=}"
-        pc0 = pc0[:, :3]
-        pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
-        assert pc.size(1) == 4, f"{pc.shape=}"
-        pc1 = pc[:, :3]
-        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
-        return pc0.type(torch.float32), pc1.type(torch.float32), change_map.type(torch.int64)
+    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        """Load a datapoint for the parent class interface."""
+        # Get sample based on sampling mode
+        if self._sample_per_epoch > 0:
+            sample = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
+        else:
+            sample = self._get_regular_sample(idx)
+            
+        if sample is None:
+            raise ValueError(f"Failed to load datapoint at index {idx}")
+        
+        pc0, pc1 = sample['pc_0'], sample['pc_1']
+            
+        try:
+            # Normalize point clouds
+            self._normalize(pc0, pc1)
+            
+            # Prepare return values in format expected by parent class
+            inputs = {
+                'pc_0': pc0,
+                'pc_1': pc1,
+                'kdtree_0': self._loaded_data[sample['idx']]['kdtree_0'],
+                'kdtree_1': self._loaded_data[sample['idx']]['kdtree_1'],
+            }
+            labels = {
+                'change_map': sample['change_map'],
+            }
+            meta_info = {
+                **self.annotations[sample['idx']],
+                'point_idx_pc0': sample['point_idx_pc0'],
+                'point_idx_pc1': sample['point_idx_pc1'],
+                'idx': sample['idx']
+            }
+            return inputs, labels, meta_info
+        except Exception as e:
+            print(f"Normalization failed: {e}")
+            print(f"pc_0 shape: {pc0.shape}, pc_1 shape: {pc1.shape}")
+            raise
 
     def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
         """Normalizes point clouds."""
@@ -236,42 +264,15 @@ class Urb3DCDDataset(BaseDataset):
         pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
         pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
 
-    def get(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
-        """Main method to get a sample and handle normalization in one place."""
-        if self._sample_per_epoch > 0:
-            sample = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
-        else:
-            sample = self._get_regular_sample(idx)
-            
-        if sample is None:
-            return None
-        
-        pc0, pc1, change_map = sample['pc_0'], sample['pc_1'], sample['change_map']
-            
-        try:
-            pc0, pc1 = self._normalize(pc0, pc1)
-            return {'pc_0': pc0, 'pc_1': pc1, 'change_map': change_map, 
-                    'point_idx_pc0': sample['point_idx_pc0'], 
-                    'point_idx_pc1': sample['point_idx_pc1'], 
-                    'idx': sample['idx']}
-        except Exception as e:
-            print(f"Normalization failed: {e}")
-            print(f"pc_0 shape: {pc0.shape}, pc_1 shape: {pc1.shape}")
-            return None
-
     def _get_fixed_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
-        """Retrieves a fixed sample without normalization."""
-        while idx < self._centers_for_sampling_fixed['pos'].shape[0]:
-            center, sample_idx = self._extract_center_info(self._centers_for_sampling_fixed, idx)
-            data = self._load_point_cloud_pair(sample_idx)
+        """Get a sample from fixed sampling locations."""
+        if idx >= self._centers_for_sampling_fixed.shape[0]:
+            raise ValueError(f"Index {idx} out of range for fixed sampling")
             
-            sample = self._sample_cylinder(data, center, sample_idx)
-
-            if sample:
-                return sample
-            
-            idx += 1
-        return None
+        center = self._centers_for_sampling_fixed[idx]
+        sample_idx = self._centers_for_sampling['idx'][idx].int()
+        
+        return self._sample_cylinder(self._loaded_data[sample_idx], center, sample_idx)
 
     def _get_regular_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
         """Retrieves a regular sample without normalization."""
