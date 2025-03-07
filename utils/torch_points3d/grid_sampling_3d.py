@@ -1,61 +1,145 @@
 import torch
 
 
+def consecutive_cluster(src):
+    """Convert a cluster index tensor to consecutive indices.
+    
+    Parameters
+    ----------
+    src : torch.Tensor
+        Input cluster indices
+        
+    Returns
+    -------
+    inv : torch.Tensor
+        Cluster indices converted to consecutive numbers
+    perm : torch.Tensor
+        Indices of unique elements in original ordering
+    """
+    unique, inv = torch.unique(src, sorted=True, return_inverse=True)
+    perm = torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device)
+    perm = inv.new_empty(unique.size(0)).scatter_(0, inv, perm)
+    return inv, perm
+
+
+def grid_cluster(coords: torch.Tensor, size: torch.Tensor) -> torch.Tensor:
+    """Clusters points based on a regular grid.
+    
+    Parameters
+    ----------
+    coords : torch.Tensor
+        Point coordinates of shape (N, 3)
+    size : torch.Tensor
+        Grid size in each dimension
+        
+    Returns
+    -------
+    torch.Tensor
+        Cluster indices for each point
+    """
+    # Convert to integer grid coordinates
+    coords = coords.div(size.view(1, -1), rounding_mode='floor').long()
+    
+    # Convert to linear indices
+    # Use large multipliers to ensure unique indices across dimensions
+    cluster = coords[:, 0] + coords[:, 1] * 100000 + coords[:, 2] * 10000000000
+    
+    return cluster
+
+
+def group_data(points, cluster, unique_pos_indices, mode="mean"):
+    """Group points based on cluster indices.
+    
+    Parameters
+    ----------
+    points : torch.Tensor
+        Input points
+    cluster : torch.Tensor
+        Cluster indices for each point
+    unique_pos_indices : torch.Tensor
+        Indices to select points for 'last' mode
+    mode : str
+        'mean' or 'last'
+        
+    Returns
+    -------
+    torch.Tensor
+        Grouped points
+    """
+    if mode == "last":
+        return points[unique_pos_indices]
+    elif mode == "mean":
+        # Manual mean computation using scatter_add
+        num_clusters = cluster.max().item() + 1
+        sum_points = torch.zeros((num_clusters, points.shape[1]), dtype=points.dtype, device=points.device)
+        counts = torch.zeros(num_clusters, dtype=points.dtype, device=points.device)
+        
+        # Sum points in each cluster
+        for i in range(points.shape[0]):
+            c = cluster[i]
+            sum_points[c] += points[i]
+            counts[c] += 1
+            
+        # Compute means
+        means = sum_points / counts.unsqueeze(1)
+        return means
+    else:
+        raise ValueError(f"Mode {mode} not supported")
+
+
 class GridSampling3D:
-    """ Clusters points into voxels with size :attr:`size`.
+    """Clusters points into voxels with size :attr:`size`.
+    
     Parameters
     ----------
     size: float
         Size of a voxel (in each dimension).
-    quantize_coords: bool
-        If True, it will convert the points into their associated sparse coordinates within the grid and store
-        the value into a new `coords` attribute
-    mode: string:
+    mode: string
         The mode can be either `last` or `mean`.
-        If mode is `mean`, all the points and their features within a cell will be averaged
-        If mode is `last`, one random points per cell will be selected with its associated features
+        If mode is `mean`, all the points within a cell will be averaged
+        If mode is `last`, one point per cell will be selected
     """
 
-    def __init__(self, size, quantize_coords=False, mode="mean", verbose=False):
+    def __init__(self, size, mode="mean"):
         self._grid_size = size
-        self._quantize_coords = quantize_coords
         self._mode = mode
-        if verbose:
-            log.warning(
-                "If you need to keep track of the position of your points, use SaveOriginalPosId transform before using GridSampling3D"
-            )
+        if mode not in ["mean", "last"]:
+            raise ValueError(f"Mode {mode} not supported. Use 'mean' or 'last'")
 
-            if self._mode == "last":
-                log.warning(
-                    "The tensors within data will be shuffled each time this transform is applied. Be careful that if an attribute doesn't have the size of num_points, it won't be shuffled"
-                )
+    def __call__(self, points: torch.Tensor) -> torch.Tensor:
+        """Sample points by grouping them into voxels.
 
-    def _process(self, data):
-        if self._mode == "last":
-            data = shuffle_data(data)
+        Parameters
+        ----------
+        points : torch.Tensor
+            Input points of shape (N, 3) or (N, D) where D >= 3
 
-        coords = torch.round((data.pos) / self._grid_size)
-        if "batch" not in data:
-            cluster = grid_cluster(coords, torch.tensor([1, 1, 1]))
-        else:
-            cluster = voxel_grid(coords, data.batch, 1)
+        Returns
+        -------
+        torch.Tensor
+            Sampled points
+        """
+        if not isinstance(points, torch.Tensor):
+            points = torch.tensor(points)
+        
+        if points.shape[1] < 3:
+            raise ValueError("Points must have at least 3 dimensions (x, y, z)")
+
+        # Round coordinates to grid
+        coords = points[:, :3] / self._grid_size
+        
+        # Get cluster indices using grid_cluster
+        cluster = grid_cluster(coords, torch.tensor([1., 1., 1.]))
+        
+        # Get consecutive cluster indices and permutation
         cluster, unique_pos_indices = consecutive_cluster(cluster)
-
-        data = group_data(data, cluster, unique_pos_indices, mode=self._mode)
-        if self._quantize_coords:
-            data.coords = coords[unique_pos_indices].int()
-
-        data.grid_size = torch.tensor([self._grid_size])
-        return data
-
-    def __call__(self, data):
-        if isinstance(data, list):
-            data = [self._process(d) for d in data]
-        else:
-            data = self._process(data)
-        return data
+        
+        # Group points using the provided logic
+        sampled_points = group_data(points, cluster, unique_pos_indices, mode=self._mode)
+        
+        return sampled_points
 
     def __repr__(self):
-        return "{}(grid_size={}, quantize_coords={}, mode={})".format(
-            self.__class__.__name__, self._grid_size, self._quantize_coords, self._mode
+        return "{}(grid_size={}, mode={})".format(
+            self.__class__.__name__, self._grid_size, self._mode
         )
