@@ -62,8 +62,8 @@ class Urb3DCDDataset(BaseDataset):
             raise ValueError(f"Version {version} is not supported. Must be one of {list(self.VERSION_MAP.keys())}")
         
         self._sample_per_epoch = sample_per_epoch
-        self._radius = radius
         self.fix_samples = fix_samples
+        self._radius = radius
         self.version = version
         self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
         super(Urb3DCDDataset, self).__init__(*args, **kwargs)
