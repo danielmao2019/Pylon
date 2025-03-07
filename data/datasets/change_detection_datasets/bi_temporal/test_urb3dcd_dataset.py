@@ -58,7 +58,10 @@ def test_urb3dcd_dataset(dataset_params):
     # Test first few samples
     print(f"Testing samples...")
     for idx in range(min(3, len(dataset))):
-        inputs, labels, meta_info = dataset[idx]
+        data_point = dataset[idx]
+        inputs = data_point['inputs']
+        labels = data_point['labels']
+        meta_info = data_point['meta_info']
         
         # Validate point clouds
         _validate_point_cloud(inputs['pc_0'], 'pc_0')
@@ -104,8 +107,13 @@ def test_fixed_samples_consistency(tmp_path):
     
     # Sample twice and verify results are the same
     if len(dataset) > 0:  # Only test if dataset is not empty
-        inputs1, labels1, _ = dataset[0]
-        inputs2, labels2, _ = dataset[0]
+        data_point1 = dataset[0]
+        data_point2 = dataset[0]
+        
+        inputs1 = data_point1['inputs']
+        inputs2 = data_point2['inputs']
+        labels1 = data_point1['labels']
+        labels2 = data_point2['labels']
         
         assert torch.allclose(inputs1['pc_0'], inputs2['pc_0'])
         assert torch.allclose(inputs1['pc_1'], inputs2['pc_1'])
