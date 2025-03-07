@@ -36,8 +36,8 @@ def _validate_point_count_consistency(pc1: torch.Tensor, change_map: torch.Tenso
 
 @pytest.mark.parametrize("dataset_params", [
     {"sample_per_epoch": 100, "radius": 2, "fix_samples": False},
-    # {"sample_per_epoch": 0, "radius": 2, "fix_samples": False},  # Grid sampling mode
-    # {"sample_per_epoch": 100, "radius": 2, "fix_samples": True},  # Fixed sampling mode
+    {"sample_per_epoch": 0, "radius": 2, "fix_samples": False},  # Grid sampling mode
+    {"sample_per_epoch": 100, "radius": 2, "fix_samples": True},  # Fixed sampling mode
 ])
 def test_urb3dcd_dataset(dataset_params):
     """Test the Urb3DCDDataset class."""

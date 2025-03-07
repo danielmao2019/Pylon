@@ -293,48 +293,92 @@ class Urb3DCDDataset(BaseDataset):
     def __len__(self) -> int:
         return len(self.annotations)
 
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Load a datapoint for the parent class interface."""
-        # Get center info
-        center_info = self.annotations[idx]
+    def _load_datapoint(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        """Try to get a valid datapoint with non-empty point clouds.
         
-        # Load point clouds
-        data = self._load_point_cloud_pair(idx)
+        If the sampled point clouds are empty, it will try different sampling locations
+        until it finds a valid sample or reaches the maximum number of attempts.
         
-        # Sample cylinder
-        sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
+        Args:
+            idx: Index of the datapoint to load.
+            max_attempts: Maximum number of sampling attempts before giving up.
             
-        if sample is None:
-            raise ValueError(f"Failed to load datapoint at index {idx}")
+        Returns:
+            The inputs, labels, and meta_info for a valid datapoint.
+            
+        Raises:
+            ValueError: If no valid datapoint could be found after max_attempts.
+        """
+        original_idx = idx
+        attempts = 0
         
-        pc0, pc1 = sample['pc_0'], sample['pc_1']
-            
-        try:
-            # Normalize point clouds
-            self._normalize(pc0, pc1)
-            
-            # Prepare return values in format expected by parent class
-            inputs = {
-                'pc_0': pc0,
-                'pc_1': pc1,
-                'kdtree_0': data['kdtree_0'],
-                'kdtree_1': data['kdtree_1'],
-            }
-            labels = {
-                'change_map': sample['change_map'],
-            }
-            meta_info = {
-                'pc_0_filepath': center_info['pc_0_filepath'],
-                'pc_1_filepath': center_info['pc_1_filepath'],
-                'point_idx_pc0': sample['point_idx_pc0'],
-                'point_idx_pc1': sample['point_idx_pc1'],
-                'idx': sample['idx']
-            }
-            return inputs, labels, meta_info
-        except Exception as e:
-            print(f"Normalization failed: {e}")
-            print(f"pc_0 shape: {pc0.shape}, pc_1 shape: {pc1.shape}")
-            raise
+        while attempts < max_attempts:
+            try:
+                # Get center info
+                center_info = self.annotations[idx]
+                
+                # Load point clouds
+                data = self._load_point_cloud_pair(idx)
+                
+                # Sample cylinder
+                sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
+                    
+                if sample is None:
+                    raise ValueError(f"Failed to load datapoint at index {idx}")
+                
+                pc0, pc1 = sample['pc_0'], sample['pc_1']
+                
+                # Check if point clouds are empty
+                if pc0.size(0) == 0 or pc1.size(0) == 0:
+                    print(f"Attempt {attempts+1}: Sampled empty point cloud. pc_0: {pc0.size(0)} points, pc_1: {pc1.size(0)} points")
+                    # Try another random index
+                    if len(self.annotations) > 1:
+                        idx = random.randint(0, len(self.annotations) - 1)
+                        while idx == original_idx and len(self.annotations) > 1:
+                            idx = random.randint(0, len(self.annotations) - 1)
+                        attempts += 1
+                        continue
+                    else:
+                        # If there's only one annotation, try with different center positions
+                        center_info['pos'] = center_info['pos'] + torch.randn_like(center_info['pos']) * self._radius * 0.5
+                        attempts += 1
+                        continue
+                
+                # Normalize point clouds
+                self._normalize(pc0, pc1)
+                
+                # Prepare return values in format expected by parent class
+                inputs = {
+                    'pc_0': pc0,
+                    'pc_1': pc1,
+                    'kdtree_0': data['kdtree_0'],
+                    'kdtree_1': data['kdtree_1'],
+                }
+                labels = {
+                    'change_map': sample['change_map'],
+                }
+                meta_info = {
+                    'pc_0_filepath': center_info['pc_0_filepath'],
+                    'pc_1_filepath': center_info['pc_1_filepath'],
+                    'point_idx_pc0': sample['point_idx_pc0'],
+                    'point_idx_pc1': sample['point_idx_pc1'],
+                    'idx': sample['idx']
+                }
+                return inputs, labels, meta_info
+            except Exception as e:
+                print(f"Attempt {attempts+1} failed: {e}")
+                attempts += 1
+                # Try another random index
+                if len(self.annotations) > 1:
+                    idx = random.randint(0, len(self.annotations) - 1)
+                    while idx == original_idx and len(self.annotations) > 1:
+                        idx = random.randint(0, len(self.annotations) - 1)
+                else:
+                    # If there's only one annotation, try with different center positions
+                    center_info = self.annotations[idx].copy()
+                    center_info['pos'] = center_info['pos'] + torch.randn_like(center_info['pos']) * self._radius * 0.5
+        
+        raise ValueError(f"Failed to find valid datapoint after {max_attempts} attempts starting from index {original_idx}")
 
     def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
         """Normalize point clouds by centering them at the origin.
