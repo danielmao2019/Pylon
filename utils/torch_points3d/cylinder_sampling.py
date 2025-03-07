@@ -16,7 +16,7 @@ class CylinderSampling:
 
     def __init__(self, radius: float, center: Union[torch.Tensor, np.ndarray], align_origin: bool = True) -> None:
         self._radius = radius
-        self._center = np.asarray(center).reshape(1, -1)
+        self._center = torch.as_tensor(center).view(1, -1)
         self._align_origin = align_origin
 
     def __call__(self, kdtree: KDTree, data_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
@@ -40,16 +40,15 @@ class CylinderSampling:
         if 'pos' not in data_dict:
             raise ValueError("Data dictionary must have 'pos' key")
 
-        # Query points within radius
-        indices = torch.LongTensor(kdtree.query_radius(self._center, r=self._radius)[0])
+        # Query points within radius - still need to convert to numpy for scikit-learn KDTree
+        indices = torch.LongTensor(kdtree.query_radius(self._center.numpy(), r=self._radius)[0])
         
         # Sample position data
         pos = data_dict['pos']
         sampled_pos = pos[indices]
         if self._align_origin:
-            t_center = torch.FloatTensor(self._center)
             sampled_pos = sampled_pos.clone()
-            sampled_pos[:, :self._center.shape[1]] -= t_center
+            sampled_pos[:, :self._center.shape[1]] -= self._center
         
         result_dict = {
             'pos': sampled_pos,

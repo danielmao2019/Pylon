@@ -94,11 +94,11 @@ class Urb3DCDDataset(BaseDataset):
 
         # Calculate label statistics for balanced sampling if needed
         if self._sample_per_epoch > 0:
-            labels, label_counts = np.unique(all_centers['change_map'].numpy(), return_counts=True)
-            self._label_counts = np.sqrt(label_counts.mean() / label_counts)
-            self._label_counts /= np.sum(self._label_counts)
+            labels, label_counts = torch.unique(all_centers['change_map'], return_counts=True)
+            self._label_counts = torch.sqrt(label_counts.float().mean() / label_counts.float())
+            self._label_counts /= self._label_counts.sum()
             self._labels = labels
-            self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
+            self.weight_classes = self._label_counts.clone()
 
         # Prepare annotations based on sampling mode
         if self._sample_per_epoch > 0:
@@ -164,15 +164,16 @@ class Urb3DCDDataset(BaseDataset):
             - pc_0_filepath: File path for first point cloud
             - pc_1_filepath: File path for second point cloud
         """
-        chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
-        unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
+        torch.manual_seed(1)
+        chosen_labels = torch.multinomial(self._label_counts, self._sample_per_epoch, replacement=True)
+        unique_labels, label_counts = torch.unique(chosen_labels, return_counts=True)
         
         fixed_centers = []
         for label, count in zip(unique_labels, label_counts):
             mask = all_centers['change_map'] == label
             valid_pos = all_centers['pos'][mask]
             valid_idx = all_centers['idx'][mask]
-            selected_indices = np.random.randint(low=0, high=valid_pos.shape[0], size=(count,))
+            selected_indices = torch.randint(low=0, high=valid_pos.shape[0], size=(count.item(),))
             for idx in selected_indices:
                 fixed_centers.append({
                     'pos': valid_pos[idx],
@@ -196,14 +197,14 @@ class Urb3DCDDataset(BaseDataset):
             - pc_0_filepath: File path for first point cloud
             - pc_1_filepath: File path for second point cloud
         """
-        np.random.seed(1)
-        chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch,))
+        torch.manual_seed(1)
+        chosen_labels = torch.multinomial(self._label_counts, self._sample_per_epoch, replacement=True)
         random_centers = []
         for label in chosen_labels:
             mask = all_centers['change_map'] == label
             valid_pos = all_centers['pos'][mask]
             valid_idx = all_centers['idx'][mask]
-            idx = np.random.randint(low=0, high=valid_pos.shape[0])
+            idx = torch.randint(low=0, high=valid_pos.shape[0], size=(1,)).item()
             random_centers.append({
                 'pos': valid_pos[idx],
                 'idx': valid_idx[idx],
