@@ -49,7 +49,7 @@ class Urb3DCDDataset(BaseDataset):
         }
     }
 
-    def __init__(self, sample_per_epoch: int = 100, radius: float = 2, fix_samples: bool = False, version: int = 1, *args, **kwargs) -> None:
+    def __init__(self, sample_per_epoch: int = 100, fix_samples: bool = False, radius: float = 2, version: int = 1, *args, **kwargs) -> None:
         if version not in self.VERSION_MAP:
             raise ValueError(f"Version {version} is not supported. Must be one of {list(self.VERSION_MAP.keys())}")
         
