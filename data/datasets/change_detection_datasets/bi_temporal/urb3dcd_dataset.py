@@ -114,57 +114,44 @@ class Urb3DCDDataset(BaseDataset):
 
     def _prepare_centers(self) -> None:
         """Prepares centers based on whether random sampling or grid sampling is used."""
-        if self._sample_per_epoch > 0:
-            self._prepare_random_sampling()
-        else:
-            self._prepare_grid_sampling()
-
-    def _prepare_random_sampling(self) -> None:
-        """Prepares centers for random sampling."""
-        self._centers_for_sampling = []
-        
+        # Common preparation code
+        centers_list = []
         for idx in range(len(self.annotations)):
             data = self._load_point_cloud_pair(idx)
-            
-            # Create data dictionary for grid sampling
             data_dict = {
                 'pos': data['pc_1'],
                 'change_map': data['change_map']
             }
-            
-            # Apply grid sampling
             sampled_data = self._grid_sampling(data_dict)
-            
-            # Create a single dictionary for all sampled points
             centers = {
                 'pos': sampled_data['pos'],
                 'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
                 'change_map': sampled_data['change_map']
             }
-            self._centers_for_sampling.append(centers)
-        
-        # Convert to tensors for efficient indexing
-        all_pos = torch.cat([c['pos'] for c in self._centers_for_sampling], dim=0)
-        all_idx = torch.cat([c['idx'] for c in self._centers_for_sampling], dim=0)
-        all_change_map = torch.cat([c['change_map'] for c in self._centers_for_sampling], dim=0)
-        
-        # Store as a single dictionary
-        self._centers_for_sampling = {
-            'pos': all_pos,
-            'idx': all_idx,
-            'change_map': all_change_map
+            centers_list.append(centers)
+
+        # Convert to single dictionary with concatenated tensors
+        all_centers = {
+            'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
+            'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
+            'change_map': torch.cat([c['change_map'] for c in centers_list], dim=0)
         }
-        
-        # Calculate label statistics
-        labels, label_counts = np.unique(all_change_map.numpy(), return_counts=True)
-        self._label_counts = np.sqrt(label_counts.mean() / label_counts)
-        self._label_counts /= np.sum(self._label_counts)
-        self._labels = labels
-        self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
-        
-        if self.fix_samples:
-            self._prepare_fixed_sampling()
-    
+
+        if self._sample_per_epoch > 0:  # Random/Fixed sampling mode
+            self._centers_for_sampling = all_centers
+            
+            # Calculate label statistics for balanced sampling
+            labels, label_counts = np.unique(all_centers['change_map'].numpy(), return_counts=True)
+            self._label_counts = np.sqrt(label_counts.mean() / label_counts)
+            self._label_counts /= np.sum(self._label_counts)
+            self._labels = labels
+            self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
+            
+            if self.fix_samples:
+                self._prepare_fixed_sampling()
+        else:  # Grid sampling mode
+            self.grid_regular_centers = all_centers
+
     def _prepare_fixed_sampling(self) -> None:
         """Fixes the sampled locations for consistency across epochs."""
         np.random.seed(1)
@@ -178,37 +165,6 @@ class Urb3DCDDataset(BaseDataset):
             self._centers_for_sampling_fixed.append(valid_centers[selected_idx])
         
         self._centers_for_sampling_fixed = torch.cat(self._centers_for_sampling_fixed, 0)
-    
-    def _prepare_grid_sampling(self) -> None:
-        """Prepares centers for regular grid sampling."""
-        self.grid_regular_centers = []
-        
-        for idx in range(len(self.annotations)):
-            data = self._load_point_cloud_pair(idx)
-            
-            # Create data dictionary for grid sampling
-            data_dict = {
-                'pos': data['pc_1'],
-                'change_map': data['change_map']  # Include change_map for consistency
-            }
-            
-            # Apply grid sampling
-            sampled_data = self._grid_sampling(data_dict)
-            
-            # Create centers dictionary with all fields
-            centers = {
-                'pos': sampled_data['pos'],
-                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
-                'change_map': sampled_data['change_map']
-            }
-            self.grid_regular_centers.append(centers)
-        
-        # Convert to single dictionary with concatenated tensors
-        self.grid_regular_centers = {
-            'pos': torch.cat([c['pos'] for c in self.grid_regular_centers], dim=0),
-            'idx': torch.cat([c['idx'] for c in self.grid_regular_centers], dim=0),
-            'change_map': torch.cat([c['change_map'] for c in self.grid_regular_centers], dim=0)
-        }
 
     def __len__(self) -> int:
         return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers['pos'].shape[0]
