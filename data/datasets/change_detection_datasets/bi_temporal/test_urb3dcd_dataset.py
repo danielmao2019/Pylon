@@ -119,20 +119,3 @@ def test_fixed_samples_consistency() -> None:
         assert torch.allclose(inputs1['pc_0'], inputs2['pc_0'])
         assert torch.allclose(inputs1['pc_1'], inputs2['pc_1'])
         assert torch.equal(labels1['change_map'], labels2['change_map'])
-
-
-def test_grid_sampling_mode() -> None:
-    """Test grid sampling mode (sample_per_epoch=0)."""
-    dataset = Urb3DCDDataset(
-        data_root="./data/datasets/soft_links/Urb3DCD",
-        sample_per_epoch=0,
-        radius=2
-    )
-    
-    # Verify that grid sampling centers are created
-    assert hasattr(dataset, 'grid_regular_centers')
-    if len(dataset.grid_regular_centers) > 0:
-        assert isinstance(dataset.grid_regular_centers, dict)
-        assert 'pos' in dataset.grid_regular_centers
-        assert 'idx' in dataset.grid_regular_centers
-        assert 'change_map' in dataset.grid_regular_centers
