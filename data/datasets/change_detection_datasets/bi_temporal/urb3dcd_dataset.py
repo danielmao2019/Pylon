@@ -164,7 +164,6 @@ class Urb3DCDDataset(BaseDataset):
             - pc_0_filepath: File path for first point cloud
             - pc_1_filepath: File path for second point cloud
         """
-        np.random.seed(1)
         chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
         unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
         
