@@ -200,8 +200,8 @@ class Urb3DCDDataset(BaseDataset):
         print("Loading " + self.annotations[idx]['pc_1_filepath'])
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
         pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)
-        assert pc0.size(1) == 3, f"{pc0.shape=}"
-        # pc0 = pc0[:, :3]
+        assert pc0.size(1) == 4, f"{pc0.shape=}"
+        pc0 = pc0[:, :3]
         pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
         assert pc.size(1) == 4, f"{pc.shape=}"
         pc1 = pc[:, :3]
