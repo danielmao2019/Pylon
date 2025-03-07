@@ -61,7 +61,8 @@ class Urb3DCDDataset(BaseDataset):
         super(Urb3DCDDataset, self).__init__(*args, **kwargs)
 
     def _init_annotations(self) -> None:
-        """Initialize file paths for point clouds."""
+        """Initialize file paths and prepare centers for sampling."""
+        # Get file paths
         version_info = self.VERSION_MAP[self.version]
         base_dir = os.path.join(self.data_root, version_info['dir'], version_info['subdir'], self.SPLIT_MAP[self.split])
 
@@ -75,24 +76,108 @@ class Urb3DCDDataset(BaseDataset):
         if len(pc0_files) == 0:
             raise ValueError(f"No point cloud pairs found in {base_dir}")
 
-        self.annotations = [
+        # Store file paths temporarily
+        file_pairs = [
             {'pc_0_filepath': pc0, 'pc_1_filepath': pc1}
             for pc0, pc1 in zip(pc0_files, pc1_files)
         ]
-        self._prepare_centers()
 
-    def _load_point_cloud_pair(self, idx: int) -> Dict[str, Any]:
+        # Prepare centers
+        centers_list = []
+        for idx, files in enumerate(file_pairs):
+            data = self._load_point_cloud_pair(idx, files)
+            data_dict = {
+                'pos': data['pc_1'],
+                'change_map': data['change_map']
+            }
+            sampled_data = self._grid_sampling(data_dict)
+            centers = {
+                'pos': sampled_data['pos'],
+                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
+                'change_map': sampled_data['change_map'],
+                'pc_0_filepath': files['pc_0_filepath'],
+                'pc_1_filepath': files['pc_1_filepath']
+            }
+            centers_list.append(centers)
+
+        # Convert to single dictionary with concatenated tensors
+        all_centers = {
+            'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
+            'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
+            'change_map': torch.cat([c['change_map'] for c in centers_list], dim=0),
+            'pc_0_filepath': [c['pc_0_filepath'] for c in centers_list],
+            'pc_1_filepath': [c['pc_1_filepath'] for c in centers_list]
+        }
+
+        if self._sample_per_epoch > 0:  # Random/Fixed sampling mode
+            # Calculate label statistics for balanced sampling
+            labels, label_counts = np.unique(all_centers['change_map'].numpy(), return_counts=True)
+            self._label_counts = np.sqrt(label_counts.mean() / label_counts)
+            self._label_counts /= np.sum(self._label_counts)
+            self._labels = labels
+            self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
+
+            if self.fix_samples:
+                # Pre-select fixed samples
+                np.random.seed(1)
+                chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
+                unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
+                
+                fixed_centers = []
+                for label, count in zip(unique_labels, label_counts):
+                    mask = all_centers['change_map'] == label
+                    valid_pos = all_centers['pos'][mask]
+                    valid_idx = all_centers['idx'][mask]
+                    selected_indices = np.random.randint(low=0, high=valid_pos.shape[0], size=(count,))
+                    for idx in selected_indices:
+                        fixed_centers.append({
+                            'pos': valid_pos[idx],
+                            'idx': valid_idx[idx],
+                            'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
+                            'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
+                        })
+                self.annotations = fixed_centers
+            else:
+                # Pre-select random labels for balanced sampling
+                np.random.seed(1)
+                chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch,))
+                self.annotations = []
+                for label in chosen_labels:
+                    mask = all_centers['change_map'] == label
+                    valid_pos = all_centers['pos'][mask]
+                    valid_idx = all_centers['idx'][mask]
+                    idx = np.random.randint(low=0, high=valid_pos.shape[0])
+                    self.annotations.append({
+                        'pos': valid_pos[idx],
+                        'idx': valid_idx[idx],
+                        'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
+                        'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
+                    })
+        else:  # Grid sampling mode
+            # Convert all centers to list of dictionaries
+            self.annotations = []
+            for i in range(len(all_centers['pos'])):
+                self.annotations.append({
+                    'pos': all_centers['pos'][i],
+                    'idx': all_centers['idx'][i],
+                    'pc_0_filepath': all_centers['pc_0_filepath'][all_centers['idx'][i]],
+                    'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][i]]
+                })
+
+    def _load_point_cloud_pair(self, idx: int, files: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """Loads a pair of point clouds and builds KDTrees for them."""
-        print("Loading " + self.annotations[idx]['pc_1_filepath'])
+        if files is None:
+            files = self.annotations[idx]
+        print("Loading " + files['pc_1_filepath'])
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
         
         # Load first point cloud
-        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)
+        pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0 = pc0[:, :3]
         
         # Load second point cloud
-        pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
+        pc = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
         assert pc.size(1) == 4, f"{pc.shape=}"
         pc1 = pc[:, :3]
         change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
@@ -112,71 +197,20 @@ class Urb3DCDDataset(BaseDataset):
         }
         return data
 
-    def _prepare_centers(self) -> None:
-        """Prepares centers based on whether random sampling or grid sampling is used."""
-        # Common preparation code
-        centers_list = []
-        for idx in range(len(self.annotations)):
-            data = self._load_point_cloud_pair(idx)
-            data_dict = {
-                'pos': data['pc_1'],
-                'change_map': data['change_map']
-            }
-            sampled_data = self._grid_sampling(data_dict)
-            centers = {
-                'pos': sampled_data['pos'],
-                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
-                'change_map': sampled_data['change_map']
-            }
-            centers_list.append(centers)
-
-        # Convert to single dictionary with concatenated tensors
-        all_centers = {
-            'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
-            'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
-            'change_map': torch.cat([c['change_map'] for c in centers_list], dim=0)
-        }
-
-        if self._sample_per_epoch > 0:  # Random/Fixed sampling mode
-            self._centers_for_sampling = all_centers
-            
-            # Calculate label statistics for balanced sampling
-            labels, label_counts = np.unique(all_centers['change_map'].numpy(), return_counts=True)
-            self._label_counts = np.sqrt(label_counts.mean() / label_counts)
-            self._label_counts /= np.sum(self._label_counts)
-            self._labels = labels
-            self.weight_classes = torch.tensor(self._label_counts, dtype=torch.float32)
-            
-            if self.fix_samples:
-                self._prepare_fixed_sampling()
-        else:  # Grid sampling mode
-            self.grid_regular_centers = all_centers
-
-    def _prepare_fixed_sampling(self) -> None:
-        """Fixes the sampled locations for consistency across epochs."""
-        np.random.seed(1)
-        chosen_labels = np.random.choice(self._labels, p=self._label_counts, size=(self._sample_per_epoch, 1))
-        unique_labels, label_counts = np.unique(chosen_labels, return_counts=True)
-        
-        self._centers_for_sampling_fixed = []
-        for label, count in zip(unique_labels, label_counts):
-            valid_centers = self._centers_for_sampling['pos'][self._centers_for_sampling['change_map'] == label]
-            selected_idx = np.random.randint(low=0, high=valid_centers.shape[0], size=(count,))
-            self._centers_for_sampling_fixed.append(valid_centers[selected_idx])
-        
-        self._centers_for_sampling_fixed = torch.cat(self._centers_for_sampling_fixed, 0)
-
     def __len__(self) -> int:
-        return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers['pos'].shape[0]
+        return len(self.annotations)
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a datapoint for the parent class interface."""
-        # Get sample based on sampling mode
-        if self._sample_per_epoch > 0:
-            sample = self._get_fixed_sample(idx) if self.fix_samples else self._get_random()
-        else:
-            sample = self._get_regular_sample(idx)
-            
+        # Get center info
+        center_info = self.annotations[idx]
+        
+        # Load point clouds
+        data = self._load_point_cloud_pair(idx)
+        
+        # Sample cylinder
+        sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
+        
         if sample is None:
             raise ValueError(f"Failed to load datapoint at index {idx}")
         
@@ -190,14 +224,15 @@ class Urb3DCDDataset(BaseDataset):
             inputs = {
                 'pc_0': pc0,
                 'pc_1': pc1,
-                'kdtree_0': self._loaded_data[sample['idx']]['kdtree_0'],
-                'kdtree_1': self._loaded_data[sample['idx']]['kdtree_1'],
+                'kdtree_0': data['kdtree_0'],
+                'kdtree_1': data['kdtree_1'],
             }
             labels = {
                 'change_map': sample['change_map'],
             }
             meta_info = {
-                **self.annotations[sample['idx']],
+                'pc_0_filepath': center_info['pc_0_filepath'],
+                'pc_1_filepath': center_info['pc_1_filepath'],
                 'point_idx_pc0': sample['point_idx_pc0'],
                 'point_idx_pc1': sample['point_idx_pc1'],
                 'idx': sample['idx']
@@ -219,51 +254,6 @@ class Urb3DCDDataset(BaseDataset):
         pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
         pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
         pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
-
-    def _get_fixed_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
-        """Get a sample from fixed sampling locations."""
-        if idx >= self._centers_for_sampling_fixed.shape[0]:
-            raise ValueError(f"Index {idx} out of range for fixed sampling")
-            
-        center = self._centers_for_sampling_fixed[idx]
-        sample_idx = self._centers_for_sampling['idx'][idx].int()
-        
-        return self._sample_cylinder(self._loaded_data[sample_idx], center, sample_idx)
-
-    def _get_random(self) -> Optional[Dict[str, torch.Tensor]]:
-        """Randomly selects a sample without normalization."""
-        chosen_label = np.random.choice(self._labels, p=self._label_counts)
-        mask = self._centers_for_sampling['change_map'] == chosen_label
-        valid_centers = {
-            'pos': self._centers_for_sampling['pos'][mask],
-            'idx': self._centers_for_sampling['idx'][mask],
-            'change_map': self._centers_for_sampling['change_map'][mask]
-        }
-
-        if valid_centers['pos'].shape[0] == 0:
-            return None
-
-        center_idx = int(random.random() * (valid_centers['pos'].shape[0] - 1))
-        center = valid_centers['pos'][center_idx]
-        sample_idx = valid_centers['idx'][center_idx].int()
-        data = self._load_point_cloud_pair(sample_idx)
-        
-        return self._sample_cylinder(data, center, sample_idx, apply_transform=True)
-
-    def _get_regular_sample(self, idx: int) -> Optional[Dict[str, torch.Tensor]]:
-        """Retrieves a regular sample without normalization."""
-        while idx < self.grid_regular_centers['pos'].shape[0]:
-            center, sample_idx = self._extract_center_info(self.grid_regular_centers, idx)
-            data = self._load_point_cloud_pair(sample_idx)
-            
-            sample = self._sample_cylinder(data, center, sample_idx, apply_transform=True)
-
-            if sample:
-                return sample
-
-            print('pair not correct')
-            idx += 1
-        return None
 
     def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int, apply_transform: bool = False) -> Dict[str, torch.Tensor]:
         """Applies cylindrical sampling and optional transformations."""
@@ -288,15 +278,3 @@ class Urb3DCDDataset(BaseDataset):
             'point_idx_pc1': sampled_data_1['point_idx'],
             'idx': idx
         }
-
-    def _extract_center_info(self, centers_dict: Dict[str, torch.Tensor], idx: int) -> Tuple[torch.Tensor, int]:
-        """Extracts center position and datapoint index from the centers dictionary.
-        
-        Parameters
-        ----------
-        centers_dict : dict
-            Dictionary containing 'pos', 'idx', and 'change_map' tensors
-        idx : int
-            Index to extract
-        """
-        return centers_dict['pos'][idx], centers_dict['idx'][idx].int()
