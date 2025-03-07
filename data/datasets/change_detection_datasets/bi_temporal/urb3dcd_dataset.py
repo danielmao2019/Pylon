@@ -81,6 +81,37 @@ class Urb3DCDDataset(BaseDataset):
         ]
         self._prepare_centers()
 
+    def _load_point_cloud_pair(self, idx: int) -> Dict[str, Any]:
+        """Loads a pair of point clouds and builds KDTrees for them."""
+        print("Loading " + self.annotations[idx]['pc_1_filepath'])
+        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
+        
+        # Load first point cloud
+        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)
+        assert pc0.size(1) == 4, f"{pc0.shape=}"
+        pc0 = pc0[:, :3]
+        
+        # Load second point cloud
+        pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
+        assert pc.size(1) == 4, f"{pc.shape=}"
+        pc1 = pc[:, :3]
+        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
+        
+        # Convert to correct types
+        pc0 = pc0.type(torch.float32)
+        pc1 = pc1.type(torch.float32)
+        change_map = change_map.type(torch.int64)
+        
+        # Build KDTrees and return data
+        data = {
+            'pc_0': pc0,
+            'pc_1': pc1,
+            'change_map': change_map,
+            'kdtree_0': KDTree(np.asarray(pc0), leaf_size=10),
+            'kdtree_1': KDTree(np.asarray(pc1), leaf_size=10),
+        }
+        return data
+
     def _prepare_centers(self) -> None:
         """Prepares centers based on whether random sampling or grid sampling is used."""
         if self._sample_per_epoch > 0:
@@ -178,37 +209,6 @@ class Urb3DCDDataset(BaseDataset):
             'idx': torch.cat([c['idx'] for c in self.grid_regular_centers], dim=0),
             'change_map': torch.cat([c['change_map'] for c in self.grid_regular_centers], dim=0)
         }
-    
-    def _load_point_cloud_pair(self, idx: int) -> Dict[str, Any]:
-        """Loads a pair of point clouds and builds KDTrees for them."""
-        print("Loading " + self.annotations[idx]['pc_1_filepath'])
-        nameInPly = self.VERSION_MAP[self.version]['nameInPly']
-        
-        # Load first point cloud
-        pc0 = utils.io.load_point_cloud(self.annotations[idx]['pc_0_filepath'], nameInPly=nameInPly)
-        assert pc0.size(1) == 4, f"{pc0.shape=}"
-        pc0 = pc0[:, :3]
-        
-        # Load second point cloud
-        pc = utils.io.load_point_cloud(self.annotations[idx]['pc_1_filepath'], nameInPly=nameInPly)
-        assert pc.size(1) == 4, f"{pc.shape=}"
-        pc1 = pc[:, :3]
-        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
-        
-        # Convert to correct types
-        pc0 = pc0.type(torch.float32)
-        pc1 = pc1.type(torch.float32)
-        change_map = change_map.type(torch.int64)
-        
-        # Build KDTrees and return data
-        data = {
-            'pc_0': pc0,
-            'pc_1': pc1,
-            'change_map': change_map,
-            'kdtree_0': KDTree(np.asarray(pc0), leaf_size=10),
-            'kdtree_1': KDTree(np.asarray(pc1), leaf_size=10),
-        }
-        return data
 
     def __len__(self) -> int:
         return self._sample_per_epoch if self._sample_per_epoch > 0 else self.grid_regular_centers['pos'].shape[0]
