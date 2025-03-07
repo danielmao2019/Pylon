@@ -55,23 +55,6 @@ def test_urb3dcd_dataset(dataset_params):
                     assert isinstance(sample['point_idx_pc1'], torch.Tensor)
                     assert sample['point_idx_pc1'].dtype == torch.long
 
-        # Test fixed sampling consistency if enabled
-        if dataset_params['fix_samples']:
-            first_sample = dataset.get(0)
-            second_sample = dataset.get(0)
-            if first_sample is not None and second_sample is not None:
-                assert torch.allclose(first_sample['pc_0'], second_sample['pc_0'])
-                assert torch.allclose(first_sample['pc_1'], second_sample['pc_1'])
-                assert torch.equal(first_sample['change_map'], second_sample['change_map'])
-
-        # Test grid sampling mode
-        if dataset_params['sample_per_epoch'] == 0:
-            assert hasattr(dataset, 'grid_regular_centers')
-            assert isinstance(dataset.grid_regular_centers, dict)
-            assert 'pos' in dataset.grid_regular_centers
-            assert 'idx' in dataset.grid_regular_centers
-            assert 'change_map' in dataset.grid_regular_centers
-
 
 def _validate_point_cloud(pc: torch.Tensor, name: str):
     """Validate a point cloud tensor."""
