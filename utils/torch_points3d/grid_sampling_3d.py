@@ -111,22 +111,21 @@ def group_data(
             counts[cluster[i]] += 1
         result_dict['pos'] = summed / counts.unsqueeze(1)
     
-    # Handle change map if present (categorical data)
-    if 'change_map' in data_dict:
-        change_map = data_dict['change_map']
-        if mode == "last":
-            result_dict['change_map'] = change_map[unique_pos_indices]
-        else:  # mode == "mean"
-            num_clusters = cluster.max().item() + 1
-            change_min = change_map.min()
-            one_hot = torch.zeros((change_map.size(0), change_map.max() - change_min + 1),
-                               device=change_map.device)
-            one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
-            summed = torch.zeros((num_clusters, one_hot.size(1)),
-                              device=change_map.device)
-            for i in range(change_map.size(0)):
-                summed[cluster[i]] += one_hot[i]
-            result_dict['change_map'] = summed.argmax(dim=1) + change_min
+    # Handle change map (categorical data)
+    change_map = data_dict['change_map']
+    if mode == "last":
+        result_dict['change_map'] = change_map[unique_pos_indices]
+    else:  # mode == "mean"
+        num_clusters = cluster.max().item() + 1
+        change_min = change_map.min()
+        one_hot = torch.zeros((change_map.size(0), change_map.max() - change_min + 1),
+                           device=change_map.device)
+        one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
+        summed = torch.zeros((num_clusters, one_hot.size(1)),
+                          device=change_map.device)
+        for i in range(change_map.size(0)):
+            summed[cluster[i]] += one_hot[i]
+        result_dict['change_map'] = summed.argmax(dim=1) + change_min
 
     return result_dict
 
