@@ -2,7 +2,7 @@ import pytest
 from ..maps import ResizeMaps
 import os
 import torch
-from utils.io import _load_image, _load_multispectral_image
+from utils.io.image import _load_image, _load_multispectral_image
 
 
 @pytest.fixture

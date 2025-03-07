@@ -10,6 +10,6 @@ pip install -U openmim
 mim install mmengine mmcv==2.0.0 mmdet==3.0.0
 pip install mmsegmentation==1.2.2
 conda install timm einops scipy scikit-learn scikit-image pycocotools opencv rasterio pytest matplotlib imageio dash tqdm -c conda-forge -y
-conda install ftfy regex -c conda-forge -y
+conda install ftfy regex plyfile -c conda-forge -y
 pip install fvcore triton jsbeautifier
 ```
