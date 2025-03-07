@@ -1,25 +1,5 @@
+from typing import Optional
 import torch
-
-
-def consecutive_cluster(src):
-    """Convert a cluster index tensor to consecutive indices.
-    
-    Parameters
-    ----------
-    src : torch.Tensor
-        Input cluster indices
-        
-    Returns
-    -------
-    inv : torch.Tensor
-        Cluster indices converted to consecutive numbers
-    perm : torch.Tensor
-        Indices of unique elements in original ordering
-    """
-    unique, inv = torch.unique(src, sorted=True, return_inverse=True)
-    perm = torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device)
-    perm = inv.new_empty(unique.size(0)).scatter_(0, inv, perm)
-    return inv, perm
 
 
 def grid_cluster(
@@ -51,6 +31,27 @@ def grid_cluster(
         cluster = grid_cluster(pos, size)
     """
     return torch.ops.torch_cluster.grid(pos, size, start, end)
+
+
+def consecutive_cluster(src):
+    """Convert a cluster index tensor to consecutive indices.
+    
+    Parameters
+    ----------
+    src : torch.Tensor
+        Input cluster indices
+        
+    Returns
+    -------
+    inv : torch.Tensor
+        Cluster indices converted to consecutive numbers
+    perm : torch.Tensor
+        Indices of unique elements in original ordering
+    """
+    unique, inv = torch.unique(src, sorted=True, return_inverse=True)
+    perm = torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device)
+    perm = inv.new_empty(unique.size(0)).scatter_(0, inv, perm)
+    return inv, perm
 
 
 def group_data(points, cluster, unique_pos_indices, mode="mean"):
