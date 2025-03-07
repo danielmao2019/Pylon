@@ -164,7 +164,6 @@ class Urb3DCDDataset(BaseDataset):
             - pc_0_filepath: File path for first point cloud
             - pc_1_filepath: File path for second point cloud
         """
-        random.seed(1)
         chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
         unique_labels, counts = torch.unique(torch.tensor(chosen_labels), return_counts=True)
         
@@ -197,7 +196,6 @@ class Urb3DCDDataset(BaseDataset):
             - pc_0_filepath: File path for first point cloud
             - pc_1_filepath: File path for second point cloud
         """
-        random.seed(1)
         chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
         random_centers = []
         for label in chosen_labels:
