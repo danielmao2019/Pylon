@@ -22,7 +22,7 @@ def _validate_change_map(change_map: torch.Tensor):
     assert isinstance(change_map, torch.Tensor), "change_map should be a torch.Tensor"
     assert change_map.dtype == torch.long, "change_map should be of dtype torch.long"
     unique_values = torch.unique(change_map)
-    assert all(val in range(urb3dcd_dataset.NUM_CLASSES) for val in unique_values), \
+    assert all(val in range(Urb3DCDDataset.NUM_CLASSES) for val in unique_values), \
         f"Unexpected values in change_map: {unique_values}"
 
 
