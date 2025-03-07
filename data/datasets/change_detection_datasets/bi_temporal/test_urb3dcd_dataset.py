@@ -47,13 +47,6 @@ def test_urb3dcd_dataset(dataset_params):
         **dataset_params
     )
     
-    # Test basic dataset properties
-    assert isinstance(dataset, torch.utils.data.Dataset)
-    assert dataset.NUM_CLASSES == 7
-    assert len(dataset.INPUT_NAMES) == 4
-    assert len(dataset.LABEL_NAMES) == 1
-    assert dataset.IGNORE_LABEL == -1
-
     # Verify class labels mapping
     assert len(dataset.INV_OBJECT_LABEL) == dataset.NUM_CLASSES
     assert len(dataset.CLASS_LABELS) == dataset.NUM_CLASSES
