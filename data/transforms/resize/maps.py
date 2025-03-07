@@ -34,7 +34,7 @@ class ResizeMaps(BaseTransform):
                 kwargs['interpolation'] = torchvision.transforms.functional.InterpolationMode.NEAREST
             else:
                 raise ValueError(f"Unsupported interpolation mode: {kwargs['interpolation']}")
-        if kwargs['interpolation']:
+        if kwargs.get('interpolation', None):
             self.resize_op = torchvision.transforms.Resize(**kwargs)
         else:
             self.resize_op = None
