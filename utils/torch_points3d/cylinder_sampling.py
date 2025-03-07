@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Union, Any, Optional
 import torch
 import numpy as np
 from sklearn.neighbors import KDTree
@@ -12,14 +12,27 @@ class CylinderSampling:
         center: Center position of the cylinder base (3,).
         align_origin: Whether to align sampled points to the origin by
             subtracting the center coordinates.
+        device: Optional device to place tensors on.
+
+    Raises:
+        ValueError: If radius is not positive.
     """
 
-    def __init__(self, radius: float, center: Union[torch.Tensor, np.ndarray], align_origin: bool = True) -> None:
+    def __init__(
+        self,
+        radius: float,
+        center: Union[torch.Tensor, np.ndarray],
+        align_origin: bool = True,
+        device: Optional[torch.device] = None
+    ) -> None:
+        if radius <= 0:
+            raise ValueError("Radius must be positive")
+        
         self._radius = radius
-        self._center = torch.as_tensor(center).view(1, -1)
+        self._center = torch.as_tensor(center, device=device).view(1, -1)
         self._align_origin = align_origin
 
-    def __call__(self, kdtree: KDTree, data_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, kdtree: KDTree, data_dict: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         """Sample points within the cylinder.
 
         Args:
@@ -41,7 +54,9 @@ class CylinderSampling:
             raise ValueError("Data dictionary must have 'pos' key")
 
         # Query points within radius - still need to convert to numpy for scikit-learn KDTree
-        indices = torch.LongTensor(kdtree.query_radius(self._center.numpy(), r=self._radius)[0])
+        indices = torch.LongTensor(kdtree.query_radius(self._center.cpu().numpy(), r=self._radius)[0])
+        if self._center.device.type != 'cpu':
+            indices = indices.to(self._center.device)
         
         # Sample position data
         pos = data_dict['pos']
@@ -63,5 +78,5 @@ class CylinderSampling:
 
     def __repr__(self) -> str:
         return "{}(radius={}, center={}, align_origin={})".format(
-            self.__class__.__name__, self._radius, self._center, self._align_origin
+            self.__class__.__name__, self._radius, self._center.tolist(), self._align_origin
         )

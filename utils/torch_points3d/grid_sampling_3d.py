@@ -138,15 +138,28 @@ class GridSampling3D:
         mode: Grouping mode, either 'mean' or 'last'.
             - 'mean': Average points within each voxel
             - 'last': Select last point from each voxel
+        device: Optional device to place tensors on.
+
+    Raises:
+        ValueError: If size is not positive or mode is invalid.
     """
 
-    def __init__(self, size: float, mode: str = "mean") -> None:
-        self._grid_size = size
-        self._mode = mode
+    def __init__(
+        self,
+        size: float,
+        mode: str = "mean",
+        device: Optional[torch.device] = None
+    ) -> None:
+        if size <= 0:
+            raise ValueError("Size must be positive")
         if mode not in ["mean", "last"]:
             raise ValueError(f"Mode {mode} not supported. Use 'mean' or 'last'")
 
-    def __call__(self, data_dict: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        self._grid_size = size
+        self._mode = mode
+        self._device = device
+
+    def __call__(self, data_dict: Dict[str, torch.Tensor]) -> Dict[str, Any]:
         """Sample points and associated data by grouping them into voxels.
 
         Args:
@@ -168,12 +181,12 @@ class GridSampling3D:
             raise ValueError("Points must have at least 3 dimensions (x, y, z)")
 
         # Get cluster indices using grid_cluster
-        cluster = grid_cluster(
-            points[:, :3],
-            torch.tensor([self._grid_size, self._grid_size, self._grid_size], 
-                        dtype=points.dtype, 
-                        device=points.device)
+        size_tensor = torch.tensor(
+            [self._grid_size, self._grid_size, self._grid_size],
+            dtype=points.dtype,
+            device=points.device if self._device is None else self._device
         )
+        cluster = grid_cluster(points[:, :3], size_tensor)
         
         # Get consecutive cluster indices and permutation
         cluster, unique_pos_indices = consecutive_cluster(cluster)
