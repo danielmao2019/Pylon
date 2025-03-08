@@ -93,20 +93,19 @@ class Urb3DCDDataset(BaseDataset):
         if len(pc0_files) == 0:
             raise ValueError(f"No point cloud pairs found in {base_dir}")
 
-        # Store file paths temporarily
-        file_pairs = [
+        # Store file paths in annotations
+        self.annotations = [
             {'pc_0_filepath': pc0, 'pc_1_filepath': pc1}
             for pc0, pc1 in zip(pc0_files, pc1_files)
         ]
 
-        # For non-patched mode, just store the file paths
+        # For non-patched mode, just use the file paths as is
         if not self.patched:
-            self.annotations = file_pairs
             return
 
         # For patched mode, continue with center preparation
         # Get all potential centers
-        all_centers = self._prepare_all_centers(file_pairs)
+        all_centers = self._prepare_all_centers()
 
         # Calculate label statistics for balanced sampling if needed
         if self._sample_per_epoch > 0:
@@ -125,12 +124,8 @@ class Urb3DCDDataset(BaseDataset):
         else:
             self.annotations = self._prepare_grid_centers(all_centers)
 
-    def _prepare_all_centers(self, file_pairs: List[Dict[str, str]]) -> Dict[str, Any]:
+    def _prepare_all_centers(self) -> Dict[str, Any]:
         """Prepare all potential centers by grid sampling each point cloud pair.
-
-        Args:
-            file_pairs: List of dictionaries containing file paths for point cloud pairs.
-                Each dictionary must have 'pc_0_filepath' and 'pc_1_filepath' keys.
 
         Returns:
             A dictionary containing concatenated tensors for:
@@ -141,7 +136,7 @@ class Urb3DCDDataset(BaseDataset):
             - pc_1_filepath: List of file paths for second point clouds
         """
         centers_list = []
-        for idx, files in enumerate(file_pairs):
+        for idx in range(len(self.annotations)):
             data = self._load_point_cloud_pair(idx)
             data_dict = {
                 'pos': data['pc_1'],
@@ -152,8 +147,8 @@ class Urb3DCDDataset(BaseDataset):
                 'pos': sampled_data['pos'],
                 'change_map': sampled_data['change_map'],
                 'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
-                'pc_0_filepath': files['pc_0_filepath'],
-                'pc_1_filepath': files['pc_1_filepath']
+                'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
+                'pc_1_filepath': self.annotations[idx]['pc_1_filepath']
             }
             centers_list.append(centers)
 
