@@ -96,6 +96,26 @@ class SiameseKPConv(nn.Module):
         Returns:
             Change detection logits [N, num_classes]
         """
+        # Input validation
+        required_keys = ['pc_0', 'pc_1']
+        for key in required_keys:
+            assert key in inputs, f"Input missing required key: '{key}'"
+            pc = inputs[key]
+            assert isinstance(pc, dict), f"Expected {key} to be a dictionary, got {type(pc)}"
+            for subkey in ['pos', 'x', 'batch']:
+                assert subkey in pc, f"Point cloud {key} missing required key: '{subkey}'"
+                assert isinstance(pc[subkey], torch.Tensor), f"Expected {key}[{subkey}] to be a tensor, got {type(pc[subkey])}"
+            
+            # Check dimensions
+            assert pc['pos'].dim() == 2 and pc['pos'].size(1) == 3, f"Expected {key}['pos'] to have shape [N, 3], got {pc['pos'].shape}"
+            assert pc['x'].dim() == 2, f"Expected {key}['x'] to have shape [N, C], got {pc['x'].shape}"
+            assert pc['batch'].dim() == 1, f"Expected {key}['batch'] to have shape [N], got {pc['batch'].shape}"
+            assert pc['pos'].size(0) == pc['x'].size(0) == pc['batch'].size(0), f"Inconsistent sizes in {key}: pos={pc['pos'].size(0)}, x={pc['x'].size(0)}, batch={pc['batch'].size(0)}"
+        
+        # Check feature dimensions
+        assert inputs['pc_0']['x'].size(1) == self.down_modules[0].kp_conv.num_inputs - (1 if self.down_modules[0].kp_conv.add_one else 0), \
+            f"Expected input features to have {self.down_modules[0].kp_conv.num_inputs} channels, got {inputs['pc_0']['x'].size(1)}"
+        
         # Prepare data
         data1 = inputs['pc_0']
         data2 = inputs['pc_1']
