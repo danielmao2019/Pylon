@@ -7,7 +7,6 @@ based on KPConv for 3D point cloud change detection.
 from typing import Dict
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch_geometric.nn import knn
 from torch_geometric.data import Data
 
@@ -73,14 +72,13 @@ class SiameseKPConv(nn.Module):
                 )
             )
         
-        # Final MLP for classification
+        # Final MLP for classification - returning raw logits
         self.FC_layer = nn.Sequential(
             nn.Linear(up_channels[-1], 64, bias=False),
             FastBatchNorm1d(64, momentum=bn_momentum),
             nn.LeakyReLU(0.2),
             nn.Dropout(p=dropout) if dropout else nn.Identity(),
-            nn.Linear(64, out_channels, bias=False),
-            nn.LogSoftmax(dim=-1)
+            nn.Linear(64, out_channels, bias=False)
         )
         
     def forward(self, inputs: Dict[str, torch.Tensor], k: int = 16) -> torch.Tensor:
@@ -89,16 +87,16 @@ class SiameseKPConv(nn.Module):
         
         Args:
             inputs: Dictionary containing:
-                - 'x1': First point cloud data object
-                - 'x2': Second point cloud data object
+                - 'pc_0': First point cloud data object
+                - 'pc_1': Second point cloud data object
             k: Number of neighbors to use in kNN
             
         Returns:
-            Change detection predictions [N, num_classes]
+            Change detection logits [N, num_classes]
         """
         # Prepare data
-        data1 = inputs['x1']
-        data2 = inputs['x2']
+        data1 = inputs['pc_0']
+        data2 = inputs['pc_1']
         
         # Process features
         pos1, x1, batch1 = data1.pos, data1.x, data1.batch
@@ -151,28 +149,11 @@ class SiameseKPConv(nn.Module):
                 x = torch.cat([x, stack_down.pop()], dim=1)
                 x = self.up_modules[i](x, pos2, batch2, pos2, batch2, k)
         
-        # Final classification
+        # Final classification - returning raw logits
         self.last_feature = x
         output = self.FC_layer(self.last_feature)
         
         return output
-    
-    def compute_loss(self, pred: torch.Tensor, target: torch.Tensor, weight_classes=None) -> torch.Tensor:
-        """
-        Compute the loss for training
-        
-        Args:
-            pred: Model predictions [N, num_classes]
-            target: Ground truth labels [N]
-            weight_classes: Class weights [num_classes]
-            
-        Returns:
-            Loss value
-        """
-        if weight_classes is not None:
-            return F.nll_loss(pred, target, weight=weight_classes)
-        else:
-            return F.nll_loss(pred, target)
 
 
 # Example of usage
@@ -198,7 +179,7 @@ if __name__ == "__main__":
     )
     
     # Forward pass
-    inputs = {'x1': data1, 'x2': data2}
+    inputs = {'pc_0': data1, 'pc_1': data2}
     output = model(inputs, k=8)
     
     print(f"Model output shape: {output.shape}")  # Should be [100, 2] 
