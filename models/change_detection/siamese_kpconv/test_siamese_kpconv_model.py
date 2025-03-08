@@ -7,7 +7,7 @@ for 3D point cloud change detection.
 import pytest
 import torch
 import numpy as np
-from torch_geometric.data import Data
+
 
 from models.change_detection.siamese_kpconv.siamese_kpconv_model import SiameseKPConv
 
@@ -30,11 +30,20 @@ def point_cloud_data():
     x2 = torch.rand(num_points, 3)
     batch2 = torch.zeros(num_points, dtype=torch.long)
     
-    # Create Data objects
-    data1 = Data(pos=pos1, x=x1, batch=batch1)
-    data2 = Data(pos=pos2, x=x2, batch=batch2)
+    # Create point cloud dictionaries
+    pc_0 = {
+        'pos': pos1,
+        'x': x1,
+        'batch': batch1
+    }
     
-    return {'pc_0': data1, 'pc_1': data2, 'num_points': num_points}
+    pc_1 = {
+        'pos': pos2,
+        'x': x2,
+        'batch': batch2
+    }
+    
+    return {'pc_0': pc_0, 'pc_1': pc_1, 'num_points': num_points}
 
 
 @pytest.fixture
@@ -122,13 +131,22 @@ def test_different_batch_sizes(model_config, batch_size):
     x2 = torch.rand(num_points, 3)
     batch2 = torch.repeat_interleave(torch.arange(batch_size), 50)
     
-    # Create Data objects
-    data1 = Data(pos=pos1, x=x1, batch=batch1)
-    data2 = Data(pos=pos2, x=x2, batch=batch2)
+    # Create point cloud dictionaries
+    pc_0 = {
+        'pos': pos1,
+        'x': x1,
+        'batch': batch1
+    }
+    
+    pc_1 = {
+        'pos': pos2,
+        'x': x2,
+        'batch': batch2
+    }
     
     # Forward pass
     with torch.no_grad():
-        output = model({'pc_0': data1, 'pc_1': data2}, k=8)
+        output = model({'pc_0': pc_0, 'pc_1': pc_1}, k=8)
     
     # Check output shape
     expected_shape = (num_points, model_config['out_channels'])
@@ -140,12 +158,12 @@ def test_different_input_dimensions(point_cloud_data, in_channels):
     """Test the model with different input feature dimensions using parametrize."""
     # Create data with different feature dimensions
     num_points = point_cloud_data['num_points']
-    data1 = point_cloud_data['pc_0']
-    data2 = point_cloud_data['pc_1']
+    pc_0 = point_cloud_data['pc_0'].copy()
+    pc_1 = point_cloud_data['pc_1'].copy()
     
     # Override feature dimensions
-    data1.x = torch.rand(num_points, in_channels)
-    data2.x = torch.rand(num_points, in_channels)
+    pc_0['x'] = torch.rand(num_points, in_channels)
+    pc_1['x'] = torch.rand(num_points, in_channels)
     
     # Create model
     model = SiameseKPConv(
@@ -158,7 +176,7 @@ def test_different_input_dimensions(point_cloud_data, in_channels):
     
     # Forward pass
     with torch.no_grad():
-        output = model({'pc_0': data1, 'pc_1': data2}, k=8)
+        output = model({'pc_0': pc_0, 'pc_1': pc_1}, k=8)
     
     # Check output shape
     expected_shape = (num_points, 2)  # 2 output classes

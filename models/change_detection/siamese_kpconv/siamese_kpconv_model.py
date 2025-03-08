@@ -7,10 +7,9 @@ based on KPConv for 3D point cloud change detection.
 from typing import Dict
 import torch
 import torch.nn as nn
-from torch_geometric.nn import knn
-from torch_geometric.data import Data
 
 from models.change_detection.siamese_kpconv.convolution_ops import SimpleBlock, FastBatchNorm1d
+from models.change_detection.siamese_kpconv.utils import knn
 
 
 class SiameseKPConv(nn.Module):
@@ -87,8 +86,11 @@ class SiameseKPConv(nn.Module):
         
         Args:
             inputs: Dictionary containing:
-                - 'pc_0': First point cloud data object
-                - 'pc_1': Second point cloud data object
+                - 'pc_0': Dictionary with keys:
+                    - 'pos': Point positions tensor [N, 3]
+                    - 'x': Point features tensor [N, C]
+                    - 'batch': Batch indices [N]
+                - 'pc_1': Dictionary with the same structure as pc_0
             k: Number of neighbors to use in kNN
             
         Returns:
@@ -99,8 +101,8 @@ class SiameseKPConv(nn.Module):
         data2 = inputs['pc_1']
         
         # Process features
-        pos1, x1, batch1 = data1.pos, data1.x, data1.batch
-        pos2, x2, batch2 = data2.pos, data2.x, data2.batch
+        pos1, x1, batch1 = data1['pos'], data1['x'], data1['batch']
+        pos2, x2, batch2 = data2['pos'], data2['x'], data2['batch']
         
         # Stack for tracking down features
         stack_down = []

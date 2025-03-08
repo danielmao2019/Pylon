@@ -7,7 +7,7 @@ and the SimpleBlock that uses it.
 import torch
 import torch.nn as nn
 from models.change_detection.siamese_kpconv.kernel_utils import radius_gaussian, load_kernels
-from models.change_detection.siamese_kpconv.utils import add_ones
+from models.change_detection.siamese_kpconv.utils import add_ones, knn
 
 
 class FastBatchNorm1d(nn.BatchNorm1d):
@@ -195,7 +195,6 @@ class SimpleBlock(nn.Module):
             output features of size [M, C']
         """
         # Find neighbors
-        from torch_geometric.nn import knn
         if pos.shape[0] == pos_target.shape[0]:
             idx_neighbors = knn(pos, pos, k, batch_x, batch_x)
         else:
