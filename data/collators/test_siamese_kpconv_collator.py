@@ -6,77 +6,101 @@ for 3D point cloud change detection.
 """
 import pytest
 import torch
-from torch.utils.data import Dataset
 
 from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
 
 
-class DummyPointCloudDataset(Dataset):
+@pytest.mark.parametrize(
+    "samples, expected_batch_size",
+    [
+        # Test case 1: Two samples with 10 points each
+        (
+            [
+                {
+                    "inputs": {
+                        "pc_0": torch.rand(10, 6),  # 10 points, 3 position + 3 features
+                        "pc_1": torch.rand(10, 6)
+                    },
+                    "labels": {
+                        "change_map": torch.randint(0, 2, (10,), dtype=torch.long)
+                    },
+                    "meta_info": {
+                        "sample_idx": 0,
+                        "filename": "sample_0.ply"
+                    }
+                },
+                {
+                    "inputs": {
+                        "pc_0": torch.rand(10, 6),
+                        "pc_1": torch.rand(10, 6)
+                    },
+                    "labels": {
+                        "change_map": torch.randint(0, 2, (10,), dtype=torch.long)
+                    },
+                    "meta_info": {
+                        "sample_idx": 1,
+                        "filename": "sample_1.ply"
+                    }
+                }
+            ],
+            20  # Expected 20 points total (10 + 10)
+        ),
+        
+        # Test case 2: Three samples with different number of points
+        (
+            [
+                {
+                    "inputs": {
+                        "pc_0": torch.rand(5, 6),  # 5 points
+                        "pc_1": torch.rand(5, 6)
+                    },
+                    "labels": {
+                        "change_map": torch.randint(0, 2, (5,), dtype=torch.long)
+                    },
+                    "meta_info": {
+                        "sample_idx": 0,
+                        "filename": "sample_0.ply"
+                    }
+                },
+                {
+                    "inputs": {
+                        "pc_0": torch.rand(7, 6),  # 7 points
+                        "pc_1": torch.rand(7, 6)
+                    },
+                    "labels": {
+                        "change_map": torch.randint(0, 2, (7,), dtype=torch.long)
+                    },
+                    "meta_info": {
+                        "sample_idx": 1,
+                        "filename": "sample_1.ply"
+                    }
+                },
+                {
+                    "inputs": {
+                        "pc_0": torch.rand(3, 6),  # 3 points
+                        "pc_1": torch.rand(3, 6)
+                    },
+                    "labels": {
+                        "change_map": torch.randint(0, 2, (3,), dtype=torch.long)
+                    },
+                    "meta_info": {
+                        "sample_idx": 2,
+                        "filename": "sample_2.ply"
+                    }
+                }
+            ],
+            15  # Expected 15 points total (5 + 7 + 3)
+        )
+    ]
+)
+def test_siamese_kpconv_collator(samples, expected_batch_size):
     """
-    A simple dataset that produces point clouds and change maps for testing.
+    Test the SiameseKPConvCollator with different input scenarios.
+    
+    Args:
+        samples: List of input samples
+        expected_batch_size: Expected total number of points after batching
     """
-    def __init__(self, num_samples=5, num_points=100, feature_dim=3):
-        """
-        Initialize a dummy dataset.
-        
-        Args:
-            num_samples: Number of samples in the dataset
-            num_points: Number of points per point cloud
-            feature_dim: Number of features per point (excluding position)
-        """
-        self.num_samples = num_samples
-        self.num_points = num_points
-        self.feature_dim = feature_dim
-        
-        # Set fixed seed for reproducibility
-        torch.manual_seed(42)
-        
-        # Generate random point clouds
-        self.point_clouds_1 = [torch.rand(num_points, 3 + feature_dim) for _ in range(num_samples)]
-        self.point_clouds_2 = [torch.rand(num_points, 3 + feature_dim) for _ in range(num_samples)]
-        
-        # Generate random change maps (1 means change, 0 means no change)
-        self.change_maps = [torch.randint(0, 2, (num_points,), dtype=torch.long) for _ in range(num_samples)]
-    
-    def __len__(self):
-        return self.num_samples
-    
-    def __getitem__(self, idx):
-        """
-        Get a sample with inputs, labels, and meta_info.
-        
-        Returns:
-            Dictionary with:
-                - inputs: Dict with 'pc_0' and 'pc_1' point clouds
-                - labels: Dict with 'change_map' tensor
-                - meta_info: Dict with metadata
-        """
-        return {
-            "inputs": {
-                "pc_0": self.point_clouds_1[idx],
-                "pc_1": self.point_clouds_2[idx]
-            },
-            "labels": {
-                "change_map": self.change_maps[idx]
-            },
-            "meta_info": {
-                "sample_idx": idx,
-                "filename": f"dummy_sample_{idx}.ply"
-            }
-        }
-
-
-@pytest.fixture
-def dummy_dataset():
-    """Fixture that creates a dummy dataset for testing."""
-    return DummyPointCloudDataset(num_samples=5, num_points=100, feature_dim=3)
-
-
-def test_siamese_kpconv_collator(dummy_dataset):
-    """Test the SiameseKPConvCollator's functionality."""
-    # Get two samples from the dataset
-    samples = [dummy_dataset[0], dummy_dataset[1]]
-    
     # Apply the collator
     collator = SiameseKPConvCollator()
     batch = collator(samples)
@@ -88,25 +112,32 @@ def test_siamese_kpconv_collator(dummy_dataset):
     
     # Check that the point clouds were batched correctly
     for pc_key in ['pc_0', 'pc_1']:
+        # Verify tensor keys
         assert set(batch['inputs'][pc_key].keys()) == {'pos', 'x', 'batch'}
-        assert batch['inputs'][pc_key]['pos'].shape[0] == dummy_dataset.num_points * 2
-        assert batch['inputs'][pc_key]['x'].shape[0] == dummy_dataset.num_points * 2
-        assert batch['inputs'][pc_key]['batch'].shape[0] == dummy_dataset.num_points * 2
         
-        # Check batch indices
-        expected_batch = torch.cat([
-            torch.zeros(dummy_dataset.num_points, dtype=torch.long),
-            torch.ones(dummy_dataset.num_points, dtype=torch.long)
-        ])
-        assert torch.all(batch['inputs'][pc_key]['batch'] == expected_batch)
+        # Verify tensor shapes
+        assert batch['inputs'][pc_key]['pos'].shape[0] == expected_batch_size
+        assert batch['inputs'][pc_key]['pos'].shape[1] == 3  # xyz coordinates
+        assert batch['inputs'][pc_key]['x'].shape[0] == expected_batch_size
+        assert batch['inputs'][pc_key]['x'].shape[1] == 3  # features
+        assert batch['inputs'][pc_key]['batch'].shape[0] == expected_batch_size
+        
+        # Verify batch indices
+        batch_indices = batch['inputs'][pc_key]['batch']
+        for i, sample in enumerate(samples):
+            sample_size = sample['inputs'][pc_key].shape[0]
+            if i == 0:
+                start_idx = 0
+            else:
+                start_idx = sum(s['inputs'][pc_key].shape[0] for s in samples[:i])
+                
+            end_idx = start_idx + sample_size
+            expected_indices = torch.full((sample_size,), i, dtype=torch.long)
+            assert torch.all(batch_indices[start_idx:end_idx] == expected_indices), \
+                f"Batch indices for sample {i} don't match expected values"
     
     # Check change map
-    assert batch['labels']['change'].shape[0] == dummy_dataset.num_points * 2
+    assert batch['labels']['change'].shape[0] == expected_batch_size
     
     # Check consistency between batched pc_1 and change map
     assert batch['inputs']['pc_1']['pos'].shape[0] == batch['labels']['change'].shape[0]
-    
-    # Verify the outputs can be used for model input
-    assert isinstance(batch['inputs'], dict)
-    assert all(isinstance(v, dict) for v in batch['inputs'].values())
-    assert all(isinstance(v, torch.Tensor) for pc in batch['inputs'].values() for v in pc.values())
