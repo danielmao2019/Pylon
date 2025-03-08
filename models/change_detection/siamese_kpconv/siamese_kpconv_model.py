@@ -154,32 +154,3 @@ class SiameseKPConv(nn.Module):
         output = self.FC_layer(self.last_feature)
         
         return output
-
-
-# Example of usage
-if __name__ == "__main__":
-    # Create sample data
-    pos1 = torch.rand(100, 3)  # 100 points with 3D coordinates
-    x1 = torch.rand(100, 3)    # Features for each point (e.g., RGB color)
-    batch1 = torch.zeros(100, dtype=torch.long)  # All points belong to the same batch
-    
-    pos2 = torch.rand(100, 3)  # 100 points with 3D coordinates
-    x2 = torch.rand(100, 3)    # Features for each point
-    batch2 = torch.zeros(100, dtype=torch.long)  # All points belong to the same batch
-    
-    # Create Data objects
-    data1 = Data(pos=pos1, x=x1, batch=batch1)
-    data2 = Data(pos=pos2, x=x2, batch=batch2)
-    
-    # Initialize model
-    model = SiameseKPConv(
-        in_channels=3,        # input feature dimension
-        out_channels=2,       # number of classes (e.g., change/no change)
-        point_influence=0.1   # influence distance of points
-    )
-    
-    # Forward pass
-    inputs = {'pc_0': data1, 'pc_1': data2}
-    output = model(inputs, k=8)
-    
-    print(f"Model output shape: {output.shape}")  # Should be [100, 2] 
