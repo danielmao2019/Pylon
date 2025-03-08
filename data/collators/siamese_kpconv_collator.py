@@ -75,9 +75,10 @@ class SiameseKPConvCollator(BaseCollator):
         assert set(inputs_dict.keys()) >= {'pc_0', 'pc_1'}, f"Inputs must contain at least 'pc_0' and 'pc_1', got {inputs_dict.keys()}"
         
         # Create batched point clouds for pc_0 and pc_1
-        batched_inputs = {}
-        for pc_key in ['pc_0', 'pc_1']:
-            batched_inputs[pc_key] = self._batch_point_cloud_data(inputs_dict[pc_key])
+        batched_inputs = {
+            'pc_0': self._batch_point_cloud_data(inputs_dict['pc_0']),
+            'pc_1': self._batch_point_cloud_data(inputs_dict['pc_1']),
+        }
         
         # Process change maps
         labels_list = datapoints_dict["labels"]
@@ -94,14 +95,14 @@ class SiameseKPConvCollator(BaseCollator):
             f"Batched pc_1 has {batched_inputs['pc_1']['pos'].shape[0]} points, but batched change map has {batched_labels['change'].shape[0]} points"
         
         # Process meta information
-        meta_info = {}
         meta_info_list = datapoints_dict["meta_info"]
-        meta_info = transpose_buffer(meta_info_list)
-        for key, values in meta_info.items():
-            meta_info[key] = self._default_collate(values, "meta_info", key)
+        meta_info_dict = transpose_buffer(meta_info_list)
+        batched_meta_info = {}
+        for key, values in batched_meta_info.items():
+            batched_meta_info[key] = self._default_collate(values, "meta_info", key)
         
         return {
             "inputs": batched_inputs,
             "labels": batched_labels,
-            "meta_info": meta_info
-        } 
+            "meta_info": batched_meta_info
+        }
