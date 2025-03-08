@@ -466,8 +466,8 @@ class Urb3DCDDataset(BaseDataset):
         # If in patched mode, sample the data using cylinder sampling
         if self.patched:
             # Assert existence of center position
-            assert 'pos' in self.annotations[idx], f"Missing pos in annotation {idx}"
-            assert 'idx' in self.annotations[idx], f"Missing idx in annotation {idx}"
+            assert 'pos' in self.annotations[idx], f"Missing pos in annotation {idx}. Got keys {set(self.annotations[idx].keys())}."
+            assert 'idx' in self.annotations[idx], f"Missing idx in annotation {idx}. Got keys {set(self.annotations[idx].keys())}."
             
             # Sample cylinder
             sample = self._sample_cylinder(data, self.annotations[idx]['pos'], self.annotations[idx]['idx'])
