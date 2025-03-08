@@ -109,4 +109,4 @@ def test_siamese_kpconv_collator(dummy_dataset):
     # Verify the outputs can be used for model input
     assert isinstance(batch['inputs'], dict)
     assert all(isinstance(v, dict) for v in batch['inputs'].values())
-    assert all(isinstance(v, torch.Tensor) for pc in batch['inputs'].values() for v in pc.values()) 
+    assert all(isinstance(v, torch.Tensor) for pc in batch['inputs'].values() for v in pc.values())
