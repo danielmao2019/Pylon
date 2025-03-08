@@ -62,6 +62,15 @@ class Urb3DCDDataset(BaseDataset):
         if version not in self.VERSION_MAP:
             raise ValueError(f"Version {version} is not supported. Must be one of {list(self.VERSION_MAP.keys())}")
 
+        # Check for invalid parameter combinations
+        if not patched:
+            if sample_per_epoch is not None:
+                raise ValueError("'sample_per_epoch' should not be specified when 'patched' is False.")
+            if fix_samples is not None:
+                raise ValueError("'fix_samples' should not be specified when 'patched' is False.")
+            if radius is not None:
+                raise ValueError("'radius' should not be specified when 'patched' is False.")
+        
         self._sample_per_epoch = sample_per_epoch
         self.fix_samples = fix_samples
         self._radius = radius
