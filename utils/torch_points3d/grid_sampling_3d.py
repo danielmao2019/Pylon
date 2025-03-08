@@ -48,22 +48,22 @@ def grid_cluster(
 
     # Shift points to start at origin and get grid coordinates
     pos = pos - start
-    
+
     # Get grid coordinates for each point using floor division
     grid_coords = torch.floor(pos / size).long()
 
     # Compute grid dimensions
     grid_size = torch.ceil((end - start) / size).long()
-    
+
     # Normalize coordinates to be non-negative
     grid_coords = grid_coords - grid_coords.min(dim=0)[0]
-    
+
     # Compute unique cell index using row-major ordering
     # This is more robust than Morton encoding for large coordinate ranges
-    strides = torch.tensor([1, grid_size[0], grid_size[0] * grid_size[1]], 
+    strides = torch.tensor([1, grid_size[0], grid_size[0] * grid_size[1]],
                           device=pos.device, dtype=torch.long)
     cluster = (grid_coords * strides.view(1, -1)).sum(dim=1)
-    
+
     return cluster
 
 
@@ -96,7 +96,7 @@ def group_data(
         raise ValueError("In last mode the unique_pos_indices argument needs to be specified")
 
     result_dict = {}
-    
+
     # Handle positions (continuous data)
     pos = data_dict['pos']
     if mode == "last":
@@ -110,7 +110,7 @@ def group_data(
             summed[cluster[i]] += pos[i]
             counts[cluster[i]] += 1
         result_dict['pos'] = summed / counts.unsqueeze(1)
-    
+
     # Handle change map (categorical data)
     change_map = data_dict['change_map']
     if mode == "last":
@@ -175,7 +175,7 @@ class GridSampling3D:
         """
         if 'pos' not in data_dict:
             raise ValueError("Data dictionary must have 'pos' key")
-        
+
         points = data_dict['pos']
         if points.shape[1] < 3:
             raise ValueError("Points must have at least 3 dimensions (x, y, z)")
@@ -187,10 +187,10 @@ class GridSampling3D:
             device=points.device if self._device is None else self._device
         )
         cluster = grid_cluster(points[:, :3], size_tensor)
-        
+
         # Get consecutive cluster indices and permutation
         cluster, unique_pos_indices = consecutive_cluster(cluster)
-        
+
         # Group all data attributes
         return group_data(data_dict, cluster, unique_pos_indices, mode=self._mode)
 
