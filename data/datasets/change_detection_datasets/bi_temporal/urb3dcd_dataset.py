@@ -146,8 +146,8 @@ class Urb3DCDDataset(BaseDataset):
         """
         centers_list = []
         for idx in range(len(self.annotations)):
-            # Pass initialization_mode=True to skip sampling during initialization
-            data = self._load_point_cloud_pair(idx, initialization_mode=True)
+            # Load point cloud but skip sampling during initialization
+            data = self._load_point_cloud_whole(idx)
             data_dict = {
                 'pos': data['pc_1'],
                 'change_map': data['change_map']
@@ -299,7 +299,7 @@ class Urb3DCDDataset(BaseDataset):
             The inputs, labels, and meta_info for the datapoint.
         """
         # Load the point cloud pair
-        pc_data = self._load_point_cloud_pair(idx)
+        pc_data = self._load_point_cloud_whole(idx)
         
         # Create inputs dictionary
         inputs = {
@@ -346,14 +346,10 @@ class Urb3DCDDataset(BaseDataset):
             print(f"Attempt {attempts+1}/{max_attempts}: Loading datapoint from index {idx}")
             
             try:
-                # Load point cloud pair and sample it
-                pc_data = self._load_point_cloud_pair(idx)
+                # Load point cloud with sampling
+                pc_data = self._load_point_cloud_patched(idx)
                 
                 if pc_data is None:
-                    print(f"Failed to load point cloud at index {idx}")
-                    raise ValueError("Point cloud loading failed")
-                
-                if 'sampled_pc_0' not in pc_data:
                     print(f"Sampling failed at index {idx}")
                     raise ValueError("Sampling failed")
                 
@@ -406,12 +402,11 @@ class Urb3DCDDataset(BaseDataset):
 
         raise ValueError(f"Could not find a valid datapoint after {max_attempts} attempts")
 
-    def _load_point_cloud_pair(self, idx: int, initialization_mode: bool = False) -> Dict[str, Any]:
-        """Load a pair of point clouds and optionally sample them if patched mode is enabled.
+    def _load_point_cloud_whole(self, idx: int) -> Dict[str, Any]:
+        """Load a pair of point clouds without sampling.
 
         Args:
             idx: Index of the point cloud pair to load.
-            initialization_mode: If True, skips sampling even if patched=True, used during initialization.
 
         Returns:
             Dictionary containing:
@@ -420,9 +415,6 @@ class Urb3DCDDataset(BaseDataset):
             - change_map: Change labels for second point cloud (M,)
             - kdtree_0: KDTree for first point cloud
             - kdtree_1: KDTree for second point cloud
-            - sampled_pc_0: (optional) Sampled first point cloud
-            - sampled_pc_1: (optional) Sampled second point cloud
-            - sampled_change_map: (optional) Sampled change labels
         """
         # Assert existence of file paths
         assert 'pc_0_filepath' in self.annotations[idx], f"Missing pc_0_filepath in annotation {idx}"
@@ -456,8 +448,8 @@ class Urb3DCDDataset(BaseDataset):
         kdtree_0 = KDTree(np.asarray(pc0_xyz), leaf_size=10)
         kdtree_1 = KDTree(np.asarray(pc1_xyz), leaf_size=10)
         
-        # Base data dictionary
-        data = {
+        # Return data dictionary
+        return {
             'pc_0': pc0_xyz,
             'pc_1': pc1_xyz,
             'change_map': change_map,
@@ -465,19 +457,35 @@ class Urb3DCDDataset(BaseDataset):
             'kdtree_1': kdtree_1,
         }
         
-        # Skip sampling during initialization or if not in patched mode
-        if self.patched and not initialization_mode:
-            # Assert existence of center position
-            assert 'pos' in self.annotations[idx], f"Missing pos in annotation {idx}"
-            assert 'idx' in self.annotations[idx], f"Missing idx in annotation {idx}"
+    def _load_point_cloud_patched(self, idx: int) -> Dict[str, Any]:
+        """Load a pair of point clouds and sample them based on center position.
+
+        Args:
+            idx: Index of the point cloud pair to load.
+
+        Returns:
+            Dictionary containing base point cloud data plus:
+            - sampled_pc_0: Sampled first point cloud
+            - sampled_pc_1: Sampled second point cloud
+            - sampled_change_map: Sampled change labels
             
-            # Sample cylinder
-            sample = self._sample_cylinder(data, self.annotations[idx]['pos'], self.annotations[idx]['idx'])
-            
-            if sample is not None:
-                data['sampled_pc_0'] = sample['pc_0']
-                data['sampled_pc_1'] = sample['pc_1']
-                data['sampled_change_map'] = sample['change_map']
+        Raises:
+            AssertionError: If required fields are missing
+        """
+        # First load the whole point cloud
+        data = self._load_point_cloud_whole(idx)
+        
+        # Assert existence of center position for sampling
+        assert 'pos' in self.annotations[idx], f"Missing pos in annotation {idx}"
+        assert 'idx' in self.annotations[idx], f"Missing idx in annotation {idx}"
+        
+        # Sample cylinder
+        sample = self._sample_cylinder(data, self.annotations[idx]['pos'], self.annotations[idx]['idx'])
+        
+        if sample is not None:
+            data['sampled_pc_0'] = sample['pc_0']
+            data['sampled_pc_1'] = sample['pc_1']
+            data['sampled_change_map'] = sample['change_map']
         
         return data
 
