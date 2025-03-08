@@ -84,37 +84,14 @@ class SiameseKPConvCollator(BaseCollator):
         labels_dict = transpose_buffer(labels_list)
         assert 'change_map' in labels_dict, f"Labels must contain 'change_map', got {labels_dict.keys()}"
         
-        # Simply concatenate change maps
-        all_change_labels = []
-        
-        # Track the total number of points in pc_1 to verify consistency
-        total_pc1_points = 0
-        
-        for i, change_map in enumerate(labels_dict['change_map']):
-            # Get number of points in current pc_1
-            pc1_points = inputs_dict['pc_1'][i].shape[0]
-            total_pc1_points += pc1_points
-            
-            # If change_map is a single value, expand it to match pc_1
-            if isinstance(change_map, (int, float)) or (isinstance(change_map, torch.Tensor) and change_map.numel() == 1):
-                change_value = change_map.item() if isinstance(change_map, torch.Tensor) else change_map
-                all_change_labels.append(torch.full((pc1_points,), change_value, dtype=torch.long))
-            else:
-                # Verify change_map has the same number of points as pc_1
-                assert change_map.shape[0] == pc1_points, \
-                    f"Change map at index {i} has {change_map.shape[0]} points, but pc_1 has {pc1_points} points"
-                all_change_labels.append(change_map)
-        
-        # Concatenate all change labels
-        change_tensor = torch.cat(all_change_labels, dim=0)
+        # Simply concatenate the change maps
+        batched_labels = {
+            'change': torch.cat(labels_dict['change_map'], dim=0)
+        }
         
         # Verify the total number of points matches between batched pc_1 and concatenated change maps
-        assert change_tensor.shape[0] == batched_inputs['pc_1']['pos'].shape[0], \
-            f"Batched change map has {change_tensor.shape[0]} points, but batched pc_1 has {batched_inputs['pc_1']['pos'].shape[0]} points"
-        
-        batched_labels = {
-            'change': change_tensor
-        }
+        assert batched_inputs['pc_1']['pos'].shape[0] == batched_labels['change'].shape[0], \
+            f"Batched pc_1 has {batched_inputs['pc_1']['pos'].shape[0]} points, but batched change map has {batched_labels['change'].shape[0]} points"
         
         # Process meta information
         meta_info = {}
