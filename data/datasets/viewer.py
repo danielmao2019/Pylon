@@ -20,6 +20,7 @@ from data.datasets.pointcloud_utils import (
 from configs.common.datasets.change_detection.train.urb3dcd import config
 dataset_cfg = config['train_dataset']
 dataset_cfg['args']['data_root'] = os.path.relpath(dataset_cfg['args']['data_root'], start="./data/datasets")
+dataset_cfg['args']['patched'] = False
 transforms_cfg = dataset_cfg['args'].get('transforms_cfg', {'class': data.transforms.Compose, 'args': {'transforms': []}})
 dataset = utils.builders.build_from_config(dataset_cfg)
 
