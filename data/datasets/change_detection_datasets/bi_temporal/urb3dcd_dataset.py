@@ -55,6 +55,7 @@ class Urb3DCDDataset(BaseDataset):
         fix_samples: Optional[bool] = False,
         radius: Optional[float] = 2,
         version: Optional[int] = 1,
+        patched: Optional[bool] = True,
         *args,
         **kwargs
     ) -> None:
@@ -65,6 +66,7 @@ class Urb3DCDDataset(BaseDataset):
         self.fix_samples = fix_samples
         self._radius = radius
         self.version = version
+        self.patched = patched  # Whether to use patched (sampled) point clouds or full point clouds
         self._grid_sampling = GridSampling3D(size=radius / 10.0)  # Renamed to be more generic
         super(Urb3DCDDataset, self).__init__(*args, **kwargs)
 
@@ -73,7 +75,7 @@ class Urb3DCDDataset(BaseDataset):
 
         This method performs the following steps:
         1. Gets file paths for point cloud pairs
-        2. Prepares all potential centers using grid sampling
+        2. If patched mode, prepares centers for sampling; otherwise just store file paths
         3. Calculates label statistics if needed for balanced sampling
         4. Prepares final annotations based on sampling mode (fixed, random, or grid)
         """
@@ -97,6 +99,12 @@ class Urb3DCDDataset(BaseDataset):
             for pc0, pc1 in zip(pc0_files, pc1_files)
         ]
 
+        # For non-patched mode, just store the file paths
+        if not self.patched:
+            self.annotations = file_pairs
+            return
+
+        # For patched mode, continue with center preparation
         # Get all potential centers
         all_centers = self._prepare_all_centers(file_pairs)
 
@@ -246,12 +254,12 @@ class Urb3DCDDataset(BaseDataset):
     def _load_datapoint(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a datapoint for the parent class interface.
 
-        If the sampled point clouds are empty, it will try different sampling locations
-        until it finds a valid sample or reaches the maximum number of attempts.
+        If patched mode is True, samples point clouds using cylindrical sampling.
+        If patched mode is False, returns the full point clouds.
 
         Args:
             idx: Index of the datapoint to load.
-            max_attempts: Maximum number of sampling attempts before giving up.
+            max_attempts: Maximum number of sampling attempts before giving up (only used in patched mode).
 
         Returns:
             The inputs, labels, and meta_info for a valid datapoint.
@@ -259,15 +267,47 @@ class Urb3DCDDataset(BaseDataset):
         Raises:
             ValueError: If no valid datapoint could be found after max_attempts.
         """
+        # For non-patched mode, load the full point clouds
+        if not self.patched:
+            # Load point cloud pair
+            data = self._load_point_cloud_pair(idx)
+            
+            # Create the inputs, labels, and meta_info
+            inputs = {
+                'pc_0': data['pc_0'],
+                'pc_1': data['pc_1'],
+                'kdtree_0': data['kdtree_0'],
+                'kdtree_1': data['kdtree_1']
+            }
+            
+            labels = {
+                'change_map': data['change_map']
+            }
+            
+            meta_info = {
+                'idx': idx,
+                'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
+                'pc_1_filepath': self.annotations[idx]['pc_1_filepath']
+            }
+            
+            return inputs, labels, meta_info
+        
+        # For patched mode, use sampling
         original_idx = idx
         attempts = 0
 
         while attempts < max_attempts:
             print(f"Attempt {attempts+1}/{max_attempts}: Loading datapoint from index {idx}")
-            data = self._load_point_cloud_pair(idx)
+            
+            # Get center info
             center_info = self.annotations[idx]
+            
+            # Load point clouds
+            data = self._load_point_cloud_pair(idx)
+            
+            # Sample cylinder
             sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
-
+                
             if sample is None:
                 print(f"Failed to sample cylinder at index {idx}")
                 # Try another random index
@@ -279,47 +319,45 @@ class Urb3DCDDataset(BaseDataset):
             pc0, pc1 = sample['pc_0'], sample['pc_1']
             change_map = sample['change_map']
 
-            # Validate the datapoint
+            # Check if the sampled point clouds are valid
             if not self._is_valid_datapoint(pc0, pc1, change_map):
-                print(f"Validation failed for index {idx}")
-                # Pick another random index
+                print(f"Invalid datapoint at index {idx}")
+                # Try another random index
                 if len(self.annotations) > 1:
-                    new_idx = random.randint(0, len(self.annotations) - 1)
-                    # Try to get a different index if possible
-                    while new_idx == idx and len(self.annotations) > 1:
-                        new_idx = random.randint(0, len(self.annotations) - 1)
-                    idx = new_idx
-                else:
-                    # If there's only one annotation, try with different center positions
-                    center_info['pos'] = center_info['pos'] + torch.randn_like(center_info['pos']) * self._radius * 0.5
-
+                    idx = random.randint(0, len(self.annotations) - 1)
                 attempts += 1
                 continue
 
-            # Normalize point clouds
-            self._normalize(pc0, pc1)
-
-            # Prepare return values in format expected by parent class
+            # Create the inputs, labels, and meta_info
             inputs = {
                 'pc_0': pc0,
                 'pc_1': pc1,
-                'kdtree_0': data['kdtree_0'],
-                'kdtree_1': data['kdtree_1'],
+                'kdtree_0': KDTree(np.asarray(pc0), leaf_size=10),
+                'kdtree_1': KDTree(np.asarray(pc1), leaf_size=10),
             }
+
             labels = {
-                'change_map': change_map,
+                'change_map': change_map
             }
+
             meta_info = {
+                'idx': original_idx,
+                'center_idx': center_info['idx'],
+                'center_pos': center_info['pos'],
                 'pc_0_filepath': center_info['pc_0_filepath'],
                 'pc_1_filepath': center_info['pc_1_filepath'],
-                'point_idx_pc0': sample['point_idx_pc0'],
-                'point_idx_pc1': sample['point_idx_pc1'],
-                'idx': sample['idx']
+                'attempt': attempts + 1
             }
-            print(f"Successfully loaded valid datapoint from index {idx}")
+
+            # Add label counts for debugging
+            labels_unique, counts = torch.unique(change_map, return_counts=True)
+            for label, count in zip(labels_unique, counts):
+                label_name = self.INV_OBJECT_LABEL.get(label.item(), f"unknown_{label.item()}")
+                meta_info[f'label_{label.item()}_{label_name}_count'] = count.item()
+
             return inputs, labels, meta_info
 
-        raise ValueError(f"Failed to find valid datapoint after {max_attempts} attempts starting from index {original_idx}")
+        raise ValueError(f"Could not find a valid datapoint after {max_attempts} attempts")
 
     def _is_valid_datapoint(self, pc0: torch.Tensor, pc1: torch.Tensor, change_map: torch.Tensor) -> bool:
         """Check if a datapoint is valid.
