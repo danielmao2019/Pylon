@@ -64,11 +64,11 @@ class Urb3DCDDataset(BaseDataset):
 
         # Check for invalid parameter combinations
         if not patched:
-            if sample_per_epoch is not None:
+            if sample_per_epoch is not None and sample_per_epoch != 100:
                 raise ValueError("'sample_per_epoch' should not be specified when 'patched' is False.")
-            if fix_samples is not None:
+            if fix_samples is not None and fix_samples != False:
                 raise ValueError("'fix_samples' should not be specified when 'patched' is False.")
-            if radius is not None:
+            if radius is not None and radius != 2:
                 raise ValueError("'radius' should not be specified when 'patched' is False.")
         
         self._sample_per_epoch = sample_per_epoch
