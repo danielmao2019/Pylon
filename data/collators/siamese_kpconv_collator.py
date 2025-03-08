@@ -23,7 +23,6 @@ class SiameseKPConvCollator(BaseCollator):
         Returns:
             Dictionary with 'pos', 'x', and 'batch' tensors
         """
-        batch_size = len(point_clouds)
         all_pos = []
         all_x = []
         all_batch = []
@@ -67,31 +66,36 @@ class SiameseKPConvCollator(BaseCollator):
         """
         # Transpose the top level to get {'inputs': [...], 'labels': [...], 'meta_info': [...]}
         datapoints_dict = transpose_buffer(datapoints)
-        assert set(datapoints_dict.keys()) == {'inputs', 'labels', 'meta_info'}, f"Expected keys 'inputs', 'labels', 'meta_info', got {datapoints_dict.keys()}"
+        assert set(datapoints_dict.keys()) == {'inputs', 'labels', 'meta_info'}, \
+            f"Expected keys 'inputs', 'labels', 'meta_info', got {datapoints_dict.keys()}"
         
-        # Extract and transpose 'inputs' to get {'pc_0': [...], 'pc_1': [...]}
+        # Process inputs - batch the point clouds
         inputs_dict = transpose_buffer(datapoints_dict["inputs"])
-        assert set(inputs_dict.keys()) >= {'pc_0', 'pc_1'}, f"Inputs must contain at least 'pc_0' and 'pc_1', got {inputs_dict.keys()}"
+        assert set(inputs_dict.keys()) >= {'pc_0', 'pc_1'}, \
+            f"Inputs must contain at least 'pc_0' and 'pc_1', got {inputs_dict.keys()}"
+        
         batched_inputs = {
             'pc_0': self._batch_point_cloud_data(inputs_dict['pc_0']),
             'pc_1': self._batch_point_cloud_data(inputs_dict['pc_1']),
         }
         
-        # Process change maps
+        # Process labels - concatenate the change maps
         labels_dict = transpose_buffer(datapoints_dict["labels"])
-        assert 'change_map' in labels_dict, f"Labels must contain 'change_map', got {labels_dict.keys()}"
+        assert 'change_map' in labels_dict, \
+            f"Labels must contain 'change_map', got {labels_dict.keys()}"
+        
         batched_labels = {
             'change': torch.cat(labels_dict['change_map'], dim=0)
         }
         
-        # Verify the total number of points matches between batched pc_1 and concatenated change maps
+        # Verify consistency between point clouds and change maps
         assert batched_inputs['pc_1']['pos'].shape[0] == batched_labels['change'].shape[0], \
             f"Batched pc_1 has {batched_inputs['pc_1']['pos'].shape[0]} points, but batched change map has {batched_labels['change'].shape[0]} points"
         
         # Process meta information
         meta_info_dict = transpose_buffer(datapoints_dict["meta_info"])
         batched_meta_info = {}
-        for key, values in batched_meta_info.items():
+        for key, values in meta_info_dict.items():
             batched_meta_info[key] = self._default_collate(values, "meta_info", key)
         
         return {
