@@ -53,8 +53,11 @@ def create_point_cloud_figure(pc_data, colors=None, title="Point Cloud", colorsc
                 opacity=opacity,
                 colorbar=dict(
                     title=colorbar_title,
-                    thickness=20,
-                    len=0.75
+                    thickness=15,
+                    len=0.6,
+                    x=1.02,  # Position colorbar outside the plot area
+                    xanchor="left",
+                    xpad=10
                 )
             ),
             text=[f"Point {i}<br>Value: {c}" for i, c in enumerate(colors)],
@@ -95,7 +98,7 @@ def create_point_cloud_figure(pc_data, colors=None, title="Point Cloud", colorsc
             yaxis=dict(range=y_range),
             zaxis=dict(range=z_range)
         ),
-        margin=dict(l=0, r=0, b=0, t=40),
+        margin=dict(l=0, r=40, b=0, t=40),  # Increased right margin for colorbar
         height=500,
     )
     

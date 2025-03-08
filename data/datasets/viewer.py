@@ -416,49 +416,78 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
                 html.P(f"{class_info['class_name']}: {class_info['count']} points ({class_info['percentage']:.1f}%)")
             )
     
+    # Create legend for change map classes
+    legend_items = []
+    for class_id, class_name in CLASS_LABELS.items():
+        legend_items.append(html.Div([
+            html.Div(style={
+                'background-color': f'#{class_id * 30:02x}{255 - class_id * 30:02x}{255:02x}',
+                'width': '20px',
+                'height': '20px',
+                'display': 'inline-block',
+                'margin-right': '5px',
+                'vertical-align': 'middle'
+            }),
+            html.Span(f"Class {class_id}: {class_name}", style={'vertical-align': 'middle'})
+        ], style={'margin-bottom': '5px'}))
+    
     return html.Div([
         html.H2("3D Point Cloud Change Detection Visualization", style={'text-align': 'center'}),
         html.P("Point clouds are synchronized - drag one to adjust all views simultaneously", 
                style={'text-align': 'center', 'font-style': 'italic'}),
         
+        # Main content with visualizations and class distribution
         html.Div([
+            # Point cloud visualizations (equal width)
             html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 0},
-                    figure=pc_0_fig,
-                    config={'scrollZoom': True}
-                ),
-                html.H4("Point Cloud 1 Statistics"),
                 html.Div([
-                    html.P(f"{key}: {value}")
-                    for key, value in pc_0_stats.items() if key != 'class_distribution'
-                ]),
-            ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-            
-            html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 1},
-                    figure=pc_1_fig,
-                    config={'scrollZoom': True}
-                ),
-                html.H4("Point Cloud 2 Statistics"),
+                    dcc.Graph(
+                        id={'type': 'point-cloud-graph', 'index': 0},
+                        figure=pc_0_fig,
+                        config={'scrollZoom': True},
+                        style={'height': '500px'}
+                    ),
+                    html.H4("Point Cloud 1 Statistics"),
+                    html.Div([
+                        html.P(f"{key}: {value}")
+                        for key, value in pc_0_stats.items() if key != 'class_distribution'
+                    ]),
+                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top', 'box-sizing': 'border-box'}),
+                
                 html.Div([
-                    html.P(f"{key}: {value}")
-                    for key, value in pc_1_stats.items() if key != 'class_distribution'
-                ]),
-            ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+                    dcc.Graph(
+                        id={'type': 'point-cloud-graph', 'index': 1},
+                        figure=pc_1_fig,
+                        config={'scrollZoom': True},
+                        style={'height': '500px'}
+                    ),
+                    html.H4("Point Cloud 2 Statistics"),
+                    html.Div([
+                        html.P(f"{key}: {value}")
+                        for key, value in pc_1_stats.items() if key != 'class_distribution'
+                    ]),
+                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top', 'box-sizing': 'border-box'}),
+                
+                html.Div([
+                    dcc.Graph(
+                        id={'type': 'point-cloud-graph', 'index': 2},
+                        figure=change_map_fig,
+                        config={'scrollZoom': True},
+                        style={'height': '500px'}
+                    ),
+                    html.H4("Change Class Distribution"),
+                    html.Div(class_distribution, style={'max-height': '200px', 'overflow-y': 'auto'}),
+                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top', 'box-sizing': 'border-box'}),
+            ], style={'display': 'flex', 'width': '100%'}),
             
+            # Legend section below
             html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 2},
-                    figure=change_map_fig,
-                    config={'scrollZoom': True}
-                ),
-                html.H4("Change Class Distribution"),
-                html.Div(class_distribution, style={'max-height': '200px', 'overflow-y': 'auto'}),
-            ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-        ], style={'display': 'flex'}),
+                html.H4("Change Classes Legend", style={'margin-top': '20px', 'margin-bottom': '10px'}),
+                html.Div(legend_items, style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'center'}),
+            ]),
+        ]),
         
+        # Metadata section
         html.Div([
             html.H4("Metadata"),
             html.Div([
