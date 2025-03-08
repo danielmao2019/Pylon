@@ -51,11 +51,11 @@ class Urb3DCDDataset(BaseDataset):
 
     def __init__(
         self,
+        version: Optional[int] = 1,
+        patched: Optional[bool] = True,
         sample_per_epoch: Optional[int] = 100,
         fix_samples: Optional[bool] = False,
         radius: Optional[float] = 2,
-        version: Optional[int] = 1,
-        patched: Optional[bool] = True,
         *args,
         **kwargs
     ) -> None:
