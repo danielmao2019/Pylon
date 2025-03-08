@@ -27,7 +27,7 @@ class CylinderSampling:
     ) -> None:
         if radius <= 0:
             raise ValueError("Radius must be positive")
-        
+
         self._radius = radius
         self._center = torch.as_tensor(center, device=device).view(1, -1)
         self._align_origin = align_origin
@@ -70,19 +70,19 @@ class CylinderSampling:
 
         if self._center.device.type != 'cpu':
             indices = indices.to(self._center.device)
-        
+
         # Sample position data
         pos = data_dict['pos']
         sampled_pos = pos[indices]
         if self._align_origin:
             sampled_pos = sampled_pos.clone()
             sampled_pos[:, :self._center.shape[1]] -= self._center
-        
+
         result_dict = {
             'pos': sampled_pos,
             'point_idx': indices
         }
-        
+
         # Sample change map if present
         if 'change_map' in data_dict:
             result_dict['change_map'] = data_dict['change_map'][indices]

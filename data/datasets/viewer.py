@@ -12,7 +12,7 @@ sys.path.append("../..")
 import data
 import utils
 from data.datasets.pointcloud_utils import (
-    create_point_cloud_figure, 
+    create_point_cloud_figure,
     tensor_to_point_cloud
 )
 
@@ -73,21 +73,21 @@ def format_value(value):
 
 def get_point_cloud_stats(pc, change_map=None, class_names=None):
     """Get statistical information about a point cloud.
-    
+
     Args:
         pc: Point cloud tensor of shape (N, 3+)
         change_map: Optional tensor with change classes for each point
         class_names: Optional dictionary mapping class IDs to class names
-        
+
     Returns:
         Dictionary with point cloud statistics
     """
     if not isinstance(pc, torch.Tensor):
         return {}
-    
+
     # Convert to numpy for calculations
     pc_np = tensor_to_point_cloud(pc)
-    
+
     # Basic stats
     stats = {
         "Total Points": len(pc_np),
@@ -97,23 +97,23 @@ def get_point_cloud_stats(pc, change_map=None, class_names=None):
         "Z Range": f"[{pc_np[:, 2].min():.2f}, {pc_np[:, 2].max():.2f}]",
         "Center": f"[{pc_np[:, 0].mean():.2f}, {pc_np[:, 1].mean():.2f}, {pc_np[:, 2].mean():.2f}]",
     }
-    
+
     # Add class distribution if change_map is provided
     if change_map is not None:
         unique_classes, class_counts = torch.unique(change_map, return_counts=True)
-        
+
         # Convert to numpy for display
         unique_classes = unique_classes.cpu().numpy()
         class_counts = class_counts.cpu().numpy()
-        
+
         # Calculate distribution
         total_points = change_map.numel()
         class_distribution = []
-        
+
         for cls, count in zip(unique_classes, class_counts):
             percentage = (count / total_points) * 100
             cls_key = cls.item() if hasattr(cls, 'item') else cls
-            
+
             if class_names and cls_key in class_names:
                 class_label = class_names[cls_key]
                 class_distribution.append({
@@ -129,9 +129,9 @@ def get_point_cloud_stats(pc, change_map=None, class_names=None):
                     "count": int(count),
                     "percentage": percentage
                 })
-        
+
         stats["class_distribution"] = class_distribution
-    
+
     return stats
 
 def create_transform_checkboxes(transforms_cfg):
@@ -151,28 +151,28 @@ def create_transform_checkboxes(transforms_cfg):
 
 def create_app_layout(dataset, transforms_cfg):
     """Create the application layout.
-    
+
     Args:
         dataset: The dataset being visualized
         transforms_cfg: Configuration for available transforms
-        
+
     Returns:
         Dash layout component
     """
     # Generate checkbox options for transforms
     available_transforms = create_transform_checkboxes(transforms_cfg)
-    
+
     return html.Div([
         html.H1("Dataset Viewer", style={'text-align': 'center', 'margin-bottom': '20px'}),
-        
+
         dcc.Store(id='current-idx', data=0),  # Store current index in memory
         dcc.Store(id='camera-view', data=None),  # Store camera view for syncing
-        
+
         html.Div(id='control', children=[
             html.Div(id='navigation', children=[
                 html.P(id='index', children='index=0', style={'margin-bottom': '10px', 'font-weight': 'bold'}),
                 html.Div([
-                    html.Button("⏮ Prev", id='prev-btn', n_clicks=0, 
+                    html.Button("⏮ Prev", id='prev-btn', n_clicks=0,
                                style={'margin-right': '10px', 'background-color': '#e7e7e7', 'border': 'none', 'padding': '10px 20px'}),
                     html.Button("Next ⏭", id='next-btn', n_clicks=0,
                                style={'background-color': '#e7e7e7', 'border': 'none', 'padding': '10px 20px'}),
@@ -216,7 +216,7 @@ def create_app_layout(dataset, transforms_cfg):
                 ]) if HAS_CLASS_LABELS else None,
             ]),
         ], style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px', 'background-color': '#f9f9f9'}),
-        
+
         html.Div(id='datapoint-display', style={'width': '78%', 'display': 'inline-block', 'padding-left': '20px'})
     ], style={'display': 'flex', 'font-family': 'Arial, sans-serif'})
 
@@ -258,12 +258,12 @@ def sync_camera_views(relayout_data_list, current_camera):
     ctx = dash.callback_context
     if not ctx.triggered:
         return current_camera
-    
+
     # Get the relayout data from the trigger
     for i, data in enumerate(relayout_data_list):
         if data and 'scene.camera' in data:
             return data['scene.camera']
-    
+
     return current_camera
 
 @app.callback(
@@ -276,7 +276,7 @@ def update_camera_views(camera_data, figures):
     """Update all point cloud figures with the synchronized camera view."""
     if not camera_data or not figures:
         return [dash.no_update] * len(figures)
-    
+
     updated_figures = []
     for fig in figures:
         if fig:
@@ -287,7 +287,7 @@ def update_camera_views(camera_data, figures):
             updated_figures.append(updated_fig)
         else:
             updated_figures.append(dash.no_update)
-    
+
     return updated_figures
 
 @app.callback(
@@ -300,7 +300,7 @@ def update_camera_views(camera_data, figures):
 def update_datapoint(current_idx, selected_transform_indices, point_size, point_opacity):
     """Apply selected transformations and display datapoint details and images/point clouds."""
     selected_transform_indices = [i[0] for i in selected_transform_indices if i]
-    
+
     # Load datapoint
     inputs, labels, meta_info = dataset._load_datapoint(current_idx)
     datapoint = {
@@ -319,7 +319,7 @@ def update_datapoint(current_idx, selected_transform_indices, point_size, point_
             ],
         },
     }
-    
+
     # Build the transformation pipeline with only selected transforms
     active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
     datapoint = active_transforms(datapoint)
@@ -375,39 +375,39 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
     pc_0 = datapoint['inputs']['pc_0']
     pc_1 = datapoint['inputs']['pc_1']
     change_map = datapoint['labels']['change_map']
-    
+
     # Get statistics for both point clouds
     pc_0_stats = get_point_cloud_stats(pc_0)
     pc_1_stats = get_point_cloud_stats(pc_1, change_map=None)
-    
+
     # Get change map stats with class distribution
     change_stats = get_point_cloud_stats(pc_1, change_map=change_map, class_names=CLASS_LABELS)
-    
+
     # Create point cloud figures
     pc_0_fig = create_point_cloud_figure(
-        pc_0, 
-        title='Point Cloud 1', 
-        point_size=point_size, 
+        pc_0,
+        title='Point Cloud 1',
+        point_size=point_size,
         opacity=point_opacity
     )
     pc_1_fig = create_point_cloud_figure(
-        pc_1, 
-        title='Point Cloud 2', 
-        point_size=point_size, 
+        pc_1,
+        title='Point Cloud 2',
+        point_size=point_size,
         opacity=point_opacity
     )
-    
+
     # Create change map figure (colorized by change class)
     change_map_fig = create_point_cloud_figure(
-        pc_1, 
-        colors=change_map, 
+        pc_1,
+        colors=change_map,
         title='Change Map',
         colorscale='Viridis',
-        point_size=point_size, 
+        point_size=point_size,
         opacity=point_opacity,
         colorbar_title="Change Class"
     )
-    
+
     # Create class distribution components
     class_distribution = []
     if 'class_distribution' in change_stats:
@@ -415,7 +415,7 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
             class_distribution.append(
                 html.P(f"{class_info['class_name']}: {class_info['count']} points ({class_info['percentage']:.1f}%)")
             )
-    
+
     # Create legend for change map classes
     legend_items = []
     for class_id, class_name in CLASS_LABELS.items():
@@ -430,12 +430,12 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
             }),
             html.Span(f"Class {class_id}: {class_name}", style={'vertical-align': 'middle'})
         ], style={'margin-bottom': '5px'}))
-    
+
     return html.Div([
         html.H2("3D Point Cloud Change Detection Visualization", style={'text-align': 'center'}),
-        html.P("Point clouds are synchronized - drag one to adjust all views simultaneously", 
+        html.P("Point clouds are synchronized - drag one to adjust all views simultaneously",
                style={'text-align': 'center', 'font-style': 'italic'}),
-        
+
         # Main content with visualizations and class distribution
         html.Div([
             # Point cloud visualizations (equal width)
@@ -453,7 +453,7 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
                         for key, value in pc_0_stats.items() if key != 'class_distribution'
                     ]),
                 ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top', 'box-sizing': 'border-box'}),
-                
+
                 html.Div([
                     dcc.Graph(
                         id={'type': 'point-cloud-graph', 'index': 1},
@@ -467,7 +467,7 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
                         for key, value in pc_1_stats.items() if key != 'class_distribution'
                     ]),
                 ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top', 'box-sizing': 'border-box'}),
-                
+
                 html.Div([
                     dcc.Graph(
                         id={'type': 'point-cloud-graph', 'index': 2},
@@ -479,14 +479,14 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
                     html.Div(class_distribution, style={'max-height': '200px', 'overflow-y': 'auto'}),
                 ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top', 'box-sizing': 'border-box'}),
             ], style={'display': 'flex', 'width': '100%'}),
-            
+
             # Legend section below
             html.Div([
                 html.H4("Change Classes Legend", style={'margin-top': '20px', 'margin-bottom': '10px'}),
                 html.Div(legend_items, style={'display': 'flex', 'flex-wrap': 'wrap', 'justify-content': 'center'}),
             ]),
         ]),
-        
+
         # Metadata section
         html.Div([
             html.H4("Metadata"),
