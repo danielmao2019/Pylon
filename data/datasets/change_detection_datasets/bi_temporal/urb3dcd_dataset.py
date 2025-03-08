@@ -146,7 +146,8 @@ class Urb3DCDDataset(BaseDataset):
         """
         centers_list = []
         for idx in range(len(self.annotations)):
-            data = self._load_point_cloud_pair(idx)
+            # Pass initialization_mode=True to skip sampling during initialization
+            data = self._load_point_cloud_pair(idx, initialization_mode=True)
             data_dict = {
                 'pos': data['pc_1'],
                 'change_map': data['change_map']
@@ -405,11 +406,12 @@ class Urb3DCDDataset(BaseDataset):
 
         raise ValueError(f"Could not find a valid datapoint after {max_attempts} attempts")
 
-    def _load_point_cloud_pair(self, idx: int) -> Dict[str, Any]:
+    def _load_point_cloud_pair(self, idx: int, initialization_mode: bool = False) -> Dict[str, Any]:
         """Load a pair of point clouds and optionally sample them if patched mode is enabled.
 
         Args:
             idx: Index of the point cloud pair to load.
+            initialization_mode: If True, skips sampling even if patched=True, used during initialization.
 
         Returns:
             Dictionary containing:
@@ -463,11 +465,11 @@ class Urb3DCDDataset(BaseDataset):
             'kdtree_1': kdtree_1,
         }
         
-        # If in patched mode, sample the data using cylinder sampling
-        if self.patched:
+        # Skip sampling during initialization or if not in patched mode
+        if self.patched and not initialization_mode:
             # Assert existence of center position
-            assert 'pos' in self.annotations[idx], f"Missing pos in annotation {idx}. Got keys {set(self.annotations[idx].keys())}."
-            assert 'idx' in self.annotations[idx], f"Missing idx in annotation {idx}. Got keys {set(self.annotations[idx].keys())}."
+            assert 'pos' in self.annotations[idx], f"Missing pos in annotation {idx}"
+            assert 'idx' in self.annotations[idx], f"Missing idx in annotation {idx}"
             
             # Sample cylinder
             sample = self._sample_cylinder(data, self.annotations[idx]['pos'], self.annotations[idx]['idx'])
