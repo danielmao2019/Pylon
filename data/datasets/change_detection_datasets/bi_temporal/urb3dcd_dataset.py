@@ -194,7 +194,9 @@ class Urb3DCDDataset(BaseDataset):
         return fixed_centers
 
     def _prepare_random_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Prepare random centers with balanced sampling.
+        """Prepare random centers for balanced sampling.
+
+        Randomly selects samples with balanced class distribution.
 
         Args:
             all_centers: Dictionary containing all potential centers and their metadata.
@@ -210,16 +212,27 @@ class Urb3DCDDataset(BaseDataset):
         chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
         random_centers = []
         for label in chosen_labels:
+            # Create mask for the current label
             mask = all_centers['change_map'] == label
-            valid_pos = all_centers['pos'][mask]
-            valid_idx = all_centers['idx'][mask]
-            idx = torch.randint(low=0, high=valid_pos.shape[0], size=(1,)).item()
-            random_centers.append({
-                'pos': valid_pos[idx],
-                'idx': valid_idx[idx],
-                'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
-                'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
-            })
+            
+            # Get indices where mask is True
+            mask_indices = torch.nonzero(mask).squeeze(1)
+            
+            # Randomly select one index from these mask indices
+            if len(mask_indices) > 0:
+                random_idx = torch.randint(low=0, high=len(mask_indices), size=(1,)).item()
+                selected_idx = mask_indices[random_idx].item()
+                
+                # Use the selected index to get the corresponding center data
+                random_centers.append({
+                    'pos': all_centers['pos'][selected_idx],
+                    'idx': all_centers['idx'][selected_idx],
+                    'pc_0_filepath': all_centers['pc_0_filepath'][all_centers['idx'][selected_idx]],
+                    'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][selected_idx]]
+                })
+            else:
+                print(f"Warning: No centers found for label {label}")
+                
         return random_centers
 
     def _prepare_grid_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
