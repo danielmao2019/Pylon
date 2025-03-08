@@ -267,25 +267,28 @@ def sync_camera_views(relayout_data_list, current_camera):
     return current_camera
 
 @app.callback(
-    [Output({'type': 'point-cloud-graph', 'index': ALL}, 'figure')],
-    [Input('camera-view', 'data')],
-    [State({'type': 'point-cloud-graph', 'index': ALL}, 'figure')],
+    Output({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
+    Input('camera-view', 'data'),
+    State({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
     prevent_initial_call=True
 )
 def update_camera_views(camera_data, figures):
     """Update all point cloud figures with the synchronized camera view."""
     if not camera_data or not figures:
-        return [dash.no_update]
+        return [dash.no_update] * len(figures)
     
     updated_figures = []
     for fig in figures:
         if fig:
-            fig['layout']['scene']['camera'] = camera_data
-            updated_figures.append(fig)
+            # Make a copy of the figure to avoid modifying the original
+            updated_fig = fig.copy()
+            # Update camera
+            updated_fig['layout']['scene']['camera'] = camera_data
+            updated_figures.append(updated_fig)
         else:
             updated_figures.append(dash.no_update)
     
-    return [updated_figures]
+    return updated_figures
 
 @app.callback(
     Output('datapoint-display', 'children'),

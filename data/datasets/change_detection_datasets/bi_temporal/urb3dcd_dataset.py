@@ -60,7 +60,7 @@ class Urb3DCDDataset(BaseDataset):
     ) -> None:
         if version not in self.VERSION_MAP:
             raise ValueError(f"Version {version} is not supported. Must be one of {list(self.VERSION_MAP.keys())}")
-        
+
         self._sample_per_epoch = sample_per_epoch
         self.fix_samples = fix_samples
         self._radius = radius
@@ -142,8 +142,8 @@ class Urb3DCDDataset(BaseDataset):
             sampled_data = self._grid_sampling(data_dict)
             centers = {
                 'pos': sampled_data['pos'],
-                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
                 'change_map': sampled_data['change_map'],
+                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
                 'pc_0_filepath': files['pc_0_filepath'],
                 'pc_1_filepath': files['pc_1_filepath']
             }
@@ -152,8 +152,8 @@ class Urb3DCDDataset(BaseDataset):
         # Convert to single dictionary with concatenated tensors
         return {
             'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
-            'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
             'change_map': torch.cat([c['change_map'] for c in centers_list], dim=0),
+            'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
             'pc_0_filepath': [c['pc_0_filepath'] for c in centers_list],
             'pc_1_filepath': [c['pc_1_filepath'] for c in centers_list]
         }
@@ -174,7 +174,7 @@ class Urb3DCDDataset(BaseDataset):
         """
         chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
         unique_labels, counts = torch.unique(torch.tensor(chosen_labels), return_counts=True)
-        
+
         fixed_centers = []
         for label, count in zip(unique_labels, counts):
             mask = all_centers['change_map'] == label
@@ -245,35 +245,29 @@ class Urb3DCDDataset(BaseDataset):
 
     def _load_datapoint(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a datapoint for the parent class interface.
-        
+
         If the sampled point clouds are empty, it will try different sampling locations
         until it finds a valid sample or reaches the maximum number of attempts.
-        
+
         Args:
             idx: Index of the datapoint to load.
             max_attempts: Maximum number of sampling attempts before giving up.
-            
+
         Returns:
             The inputs, labels, and meta_info for a valid datapoint.
-            
+
         Raises:
             ValueError: If no valid datapoint could be found after max_attempts.
         """
         original_idx = idx
         attempts = 0
-        
+
         while attempts < max_attempts:
             print(f"Attempt {attempts+1}/{max_attempts}: Loading datapoint from index {idx}")
-            
-            # Get center info
-            center_info = self.annotations[idx]
-            
-            # Load point clouds
             data = self._load_point_cloud_pair(idx)
-            
-            # Sample cylinder
+            center_info = self.annotations[idx]
             sample = self._sample_cylinder(data, center_info['pos'], center_info['idx'])
-                
+
             if sample is None:
                 print(f"Failed to sample cylinder at index {idx}")
                 # Try another random index
@@ -281,10 +275,10 @@ class Urb3DCDDataset(BaseDataset):
                     idx = random.randint(0, len(self.annotations) - 1)
                 attempts += 1
                 continue
-            
+
             pc0, pc1 = sample['pc_0'], sample['pc_1']
             change_map = sample['change_map']
-            
+
             # Validate the datapoint
             if not self._is_valid_datapoint(pc0, pc1, change_map):
                 print(f"Validation failed for index {idx}")
@@ -298,13 +292,13 @@ class Urb3DCDDataset(BaseDataset):
                 else:
                     # If there's only one annotation, try with different center positions
                     center_info['pos'] = center_info['pos'] + torch.randn_like(center_info['pos']) * self._radius * 0.5
-                
+
                 attempts += 1
                 continue
-            
+
             # Normalize point clouds
             self._normalize(pc0, pc1)
-            
+
             # Prepare return values in format expected by parent class
             inputs = {
                 'pc_0': pc0,
@@ -324,41 +318,41 @@ class Urb3DCDDataset(BaseDataset):
             }
             print(f"Successfully loaded valid datapoint from index {idx}")
             return inputs, labels, meta_info
-        
+
         raise ValueError(f"Failed to find valid datapoint after {max_attempts} attempts starting from index {original_idx}")
 
     def _is_valid_datapoint(self, pc0: torch.Tensor, pc1: torch.Tensor, change_map: torch.Tensor) -> bool:
         """Check if a datapoint is valid.
-        
+
         A datapoint is valid if both point clouds and the change map are not empty.
-        
+
         Args:
             pc0: First point cloud.
             pc1: Second point cloud.
             change_map: Change map labels.
-            
+
         Returns:
             True if the datapoint is valid, False otherwise.
         """
         if pc0.size(0) == 0:
             print(f"Invalid datapoint: First point cloud (pc_0) is empty with {pc0.size(0)} points")
             return False
-            
+
         if pc1.size(0) == 0:
             print(f"Invalid datapoint: Second point cloud (pc_1) is empty with {pc1.size(0)} points")
             return False
-            
+
         if change_map.size(0) == 0:
             print(f"Invalid datapoint: Change map is empty with {change_map.size(0)} points")
             return False
-            
+
         # If we have at least some minimum number of points, consider it valid
         # This threshold can be adjusted based on requirements
         min_points = 5
         if pc0.size(0) < min_points or pc1.size(0) < min_points:
             print(f"Invalid datapoint: Not enough points. pc_0: {pc0.size(0)} points, pc_1: {pc1.size(0)} points")
             return False
-            
+
         return True
 
     def _load_point_cloud_pair(self, idx: int, files: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
@@ -381,23 +375,23 @@ class Urb3DCDDataset(BaseDataset):
             files = self.annotations[idx]
         print("Loading " + files['pc_1_filepath'])
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
-        
+
         # Load first point cloud
         pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0 = pc0[:, :3]
-        
+
         # Load second point cloud
         pc = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
         assert pc.size(1) == 4, f"{pc.shape=}"
         pc1 = pc[:, :3]
         change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
-        
+
         # Convert to correct types
         pc0 = pc0.type(torch.float32)
         pc1 = pc1.type(torch.float32)
         change_map = change_map.type(torch.int64)
-        
+
         # Build KDTrees and return data
         data = {
             'pc_0': pc0,
@@ -428,9 +422,9 @@ class Urb3DCDDataset(BaseDataset):
         """
         print(f"\nSampling cylinder at center {center}, radius {self._radius}")
         print(f"Point cloud shapes: pc_0={data['pc_0'].shape}, pc_1={data['pc_1'].shape}")
-        
+
         cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
-        
+
         # Create data dictionaries for both point clouds
         data_dict_0 = {'pos': data['pc_0']}
         data_dict_1 = {
@@ -443,7 +437,7 @@ class Urb3DCDDataset(BaseDataset):
         sampled_data_0 = cylinder_sampler(data['kdtree_0'], data_dict_0)
         print("\nSampling pc_1:")
         sampled_data_1 = cylinder_sampler(data['kdtree_1'], data_dict_1)
-        
+
         result = {
             'pc_0': sampled_data_0['pos'],
             'pc_1': sampled_data_1['pos'],
@@ -452,7 +446,7 @@ class Urb3DCDDataset(BaseDataset):
             'point_idx_pc1': sampled_data_1['point_idx'],
             'idx': idx
         }
-        
+
         print(f"\nSampling results:")
         print(f"  pc_0 shape: {result['pc_0'].shape}")
         print(f"  pc_1 shape: {result['pc_1'].shape}")
@@ -470,7 +464,7 @@ class Urb3DCDDataset(BaseDataset):
         """
         if pc0.shape[0] == 0 and pc1.shape[0] == 0:
             raise ValueError("Cannot normalize: both point clouds are empty")
-        
+
         # If one point cloud is empty, use the other's min values
         if pc0.shape[0] == 0:
             min0 = torch.unsqueeze(pc1.min(0)[0], 0)
@@ -481,14 +475,14 @@ class Urb3DCDDataset(BaseDataset):
         else:
             min0 = torch.unsqueeze(pc0.min(0)[0], 0)
             min1 = torch.unsqueeze(pc1.min(0)[0], 0)
-        
+
         minG = torch.cat((min0, min1), axis=0).min(0)[0]
-        
+
         if pc0.shape[0] > 0:
             pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
             pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
             pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
-        
+
         if pc1.shape[0] > 0:
             pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
             pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
