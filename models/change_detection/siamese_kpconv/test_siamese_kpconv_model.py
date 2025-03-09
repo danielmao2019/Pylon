@@ -7,65 +7,57 @@ for 3D point cloud change detection.
 import pytest
 import torch
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
-
 from models.change_detection.siamese_kpconv.siamese_kpconv_model import SiameseKPConv
-from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
 
 
-class DummyPointCloudDataset(Dataset):
+@pytest.fixture
+def test_batch():
     """
-    A simple dataset that produces point clouds and change maps for testing.
+    Fixture that creates a test batch with point clouds and change maps.
+    
+    Returns:
+        A dictionary with inputs, labels, and meta_info, structured exactly
+        as the model expects for its forward pass.
     """
-    def __init__(self, num_samples=5, num_points=100, feature_dim=3):
-        """
-        Initialize a dummy dataset.
-        
-        Args:
-            num_samples: Number of samples in the dataset
-            num_points: Number of points per point cloud
-            feature_dim: Number of features per point (excluding position)
-        """
-        self.num_samples = num_samples
-        self.num_points = num_points
-        self.feature_dim = feature_dim
-        
-        # Set fixed seed for reproducibility
-        torch.manual_seed(42)
-        
-        # Generate random point clouds
-        self.point_clouds_1 = [torch.rand(num_points, 3 + feature_dim) for _ in range(num_samples)]
-        self.point_clouds_2 = [torch.rand(num_points, 3 + feature_dim) for _ in range(num_samples)]
-        
-        # Generate random change maps (1 means change, 0 means no change)
-        self.change_maps = [torch.randint(0, 2, (num_points,), dtype=torch.long) for _ in range(num_samples)]
+    torch.manual_seed(42)  # For reproducibility
     
-    def __len__(self):
-        return self.num_samples
+    # Create point clouds - 100 points per cloud, 3 feature dimensions
+    batch_size = 2
+    num_points = 50
     
-    def __getitem__(self, idx):
-        """
-        Get a sample with inputs, labels, and meta_info.
-        
-        Returns:
-            Dictionary with:
-                - inputs: Dict with 'pc_0' and 'pc_1' point clouds
-                - labels: Dict with 'change_map' tensor
-                - meta_info: Dict with metadata
-        """
-        return {
-            "inputs": {
-                "pc_0": self.point_clouds_1[idx],
-                "pc_1": self.point_clouds_2[idx]
-            },
-            "labels": {
-                "change_map": self.change_maps[idx]
-            },
-            "meta_info": {
-                "sample_idx": idx,
-                "filename": f"dummy_sample_{idx}.ply"
-            }
+    # Create batch
+    inputs = {
+        'pc_0': {
+            'pos': torch.rand(num_points * batch_size, 3),
+            'x': torch.rand(num_points * batch_size, 3),
+            'batch': torch.cat([
+                torch.zeros(num_points, dtype=torch.long),
+                torch.ones(num_points, dtype=torch.long)
+            ])
+        },
+        'pc_1': {
+            'pos': torch.rand(num_points * batch_size, 3),
+            'x': torch.rand(num_points * batch_size, 3),
+            'batch': torch.cat([
+                torch.zeros(num_points, dtype=torch.long),
+                torch.ones(num_points, dtype=torch.long)
+            ])
         }
+    }
+    
+    # Create change labels - 1D tensor of shape [num_points * batch_size]
+    labels = {
+        'change': torch.randint(0, 2, (num_points * batch_size,), dtype=torch.long)
+    }
+    
+    return {
+        'inputs': inputs,
+        'labels': labels,
+        'meta_info': {
+            'batch_size': batch_size,
+            'num_points': num_points
+        }
+    }
 
 
 @pytest.fixture
@@ -82,47 +74,25 @@ def model_config():
     }
 
 
-@pytest.fixture
-def dummy_dataset():
-    """Fixture that creates a dummy dataset for testing."""
-    return DummyPointCloudDataset(num_samples=5, num_points=100, feature_dim=3)
-
-
-@pytest.fixture
-def data_loader(dummy_dataset):
-    """Fixture that creates a DataLoader with the SiameseKPConvCollator."""
-    collator = SiameseKPConvCollator()
-    return DataLoader(
-        dummy_dataset,
-        batch_size=2,
-        shuffle=False,
-        collate_fn=collator,
-        num_workers=0  # Use 0 for easier debugging
-    )
-
-
-def test_SiameseKPConv_model(model_config, data_loader):
-    """Test that the SiameseKPConv model works correctly with the DataLoader."""
+def test_SiameseKPConv_model(model_config, test_batch):
+    """Test that the SiameseKPConv model works correctly with test batch."""
     model = SiameseKPConv(**model_config)
     model.eval()
     
-    # Get a batch from the DataLoader
-    batch = next(iter(data_loader))
-    
     # Forward pass through the model
     with torch.no_grad():
-        output = model(batch['inputs'])
+        output = model(test_batch['inputs'])
     
     # Check output shape
-    num_points = batch['inputs']['pc_1']['pos'].shape[0]
+    num_points = test_batch['inputs']['pc_1']['pos'].shape[0]
     assert output.shape == (num_points, model_config['out_channels'])
     
     # Check that output contains raw logits (not normalized)
     assert torch.max(output).item() > 1.0 or torch.min(output).item() < 0.0
 
 
-def test_train_iter(model_config, data_loader):
-    """Test a single training iteration with the model and DataLoader."""
+def test_train_iter(model_config, test_batch):
+    """Test a single training iteration with the model."""
     model = SiameseKPConv(**model_config)
     
     # Set up optimizer
@@ -131,13 +101,12 @@ def test_train_iter(model_config, data_loader):
     
     # Single training step
     model.train()
-    batch = next(iter(data_loader))
     
     # Forward pass
-    output = model(batch['inputs'])
+    output = model(test_batch['inputs'])
     
     # Calculate loss
-    loss = criterion(output, batch['labels']['change'])
+    loss = criterion(output, test_batch['labels']['change'])
     
     # Backward pass
     optimizer.zero_grad()
