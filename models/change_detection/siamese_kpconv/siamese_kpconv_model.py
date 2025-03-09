@@ -59,12 +59,12 @@ class SiameseKPConv(nn.Module):
         
         # Building the decoder (up modules)
         self.up_modules = nn.ModuleList()
-        reversed_channels = list(reversed(down_channels))
         
-        for i in range(len(reversed_channels) - 1):
+        # Use the provided up_channels for the decoder
+        for i in range(len(up_channels) - 1):
             self.up_modules.append(
                 SimpleBlock(
-                    down_conv_nn=[reversed_channels[i], reversed_channels[i+1]],
+                    down_conv_nn=[up_channels[i], up_channels[i+1]],
                     point_influence=point_influence,
                     bn_momentum=bn_momentum,
                     add_one=False,
