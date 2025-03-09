@@ -55,9 +55,16 @@ def kernel_point_optimization_debug(radius, num_points, num_kernels=1, dimension
         # =====================================
 
         # Generate random point in the sphere with r<1
-        randN = np.random.rand(num_points - 1, dimension) * 2 - 1
+        n_non_fixed = num_points - 1  # Assuming 'center' is fixed
+        randN = np.random.rand(n_non_fixed, dimension) * 2 - 1
         normN = np.sqrt(np.sum(np.square(randN), axis=1))
-        randN = randN / normN[:, np.newaxis] * np.cbrt(np.random.rand(num_points - 1))
+        
+        # Avoid division by zero
+        normN = np.maximum(normN, 1e-10)
+        
+        # Use proper broadcasting
+        scale_factor = np.cbrt(np.random.rand(n_non_fixed))
+        randN = randN / normN.reshape(-1, 1) * scale_factor.reshape(-1, 1)
 
         # Center is fixed
         K_points_numpy[i, 0, :] = 0
