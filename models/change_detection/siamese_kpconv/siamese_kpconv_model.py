@@ -23,10 +23,9 @@ The model supports various KPConv block types:
 Reference paper:
 "SiameseKPConv: A Siamese KPConv Network Architecture for 3D Point Cloud Change Detection"
 """
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from models.change_detection.siamese_kpconv.convolution_ops import (
     SimpleBlock, ResnetBBlock, KPDualBlock, FastBatchNorm1d
@@ -84,11 +83,6 @@ class SiameseKPConv(nn.Module):
         self.block_params = block_params or {}
         self.in_channels = in_channels
         
-        # Initialize weight_classes to None (used for weighted loss)
-        self._weight_classes = None
-        self._ignore_label = None
-        self._use_category = False
-        
         # Initialize the encoder, inner modules, and decoder
         self._init_down_modules(in_channels, down_channels)
         self._init_inner_modules(inner_modules)
@@ -97,11 +91,6 @@ class SiameseKPConv(nn.Module):
         
         # Store last feature for potential use
         self.last_feature = None
-        
-        # Print model stats if needed
-        # print('total params: ' + str(sum(p.numel() for p in self.parameters() if p.requires_grad)))
-        # print('down_modules: ' + str(sum(p.numel() for p in self.down_modules.parameters() if p.requires_grad)))
-        # print('up_modules: ' + str(sum(p.numel() for p in self.up_modules.parameters() if p.requires_grad)))
     
     def _create_block(self, in_channels, out_channels):
         """Helper method to create a convolution block based on the specified type"""
@@ -178,26 +167,6 @@ class SiameseKPConv(nn.Module):
             nn.Linear(64, out_channels, bias=False)
             # No activation - returning raw logits as required
         )
-    
-    def set_class_weight(self, weight_classes):
-        """Set class weights for weighted loss
-        
-        Args:
-            weight_classes: Tensor of class weights
-        """
-        self._weight_classes = weight_classes
-        # Check that weights match number of classes
-        if len(self._weight_classes) != self._num_classes:
-            print('Number of weights different from the number of classes')
-            self._weight_classes = None
-    
-    def set_ignore_label(self, ignore_label):
-        """Set label index to ignore in loss calculation
-        
-        Args:
-            ignore_label: Label index to ignore
-        """
-        self._ignore_label = ignore_label
     
     def forward(self, inputs: Dict[str, torch.Tensor], k: int = 16) -> torch.Tensor:
         """
@@ -302,57 +271,3 @@ class SiameseKPConv(nn.Module):
         output = self.FC_layer(self.last_feature)
         
         return output
-    
-    def compute_loss(self, output, labels, ignore_label=None):
-        """Compute the loss for training
-        
-        Args:
-            output: Model output logits [N, num_classes]
-            labels: Ground truth labels [N]
-            ignore_label: Label index to ignore in loss calculation
-            
-        Returns:
-            Loss value
-        """
-        if self._weight_classes is not None:
-            self._weight_classes = self._weight_classes.to(output.device)
-        
-        # Regularization loss
-        loss = 0
-        lambda_reg = 1e-6  # Default regularization strength
-        
-        reg_loss = self.get_regularization_loss(regularizer_type="l2", lambda_reg=lambda_reg)
-        loss += reg_loss
-        
-        # Final cross entropy loss - using CrossEntropyLoss for raw logits
-        if ignore_label is not None:
-            seg_loss = F.cross_entropy(output, labels, weight=self._weight_classes, ignore_index=ignore_label)
-        else:
-            seg_loss = F.cross_entropy(output, labels, weight=self._weight_classes)
-        
-        if torch.isnan(seg_loss).sum() == 1:
-            print("Warning: NaN in segmentation loss")
-        
-        loss += seg_loss
-        
-        return loss
-    
-    def get_regularization_loss(self, regularizer_type="l2", lambda_reg=1e-6):
-        """Get regularization loss for the model weights
-        
-        Args:
-            regularizer_type: Type of regularization ('l2' or 'l1')
-            lambda_reg: Regularization strength
-            
-        Returns:
-            Regularization loss
-        """
-        reg_loss = 0
-        for param in self.parameters():
-            if param.requires_grad:
-                if regularizer_type == "l2":
-                    reg_loss += torch.sum(param ** 2)
-                elif regularizer_type == "l1":
-                    reg_loss += torch.sum(torch.abs(param))
-        
-        return lambda_reg * reg_loss
