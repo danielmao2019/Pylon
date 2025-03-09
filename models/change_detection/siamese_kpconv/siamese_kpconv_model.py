@@ -25,6 +25,8 @@ class SiameseKPConv(nn.Module):
         up_channels: List of channel dimensions for the decoder
         bn_momentum: Momentum for batch normalization
         dropout: Dropout probability for the final classifier
+        inner_modules: List of inner modules to use between encoder and decoder.
+                       If None, defaults to nn.Identity.
     """
     def __init__(
         self,
@@ -35,51 +37,63 @@ class SiameseKPConv(nn.Module):
         up_channels: list = [256, 128, 64, 32],
         bn_momentum: float = 0.02,
         dropout: float = 0.1,
+        inner_modules: list = None,
     ):
         super(SiameseKPConv, self).__init__()
         self._num_classes = out_channels
+        self.point_influence = point_influence
+        self.bn_momentum = bn_momentum
         
-        # Building the encoder (down modules)
+        # Initialize the encoder, inner modules, and decoder
+        self._init_down_modules(in_channels, down_channels)
+        self._init_inner_modules(inner_modules)
+        self._init_up_modules(up_channels)
+        self._init_final_mlp(up_channels[-1], out_channels, dropout)
+    
+    def _create_block(self, in_channels, out_channels):
+        """Helper method to create a SimpleBlock with consistent parameters"""
+        return SimpleBlock(
+            down_conv_nn=[in_channels, out_channels],
+            point_influence=self.point_influence,
+            bn_momentum=self.bn_momentum,
+            add_one=False,
+        )
+    
+    def _init_down_modules(self, in_channels, down_channels):
+        """Initialize the encoder (down modules)"""
         self.down_modules = nn.ModuleList()
         current_channels = in_channels
         
         for channels in down_channels:
-            self.down_modules.append(
-                SimpleBlock(
-                    down_conv_nn=[current_channels, channels],
-                    point_influence=point_influence,
-                    bn_momentum=bn_momentum,
-                    add_one=False,
-                )
-            )
+            self.down_modules.append(self._create_block(current_channels, channels))
             current_channels = channels
-        
-        # Inner module as Identity (can be changed if needed)
-        self.inner_modules = nn.ModuleList([nn.Identity()])
-        
-        # Building the decoder (up modules)
+    
+    def _init_inner_modules(self, inner_modules):
+        """Initialize the inner modules"""
+        if inner_modules is None:
+            # Default to Identity if no inner modules are specified
+            self.inner_modules = nn.ModuleList([nn.Identity()])
+        else:
+            # Use the provided inner modules
+            self.inner_modules = nn.ModuleList(inner_modules)
+    
+    def _init_up_modules(self, up_channels):
+        """Initialize the decoder (up modules)"""
         self.up_modules = nn.ModuleList()
         
-        # Use the provided up_channels for the decoder
         for i in range(len(up_channels) - 1):
-            self.up_modules.append(
-                SimpleBlock(
-                    down_conv_nn=[up_channels[i], up_channels[i+1]],
-                    point_influence=point_influence,
-                    bn_momentum=bn_momentum,
-                    add_one=False,
-                )
-            )
-        
-        # Final MLP for classification - returning raw logits
+            self.up_modules.append(self._create_block(up_channels[i], up_channels[i+1]))
+    
+    def _init_final_mlp(self, in_channels, out_channels, dropout):
+        """Initialize the final MLP for classification"""
         self.FC_layer = nn.Sequential(
-            nn.Linear(up_channels[-1], 64, bias=False),
-            FastBatchNorm1d(64, momentum=bn_momentum),
+            nn.Linear(in_channels, 64, bias=False),
+            FastBatchNorm1d(64, momentum=self.bn_momentum),
             nn.LeakyReLU(0.2),
             nn.Dropout(p=dropout) if dropout else nn.Identity(),
             nn.Linear(64, out_channels, bias=False)
         )
-        
+    
     def forward(self, inputs: Dict[str, torch.Tensor], k: int = 16) -> torch.Tensor:
         """
         Forward pass of the SiameseKPConv network
