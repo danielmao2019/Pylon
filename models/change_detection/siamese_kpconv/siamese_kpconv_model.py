@@ -136,11 +136,11 @@ class SiameseKPConv(nn.Module):
             x2 = self.down_modules[i](x2, pos2, batch2, pos2, batch2, k)
             
             # Find nearest neighbors from cloud1 to cloud2
-            nn_list = knn(pos1, pos2, 1, batch1, batch2)
+            row_idx, col_idx = knn(pos1, pos2, 1, batch1, batch2)
             
             # Calculate difference features
             diff = x2.clone()
-            diff = x2 - x1[nn_list[1, :], :]
+            diff = x2 - x1[row_idx]
             
             # Save difference features for skip connections
             stack_down.append(diff)
@@ -150,9 +150,9 @@ class SiameseKPConv(nn.Module):
         x2 = self.down_modules[-1](x2, pos2, batch2, pos2, batch2, k)
         
         # Get difference features
-        nn_list = knn(pos1, pos2, 1, batch1, batch2)
+        row_idx, col_idx = knn(pos1, pos2, 1, batch1, batch2)
         x = x2.clone()
-        x = x2 - x1[nn_list[1, :], :]
+        x = x2 - x1[row_idx]
         
         # Inner module (identity by default)
         if not isinstance(self.inner_modules[0], nn.Identity):
