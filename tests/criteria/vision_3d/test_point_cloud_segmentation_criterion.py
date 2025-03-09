@@ -6,24 +6,28 @@ from criteria.vision_3d import PointCloudSegmentationCriterion
 @pytest.fixture
 def sample_data():
     # Generate sample data
-    num_points = 100
+    num_points_per_sample = 100
     num_classes = 5
     batch_size = 2
+    total_points = num_points_per_sample * batch_size
     
-    # Create random logits and labels (unbatched)
-    logits_unbatched = torch.randn(num_points, num_classes)
-    labels_unbatched = torch.randint(0, num_classes, (num_points,), dtype=torch.int64)
+    # Create logits for all points ([N, C] format where N = total_points)
+    logits = torch.randn(total_points, num_classes)
     
-    # Create random logits and labels (batched)
-    logits_batched = torch.randn(batch_size, num_points, num_classes)
-    labels_batched = torch.randint(0, num_classes, (batch_size, num_points), dtype=torch.int64)
+    # Create labels for all points ([N] format)
+    labels = torch.randint(0, num_classes, (total_points,), dtype=torch.int64)
+    
+    # Create a batch indicator tensor for testing
+    batch = torch.cat([torch.ones(num_points_per_sample, dtype=torch.int64) * i 
+                      for i in range(batch_size)])
     
     return {
-        'logits_unbatched': logits_unbatched,
-        'labels_unbatched': labels_unbatched,
-        'logits_batched': logits_batched,
-        'labels_batched': labels_batched,
-        'num_classes': num_classes
+        'logits': logits,
+        'labels': labels,
+        'batch': batch,
+        'num_classes': num_classes,
+        'num_points_per_sample': num_points_per_sample,
+        'batch_size': batch_size
     }
 
 
@@ -44,15 +48,12 @@ def test_point_cloud_segmentation_criterion_init():
     assert torch.allclose(criterion.criterion.weight.cpu(), torch.tensor(class_weights))
 
 
-def test_point_cloud_segmentation_criterion_compute_loss_unbatched(sample_data):
-    """Test that we can compute loss with unbatched inputs."""
+def test_point_cloud_segmentation_criterion_compute_loss(sample_data):
+    """Test that we can compute loss with the criterion."""
     criterion = PointCloudSegmentationCriterion()
     
-    # Compute loss with unbatched inputs
-    loss = criterion._compute_loss(
-        sample_data['logits_unbatched'], 
-        sample_data['labels_unbatched']
-    )
+    # Compute loss
+    loss = criterion._compute_loss(sample_data['logits'], sample_data['labels'])
     
     # Validate loss properties
     assert isinstance(loss, torch.Tensor)
@@ -62,64 +63,27 @@ def test_point_cloud_segmentation_criterion_compute_loss_unbatched(sample_data):
     
     # Compare with direct computation using CrossEntropyLoss
     direct_loss = torch.nn.functional.cross_entropy(
-        sample_data['logits_unbatched'], sample_data['labels_unbatched']
+        sample_data['logits'], sample_data['labels']
     )
     assert torch.allclose(loss, direct_loss)
-
-
-def test_point_cloud_segmentation_criterion_compute_loss_batched(sample_data):
-    """Test that the criterion handles batched inputs correctly through SingleTaskCriterion."""
-    criterion = PointCloudSegmentationCriterion()
-    
-    # Call with batched inputs
-    loss = criterion(
-        sample_data['logits_batched'], 
-        sample_data['labels_batched']
-    )
-    
-    # Validate loss properties
-    assert isinstance(loss, torch.Tensor)
-    assert loss.dim() == 0  # Scalar tensor
-    assert not torch.isnan(loss)
-    assert loss.item() > 0
-    
-    # The SingleTaskCriterion will handle the batched input by extracting just the first
-    # batch element when using dictionaries
-    assert len(criterion.buffer) == 1
 
 
 def test_point_cloud_segmentation_criterion_call(sample_data):
     """Test that we can call the criterion with various input formats."""
     criterion = PointCloudSegmentationCriterion()
     
-    # Direct tensors (unbatched)
-    loss1 = criterion(sample_data['logits_unbatched'], sample_data['labels_unbatched'])
+    # Direct tensors
+    loss1 = criterion(sample_data['logits'], sample_data['labels'])
     assert isinstance(loss1, torch.Tensor)
     assert loss1.dim() == 0  # Scalar tensor
     
-    # Dictionary inputs (unbatched)
-    loss2 = criterion(
-        {'pred': sample_data['logits_unbatched']}, 
-        {'true': sample_data['labels_unbatched']}
-    )
+    # Dictionary inputs
+    loss2 = criterion({'pred': sample_data['logits']}, {'true': sample_data['labels']})
     assert isinstance(loss2, torch.Tensor)
     assert loss2.dim() == 0  # Scalar tensor
     
-    # Direct tensors (batched)
-    loss3 = criterion(sample_data['logits_batched'], sample_data['labels_batched'])
-    assert isinstance(loss3, torch.Tensor)
-    assert loss3.dim() == 0  # Scalar tensor
-    
-    # Dictionary inputs (batched)
-    loss4 = criterion(
-        {'pred': sample_data['logits_batched']},
-        {'true': sample_data['labels_batched']}
-    )
-    assert isinstance(loss4, torch.Tensor)
-    assert loss4.dim() == 0  # Scalar tensor
-    
     # Buffer should contain the losses
-    assert len(criterion.buffer) == 4
+    assert len(criterion.buffer) == 2
     assert all(isinstance(x, torch.Tensor) for x in criterion.buffer)
 
 
@@ -128,11 +92,8 @@ def test_point_cloud_segmentation_criterion_summarize(sample_data):
     criterion = PointCloudSegmentationCriterion()
     
     # Add some losses to the buffer
-    for _ in range(3):
-        criterion(sample_data['logits_unbatched'], sample_data['labels_unbatched'])
-    
-    for _ in range(2):
-        criterion(sample_data['logits_batched'], sample_data['labels_batched'])
+    for _ in range(5):
+        criterion(sample_data['logits'], sample_data['labels'])
     
     # Summarize
     summary = criterion.summarize()
@@ -149,24 +110,48 @@ def test_point_cloud_segmentation_criterion_with_ignore_index(sample_data):
     ignore_index = 0
     criterion = PointCloudSegmentationCriterion(ignore_index=ignore_index)
     
-    # Set some labels to the ignore index (unbatched)
-    labels_unbatched = sample_data['labels_unbatched'].clone()
-    labels_unbatched[0:10] = ignore_index
+    # Set some labels to the ignore index
+    labels = sample_data['labels'].clone()
+    labels[0:10] = ignore_index
     
-    # Compute loss (unbatched)
-    loss_unbatched = criterion._compute_loss(sample_data['logits_unbatched'], labels_unbatched)
-    
-    # Validate loss properties
-    assert isinstance(loss_unbatched, torch.Tensor)
-    assert not torch.isnan(loss_unbatched)
-    
-    # Set some labels to the ignore index (batched)
-    labels_batched = sample_data['labels_batched'].clone()
-    labels_batched[:, 0:10] = ignore_index
-    
-    # Call with batched inputs
-    loss_batched = criterion(sample_data['logits_batched'], labels_batched)
+    # Compute loss
+    loss = criterion._compute_loss(sample_data['logits'], labels)
     
     # Validate loss properties
-    assert isinstance(loss_batched, torch.Tensor)
-    assert not torch.isnan(loss_batched)
+    assert isinstance(loss, torch.Tensor)
+    assert not torch.isnan(loss)
+    
+    # Compare with direct computation using CrossEntropyLoss
+    direct_loss = torch.nn.functional.cross_entropy(
+        sample_data['logits'], labels, ignore_index=ignore_index
+    )
+    assert torch.allclose(loss, direct_loss)
+
+
+def test_point_cloud_segmentation_criterion_per_sample_weighting(sample_data):
+    """Test that we can weight losses differently for each sample in the batch."""
+    criterion = PointCloudSegmentationCriterion()
+    
+    # Compute per-sample losses manually
+    losses = []
+    for b in range(sample_data['batch_size']):
+        # Get points from this sample
+        mask = sample_data['batch'] == b
+        sample_logits = sample_data['logits'][mask]
+        sample_labels = sample_data['labels'][mask]
+        
+        # Compute loss for this sample
+        sample_loss = torch.nn.functional.cross_entropy(
+            sample_logits, sample_labels, reduction='mean'
+        )
+        losses.append(sample_loss)
+    
+    # Average the per-sample losses
+    expected_loss = torch.stack(losses).mean()
+    
+    # Compare with the loss from the criterion on all points
+    actual_loss = criterion._compute_loss(sample_data['logits'], sample_data['labels'])
+    
+    # The losses should be close but not exactly equal due to how batching is handled
+    # The criterion computes loss over all points at once, not per sample
+    assert abs(actual_loss.item() - expected_loss.item()) < 0.1

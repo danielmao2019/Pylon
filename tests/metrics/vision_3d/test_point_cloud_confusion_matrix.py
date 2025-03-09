@@ -9,37 +9,43 @@ from metrics.vision_3d.point_cloud_confusion_matrix import PointCloudConfusionMa
 @pytest.fixture
 def sample_data():
     # Generate sample data
-    num_points = 100
+    num_points_per_sample = 100
     num_classes = 4
     batch_size = 2
+    total_points = num_points_per_sample * batch_size
     
-    # Create unbatched data
-    logits_unbatched = torch.zeros(num_points, num_classes)
-    # Ensure a mix of correct and incorrect predictions
-    for i in range(num_points):
+    # Create logits for all points ([N, C] format)
+    logits = torch.zeros(total_points, num_classes)
+    
+    # Create labels for all points ([N] format)
+    labels = torch.zeros(total_points, dtype=torch.int64)
+    
+    # Create a batch indicator tensor for testing
+    batch = torch.zeros(total_points, dtype=torch.int64)
+    
+    # Fill in data with a mix of correct and incorrect predictions
+    for i in range(total_points):
+        # Determine which sample this point belongs to
+        sample_idx = i // num_points_per_sample
+        batch[i] = sample_idx
+        
+        # Set up class labels and predictions
         true_class = i % num_classes
         pred_class = (i % 2 == 0) and true_class or (true_class + 1) % num_classes
-        logits_unbatched[i, pred_class] = 10.0  # Make prediction very confident
-    
-    labels_unbatched = torch.tensor([i % num_classes for i in range(num_points)], dtype=torch.int64)
-    
-    # Create batched data
-    logits_batched = torch.zeros(batch_size, num_points, num_classes)
-    labels_batched = torch.zeros(batch_size, num_points, dtype=torch.int64)
-    
-    for b in range(batch_size):
-        for i in range(num_points):
-            true_class = (i + b) % num_classes
-            pred_class = ((i + b) % 2 == 0) and true_class or (true_class + 1) % num_classes
-            logits_batched[b, i, pred_class] = 10.0
-            labels_batched[b, i] = true_class
+        
+        # Record the label
+        labels[i] = true_class
+        
+        # Make the prediction confident
+        logits[i, pred_class] = 10.0
     
     return {
-        'logits_unbatched': logits_unbatched,
-        'labels_unbatched': labels_unbatched,
-        'logits_batched': logits_batched,
-        'labels_batched': labels_batched,
-        'num_classes': num_classes
+        'logits': logits,
+        'labels': labels,
+        'batch': batch,
+        'num_classes': num_classes,
+        'num_points_per_sample': num_points_per_sample,
+        'batch_size': batch_size
     }
 
 
@@ -51,15 +57,12 @@ def test_point_cloud_confusion_matrix_init():
     assert len(metric.buffer) == 0
 
 
-def test_point_cloud_confusion_matrix_compute_score_unbatched(sample_data):
-    """Test that we can compute scores with unbatched data."""
+def test_point_cloud_confusion_matrix_compute_score(sample_data):
+    """Test that we can compute scores with the metric."""
     metric = PointCloudConfusionMatrix(sample_data['num_classes'])
     
-    # Compute scores with unbatched data
-    scores = metric._compute_score(
-        sample_data['logits_unbatched'], 
-        sample_data['labels_unbatched']
-    )
+    # Compute scores
+    scores = metric._compute_score(sample_data['logits'], sample_data['labels'])
     
     # Validate scores
     assert isinstance(scores, dict)
@@ -74,62 +77,25 @@ def test_point_cloud_confusion_matrix_compute_score_unbatched(sample_data):
     
     # Verify that TP + TN + FP + FN = total number of points
     total = scores['tp'] + scores['tn'] + scores['fp'] + scores['fn']
-    assert torch.all(total == sample_data['labels_unbatched'].size(0))
-
-
-def test_point_cloud_confusion_matrix_compute_score_batched(sample_data):
-    """Test that the metric handles batched inputs correctly through SingleTaskMetric."""
-    metric = PointCloudConfusionMatrix(sample_data['num_classes'])
-    
-    # Call with batched inputs
-    scores = metric(
-        sample_data['logits_batched'], 
-        sample_data['labels_batched']
-    )
-    
-    # Validate scores
-    assert isinstance(scores, dict)
-    assert 'tp' in scores
-    assert 'tn' in scores
-    assert 'fp' in scores
-    assert 'fn' in scores
-    
-    # Buffer should contain the scores
-    assert len(metric.buffer) == 1
+    assert torch.all(total == sample_data['labels'].size(0))
 
 
 def test_point_cloud_confusion_matrix_call(sample_data):
     """Test that we can call the metric with various input formats."""
     metric = PointCloudConfusionMatrix(sample_data['num_classes'])
     
-    # Direct tensors (unbatched)
-    scores1 = metric(sample_data['logits_unbatched'], sample_data['labels_unbatched'])
+    # Direct tensors
+    scores1 = metric(sample_data['logits'], sample_data['labels'])
     assert isinstance(scores1, dict)
     assert 'tp' in scores1
     
-    # Dictionary inputs (unbatched)
-    scores2 = metric(
-        {'pred': sample_data['logits_unbatched']}, 
-        {'true': sample_data['labels_unbatched']}
-    )
+    # Dictionary inputs
+    scores2 = metric({'pred': sample_data['logits']}, {'true': sample_data['labels']})
     assert isinstance(scores2, dict)
     assert 'tp' in scores2
     
-    # Direct tensors (batched)
-    scores3 = metric(sample_data['logits_batched'], sample_data['labels_batched'])
-    assert isinstance(scores3, dict)
-    assert 'tp' in scores3
-    
-    # Dictionary inputs (batched)
-    scores4 = metric(
-        {'pred': sample_data['logits_batched']},
-        {'true': sample_data['labels_batched']}
-    )
-    assert isinstance(scores4, dict)
-    assert 'tp' in scores4
-    
     # Buffer should contain the scores
-    assert len(metric.buffer) == 4
+    assert len(metric.buffer) == 2
     assert all(isinstance(x, dict) for x in metric.buffer)
 
 
@@ -138,11 +104,8 @@ def test_point_cloud_confusion_matrix_summarize(sample_data):
     metric = PointCloudConfusionMatrix(sample_data['num_classes'])
     
     # Add some scores to the buffer
-    for _ in range(2):
-        metric(sample_data['logits_unbatched'], sample_data['labels_unbatched'])
-    
-    for _ in range(1):
-        metric(sample_data['logits_batched'], sample_data['labels_batched'])
+    for _ in range(3):
+        metric(sample_data['logits'], sample_data['labels'])
     
     # Summarize
     summary = metric.summarize()
@@ -179,10 +142,8 @@ def test_point_cloud_confusion_matrix_summarize_with_output(sample_data):
     metric = PointCloudConfusionMatrix(sample_data['num_classes'])
     
     # Add some scores to the buffer
-    for _ in range(2):
-        metric(sample_data['logits_unbatched'], sample_data['labels_unbatched'])
-    
-    metric(sample_data['logits_batched'], sample_data['labels_batched'])
+    for _ in range(3):
+        metric(sample_data['logits'], sample_data['labels'])
     
     # Create a temporary file to save the results
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as temp_file:
@@ -209,12 +170,12 @@ def test_point_cloud_confusion_matrix_summarize_with_output(sample_data):
             os.remove(temp_path)
 
 
-def test_point_cloud_confusion_matrix_perfect_score_unbatched():
-    """Test that perfect predictions give perfect scores with unbatched inputs."""
+def test_point_cloud_confusion_matrix_perfect_score():
+    """Test that perfect predictions give perfect scores."""
     num_points = 100
     num_classes = 3
     
-    # Create perfect predictions (unbatched)
+    # Create perfect predictions
     labels = torch.tensor([i % num_classes for i in range(num_points)], dtype=torch.int64)
     logits = torch.zeros(num_points, num_classes)
     for i in range(num_points):
@@ -231,31 +192,63 @@ def test_point_cloud_confusion_matrix_perfect_score_unbatched():
         assert scores['fn'][c] == 0
 
 
-def test_point_cloud_confusion_matrix_perfect_score_batched():
-    """Test that perfect predictions give perfect scores with batched inputs."""
-    num_points = 50
+def test_point_cloud_confusion_matrix_per_sample_metrics():
+    """Test that we can compute metrics separately for each sample in the batch."""
+    num_points_per_sample = 50
     num_classes = 3
     batch_size = 2
+    total_points = num_points_per_sample * batch_size
     
-    # Create perfect predictions (batched)
-    labels = torch.zeros(batch_size, num_points, dtype=torch.int64)
-    logits = torch.zeros(batch_size, num_points, num_classes)
+    # Create data with different accuracy for each sample
+    labels = torch.zeros(total_points, dtype=torch.int64)
+    logits = torch.zeros(total_points, num_classes)
+    batch = torch.zeros(total_points, dtype=torch.int64)
     
-    for b in range(batch_size):
-        for i in range(num_points):
-            class_idx = (i + b) % num_classes
-            labels[b, i] = class_idx
-            logits[b, i, class_idx] = 10.0  # Strongly predict the correct class
+    for i in range(total_points):
+        # Determine which sample this point belongs to
+        sample_idx = i // num_points_per_sample
+        batch[i] = sample_idx
+        
+        # Set class label
+        true_class = i % num_classes
+        labels[i] = true_class
+        
+        # First sample: all correct predictions
+        # Second sample: all incorrect predictions
+        if sample_idx == 0:
+            pred_class = true_class  # Correct prediction
+        else:
+            pred_class = (true_class + 1) % num_classes  # Incorrect prediction
+        
+        # Make the prediction confident
+        logits[i, pred_class] = 10.0
     
+    # Compute metrics on all points
     metric = PointCloudConfusionMatrix(num_classes)
-    scores = metric(logits, labels)
+    scores = metric._compute_score(logits, labels)
     
-    # Validate scores from prediction
-    assert isinstance(scores, dict)
-    assert 'tp' in scores
-    assert 'fp' in scores
-    assert 'fn' in scores
+    # Compute metrics per sample
+    sample_metrics = []
+    for b in range(batch_size):
+        mask = batch == b
+        sample_logits = logits[mask]
+        sample_labels = labels[mask]
+        
+        sample_metric = PointCloudConfusionMatrix(num_classes)
+        sample_scores = sample_metric._compute_score(sample_logits, sample_labels)
+        sample_metrics.append(sample_scores)
     
-    # The SingleTaskMetric will automatically extract values from the first batch element
-    # for computation, but the evaluation should still work
-    assert len(metric.buffer) == 1
+    # Check that per-sample metrics are different
+    # Sample 0 should have perfect predictions (all TP, no FP or FN)
+    # Sample 1 should have no correct predictions (no TP, all FP and FN)
+    for c in range(num_classes):
+        assert sample_metrics[0]['tp'][c] > 0
+        assert sample_metrics[0]['fp'][c] == 0
+        assert sample_metrics[0]['fn'][c] == 0
+        
+        assert sample_metrics[1]['tp'][c] == 0
+        assert sample_metrics[1]['fp'][c] > 0 or sample_metrics[1]['fn'][c] > 0
+    
+    # The combined metrics should be somewhere in between
+    # Check that TP is equal to the sum of the per-sample TPs
+    assert torch.allclose(scores['tp'], sample_metrics[0]['tp'] + sample_metrics[1]['tp'])

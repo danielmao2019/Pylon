@@ -45,16 +45,16 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
         Compute the cross-entropy loss for point cloud segmentation.
         
         Args:
-            y_pred (torch.Tensor): A float32 tensor of shape (N, C) for unbatched inputs
-                                   or (B, N, C) for batched inputs, where:
-                                   - B is batch size
-                                   - N is the number of points
-                                   - C is the number of classes
-            y_true (torch.Tensor): An int64 tensor of shape (N,) for unbatched inputs
-                                   or (B, N) for batched inputs.
+            y_pred (torch.Tensor): A float32 tensor of shape [N, C] for predicted logits,
+                                   where N is the total number of points (possibly from multiple samples)
+                                   and C is the number of classes.
+            y_true (torch.Tensor): An int64 tensor of shape [N] for ground-truth labels.
 
         Returns:
             loss (torch.Tensor): A float32 scalar tensor for loss value.
         """
-        check_point_cloud_segmentation(y_pred=y_pred, y_true=y_true, batched=False)
+        # Input checks
+        check_point_cloud_segmentation(y_pred=y_pred, y_true=y_true)
+        
+        # Compute loss
         return self.criterion(input=y_pred, target=y_true)

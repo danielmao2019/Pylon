@@ -84,47 +84,23 @@ class PointCloudConfusionMatrix(SingleTaskMetric):
         Compute confusion matrix scores for point cloud segmentation.
         
         Args:
-            y_pred: Predicted logits tensor of shape (N, C) for unbatched inputs
-                    or (B, N, C) for batched inputs, where:
-                    - B is batch size
-                    - N is the number of points
-                    - C is the number of classes
-            y_true: Ground truth labels tensor of shape (N,) for unbatched inputs
-                    or (B, N) for batched inputs.
+            y_pred: Predicted logits tensor of shape [N, C], where N is the total number
+                   of points (possibly from multiple samples) and C is the number of classes.
+            y_true: Ground truth labels tensor of shape [N].
             
         Returns:
             Dictionary of metric scores.
         """
-        # Determine if input is batched or not based on dimensions
-        is_batched = y_pred.dim() == 3
+        # Input checks
+        check_point_cloud_segmentation(y_pred=y_pred, y_true=y_true)
         
-        if is_batched:
-            # Handle batched input
-            batch_size, num_points, num_classes = y_pred.shape
-            
-            # Reshape inputs for processing
-            y_pred_reshaped = y_pred.reshape(-1, num_classes)
-            y_true_reshaped = y_true.reshape(-1)
-            
-            # Convert logits to class indices
-            y_pred_cls = torch.argmax(y_pred_reshaped, dim=1).type(torch.int64)
-            
-            # Compute confusion matrix
-            bincount = self._get_bincount(y_pred=y_pred_cls, y_true=y_true_reshaped, num_classes=self.num_classes)
-            
-            return self._bincount2score(bincount, num_points=y_true_reshaped.size(0))
-        else:
-            # Handle unbatched input
-            # Input checks
-            check_point_cloud_segmentation(y_pred=y_pred, y_true=y_true, batched=False)
-            
-            # Convert logits to class indices
-            y_pred_cls = torch.argmax(y_pred, dim=1).type(torch.int64)
-            
-            # Compute confusion matrix
-            bincount = self._get_bincount(y_pred=y_pred_cls, y_true=y_true, num_classes=self.num_classes)
-            
-            return self._bincount2score(bincount, num_points=y_true.size(0))
+        # Convert logits to class indices
+        y_pred_cls = torch.argmax(y_pred, dim=1).type(torch.int64)
+        
+        # Compute confusion matrix
+        bincount = self._get_bincount(y_pred=y_pred_cls, y_true=y_true, num_classes=self.num_classes)
+        
+        return self._bincount2score(bincount, num_points=y_true.size(0))
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         """
