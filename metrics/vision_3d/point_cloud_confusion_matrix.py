@@ -93,11 +93,7 @@ class PointCloudConfusionMatrix(SingleTaskMetric):
         """
         # Input checks
         check_point_cloud_segmentation(y_pred=y_pred, y_true=y_true)
-        
         # Convert logits to class indices
-        y_pred_cls = torch.argmax(y_pred, dim=1).type(torch.int64)
-        
-        # Compute confusion matrix
         bincount = self._get_bincount(y_pred=y_pred_cls, y_true=y_true, num_classes=self.num_classes)
         
         return self._bincount2score(bincount, num_points=y_true.size(0))
