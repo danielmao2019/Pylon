@@ -130,9 +130,9 @@ def check_point_cloud_segmentation_pred(obj: Any, batched: Optional[bool] = True
     """
     assert type(obj) == torch.Tensor, f"{type(obj)=}"
     if batched:
-        # For batched data, we expect shape [N, C] or [B, N, C] 
-        # where N is the number of points and C is the number of classes
-        assert obj.ndim == 2, f"{obj.shape=}"
+        # For batched data, we expect shape [B, N, C] 
+        # where B is batch size, N is the number of points and C is the number of classes
+        assert obj.ndim == 3, f"{obj.shape=}"
     else:
         # For unbatched data, we expect shape [N, C]
         assert obj.ndim == 2, f"{obj.shape=}"
@@ -157,9 +157,9 @@ def check_point_cloud_segmentation_true(obj: Any, batched: Optional[bool] = True
     """
     assert type(obj) == torch.Tensor, f"{type(obj)=}"
     if batched:
-        # For batched data, we expect shape [N] or [B, N]
-        # where N is the number of points
-        assert obj.ndim == 1, f"{obj.shape=}"
+        # For batched data, we expect shape [B, N]
+        # where B is batch size and N is the number of points
+        assert obj.ndim == 2, f"{obj.shape=}"
     else:
         # For unbatched data, we expect shape [N]
         assert obj.ndim == 1, f"{obj.shape=}"
