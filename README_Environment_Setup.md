@@ -1,7 +1,7 @@
 # Environment Setup
 
 ```bash
-from models.change_detection.bit_cd.model import BASE_Transformerconda update -n base -c defaults conda -y
+conda update -n base -c defaults conda -y
 conda create --name Pylon python=3.10 -y
 conda activate Pylon
 pip install --upgrade pip
