@@ -112,9 +112,6 @@ def main(dataset: str, model: str) -> None:
         config += f"# criterion config\n"
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.LWGANetCriterion, 'args': {{}}}}\n"
-        config += '\n'
-        config += f'# setup distributed computing\n'
-        config += f"if not torch.distributed.is_initialized():\n\ttorch.distributed.init_process_group(backend=\'nccl\',init_method=\'tcp://127.0.0.1:23456\',rank=0,world_size=1)"
     else:
         raise NotImplementedError
     # add seeds
