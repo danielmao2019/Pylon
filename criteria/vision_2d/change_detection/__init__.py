@@ -10,6 +10,7 @@ from criteria.vision_2d.change_detection.csa_cdgan_criterion import CSA_CDGAN_Cr
 from criteria.vision_2d.change_detection.st_mamba_bcd_criterion import STMambaBCDCriterion
 from criteria.vision_2d.change_detection.change_star_criterion import ChangeStarCriterion
 from criteria.vision_2d.change_detection.ppsl_criterion import PPSLCriterion
+from criteria.vision_2d.change_detection.bit_cd_criterion import BitCdCriterion
 
 
 __all__ = (
@@ -22,4 +23,5 @@ __all__ = (
     'STMambaBCDCriterion',
     'ChangeStarCriterion',
     'PPSLCriterion',
+    'BitCdCriterion',
 )

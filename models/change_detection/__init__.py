@@ -19,6 +19,7 @@ from models.change_detection.change_next.models.change_next_v3 import ChangeNext
 from models.change_detection.ftn.model import FTN
 from models.change_detection.srcnet.srcnet_model import SRCNet
 from models.change_detection.bifa.bifa_model import BiFA
+from models.change_detection.bit_cd.model import BASE_Transformer
 from models.change_detection.cdx_former.cdx_former_model import CDXFormer
 from models.change_detection import csa_cdgan
 from models.change_detection.change_mamba.st_mamba_bcd import STMambaBCD
@@ -48,6 +49,7 @@ __all__ = (
     'FTN',
     'SRCNet',
     'BiFA',
+    'BASE_Transformer',
     'CDXFormer',
     'csa_cdgan',
     'STMambaBCD',
