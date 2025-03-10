@@ -49,10 +49,10 @@ __all__ = (
     'FTN',
     'SRCNet',
     'BiFA',
+    'BASE_Transformer',
     'CDXFormer',
     'csa_cdgan',
     'STMambaBCD',
-    'BASE_Transformer',
     # Single-Temporal Models
     'ChangeStar',
     'I3PEModel',
