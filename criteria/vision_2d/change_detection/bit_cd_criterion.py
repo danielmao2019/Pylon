@@ -8,12 +8,9 @@ class BitCdCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
         super(BitCdCriterion, self).__init__()
-        # unbounded
-        self.ce_criterion = torch.nn.CrossEntropyLoss(reduction='mean', ignore_index=255)
+        self.ce_criterion = criteria.vision_2d.SemanticSegmentationCriterion()
 
     def __call__(self, y_pred, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
-        """Override parent class __call__ method.
-        """
         assert set(y_true.keys()) == {'change_map'}
 
         # Compute the binary cross entropy loss for each mask and sum them up
