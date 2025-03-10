@@ -29,6 +29,7 @@ from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import
 from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
 from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
 from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
+from data.datasets.change_detection_datasets.bi_temporal.whu_cd_dataset import WHU_CD_Dataset
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
 ## Single-Temporal
@@ -61,6 +62,7 @@ __all__ = (
     'xView2Dataset',
     'KC3DDataset',
     'AirChangeDataset',
+    'WHU_CD_Dataset'
     'CDDDataset',
     'SYSU_CD_Dataset',
     ## Single-Temporal
