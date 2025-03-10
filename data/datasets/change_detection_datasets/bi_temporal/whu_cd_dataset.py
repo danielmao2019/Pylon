@@ -7,16 +7,13 @@ from PIL import Image
 
 class WHU_CD_Dataset(BaseDataset):
     __doc__ = r"""
-    Download:
+    Download from this link:
+    http://gpcv.whu.edu.cn/data/building_dataset.html
+    rename folders:
         ```bash
-            wget http://mplab.sztaki.hu/~bcsaba/test/SZTAKI_AirChange_Benchmark.zip
-            unzip SZTAKI_AirChange_Benchmark.zip
-            mv SZTAKI_AirChange_Benchmark AirChange
-            rm SZTAKI_AirChange_Benchmark.zip
+            mv 1.\ The\ two-period\ image\ data/ images
+            mv 2.\ The\ shape\ file\ of\ the\ images/ image_shape
         ```
-        
-        mv 1.\ The\ two-period\ image\ data/ images
-        mv 2.\ The\ shape\ file\ of\ the\ images/ image_shape
 
     Used in:
         * Change Detection Based on Deep Siamese Convolutional Network for Optical Aerial Images
