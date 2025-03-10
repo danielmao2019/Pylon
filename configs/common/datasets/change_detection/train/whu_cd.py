@@ -15,13 +15,13 @@ collate_fn_config = {
     },
 }
 
-class_dist = torch.Tensor(data.datasets.LevirCdDataset.CLASS_DIST['train']).to(torch.float32)
-num_classes = data.datasets.LevirCdDataset.NUM_CLASSES
+class_dist = torch.Tensor(data.datasets.WHU_CD_Dataset.CLASS_DIST['train']).to(torch.float32)
+num_classes = data.datasets.WHU_CD_Dataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
 config = {
     'train_dataset': {
-        'class': data.datasets.LevirCdDataset,
+        'class': data.datasets.WHU_CD_Dataset,
         'args': {
             'data_root': "./data/datasets/soft_links/WHU-CD",
             'split': "train",

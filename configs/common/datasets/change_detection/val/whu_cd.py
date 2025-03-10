@@ -16,22 +16,6 @@ collate_fn_cfg = {
 }
 
 config = {
-    'val_dataset': {
-        'class': data.datasets.WHU_CD_Dataset,
-        'args': {
-            'data_root': "./data/datasets/soft_links/WHU-CD",
-            'split': "val",
-            'transforms_cfg': transforms_cfg(size=(224, 224)),
-        },
-    },
-    'val_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'batch_size': 1,
-            'num_workers': 4,
-            'collate_fn': collate_fn_cfg,
-        },
-    },
     'test_dataset': {
         'class': data.datasets.WHU_CD_Dataset,
         'args': {
