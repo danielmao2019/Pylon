@@ -1,7 +1,11 @@
 import models
 import torch
 
-
+'''
+Questions:
+This shouldn't be a fixed value here as there're three different checkpoints.
+Question: does the three different checkpoints correspond to different architectures or the same architecture. If the same architecture how are these checkpoints different?
+'''
 model_config = {
     'class': models.change_detection.BaseNet_LWGANet_L2,
     'args': {
