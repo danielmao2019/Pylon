@@ -309,19 +309,19 @@ class Urb3DCDDataset(BaseDataset):
             'pc_0': data['pc_0'],
             'pc_1': data['pc_1']
         }
-
+        
         # Create labels dictionary
         labels = {
             'change_map': data['change_map']
         }
-
+        
         # Create meta_info dictionary
         meta_info = {
             'idx': idx,
             'pc_0_filepath': data['pc_0_filepath'],
             'pc_1_filepath': data['pc_1_filepath']
         }
-
+        
         return inputs, labels, meta_info
 
     def _load_datapoint_patched(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
@@ -416,6 +416,7 @@ class Urb3DCDDataset(BaseDataset):
         pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0_xyz = pc0[:, :3]
+        pc0_features = pc0[:, 3:]
 
         # Load second point cloud (XYZ coordinates + label)
         pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
@@ -566,8 +567,8 @@ class Urb3DCDDataset(BaseDataset):
                 'feat': pc1_features[sampled_data_1['point_idx']],
             },
             'change_map': sampled_data_1['change_map'],
-            'point_idx_pc0': sampled_data_0['point_idx'],
-            'point_idx_pc1': sampled_data_1['point_idx'],
+            'point_idx_pc0': point_idx_pc0,
+            'point_idx_pc1': point_idx_pc1,
             'idx': idx
         }
 

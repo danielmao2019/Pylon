@@ -4,7 +4,7 @@ Utility functions for SiameseKPConv model
 import torch
 
 
-def add_ones(pos, x, add_one=True):
+def add_ones(pos, x, add_one=True, expected_channels=None):
     """
     Add a ones feature to the input features x
     
@@ -12,11 +12,16 @@ def add_ones(pos, x, add_one=True):
         pos: input positions [N, 3]
         x: input features [N, C]
         add_one: whether to add a constant feature
+        expected_channels: if provided, only add ones if x.size(1) < expected_channels
         
     Returns:
         features with an additional ones feature [N, C+1] if add_one is True
     """
     if add_one:
+        # If expected_channels is provided, only add ones if x.size(1) < expected_channels
+        if expected_channels is not None and x is not None and x.size(1) >= expected_channels:
+            return x
+            
         ones = torch.ones(pos.shape[0], dtype=torch.float).unsqueeze(-1).to(pos.device)
         if x is not None:
             x = torch.cat([ones.to(x.dtype), x], dim=-1)
@@ -36,8 +41,12 @@ def gather(x, idx):
     Returns:
         gathered values [N', M, C] or [B, N', M, C]
     """
+    # Ensure all tensors are on the same device
+    device = x.device
+    idx = idx.to(device)
+    
     batch_size, num_points, num_dims = x.shape if len(x.shape) == 3 else (1, x.shape[0], x.shape[1])
-    idx_flattened = idx + torch.arange(batch_size, device=idx.device).view(-1, 1, 1) * num_points
+    idx_flattened = idx + torch.arange(batch_size, device=device).view(-1, 1, 1) * num_points
     return x.reshape(batch_size * num_points, num_dims)[idx_flattened.reshape(-1)].reshape(idx.shape + (num_dims,))
 
 
@@ -57,10 +66,18 @@ def knn(x, y, k, batch_x=None, batch_y=None):
         row_idx: indices of query points in x
         col_idx: indices of nearest neighbors in y
     """
+    # Ensure all tensors are on the same device
+    device = x.device
+    
     if batch_x is None:
-        batch_x = torch.zeros(x.size(0), dtype=torch.long, device=x.device)
+        batch_x = torch.zeros(x.size(0), dtype=torch.long, device=device)
+    else:
+        batch_x = batch_x.to(device)
+        
     if batch_y is None:
-        batch_y = torch.zeros(y.size(0), dtype=torch.long, device=y.device)
+        batch_y = torch.zeros(y.size(0), dtype=torch.long, device=device)
+    else:
+        batch_y = batch_y.to(device)
         
     row_idx = []
     col_idx = []
@@ -94,7 +111,7 @@ def knn(x, y, k, batch_x=None, batch_y=None):
         row_idx = torch.cat(row_idx)
         col_idx = torch.cat(col_idx)
     else:
-        row_idx = torch.tensor([], dtype=torch.long, device=x.device)
-        col_idx = torch.tensor([], dtype=torch.long, device=x.device)
+        row_idx = torch.tensor([], dtype=torch.long, device=device)
+        col_idx = torch.tensor([], dtype=torch.long, device=device)
     
     return row_idx, col_idx

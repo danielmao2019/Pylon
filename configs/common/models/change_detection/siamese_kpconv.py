@@ -2,9 +2,9 @@ import models
 
 
 model_config = {
-    'class': models.change_detection.SiameseKPConv,
+    'class': models.change_detection.siamese_kpconv.SiameseKPConv,
     'args': {
-        'in_channels': 3,  # Default input channels (RGB)
+        'in_channels': 4,  # Input channels (4 features)
         'out_channels': 7,  # Urb3DCD dataset has 7 classes
         'point_influence': 0.05,  # Kernel point influence distance
         'down_channels': [32, 64, 128, 256],  # Channels in downsampling blocks
