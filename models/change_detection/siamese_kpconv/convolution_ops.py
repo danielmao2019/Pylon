@@ -155,7 +155,6 @@ def kernel_point_optimization_debug(
         num_free = n_points
     
     # Initialize with random points
-    # From -1 to 1 with a repulsion radius of 1.5
     init_radius = 1.5
     
     # Optimizing parameters
@@ -174,140 +173,79 @@ def kernel_point_optimization_debug(
     if num_free > 0:
         free_points = np.random.rand(num_free, dim) * 2 * init_radius - init_radius
         if fixed == "center":
-            # Add the center point
             kernel_points[1:, :] = free_points
         elif fixed == "verticals":
-            # Replace with vertical lines
             vertical_indices = np.zeros((n_points,), dtype=np.int32)
             for i in range(dim):
                 vertical_indices[i+1:i+1+n_points//dim] = i+1
             
             for i in range(num_free):
                 if vertical_indices[i+1] == 0:
-                    # Random point not on a specific axis
                     kernel_points[i+1, :] = free_points[i, :]
                 else:
-                    # Point on a specific axis
                     axis = vertical_indices[i+1] - 1
                     kernel_points[i+1, axis] = free_points[i, 0] * 2 - 1
                     for j in range(dim):
                         if j != axis:
                             kernel_points[i+1, j] = 0
         else:
-            # All points are free
             kernel_points = free_points
     
     for iter_count in range(n_iter):
         # Compute pair-wise distances between kernel points
         squared_dist = np.sum(np.square(kernel_points[:, np.newaxis, :] - kernel_points[np.newaxis, :, :]), axis=2)
-        
-        # Get distance to closest point for each free point
-        # Ensure we don't compute the minimum to itself by setting the diagonal to a large value
         np.fill_diagonal(squared_dist, np.inf)
         closest_dist = np.min(squared_dist, axis=1)
-        
-        # Normalize the distances
-        # Make sure min_dist is not 0 to prevent division by zero
         min_dist = np.min(closest_dist)
-        if min_dist < epsilon:
-            min_dist = epsilon
         
         # Update gradient directions for free points
         for i in range(num_free):
-            if fixed == "center":
-                point_idx = i + 1
-            elif fixed == "verticals":
-                point_idx = i + 1
-            else:
-                point_idx = i
+            point_idx = i + 1 if fixed in ["center", "verticals"] else i
             
             # Compute repulsive forces
             point_i = kernel_points[point_idx, :]
             other_indices = indices != point_idx
-            if np.any(other_indices):  # Make sure there are other points
+            if np.any(other_indices):
                 other_points = kernel_points[other_indices, :]
                 vectors = point_i[np.newaxis, :] - other_points
-                
-                # Compute squared distances with numeric stability
-                squared = np.sum(vectors * vectors, axis=1)  # More stable than np.square()
-                
-                # Avoid sqrt of zero or negative values
-                squared = np.maximum(squared, 1e-10)
-                dist = np.sqrt(squared)
-                
-                # Calculate and normalize direction vectors
+                dist = np.sqrt(np.sum(vectors * vectors, axis=1))
                 direction = vectors / dist[:, np.newaxis]
+                repulsion = (direction.T * repulsion_strength / dist).T
+            
+                # Apply constraint for points on vertical lines
+                if fixed == "verticals" and vertical_indices[point_idx] > 0:
+                    axis = vertical_indices[point_idx] - 1
+                    repulsion[:, (np.arange(dim) != axis)] = 0
                 
-                # Weight by inverse distance, with a minimum to avoid numeric issues
-                # Use a smaller repulsion strength to avoid overflow
-                safe_repulsion = min(repulsion_strength, 1e3)
-                repulsion = (direction.T * safe_repulsion / dist).T
-            
-            # Apply constraint for points on vertical lines
-            if fixed == "verticals" and vertical_indices[point_idx] > 0:
-                axis = vertical_indices[point_idx] - 1
-                repulsion[:, (np.arange(dim) != axis)] = 0
-            
-            # Compute gradient - sum if repulsion exists
-            if 'repulsion' in locals() and repulsion.size > 0:
                 gradient[i, :] = np.sum(repulsion, axis=0)
         
-        # Check if gradient has valid values
-        if np.all(np.isfinite(gradient)) and np.linalg.norm(gradient) > 0:
-            # Normalize gradient with a safe norm calculation
-            norm = np.linalg.norm(gradient)
-            if norm > 1e-10:
-                gradient = gradient / norm
-            
-            # Apply gradient to free points with a safe step size
-            step_size = min(min_dist, 0.1)  # Limit step size for stability
+        # Apply gradient
+        if np.linalg.norm(gradient) > 0:
+            gradient = gradient / np.linalg.norm(gradient)
             kernel_points_new = np.copy(kernel_points)
             
             if fixed == "center":
-                kernel_points_new[1:, :] = kernel_points[1:, :] + gradient * step_size
+                kernel_points_new[1:, :] = kernel_points[1:, :] + gradient * min_dist
             elif fixed == "verticals":
                 for i in range(num_free):
                     point_idx = i + 1
                     if vertical_indices[point_idx] > 0:
                         axis = vertical_indices[point_idx] - 1
-                        kernel_points_new[point_idx, axis] = kernel_points[point_idx, axis] + gradient[i, axis] * step_size
+                        kernel_points_new[point_idx, axis] = kernel_points[point_idx, axis] + gradient[i, axis] * min_dist
                     else:
-                        kernel_points_new[point_idx, :] = kernel_points[point_idx, :] + gradient[i, :] * step_size
+                        kernel_points_new[point_idx, :] = kernel_points[point_idx, :] + gradient[i, :] * min_dist
             else:
-                kernel_points_new = kernel_points + gradient * step_size
-        else:
-            # If gradient has problems, just keep the current points
-            kernel_points_new = np.copy(kernel_points)
-        
-        # Only update if we get an improvement - use a safer distance calculation
-        try:
-            # Compute pairwise differences avoiding squaring large numbers
-            differences = kernel_points_new[:, np.newaxis, :] - kernel_points_new[np.newaxis, :, :]
-            # Use a safer method to compute squared distances
-            squared_dist_new = np.zeros((n_points, n_points))
-            for i in range(n_points):
-                for j in range(n_points):
-                    if i != j:  # Skip diagonal
-                        # Use a more numerically stable method
-                        diff = kernel_points_new[i] - kernel_points_new[j]
-                        squared_dist_new[i, j] = np.sum(diff * diff)
-                    else:
-                        squared_dist_new[i, j] = np.inf
+                kernel_points_new = kernel_points + gradient * min_dist
             
-            closest_dist_new = np.min(squared_dist_new, axis=1)
-            min_dist_new = np.min(closest_dist_new)
-            
-            # Update if we got an improvement or if no previous min_dist has been set yet
+            # Update if we got an improvement
+            squared_dist_new = np.sum(np.square(kernel_points_new[:, np.newaxis, :] - kernel_points_new[np.newaxis, :, :]), axis=2)
+            np.fill_diagonal(squared_dist_new, np.inf)
+            min_dist_new = np.min(np.min(squared_dist_new, axis=1))
             if min_dist_new > min_dist:
                 kernel_points = kernel_points_new
                 min_dist = min_dist_new
             else:
-                # No improvement, stop the optimization
                 break
-        except Exception as e:
-            # In case of numeric issues, just keep current points and stop
-            print(f"Warning in kernel optimization: {e}")
-            break
     
     # Scale kernel points to fit into a sphere of defined ratio
     radius = np.max(np.linalg.norm(kernel_points, axis=1))
@@ -429,15 +367,12 @@ class KPConvLayer(BasePartialDenseConvolution):
 
         # Get Kernel point influences [n_points, n_kpoints, n_neighbors]
         if self.KP_influence == "constant":
-            # Every point get an influence of 1.
             all_weights = torch.ones_like(sq_distances)
             all_weights = all_weights.transpose(2, 1)
         elif self.KP_influence == "linear":
-            # Influence decrease linearly with the distance, and get to zero when d = point_influence
             all_weights = torch.clamp(1 - torch.sqrt(sq_distances) / self.point_influence, min=0.0)
             all_weights = all_weights.transpose(2, 1)
         elif self.KP_influence == "gaussian":
-            # Influence in gaussian of the distance
             sigma = self.point_influence * 0.3
             all_weights = radius_gaussian(sq_distances, sigma)
             all_weights = all_weights.transpose(2, 1)
@@ -458,7 +393,6 @@ class KPConvLayer(BasePartialDenseConvolution):
         neighborhood_features = features[neighbors]
 
         # Apply distance weights [n_points, n_kpoints, in_fdim]
-        # Normalize the influence weights to sum to 1 for each kernel point
         all_weights = all_weights / (torch.sum(all_weights, dim=2, keepdim=True) + 1e-10)
         weighted_features = torch.matmul(all_weights, neighborhood_features)
 

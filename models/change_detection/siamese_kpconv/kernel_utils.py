@@ -74,25 +74,24 @@ def kernel_point_optimization_debug(radius, num_points, num_kernels=1, dimension
     return radius * K_points_numpy
 
 
-def load_kernels(radius, num_points, num_kernels=1, dimension=3, fixed='center'):
+def load_kernels(radius, num_kpoints=15, dimension=3, fixed="center", num_kernels=1):
     """
-    Load pre-computed kernel points.
+    Load kernels for KPConv
     
     Args:
-        radius: Radius of the kernels
-        num_points: Number of points in the kernel
-        num_kernels: Number of kernels to generate
-        dimension: dimension of the space
-        fixed: fix position of certain kernel points ('none', 'center' or 'verticals')
-        
+        radius: radius of the kernel
+        num_kpoints: number of points in the kernel
+        dimension: dimension of the space (2D or 3D)
+        fixed: policy for fixing kernel points ('center', 'verticals', or None)
+        num_kernels: number of kernels to load
+    
     Returns:
-        numpy array of kernel points
+        Kernel points
     """
-    K_points_numpy = kernel_point_optimization_debug(
-        radius,
-        num_points,
+    return kernel_point_optimization_debug(
+        radius=radius,
+        num_points=num_kpoints,
         num_kernels=num_kernels,
         dimension=dimension,
         fixed=fixed
-    )
-    return K_points_numpy 
+    ) 
