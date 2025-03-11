@@ -149,7 +149,12 @@ class SiameseKPConv(nn.Module):
         
         # Create each up module
         for i in range(len(up_channels) - 1):
-            self.up_modules.append(self._create_block(up_channels[i], up_channels[i+1]))
+            # For each up module, the input dimension is the current up_channel
+            # plus the corresponding skip connection from the encoder
+            # The output dimension is the next up_channel
+            in_channels = up_channels[i]
+            out_channels = up_channels[i+1]
+            self.up_modules.append(self._create_block(in_channels, out_channels))
     
     def _init_final_mlp(self, in_channels, out_channels, dropout):
         """Initialize the final MLP for classification"""
