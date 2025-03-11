@@ -94,15 +94,12 @@ class SiameseKPConv(nn.Module):
     
     def _create_block(self, in_channels, out_channels):
         """Helper method to create a convolution block based on the specified type"""
-        # Add +1 to in_channels for the ones feature that's added by add_ones
-        in_channels = in_channels + 1
-        
         if self.conv_type == "simple":
             return SimpleBlock(
                 down_conv_nn=[in_channels, out_channels],
                 point_influence=self.point_influence,
                 bn_momentum=self.bn_momentum,
-                add_one=False,  # We already added ones outside
+                add_one=True,  # Add ones feature in KPConv
             )
         elif self.conv_type == "resnet":
             return ResnetBBlock(
@@ -110,7 +107,7 @@ class SiameseKPConv(nn.Module):
                 point_influence=self.point_influence,
                 bn_momentum=self.bn_momentum,
                 has_bottleneck=True,
-                add_one=False,  # We already added ones outside
+                add_one=True,  # Add ones feature in KPConv
             )
         elif self.conv_type == "dual":
             # Extract block parameters for dual blocks
@@ -125,7 +122,7 @@ class SiameseKPConv(nn.Module):
                 has_bottleneck=has_bottleneck,
                 max_num_neighbors=max_num_neighbors,
                 bn_momentum=self.bn_momentum,
-                add_one=False,  # We already added ones outside
+                add_one=True,  # Add ones feature in KPConv
             )
         else:
             raise ValueError(f"Unknown conv_type: {self.conv_type}. Choose from 'simple', 'resnet', or 'dual'.")
@@ -212,10 +209,6 @@ class SiameseKPConv(nn.Module):
         pos1, x1, batch1 = data1['pos'], data1['x'], data1['batch']
         pos2, x2, batch2 = data2['pos'], data2['x'], data2['batch']
         
-        # For compatibility with the original implementation, add ones feature
-        x1 = add_ones(pos1, x1, True)
-        x2 = add_ones(pos2, x2, True)
-        
         # Stack for tracking down features
         stack_down = []
         
@@ -260,9 +253,9 @@ class SiameseKPConv(nn.Module):
             # from the encoder without complex skip connections
             x = stack_down[-1]
         
-        # If we have up modules, use only the last one for simplicity
-        if len(self.up_modules) > 0:
-            x = self.up_modules[-1](x, pos2, batch2, pos2, batch2, k)
+        # Process all up modules in sequence
+        for up_module in self.up_modules:
+            x = up_module(x, pos2, batch2, pos2, batch2, k)
         
         # Store the last feature for potential external use
         self.last_feature = x

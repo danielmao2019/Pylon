@@ -420,22 +420,21 @@ class Urb3DCDDataset(BaseDataset):
         pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0_xyz = pc0[:, :3]
-        pc0_features = pc0[:, 3:]
+        # Add ones feature to XYZ coordinates
+        pc0_features = torch.cat([pc0_xyz, torch.ones_like(pc0_xyz[:, :1])], dim=1)  # [N, 4]
 
         # Load second point cloud (XYZ coordinates + label)
         pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
         pc1_xyz = pc1[:, :3]
+        # Add ones feature to XYZ coordinates
+        pc1_features = torch.cat([pc1_xyz, torch.ones_like(pc1_xyz[:, :1])], dim=1)  # [N, 4]
+
         change_map = pc1[:, 3]  # Labels are in the 4th column for the second point cloud
 
         # Convert to correct types
         pc0_xyz = pc0_xyz.type(torch.float32)
         pc1_xyz = pc1_xyz.type(torch.float32)
         change_map = change_map.type(torch.int64)
-
-        # Compute features for point clouds - follow the approach from original repository:
-        # Use a constant feature of one for each point as in the original implementation
-        pc0_features = torch.ones((pc0_xyz.shape[0], 1), dtype=torch.float32, device=pc0_xyz.device)
-        pc1_features = torch.ones((pc1_xyz.shape[0], 1), dtype=torch.float32, device=pc1_xyz.device)
 
         # Build KDTrees
         kdtree_0 = KDTree(np.asarray(pc0_xyz), leaf_size=10)
@@ -571,8 +570,8 @@ class Urb3DCDDataset(BaseDataset):
                 'feat': pc1_features[sampled_data_1['point_idx']],
             },
             'change_map': sampled_data_1['change_map'],
-            'point_idx_pc0': point_idx_pc0,
-            'point_idx_pc1': point_idx_pc1,
+            'point_idx_pc0': sampled_data_0['point_idx'],
+            'point_idx_pc1': sampled_data_1['point_idx'],
             'idx': idx
         }
 

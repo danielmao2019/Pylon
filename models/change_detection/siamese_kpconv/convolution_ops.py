@@ -374,7 +374,7 @@ class KPConvLayer(BasePartialDenseConvolution):
         self.kernel_radius = self._INFLUENCE_TO_RADIUS * point_influence
         self.point_influence = point_influence
         self.add_one = add_one
-        self.num_inputs = num_inputs + self.add_one * 1
+        self.num_inputs = num_inputs
         self.num_outputs = num_outputs
 
         self.KP_influence = KP_influence
@@ -412,8 +412,6 @@ class KPConvLayer(BasePartialDenseConvolution):
         Returns:
             Output features of size [N, C']
         """
-        x = add_ones(support_points, x, self.add_one)
-
         # Add a fake point in the last row for shadow neighbors
         shadow_point = torch.ones_like(support_points[:1, :]) * 1e6
         support_points = torch.cat([support_points, shadow_point], dim=0)
