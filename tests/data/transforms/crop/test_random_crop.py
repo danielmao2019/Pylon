@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from .random_crop import RandomCrop
+from data.transforms.crop.random_crop import RandomCrop
 import torch
 
 
