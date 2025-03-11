@@ -86,7 +86,6 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
 
         # Validate point count consistency
         _validate_point_count_consistency(inputs['pc_1'], labels['change_map'])
-
         # Validate meta info
         assert isinstance(meta_info, dict)
         assert 'point_idx_pc0' in meta_info
