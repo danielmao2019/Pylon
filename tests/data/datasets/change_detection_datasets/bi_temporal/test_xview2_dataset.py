@@ -1,5 +1,5 @@
 import pytest
-from .xview2_dataset import xView2Dataset
+from data.datasets.change_detection_datasets.bi_temporal.xview2_dataset import xView2Dataset
 import torch
 
 

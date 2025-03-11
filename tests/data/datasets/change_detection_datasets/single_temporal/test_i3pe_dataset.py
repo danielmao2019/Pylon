@@ -1,4 +1,4 @@
-from .i3pe_dataset import I3PEDataset
+from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
 import torch
 from data.datasets import Bi2SingleTemporal, SYSU_CD_Dataset
 

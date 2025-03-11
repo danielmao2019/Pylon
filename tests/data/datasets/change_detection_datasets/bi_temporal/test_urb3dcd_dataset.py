@@ -2,7 +2,7 @@ from typing import Dict, Any, List, Optional, Union, Tuple
 import pytest
 import torch
 from sklearn.neighbors import KDTree
-from .urb3dcd_dataset import Urb3DCDDataset
+from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
 
 
 def _validate_point_cloud(pc: Dict[str, torch.Tensor], name: str) -> None:

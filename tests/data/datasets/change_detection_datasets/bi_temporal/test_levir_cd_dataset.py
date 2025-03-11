@@ -1,5 +1,5 @@
 import pytest
-from .levir_cd_dataset import LevirCdDataset
+from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
 import torch
 
 

@@ -1,4 +1,4 @@
-from .ppsl_dataset import PPSLDataset
+from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
 import torch
 from data.datasets import WHU_BD_Dataset
 

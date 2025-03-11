@@ -1,5 +1,5 @@
 import pytest
-from .kc_3d_dataset import KC3DDataset
+from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
 import torch
 
 

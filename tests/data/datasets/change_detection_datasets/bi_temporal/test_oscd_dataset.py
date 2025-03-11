@@ -1,5 +1,5 @@
 import pytest
-from .oscd_dataset import OSCDDataset
+from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 import torch
 import utils
 

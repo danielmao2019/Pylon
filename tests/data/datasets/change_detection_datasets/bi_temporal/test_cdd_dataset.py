@@ -1,5 +1,5 @@
 import pytest
-from .cdd_dataset import CDDDataset
+from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 import torch
 
 
