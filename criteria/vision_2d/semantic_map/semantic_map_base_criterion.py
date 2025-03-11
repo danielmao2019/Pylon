@@ -20,7 +20,6 @@ class SemanticMapBaseCriterion(SingleTaskCriterion, ABC):
         self,
         class_weights: Optional[Tuple[float, ...]] = None,
         reduction: Optional[str] = 'mean',
-        device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
         """
         Initialize the criterion.
@@ -28,7 +27,6 @@ class SemanticMapBaseCriterion(SingleTaskCriterion, ABC):
         Args:
             class_weights: Optional weights for each class to address class imbalance.
             reduction: Type of reduction to apply to the loss ('mean' or 'sum').
-            device: Device to place the tensors on.
         """
         super(SemanticMapBaseCriterion, self).__init__()
         

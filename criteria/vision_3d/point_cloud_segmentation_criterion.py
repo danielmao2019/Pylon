@@ -20,7 +20,6 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
         self,
         ignore_index: Optional[int] = None,
         class_weights: Optional[Tuple[float, ...]] = None,
-        device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
         """
         Initialize the criterion.
@@ -28,7 +27,6 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
         Args:
             ignore_index: Index to ignore in the loss computation (usually for background/unlabeled points).
             class_weights: Optional weights for each class to address class imbalance.
-            device: Device to place the tensors on.
         """
         super(PointCloudSegmentationCriterion, self).__init__()
         if ignore_index is None:
