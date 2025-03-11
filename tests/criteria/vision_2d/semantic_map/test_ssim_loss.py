@@ -25,7 +25,8 @@ def test_ssim_loss(reduction, batch_size, num_classes, image_size):
     y_true = y_true.to(device)
 
     # Verify window is on correct device
-    assert loss_fn.window.device == device, "Window should be on the same device as the model"
+    assert loss_fn.window.device.type == device.type, \
+        f"Window should be on the same device as the model: {loss_fn.window.device} != {device}"
 
     # Compute loss
     loss = loss_fn(y_pred, y_true)
