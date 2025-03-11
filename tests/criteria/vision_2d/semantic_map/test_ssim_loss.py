@@ -1,5 +1,5 @@
 import pytest
-from .ssim_loss import SSIMLoss
+from criteria.vision_2d.semantic_map.ssim_loss import SSIMLoss
 import torch
 
 

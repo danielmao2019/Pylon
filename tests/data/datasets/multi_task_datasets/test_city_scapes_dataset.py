@@ -1,5 +1,5 @@
 import pytest
-from .city_scapes_dataset import CityScapesDataset
+from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
 import os
 import torch
 

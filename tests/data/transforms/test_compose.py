@@ -1,5 +1,5 @@
 import pytest
-from .compose import Compose
+from data.transforms.compose import Compose
 
 
 @pytest.mark.parametrize("transforms, example, expected", [

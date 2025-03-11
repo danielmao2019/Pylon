@@ -1,6 +1,6 @@
 import pytest
+from criteria.vision_2d.semantic_map.dice_loss import DiceLoss
 import torch
-from .dice_loss import DiceLoss
 
 
 @pytest.fixture

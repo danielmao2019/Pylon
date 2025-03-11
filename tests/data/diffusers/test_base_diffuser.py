@@ -1,8 +1,8 @@
 import pytest
 from typing import Tuple, List
-from .base_diffuser import BaseDiffuser
+from data.diffusers.base_diffuser import BaseDiffuser
 import torch
-from ..datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
+from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
 
 
 @pytest.mark.parametrize("dataset, num_steps, keys", [

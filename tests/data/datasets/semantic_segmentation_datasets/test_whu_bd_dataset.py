@@ -1,5 +1,5 @@
 import pytest
-from .whu_bd_dataset import WHU_BD_Dataset
+from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
 import torch
 
 
