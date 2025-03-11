@@ -16,12 +16,20 @@ class SemanticSegmentationCriterion(SingleTaskCriterion):
         super(SemanticSegmentationCriterion, self).__init__()
         if ignore_index is None:
             ignore_index = 255
+        
+        # Register class weights as a buffer if provided
+        self.register_buffer('class_weights', None)
         if class_weights is not None:
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
-            class_weights = torch.tensor(class_weights, dtype=torch.float32, device=device)
+            self.register_buffer(
+                'class_weights',
+                torch.tensor(class_weights, dtype=torch.float32)
+            )
+        
+        # Create criterion
         self.criterion = torch.nn.CrossEntropyLoss(
-            ignore_index=ignore_index, weight=class_weights, reduction='mean',
+            ignore_index=ignore_index, weight=self.class_weights, reduction='mean',
         )
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:

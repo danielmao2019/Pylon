@@ -34,14 +34,15 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
         if ignore_index is None:
             ignore_index = -100  # PyTorch's default ignore index
         
-        # Handle class weights
-        self.class_weights = None
+        # Register class weights as a buffer if provided
+        self.register_buffer('class_weights', None)
         if class_weights is not None:
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
-            self.class_weights = torch.tensor(class_weights, dtype=torch.float32)
-            if device is not None:
-                self.class_weights = self.class_weights.to(device)
+            self.register_buffer(
+                'class_weights',
+                torch.tensor(class_weights, dtype=torch.float32)
+            )
         
         # Create criterion
         self.criterion = torch.nn.CrossEntropyLoss(
