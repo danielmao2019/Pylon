@@ -3,3 +3,9 @@ logs
 data/datasets/soft_links
 data/datasets/test_data*
 project
+
+# Python packaging
+*.egg-info/
+*.egg
+dist/
+build/
