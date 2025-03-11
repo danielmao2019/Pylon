@@ -11,28 +11,25 @@ from criteria.vision_3d.point_cloud_segmentation_criterion import PointCloudSegm
 def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes, ignore_index, class_weights):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
-    # Initialize criterion
+    # Initialize criterion and move to device
     criterion = PointCloudSegmentationCriterion(
         ignore_index=ignore_index,
         class_weights=class_weights,
-        device=device
-    )
+    ).to(device)
     
     # Create dummy predictions and targets
-    y_pred = torch.randn(batch_size * num_points, num_classes, device=device)
+    y_pred = torch.randn(batch_size * num_points, num_classes).to(device)
     if ignore_index is not None:
         # Add some ignored points
         y_true = torch.randint(
             low=ignore_index, high=num_classes, 
-            size=(batch_size * num_points,), 
-            device=device
-        )
+            size=(batch_size * num_points,)
+        ).to(device)
     else:
         y_true = torch.randint(
             low=0, high=num_classes,
-            size=(batch_size * num_points,),
-            device=device
-        )
+            size=(batch_size * num_points,)
+        ).to(device)
 
     # Compute loss
     loss = criterion(y_pred, y_true)
@@ -51,10 +48,10 @@ def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes,
 ])
 def test_invalid_shapes(invalid_shape):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    criterion = PointCloudSegmentationCriterion(device=device)
+    criterion = PointCloudSegmentationCriterion().to(device)
     
-    y_pred = torch.randn(*invalid_shape[0], device=device)
-    y_true = torch.randint(0, 3, invalid_shape[1], device=device)
+    y_pred = torch.randn(*invalid_shape[0]).to(device)
+    y_true = torch.randint(0, 3, invalid_shape[1]).to(device)
     
     with pytest.raises(AssertionError):
         criterion(y_pred, y_true)
@@ -67,20 +64,24 @@ def test_class_weights():
     
     criterion = PointCloudSegmentationCriterion(
         class_weights=class_weights,
-        device=device
-    )
+    ).to(device)
     
     # Verify that the weights are set correctly in the criterion
     assert criterion.criterion.weight is not None, "Class weights not set"
+    
+    # Convert raw weights to normalized weights that sum to 1
+    raw_weights = torch.tensor(class_weights, dtype=torch.float32)
+    normalized_weights = raw_weights / raw_weights.sum()
+    
     assert torch.allclose(
         criterion.criterion.weight,
-        torch.tensor(class_weights, device=device)
+        normalized_weights.to(device)
     ), "Class weights not set correctly"
     
     # Create predictions and targets
     batch_size = 100
-    y_pred = torch.randn(batch_size, num_classes, device=device)
-    y_true = torch.randint(0, num_classes, (batch_size,), device=device)
+    y_pred = torch.randn(batch_size, num_classes).to(device)
+    y_true = torch.randint(0, num_classes, (batch_size,)).to(device)
     
     # Verify that we can compute a loss without errors
     loss = criterion(y_pred, y_true)

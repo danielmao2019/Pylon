@@ -6,6 +6,13 @@ from utils.input_checks import check_semantic_segmentation
 
 
 class SemanticMapBaseCriterion(SingleTaskCriterion, ABC):
+    """
+    Base criterion for semantic map tasks.
+    
+    Attributes:
+        class_weights: Optional tensor of weights for each class (registered as buffer).
+        reduction: Type of reduction to apply to the loss ('mean' or 'sum').
+    """
 
     REDUCTION_OPTIONS = ['mean', 'sum']
 
@@ -13,18 +20,27 @@ class SemanticMapBaseCriterion(SingleTaskCriterion, ABC):
         self,
         class_weights: Optional[Tuple[float, ...]] = None,
         reduction: Optional[str] = 'mean',
-        device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
+        """
+        Initialize the criterion.
+        
+        Args:
+            class_weights: Optional weights for each class to address class imbalance.
+            reduction: Type of reduction to apply to the loss ('mean' or 'sum').
+        """
         super(SemanticMapBaseCriterion, self).__init__()
+        
+        # Register class weights as a buffer if provided
+        self.register_buffer('class_weights', None)
         if class_weights is not None:
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
-            class_weights = torch.tensor(class_weights, dtype=torch.float32, device=device)
-            class_weights = class_weights / class_weights.sum()
-        self.class_weights = class_weights
+            weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
+            weights_tensor = weights_tensor / weights_tensor.sum()
+            self.register_buffer('class_weights', weights_tensor)
+            
         assert reduction in self.REDUCTION_OPTIONS, f"{reduction=}"
         self.reduction = reduction
-        self.device = device
 
     @abstractmethod
     def _compute_semantic_map_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
@@ -53,8 +69,10 @@ class SemanticMapBaseCriterion(SingleTaskCriterion, ABC):
         loss = self._compute_semantic_map_loss(y_pred=y_pred, y_true=y_true)
         assert loss.shape == (B, C), f"{loss.shape=}"
         # weighted sum over classes
-        class_weights = self.class_weights.view((B, C)) if self.class_weights else \
-            1 / C * torch.ones(size=(C,), dtype=torch.float32, device=loss.device)
+        if self.class_weights is not None:
+            class_weights = self.class_weights.view((B, C))
+        else:
+            class_weights = 1 / C * torch.ones(size=(C,), dtype=torch.float32, device=loss.device)
         loss = torch.sum(class_weights * loss, dim=1)
         assert loss.shape == (B,), f"{loss.shape=}"
         # reduce along batch dimension
