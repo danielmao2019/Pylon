@@ -33,6 +33,70 @@ from models.change_detection.siamese_kpconv.convolution_ops import (
 from models.change_detection.siamese_kpconv.utils import knn, gather, add_ones
 
 
+def scatter_add(src: torch.Tensor, index: torch.Tensor, dim: int, dim_size: int) -> torch.Tensor:
+    """Pure PyTorch implementation of scatter_add operation.
+    
+    Args:
+        src: Source tensor to scatter
+        index: Index tensor indicating where to scatter
+        dim: Dimension along which to scatter
+        dim_size: Size of the output tensor along scatter dimension
+        
+    Returns:
+        Output tensor with scattered and added values
+    """
+    # Create output tensor filled with zeros
+    out = torch.zeros(dim_size, *src.shape[1:], dtype=src.dtype, device=src.device)
+    
+    # Use index_add_ which is PyTorch's built-in scatter add operation
+    return out.index_add_(0, index, src)
+
+
+class KNNInterpolate:
+    """KNN interpolation module for feature propagation in the decoder.
+    Matches the original implementation's upsampling approach."""
+    
+    def __init__(self, k: int = 3):
+        self.k = k
+    
+    def __call__(self, query_pos: torch.Tensor, query_batch: torch.Tensor,
+                 support_pos: torch.Tensor, support_batch: torch.Tensor,
+                 support_features: torch.Tensor) -> torch.Tensor:
+        """
+        Interpolate features from support points to query points using KNN.
+        
+        Args:
+            query_pos: [N, 3] query point positions
+            query_batch: [N] query point batch indices
+            support_pos: [M, 3] support point positions
+            support_batch: [M] support point batch indices
+            support_features: [M, C] support point features
+            
+        Returns:
+            Interpolated features [N, C]
+        """
+        # Find k nearest neighbors
+        row_idx, col_idx = knn(query_pos, support_pos, self.k, query_batch, support_batch)
+        
+        # Get squared distances
+        diff = query_pos[row_idx] - support_pos[col_idx]
+        squared_dist = (diff * diff).sum(dim=1, keepdim=True)
+        
+        # Compute weights with numerical stability
+        weights = 1.0 / torch.clamp(squared_dist, min=1e-16)
+        
+        # Normalize weights
+        normalizer = scatter_add(weights, row_idx, 0, query_pos.size(0))
+        weights = weights / normalizer[row_idx]
+        
+        # Interpolate features
+        features = support_features[col_idx]
+        weighted_features = features * weights
+        interpolated = scatter_add(weighted_features, row_idx, 0, query_pos.size(0))
+        
+        return interpolated
+
+
 class SiameseKPConv(nn.Module):
     """
     Siamese KPConv network for change detection in point clouds.
@@ -72,7 +136,7 @@ class SiameseKPConv(nn.Module):
         bn_momentum: float = 0.02,
         dropout: float = 0.1,
         inner_modules: list = None,
-        conv_type: str = "simple",
+        conv_type: str = "dual",  # Changed default to match original
         block_params: dict = None,
     ):
         super(SiameseKPConv, self).__init__()
@@ -80,8 +144,32 @@ class SiameseKPConv(nn.Module):
         self.point_influence = point_influence
         self.bn_momentum = bn_momentum
         self.conv_type = conv_type.lower()
-        self.block_params = block_params or {}
+        
+        # Default block parameters matching original implementation
+        self.block_params = block_params or {
+            "n_kernel_points": 25,
+            "block_names": [
+                ["SimpleBlock", "ResnetBBlock"],
+                ["ResnetBBlock", "ResnetBBlock"],
+                ["ResnetBBlock", "ResnetBBlock"],
+                ["ResnetBBlock", "ResnetBBlock"],
+            ],
+            "has_bottleneck": [
+                [False, True],
+                [True, True],
+                [True, True],
+                [True, True],
+            ],
+            "max_num_neighbors": [
+                [25, 25],
+                [25, 30],
+                [30, 38],
+                [38, 38],
+            ]
+        }
+        
         self.in_channels = in_channels
+        self.down_channels = down_channels
         
         # Initialize the encoder, inner modules, and decoder
         self._init_down_modules(in_channels, down_channels)
@@ -89,12 +177,26 @@ class SiameseKPConv(nn.Module):
         self._init_up_modules(up_channels)
         self._init_final_mlp(up_channels[-1], out_channels, dropout)
         
+        # Initialize interpolation for feature propagation
+        self.interpolate = KNNInterpolate(k=3)
+        
         # Store last feature for potential use
         self.last_feature = None
     
-    def _create_block(self, in_channels, out_channels):
+    def _create_block(self, in_channels, out_channels, block_idx=None):
         """Helper method to create a convolution block based on the specified type"""
-        if self.conv_type == "simple":
+        if block_idx is not None and self.conv_type == "dual":
+            # Use the exact block configuration from original implementation
+            return KPDualBlock(
+                block_names=self.block_params["block_names"][block_idx],
+                down_conv_nn=[[in_channels, out_channels], [out_channels, out_channels]],
+                point_influence=self.point_influence,
+                has_bottleneck=self.block_params["has_bottleneck"][block_idx],
+                max_num_neighbors=self.block_params["max_num_neighbors"][block_idx],
+                bn_momentum=self.bn_momentum,
+                n_kernel_points=self.block_params["n_kernel_points"],
+            )
+        elif self.conv_type == "simple":
             return SimpleBlock(
                 down_conv_nn=[in_channels, out_channels],
                 point_influence=self.point_influence,
@@ -107,32 +209,24 @@ class SiameseKPConv(nn.Module):
                 bn_momentum=self.bn_momentum,
                 has_bottleneck=True,
             )
-        elif self.conv_type == "dual":
-            # Extract block parameters for dual blocks
-            block_names = self.block_params.get("block_names", ["SimpleBlock", "ResnetBBlock"])
-            has_bottleneck = self.block_params.get("has_bottleneck", [False, True])
-            max_num_neighbors = self.block_params.get("max_num_neighbors", [16, 16])
-            
-            return KPDualBlock(
-                block_names=block_names,
-                down_conv_nn=[[in_channels, out_channels], [out_channels, out_channels]],
-                point_influence=self.point_influence,
-                has_bottleneck=has_bottleneck,
-                max_num_neighbors=max_num_neighbors,
-                bn_momentum=self.bn_momentum,
-            )
         else:
             raise ValueError(f"Unknown conv_type: {self.conv_type}. Choose from 'simple', 'resnet', or 'dual'.")
     
     def _init_down_modules(self, in_channels, down_channels):
         """Initialize the encoder (down modules)"""
         self.down_modules = nn.ModuleList()
-        current_channels = in_channels
         
-        # Create each down module
-        for channels in down_channels:
-            self.down_modules.append(self._create_block(current_channels, channels))
-            current_channels = channels
+        # Create each down module with proper configuration
+        for i in range(len(down_channels)):
+            in_ch = in_channels if i == 0 else down_channels[i-1]
+            out_ch = down_channels[i]
+            self.down_modules.append(
+                self._create_block(
+                    in_channels=in_ch,
+                    out_channels=out_ch,
+                    block_idx=i  # Keep block_idx for encoder as it uses specific configurations
+                )
+            )
     
     def _init_inner_modules(self, inner_modules):
         """Initialize the inner modules"""
@@ -147,14 +241,17 @@ class SiameseKPConv(nn.Module):
         """Initialize the decoder (up modules)"""
         self.up_modules = nn.ModuleList()
         
-        # Create each up module
+        # Create each up module with proper feature dimensions
         for i in range(len(up_channels) - 1):
-            # For each up module, the input dimension is the current up_channel
-            # plus the corresponding skip connection from the encoder
-            # The output dimension is the next up_channel
-            in_channels = up_channels[i]
-            out_channels = up_channels[i+1]
-            self.up_modules.append(self._create_block(in_channels, out_channels))
+            in_ch = up_channels[i] + self.down_channels[-(i+2)]  # Include skip connection
+            out_ch = up_channels[i + 1]
+            self.up_modules.append(
+                self._create_block(
+                    in_channels=in_ch,
+                    out_channels=out_ch,
+                    block_idx=None  # Decoder uses simpler block configuration
+                )
+            )
     
     def _init_final_mlp(self, in_channels, out_channels, dropout):
         """Initialize the final MLP for classification"""
@@ -199,9 +296,6 @@ class SiameseKPConv(nn.Module):
             assert pc['batch'].dim() == 1, f"Expected {key}['batch'] to have shape [N], got {pc['batch'].shape}"
             assert pc['pos'].size(0) == pc['feat'].size(0) == pc['batch'].size(0), f"Inconsistent sizes in {key}: pos={pc['pos'].size(0)}, feat={pc['feat'].size(0)}, batch={pc['batch'].size(0)}"
         
-        # Check feature dimensions
-        assert inputs['pc_0']['feat'].size(1) == 1, f"Expected input features to have 1 channel (ones), got {inputs['pc_0']['feat'].size(1)}"
-        
         # Prepare data
         data1 = inputs['pc_0']
         data2 = inputs['pc_1']
@@ -214,8 +308,12 @@ class SiameseKPConv(nn.Module):
         x1 = torch.cat([pos1, feat1], dim=1)  # [N, 4] (xyz + ones)
         x2 = torch.cat([pos2, feat2], dim=1)  # [N, 4] (xyz + ones)
         
-        # Stack for tracking down features
-        stack_down = []
+        # Store positions and features at each level for skip connections
+        pos1_stack = [pos1]
+        pos2_stack = [pos2]
+        batch1_stack = [batch1]
+        batch2_stack = [batch2]
+        feat_stack = []  # Store difference features
         
         # Encoder (processing both point clouds)
         for i in range(len(self.down_modules) - 1):
@@ -225,38 +323,52 @@ class SiameseKPConv(nn.Module):
             # Process point cloud 2
             x2 = self.down_modules[i](x2, pos2, batch2, pos2, batch2, k)
             
-            # Find nearest neighbors from cloud2 to cloud1 (since we want to predict changes in cloud2)
+            # Find nearest neighbors from cloud2 to cloud1
             row_idx, col_idx = knn(pos2, pos1, 1, batch2, batch1)
             
             # Calculate difference features
-            diff = x2.clone()
             diff = x2 - x1[col_idx]
             
-            # Save difference features for skip connections
-            stack_down.append(diff)
+            # Store features and positions for skip connections
+            feat_stack.append(diff)
+            pos1_stack.append(pos1)
+            pos2_stack.append(pos2)
+            batch1_stack.append(batch1)
+            batch2_stack.append(batch2)
         
         # Process last down module
         x1 = self.down_modules[-1](x1, pos1, batch1, pos1, batch1, k)
         x2 = self.down_modules[-1](x2, pos2, batch2, pos2, batch2, k)
         
-        # Get difference features
+        # Get difference features for bottleneck
         row_idx, col_idx = knn(pos2, pos1, 1, batch2, batch1)
-        x = x2.clone()
         x = x2 - x1[col_idx]
         
         # Inner module (identity by default)
         if not isinstance(self.inner_modules[0], nn.Identity):
-            stack_down.append(x)
+            feat_stack.append(x)
             x = self.inner_modules[0](x)
         
-        # Process up modules with proper skip connections
+        # Process up modules with proper feature interpolation and concatenation
         for i, up_module in enumerate(self.up_modules):
-            # Get corresponding skip connection from encoder
-            skip_idx = len(stack_down) - i - 1
-            if skip_idx >= 0:
-                # Concatenate skip connection features
-                skip_x = stack_down[skip_idx]
-                x = torch.cat([x, skip_x], dim=1)
+            # Get corresponding skip connection features and positions
+            skip_feat = feat_stack[-(i+1)]
+            skip_pos2 = pos2_stack[-(i+2)]  # Use positions from previous level
+            skip_batch2 = batch2_stack[-(i+2)]
+            
+            # Interpolate current features to skip connection resolution
+            x_interp = self.interpolate(
+                skip_pos2, skip_batch2,  # query
+                pos2, batch2,  # support
+                x  # features to interpolate
+            )
+            
+            # Concatenate with skip connection features
+            x = torch.cat([x_interp, skip_feat], dim=1)
+            
+            # Update positions and batch indices for next layer
+            pos2 = skip_pos2
+            batch2 = skip_batch2
             
             # Apply up module
             x = up_module(x, pos2, batch2, pos2, batch2, k)
