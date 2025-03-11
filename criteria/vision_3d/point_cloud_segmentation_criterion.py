@@ -13,6 +13,7 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
     
     Attributes:
         criterion: The underlying PyTorch loss function (CrossEntropyLoss).
+        class_weights: Optional tensor of weights for each class (registered as buffer).
     """
 
     def __init__(

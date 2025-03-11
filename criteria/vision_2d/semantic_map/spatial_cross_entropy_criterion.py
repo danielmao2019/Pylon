@@ -6,6 +6,13 @@ from utils.input_checks import check_semantic_segmentation
 
 
 class SpatialCrossEntropyCriterion(SingleTaskCriterion):
+    """
+    Criterion for spatial cross-entropy loss in semantic segmentation tasks.
+    
+    Attributes:
+        ignore_index: Index to ignore in the loss computation.
+        class_weights: Optional tensor of weights for each class (registered as buffer).
+    """
 
     def __init__(
         self,
@@ -13,13 +20,26 @@ class SpatialCrossEntropyCriterion(SingleTaskCriterion):
         class_weights: Optional[Tuple[float, ...]] = None,
         device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
+        """
+        Initialize the criterion.
+        
+        Args:
+            ignore_index: Index to ignore in the loss computation.
+            class_weights: Optional weights for each class to address class imbalance.
+            device: Device to place the tensors on.
+        """
         super(SpatialCrossEntropyCriterion, self).__init__()
         self.ignore_index = ignore_index
+        
+        # Register class weights as a buffer if provided
+        self.register_buffer('class_weights', None)
         if class_weights is not None:
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
-            class_weights = torch.tensor(class_weights, dtype=torch.float32, device=device)
-        self.class_weights = class_weights
+            self.register_buffer(
+                'class_weights', 
+                torch.tensor(class_weights, dtype=torch.float32)
+            )
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""
@@ -49,6 +69,10 @@ class SpatialCrossEntropyCriterion(SingleTaskCriterion):
                 total_pixels = valid_mask.sum()
                 class_weights = (total_pixels - class_counts) / total_pixels
                 class_weights[class_counts == 0] = 0  # Avoid NaN for missing classes
+                # Register dynamically computed weights as a temporary buffer
+                self.register_buffer('temp_weights', class_weights, persistent=False)
+                class_weights = self.temp_weights
+                
         criterion = torch.nn.CrossEntropyLoss(
             weight=class_weights, ignore_index=self.ignore_index, reduction='mean',
         )
