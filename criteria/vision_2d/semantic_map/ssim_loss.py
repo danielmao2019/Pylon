@@ -6,7 +6,7 @@ from criteria.vision_2d import SemanticMapBaseCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
-def gaussian(window_size: int, sigma: float) -> torch.Tensor:
+def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
     """
     Creates a 1D Gaussian kernel.
 
@@ -20,11 +20,11 @@ def gaussian(window_size: int, sigma: float) -> torch.Tensor:
     gauss = torch.tensor([
         math.exp(-(x - window_size // 2) ** 2 / (2 * sigma ** 2))
         for x in range(window_size)
-    ], dtype=torch.float32)
+    ], dtype=torch.float32, device=device)
     return gauss / gauss.sum()
 
 
-def create_window(window_size: int, channels: int) -> torch.Tensor:
+def create_window(window_size: int, channels: int, device: torch.device) -> torch.Tensor:
     """
     Creates a 2D Gaussian window for SSIM computation.
 
@@ -35,7 +35,7 @@ def create_window(window_size: int, channels: int) -> torch.Tensor:
     Returns:
         torch.Tensor: 4D Gaussian window tensor with shape (channels, 1, window_size, window_size).
     """
-    _1D_window = gaussian(window_size, sigma=1.5).unsqueeze(1)
+    _1D_window = gaussian(window_size, sigma=1.5, device=device).unsqueeze(1)
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
     return _2D_window.expand(channels, 1, window_size, window_size).contiguous()
 
@@ -87,7 +87,6 @@ class SSIMLoss(SemanticMapBaseCriterion):
     def __init__(
         self,
         window_size: Optional[int] = 11,
-        channels: Optional[int] = 1,
         C1: Optional[float] = 0.01 ** 2,
         C2: Optional[float] = 0.03 ** 2,
         **kwargs,
@@ -95,7 +94,6 @@ class SSIMLoss(SemanticMapBaseCriterion):
         """
         Args:
             window_size (Optional[int]): Size of the Gaussian window. Default is 11.
-            channels (Optional[int]): Number of channels in the input images. Default is 1.
             C1 (Optional[float]): Stability constant for luminance comparison. Default is 0.01^2.
             C2 (Optional[float]): Stability constant for contrast comparison. Default is 0.03^2.
         """
@@ -105,13 +103,8 @@ class SSIMLoss(SemanticMapBaseCriterion):
             raise ValueError("window_size must be an odd number")
 
         self.window_size = window_size
-        self.channels = channels
         self.C1 = C1
         self.C2 = C2
-
-        # Create and register the Gaussian window buffer
-        window = create_window(window_size, channels)  # Create on CPU initially
-        self.register_buffer("window", window)  # Will be moved to correct device automatically
 
     def _compute_semantic_map_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
@@ -124,4 +117,6 @@ class SSIMLoss(SemanticMapBaseCriterion):
         Returns:
             torch.Tensor: SSIM loss value.
         """
-        return compute_ssim(y_pred, y_true, self.window, self.window_size, self.channels, self.C1, self.C2)
+        # Create window if not created yet or if number of channels has changed
+        window = create_window(self.window_size, channels=y_pred.size(1), device=y_pred.device)
+        return compute_ssim(y_pred, y_true, window, self.window_size, channels, self.C1, self.C2)
