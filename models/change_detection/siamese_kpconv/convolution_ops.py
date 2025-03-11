@@ -368,12 +368,10 @@ class KPConvLayer(BasePartialDenseConvolution):
         KP_influence="linear",
         aggregation_mode="sum",
         dimension=3,
-        add_one=False,
     ):
         super(KPConvLayer, self).__init__()
         self.kernel_radius = self._INFLUENCE_TO_RADIUS * point_influence
         self.point_influence = point_influence
-        self.add_one = add_one
         self.num_inputs = num_inputs
         self.num_outputs = num_outputs
 
@@ -491,7 +489,6 @@ class SimpleBlock(BasePartialDenseConvolution):
         bn_momentum=0.02,
         bn=FastBatchNorm1d,
         deformable=False,
-        add_one=False,
         **kwargs,
     ):
         super(SimpleBlock, self).__init__()
@@ -503,7 +500,7 @@ class SimpleBlock(BasePartialDenseConvolution):
             raise NotImplementedError("Deformable KPConv not implemented yet")
         else:
             self.kp_conv = KPConvLayer(
-                num_inputs, num_outputs, point_influence=point_influence, add_one=add_one, **kwargs
+                num_inputs, num_outputs, point_influence=point_influence, **kwargs
             )
 
         if bn:
@@ -553,7 +550,6 @@ class ResnetBBlock(BasePartialDenseConvolution):
         bn_momentum=0.02,
         bn=FastBatchNorm1d,
         deformable=False,
-        add_one=False,
         **kwargs,
     ):
         super(ResnetBBlock, self).__init__()
@@ -572,7 +568,6 @@ class ResnetBBlock(BasePartialDenseConvolution):
             self.kp_conv = KPConvLayer(
                 bottleneck_features, bottleneck_features, 
                 point_influence=point_influence, 
-                add_one=add_one, 
                 **kwargs
             )
             self.mlp_out = nn.Sequential(
@@ -585,7 +580,6 @@ class ResnetBBlock(BasePartialDenseConvolution):
             self.kp_conv = KPConvLayer(
                 num_inputs, num_outputs, 
                 point_influence=point_influence, 
-                add_one=add_one, 
                 **kwargs
             )
             self.mlp_out = nn.Sequential(
@@ -654,7 +648,6 @@ class KPDualBlock(BasePartialDenseConvolution):
         max_num_neighbors=None,
         bn_momentum=0.02,
         deformable=False,
-        add_one=False,
         **kwargs,
     ):
         super(KPDualBlock, self).__init__()
@@ -674,7 +667,6 @@ class KPDualBlock(BasePartialDenseConvolution):
             # Create the block
             has_bn = has_bottleneck[i] if has_bottleneck is not None else True
             deform = deformable[i] if isinstance(deformable, list) else deformable
-            add_one_i = add_one[i] if isinstance(add_one, list) else add_one
             
             block = block_cls(
                 down_conv_nn=down_conv_nn[i],
@@ -682,7 +674,6 @@ class KPDualBlock(BasePartialDenseConvolution):
                 has_bottleneck=has_bn,
                 bn_momentum=bn_momentum,
                 deformable=deform,
-                add_one=add_one_i,
                 **kwargs,
             )
             self.blocks.append(block)

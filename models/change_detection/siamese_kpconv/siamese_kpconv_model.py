@@ -99,7 +99,6 @@ class SiameseKPConv(nn.Module):
                 down_conv_nn=[in_channels, out_channels],
                 point_influence=self.point_influence,
                 bn_momentum=self.bn_momentum,
-                add_one=True,  # Add ones feature in KPConv
             )
         elif self.conv_type == "resnet":
             return ResnetBBlock(
@@ -107,7 +106,6 @@ class SiameseKPConv(nn.Module):
                 point_influence=self.point_influence,
                 bn_momentum=self.bn_momentum,
                 has_bottleneck=True,
-                add_one=True,  # Add ones feature in KPConv
             )
         elif self.conv_type == "dual":
             # Extract block parameters for dual blocks
@@ -122,7 +120,6 @@ class SiameseKPConv(nn.Module):
                 has_bottleneck=has_bottleneck,
                 max_num_neighbors=max_num_neighbors,
                 bn_momentum=self.bn_momentum,
-                add_one=True,  # Add ones feature in KPConv
             )
         else:
             raise ValueError(f"Unknown conv_type: {self.conv_type}. Choose from 'simple', 'resnet', or 'dual'.")

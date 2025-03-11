@@ -12,8 +12,6 @@ model_config = {
         'bn_momentum': 0.02,  # Batch normalization momentum
         'dropout': 0.1,  # Dropout rate
         'conv_type': 'simple',  # Type of convolution blocks to use: 'simple', 'resnet', or 'kpdual'
-        'block_params': {
-            'add_one': False,  # Don't add ones feature in KPConv since we already add it in the model
-        },
+        'block_params': {},  # Additional parameters for blocks when using 'dual' conv_type
     },
 }
