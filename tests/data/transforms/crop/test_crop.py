@@ -1,5 +1,5 @@
 import pytest
-from .crop import Crop
+from data.transforms.crop.crop import Crop
 import torch
 
 
