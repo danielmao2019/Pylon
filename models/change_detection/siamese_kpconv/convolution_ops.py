@@ -458,6 +458,8 @@ class KPConvLayer(BasePartialDenseConvolution):
         neighborhood_features = features[neighbors]
 
         # Apply distance weights [n_points, n_kpoints, in_fdim]
+        # Normalize the influence weights to sum to 1 for each kernel point
+        all_weights = all_weights / (torch.sum(all_weights, dim=2, keepdim=True) + 1e-10)
         weighted_features = torch.matmul(all_weights, neighborhood_features)
 
         # Apply network weights [n_kpoints, n_points, out_fdim]
