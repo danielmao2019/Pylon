@@ -70,7 +70,6 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
         inputs = datapoint['inputs']
         labels = datapoint['labels']
         meta_info = datapoint['meta_info']
-
         # Validate point clouds
         assert isinstance(inputs, dict)
         assert set(inputs.keys()) == {'pc_0', 'pc_1'}
