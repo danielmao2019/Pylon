@@ -380,7 +380,6 @@ class Urb3DCDDataset(BaseDataset):
                 # If this is a fixed sample, try another one
                 idx = random.randint(0, len(self.annotations) - 1)
             attempts += 1
-
             print(f"Attempt {attempts}/{max_attempts}: Loading datapoint from index {idx}")
         # If we reach here, we exceeded the max attempts
         raise ValueError(f"Failed to load a valid datapoint after {max_attempts} attempts")
