@@ -1,5 +1,5 @@
 import pytest
-from .nyu_v2_dataset import NYUv2Dataset
+from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
 import os
 import torch
 
