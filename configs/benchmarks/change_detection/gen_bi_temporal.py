@@ -199,7 +199,7 @@ def main(dataset: str, model: str) -> None:
 if __name__ == "__main__":
     import itertools
     for dataset, model in itertools.product(
-        ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
+        ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'whu_cd'],
         [
             'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD',
             'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50', 'Changer-s101',
