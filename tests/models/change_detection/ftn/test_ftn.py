@@ -1,5 +1,5 @@
 import torch
-from .model import FTN
+from models.change_detection.ftn.model import FTN
 
 
 def test_ftn() -> None:

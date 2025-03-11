@@ -1,4 +1,4 @@
-from .ppsl_model import PPSLModel
+from models.change_detection.ppsl.ppsl_model import PPSLModel
 import torch
 
 

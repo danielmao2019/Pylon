@@ -1,7 +1,7 @@
 """Reference: https://pytorch.org/vision/0.11/feature_extraction.html
 """
 import pytest
-from .change_star import ChangeStar
+from models.change_detection.change_star.change_star import ChangeStar
 import torch
 
 from torchvision.models import resnet50

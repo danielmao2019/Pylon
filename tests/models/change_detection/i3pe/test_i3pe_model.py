@@ -1,4 +1,4 @@
-from .i3pe_model import I3PEModel
+from models.change_detection.i3pe.i3pe_model import I3PEModel
 import torch
 
 

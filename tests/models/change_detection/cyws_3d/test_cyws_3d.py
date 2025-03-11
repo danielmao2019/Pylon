@@ -1,4 +1,4 @@
-from .cyws_3d import CYWS3D
+from models.change_detection.cyws_3d.cyws_3d import CYWS3D
 import torch
 import torchvision
 import data
