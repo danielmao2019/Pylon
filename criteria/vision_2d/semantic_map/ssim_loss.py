@@ -6,14 +6,13 @@ from criteria.vision_2d import SemanticMapBaseCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
-def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
+def gaussian(window_size: int, sigma: float) -> torch.Tensor:
     """
     Creates a 1D Gaussian kernel.
 
     Args:
         window_size (int): Size of the Gaussian window.
         sigma (float): Standard deviation of the Gaussian.
-        device (torch.device): Device to place the tensor on.
 
     Returns:
         torch.Tensor: Normalized 1D Gaussian kernel.
@@ -21,23 +20,22 @@ def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tens
     gauss = torch.tensor([
         math.exp(-(x - window_size // 2) ** 2 / (2 * sigma ** 2))
         for x in range(window_size)
-    ], dtype=torch.float32, device=device)
+    ], dtype=torch.float32)
     return gauss / gauss.sum()
 
 
-def create_window(window_size: int, channels: int, device: torch.device) -> torch.Tensor:
+def create_window(window_size: int, channels: int) -> torch.Tensor:
     """
     Creates a 2D Gaussian window for SSIM computation.
 
     Args:
         window_size (int): Size of the Gaussian window.
         channels (int): Number of channels.
-        device (torch.device): Device to place the tensor on.
 
     Returns:
         torch.Tensor: 4D Gaussian window tensor with shape (channels, 1, window_size, window_size).
     """
-    _1D_window = gaussian(window_size, sigma=1.5, device=device).unsqueeze(1)
+    _1D_window = gaussian(window_size, sigma=1.5).unsqueeze(1)
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
     return _2D_window.expand(channels, 1, window_size, window_size).contiguous()
 
@@ -111,7 +109,9 @@ class SSIMLoss(SemanticMapBaseCriterion):
         self.C1 = C1
         self.C2 = C2
 
-        self.register_buffer("window", create_window(window_size, channels, device=self.device))
+        # Create and register the Gaussian window buffer
+        window = create_window(window_size, channels)  # Create on CPU initially
+        self.register_buffer("window", window)  # Will be moved to correct device automatically
 
     def _compute_semantic_map_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
