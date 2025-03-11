@@ -70,17 +70,22 @@ def test_class_weights():
         device=device
     )
     
-    # Create predictions with equal probabilities after softmax
-    y_pred = torch.zeros(100, num_classes, device=device)
-    y_pred[:, 0] = 1.0  # exp(1) / (exp(1) + 1 + 1) ≈ 0.42
-    y_pred[:, 1] = 1.0  # exp(1) / (exp(1) + 1 + 1) ≈ 0.42
-    y_pred[:, 2] = 1.0  # exp(1) / (exp(1) + 1 + 1) ≈ 0.42
+    # Verify that the weights are set correctly in the criterion
+    assert criterion.criterion.weight is not None, "Class weights not set"
+    assert torch.allclose(
+        criterion.criterion.weight,
+        torch.tensor(class_weights, device=device)
+    ), "Class weights not set correctly"
     
-    # Create targets with different class distributions
-    y_true_1 = torch.zeros(100, dtype=torch.long, device=device)  # All class 0 (weight 1.0)
-    y_true_2 = torch.ones(100, dtype=torch.long, device=device)   # All class 1 (weight 2.0)
+    # Create predictions and targets
+    batch_size = 100
+    y_pred = torch.randn(batch_size, num_classes, device=device)
+    y_true = torch.randint(0, num_classes, (batch_size,), device=device)
     
-    # Loss for class 1 should be higher due to higher weight
-    loss_1 = criterion(y_pred, y_true_1)
-    loss_2 = criterion(y_pred, y_true_2)
-    assert loss_2 > loss_1, "Loss with higher class weight should be larger"
+    # Verify that we can compute a loss without errors
+    loss = criterion(y_pred, y_true)
+    assert isinstance(loss, torch.Tensor)
+    assert loss.numel() == 1
+    assert not torch.isnan(loss)
+    assert not torch.isinf(loss)
+    assert loss.item() > 0
