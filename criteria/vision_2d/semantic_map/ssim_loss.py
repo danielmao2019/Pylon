@@ -111,7 +111,8 @@ class SSIMLoss(SemanticMapBaseCriterion):
         self.C2 = C2
 
         # Create and register window
-        self.register_buffer('window', create_window(window_size, num_classes=num_classes))
+        window = create_window(window_size, num_classes=num_classes)
+        self.register_buffer('window', window)
 
     def _compute_semantic_map_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
