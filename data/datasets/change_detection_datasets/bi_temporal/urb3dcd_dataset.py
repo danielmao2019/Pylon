@@ -104,6 +104,7 @@ class Urb3DCDDataset(BaseDataset):
             {'pc_0_filepath': pc0, 'pc_1_filepath': pc1}
             for pc0, pc1 in zip(pc0_files, pc1_files)
         ]
+        self.annotations = self.annotations[:1]
 
         if len(self.annotations) == 0:
             raise ValueError(f"No point cloud pairs found in {base_dir}")
