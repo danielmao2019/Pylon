@@ -50,7 +50,7 @@ def compute_ssim(
     C2: float,
 ) -> torch.Tensor:
     """
-    Computes the SSIM index between two images.
+    Computes the SSIM loss between two images.
 
     Args:
         img1 (torch.Tensor): First image tensor with shape (N, C, H, W).
@@ -62,7 +62,7 @@ def compute_ssim(
         C2 (float): Stability constant for contrast comparison.
 
     Returns:
-        torch.Tensor: SSIM values with shape (N,).
+        torch.Tensor: SSIM loss values with shape (N, C).
     """
     mu1 = F.conv2d(img1, window, padding=window_size // 2, groups=channels)
     mu2 = F.conv2d(img2, window, padding=window_size // 2, groups=channels)
@@ -77,7 +77,8 @@ def compute_ssim(
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
 
-    return ssim_map.mean(dim=[2, 3])
+    # Convert similarity to loss
+    return 1 - ssim_map.mean(dim=[2, 3])
 
 
 class SSIMLoss(SemanticMapBaseCriterion):
@@ -119,4 +120,4 @@ class SSIMLoss(SemanticMapBaseCriterion):
         """
         # Create window if not created yet or if number of channels has changed
         window = create_window(self.window_size, channels=y_pred.size(1), device=y_pred.device)
-        return compute_ssim(y_pred, y_true, window, self.window_size, channels, self.C1, self.C2)
+        return compute_ssim(y_pred, y_true, window, self.window_size, y_pred.size(1), self.C1, self.C2)
