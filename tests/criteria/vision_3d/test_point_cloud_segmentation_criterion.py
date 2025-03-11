@@ -90,3 +90,31 @@ def test_class_weights():
     assert not torch.isnan(loss)
     assert not torch.isinf(loss)
     assert loss.item() > 0
+
+
+def test_point_cloud_segmentation_with_class_weights():
+    num_points = 1000
+    num_classes = 3
+    class_weights = (1.0, 1.0, 10.0)  # Higher weight for the last class
+    criterion = PointCloudSegmentationCriterion(class_weights=class_weights)
+
+    # Create two batches of predictions with errors in different classes
+    y_true_1 = torch.full((num_points,), fill_value=2)  # All points belong to last class (highly weighted)
+    y_true_2 = torch.full((num_points,), fill_value=0)  # All points belong to first class (lower weight)
+    
+    # Same wrong predictions for both cases
+    y_pred = torch.zeros(num_points, num_classes)
+    y_pred[:, 0] = 5.0  # Strong prediction for first class
+    y_pred[:, 1] = 0.0  # Neutral for second class
+    y_pred[:, 2] = -5.0  # Strong wrong prediction for third class
+
+    # Loss when wrong on the highly weighted class
+    loss_high_weight = criterion(y_pred, y_true_1)
+    
+    # Loss when wrong on the lower weighted class
+    loss_low_weight = criterion(y_pred, y_true_2)
+
+    # Loss should be higher when we're wrong on the highly weighted class
+    assert loss_high_weight > loss_low_weight
+    # The difference should be significant
+    assert (loss_high_weight - loss_low_weight) > 1.0
