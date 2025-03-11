@@ -303,6 +303,7 @@ class Urb3DCDDataset(BaseDataset):
         """
         # Load point cloud data
         data = self._load_point_cloud_whole(idx)
+
         # Create inputs dictionary - without KDTrees since they're only for data loading
         inputs = {
             'pc_0': data['pc_0'],
@@ -380,6 +381,7 @@ class Urb3DCDDataset(BaseDataset):
                 # If this is a fixed sample, try another one
                 idx = random.randint(0, len(self.annotations) - 1)
             attempts += 1
+
             print(f"Attempt {attempts}/{max_attempts}: Loading datapoint from index {idx}")
         # If we reach here, we exceeded the max attempts
         raise ValueError(f"Failed to load a valid datapoint after {max_attempts} attempts")
@@ -420,6 +422,7 @@ class Urb3DCDDataset(BaseDataset):
         pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
         pc1_xyz = pc1[:, :3]
         change_map = pc1[:, 3]  # Labels are in the 4th column for the second point cloud
+
         # Convert to correct types
         pc0_xyz = pc0_xyz.type(torch.float32)
         pc1_xyz = pc1_xyz.type(torch.float32)
