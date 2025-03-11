@@ -13,7 +13,7 @@ def radius_gaussian(sq_r, sig, eps=1e-9):
     Compute a radius gaussian (gaussian of distance)
     
     Args:
-        sq_r: input radiuses [dn, ..., d1, d0]
+        sq_r: input squared distances [dn, ..., d1, d0]
         sig: extents of gaussians [d1, d0] or [d0] or float
         eps: small value to avoid division by zero
         
