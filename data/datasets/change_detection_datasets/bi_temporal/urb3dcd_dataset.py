@@ -367,7 +367,7 @@ class Urb3DCDDataset(BaseDataset):
                     'point_idx_pc0': data['point_idx_pc0'],
                     'point_idx_pc1': data['point_idx_pc1'],
                     'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
-                    'pc_1_filepath': self.annotations[idx]['pc_1_filepath']
+                    'pc_1_filepath': self.annotations[idx]['pc_1_filepath'],
                     'attempts': attempts,
                 }
 
