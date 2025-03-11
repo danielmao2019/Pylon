@@ -15,7 +15,7 @@ def test_depth_estimation_basic():
     y_true = torch.rand(batch_size, height, width) * 10  # Random positive depths
 
     # Compute loss
-    loss = criterion._compute_loss(y_pred, y_true)
+    loss = criterion(y_pred, y_true)
 
     # Check loss properties
     assert isinstance(loss, torch.Tensor)
@@ -36,7 +36,7 @@ def test_depth_estimation_perfect_predictions():
     y_pred = y_true.unsqueeze(1)  # Add channel dimension
 
     # Compute loss
-    loss = criterion._compute_loss(y_pred, y_true)
+    loss = criterion(y_pred, y_true)
 
     # For perfect predictions, L1 loss should be 0
     assert loss.item() < 1e-6
@@ -55,7 +55,7 @@ def test_depth_estimation_with_invalid_depths():
     y_pred = torch.rand(batch_size, 1, height, width) * 10
 
     # Compute loss
-    loss = criterion._compute_loss(y_pred, y_true)
+    loss = criterion(y_pred, y_true)
 
     # Check loss properties
     assert isinstance(loss, torch.Tensor)
@@ -75,7 +75,7 @@ def test_depth_estimation_all_invalid():
 
     # Should raise assertion error when all depths are invalid
     with pytest.raises(AssertionError):
-        criterion._compute_loss(y_pred, y_true)
+        criterion(y_pred, y_true)
 
 
 def test_depth_estimation_input_validation():
@@ -85,16 +85,16 @@ def test_depth_estimation_input_validation():
     with pytest.raises(AssertionError):
         y_pred = torch.randn(2, 2, 4, 4)  # 2 channels instead of 1
         y_true = torch.randn(2, 4, 4)
-        criterion._compute_loss(y_pred, y_true)
+        criterion(y_pred, y_true)
 
     # Test mismatched dimensions
     with pytest.raises(AssertionError):
         y_pred = torch.randn(2, 1, 4, 4)
         y_true = torch.randn(2, 4, 5)  # Different width
-        criterion._compute_loss(y_pred, y_true)
+        criterion(y_pred, y_true)
 
     # Test negative depths in ground truth
     with pytest.raises(AssertionError):
         y_pred = torch.rand(2, 1, 4, 4)  # Positive values
         y_true = -torch.rand(2, 4, 4)  # Negative values
-        criterion._compute_loss(y_pred, y_true)
+        criterion(y_pred, y_true)
