@@ -50,9 +50,17 @@ class SpatialCrossEntropyCriterion(SingleTaskCriterion):
 
         Returns:
             loss (torch.Tensor): a float32 scalar tensor for loss value.
+
+        Raises:
+            ValueError: If all pixels in the target are ignored.
         """
         # Input checks
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
+
+        # Check for valid pixels
+        valid_mask = (y_true != self.ignore_index)
+        if valid_mask.sum() == 0:
+            raise ValueError("All pixels in target are ignored. Cannot compute loss.")
 
         # Match resolution
         if y_pred.shape[-2:] != y_true.shape[-2:]:
@@ -65,7 +73,6 @@ class SpatialCrossEntropyCriterion(SingleTaskCriterion):
         if class_weights is None:
             num_classes = y_pred.shape[-3]
             with torch.no_grad():
-                valid_mask = (y_true != self.ignore_index)
                 class_counts = torch.bincount(y_true[valid_mask].view(-1), minlength=num_classes).float()
                 total_pixels = valid_mask.sum()
                 # Ensure weights are non-negative and sum to 1
