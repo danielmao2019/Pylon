@@ -6,7 +6,7 @@ from criteria.vision_2d import SemanticMapBaseCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
-def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tensor:
+def gaussian(window_size: int, sigma: float) -> torch.Tensor:
     """
     Creates a 1D Gaussian kernel.
 
@@ -20,11 +20,11 @@ def gaussian(window_size: int, sigma: float, device: torch.device) -> torch.Tens
     gauss = torch.tensor([
         math.exp(-(x - window_size // 2) ** 2 / (2 * sigma ** 2))
         for x in range(window_size)
-    ], dtype=torch.float32, device=device)
+    ], dtype=torch.float32)
     return gauss / gauss.sum()
 
 
-def create_window(window_size: int, num_classes: int, device: torch.device) -> torch.Tensor:
+def create_window(window_size: int, num_classes: int) -> torch.Tensor:
     """
     Creates a 2D Gaussian window for SSIM computation.
 
@@ -35,7 +35,7 @@ def create_window(window_size: int, num_classes: int, device: torch.device) -> t
     Returns:
         torch.Tensor: 4D Gaussian window tensor with shape (num_classes, 1, window_size, window_size).
     """
-    _1D_window = gaussian(window_size, sigma=1.5, device=device).unsqueeze(1)
+    _1D_window = gaussian(window_size, sigma=1.5).unsqueeze(1)
     _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
     return _2D_window.expand(num_classes, 1, window_size, window_size).contiguous()
 
@@ -105,12 +105,13 @@ class SSIMLoss(SemanticMapBaseCriterion):
         if window_size % 2 == 0:
             raise ValueError("window_size must be an odd number")
 
+        self.num_classes = num_classes
         self.window_size = window_size
         self.C1 = C1
         self.C2 = C2
 
         # Create and register window
-        self.register_buffer('window', create_window(window_size, num_classes=num_classes, device=self.device))
+        self.register_buffer('window', create_window(window_size, num_classes=num_classes))
 
     def _compute_semantic_map_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
