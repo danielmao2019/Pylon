@@ -11,7 +11,7 @@ def test_ssim_loss(reduction, batch_size, num_classes, image_size):
     """
     Test SSIMLoss for different reductions, batch sizes, number of classes, and image sizes.
     """
-    device = torch.device("cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Create predicted logits with shape (N, C, H, W)
     y_pred = torch.randn(size=(batch_size, num_classes, *image_size))
@@ -40,11 +40,11 @@ def test_invalid_input_shapes(invalid_shape):
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Initialize loss and move to device
+    # Initialize SSIM loss and move to device
     loss_fn = SSIMLoss().to(device)
 
     # Create tensors with invalid shapes
-    y_pred = torch.rand(invalid_shape).to(device)
+    y_pred = torch.randn(invalid_shape).to(device)
     y_true = torch.randint(0, 2, invalid_shape).to(device)
 
     with pytest.raises(AssertionError):
@@ -58,7 +58,7 @@ def test_class_mismatch(num_classes):
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Initialize loss and move to device
+    # Initialize SSIM loss and move to device
     loss_fn = SSIMLoss(window_size=11).to(device)
 
     # Create tensors with num_classes channels
@@ -77,6 +77,8 @@ def test_window_device():
     Test that the Gaussian window is created on the correct device.
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Initialize SSIM loss and move to device
     loss_fn = SSIMLoss().to(device)
     
     # Create dummy input
