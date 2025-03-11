@@ -170,7 +170,7 @@ class SiameseKPConv(nn.Module):
             inputs: Dictionary containing:
                 - 'pc_0': Dictionary with keys:
                     - 'pos': Point positions tensor [N, 3]
-                    - 'x': Point features tensor [N, C]
+                    - 'feat': Point features tensor [N, C]
                     - 'batch': Batch indices [N]
                 - 'pc_1': Dictionary with the same structure as pc_0
             k: Number of neighbors to use in kNN
@@ -184,27 +184,30 @@ class SiameseKPConv(nn.Module):
             assert key in inputs, f"Input missing required key: '{key}'"
             pc = inputs[key]
             assert isinstance(pc, dict), f"Expected {key} to be a dictionary, got {type(pc)}"
-            for subkey in ['pos', 'x', 'batch']:
+            for subkey in ['pos', 'feat', 'batch']:
                 assert subkey in pc, f"Point cloud {key} missing required key: '{subkey}'"
                 assert isinstance(pc[subkey], torch.Tensor), f"Expected {key}[{subkey}] to be a tensor, got {type(pc[subkey])}"
             
             # Check dimensions
             assert pc['pos'].dim() == 2 and pc['pos'].size(1) == 3, f"Expected {key}['pos'] to have shape [N, 3], got {pc['pos'].shape}"
-            assert pc['x'].dim() == 2, f"Expected {key}['x'] to have shape [N, C], got {pc['x'].shape}"
+            assert pc['feat'].dim() == 2, f"Expected {key}['feat'] to have shape [N, C], got {pc['feat'].shape}"
             assert pc['batch'].dim() == 1, f"Expected {key}['batch'] to have shape [N], got {pc['batch'].shape}"
-            assert pc['pos'].size(0) == pc['x'].size(0) == pc['batch'].size(0), f"Inconsistent sizes in {key}: pos={pc['pos'].size(0)}, x={pc['x'].size(0)}, batch={pc['batch'].size(0)}"
+            assert pc['pos'].size(0) == pc['feat'].size(0) == pc['batch'].size(0), f"Inconsistent sizes in {key}: pos={pc['pos'].size(0)}, feat={pc['feat'].size(0)}, batch={pc['batch'].size(0)}"
         
         # Check feature dimensions
-        assert inputs['pc_0']['x'].size(1) == self.in_channels, \
-            f"Expected input features to have {self.in_channels} channels, got {inputs['pc_0']['x'].size(1)}"
+        assert inputs['pc_0']['feat'].size(1) == 1, f"Expected input features to have 1 channel (ones), got {inputs['pc_0']['feat'].size(1)}"
         
         # Prepare data
         data1 = inputs['pc_0']
         data2 = inputs['pc_1']
         
-        # Process features
-        pos1, x1, batch1 = data1['pos'], data1['x'], data1['batch']
-        pos2, x2, batch2 = data2['pos'], data2['x'], data2['batch']
+        # Process features - concatenate position and features
+        pos1, feat1, batch1 = data1['pos'], data1['feat'], data1['batch']
+        pos2, feat2, batch2 = data2['pos'], data2['feat'], data2['batch']
+        
+        # Concatenate position and features for KPConv processing
+        x1 = torch.cat([pos1, feat1], dim=1)  # [N, 4] (xyz + ones)
+        x2 = torch.cat([pos2, feat2], dim=1)  # [N, 4] (xyz + ones)
         
         # Stack for tracking down features
         stack_down = []
@@ -217,12 +220,12 @@ class SiameseKPConv(nn.Module):
             # Process point cloud 2
             x2 = self.down_modules[i](x2, pos2, batch2, pos2, batch2, k)
             
-            # Find nearest neighbors from cloud1 to cloud2
-            row_idx, col_idx = knn(pos1, pos2, 1, batch1, batch2)
+            # Find nearest neighbors from cloud2 to cloud1 (since we want to predict changes in cloud2)
+            row_idx, col_idx = knn(pos2, pos1, 1, batch2, batch1)
             
             # Calculate difference features
             diff = x2.clone()
-            diff = x2 - x1[row_idx]
+            diff = x2 - x1[col_idx]
             
             # Save difference features for skip connections
             stack_down.append(diff)
@@ -232,26 +235,25 @@ class SiameseKPConv(nn.Module):
         x2 = self.down_modules[-1](x2, pos2, batch2, pos2, batch2, k)
         
         # Get difference features
-        row_idx, col_idx = knn(pos1, pos2, 1, batch1, batch2)
+        row_idx, col_idx = knn(pos2, pos1, 1, batch2, batch1)
         x = x2.clone()
-        x = x2 - x1[row_idx]
+        x = x2 - x1[col_idx]
         
         # Inner module (identity by default)
-        innermost = False
         if not isinstance(self.inner_modules[0], nn.Identity):
             stack_down.append(x)
             x = self.inner_modules[0](x)
-            innermost = True
         
-        # For simplicity in testing, we'll just use a simplified decoder
-        # that doesn't require complex concatenation operations
-        if len(stack_down) > 0 and not innermost:
-            # In a simplified implementation, just use the last feature 
-            # from the encoder without complex skip connections
-            x = stack_down[-1]
-        
-        # Process all up modules in sequence
-        for up_module in self.up_modules:
+        # Process up modules with proper skip connections
+        for i, up_module in enumerate(self.up_modules):
+            # Get corresponding skip connection from encoder
+            skip_idx = len(stack_down) - i - 1
+            if skip_idx >= 0:
+                # Concatenate skip connection features
+                skip_x = stack_down[skip_idx]
+                x = torch.cat([x, skip_x], dim=1)
+            
+            # Apply up module
             x = up_module(x, pos2, batch2, pos2, batch2, k)
         
         # Store the last feature for potential external use

@@ -420,14 +420,14 @@ class Urb3DCDDataset(BaseDataset):
         pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0_xyz = pc0[:, :3]
-        # Add ones feature to XYZ coordinates
-        pc0_features = torch.cat([pc0_xyz, torch.ones_like(pc0_xyz[:, :1])], dim=1)  # [N, 4]
+        # Add ones feature
+        pc0_features = torch.ones((pc0_xyz.size(0), 1), dtype=pc0_xyz.dtype)  # [N, 1]
 
         # Load second point cloud (XYZ coordinates + label)
         pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
         pc1_xyz = pc1[:, :3]
-        # Add ones feature to XYZ coordinates
-        pc1_features = torch.cat([pc1_xyz, torch.ones_like(pc1_xyz[:, :1])], dim=1)  # [N, 4]
+        # Add ones feature
+        pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
 
         change_map = pc1[:, 3]  # Labels are in the 4th column for the second point cloud
 

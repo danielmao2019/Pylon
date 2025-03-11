@@ -21,7 +21,7 @@ class SiameseKPConvCollator(BaseCollator):
             point_clouds: List of point cloud dictionaries with 'pos' and 'feat' keys
             
         Returns:
-            Dictionary with 'pos', 'x', and 'batch' tensors
+            Dictionary with 'pos', 'feat', and 'batch' tensors
         """
         all_pos = []
         all_x = []
@@ -49,7 +49,7 @@ class SiameseKPConvCollator(BaseCollator):
         
         return {
             'pos': batched_pos,
-            'x': batched_x,
+            'feat': batched_x,
             'batch': batched_batch
         }
     
