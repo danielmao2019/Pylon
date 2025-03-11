@@ -114,7 +114,6 @@ def test_fixed_samples_consistency() -> None:
         inputs1 = datapoint1['inputs']
         labels1 = datapoint1['labels']
         meta_info1 = datapoint1['meta_info']
-
         datapoint2 = dataset[0]
         inputs2 = datapoint2['inputs']
         labels2 = datapoint2['labels']
