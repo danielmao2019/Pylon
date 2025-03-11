@@ -302,25 +302,25 @@ class Urb3DCDDataset(BaseDataset):
         """
         # Load point cloud data
         data = self._load_point_cloud_whole(idx)
-        
+
         # Create inputs dictionary - without KDTrees since they're only for data loading
         inputs = {
             'pc_0': data['pc_0'],
             'pc_1': data['pc_1']
         }
-        
+
         # Create labels dictionary
         labels = {
             'change_map': data['change_map']
         }
-        
+
         # Create meta_info dictionary
         meta_info = {
             'idx': idx,
             'pc_0_filepath': data['pc_0_filepath'],
             'pc_1_filepath': data['pc_1_filepath']
         }
-        
+
         return inputs, labels, meta_info
 
     def _load_datapoint_patched(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
@@ -340,12 +340,12 @@ class Urb3DCDDataset(BaseDataset):
         while attempts < max_attempts:
             # Load the full point cloud data
             data = self._load_point_cloud_patched(idx)
-            
+
             # Extract needed components
             pc0 = data['pc_0']
             pc1 = data['pc_1']
             change_map = data['change_map']
-            
+
             # Check if the datapoint is valid
             if self._is_valid_datapoint(pc0, pc1, change_map):
                 # Create inputs dictionary - without KDTrees since they're only for data loading
@@ -353,12 +353,12 @@ class Urb3DCDDataset(BaseDataset):
                     'pc_0': pc0,
                     'pc_1': pc1
                 }
-                
+
                 # Create labels dictionary
                 labels = {
                     'change_map': change_map  # Use 'change_map' consistently
                 }
-                
+
                 # Create meta info dictionary with all metadata
                 meta_info = {
                     'idx': idx,
@@ -370,7 +370,7 @@ class Urb3DCDDataset(BaseDataset):
                     'pc_1_filepath': self.annotations[idx]['pc_1_filepath']
                     'attempts': attempts,
                 }
-                
+
                 return inputs, labels, meta_info
             else:
                 print(f"Attempt {attempts + 1}/{max_attempts}: Invalid datapoint, retrying...")
@@ -380,7 +380,7 @@ class Urb3DCDDataset(BaseDataset):
                 # If this is a fixed sample, try another one
                 idx = random.randint(0, len(self.annotations) - 1)
             attempts += 1
-        
+
             print(f"Attempt {attempts}/{max_attempts}: Loading datapoint from index {idx}")
         # If we reach here, we exceeded the max attempts
         raise ValueError(f"Failed to load a valid datapoint after {max_attempts} attempts")
@@ -415,12 +415,12 @@ class Urb3DCDDataset(BaseDataset):
         pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0_xyz = pc0[:, :3]
-        
+
         # Load second point cloud (XYZ coordinates + label)
         pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
         pc1_xyz = pc1[:, :3]
         change_map = pc1[:, 3]  # Labels are in the 4th column for the second point cloud
-        
+
         # Convert to correct types
         pc0_xyz = pc0_xyz.type(torch.float32)
         pc1_xyz = pc1_xyz.type(torch.float32)
@@ -503,7 +503,7 @@ class Urb3DCDDataset(BaseDataset):
         if pc0['pos'].size(0) == 0 or pc1['pos'].size(0) == 0:
             print(f"Invalid datapoint: Point clouds are empty.")
             return False
-        
+
         if change_map.size(0) == 0:
             print(f"Invalid datapoint: Change map is empty with {change_map.size(0)} points")
             return False
