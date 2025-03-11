@@ -27,6 +27,7 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
         Args:
             ignore_index: Index to ignore in the loss computation (usually for background/unlabeled points).
             class_weights: Optional weights for each class to address class imbalance.
+                         Weights will be normalized to sum to 1 and must be non-negative.
         """
         super(PointCloudSegmentationCriterion, self).__init__()
         if ignore_index is None:
@@ -37,20 +38,15 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
         if class_weights is not None:
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
-            self.register_buffer(
-                'class_weights',
-                torch.tensor(class_weights, dtype=torch.float32)
-            )
+            assert all([w >= 0 for w in class_weights]), "Class weights must be non-negative"
+            weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
+            weights_tensor = weights_tensor / weights_tensor.sum()  # Normalize to sum to 1
+            self.register_buffer('class_weights', weights_tensor)
 
         # Create criterion
         self.criterion = torch.nn.CrossEntropyLoss(
             ignore_index=ignore_index, weight=self.class_weights, reduction='mean',
         )
-
-        # Verify weights were set correctly
-        if self.class_weights is not None:
-            assert torch.allclose(self.criterion.weight, self.class_weights), \
-                f"Weights not set correctly: {self.criterion.weight} != {self.class_weights}"
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """

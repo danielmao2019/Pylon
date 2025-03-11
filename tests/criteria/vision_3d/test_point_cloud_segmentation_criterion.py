@@ -68,9 +68,14 @@ def test_class_weights():
     
     # Verify that the weights are set correctly in the criterion
     assert criterion.criterion.weight is not None, "Class weights not set"
+    
+    # Convert raw weights to normalized weights that sum to 1
+    raw_weights = torch.tensor(class_weights, dtype=torch.float32)
+    normalized_weights = raw_weights / raw_weights.sum()
+    
     assert torch.allclose(
         criterion.criterion.weight,
-        torch.tensor(class_weights).to(device)
+        normalized_weights.to(device)
     ), "Class weights not set correctly"
     
     # Create predictions and targets

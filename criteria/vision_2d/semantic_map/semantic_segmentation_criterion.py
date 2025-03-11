@@ -22,10 +22,10 @@ class SemanticSegmentationCriterion(SingleTaskCriterion):
         if class_weights is not None:
             assert type(class_weights) == tuple, f"{type(class_weights)=}"
             assert all([type(elem) == float for elem in class_weights])
-            self.register_buffer(
-                'class_weights',
-                torch.tensor(class_weights, dtype=torch.float32)
-            )
+            assert all([w >= 0 for w in class_weights]), "Class weights must be non-negative"
+            weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
+            weights_tensor = weights_tensor / weights_tensor.sum()  # Normalize to sum to 1
+            self.register_buffer('class_weights', weights_tensor)
         
         # Create criterion
         self.criterion = torch.nn.CrossEntropyLoss(
