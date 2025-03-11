@@ -80,7 +80,7 @@ def test_window_device():
 
     # Initialize SSIM loss and move to device
     loss_fn = SSIMLoss().to(device)
-    
+
     # Create dummy input
     y_pred = torch.randn((1, 3, 32, 32)).to(device)
     y_true = torch.randint(0, 3, (1, 32, 32)).to(device)
