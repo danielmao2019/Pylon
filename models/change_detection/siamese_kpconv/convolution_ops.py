@@ -433,11 +433,11 @@ class KPConvLayer(BasePartialDenseConvolution):
             all_weights = torch.ones_like(sq_distances)
             all_weights = all_weights.transpose(2, 1)
         elif self.KP_influence == "linear":
-            # Influence decrease linearly with the distance, and get to zero when d = point_influence.
+            # Influence decrease linearly with the distance, and get to zero when d = point_influence
             all_weights = torch.clamp(1 - torch.sqrt(sq_distances) / self.point_influence, min=0.0)
             all_weights = all_weights.transpose(2, 1)
         elif self.KP_influence == "gaussian":
-            # Influence in gaussian of the distance.
+            # Influence in gaussian of the distance
             sigma = self.point_influence * 0.3
             all_weights = radius_gaussian(sq_distances, sigma)
             all_weights = all_weights.transpose(2, 1)
