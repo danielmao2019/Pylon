@@ -1,5 +1,5 @@
 import pytest
-from .fully_convolutional_siamese_networks import FullyConvolutionalSiameseNetwork
+from models.change_detection.fc_siam.fully_convolutional_siamese_networks import FullyConvolutionalSiameseNetwork
 import torch
 
 
