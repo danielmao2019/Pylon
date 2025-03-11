@@ -118,7 +118,6 @@ def test_fixed_samples_consistency() -> None:
         inputs2 = datapoint2['inputs']
         labels2 = datapoint2['labels']
         meta_info2 = datapoint2['meta_info']
-
         # Test inputs consistency
         assert torch.allclose(inputs1['pc_0']['pos'], inputs2['pc_0']['pos'])
         assert torch.allclose(inputs1['pc_0']['feat'], inputs2['pc_0']['feat'])
