@@ -1,5 +1,5 @@
 import pytest
-from .sysu_cd_dataset import SYSU_CD_Dataset
+from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
 import torch
 
 

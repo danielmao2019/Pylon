@@ -1,5 +1,5 @@
 import pytest
-from .classification_random_dataset import ClassificationRandomDataset
+from data.datasets.random_datasets.classification_random_dataset import ClassificationRandomDataset
 from utils.input_checks import check_image
 
 

@@ -1,7 +1,7 @@
 import pytest
 import torch
 from data.datasets import MNISTDataset
-from .gan_dataset import GANDataset
+from data.datasets.gan_datasets.gan_dataset import GANDataset
 
 
 @pytest.fixture

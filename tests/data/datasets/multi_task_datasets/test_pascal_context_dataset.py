@@ -1,5 +1,5 @@
 import pytest
-from .pascal_context_dataset import PASCALContextDataset
+from data.datasets.multi_task_datasets.pascal_context_dataset import PASCALContextDataset
 import torch
 
 

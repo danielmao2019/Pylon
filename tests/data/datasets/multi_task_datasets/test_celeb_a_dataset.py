@@ -1,5 +1,5 @@
 import pytest
-from .celeb_a_dataset import CelebADataset
+from data.datasets.multi_task_datasets.celeb_a_dataset import CelebADataset
 import os
 import torch
 

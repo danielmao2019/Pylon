@@ -1,5 +1,5 @@
 import pytest
-from .rotation import Rotation
+from data.transforms.rotation import Rotation
 import torch
 
 

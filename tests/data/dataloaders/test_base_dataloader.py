@@ -1,5 +1,5 @@
 import pytest
-from .base_dataloader import BaseDataLoader
+from data.dataloaders.base_dataloader import BaseDataLoader
 import torch
 
 

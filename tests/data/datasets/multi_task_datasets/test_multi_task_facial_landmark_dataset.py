@@ -1,5 +1,5 @@
 import pytest
-from .multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
+from data.datasets.multi_task_datasets.multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
 import os
 import torch
 

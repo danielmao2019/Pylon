@@ -1,7 +1,7 @@
 from typing import Any, Tuple, List, Dict, Optional
 import pytest
 import torch
-from .base_dataset import BaseDataset
+from data.datasets.base_dataset import BaseDataset
 from utils.ops import buffer_equal
 
 
