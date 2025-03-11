@@ -55,7 +55,7 @@ class Urb3DCDDataset(BaseDataset):
         patched: Optional[bool] = True,
         sample_per_epoch: Optional[int] = 128,
         fix_samples: Optional[bool] = False,
-        radius: Optional[float] = 100,
+        radius: Optional[float] = 20,
         *args,
         **kwargs
     ) -> None:
@@ -68,7 +68,7 @@ class Urb3DCDDataset(BaseDataset):
                 raise ValueError("'sample_per_epoch' should not be specified when 'patched' is False.")
             if fix_samples is not None and fix_samples != False:
                 raise ValueError("'fix_samples' should not be specified when 'patched' is False.")
-            if radius is not None and radius != 100:
+            if radius is not None and radius != 20:
                 raise ValueError("'radius' should not be specified when 'patched' is False.")
 
         self._sample_per_epoch = sample_per_epoch
@@ -99,14 +99,16 @@ class Urb3DCDDataset(BaseDataset):
         if len(pc0_files) != len(pc1_files):
             raise ValueError(f"Number of pointCloud0 files ({len(pc0_files)}) does not match pointCloud1 files ({len(pc1_files)})")
 
-        if len(pc0_files) == 0:
-            raise ValueError(f"No point cloud pairs found in {base_dir}")
-
         # Store file paths in annotations
         self.annotations = [
             {'pc_0_filepath': pc0, 'pc_1_filepath': pc1}
             for pc0, pc1 in zip(pc0_files, pc1_files)
         ]
+
+        if len(self.annotations) == 0:
+            raise ValueError(f"No point cloud pairs found in {base_dir}")
+
+        self.annotations = self.annotations[:1]
 
         # For non-patched mode, just use the file paths as is
         if not self.patched:
@@ -149,7 +151,7 @@ class Urb3DCDDataset(BaseDataset):
             # Load point cloud but skip sampling during initialization
             data = self._load_point_cloud_whole(idx)
             data_dict = {
-                'pos': data['pc_1'],
+                'pos': data['pc_1']['pos'],
                 'change_map': data['change_map']
             }
             sampled_data = self._grid_sampling(data_dict)
@@ -290,117 +292,98 @@ class Urb3DCDDataset(BaseDataset):
             return self._load_datapoint_whole(idx)
 
     def _load_datapoint_whole(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Load a whole point cloud datapoint without sampling.
+        """Load a whole point cloud pair without sampling.
 
         Args:
-            idx: Index of the datapoint to load.
+            idx: Index of the point cloud pair to load.
 
         Returns:
-            The inputs, labels, and meta_info for the datapoint.
+            Tuple of (inputs, labels, meta_info) dictionaries.
         """
-        # Load the point cloud pair
-        pc_data = self._load_point_cloud_whole(idx)
+        # Load point cloud data
+        data = self._load_point_cloud_whole(idx)
 
-        # Create inputs dictionary
+        # Create inputs dictionary - without KDTrees since they're only for data loading
         inputs = {
-            'pc_0': pc_data['pc_0'],
-            'pc_1': pc_data['pc_1'],
-            'kdtree_0': pc_data['kdtree_0'],
-            'kdtree_1': pc_data['kdtree_1']
+            'pc_0': data['pc_0'],
+            'pc_1': data['pc_1']
         }
 
         # Create labels dictionary
         labels = {
-            'change_map': pc_data['change_map']
+            'change_map': data['change_map']
         }
 
         # Create meta_info dictionary
         meta_info = {
             'idx': idx,
-            'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
-            'pc_1_filepath': self.annotations[idx]['pc_1_filepath']
+            'pc_0_filepath': data['pc_0_filepath'],
+            'pc_1_filepath': data['pc_1_filepath']
         }
 
         return inputs, labels, meta_info
 
     def _load_datapoint_patched(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Load a datapoint by sampling from point clouds.
-
-        If the sampled point clouds are empty or invalid, it will try different sampling locations
-        until it finds a valid sample or reaches the maximum number of attempts.
+        """Load a point cloud patch from a pair of point clouds.
 
         Args:
-            idx: Index of the datapoint to load.
-            max_attempts: Maximum number of sampling attempts before giving up.
+            idx: Index of the point cloud pair to load.
+            max_attempts: Maximum number of attempts to load a valid datapoint.
 
         Returns:
-            The inputs, labels, and meta_info for a valid datapoint.
-
-        Raises:
-            ValueError: If no valid datapoint could be found after max_attempts.
+            Tuple of (inputs, labels, meta_info) where:
+            - inputs: Dictionary with point cloud data
+            - labels: Dictionary with change map
+            - meta_info: Dictionary with metadata
         """
-        original_idx = idx
         attempts = 0
-
         while attempts < max_attempts:
-            print(f"Attempt {attempts+1}/{max_attempts}: Loading datapoint from index {idx}")
+            # Load the full point cloud data
+            data = self._load_point_cloud_patched(idx)
 
-            try:
-                # Load point cloud with sampling
-                pc_data = self._load_point_cloud_patched(idx)
+            # Extract needed components
+            pc0 = data['pc_0']
+            pc1 = data['pc_1']
+            change_map = data['change_map']
 
-                if pc_data is None:
-                    print(f"Sampling failed at index {idx}")
-                    raise ValueError("Sampling failed")
-
-                # Extract sampled data
-                pc0 = pc_data['sampled_pc_0']
-                pc1 = pc_data['sampled_pc_1']
-                change_map = pc_data['sampled_change_map']
-
-                # Validate the sampled point clouds
-                if not self._is_valid_datapoint(pc0, pc1, change_map):
-                    print(f"Invalid datapoint at index {idx}")
-                    raise ValueError("Invalid datapoint")
-
-                # Create the inputs, labels, and meta_info
+            # Check if the datapoint is valid
+            if self._is_valid_datapoint(pc0, pc1, change_map):
+                # Create inputs dictionary - without KDTrees since they're only for data loading
                 inputs = {
                     'pc_0': pc0,
-                    'pc_1': pc1,
-                    'kdtree_0': KDTree(np.asarray(pc0), leaf_size=10),
-                    'kdtree_1': KDTree(np.asarray(pc1), leaf_size=10),
+                    'pc_1': pc1
                 }
 
+                # Create labels dictionary
                 labels = {
-                    'change_map': change_map
+                    'change_map': change_map  # Use 'change_map' consistently
                 }
 
+                # Create meta info dictionary with all metadata
                 meta_info = {
-                    'idx': original_idx,
+                    'idx': idx,
                     'center_idx': self.annotations[idx].get('idx', idx),
                     'center_pos': self.annotations[idx].get('pos', None),
+                    'point_idx_pc0': data['point_idx_pc0'],
+                    'point_idx_pc1': data['point_idx_pc1'],
                     'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
                     'pc_1_filepath': self.annotations[idx]['pc_1_filepath'],
-                    'attempt': attempts + 1
+                    'attempts': attempts,
                 }
 
-                # Add label counts for debugging
-                labels_unique, counts = torch.unique(change_map, return_counts=True)
-                for label, count in zip(labels_unique, counts):
-                    label_name = self.INV_OBJECT_LABEL.get(label.item(), f"unknown_{label.item()}")
-                    meta_info[f'label_{label.item()}_{label_name}_count'] = count.item()
-
                 return inputs, labels, meta_info
+            else:
+                print(f"Attempt {attempts + 1}/{max_attempts}: Invalid datapoint, retrying...")
 
-            except (ValueError, AssertionError) as e:
-                print(f"Error processing datapoint at index {idx}: {str(e)}")
-                # Try another random index
-                if len(self.annotations) > 1:
-                    idx = random.randint(0, len(self.annotations) - 1)
-                attempts += 1
-                continue
+            # Try another random index
+            if idx != self.annotations[idx].get('idx', -1):
+                # If this is a fixed sample, try another one
+                idx = random.randint(0, len(self.annotations) - 1)
+            attempts += 1
 
-        raise ValueError(f"Could not find a valid datapoint after {max_attempts} attempts")
+            print(f"Attempt {attempts}/{max_attempts}: Loading datapoint from index {idx}")
+        # If we reach here, we exceeded the max attempts
+        raise ValueError(f"Failed to load a valid datapoint after {max_attempts} attempts")
 
     def _load_point_cloud_whole(self, idx: int) -> Dict[str, Any]:
         """Load a pair of point clouds without sampling.
@@ -410,8 +393,8 @@ class Urb3DCDDataset(BaseDataset):
 
         Returns:
             Dictionary containing:
-            - pc_0: First point cloud (N, 3)
-            - pc_1: Second point cloud (M, 3)
+            - pc_0: Dictionary with 'pos' and 'feat' for first point cloud
+            - pc_1: Dictionary with 'pos' and 'feat' for second point cloud
             - change_map: Change labels for second point cloud (M,)
             - kdtree_0: KDTree for first point cloud
             - kdtree_1: KDTree for second point cloud
@@ -428,33 +411,52 @@ class Urb3DCDDataset(BaseDataset):
         print("Loading " + files['pc_1_filepath'])
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
 
-        # Load first point cloud
+        # Load first point cloud (only has XYZ coordinates)
         pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0_xyz = pc0[:, :3]
 
-        # Load second point cloud
-        pc = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
-        assert pc.size(1) == 4, f"{pc.shape=}"
-        pc1_xyz = pc[:, :3]
-        change_map = pc[:, 3]  # Labels should be at the 4th column 0:X 1:Y 2:Z 3:Label
+        # Load second point cloud (XYZ coordinates + label)
+        pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
+        pc1_xyz = pc1[:, :3]
+        change_map = pc1[:, 3]  # Labels are in the 4th column for the second point cloud
 
         # Convert to correct types
         pc0_xyz = pc0_xyz.type(torch.float32)
         pc1_xyz = pc1_xyz.type(torch.float32)
         change_map = change_map.type(torch.int64)
 
+        # Compute features for point clouds - follow the approach from original repository:
+        # Use a constant feature of one for each point as in the original implementation
+        pc0_features = torch.ones((pc0_xyz.shape[0], 1), dtype=torch.float32, device=pc0_xyz.device)
+        pc1_features = torch.ones((pc1_xyz.shape[0], 1), dtype=torch.float32, device=pc1_xyz.device)
+
         # Build KDTrees
         kdtree_0 = KDTree(np.asarray(pc0_xyz), leaf_size=10)
         kdtree_1 = KDTree(np.asarray(pc1_xyz), leaf_size=10)
 
+        # Create point indices for metadata - full point cloud so indices are just the range
+        point_idx_pc0 = torch.arange(pc0_xyz.shape[0], dtype=torch.long)
+        point_idx_pc1 = torch.arange(pc1_xyz.shape[0], dtype=torch.long)
+
         # Return data dictionary
         return {
-            'pc_0': pc0_xyz,
-            'pc_1': pc1_xyz,
+            'pc_0': {
+                'pos': pc0_xyz,
+                'feat': pc0_features
+            },
+            'pc_1': {
+                'pos': pc1_xyz,
+                'feat': pc1_features
+            },
             'change_map': change_map,
             'kdtree_0': kdtree_0,
             'kdtree_1': kdtree_1,
+            'point_idx_pc0': point_idx_pc0,
+            'point_idx_pc1': point_idx_pc1,
+            'pc_0_filepath': files['pc_0_filepath'],
+            'pc_1_filepath': files['pc_1_filepath'],
+            'idx': idx
         }
 
     def _load_point_cloud_patched(self, idx: int) -> Dict[str, Any]:
@@ -464,13 +466,13 @@ class Urb3DCDDataset(BaseDataset):
             idx: Index of the point cloud pair to load.
 
         Returns:
-            Dictionary containing base point cloud data plus:
-            - sampled_pc_0: Sampled first point cloud
-            - sampled_pc_1: Sampled second point cloud
-            - sampled_change_map: Sampled change labels
-
-        Raises:
-            AssertionError: If required fields are missing
+            Dictionary containing:
+            - pc_0: Dictionary with 'pos' and 'feat' for sampled first point cloud
+            - pc_1: Dictionary with 'pos' and 'feat' for sampled second point cloud
+            - change_map: Sampled change labels
+            - point_idx_pc0: Indices of sampled points in first point cloud
+            - point_idx_pc1: Indices of sampled points in second point cloud
+            - idx: Point cloud index
         """
         # First load the whole point cloud
         data = self._load_point_cloud_whole(idx)
@@ -479,35 +481,27 @@ class Urb3DCDDataset(BaseDataset):
         assert 'pos' in self.annotations[idx], f"Missing pos in annotation {idx}"
         assert 'idx' in self.annotations[idx], f"Missing idx in annotation {idx}"
 
-        # Sample cylinder
-        sample = self._sample_cylinder(data, self.annotations[idx]['pos'], self.annotations[idx]['idx'])
+        # Sample a cylinder from the point cloud
+        sampled_data = self._sample_cylinder(data, self.annotations[idx]['pos'], self.annotations[idx]['idx'])
 
-        if sample is not None:
-            data['sampled_pc_0'] = sample['pc_0']
-            data['sampled_pc_1'] = sample['pc_1']
-            data['sampled_change_map'] = sample['change_map']
+        return sampled_data
 
-        return data
-
-    def _is_valid_datapoint(self, pc0: torch.Tensor, pc1: torch.Tensor, change_map: torch.Tensor) -> bool:
+    def _is_valid_datapoint(self, pc0: Dict[str, torch.Tensor], pc1: Dict[str, torch.Tensor], change_map: torch.Tensor) -> bool:
         """Check if a datapoint is valid.
 
-        A datapoint is valid if both point clouds and the change map are not empty.
+        A datapoint is valid if it has at least 1 point and contains both changed and unchanged points.
 
         Args:
-            pc0: First point cloud.
-            pc1: Second point cloud.
-            change_map: Change map labels.
+            pc0: First point cloud dictionary with keys 'pos' and 'feat'
+            pc1: Second point cloud dictionary with keys 'pos' and 'feat'
+            change_map: Tensor of shape (N,) containing class labels from 0 to NUM_CLASSES-1
 
         Returns:
-            True if the datapoint is valid, False otherwise.
+            True if the datapoint is valid, False otherwise
         """
-        if pc0.size(0) == 0:
-            print(f"Invalid datapoint: First point cloud (pc_0) is empty with {pc0.size(0)} points")
-            return False
-
-        if pc1.size(0) == 0:
-            print(f"Invalid datapoint: Second point cloud (pc_1) is empty with {pc1.size(0)} points")
+        # Check if point clouds are not empty
+        if pc0['pos'].size(0) == 0 or pc1['pos'].size(0) == 0:
+            print(f"Invalid datapoint: Point clouds are empty.")
             return False
 
         if change_map.size(0) == 0:
@@ -517,20 +511,19 @@ class Urb3DCDDataset(BaseDataset):
         # If we have at least some minimum number of points, consider it valid
         # This threshold can be adjusted based on requirements
         min_points = 5
-        if pc0.size(0) < min_points or pc1.size(0) < min_points:
-            print(f"Invalid datapoint: Not enough points. pc_0: {pc0.size(0)} points, pc_1: {pc1.size(0)} points")
+        if pc0['pos'].size(0) < min_points or pc1['pos'].size(0) < min_points:
+            print(f"Invalid datapoint: Not enough points. pc_0: {pc0['pos'].size(0)} points, pc_1: {pc1['pos'].size(0)} points")
             return False
 
         return True
 
-    def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int, apply_transform: bool = False) -> Dict[str, torch.Tensor]:
+    def _sample_cylinder(self, data: Dict[str, Any], center: torch.Tensor, idx: int) -> Dict[str, torch.Tensor]:
         """Apply cylindrical sampling and optional transformations.
 
         Args:
             data: Dictionary containing point clouds and attributes.
             center: Center position for cylinder sampling (3,).
             idx: Point cloud index.
-            apply_transform: Whether to apply transformations.
 
         Returns:
             Dictionary containing:
@@ -542,36 +535,40 @@ class Urb3DCDDataset(BaseDataset):
             - idx: Point cloud index
         """
         print(f"\nSampling cylinder at center {center}, radius {self._radius}")
-        print(f"Point cloud shapes: pc_0={data['pc_0'].shape}, pc_1={data['pc_1'].shape}")
+        print(f"Point cloud shapes: pc_0={data['pc_0']['pos'].shape}, pc_1={data['pc_1']['pos'].shape}")
 
+        assert center.shape == (3,)
         cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
 
-        # Create data dictionaries for both point clouds
-        data_dict_0 = {'pos': data['pc_0']}
-        data_dict_1 = {
-            'pos': data['pc_1'],
-            'change_map': data['change_map']
-        }
+        # Separate XYZ coordinates from features
+        pc0_xyz = data['pc_0']['pos']
+        pc0_features = data['pc_0']['feat']
+        pc1_xyz = data['pc_1']['pos']
+        pc1_features = data['pc_1']['feat']
 
-        # Sample points using the KDTrees
-        print("\nSampling pc_0:")
+        # Create data dictionaries for both point clouds (using only XYZ for sampling)
+        data_dict_0 = {'pos': pc0_xyz}
+        data_dict_1 = {'pos': pc1_xyz, 'change_map': data['change_map']}
+
+        # Apply cylinder sampling
         sampled_data_0 = cylinder_sampler(data['kdtree_0'], data_dict_0)
-        print("\nSampling pc_1:")
         sampled_data_1 = cylinder_sampler(data['kdtree_1'], data_dict_1)
 
-        result = {
-            'pc_0': sampled_data_0['pos'],
-            'pc_1': sampled_data_1['pos'],
+        # Return sampled data as dictionaries with separate pos and feat
+        return {
+            'pc_0': {
+                'pos': sampled_data_0['pos'],
+                'feat': pc0_features[sampled_data_0['point_idx']],
+            },
+            'pc_1': {
+                'pos': sampled_data_1['pos'],
+                'feat': pc1_features[sampled_data_1['point_idx']],
+            },
             'change_map': sampled_data_1['change_map'],
             'point_idx_pc0': sampled_data_0['point_idx'],
             'point_idx_pc1': sampled_data_1['point_idx'],
             'idx': idx
         }
-
-        print(f"\nSampling results:")
-        print(f"  pc_0 shape: {result['pc_0'].shape}")
-        print(f"  pc_1 shape: {result['pc_1'].shape}")
-        return result
 
     def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
         """Normalize point clouds by centering them at the origin.
