@@ -193,7 +193,8 @@ def kernel_point_optimization_debug(
     
     for iter_count in range(n_iter):
         # Compute pair-wise distances between kernel points
-        squared_dist = np.sum(np.square(kernel_points[:, np.newaxis, :] - kernel_points[np.newaxis, :, :]), axis=2)
+        diff = kernel_points[:, np.newaxis, :] - kernel_points[np.newaxis, :, :]
+        squared_dist = np.sum(diff * diff, axis=2)
         np.fill_diagonal(squared_dist, np.inf)
         closest_dist = np.min(squared_dist, axis=1)
         min_dist = np.min(closest_dist)
@@ -209,8 +210,8 @@ def kernel_point_optimization_debug(
                 other_points = kernel_points[other_indices, :]
                 vectors = point_i[np.newaxis, :] - other_points
                 dist = np.sqrt(np.sum(vectors * vectors, axis=1))
-                direction = vectors / dist[:, np.newaxis]
-                repulsion = (direction.T * repulsion_strength / dist).T
+                direction = vectors / (dist[:, np.newaxis] + 1e-6)  # Small epsilon for stability
+                repulsion = (direction.T * repulsion_strength / (dist + 1e-6)).T  # Small epsilon for stability
             
                 # Apply constraint for points on vertical lines
                 if fixed == "verticals" and vertical_indices[point_idx] > 0:
@@ -220,8 +221,9 @@ def kernel_point_optimization_debug(
                 gradient[i, :] = np.sum(repulsion, axis=0)
         
         # Apply gradient
-        if np.linalg.norm(gradient) > 0:
-            gradient = gradient / np.linalg.norm(gradient)
+        gradient_norm = np.sqrt(np.sum(gradient * gradient))
+        if gradient_norm > 1e-6:  # Only apply if gradient is significant
+            gradient = gradient / gradient_norm
             kernel_points_new = np.copy(kernel_points)
             
             if fixed == "center":
@@ -238,9 +240,11 @@ def kernel_point_optimization_debug(
                 kernel_points_new = kernel_points + gradient * min_dist
             
             # Update if we got an improvement
-            squared_dist_new = np.sum(np.square(kernel_points_new[:, np.newaxis, :] - kernel_points_new[np.newaxis, :, :]), axis=2)
+            diff_new = kernel_points_new[:, np.newaxis, :] - kernel_points_new[np.newaxis, :, :]
+            squared_dist_new = np.sum(diff_new * diff_new, axis=2)
             np.fill_diagonal(squared_dist_new, np.inf)
             min_dist_new = np.min(np.min(squared_dist_new, axis=1))
+            
             if min_dist_new > min_dist:
                 kernel_points = kernel_points_new
                 min_dist = min_dist_new
