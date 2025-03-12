@@ -97,14 +97,14 @@ def test_iou_loss_with_ignore_index(sample_data):
     y_pred, y_true = sample_data
     device = y_pred.device
     num_classes = y_pred.size(1)
-    ignore_index = 255
+    ignore_value = 255
 
     # Create a version with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0, 0] = ignore_index
+    y_true_ignored[0, 0, 0] = ignore_value
 
-    # Initialize criterion with ignore_index
-    criterion = IoULoss(ignore_index=ignore_index).to(device)
+    # Initialize criterion with ignore_value
+    criterion = IoULoss(ignore_value=ignore_value).to(device)
 
     # Compute loss
     loss = criterion(y_pred, y_true_ignored)
@@ -122,13 +122,13 @@ def test_iou_loss_all_ignored(sample_data):
     y_pred, _ = sample_data
     device = y_pred.device
     num_classes = y_pred.size(1)
-    ignore_index = 255
+    ignore_value = 255
 
     # Create target with all pixels ignored - ensure it's int64
-    y_true = torch.full_like(y_pred[:, 0], fill_value=ignore_index, dtype=torch.int64)
+    y_true = torch.full_like(y_pred[:, 0], fill_value=ignore_value, dtype=torch.int64)
 
     # Initialize criterion
-    criterion = IoULoss(ignore_index=ignore_index).to(device)
+    criterion = IoULoss(ignore_value=ignore_value).to(device)
 
     # Loss computation should raise an error when all pixels are ignored
     with pytest.raises(ValueError, match="All pixels in target are ignored"):
@@ -137,24 +137,24 @@ def test_iou_loss_all_ignored(sample_data):
 
 def test_iou_loss_with_weights_and_ignore(sample_data):
     """
-    Test IoULoss with both class weights and ignore_index.
+    Test IoULoss with both class weights and ignore_value.
     """
     y_pred, y_true = sample_data
     device = y_pred.device
     num_classes = y_pred.size(1)
-    ignore_index = 255
+    ignore_value = 255
 
     # Create unequal class weights
     class_weights = torch.tensor([0.2, 0.3, 0.5], device=device)
 
     # Create a version with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0, 0] = ignore_index
+    y_true_ignored[0, 0, 0] = ignore_value
 
-    # Initialize criterion with weights and ignore_index
+    # Initialize criterion with weights and ignore_value
     criterion = IoULoss(
         class_weights=class_weights,
-        ignore_index=ignore_index
+        ignore_value=ignore_value
     ).to(device)
 
     # Compute loss

@@ -18,14 +18,14 @@ class DenseClassificationCriterion(DensePredictionCriterion):
     - Computing per-class losses
     
     Attributes:
-        ignore_index (int): Index to ignore in loss computation
+        ignore_value (int): Value to ignore in loss computation
         reduction (str): How to reduce the loss over the batch dimension ('mean' or 'sum')
         class_weights (Optional[torch.Tensor]): Optional weights for each class
     """
 
     def __init__(
         self,
-        ignore_index: int = 255,
+        ignore_value: int = 255,
         reduction: str = 'mean',
         class_weights: Optional[torch.Tensor] = None,
     ) -> None:
@@ -33,12 +33,12 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         Initialize the criterion.
         
         Args:
-            ignore_index: Index to ignore in loss computation. Defaults to 255.
+            ignore_value: Value to ignore in loss computation. Defaults to 255.
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
             class_weights: Optional tensor of shape (C,) containing weights for each class.
         """
         super(DenseClassificationCriterion, self).__init__(
-            ignore_index=ignore_index,
+            ignore_value=ignore_value,
             reduction=reduction,
         )
         
@@ -78,7 +78,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         y_pred = torch.nn.functional.softmax(y_pred, dim=1)  # (N, C, H, W)
         
         # Convert labels to one-hot
-        y_true = to_one_hot(y_true, y_pred.size(1), self.ignore_index)  # (N, C, H, W)
+        y_true = to_one_hot(y_true, y_pred.size(1), self.ignore_value)  # (N, C, H, W)
         
         # Unsqueeze valid mask to (N, 1, H, W)
         valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)

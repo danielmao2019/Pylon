@@ -7,23 +7,25 @@ from utils.input_checks import check_semantic_segmentation
 
 class IoULoss(DenseClassificationCriterion):
     """
-    Criterion for computing IoU loss.
+    IoU Loss for semantic segmentation tasks.
     
-    This criterion computes the IoU loss between predicted class probabilities
-    and ground truth labels for each pixel in the image.
+    The IoU (Intersection over Union) coefficient measures the overlap between predictions 
+    and ground truth. This loss is defined as 1 - IoU.
     
-    The IoU loss is defined as 1 - |X∩Y|/|X∪Y| where X and Y are the
-    predicted and ground truth segmentation masks.
+    This implementation supports:
+    - Standard IoU loss (1 - IoU coefficient)
+    - Class weights to handle class imbalance
+    - Ignore value to exclude specific pixel values from loss computation
     
     Attributes:
-        ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
-        class_weights: Optional weights for each class (registered as buffer).
-        reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
+        ignore_value (int): Value to ignore in loss computation
+        reduction (str): How to reduce the loss over the batch dimension ('mean' or 'sum')
+        class_weights (Optional[torch.Tensor]): Optional weights for each class
     """
 
     def __init__(
         self,
-        ignore_index: int = 255,
+        ignore_value: int = 255,
         reduction: str = 'mean',
         class_weights: Optional[torch.Tensor] = None,
     ) -> None:
@@ -31,13 +33,13 @@ class IoULoss(DenseClassificationCriterion):
         Initialize the criterion.
         
         Args:
-            ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+            ignore_value: Value to ignore in loss computation (usually background/unlabeled pixels).
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
             class_weights: Optional weights for each class to address class imbalance.
                          Weights will be normalized to sum to 1 and must be non-negative.
         """
         super(IoULoss, self).__init__(
-            ignore_index=ignore_index,
+            ignore_value=ignore_value,
             reduction=reduction,
             class_weights=class_weights
         )
@@ -57,7 +59,7 @@ class IoULoss(DenseClassificationCriterion):
 
     def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
         """
-        Get mask for valid pixels (not equal to ignore_index).
+        Get mask for valid pixels (not equal to ignore_value).
         
         Args:
             y_true: Ground truth labels tensor of shape (N, H, W)
@@ -65,7 +67,7 @@ class IoULoss(DenseClassificationCriterion):
         Returns:
             Boolean tensor of shape (N, H, W), True for valid pixels
         """
-        valid_mask = (y_true != self.ignore_index)
+        valid_mask = (y_true != self.ignore_value)
         if valid_mask.sum() == 0:
             raise ValueError("All pixels in target are ignored. Cannot compute loss.")
         return valid_mask

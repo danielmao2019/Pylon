@@ -13,14 +13,14 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
     and ground truth labels for each pixel in the image.
     
     Attributes:
-        ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+        ignore_value: Value to ignore in loss computation (usually background/unlabeled pixels).
         class_weights: Optional weights for each class (registered as buffer).
         reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
     """
 
     def __init__(
         self,
-        ignore_index: int = 255,
+        ignore_value: int = 255,
         reduction: str = 'mean',
         class_weights: Optional[torch.Tensor] = None,
     ) -> None:
@@ -28,13 +28,13 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
         Initialize the criterion.
         
         Args:
-            ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+            ignore_value: Value to ignore in loss computation (usually background/unlabeled pixels).
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
             class_weights: Optional weights for each class to address class imbalance.
                          Weights will be normalized to sum to 1 and must be non-negative.
         """
         super(SemanticSegmentationCriterion, self).__init__(
-            ignore_index=ignore_index,
+            ignore_value=ignore_value,
             reduction=reduction,
             class_weights=class_weights
         )
@@ -54,7 +54,7 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
 
     def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
         """
-        Get mask for valid pixels (not equal to ignore_index).
+        Get mask for valid pixels (not equal to ignore_value).
         
         Args:
             y_true: Ground truth labels tensor of shape (N, H, W)
@@ -65,7 +65,7 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
         Raises:
             ValueError: If all pixels in the target are ignored
         """
-        valid_mask = y_true != self.ignore_index
+        valid_mask = y_true != self.ignore_value
         
         # Check if all pixels are ignored
         if not valid_mask.any():

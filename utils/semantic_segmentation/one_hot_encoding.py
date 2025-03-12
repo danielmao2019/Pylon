@@ -2,7 +2,7 @@ from typing import Optional
 import torch
 
 
-def to_one_hot(y_true: torch.Tensor, num_classes: int, ignore_index: Optional[int] = None) -> torch.Tensor:
+def to_one_hot(y_true: torch.Tensor, num_classes: int, ignore_value: Optional[int] = None) -> torch.Tensor:
     """Convert integer labels to one-hot encoded tensor.
     
     This function converts masks of shape (N, H, W) to one-hot encoded tensors
@@ -11,7 +11,7 @@ def to_one_hot(y_true: torch.Tensor, num_classes: int, ignore_index: Optional[in
     Args:
         y_true: Integer labels tensor of shape (N, H, W)
         num_classes: Number of classes
-        ignore_index: Optional index to ignore in the one-hot encoding
+        ignore_value: Optional value to ignore in the one-hot encoding
         
     Returns:
         One-hot encoded tensor of shape (N, C, H, W), as float32
@@ -24,9 +24,9 @@ def to_one_hot(y_true: torch.Tensor, num_classes: int, ignore_index: Optional[in
     # Create a copy of the input for modification
     y_true_copy = y_true.clone()
     
-    # If ignore_index is specified, create a mask for ignored values
-    if ignore_index is not None:
-        ignore_mask = (y_true == ignore_index)
+    # If ignore_value is specified, create a mask for ignored values
+    if ignore_value is not None:
+        ignore_mask = (y_true == ignore_value)
         # Set ignored values to 0 temporarily for one-hot encoding
         # (we will handle them later)
         y_true_copy[ignore_mask] = 0
@@ -38,8 +38,8 @@ def to_one_hot(y_true: torch.Tensor, num_classes: int, ignore_index: Optional[in
     # Perform one-hot encoding directly
     result = torch.nn.functional.one_hot(y_true_copy, num_classes=num_classes).permute(0, 3, 1, 2).float()
     
-    # If ignore_index is specified, zero out the one-hot encoding at ignored positions
-    if ignore_index is not None:
+    # If ignore_value is specified, zero out the one-hot encoding at ignored positions
+    if ignore_value is not None:
         # Expand ignore_mask to all channels
         ignore_mask = ignore_mask.unsqueeze(1).expand(-1, num_classes, -1, -1)
         # Zero out the one-hot encoding at ignored positions

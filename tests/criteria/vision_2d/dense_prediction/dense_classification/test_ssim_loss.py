@@ -125,7 +125,7 @@ def test_ssim_loss_with_ignore_index():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size, num_classes = 2, 3
     height, width = 32, 32
-    ignore_index = 255  # Use 255 as ignore_index
+    ignore_value = 255  # Use 255 as ignore_value
 
     # Create sample data with values strictly less than num_classes
     y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
@@ -133,10 +133,10 @@ def test_ssim_loss_with_ignore_index():
     
     # Create a version with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0, 0] = ignore_index  # Set one pixel to ignore_index
+    y_true_ignored[0, 0, 0] = ignore_value  # Set one pixel to ignore_value
     
     # Create loss function
-    loss_fn = SSIMLoss(ignore_index=ignore_index).to(device)
+    loss_fn = SSIMLoss(ignore_value=ignore_value).to(device)
     
     # Compute loss
     loss = loss_fn(y_pred, y_true_ignored)
@@ -154,13 +154,13 @@ def test_ssim_loss_all_ignored():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size, num_classes = 2, 3
     height, width = 32, 32
-    ignore_index = 255  # Use 255 as ignore_index
+    ignore_value = 255  # Use 255 as ignore_value
 
     # Create predictions and targets where all pixels are ignored
     y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
-    y_true = torch.full((batch_size, height, width), fill_value=ignore_index).to(device)
+    y_true = torch.full((batch_size, height, width), fill_value=ignore_value).to(device)
 
-    loss_fn = SSIMLoss(ignore_index=ignore_index).to(device)
+    loss_fn = SSIMLoss(ignore_value=ignore_value).to(device)
     
     # Loss computation should raise an error when all pixels are ignored
     with pytest.raises(ValueError, match="All pixels in target are ignored"):
@@ -174,7 +174,7 @@ def test_ssim_loss_with_weights_and_ignore():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size, num_classes = 2, 3
     height, width = 32, 32
-    ignore_index = 255  # Use 255 as ignore_index
+    ignore_value = 255  # Use 255 as ignore_value
 
     # Create sample data with values strictly less than num_classes
     y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
@@ -182,15 +182,15 @@ def test_ssim_loss_with_weights_and_ignore():
     
     # Create a version with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0:5, 0:5] = ignore_index  # Set a small block to ignore_index
+    y_true_ignored[0, 0:5, 0:5] = ignore_value  # Set a small block to ignore_value
     
     # Create weights with more extreme differences
     weights = torch.tensor([0.05, 0.15, 0.8]).to(device)
     
     # Create loss functions
-    loss_fn = SSIMLoss(class_weights=weights, ignore_index=ignore_index).to(device)
+    loss_fn = SSIMLoss(class_weights=weights, ignore_value=ignore_value).to(device)
     loss_fn_only_weights = SSIMLoss(class_weights=weights).to(device)
-    loss_fn_only_ignore = SSIMLoss(ignore_index=ignore_index).to(device)
+    loss_fn_only_ignore = SSIMLoss(ignore_value=ignore_value).to(device)
     
     # Compute losses
     loss = loss_fn(y_pred, y_true_ignored)

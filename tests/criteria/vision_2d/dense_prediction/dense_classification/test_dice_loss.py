@@ -107,9 +107,9 @@ def test_dice_loss_with_class_weights(y_pred, y_true):
 def test_dice_loss_with_ignore_index(y_pred, y_true):
     # Create a version of y_true with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0, 0] = 255  # Set one pixel to ignore_index
+    y_true_ignored[0, 0, 0] = 255  # Set one pixel to ignore_value
     
-    criterion = DiceLoss(ignore_index=255)
+    criterion = DiceLoss(ignore_value=255)
     loss = criterion(y_pred, y_true_ignored)
     
     assert isinstance(loss, torch.Tensor)
@@ -138,7 +138,7 @@ def test_dice_loss_perfect_predictions():
 
 
 def test_dice_loss_all_ignored():
-    criterion = DiceLoss(ignore_index=255)
+    criterion = DiceLoss(ignore_value=255)
     batch_size, num_classes = 2, 3
     height, width = 32, 32
 

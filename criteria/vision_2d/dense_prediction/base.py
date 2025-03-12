@@ -13,13 +13,13 @@ class DensePredictionCriterion(SingleTaskCriterion):
     normal estimation, etc. - any task that produces an output for each pixel in the input image.
     
     The class handles common functionality like:
-    - Ignore index/value handling for pixels that should not contribute to the loss
+    - Ignore value handling for pixels that should not contribute to the loss
     - Resolution matching between predictions and ground truth
     - Basic shape validation
     - Batch-wise reduction of losses
     
     Attributes:
-        ignore_index (Union[int, float]): Value to ignore in loss computation
+        ignore_value (Union[int, float]): Value to ignore in loss computation
         reduction (str): How to reduce the loss over the batch dimension ('mean' or 'sum')
     """
 
@@ -27,25 +27,25 @@ class DensePredictionCriterion(SingleTaskCriterion):
 
     def __init__(
         self,
-        ignore_index: Optional[Union[int, float]] = None,
+        ignore_value: Optional[Union[int, float]] = None,
         reduction: str = 'mean'
     ) -> None:
         """
         Initialize the criterion.
         
         Args:
-            ignore_index: Value to ignore in loss computation. If None, child classes should
+            ignore_value: Value to ignore in loss computation. If None, child classes should
                          provide a default value appropriate for their task.
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         """
         super(DensePredictionCriterion, self).__init__()
         
-        # Validate and set ignore_index
-        if ignore_index is None:
-            raise ValueError("Child classes must provide a default ignore_index if None is passed")
-        if not isinstance(ignore_index, (int, float)):
-            raise ValueError(f"ignore_index must be a number, got {type(ignore_index)}")
-        self.ignore_index = ignore_index
+        # Validate and set ignore_value
+        if ignore_value is None:
+            raise ValueError("Child classes must provide a default ignore_value if None is passed")
+        if not isinstance(ignore_value, (int, float)):
+            raise ValueError(f"ignore_value must be a number, got {type(ignore_value)}")
+        self.ignore_value = ignore_value
         
         # Validate and set reduction
         if reduction not in self.REDUCTION_OPTIONS:

@@ -12,7 +12,7 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
     based on the pixel distribution in each batch when no static weights are provided.
     
     Attributes:
-        ignore_index: Index to ignore in the loss computation.
+        ignore_value: Value to ignore in the loss computation.
     """
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
@@ -30,7 +30,7 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
 
     def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
         """
-        Get mask for valid pixels (not equal to ignore_index).
+        Get mask for valid pixels (not equal to ignore_value).
         
         Args:
             y_true: Ground truth labels tensor of shape (N, H, W)
@@ -41,7 +41,7 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
         Raises:
             ValueError: If all pixels in the target are ignored
         """
-        valid_mask = y_true != self.ignore_index
+        valid_mask = y_true != self.ignore_value
         
         # Check if all pixels are ignored
         if not valid_mask.any():

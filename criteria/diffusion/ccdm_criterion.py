@@ -9,12 +9,12 @@ from utils.semantic_segmentation import to_one_hot
 
 class CCDMCriterion(BaseCriterion):
 
-    def __init__(self, num_classes: int, ignore_index: int, num_steps: int) -> None:
+    def __init__(self, num_classes: int, ignore_value: int, num_steps: int) -> None:
         super(CCDMCriterion, self).__init__()
         assert type(num_classes) == int
         self.num_classes = num_classes
-        assert type(ignore_index) == int, f"{type(ignore_index)=}"
-        self.ignore_index = ignore_index
+        assert type(ignore_value) == int, f"{type(ignore_value)=}"
+        self.ignore_value = ignore_value
         assert type(num_steps) == int, f"{type(num_steps)=}"
         self.num_steps = num_steps
         from data.diffusers import BaseDiffuser
@@ -27,7 +27,7 @@ class CCDMCriterion(BaseCriterion):
         assert diffused_mask.dtype == original_mask.dtype == time.dtype == torch.int64, f"{diffused_mask.dtype=}, {original_mask.dtype=}, {time.dtype=}"
         assert 0 <= time.min() <= time.max() < self.num_steps, f"{time=}, {self.num_steps=}"
         # transform original mask into one-hot encoding
-        original_mask = to_one_hot(original_mask, num_classes=self.num_classes, ignore_index=self.ignore_index)
+        original_mask = to_one_hot(original_mask, num_classes=self.num_classes, ignore_value=self.ignore_value)
         assert diffused_mask.shape == original_mask.shape, f"{diffused_mask.shape=}, {original_mask.shape=}"
         assert diffused_mask.shape[1] == original_mask.shape[1] == self.num_classes, f"{diffused_mask.shape=}, {original_mask.shape=}"
         # compute theta post
@@ -51,7 +51,7 @@ class CCDMCriterion(BaseCriterion):
         check_semantic_segmentation_true(obj=y_true['diffused_mask'])
         # compute loss
         prob_xtm1_given_xt_x0 = self.theta_post(diffused_mask=y_true['diffused_mask'], original_mask=y_true['original_mask'], time=y_true['time'])
-        mask = y_true['original_mask'] != self.ignore_index
+        mask = y_true['original_mask'] != self.ignore_value
         mask = mask.unsqueeze(-3).expand(-1, self.num_classes, -1, -1)
         assert mask.shape == prob_xtm1_given_xt_x0.shape == y_pred.shape
         prob_xtm1_given_xt_x0 = prob_xtm1_given_xt_x0[mask]
