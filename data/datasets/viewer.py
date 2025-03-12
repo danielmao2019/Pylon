@@ -208,65 +208,75 @@ def create_app_layout():
     dataset_options = [{'label': name, 'value': name} for name in AVAILABLE_DATASETS.keys()]
     
     return html.Div([
-        html.H1("Dataset Viewer", style={'text-align': 'center', 'margin-bottom': '20px'}),
+        # Header row with title and dataset dropdown
+        html.Div([
+            html.Div([
+                html.H1("Dataset Viewer", style={'margin-bottom': '0px', 'margin-right': '20px', 'display': 'inline-block'}),
+            ], style={'display': 'inline-block', 'vertical-align': 'middle'}),
+            
+            html.Div([
+                html.Label("Select Dataset:", style={'font-weight': 'bold', 'margin-right': '10px', 'display': 'inline-block'}),
+                dcc.Dropdown(
+                    id='dataset-dropdown',
+                    options=dataset_options,
+                    value=DEFAULT_DATASET,
+                    style={'width': '300px', 'display': 'inline-block'}
+                ),
+            ], style={'display': 'inline-block', 'vertical-align': 'middle'}),
+        ], style={'display': 'flex', 'align-items': 'center', 'justify-content': 'flex-start', 'padding': '10px', 'background-color': '#f0f0f0', 'margin-bottom': '10px'}),
 
         dcc.Store(id='current-idx', data=0),  # Store current index in memory
         dcc.Store(id='camera-view', data=None),  # Store camera view for syncing
         dcc.Store(id='current-dataset-info', data={'name': DEFAULT_DATASET}),  # Store current dataset info
 
+        # Main content area
         html.Div([
-            html.Label("Select Dataset:", style={'font-weight': 'bold', 'margin-right': '10px'}),
-            dcc.Dropdown(
-                id='dataset-dropdown',
-                options=dataset_options,
-                value=DEFAULT_DATASET,
-                style={'width': '100%', 'margin-bottom': '20px'}
-            ),
-        ], style={'margin-bottom': '20px', 'padding': '10px', 'background-color': '#f0f0f0'}),
+            # Control panel (left sidebar)
+            html.Div(id='control', children=[
+                html.Div(id='navigation', children=[
+                    html.P(id='index', children='index=0', style={'margin-bottom': '10px', 'font-weight': 'bold'}),
+                    html.Div([
+                        html.Button("⏮ Prev", id='prev-btn', n_clicks=0,
+                                  style={'margin-right': '10px', 'background-color': '#e7e7e7', 'border': 'none', 'padding': '10px 20px'}),
+                        html.Button("Next ⏭", id='next-btn', n_clicks=0,
+                                  style={'background-color': '#e7e7e7', 'border': 'none', 'padding': '10px 20px'}),
+                    ], style={'margin-bottom': '20px'}),
+                    html.P(id='total-samples', children="Total samples: 0", style={'margin-bottom': '20px'}),
+                ]),
+                html.Div(id='transforms', children=[
+                    html.Label("Select Active Transformations:", style={'font-weight': 'bold'}),
+                    html.Div(id='transform-checkboxes', style={'margin-bottom': '20px', 'max-height': '200px', 'overflow-y': 'auto'})
+                ]),
+                html.Div(id='view-controls', children=[
+                    html.Label("3D View Options:", style={'margin-top': '20px', 'font-weight': 'bold'}),
+                    html.Label("Point Size:"),
+                    dcc.Slider(
+                        id='point-size-slider',
+                        min=1,
+                        max=5,
+                        step=0.5,
+                        value=2,
+                        marks={i: str(i) for i in range(1, 6)},
+                        tooltip={"placement": "bottom", "always_visible": True}
+                    ),
+                    html.Label("Point Opacity:"),
+                    dcc.Slider(
+                        id='point-opacity-slider',
+                        min=0.1,
+                        max=1.0,
+                        step=0.1,
+                        value=0.8,
+                        marks={i/10: str(i/10) for i in range(1, 11)},
+                        tooltip={"placement": "bottom", "always_visible": True}
+                    ),
+                ]),
+                html.Div(id='dataset-info', children=[]),
+            ], style={'width': '18%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px', 'background-color': '#f9f9f9'}),
 
-        html.Div(id='control', children=[
-            html.Div(id='navigation', children=[
-                html.P(id='index', children='index=0', style={'margin-bottom': '10px', 'font-weight': 'bold'}),
-                html.Div([
-                    html.Button("⏮ Prev", id='prev-btn', n_clicks=0,
-                               style={'margin-right': '10px', 'background-color': '#e7e7e7', 'border': 'none', 'padding': '10px 20px'}),
-                    html.Button("Next ⏭", id='next-btn', n_clicks=0,
-                               style={'background-color': '#e7e7e7', 'border': 'none', 'padding': '10px 20px'}),
-                ], style={'margin-bottom': '20px'}),
-                html.P(id='total-samples', children="Total samples: 0", style={'margin-bottom': '20px'}),
-            ]),
-            html.Div(id='transforms', children=[
-                html.Label("Select Active Transformations:", style={'font-weight': 'bold'}),
-                html.Div(id='transform-checkboxes', style={'margin-bottom': '20px', 'max-height': '200px', 'overflow-y': 'auto'})
-            ]),
-            html.Div(id='view-controls', children=[
-                html.Label("3D View Options:", style={'margin-top': '20px', 'font-weight': 'bold'}),
-                html.Label("Point Size:"),
-                dcc.Slider(
-                    id='point-size-slider',
-                    min=1,
-                    max=5,
-                    step=0.5,
-                    value=2,
-                    marks={i: str(i) for i in range(1, 6)},
-                    tooltip={"placement": "bottom", "always_visible": True}
-                ),
-                html.Label("Point Opacity:"),
-                dcc.Slider(
-                    id='point-opacity-slider',
-                    min=0.1,
-                    max=1.0,
-                    step=0.1,
-                    value=0.8,
-                    marks={i/10: str(i/10) for i in range(1, 11)},
-                    tooltip={"placement": "bottom", "always_visible": True}
-                ),
-            ]),
-            html.Div(id='dataset-info', children=[]),
-        ], style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px', 'background-color': '#f9f9f9'}),
-
-        html.Div(id='datapoint-display', style={'width': '78%', 'display': 'inline-block', 'padding-left': '20px'})
-    ], style={'display': 'flex', 'font-family': 'Arial, sans-serif'})
+            # Main display area (right side)
+            html.Div(id='datapoint-display', style={'width': '80%', 'display': 'inline-block', 'padding-left': '10px'})
+        ], style={'display': 'flex', 'width': '100%'})
+    ], style={'font-family': 'Arial, sans-serif', 'margin': '0', 'padding': '0'})
 
 # Set the app layout
 app.layout = create_app_layout()
@@ -277,8 +287,9 @@ app.layout = create_app_layout()
     Output('transform-checkboxes', 'children'),
     Output('total-samples', 'children'),
     Output('dataset-info', 'children'),
-    Output('current-idx', 'data'),  # Reset index when dataset changes
-    Input('dataset-dropdown', 'value')
+    Output('current-idx', 'data', allow_duplicate=True),  # Allow duplicate to resolve the conflict
+    Input('dataset-dropdown', 'value'),
+    prevent_initial_call=True
 )
 def load_dataset(dataset_name):
     """Load the selected dataset and update the UI accordingly."""
@@ -379,9 +390,17 @@ def load_dataset(dataset_name):
             0
         )
 
+# Add a separate callback to update the index display when the current index changes
 @app.callback(
-    Output('current-idx', 'data'),
     Output('index', 'children'),
+    Input('current-idx', 'data')
+)
+def update_index_display(current_idx):
+    """Update the index display when the index changes."""
+    return f"Index: {current_idx}"
+
+@app.callback(
+    Output('current-idx', 'data', allow_duplicate=True),
     Input('prev-btn', 'n_clicks'),
     Input('next-btn', 'n_clicks'),
     State('current-idx', 'data'),
@@ -391,20 +410,21 @@ def update_index(prev_clicks, next_clicks, current_idx):
     """Update the index when buttons are clicked."""
     ctx = dash.callback_context
     if not ctx.triggered:
-        return current_idx, f"Index: {current_idx}"
+        return dash.no_update
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
     if current_dataset is None:
-        return 0, "Index: 0"
+        return 0
 
     if trigger_id == 'prev-btn' and current_idx > 0:
         current_idx = current_idx - 1
     elif trigger_id == 'next-btn' and current_idx < len(current_dataset) - 1:
         current_idx = current_idx + 1
     else:
-        pass
-    return current_idx, f"Index: {current_idx}"
+        return dash.no_update
+        
+    return current_idx
 
 @app.callback(
     Output('camera-view', 'data'),
