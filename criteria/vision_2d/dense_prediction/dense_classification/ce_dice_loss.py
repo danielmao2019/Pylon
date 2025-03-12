@@ -1,7 +1,7 @@
 import torch
 from criteria.wrappers import SingleTaskCriterion
-from criteria.vision_2d import SemanticSegmentationCriterion
-from criteria.vision_2d import DiceLoss
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
 
 
 class CEDiceLoss(SingleTaskCriterion):
