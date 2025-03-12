@@ -61,8 +61,17 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
             
         Returns:
             Boolean tensor of shape (N, H, W), True for valid pixels
+            
+        Raises:
+            ValueError: If all pixels in the target are ignored
         """
-        return y_true != self.ignore_index
+        valid_mask = y_true != self.ignore_index
+        
+        # Check if all pixels are ignored
+        if not valid_mask.any():
+            raise ValueError("All pixels in target are ignored")
+            
+        return valid_mask
 
     def _compute_per_class_loss(
         self,
