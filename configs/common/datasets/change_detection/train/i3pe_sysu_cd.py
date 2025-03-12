@@ -38,7 +38,7 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.vision_2d.SymmetricChangeDetectionCriterion,
+        'class': criteria.vision_2d.change_detection.SymmetricChangeDetectionCriterion,
         'args': {
             'class_weights': tuple(class_weights.tolist()),
         },
