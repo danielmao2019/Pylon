@@ -8,6 +8,11 @@ import argparse
 import os
 import sys
 
+# Add repository root to Python path
+repo_root = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 from data.viewer import run_viewer
 
 
@@ -22,7 +27,7 @@ def main():
     
     # Print debug information
     print(f"Current working directory: {os.getcwd()}")
-    print(f"Repository root (estimated): {os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))}")
+    print(f"Repository root (estimated): {repo_root}")
     print(f"Python sys.path: {sys.path}")
     
     # Run the viewer
