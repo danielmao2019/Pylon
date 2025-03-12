@@ -14,33 +14,47 @@ from data.datasets.pointcloud_utils import (
     tensor_to_point_cloud
 )
 
-# Select which dataset configuration to load
-# Change this line to switch between datasets
-dataset_name = "slpccd"  # Options: "urb3dcd", "slpccd"
+# Find all available dataset configuration files
+def get_available_datasets():
+    """Get a list of all available dataset configurations."""
+    import importlib.util
+    import os
 
-# Load dataset instance
-if dataset_name == "urb3dcd":
-    from configs.common.datasets.change_detection.train.urb3dcd import config
-elif dataset_name == "slpccd":
-    from configs.common.datasets.change_detection.train.slpccd import config
-else:
-    raise ValueError(f"Unknown dataset: {dataset_name}")
+    dataset_dir = "configs/common/datasets/change_detection/train"
+    dataset_configs = {}
+    
+    for file in os.listdir(dataset_dir):
+        if file.endswith('.py') and not file.startswith('_'):
+            dataset_name = file[:-3]  # Remove .py extension
+            try:
+                # Try to import the config to ensure it's valid
+                spec = importlib.util.spec_from_file_location(
+                    f"configs.common.datasets.change_detection.train.{dataset_name}", 
+                    os.path.join(dataset_dir, file)
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                
+                if hasattr(module, 'config'):
+                    # Add to the list of valid datasets
+                    dataset_configs[dataset_name] = module.config
+            except Exception as e:
+                print(f"Error loading dataset config {dataset_name}: {e}")
+    
+    return dataset_configs
 
-dataset_cfg = config['train_dataset']
-dataset_cfg['args']['data_root'] = os.path.relpath(dataset_cfg['args']['data_root'], start="./data/datasets")
-transforms_cfg = dataset_cfg['args'].get('transforms_cfg', {'class': data.transforms.Compose, 'args': {'transforms': []}})
-dataset = utils.builders.build_from_config(dataset_cfg)
+# Get all available datasets
+AVAILABLE_DATASETS = get_available_datasets()
 
-# Check if the dataset has specific attributes for 3D visualization
-HAS_CLASS_LABELS = hasattr(dataset, 'INV_OBJECT_LABEL') or hasattr(dataset, 'CLASS_LABELS')
-CLASS_LABELS = {}
-if hasattr(dataset, 'INV_OBJECT_LABEL'):
-    CLASS_LABELS = dataset.INV_OBJECT_LABEL
-elif hasattr(dataset, 'CLASS_LABELS'):
-    CLASS_LABELS = {v: k for k, v in dataset.CLASS_LABELS.items()}
+# Set a default dataset name (first in the list or fallback to urb3dcd)
+DEFAULT_DATASET = next(iter(AVAILABLE_DATASETS.keys())) if AVAILABLE_DATASETS else "urb3dcd"
 
 # Dash app setup
 app = dash.Dash(__name__, title="Dataset Viewer")
+
+# Store for current dataset
+current_dataset = None
+current_transforms_cfg = None
 
 def tensor_to_image(tensor):
     """Convert a PyTorch tensor to a displayable image."""
@@ -144,6 +158,9 @@ def get_point_cloud_stats(pc, change_map=None, class_names=None):
 
 def create_transform_checkboxes(transforms_cfg):
     """Create checkbox components for transforms."""
+    if not transforms_cfg or 'args' not in transforms_cfg or 'transforms' not in transforms_cfg['args']:
+        return []
+        
     return [
         html.Div([
             dcc.Checklist(
@@ -157,24 +174,27 @@ def create_transform_checkboxes(transforms_cfg):
         for i, t in enumerate(transforms_cfg['args']['transforms'])
     ]
 
-def create_app_layout(dataset, transforms_cfg):
-    """Create the application layout.
-
-    Args:
-        dataset: The dataset being visualized
-        transforms_cfg: Configuration for available transforms
-
-    Returns:
-        Dash layout component
-    """
-    # Generate checkbox options for transforms
-    available_transforms = create_transform_checkboxes(transforms_cfg)
-
+def create_app_layout():
+    """Create the application layout."""
+    # Generate dataset dropdown options
+    dataset_options = [{'label': name, 'value': name} for name in AVAILABLE_DATASETS.keys()]
+    
     return html.Div([
         html.H1("Dataset Viewer", style={'text-align': 'center', 'margin-bottom': '20px'}),
 
         dcc.Store(id='current-idx', data=0),  # Store current index in memory
         dcc.Store(id='camera-view', data=None),  # Store camera view for syncing
+        dcc.Store(id='current-dataset-info', data={'name': DEFAULT_DATASET}),  # Store current dataset info
+
+        html.Div([
+            html.Label("Select Dataset:", style={'font-weight': 'bold', 'margin-right': '10px'}),
+            dcc.Dropdown(
+                id='dataset-dropdown',
+                options=dataset_options,
+                value=DEFAULT_DATASET,
+                style={'width': '100%', 'margin-bottom': '20px'}
+            ),
+        ], style={'margin-bottom': '20px', 'padding': '10px', 'background-color': '#f0f0f0'}),
 
         html.Div(id='control', children=[
             html.Div(id='navigation', children=[
@@ -185,11 +205,11 @@ def create_app_layout(dataset, transforms_cfg):
                     html.Button("Next ⏭", id='next-btn', n_clicks=0,
                                style={'background-color': '#e7e7e7', 'border': 'none', 'padding': '10px 20px'}),
                 ], style={'margin-bottom': '20px'}),
-                html.P(f"Total samples: {len(dataset)}", style={'margin-bottom': '20px'}),
+                html.P(id='total-samples', children="Total samples: 0", style={'margin-bottom': '20px'}),
             ]),
             html.Div(id='transforms', children=[
                 html.Label("Select Active Transformations:", style={'font-weight': 'bold'}),
-                html.Div(available_transforms, style={'margin-bottom': '20px', 'max-height': '200px', 'overflow-y': 'auto'})
+                html.Div(id='transform-checkboxes', style={'margin-bottom': '20px', 'max-height': '200px', 'overflow-y': 'auto'})
             ]),
             html.Div(id='view-controls', children=[
                 html.Label("3D View Options:", style={'margin-top': '20px', 'font-weight': 'bold'}),
@@ -214,22 +234,92 @@ def create_app_layout(dataset, transforms_cfg):
                     tooltip={"placement": "bottom", "always_visible": True}
                 ),
             ]),
-            html.Div(id='dataset-info', children=[
-                html.H4("Dataset Information:", style={'margin-top': '30px'}),
-                html.P(f"Dataset Type: {dataset.__class__.__name__}"),
-                html.P("Change Classes:", style={'font-weight': 'bold'}) if HAS_CLASS_LABELS else None,
-                html.Div([
-                    html.P(f"{class_id}: {class_name}", style={'margin-left': '20px'})
-                    for class_id, class_name in CLASS_LABELS.items()
-                ]) if HAS_CLASS_LABELS else None,
-            ]),
+            html.Div(id='dataset-info', children=[]),
         ], style={'width': '20%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px', 'background-color': '#f9f9f9'}),
 
         html.Div(id='datapoint-display', style={'width': '78%', 'display': 'inline-block', 'padding-left': '20px'})
     ], style={'display': 'flex', 'font-family': 'Arial, sans-serif'})
 
 # Set the app layout
-app.layout = create_app_layout(dataset, transforms_cfg)
+app.layout = create_app_layout()
+
+# Callback to load dataset and update transforms when dataset selection changes
+@app.callback(
+    Output('current-dataset-info', 'data'),
+    Output('transform-checkboxes', 'children'),
+    Output('total-samples', 'children'),
+    Output('dataset-info', 'children'),
+    Output('current-idx', 'data'),  # Reset index when dataset changes
+    Input('dataset-dropdown', 'value')
+)
+def load_dataset(dataset_name):
+    """Load the selected dataset and update the UI accordingly."""
+    global current_dataset, current_transforms_cfg
+    
+    if dataset_name not in AVAILABLE_DATASETS:
+        return (
+            {'name': None, 'class_labels': {}}, 
+            [], 
+            "Total samples: 0", 
+            html.H4("No dataset loaded"), 
+            0
+        )
+    
+    # Load dataset configuration
+    dataset_cfg = AVAILABLE_DATASETS[dataset_name]['train_dataset']
+    
+    # Adjust data_root path to be relative to the current directory
+    if 'data_root' in dataset_cfg['args']:
+        dataset_cfg['args']['data_root'] = os.path.relpath(
+            dataset_cfg['args']['data_root'], 
+            start="./data/datasets"
+        )
+    
+    # Get transforms configuration
+    transforms_cfg = dataset_cfg['args'].get(
+        'transforms_cfg', 
+        {'class': data.transforms.Compose, 'args': {'transforms': []}}
+    )
+    
+    # Build dataset
+    dataset = utils.builders.build_from_config(dataset_cfg)
+    current_dataset = dataset
+    current_transforms_cfg = transforms_cfg
+    
+    # Create transform checkboxes
+    transform_checkboxes = create_transform_checkboxes(transforms_cfg)
+    
+    # Check if the dataset has specific attributes for visualization
+    has_class_labels = hasattr(dataset, 'INV_OBJECT_LABEL') or hasattr(dataset, 'CLASS_LABELS')
+    class_labels = {}
+    
+    if hasattr(dataset, 'INV_OBJECT_LABEL'):
+        class_labels = dataset.INV_OBJECT_LABEL
+    elif hasattr(dataset, 'CLASS_LABELS'):
+        class_labels = {v: k for k, v in dataset.CLASS_LABELS.items()}
+    
+    # Create dataset info display
+    dataset_info = [
+        html.H4("Dataset Information:", style={'margin-top': '30px'}),
+        html.P(f"Dataset Type: {dataset.__class__.__name__}"),
+    ]
+    
+    if has_class_labels:
+        dataset_info.extend([
+            html.P("Change Classes:", style={'font-weight': 'bold'}),
+            html.Div([
+                html.P(f"{class_id}: {class_name}", style={'margin-left': '20px'})
+                for class_id, class_name in class_labels.items()
+            ])
+        ])
+    
+    return (
+        {'name': dataset_name, 'class_labels': class_labels},
+        transform_checkboxes,
+        f"Total samples: {len(dataset)}",
+        dataset_info,
+        0  # Reset index to 0
+    )
 
 @app.callback(
     Output('current-idx', 'data'),
@@ -247,9 +337,12 @@ def update_index(prev_clicks, next_clicks, current_idx):
 
     trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
 
+    if current_dataset is None:
+        return 0, "Index: 0"
+
     if trigger_id == 'prev-btn' and current_idx > 0:
         current_idx = current_idx - 1
-    elif trigger_id == 'next-btn' and current_idx < len(dataset) - 1:
+    elif trigger_id == 'next-btn' and current_idx < len(current_dataset) - 1:
         current_idx = current_idx + 1
     else:
         pass
@@ -303,14 +396,18 @@ def update_camera_views(camera_data, figures):
     Input('current-idx', 'data'),
     Input({'type': 'transform-checkbox', 'index': dash.ALL}, 'value'),
     Input('point-size-slider', 'value'),
-    Input('point-opacity-slider', 'value')
+    Input('point-opacity-slider', 'value'),
+    Input('current-dataset-info', 'data')
 )
-def update_datapoint(current_idx, selected_transform_indices, point_size, point_opacity):
+def update_datapoint(current_idx, selected_transform_indices, point_size, point_opacity, dataset_info):
     """Apply selected transformations and display datapoint details and images/point clouds."""
+    if current_dataset is None or dataset_info['name'] is None:
+        return html.Div(html.H3("No dataset loaded. Please select a dataset from the dropdown."))
+    
     selected_transform_indices = [i[0] for i in selected_transform_indices if i]
 
     # Load datapoint
-    inputs, labels, meta_info = dataset._load_datapoint(current_idx)
+    inputs, labels, meta_info = current_dataset._load_datapoint(current_idx)
     datapoint = {
         'inputs': inputs,
         'labels': labels,
@@ -318,23 +415,27 @@ def update_datapoint(current_idx, selected_transform_indices, point_size, point_
     }
 
     # Filter transforms by selected indices
-    filtered_transforms_cfg = {
-        'class': data.transforms.Compose,
-        'args': {
-            'transforms': [
-                transform for i, transform in enumerate(transforms_cfg['args']['transforms'])
-                if i in selected_transform_indices
-            ],
-        },
-    }
+    if current_transforms_cfg and 'args' in current_transforms_cfg and 'transforms' in current_transforms_cfg['args']:
+        filtered_transforms_cfg = {
+            'class': data.transforms.Compose,
+            'args': {
+                'transforms': [
+                    transform for i, transform in enumerate(current_transforms_cfg['args']['transforms'])
+                    if i in selected_transform_indices
+                ],
+            },
+        }
 
-    # Build the transformation pipeline with only selected transforms
-    active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
-    datapoint = active_transforms(datapoint)
+        # Build the transformation pipeline with only selected transforms
+        active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
+        datapoint = active_transforms(datapoint)
 
+    # Get class labels
+    class_labels = dataset_info['class_labels']
+    
     # Check if we're dealing with a 3D dataset
     if is_3d_dataset(datapoint):
-        return display_3d_datapoint(datapoint, point_size, point_opacity)
+        return display_3d_datapoint(datapoint, point_size, point_opacity, class_labels)
     else:
         return display_2d_datapoint(datapoint)
 
@@ -378,7 +479,7 @@ def display_2d_datapoint(datapoint):
         ], style={'display': 'flex'}),
     ])
 
-def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
+def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_labels=None):
     """Display a 3D point cloud datapoint."""
     pc_0 = datapoint['inputs']['pc_0']
     pc_1 = datapoint['inputs']['pc_1']
@@ -389,7 +490,7 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
     pc_1_stats = get_point_cloud_stats(pc_1, change_map=None)
 
     # Get change map stats with class distribution
-    change_stats = get_point_cloud_stats(pc_1, change_map=change_map, class_names=CLASS_LABELS)
+    change_stats = get_point_cloud_stats(pc_1, change_map=change_map, class_names=class_labels)
 
     # Create point cloud figures
     pc_0_fig = create_point_cloud_figure(
@@ -426,18 +527,19 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8):
 
     # Create legend for change map classes
     legend_items = []
-    for class_id, class_name in CLASS_LABELS.items():
-        legend_items.append(html.Div([
-            html.Div(style={
-                'background-color': f'#{class_id * 30:02x}{255 - class_id * 30:02x}{255:02x}',
-                'width': '20px',
-                'height': '20px',
-                'display': 'inline-block',
-                'margin-right': '5px',
-                'vertical-align': 'middle'
-            }),
-            html.Span(f"Class {class_id}: {class_name}", style={'vertical-align': 'middle'})
-        ], style={'margin-bottom': '5px'}))
+    if class_labels:
+        for class_id, class_name in class_labels.items():
+            legend_items.append(html.Div([
+                html.Div(style={
+                    'background-color': f'#{class_id * 30:02x}{255 - class_id * 30:02x}{255:02x}',
+                    'width': '20px',
+                    'height': '20px',
+                    'display': 'inline-block',
+                    'margin-right': '5px',
+                    'vertical-align': 'middle'
+                }),
+                html.Span(f"Class {class_id}: {class_name}", style={'vertical-align': 'middle'})
+            ], style={'margin-bottom': '5px'}))
 
     return html.Div([
         html.H2("3D Point Cloud Change Detection Visualization", style={'text-align': 'center'}),
