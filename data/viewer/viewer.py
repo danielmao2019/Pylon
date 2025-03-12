@@ -2,7 +2,6 @@
 import dash
 from dash import dcc, html, Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
-import torch
 import traceback
 import sys
 import os
@@ -615,11 +614,3 @@ class DatasetViewer:
     def run(self, debug=True, host='0.0.0.0', port=8050):
         """Run the Dash application."""
         self.app.run_server(debug=debug, host=host, port=port)
-
-def run_viewer(debug=True, host='0.0.0.0', port=8050):
-    """Create and run the dataset viewer."""
-    viewer = DatasetViewer()
-    viewer.run(debug=debug, host=host, port=port)
-
-if __name__ == '__main__':
-    run_viewer() 
