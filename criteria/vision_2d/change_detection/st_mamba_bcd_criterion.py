@@ -117,7 +117,7 @@ class STMambaBCDCriterion(SingleTaskCriterion):
 
     def __init__(self) -> None:
         super(STMambaBCDCriterion, self).__init__()
-        self.ce_loss = SemanticSegmentationCriterion(ignore_index=255)
+        self.ce_loss = SemanticSegmentationCriterion(ignore_value=255)
 
     def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         assert isinstance(y_pred, torch.Tensor)

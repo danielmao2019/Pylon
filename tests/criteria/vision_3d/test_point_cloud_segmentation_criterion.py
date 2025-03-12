@@ -3,26 +3,26 @@ import torch
 from criteria.vision_3d.point_cloud_segmentation_criterion import PointCloudSegmentationCriterion
 
 
-@pytest.mark.parametrize("batch_size, num_points, num_classes, ignore_index, class_weights", [
+@pytest.mark.parametrize("batch_size, num_points, num_classes, ignore_value, class_weights", [
     (2, 1000, 4, None, None),  # Basic case
     (1, 500, 3, -1, (1.0, 2.0, 0.5)),  # With class weights
-    (3, 2000, 5, 0, None),  # With ignore index
+    (3, 2000, 5, 0, None),  # With ignore value
 ])
-def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes, ignore_index, class_weights):
+def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes, ignore_value, class_weights):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Initialize criterion and move to device
     criterion = PointCloudSegmentationCriterion(
-        ignore_index=ignore_index,
+        ignore_value=ignore_value,
         class_weights=class_weights,
     ).to(device)
     
     # Create dummy predictions and targets
     y_pred = torch.randn(batch_size * num_points, num_classes).to(device)
-    if ignore_index is not None:
+    if ignore_value is not None:
         # Add some ignored points
         y_true = torch.randint(
-            low=ignore_index, high=num_classes, 
+            low=ignore_value, high=num_classes, 
             size=(batch_size * num_points,)
         ).to(device)
     else:
@@ -90,3 +90,31 @@ def test_class_weights():
     assert not torch.isnan(loss)
     assert not torch.isinf(loss)
     assert loss.item() > 0
+
+
+def test_point_cloud_segmentation_with_class_weights():
+    num_points = 1000
+    num_classes = 3
+    class_weights = (1.0, 1.0, 10.0)  # Higher weight for the last class
+    criterion = PointCloudSegmentationCriterion(class_weights=class_weights)
+
+    # Create two batches of predictions with errors in different classes
+    y_true_1 = torch.full((num_points,), fill_value=2)  # All points belong to last class (highly weighted)
+    y_true_2 = torch.full((num_points,), fill_value=0)  # All points belong to first class (lower weight)
+    
+    # Same wrong predictions for both cases
+    y_pred = torch.zeros(num_points, num_classes)
+    y_pred[:, 0] = 5.0  # Strong prediction for first class
+    y_pred[:, 1] = 0.0  # Neutral for second class
+    y_pred[:, 2] = -5.0  # Strong wrong prediction for third class
+
+    # Loss when wrong on the highly weighted class
+    loss_high_weight = criterion(y_pred, y_true_1)
+    
+    # Loss when wrong on the lower weighted class
+    loss_low_weight = criterion(y_pred, y_true_2)
+
+    # Loss should be higher when we're wrong on the highly weighted class
+    assert loss_high_weight > loss_low_weight
+    # The difference should be significant
+    assert (loss_high_weight - loss_low_weight) > 1.0

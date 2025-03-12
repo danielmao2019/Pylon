@@ -1,7 +1,7 @@
 from .base_diffuser import BaseDiffuser
 from typing import Tuple, List
 import torch
-from utils.semantic_segmentation import to_one_hot_encoding
+from utils.semantic_segmentation import to_one_hot
 
 
 class SemanticSegmentationDiffuser(BaseDiffuser):
@@ -12,14 +12,14 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         num_steps: int,
         keys: List[Tuple[str, str]],
         num_classes: int,
-        ignore_index: int,
+        ignore_value: int,
         scale: float,
     ):
         super(SemanticSegmentationDiffuser, self).__init__(dataset=dataset, num_steps=num_steps, keys=keys)
         assert type(num_classes) == int, f"{type(num_classes)=}"
         self.num_classes = num_classes
-        assert type(ignore_index) == int, f"{type(ignore_index)=}"
-        self.ignore_index = ignore_index
+        assert type(ignore_value) == int, f"{type(ignore_value)=}"
+        self.ignore_value = ignore_value
         assert type(scale) == float, f"{type(scale)=}"
         self.scale = scale
 
@@ -41,7 +41,7 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         # sample time step
         time = torch.randint(low=0, high=self.num_steps, size=(), dtype=torch.int64)
         # initialize probability distribution from mask
-        probs = to_one_hot_encoding(mask, num_classes=self.num_classes, ignore_index=self.ignore_index).type(torch.float32)
+        probs = to_one_hot(mask, num_classes=self.num_classes, ignore_value=self.ignore_value)
         # diffuse probability distribution
         alpha_cumprod = self.alphas_cumprod[time]
         probs = alpha_cumprod * probs + (1 - alpha_cumprod) / self.num_classes
