@@ -61,7 +61,7 @@ import models
 config['model'] = {'class': models.change_detection.BiFA, 'args': {}}
 
 import criteria
-config['criteria'] = {'class': criteria.vision_2d.CEDiceLoss, 'args': {}}
+config['criterion'] = {'class': criteria.vision_2d.CEDiceLoss, 'args': {}}
 
 # seeds
 config['init_seed'] = 30070509

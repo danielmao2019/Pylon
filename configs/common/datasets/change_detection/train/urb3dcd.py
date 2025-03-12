@@ -22,7 +22,7 @@ config = {
     'criterion': {
         'class': criteria.vision_3d.PointCloudSegmentationCriterion,
         'args': {
-            'ignore_index': -1,  # Urb3DCD dataset uses -1 as ignore index
+            'ignore_value': -1,  # Urb3DCD dataset uses -1 as ignore value
             'class_weights': None,  # Can be adjusted based on class distribution
         },
     },

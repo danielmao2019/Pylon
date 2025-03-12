@@ -144,14 +144,14 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model'] = {{'class': models.change_detection.BiFA, 'args': {{}}}}\n"
         config += '\n'
         config += f"import criteria\n"
-        config += f"config['criteria'] = {{'class': criteria.vision_2d.CEDiceLoss, 'args': {{}}}}\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.CEDiceLoss, 'args': {{}}}}\n"
         config += '\n'
     elif model == "CDXFormer":
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.CDXFormer, 'args': {{}}}}\n"
         config += '\n'
         config += f"import criteria\n"
-        config += f"config['criteria'] = {{'class': criteria.vision_2d.CEDiceLoss, 'args': {{}}}}\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.CEDiceLoss, 'args': {{}}}}\n"
         config += '\n'
     elif model == "CSA_CDGAN":
         config += f"from configs.common.models.change_detection.csa_cdgan import model_config\n"

@@ -1,26 +1,24 @@
 """
 CRITERIA.VISION_2D API
 """
-from criteria.vision_2d.dense_prediction import (
-    DensePredictionCriterion,
-    dense_classification,
-    dense_regression,
-)
-from criteria.vision_2d.dense_prediction.dense_classification import (
-    DenseClassificationCriterion,
-    SemanticSegmentationCriterion,
-    SpatialCrossEntropyCriterion,
-    IoULoss,
-    DiceLoss,
-    SSIMLoss,
-    CEDiceLoss,
-)
-from criteria.vision_2d.dense_prediction.dense_regression import (
-    DenseRegressionCriterion,
-    DepthEstimationCriterion,
-    NormalEstimationCriterion,
-    InstanceSegmentationCriterion,
-)
+# Base classes
+from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
+from criteria.vision_2d.dense_prediction.dense_regression.base import DenseRegressionCriterion
+
+# Dense Classification
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.spatial_cross_entropy import SpatialCrossEntropyCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.iou_loss import IoULoss
+from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
+from criteria.vision_2d.dense_prediction.dense_classification.ssim_loss import SSIMLoss
+from criteria.vision_2d.dense_prediction.dense_classification.ce_dice_loss import CEDiceLoss
+
+# Dense Regression
+from criteria.vision_2d.dense_prediction.dense_regression.depth_estimation import DepthEstimationCriterion
+from criteria.vision_2d.dense_prediction.dense_regression.normal_estimation import NormalEstimationCriterion
+from criteria.vision_2d.dense_prediction.dense_regression.instance_segmentation import InstanceSegmentationCriterion
+
 # Change Detection Specific
 from criteria.vision_2d import change_detection
 
@@ -41,8 +39,6 @@ __all__ = (
     'DepthEstimationCriterion',
     'NormalEstimationCriterion',
     'InstanceSegmentationCriterion',
-    # Submodules
-    'dense_classification',
-    'dense_regression',
+    # Change Detection
     'change_detection',
 )
