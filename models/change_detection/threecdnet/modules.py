@@ -438,4 +438,4 @@ class PointSetDifferenceModule(nn.Module):
         diff_features_0 = self.final_mlp(combined_0_to_1)  # (B, N, C)
         diff_features_1 = self.final_mlp(combined_1_to_0)  # (B, N, C)
         
-        return diff_features_0, diff_features_1 
+        return diff_features_0, diff_features_1
