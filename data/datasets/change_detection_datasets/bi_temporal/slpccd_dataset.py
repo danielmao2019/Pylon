@@ -236,6 +236,255 @@ class SLPCCDDataset(BaseDataset):
         
         return hierarchy
 
+    def _load_point_cloud_files(self, idx: int) -> Dict[str, Any]:
+        """Load point cloud files for a given datapoint.
+        
+        Args:
+            idx: Index of the datapoint to load
+            
+        Returns:
+            Dictionary containing:
+            - pc_0: First point cloud tensor
+            - pc_1: Second point cloud tensor
+            - pc_1_seg: Segmentation point cloud tensor (if available)
+            - has_seg_file: Whether a segmentation file was found
+            - pc_0_filepath: File path to first point cloud
+            - pc_1_filepath: File path to second point cloud
+        """
+        # Get file paths
+        pc_0_filepath = self.annotations[idx]['pc_0_filepath']
+        pc_1_filepath = self.annotations[idx]['pc_1_filepath']
+        
+        # Check if there's a segmentation file (change labels)
+        pc_1_seg_filepath = pc_1_filepath.replace('.txt', '_seg.txt')
+        has_seg_file = os.path.exists(pc_1_seg_filepath)
+        
+        # Load point clouds
+        pc_0 = utils.io.load_point_cloud(pc_0_filepath)
+        pc_1 = utils.io.load_point_cloud(pc_1_filepath)
+        
+        # Load segmentation file if available
+        pc_1_seg = None
+        if has_seg_file:
+            pc_1_seg = utils.io.load_point_cloud(pc_1_seg_filepath)
+        
+        return {
+            'pc_0': pc_0,
+            'pc_1': pc_1,
+            'pc_1_seg': pc_1_seg,
+            'has_seg_file': has_seg_file,
+            'pc_0_filepath': pc_0_filepath,
+            'pc_1_filepath': pc_1_filepath
+        }
+    
+    def _extract_positions_and_features(self, pc_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract positions and features from point cloud tensors.
+        
+        Args:
+            pc_data: Dictionary containing point cloud tensors
+            
+        Returns:
+            Dictionary with extracted positions and features
+        """
+        # Extract positions
+        pc_0_xyz = pc_data['pc_0'][:, :3]
+        pc_1_xyz = pc_data['pc_1'][:, :3]
+        
+        # Extract features (RGB if available, otherwise ones)
+        if pc_data['pc_0'].size(1) >= 6:  # Has RGB values
+            pc_0_feat = pc_data['pc_0'][:, 3:6]  # RGB values as features
+        else:
+            pc_0_feat = torch.ones((pc_0_xyz.size(0), 1), dtype=torch.float32)
+        
+        if pc_data['pc_1'].size(1) >= 6:  # Has RGB values
+            pc_1_feat = pc_data['pc_1'][:, 3:6]  # RGB values as features
+        else:
+            pc_1_feat = torch.ones((pc_1_xyz.size(0), 1), dtype=torch.float32)
+        
+        # Store original point cloud lengths
+        pc_0_raw_length = pc_0_xyz.size(0)
+        pc_1_raw_length = pc_1_xyz.size(0)
+        
+        return {
+            'pc_0_xyz': pc_0_xyz,
+            'pc_1_xyz': pc_1_xyz,
+            'pc_0_feat': pc_0_feat,
+            'pc_1_feat': pc_1_feat,
+            'pc_0_raw_length': pc_0_raw_length,
+            'pc_1_raw_length': pc_1_raw_length
+        }
+    
+    def _extract_change_map(self, pc_data: Dict[str, Any], pc_1_xyz: torch.Tensor) -> torch.Tensor:
+        """Extract change map labels from point cloud data.
+        
+        Args:
+            pc_data: Dictionary containing point cloud and segmentation data
+            pc_1_xyz: Second point cloud positions tensor
+            
+        Returns:
+            Change map tensor
+        """
+        # Load change labels
+        if pc_data['has_seg_file'] and pc_data['pc_1_seg'] is not None:
+            # Load segmentation file containing change labels
+            change_map = pc_data['pc_1_seg'][:, 3].long()  # 4th column of seg file contains labels
+        else:
+            # If no segmentation file, check if pc_1 has labels in 4th column
+            if pc_data['pc_1'].size(1) > 3:
+                change_map = pc_data['pc_1'][:, 3].long()
+            else:
+                # If no change labels are provided, use dummy labels (all zeros)
+                change_map = torch.zeros(pc_1_xyz.size(0), dtype=torch.long)
+        
+        return change_map
+    
+    def _process_point_clouds(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize and subsample point clouds and related data.
+        
+        Args:
+            data: Dictionary containing point cloud positions, features, and change map
+            
+        Returns:
+            Dictionary with processed point clouds
+        """
+        # Normalize point clouds (center and scale)
+        pc_0_xyz = self._normalize_point_cloud(data['pc_0_xyz'])
+        pc_1_xyz = self._normalize_point_cloud(data['pc_1_xyz'])
+        
+        # Get original features and change map
+        pc_0_feat = data['pc_0_feat']
+        pc_1_feat = data['pc_1_feat']
+        change_map = data['change_map']
+        
+        # Subsample or pad to fixed size
+        if self.random_subsample:
+            # Subsample first point cloud
+            pc_0_xyz = self._random_subsample_point_cloud(pc_0_xyz, self.num_points)
+            pc_0_feat = self._random_subsample_point_cloud(pc_0_feat, self.num_points)
+            
+            # For second point cloud, also subsample or pad the change_map
+            if pc_1_xyz.size(0) != self.num_points:
+                if pc_1_xyz.size(0) < self.num_points:
+                    # Padding case
+                    indices = torch.randint(0, pc_1_xyz.size(0), (self.num_points - pc_1_xyz.size(0),))
+                    change_map_padding = change_map[indices]
+                    change_map = torch.cat([change_map, change_map_padding], dim=0)
+                else:
+                    # Subsampling case
+                    indices = torch.randperm(pc_1_xyz.size(0))[:self.num_points]
+                    change_map = change_map[indices]
+                
+                # Subsample second point cloud
+                pc_1_xyz = self._random_subsample_point_cloud(pc_1_xyz, self.num_points)
+                pc_1_feat = self._random_subsample_point_cloud(pc_1_feat, self.num_points)
+        
+        return {
+            'pc_0_xyz': pc_0_xyz,
+            'pc_1_xyz': pc_1_xyz,
+            'pc_0_feat': pc_0_feat,
+            'pc_1_feat': pc_1_feat,
+            'change_map': change_map
+        }
+    
+    def _compute_neighborhood_info(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Compute nearest neighbors within and across point clouds.
+        
+        Args:
+            data: Dictionary containing processed point cloud positions
+            
+        Returns:
+            Dictionary with KNN information
+        """
+        # Create point cloud dictionaries
+        pc_0_dict = {'pos': data['pc_0_xyz'], 'feat': data['pc_0_feat']}
+        pc_1_dict = {'pos': data['pc_1_xyz'], 'feat': data['pc_1_feat']}
+        
+        # Compute cross-point cloud nearest neighbors
+        knearst_idx_in_another_pc_0 = self._compute_cross_knn(data['pc_0_xyz'], data['pc_1_xyz'], self.cross_knn_size)
+        knearst_idx_in_another_pc_1 = self._compute_cross_knn(data['pc_1_xyz'], data['pc_0_xyz'], self.cross_knn_size)
+        
+        return {
+            'pc_0_dict': pc_0_dict,
+            'pc_1_dict': pc_1_dict,
+            'knearst_idx_in_another_pc_0': knearst_idx_in_another_pc_0,
+            'knearst_idx_in_another_pc_1': knearst_idx_in_another_pc_1
+        }
+    
+    def _build_input_structure(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Build the final input structure based on hierarchy setting.
+        
+        Args:
+            data: Dictionary containing point cloud data and neighborhood info
+            
+        Returns:
+            Dictionary with the final input structure
+        """
+        inputs = {}
+        
+        if self.use_hierarchy:
+            # Build hierarchical representation
+            pc_0_hierarchy = self._build_hierarchy(data['pc_0_dict'])
+            pc_1_hierarchy = self._build_hierarchy(data['pc_1_dict'])
+            
+            # Combine hierarchies into a single input dictionary
+            inputs['pc_0'] = {
+                'xyz': pc_0_hierarchy['xyz'],
+                'neighbors_idx': pc_0_hierarchy['neighbors_idx'],
+                'pool_idx': pc_0_hierarchy['pool_idx'],
+                'unsam_idx': pc_0_hierarchy['unsam_idx'],
+                'knearst_idx_in_another_pc': data['knearst_idx_in_another_pc_0'],
+                'raw_length': data['pc_0_raw_length'],
+                'feat': pc_0_hierarchy['feat']
+            }
+            
+            inputs['pc_1'] = {
+                'xyz': pc_1_hierarchy['xyz'],
+                'neighbors_idx': pc_1_hierarchy['neighbors_idx'],
+                'pool_idx': pc_1_hierarchy['pool_idx'],
+                'unsam_idx': pc_1_hierarchy['unsam_idx'],
+                'knearst_idx_in_another_pc': data['knearst_idx_in_another_pc_1'],
+                'raw_length': data['pc_1_raw_length'],
+                'feat': pc_1_hierarchy['feat']
+            }
+        else:
+            # Simple non-hierarchical representation
+            inputs['pc_0'] = {
+                'xyz': data['pc_0_dict']['pos'],
+                'neighbors_idx': self._compute_knn(data['pc_0_dict']['pos'], self.knn_size),
+                'knearst_idx_in_another_pc': data['knearst_idx_in_another_pc_0'],
+                'raw_length': data['pc_0_raw_length'],
+                'feat': data['pc_0_dict']['feat']
+            }
+            
+            inputs['pc_1'] = {
+                'xyz': data['pc_1_dict']['pos'],
+                'neighbors_idx': self._compute_knn(data['pc_1_dict']['pos'], self.knn_size),
+                'knearst_idx_in_another_pc': data['knearst_idx_in_another_pc_1'],
+                'raw_length': data['pc_1_raw_length'],
+                'feat': data['pc_1_dict']['feat']
+            }
+        
+        return inputs
+    
+    def _prepare_meta_info(self, idx: int, pc_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Prepare metadata for the datapoint.
+        
+        Args:
+            idx: Index of the datapoint
+            pc_data: Dictionary containing file paths
+            
+        Returns:
+            Dictionary with metadata
+        """
+        return {
+            'idx': idx,
+            'pc_0_filepath': pc_data['pc_0_filepath'],
+            'pc_1_filepath': pc_data['pc_1_filepath'],
+            'dir_name': os.path.dirname(pc_data['pc_0_filepath']),
+            'file_name_0': os.path.basename(pc_data['pc_0_filepath']),
+            'file_name_1': os.path.basename(pc_data['pc_1_filepath'])
+        }
+
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a datapoint from the dataset.
         
@@ -248,138 +497,45 @@ class SLPCCDDataset(BaseDataset):
             - labels: Dictionary of label tensors
             - meta_info: Dictionary of metadata
         """
-        # Get file paths
-        pc_0_filepath = self.annotations[idx]['pc_0_filepath']
-        pc_1_filepath = self.annotations[idx]['pc_1_filepath']
+        # Step 1: Load point cloud files
+        pc_data = self._load_point_cloud_files(idx)
         
-        # Check if there's a segmentation file (change labels)
-        # In SLPCCD, change labels are often stored in a separate file with '_seg' suffix
-        pc_1_seg_filepath = pc_1_filepath.replace('.txt', '_seg.txt')
-        has_seg_file = os.path.exists(pc_1_seg_filepath)
+        # Step 2: Extract positions and features
+        extracted_data = self._extract_positions_and_features(pc_data)
         
-        # Load point clouds
-        pc_0 = utils.io.load_point_cloud(pc_0_filepath)
-        pc_1 = utils.io.load_point_cloud(pc_1_filepath)
+        # Step 3: Extract change map
+        change_map = self._extract_change_map(pc_data, extracted_data['pc_1_xyz'])
         
-        # Extract positions
-        pc_0_xyz = pc_0[:, :3]
-        pc_1_xyz = pc_1[:, :3]
-        
-        # Extract features (RGB if available, otherwise ones)
-        # In SLPCCD, RGB values are typically in columns 3-5 when available
-        if pc_0.size(1) >= 6:  # Has RGB values
-            pc_0_feat = pc_0[:, 3:6]  # RGB values as features
-        else:
-            pc_0_feat = torch.ones((pc_0_xyz.size(0), 1), dtype=torch.float32)
-        
-        if pc_1.size(1) >= 6:  # Has RGB values
-            pc_1_feat = pc_1[:, 3:6]  # RGB values as features
-        else:
-            pc_1_feat = torch.ones((pc_1_xyz.size(0), 1), dtype=torch.float32)
-        
-        # Load change labels
-        if has_seg_file:
-            # Load segmentation file containing change labels
-            pc_1_seg = utils.io.load_point_cloud(pc_1_seg_filepath)
-            change_map = pc_1_seg[:, 3].long()  # 4th column of seg file contains labels
-        else:
-            # If no segmentation file, check if pc_1 has labels in 4th column
-            if pc_1.size(1) > 3:
-                change_map = pc_1[:, 3].long()
-            else:
-                # If no change labels are provided, use dummy labels (all zeros)
-                change_map = torch.zeros(pc_1_xyz.size(0), dtype=torch.long)
-        
-        # Store original point cloud lengths
-        pc_0_raw_length = pc_0_xyz.size(0)
-        pc_1_raw_length = pc_1_xyz.size(0)
-        
-        # Normalize point clouds (center and scale)
-        pc_0_xyz = self._normalize_point_cloud(pc_0_xyz)
-        pc_1_xyz = self._normalize_point_cloud(pc_1_xyz)
-        
-        # Subsample or pad to fixed size
-        if self.random_subsample:
-            pc_0_xyz = self._random_subsample_point_cloud(pc_0_xyz, self.num_points)
-            # For pc_1, also subsample or pad the change_map
-            if pc_1_xyz.size(0) != self.num_points:
-                if pc_1_xyz.size(0) < self.num_points:
-                    # Padding case
-                    indices = torch.randint(0, pc_1_xyz.size(0), (self.num_points - pc_1_xyz.size(0),))
-                    change_map_padding = change_map[indices]
-                    change_map = torch.cat([change_map, change_map_padding], dim=0)
-                else:
-                    # Subsampling case
-                    indices = torch.randperm(pc_1_xyz.size(0))[:self.num_points]
-                    change_map = change_map[indices]
-                pc_1_xyz = self._random_subsample_point_cloud(pc_1_xyz, self.num_points)
-                
-            # Also subsample features to match
-            pc_0_feat = self._random_subsample_point_cloud(pc_0_feat, self.num_points)
-            pc_1_feat = self._random_subsample_point_cloud(pc_1_feat, self.num_points)
-        
-        # Create point cloud dictionaries
-        pc_0_dict = {'pos': pc_0_xyz, 'feat': pc_0_feat}
-        pc_1_dict = {'pos': pc_1_xyz, 'feat': pc_1_feat}
-        
-        # Compute cross-point cloud nearest neighbors
-        knearst_idx_in_another_pc_0 = self._compute_cross_knn(pc_0_xyz, pc_1_xyz, self.cross_knn_size)
-        knearst_idx_in_another_pc_1 = self._compute_cross_knn(pc_1_xyz, pc_0_xyz, self.cross_knn_size)
-        
-        # Build hierarchical representation if enabled
-        inputs = {}
-        if self.use_hierarchy:
-            pc_0_hierarchy = self._build_hierarchy(pc_0_dict)
-            pc_1_hierarchy = self._build_hierarchy(pc_1_dict)
-            
-            # Combine hierarchies into a single input dictionary
-            inputs['pc_0'] = {
-                'xyz': pc_0_hierarchy['xyz'],
-                'neighbors_idx': pc_0_hierarchy['neighbors_idx'],
-                'pool_idx': pc_0_hierarchy['pool_idx'],
-                'unsam_idx': pc_0_hierarchy['unsam_idx'],
-                'knearst_idx_in_another_pc': knearst_idx_in_another_pc_0,
-                'raw_length': pc_0_raw_length,
-                'feat': pc_0_hierarchy['feat']
-            }
-            
-            inputs['pc_1'] = {
-                'xyz': pc_1_hierarchy['xyz'],
-                'neighbors_idx': pc_1_hierarchy['neighbors_idx'],
-                'pool_idx': pc_1_hierarchy['pool_idx'],
-                'unsam_idx': pc_1_hierarchy['unsam_idx'],
-                'knearst_idx_in_another_pc': knearst_idx_in_another_pc_1,
-                'raw_length': pc_1_raw_length,
-                'feat': pc_1_hierarchy['feat']
-            }
-        else:
-            # Simple non-hierarchical representation
-            inputs['pc_0'] = {
-                'xyz': pc_0_xyz,
-                'neighbors_idx': self._compute_knn(pc_0_xyz, self.knn_size),
-                'knearst_idx_in_another_pc': knearst_idx_in_another_pc_0,
-                'raw_length': pc_0_raw_length,
-                'feat': pc_0_feat
-            }
-            
-            inputs['pc_1'] = {
-                'xyz': pc_1_xyz,
-                'neighbors_idx': self._compute_knn(pc_1_xyz, self.knn_size),
-                'knearst_idx_in_another_pc': knearst_idx_in_another_pc_1,
-                'raw_length': pc_1_raw_length,
-                'feat': pc_1_feat
-            }
-        
-        # Prepare labels and metadata
-        labels = {'change_map': change_map}
-        
-        meta_info = {
-            'idx': idx,
-            'pc_0_filepath': pc_0_filepath,
-            'pc_1_filepath': pc_1_filepath,
-            'dir_name': os.path.dirname(pc_0_filepath),
-            'file_name_0': os.path.basename(pc_0_filepath),
-            'file_name_1': os.path.basename(pc_1_filepath)
+        # Combine data for processing
+        data_for_processing = {
+            **extracted_data,
+            'change_map': change_map
         }
+        
+        # Step 4: Process point clouds (normalize and subsample)
+        processed_data = self._process_point_clouds(data_for_processing)
+        
+        # Combine data for neighborhood computation
+        data_for_neighborhood = {
+            **processed_data,
+            'pc_0_raw_length': extracted_data['pc_0_raw_length'],
+            'pc_1_raw_length': extracted_data['pc_1_raw_length']
+        }
+        
+        # Step 5: Compute neighborhood information
+        neighborhood_data = self._compute_neighborhood_info(data_for_neighborhood)
+        
+        # Combine all data for input structure
+        all_data = {
+            **data_for_neighborhood,
+            **neighborhood_data
+        }
+        
+        # Step 6: Build final input structure
+        inputs = self._build_input_structure(all_data)
+        
+        # Step 7: Prepare labels and metadata
+        labels = {'change_map': processed_data['change_map']}
+        meta_info = self._prepare_meta_info(idx, pc_data)
         
         return inputs, labels, meta_info
