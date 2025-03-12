@@ -68,34 +68,32 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
         """
         return y_true != self.ignore_index
 
-    def _compute_unreduced_loss(
+    def _compute_per_class_loss(
         self,
         y_pred: torch.Tensor,
         y_true: torch.Tensor,
         valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
-        Compute cross-entropy loss for each sample in the batch.
+        Compute cross-entropy loss for each class and sample in the batch.
         
         Args:
-            y_pred: Predicted logits tensor of shape (N, C, H, W)
-            y_true: Ground truth labels tensor of shape (N, H, W)
-            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
+            y_pred: Predicted probabilities tensor of shape (N, C, H, W)
+            y_true: One-hot encoded ground truth tensor of shape (N, C, H, W)
+            valid_mask: Boolean tensor of shape (N, 1, H, W), True for valid pixels
             
         Returns:
-            Loss tensor of shape (N,) containing per-sample losses
+            Loss tensor of shape (N, C) containing per-class losses for each sample
         """
-        # Compute cross entropy loss with reduction='none' to get per-pixel losses
-        loss = torch.nn.functional.cross_entropy(
-            y_pred,
-            y_true,
-            weight=self.class_weights,
-            reduction='none'
-        )  # (N, H, W)
-        
-        # Apply valid mask
-        loss = loss * valid_mask
-        
-        # Compute mean loss per sample
-        valid_pixels_per_sample = valid_mask.sum(dim=(1, 2))  # (N,)
-        return loss.sum(dim=(1, 2)) / valid_pixels_per_sample.clamp(min=1)  # (N,)
+        # Convert probabilities to log probabilities
+        log_probs = torch.log(y_pred.clamp(min=1e-6))  # (N, C, H, W)
+
+        # Compute cross entropy loss per class
+        # Sum over spatial dimensions for each class
+        ce_per_class = -torch.sum(y_true * log_probs * valid_mask, dim=(2, 3))  # (N, C)
+
+        # Normalize by number of valid pixels per sample
+        valid_pixels_per_sample = valid_mask.squeeze(1).sum(dim=(1, 2))  # (N,)
+        ce_per_class = ce_per_class / valid_pixels_per_sample.unsqueeze(1).clamp(min=1)  # (N, C)
+
+        return ce_per_class

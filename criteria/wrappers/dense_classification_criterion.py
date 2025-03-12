@@ -1,4 +1,5 @@
 from typing import Tuple, Optional
+from abc import abstractmethod
 import torch
 from criteria.wrappers.dense_prediction_criterion import DensePredictionCriterion
 
@@ -21,7 +22,9 @@ class DenseClassificationCriterion(DensePredictionCriterion):
     def __init__(
         self,
         ignore_index: Optional[int] = None,
+        num_classes: Optional[int] = None,
         class_weights: Optional[Tuple[float, ...]] = None,
+        reduction: str = 'mean',
     ) -> None:
         """
         Initialize the criterion.
@@ -29,52 +32,49 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         Args:
             ignore_index: Index to ignore in loss computation. If None, child classes should
                          provide a default value appropriate for their task.
+            num_classes: Number of classes. Required if class_weights is None.
             class_weights: Optional weights for each class to address class imbalance.
                          Weights will be normalized to sum to 1 and must be non-negative.
+            reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         """
-        super(DenseClassificationCriterion, self).__init__(ignore_index=ignore_index)
+        super(DenseClassificationCriterion, self).__init__(
+            ignore_index=ignore_index,
+            reduction=reduction
+        )
         
-        # Register class weights as a buffer if provided
-        self.register_buffer('class_weights', None)
-        if class_weights is not None:
-            self._set_class_weights(class_weights)
+        self._init_class_weights(class_weights, num_classes)
             
-    def _set_class_weights(self, class_weights: Tuple[float, ...]) -> None:
+    def _init_class_weights(self, class_weights: Optional[Tuple[float, ...]], num_classes: Optional[int]) -> None:
         """
-        Set and validate class weights.
+        Initialize class weights.
         
         Args:
-            class_weights: Tuple of weights for each class
+            class_weights: Optional tuple of weights for each class. If None, uniform weights will be used.
+            num_classes: Number of classes. Required if class_weights is None.
             
         Raises:
-            ValueError: If weights are invalid
+            ValueError: If weights are invalid or num_classes is missing when needed
         """
-        if not isinstance(class_weights, tuple):
-            raise ValueError(f"class_weights must be a tuple, got {type(class_weights)}")
-            
-        if not all(isinstance(w, float) for w in class_weights):
-            raise ValueError("All class weights must be floats")
-            
-        if not all(w >= 0 for w in class_weights):
-            raise ValueError("All class weights must be non-negative")
-            
-        weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
-        weights_tensor = weights_tensor / weights_tensor.sum()  # Normalize to sum to 1
-        self.register_buffer('class_weights', weights_tensor)
-        
-    def _to_probabilities(self, logits: torch.Tensor, dim: int = 1) -> torch.Tensor:
-        """
-        Convert logits to probabilities using softmax.
-        
-        Args:
-            logits: Raw model outputs (pre-softmax)
-            dim: Dimension along which to apply softmax (usually the class dimension)
-            
-        Returns:
-            Tensor of probabilities
-        """
-        return torch.nn.functional.softmax(logits, dim=dim)
-        
+        if class_weights is None:
+            if num_classes is None:
+                raise ValueError("num_classes must be provided when class_weights is None")
+            # Set uniform weights
+            weights_tensor = torch.ones(num_classes, dtype=torch.float32) / num_classes
+            self.register_buffer('class_weights', weights_tensor)
+        else:
+            if not isinstance(class_weights, tuple):
+                raise ValueError(f"class_weights must be a tuple, got {type(class_weights)}")
+                
+            if not all(isinstance(w, float) for w in class_weights):
+                raise ValueError("All class weights must be floats")
+                
+            if not all(w >= 0 for w in class_weights):
+                raise ValueError("All class weights must be non-negative")
+                
+            weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
+            weights_tensor = weights_tensor / weights_tensor.sum()  # Normalize to sum to 1
+            self.register_buffer('class_weights', weights_tensor)
+
     def _to_one_hot(self, labels: torch.Tensor, num_classes: int) -> torch.Tensor:
         """
         Convert integer labels to one-hot encoding.
@@ -101,41 +101,91 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         one_hot.scatter_(1, labels[valid_labels].unsqueeze(1), 1)
         
         return one_hot
-        
-    def _compute_class_weights(
+    def _prepare_inputs(
         self,
+        y_pred: torch.Tensor,
         y_true: torch.Tensor,
-        num_classes: int,
+        valid_mask: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Prepare inputs by converting predictions to probabilities and targets to one-hot.
+        
+        Args:
+            y_pred: Prediction tensor of shape (N, C, H, W)
+            y_true: Ground truth tensor of shape (N, H, W)
+            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
+            
+        Returns:
+            Tuple of:
+            - Predicted probabilities tensor of shape (N, C, H, W)
+            - One-hot encoded ground truth tensor of shape (N, C, H, W)
+            - Expanded valid mask of shape (N, 1, H, W)
+        """
+        # Check input shapes
+        N, C, H, W = y_pred.shape
+        assert y_true.shape == (N, H, W), \
+            f"Ground truth shape mismatch: expected ({N}, {H}, {W}), got {y_true.shape}"
+        assert valid_mask.shape == (N, H, W), \
+            f"Valid mask shape mismatch: expected ({N}, {H}, {W}), got {valid_mask.shape}"
+
+        # Convert logits to probabilities
+        y_pred = torch.nn.functional.softmax(y_pred, dim=1)  # (N, C, H, W)
+
+        # Convert labels to one-hot
+        y_true = self._to_one_hot(y_true, C)  # (N, C, H, W)
+        assert y_true.shape == (N, C, H, W), \
+            f"One-hot ground truth shape mismatch: expected ({N}, {C}, {H}, {W}), got {y_true.shape}"
+
+        # Expand valid mask
+        valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)
+        assert valid_mask.shape == (N, 1, H, W), \
+            f"Expanded valid mask shape mismatch: expected ({N}, 1, {H}, {W}), got {valid_mask.shape}"
+
+        return y_pred, y_true, valid_mask
+
+    @abstractmethod
+    def _compute_per_class_loss(
+        self,
+        y_pred: torch.Tensor,
+        y_true: torch.Tensor,
         valid_mask: torch.Tensor
     ) -> torch.Tensor:
         """
-        Compute class weights based on the frequency of each class in the ground truth.
+        Compute loss for each class and sample in the batch.
         
         Args:
-            y_true: Ground truth labels
-            num_classes: Number of classes
-            valid_mask: Boolean mask of valid pixels
+            y_pred: Prediction tensor of shape (N, C, H, W)
+            y_true: Ground truth tensor of shape (N, H, W)
+            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
             
         Returns:
-            Tensor of class weights
+            Loss tensor of shape (N, C) containing per-class losses for each sample
         """
-        with torch.no_grad():
-            # Count instances of each class in valid pixels
-            class_counts = torch.bincount(
-                y_true[valid_mask].view(-1),
-                minlength=num_classes
-            ).float()
+        raise NotImplementedError
+
+    def _compute_unreduced_loss(
+        self,
+        y_pred: torch.Tensor,
+        y_true: torch.Tensor,
+        valid_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Compute loss for each sample in the batch, applying class weights if provided.
+        
+        Args:
+            y_pred: Prediction tensor of shape (N, C, H, W)
+            y_true: Ground truth tensor of shape (N, H, W)
+            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
             
-            # Compute inverse frequency weights
-            total_pixels = valid_mask.sum()
-            weights = (total_pixels - class_counts) / total_pixels
-            
-            # Handle edge cases
-            weights = torch.clamp(weights, min=0.0)  # Ensure non-negative
-            weights[class_counts == 0] = 0  # Zero weight for missing classes
-            
-            # Normalize
-            if weights.sum() > 0:
-                weights = weights / weights.sum()
-                
-            return weights
+        Returns:
+            Loss tensor of shape (N,) containing per-sample losses
+        """
+        # Convert inputs to appropriate format
+        y_pred, y_true, valid_mask = self._prepare_inputs(y_pred, y_true, valid_mask)
+
+        # Get per-class losses from subclass implementation
+        per_class_loss = self._compute_per_class_loss(y_pred, y_true, valid_mask)  # (N, C)
+        
+        # Apply class weights
+        per_class_loss = per_class_loss * self.class_weights
+        return per_class_loss.sum(dim=1)  # (N,)

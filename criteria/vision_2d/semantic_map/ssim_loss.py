@@ -2,7 +2,7 @@ from typing import Optional
 import math
 import torch
 import torch.nn.functional as F
-from criteria.vision_2d import SemanticMapBaseCriterion
+from criteria.wrappers.dense_prediction_criterion import DenseClassificationCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -77,30 +77,50 @@ def compute_ssim(
 
     ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
 
-    # Convert similarity to loss
-    return 1 - ssim_map.mean(dim=[2, 3])
+    # Convert similarity to loss and average over spatial dimensions
+    return 1 - ssim_map.mean(dim=[2, 3])  # (N, C)
 
 
-class SSIMLoss(SemanticMapBaseCriterion):
+class SSIMLoss(DenseClassificationCriterion):
     """
-    Structural Similarity Index (SSIM) Loss.
+    Structural Similarity Index (SSIM) Loss for semantic segmentation.
+    
+    This criterion computes the SSIM loss between predicted class probabilities
+    and one-hot encoded ground truth labels for each class.
+    
+    Attributes:
+        ignore_index: Index to ignore in the loss computation.
+        num_classes: Number of classes for semantic segmentation.
+        window_size: Size of the Gaussian window for SSIM computation.
+        C1: Stability constant for luminance comparison.
+        C2: Stability constant for contrast comparison.
     """
+
     def __init__(
         self,
         num_classes: int,
-        window_size: Optional[int] = 11,
-        C1: Optional[float] = 0.01 ** 2,
-        C2: Optional[float] = 0.03 ** 2,
-        **kwargs,
+        ignore_index: int = 255,
+        window_size: int = 11,
+        C1: float = 0.01 ** 2,
+        C2: float = 0.03 ** 2,
+        reduction: str = 'mean',
     ) -> None:
         """
+        Initialize the criterion.
+        
         Args:
-            num_classes (int): Number of classes for semantic segmentation.
-            window_size (Optional[int]): Size of the Gaussian window. Default is 11.
-            C1 (Optional[float]): Stability constant for luminance comparison. Default is 0.01^2.
-            C2 (Optional[float]): Stability constant for contrast comparison. Default is 0.03^2.
+            num_classes: Number of classes for semantic segmentation.
+            ignore_index: Index to ignore in the loss computation. Defaults to 255.
+            window_size: Size of the Gaussian window. Must be odd. Defaults to 11.
+            C1: Stability constant for luminance comparison. Defaults to 0.01^2.
+            C2: Stability constant for contrast comparison. Defaults to 0.03^2.
+            reduction: Specifies the reduction to apply to the output: 'mean' or 'sum'.
         """
-        super(SSIMLoss, self).__init__(**kwargs)
+        super(SSIMLoss, self).__init__(
+            ignore_index=ignore_index,
+            reduction=reduction,
+            class_weights=None,  # We don't use class weights for SSIM loss
+        )
 
         if window_size % 2 == 0:
             raise ValueError("window_size must be an odd number")
@@ -114,21 +134,74 @@ class SSIMLoss(SemanticMapBaseCriterion):
         window = create_window(window_size, num_classes=num_classes)
         self.register_buffer('window', window)
 
-    def _compute_semantic_map_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
         """
-        Computes the SSIM loss between two images.
-
+        Validate inputs specific to semantic segmentation.
+        
         Args:
-            y_pred (torch.Tensor): First image tensor with shape (N, C, H, W).
-            y_true (torch.Tensor): Second image tensor with shape (N, C, H, W).
-
-        Returns:
-            torch.Tensor: SSIM loss value.
+            y_pred: Predicted logits tensor of shape (N, C, H, W)
+            y_true: Ground truth labels tensor of shape (N, H, W)
+            
+        Raises:
+            ValueError: If validation fails
         """
-        # Assert number of classes matches the window
+        check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
         assert y_pred.size(1) == self.window.size(0), (
             f"Number of classes in prediction ({y_pred.size(1)}) must match "
             f"number of classes in window ({self.window.size(0)})"
         )
 
-        return compute_ssim(y_pred, y_true, self.window, self.window_size, y_pred.size(1), self.C1, self.C2)
+    def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
+        """
+        Get mask for valid pixels (not equal to ignore_index).
+        
+        Args:
+            y_true: Ground truth labels tensor of shape (N, H, W)
+            
+        Returns:
+            Boolean tensor of shape (N, H, W), True for valid pixels
+        """
+        valid_mask = (y_true != self.ignore_index)
+        if valid_mask.sum() == 0:
+            raise ValueError("All pixels in target are ignored. Cannot compute loss.")
+        return valid_mask
+
+    def _compute_unreduced_loss(
+        self,
+        y_pred: torch.Tensor,
+        y_true: torch.Tensor,
+        valid_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Compute SSIM loss for each sample in the batch.
+        
+        Args:
+            y_pred: Predicted logits tensor of shape (N, C, H, W)
+            y_true: Ground truth labels tensor of shape (N, H, W)
+            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
+            
+        Returns:
+            Loss tensor of shape (N,) containing per-sample losses
+        """
+        # Convert logits to probabilities
+        y_pred = torch.nn.functional.softmax(y_pred, dim=1)  # (N, C, H, W)
+
+        # Convert labels to one-hot
+        y_true = self._to_one_hot(y_true, self.num_classes)  # (N, C, H, W)
+
+        # Apply valid mask to both predictions and targets
+        valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)
+        y_pred = y_pred * valid_mask
+        y_true = y_true * valid_mask
+
+        # Compute SSIM loss per class
+        ssim_per_class = compute_ssim(
+            y_pred, y_true,
+            self.window,
+            self.window_size,
+            self.num_classes,
+            self.C1, self.C2
+        )  # (N, C)
+
+        # Average over classes for each sample
+        return ssim_per_class.mean(dim=1)  # (N,)
