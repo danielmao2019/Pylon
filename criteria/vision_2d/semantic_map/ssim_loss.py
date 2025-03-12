@@ -119,7 +119,6 @@ class SSIMLoss(DenseClassificationCriterion):
         super(SSIMLoss, self).__init__(
             ignore_index=ignore_index,
             reduction=reduction,
-            class_weights=None,  # We don't use class weights for SSIM loss
         )
 
         if window_size % 2 == 0:
@@ -159,49 +158,35 @@ class SSIMLoss(DenseClassificationCriterion):
             y_true: Ground truth labels tensor of shape (N, H, W)
             
         Returns:
-            Boolean tensor of shape (N, H, W), True for valid pixels
+            Boolean tensor of shape (N, 1, H, W), True for valid pixels
         """
         valid_mask = (y_true != self.ignore_index)
         if valid_mask.sum() == 0:
             raise ValueError("All pixels in target are ignored. Cannot compute loss.")
-        return valid_mask
+        return valid_mask.unsqueeze(1)  # (N, 1, H, W)
 
-    def _compute_unreduced_loss(
+    def _compute_per_class_loss(
         self,
-        y_pred: torch.Tensor,
-        y_true: torch.Tensor,
-        valid_mask: torch.Tensor
-    ) -> torch.Tensor:
+        y_pred: torch.Tensor,  # (N, C, H, W) probabilities
+        y_true: torch.Tensor,  # (N, C, H, W) one-hot encoded
+        valid_mask: torch.Tensor,  # (N, 1, H, W)
+    ) -> torch.Tensor:  # (N, C)
         """
-        Compute SSIM loss for each sample in the batch.
+        Compute SSIM loss for each class and sample.
         
         Args:
-            y_pred: Predicted logits tensor of shape (N, C, H, W)
-            y_true: Ground truth labels tensor of shape (N, H, W)
-            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
+            y_pred: Predicted probabilities tensor of shape (N, C, H, W)
+            y_true: One-hot encoded ground truth tensor of shape (N, C, H, W)
+            valid_mask: Boolean tensor of shape (N, 1, H, W), True for valid pixels
             
         Returns:
-            Loss tensor of shape (N,) containing per-sample losses
+            Loss tensor of shape (N, C) containing per-class losses for each sample
         """
-        # Convert logits to probabilities
-        y_pred = torch.nn.functional.softmax(y_pred, dim=1)  # (N, C, H, W)
-
-        # Convert labels to one-hot
-        y_true = self._to_one_hot(y_true, self.num_classes)  # (N, C, H, W)
-
-        # Apply valid mask to both predictions and targets
-        valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)
-        y_pred = y_pred * valid_mask
-        y_true = y_true * valid_mask
-
         # Compute SSIM loss per class
-        ssim_per_class = compute_ssim(
-            y_pred, y_true,
+        return compute_ssim(
+            y_pred * valid_mask, y_true * valid_mask,
             self.window,
             self.window_size,
             self.num_classes,
             self.C1, self.C2
         )  # (N, C)
-
-        # Average over classes for each sample
-        return ssim_per_class.mean(dim=1)  # (N,)
