@@ -1,6 +1,8 @@
 import pytest
 import torch
+import torch.nn.functional as F
 from criteria.vision_2d.dense_prediction.dense_classification.ssim_loss import SSIMLoss
+from utils.semantic_segmentation.one_hot_encoding import to_one_hot
 
 
 @pytest.mark.parametrize("reduction", ["mean", "sum"])
@@ -123,18 +125,23 @@ def test_ssim_loss_with_ignore_index():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size, num_classes = 2, 3
     height, width = 32, 32
+    ignore_index = 255  # Use 255 as ignore_index
 
-    # Create sample data
+    # Create sample data with values strictly less than num_classes
     y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
     y_true = torch.randint(0, num_classes, (batch_size, height, width)).to(device)
     
     # Create a version with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0, 0] = 255  # Set one pixel to ignore_index
+    y_true_ignored[0, 0, 0] = ignore_index  # Set one pixel to ignore_index
     
-    loss_fn = SSIMLoss(ignore_index=255).to(device)
+    # Create loss function
+    loss_fn = SSIMLoss(ignore_index=ignore_index).to(device)
+    
+    # Compute loss
     loss = loss_fn(y_pred, y_true_ignored)
     
+    # Check loss
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
     assert loss.item() > 0
@@ -147,12 +154,13 @@ def test_ssim_loss_all_ignored():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size, num_classes = 2, 3
     height, width = 32, 32
+    ignore_index = 255  # Use 255 as ignore_index
 
     # Create predictions and targets where all pixels are ignored
     y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
-    y_true = torch.full((batch_size, height, width), fill_value=255).to(device)
+    y_true = torch.full((batch_size, height, width), fill_value=ignore_index).to(device)
 
-    loss_fn = SSIMLoss(ignore_index=255).to(device)
+    loss_fn = SSIMLoss(ignore_index=ignore_index).to(device)
     
     # Loss computation should raise an error when all pixels are ignored
     with pytest.raises(ValueError, match="All pixels in target are ignored"):
@@ -166,28 +174,27 @@ def test_ssim_loss_with_weights_and_ignore():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     batch_size, num_classes = 2, 3
     height, width = 32, 32
+    ignore_index = 255  # Use 255 as ignore_index
 
-    # Create sample data
+    # Create sample data with values strictly less than num_classes
     y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
     y_true = torch.randint(0, num_classes, (batch_size, height, width)).to(device)
     
     # Create a version with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0:5, 0:5] = 255  # Set a small block to ignore_index
+    y_true_ignored[0, 0:5, 0:5] = ignore_index  # Set a small block to ignore_index
     
     # Create weights
     weights = torch.tensor([0.2, 0.3, 0.5]).to(device)
     
-    # Test with both weights and ignore index
-    loss_fn = SSIMLoss(class_weights=weights, ignore_index=255).to(device)
-    loss = loss_fn(y_pred, y_true_ignored)
-    
-    # Test with only weights
+    # Create loss functions
+    loss_fn = SSIMLoss(class_weights=weights, ignore_index=ignore_index).to(device)
     loss_fn_only_weights = SSIMLoss(class_weights=weights).to(device)
-    loss_only_weights = loss_fn_only_weights(y_pred, y_true)
+    loss_fn_only_ignore = SSIMLoss(ignore_index=ignore_index).to(device)
     
-    # Test with only ignore index
-    loss_fn_only_ignore = SSIMLoss(ignore_index=255).to(device)
+    # Compute losses
+    loss = loss_fn(y_pred, y_true_ignored)
+    loss_only_weights = loss_fn_only_weights(y_pred, y_true)
     loss_only_ignore = loss_fn_only_ignore(y_pred, y_true_ignored)
     
     # The three losses should all be different
@@ -232,3 +239,64 @@ def test_ssim_consistent_across_inputs():
     # Cross losses should be higher than correct matches
     assert loss_cross1 > loss1
     assert loss_cross2 > loss2
+
+
+def test_ssim_sigma_sensitivity():
+    """
+    Test that SSIM loss produces different results with different sigma values.
+    
+    The sigma value affects the Gaussian window used for SSIM computation,
+    which in turn affects how the structural information is captured.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    batch_size, num_classes = 2, 3
+    height, width = 32, 32
+    window_size = 11
+    
+    # Create sample data
+    y_pred = torch.rand(batch_size, num_classes, height, width).to(device)
+    y_true = torch.randint(0, num_classes, (batch_size, height, width)).to(device)
+    
+    # Create custom SSIMLoss with different sigma values
+    class CustomSSIMWithSigma(SSIMLoss):
+        def __init__(self, sigma, **kwargs):
+            super(CustomSSIMWithSigma, self).__init__(**kwargs)
+            self.sigma = sigma
+            # Recreate window with custom sigma
+            window = self._create_window_with_sigma(window_size, sigma)
+            self.register_buffer('window', window)
+            
+        def _create_window_with_sigma(self, window_size, sigma):
+            assert window_size % 2 == 1, f"Window size must be odd, got {window_size}"
+            
+            # Create 1D Gaussian window with specified sigma
+            gauss = torch.exp(
+                -torch.pow(torch.linspace(-(window_size//2), window_size//2, window_size), 2.0) / (2.0 * sigma * sigma)
+            )
+            gauss = gauss / gauss.sum()
+            
+            # Create 2D Gaussian window
+            window = gauss.unsqueeze(0) * gauss.unsqueeze(1)  # (window_size, window_size)
+            window = window.unsqueeze(0).unsqueeze(0)  # (1, 1, window_size, window_size)
+            
+            return window
+    
+    # Create loss functions with different sigma values
+    loss_fn_sigma1 = CustomSSIMWithSigma(sigma=1.0).to(device)
+    loss_fn_sigma2 = CustomSSIMWithSigma(sigma=2.0).to(device)
+    loss_fn_sigma3 = CustomSSIMWithSigma(sigma=3.0).to(device)
+    
+    # Compute losses
+    loss1 = loss_fn_sigma1(y_pred, y_true)
+    loss2 = loss_fn_sigma2(y_pred, y_true)
+    loss3 = loss_fn_sigma3(y_pred, y_true)
+    
+    # Verify that the losses are different
+    assert not torch.isclose(loss1, loss2, rtol=1e-2).item(), "Losses with sigma=1.0 and sigma=2.0 should be different"
+    assert not torch.isclose(loss1, loss3, rtol=1e-2).item(), "Losses with sigma=1.0 and sigma=3.0 should be different"
+    assert not torch.isclose(loss2, loss3, rtol=1e-2).item(), "Losses with sigma=2.0 and sigma=3.0 should be different"
+    
+    # Verify that the windows are different
+    assert not torch.allclose(loss_fn_sigma1.window, loss_fn_sigma2.window, rtol=1e-3)
+    assert not torch.allclose(loss_fn_sigma1.window, loss_fn_sigma3.window, rtol=1e-3)
+    assert not torch.allclose(loss_fn_sigma2.window, loss_fn_sigma3.window, rtol=1e-3)

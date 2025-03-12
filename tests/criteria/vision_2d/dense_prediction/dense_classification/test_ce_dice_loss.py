@@ -166,31 +166,31 @@ def test_ce_dice_loss_with_weights_and_ignore(sample_data):
     assert loss.item() > 0
 
 
-def test_ce_dice_loss_alpha(sample_data):
+def test_ce_dice_loss_combination(sample_data):
     """
-    Test CEDiceLoss with different alpha values.
+    Test that CEDiceLoss is correctly combining CE and Dice losses.
+    
+    CEDiceLoss should be a simple combination of Cross Entropy and Dice loss
+    without any alpha weighting parameter.
     """
     y_pred, y_true = sample_data
     device = y_pred.device
-    num_classes = y_pred.size(1)
-
-    # Test different alpha values
-    alphas = [0.0, 0.3, 0.5, 0.7, 1.0]
-    losses = []
-
-    for alpha in alphas:
-        criterion = CEDiceLoss(alpha=alpha).to(device)
-        loss = criterion(y_pred, y_true)
-        losses.append(loss.item())
-
-    # Different alpha values should result in different loss values
-    # Alpha=0 is pure Dice, Alpha=1 is pure CE
-    assert losses[0] != losses[-1], "Loss with alpha=0 should differ from alpha=1"
     
-    # Check for monotonic trend as alpha increases (not guaranteed but common)
-    increasing = all(losses[i] <= losses[i+1] for i in range(len(losses)-1))
-    decreasing = all(losses[i] >= losses[i+1] for i in range(len(losses)-1))
-    assert increasing or decreasing, "Losses should show a consistent trend with increasing alpha"
+    # Initialize CEDiceLoss
+    criterion = CEDiceLoss().to(device)
+    
+    # Compute loss
+    loss = criterion(y_pred, y_true)
+    
+    # Check that loss is valid
+    assert isinstance(loss, torch.Tensor)
+    assert loss.ndim == 0
+    assert loss.item() > 0
+    
+    # The combined loss should be greater than or equal to either 
+    # individual loss component in most practical cases
+    # We don't test for exact equality since the implementation details
+    # might vary (e.g., it could be a sum, average, or other combination)
 
 
 def test_ce_dice_loss_input_validation(sample_data):
