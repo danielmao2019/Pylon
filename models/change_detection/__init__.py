@@ -23,7 +23,7 @@ from models.change_detection.cdx_former.cdx_former_model import CDXFormer
 from models.change_detection import csa_cdgan
 from models.change_detection.change_mamba.st_mamba_bcd import STMambaBCD
 from models.change_detection.siamese_kpconv.siamese_kpconv_model import SiameseKPConv
-from models.change_detection.threecdnet.threecdnet_model import ThreeCDNet
+from models.change_detection.threecdnet.threecdnet_model import Siam3DCDNet
 # Single-Temporal Models
 from models.change_detection.change_star.change_star import ChangeStar
 from models.change_detection.i3pe.i3pe_model import I3PEModel
@@ -54,7 +54,7 @@ __all__ = (
     'csa_cdgan',
     'STMambaBCD',
     'SiameseKPConv',
-    'ThreeCDNet',
+    'Siam3DCDNet',
     # Single-Temporal Models
     'ChangeStar',
     'I3PEModel',

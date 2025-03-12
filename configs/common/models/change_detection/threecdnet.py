@@ -7,10 +7,10 @@ This model is based on the paper:
 
 from typing import Dict, Any
 
-from models.change_detection import ThreeCDNet
+from models.change_detection import Siam3DCDNet
 
 model_config: Dict[str, Any] = {
-    "model_class": ThreeCDNet,
+    "model_class": Siam3DCDNet,
     "init_args": {
         "num_classes": 2,  # Binary change detection (change/no-change)
         "input_dim": 3,    # XYZ coordinates

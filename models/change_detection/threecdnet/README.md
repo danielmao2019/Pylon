@@ -12,29 +12,36 @@ IEEE Transactions on Geoscience and Remote Sensing, 2022
 3DCDNet is designed for change detection in 3D point clouds. The model architecture consists of:
 
 1. **Dual-path Encoder**: Processes two point clouds using hierarchical feature extraction with shared weights.
-2. **Point Set Difference Module (PSDM)**: Captures changes between the two point clouds.
-3. **Aggregation and Decoder**: Combines features from both point clouds and produces the final change detection results.
+2. **Feature Difference Computation**: Captures changes between the two point clouds using nearest neighbors.
+3. **Change Classification**: Produces the final change detection results for each point cloud.
 
 ## Key Components
 
-### C3DNet
+### C3Dnet
 
-The core 3D change detection network which extracts hierarchical features from point clouds.
+The core 3D change detection network which extracts hierarchical features from point clouds using Local Feature Aggregation (LFA) modules.
 
-### Point Set Difference Module
+### Local Feature Aggregation (LFA)
 
-This module captures differences between two point clouds by:
-- Computing feature differences between corresponding points
-- Using KNN to establish cross-cloud correspondences
-- Combining feature differences and similarities
+This module combines:
+- Spatial Points Encoding (SPE) for capturing spatial relationships
+- Local Feature Extraction (LFE) for learning local patterns
+
+### Feature Difference Computation
+
+The original implementation computes feature differences using nearest neighbor information:
+```python
+nearest_features = gather_neighbour(query, nearest_idx)
+fused_features = torch.mean(torch.abs(raw - nearest_features), -1)
+```
 
 ## Usage
 
 ```python
-from models.change_detection import ThreeCDNet
+from models.change_detection import Siam3DCDNet
 
 # Create model
-model = ThreeCDNet(
+model = Siam3DCDNet(
     num_classes=2,  # Binary change detection
     input_dim=3,    # XYZ coordinates
     feature_dims=[64, 128, 256],
@@ -54,6 +61,12 @@ model = ThreeCDNet(
 #     'pc_1': {
 #         # Same structure as pc_0
 #     }
+# }
+
+# Output format
+# {
+#     'logits_0': tensor of shape (B, N, num_classes),  # Logits for first point cloud
+#     'logits_1': tensor of shape (B, N, num_classes)   # Logits for second point cloud
 # }
 ```
 

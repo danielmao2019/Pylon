@@ -14,36 +14,36 @@ import torch.nn.functional as F
 from typing import Dict, List, Tuple, Optional, Any
 
 from models.change_detection.threecdnet.modules import (
-    Conv1d, Conv2d, LocalFeatureAggregation, PointSetDifferenceModule
+    Conv1d, Conv2d, LFA, gather_neighbour
 )
 
 
-class C3DNet(nn.Module):
+class C3Dnet(nn.Module):
     """Core 3D Change Detection Network.
 
     This is the single-branch network used within the Siamese architecture.
     """
 
-    def __init__(self, in_dim: int, out_dim: int):
-        """Initialize C3DNet.
+    def __init__(self, in_d: int, out_d: int):
+        """Initialize C3Dnet.
 
         Args:
-            in_dim: Input dimension (e.g., 3 for XYZ coordinates)
-            out_dim: Output dimension
+            in_d: Input dimension (e.g., 3 for XYZ coordinates)
+            out_d: Output dimension
         """
-        super(C3DNet, self).__init__()
+        super(C3Dnet, self).__init__()
 
-        self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.in_d = in_d
+        self.out_d = out_d
 
         # Initial feature transformation
-        self.fc0 = Conv1d(self.in_dim, 64, kernel_size=1, bn=True)
+        self.fc0 = Conv1d(self.in_d, 64, kernel_size=1, bn=True)
 
         # Encoder blocks
-        self.block1 = LocalFeatureAggregation(64, 128)
-        self.block2 = LocalFeatureAggregation(128, 256)
-        self.block3 = LocalFeatureAggregation(256, 512)
-        self.block4 = LocalFeatureAggregation(512, 1024)
+        self.block1 = LFA(64, 128)
+        self.block2 = LFA(128, 256)
+        self.block3 = LFA(256, 512)
+        self.block4 = LFA(512, 1024)
 
         # Bottleneck
         self.dt = Conv2d(1024, 1024, kernel_size=(1, 1), bn=True)
@@ -55,10 +55,10 @@ class C3DNet(nn.Module):
         self.d1 = Conv2d(128*2, 64, kernel_size=(1, 1), bn=True)
 
         # Final output layer
-        self.d0 = Conv2d(64, self.out_dim, kernel_size=(1, 1), bn=True)
+        self.d0 = Conv2d(64, self.out_d, kernel_size=(1, 1), bn=True)
 
     def forward(self, end_points: List):
-        """Forward pass of the C3DNet.
+        """Forward pass of the C3Dnet.
 
         Args:
             end_points: A list containing:
@@ -68,7 +68,7 @@ class C3DNet(nn.Module):
                 - unsam_idx: List of upsampling indices between levels
 
         Returns:
-            Output feature tensor of shape (B, out_dim, N, 1)
+            Output feature tensor of shape (B, out_d, N, 1)
         """
         xyz, neigh_idx, pool_idx, unsam_idx = end_points
 
@@ -120,30 +120,20 @@ class C3DNet(nn.Module):
         """Sample features based on pooling indices.
 
         Args:
-            feature: Feature tensor of shape (B, C, N, 1)
+            feature: Feature tensor of shape (B, d, N, 1)
             pool_idx: Pooling indices of shape (B, N', K)
 
         Returns:
-            Sampled features of shape (B, C, N', 1)
+            Sampled features of shape (B, d, N', 1)
         """
-        feature = feature.squeeze(dim=3)  # B, C, N
-        batch_size, feature_dim, _ = feature.shape
+        feature = feature.squeeze(dim=3)  # batch*channel*npoints
         k = pool_idx.shape[-1]
-
-        # Reshape pooling indices
-        pool_idx = pool_idx.reshape(batch_size, -1)  # B, N'*K
-
-        # Gather features
-        pool_features = torch.gather(
-            feature,
-            2,
-            pool_idx.unsqueeze(1).repeat(1, feature_dim, 1)  # B, C, N'*K
-        )
-
-        # Reshape to original dimensions and max pool
-        pool_features = pool_features.reshape(batch_size, feature_dim, -1, k)  # B, C, N', K
-        pool_features = pool_features.max(dim=3, keepdim=True)[0]  # B, C, N', 1
-
+        d = feature.shape[1]
+        batch_size = pool_idx.shape[0]
+        pool_idx = pool_idx.reshape(batch_size, -1)  # batch*(npoints*nsamples)
+        pool_features = torch.gather(feature, 2, pool_idx.unsqueeze(1).repeat(1, feature.shape[1], 1))
+        pool_features = pool_features.reshape(batch_size, d, -1, k)
+        pool_features = pool_features.max(dim=3, keepdim=True)[0]  # batch*channel*npoints*1
         return pool_features
 
     @staticmethod
@@ -151,32 +141,22 @@ class C3DNet(nn.Module):
         """Interpolate features based on upsampling indices.
 
         Args:
-            feature: Feature tensor of shape (B, C, N, 1)
-            interp_idx: Interpolation indices of shape (B, N', 1)
+            feature: Feature tensor of shape (B, d, N, 1)
+            interp_idx: Interpolation indices of shape (B, up_num_points, 1)
 
         Returns:
-            Interpolated features of shape (B, C, N', 1)
+            Interpolated features of shape (B, d, up_num_points, 1)
         """
-        feature = feature.squeeze(dim=3)  # B, C, N
-        batch_size, feature_dim, _ = feature.shape
+        feature = feature.squeeze(dim=3)  # batch*channel*npoints
+        batch_size = interp_idx.shape[0]
         up_num_points = interp_idx.shape[1]
-
-        # Reshape interpolation indices
-        interp_idx = interp_idx.reshape(batch_size, up_num_points)  # B, N'
-
-        # Gather features
-        interpolated_features = torch.gather(
-            feature,
-            2,
-            interp_idx.unsqueeze(1).repeat(1, feature_dim, 1)  # B, C, N'
-        )
-
-        interpolated_features = interpolated_features.unsqueeze(3)  # B, C, N', 1
-
+        interp_idx = interp_idx.reshape(batch_size, up_num_points)
+        interpolated_features = torch.gather(feature, 2, interp_idx.unsqueeze(1).repeat(1, feature.shape[1], 1))
+        interpolated_features = interpolated_features.unsqueeze(3)  # batch*channel*npoints*1
         return interpolated_features
 
 
-class ThreeCDNet(nn.Module):
+class Siam3DCDNet(nn.Module):
     """
     3DCDNet: Single-shot 3D Change Detection with Point Set Difference Modeling and Dual-path Feature Learning.
 
@@ -193,7 +173,7 @@ class ThreeCDNet(nn.Module):
         k_neighbors: int = 16,
         sub_sampling_ratio: List[int] = [4, 4, 4, 4]
     ):
-        """Initialize 3DCDNet model.
+        """Initialize Siam3DCDNet model.
 
         Args:
             num_classes: Number of output classes
@@ -203,7 +183,7 @@ class ThreeCDNet(nn.Module):
             k_neighbors: Number of neighbors for feature aggregation
             sub_sampling_ratio: Downsampling ratio for each level
         """
-        super(ThreeCDNet, self).__init__()
+        super(Siam3DCDNet, self).__init__()
 
         self.num_classes = num_classes
         self.input_dim = input_dim
@@ -212,16 +192,14 @@ class ThreeCDNet(nn.Module):
         self.sub_sampling_ratio = sub_sampling_ratio
 
         # Main feature extractor network (shared weights)
-        self.net = C3DNet(input_dim, 64)
+        self.net = C3Dnet(input_dim, 64)
 
         # Change detection head
         self.mlp1 = Conv1d(64, 32, kernel_size=1, bn=True)
         self.mlp2 = Conv1d(32, num_classes, kernel_size=1, bias=False, bn=False, activation=None)
 
-        # Define point set difference module
-        self.psdm = PointSetDifferenceModule(64, knn_size=self.k_neighbors)
-
-    def nearest_feature_difference(self, raw: torch.Tensor, query: torch.Tensor,
+    @staticmethod
+    def nearest_feature_difference(raw: torch.Tensor, query: torch.Tensor,
                                    nearest_idx: torch.Tensor) -> torch.Tensor:
         """Compute feature differences between point clouds.
 
@@ -231,37 +209,14 @@ class ThreeCDNet(nn.Module):
             nearest_idx: K-nearest neighbors indices, shape (B, N, K)
 
         Returns:
-            Fused difference features of shape (B, C, N)
+            Fused difference features of shape (B, C, N, 1)
         """
-        # Process raw and query to the correct shape for batch gathering
-        raw_features = raw.squeeze(-1).transpose(1, 2)    # B, N, C
-        query_features = query.squeeze(-1).transpose(1, 2)  # B, N, C
-
-        batch_size, num_points, feature_dim = raw_features.shape
-        k_neighbors = nearest_idx.shape[-1]
-
-        # Create batch indices for gathering
-        batch_indices = torch.arange(batch_size, device=raw.device).view(-1, 1, 1).repeat(1, num_points, k_neighbors)
-
-        # Gather features from the query using nearest indices
-        nearest_features = query_features[batch_indices, nearest_idx]  # B, N, K, C
-
-        # Expand raw features for broadcasting
-        raw_expanded = raw_features.unsqueeze(2).repeat(1, 1, k_neighbors, 1)  # B, N, K, C
-
-        # Compute absolute differences
-        feature_diff = torch.abs(raw_expanded - nearest_features)  # B, N, K, C
-
-        # Mean across neighbors
-        fused_features = torch.mean(feature_diff, dim=2)  # B, N, C
-
-        # Transpose to get the correct shape for Conv1d
-        fused_features = fused_features.transpose(2, 1)  # B, C, N
-
+        nearest_features = gather_neighbour(query, nearest_idx)
+        fused_features = torch.mean(torch.abs(raw - nearest_features), -1)
         return fused_features
 
     def forward(self, data_dict: Dict[str, Any]) -> Dict[str, torch.Tensor]:
-        """Forward pass of the 3DCDNet model.
+        """Forward pass of the Siam3DCDNet model.
 
         Args:
             data_dict: Dictionary containing:
@@ -275,7 +230,8 @@ class ThreeCDNet(nn.Module):
 
         Returns:
             Dictionary with model outputs:
-                - logits: Change classification logits
+                - logits_0: Logits for the first point cloud
+                - logits_1: Logits for the second point cloud
         """
         # Extract data from input dictionary
         pc_0 = data_dict['pc_0']
@@ -309,41 +265,30 @@ class ThreeCDNet(nn.Module):
         # Extract KNN indices
         knearest_01, knearest_10 = knearest_idx
 
-        # Use Point Set Difference Module to compute differences
-        # First, prepare features by reshaping
-        batch_size = out0.shape[0]
-        num_points = out0.shape[2]
-        feature_dim = out0.shape[1]
-
-        features_0 = out0.squeeze(-1).transpose(1, 2)  # B, N, C
-        features_1 = out1.squeeze(-1).transpose(1, 2)  # B, N, C
-
-        # Compute differences using PSDM
-        diff_features_0, diff_features_1 = self.psdm(
-            features_0, features_1, knearest_01, knearest_10
-        )
+        # Compute feature differences
+        fout0 = self.nearest_feature_difference(out0, out1, knearest_01)
+        fout1 = self.nearest_feature_difference(out1, out0, knearest_10)
 
         # Process point cloud 0 features
-        fout0 = diff_features_0.transpose(2, 1)  # B, C, N
-        fout0 = self.mlp1(fout0)  # B, C, N
-        fout0 = self.mlp2(fout0)  # B, nc, N
-        logits_0 = fout0.transpose(2, 1)  # B, N, nc
+        fout0 = self.mlp1(fout0.squeeze(-1))  # B, C, N
+        fout1 = self.mlp1(fout1.squeeze(-1))  # B, C, N
 
-        # Process point cloud 1 features
-        fout1 = diff_features_1.transpose(2, 1)  # B, C, N
-        fout1 = self.mlp1(fout1)  # B, C, N
+        fout0 = self.mlp2(fout0)  # B, nc, N
         fout1 = self.mlp2(fout1)  # B, nc, N
+
+        # Return logits as dictionary (instead of log_softmax as in original) for compatibility
+        # with Pylon's criteria and metrics that expect raw logits
+        logits_0 = fout0.transpose(2, 1)  # B, N, nc
         logits_1 = fout1.transpose(2, 1)  # B, N, nc
 
-        # Return raw logits (not softmax) as requested for compatibility with criteria and metrics
-        # Combine the logits into a single tensor for both point clouds
-        logits = torch.cat([logits_0, logits_1], dim=1)  # B, 2N, nc
-
-        return {'logits': logits}
+        return {
+            'logits_0': logits_0,
+            'logits_1': logits_1
+        }
 
 
 # Factory function for creating model
-def get_model(num_classes: int = 2, **kwargs) -> ThreeCDNet:
+def get_model(num_classes: int = 2, **kwargs) -> Siam3DCDNet:
     """Factory function for creating 3DCDNet model.
 
     Args:
@@ -351,6 +296,6 @@ def get_model(num_classes: int = 2, **kwargs) -> ThreeCDNet:
         **kwargs: Additional arguments to pass to model constructor
 
     Returns:
-        ThreeCDNet model instance
+        Siam3DCDNet model instance
     """
-    return ThreeCDNet(num_classes=num_classes, **kwargs)
+    return Siam3DCDNet(num_classes=num_classes, **kwargs)
