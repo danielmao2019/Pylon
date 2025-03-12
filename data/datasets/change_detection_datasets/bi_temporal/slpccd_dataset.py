@@ -97,8 +97,8 @@ class SLPCCDDataset(BaseDataset):
                 parts = line.strip().split()
                 if len(parts) >= 2:
                     # Convert Windows-style paths to Unix-style
-                    pc_0_path = os.path.join(self.data_root, "test" if self.split == "test" else "train", parts[0].replace('\\', '/'))
-                    pc_1_path = os.path.join(self.data_root, "test" if self.split == "test" else "train", parts[1].replace('\\', '/'))
+                    pc_0_path = os.path.join(self.data_root, "test_seg" if self.split == "test" else "train_seg", parts[0].replace('\\', '/'))
+                    pc_1_path = os.path.join(self.data_root, "test_seg" if self.split == "test" else "train_seg", parts[1].replace('\\', '/'))
 
                     annotations.append({
                         'pc_0_filepath': pc_0_path,
