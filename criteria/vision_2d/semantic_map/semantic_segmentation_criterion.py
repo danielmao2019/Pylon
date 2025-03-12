@@ -1,52 +1,101 @@
 from typing import Tuple, Optional
 import torch
-import torchvision
-from criteria.wrappers import SingleTaskCriterion
+from criteria.wrappers import DenseClassificationCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
-class SemanticSegmentationCriterion(SingleTaskCriterion):
+class SemanticSegmentationCriterion(DenseClassificationCriterion):
+    """
+    Criterion for semantic segmentation tasks.
+    
+    This criterion computes the cross-entropy loss between predicted class logits
+    and ground truth labels for each pixel in the image.
+    
+    Attributes:
+        ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+        class_weights: Optional weights for each class (registered as buffer).
+        reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
+    """
 
     def __init__(
         self,
         ignore_index: Optional[int] = None,
         class_weights: Optional[Tuple[float, ...]] = None,
-        device: Optional[torch.device] = torch.device('cuda'),
+        reduction: str = 'mean'
     ) -> None:
-        super(SemanticSegmentationCriterion, self).__init__()
+        """
+        Initialize the criterion.
+        
+        Args:
+            ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+                         Defaults to 255 (common in semantic segmentation).
+            class_weights: Optional weights for each class to address class imbalance.
+                         Weights will be normalized to sum to 1 and must be non-negative.
+            reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
+        """
+        # Set default ignore_index before calling parent
         if ignore_index is None:
-            ignore_index = 255
-        
-        # Register class weights as a buffer if provided
-        self.register_buffer('class_weights', None)
-        if class_weights is not None:
-            assert type(class_weights) == tuple, f"{type(class_weights)=}"
-            assert all([type(elem) == float for elem in class_weights])
-            assert all([w >= 0 for w in class_weights]), "Class weights must be non-negative"
-            weights_tensor = torch.tensor(class_weights, dtype=torch.float32)
-            weights_tensor = weights_tensor / weights_tensor.sum()  # Normalize to sum to 1
-            self.register_buffer('class_weights', weights_tensor)
-        
-        # Create criterion
-        self.criterion = torch.nn.CrossEntropyLoss(
-            ignore_index=ignore_index, weight=self.class_weights, reduction='mean',
+            ignore_index = 255  # Common default for semantic segmentation
+            
+        super(SemanticSegmentationCriterion, self).__init__(
+            ignore_index=ignore_index,
+            class_weights=class_weights,
+            reduction=reduction
         )
 
-    def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
-        r"""
-        Args:
-            y_pred (torch.Tensor): a float32 tensor of shape (N, C, H, W) for predicted logits.
-            y_true (torch.Tensor): an int64 tensor of shape (N, H, W) for ground-truth mask.
-
-        Returns:
-            loss (torch.Tensor): a float32 scalar tensor for loss value.
+    def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
         """
-        # input checks
+        Validate inputs specific to semantic segmentation.
+        
+        Args:
+            y_pred: Predicted logits tensor of shape (N, C, H, W)
+            y_true: Ground truth labels tensor of shape (N, H, W)
+            
+        Raises:
+            ValueError: If validation fails
+        """
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
-        # match resolution
-        if y_pred.shape[-2:] != y_true.shape[-2:]:
-            y_pred = torchvision.transforms.Resize(
-                size=y_true.shape[-2:], interpolation=torchvision.transforms.functional.InterpolationMode.NEAREST,
-            )(y_pred)
-        # compute loss
-        return self.criterion(input=y_pred, target=y_true)
+
+    def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
+        """
+        Get mask for valid pixels (not equal to ignore_index).
+        
+        Args:
+            y_true: Ground truth labels tensor of shape (N, H, W)
+            
+        Returns:
+            Boolean tensor of shape (N, H, W), True for valid pixels
+        """
+        return y_true != self.ignore_index
+
+    def _compute_unreduced_loss(
+        self,
+        y_pred: torch.Tensor,
+        y_true: torch.Tensor,
+        valid_mask: torch.Tensor
+    ) -> torch.Tensor:
+        """
+        Compute cross-entropy loss for each sample in the batch.
+        
+        Args:
+            y_pred: Predicted logits tensor of shape (N, C, H, W)
+            y_true: Ground truth labels tensor of shape (N, H, W)
+            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
+            
+        Returns:
+            Loss tensor of shape (N,) containing per-sample losses
+        """
+        # Compute cross entropy loss with reduction='none' to get per-pixel losses
+        loss = torch.nn.functional.cross_entropy(
+            y_pred,
+            y_true,
+            weight=self.class_weights,
+            reduction='none'
+        )  # (N, H, W)
+        
+        # Apply valid mask
+        loss = loss * valid_mask
+        
+        # Compute mean loss per sample
+        valid_pixels_per_sample = valid_mask.sum(dim=(1, 2))  # (N,)
+        return loss.sum(dim=(1, 2)) / valid_pixels_per_sample.clamp(min=1)  # (N,)
