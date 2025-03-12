@@ -10,7 +10,7 @@ import torch.nn as nn
 import numpy as np
 from typing import Dict, List, Tuple, Any
 
-from models.change_detection.threecdnet.threecdnet_model import Siam3DCDNet
+from models.change_detection.siam3dcnet.siam3dcnet_model import Siam3DCDNet
 
 
 @pytest.fixture
@@ -207,7 +207,7 @@ def test_c3dnet_feature_extraction():
     end_points = [xyz_list, neighbor_idx_list, pool_idx_list, unsam_idx_list]
     
     # Create and test the C3Dnet
-    from models.change_detection.threecdnet.threecdnet_model import C3Dnet
+    from models.change_detection.siam3dcnet.siam3dcnet_model import C3Dnet
     model = C3Dnet(in_d=3, out_d=64)
     
     with torch.no_grad():

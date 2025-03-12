@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Dict, List, Tuple, Optional, Any
 
-from models.change_detection.threecdnet.modules import (
+from models.change_detection.siam3dcnet.modules import (
     Conv1d, Conv2d, LFA, gather_neighbour
 )
 
@@ -298,4 +298,4 @@ def get_model(num_classes: int = 2, **kwargs) -> Siam3DCDNet:
     Returns:
         Siam3DCDNet model instance
     """
-    return Siam3DCDNet(num_classes=num_classes, **kwargs)
+    return Siam3DCDNet(num_classes=num_classes, **kwargs) 
