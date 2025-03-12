@@ -1,29 +1,28 @@
 import torch
 import data
-import criteria
+import metrics
 from ._transforms_cfg import transforms_cfg
 
 
 config = {
-    'train_dataset': {
+    'val_dataset': {
         'class': data.datasets.Urb3DCDDataset,
         'args': {
             'data_root': "./data/datasets/soft_links/Urb3DCD",
-            'split': "train",
+            'split': "val",
         },
     },
-    'train_dataloader': {
+    'val_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 4,
             'num_workers': 4,
         },
     },
-    'criterion': {
-        'class': criteria.vision_3d.PointCloudSegmentationCriterion,
+    'metric': {
+        'class': metrics.vision_3d.PointCloudConfusionMatrix,
         'args': {
-            'ignore_index': -1,  # Urb3DCD dataset uses -1 as ignore index
-            'class_weights': None,  # Can be adjusted based on class distribution
+            'num_classes': 7,  # Urb3DCD dataset has 7 classes
         },
     },
 }

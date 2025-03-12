@@ -63,6 +63,5 @@ class PointCloudSegmentationCriterion(SingleTaskCriterion):
         """
         # Input checks
         check_point_cloud_segmentation(y_pred=y_pred, y_true=y_true)
-
         # Compute loss
         return self.criterion(input=y_pred, target=y_true)

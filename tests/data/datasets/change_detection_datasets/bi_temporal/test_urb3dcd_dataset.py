@@ -70,7 +70,6 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
         inputs = datapoint['inputs']
         labels = datapoint['labels']
         meta_info = datapoint['meta_info']
-
         # Validate point clouds
         assert isinstance(inputs, dict)
         assert set(inputs.keys()) == {'pc_0', 'pc_1'}
@@ -87,7 +86,6 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
 
         # Validate point count consistency
         _validate_point_count_consistency(inputs['pc_1'], labels['change_map'])
-
         # Validate meta info
         assert isinstance(meta_info, dict)
         assert 'point_idx_pc0' in meta_info
@@ -116,12 +114,10 @@ def test_fixed_samples_consistency() -> None:
         inputs1 = datapoint1['inputs']
         labels1 = datapoint1['labels']
         meta_info1 = datapoint1['meta_info']
-
         datapoint2 = dataset[0]
         inputs2 = datapoint2['inputs']
         labels2 = datapoint2['labels']
         meta_info2 = datapoint2['meta_info']
-
         # Test inputs consistency
         assert torch.allclose(inputs1['pc_0']['pos'], inputs2['pc_0']['pos'])
         assert torch.allclose(inputs1['pc_0']['feat'], inputs2['pc_0']['feat'])
