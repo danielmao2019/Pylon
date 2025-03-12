@@ -64,10 +64,10 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
         """
         valid_mask = y_true != self.ignore_value
         
-        # Validate that there are non-ignored pixels
+        # Check if all pixels are ignored
         if not valid_mask.any():
-            raise ValueError("All pixels in target are ignored")
-
+            raise AssertionError("All pixels in target are ignored")
+            
         return valid_mask
 
     def _compute_unreduced_loss(

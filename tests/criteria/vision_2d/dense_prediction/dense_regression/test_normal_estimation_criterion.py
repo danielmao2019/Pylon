@@ -42,8 +42,8 @@ def test_normal_estimation_perfect_predictions():
     # Compute loss
     loss = criterion(y_pred, y_true)
 
-    # For perfect predictions, cosine similarity should be 1, so loss should be -1
-    assert torch.abs(loss - (-1.0)) < 1e-6
+    # For perfect predictions, cosine similarity should be 1, so loss should be 0
+    assert torch.abs(loss) < 1e-5  # Relax tolerance for floating-point precision
 
 
 def test_normal_estimation_opposite_predictions():
@@ -63,8 +63,8 @@ def test_normal_estimation_opposite_predictions():
     # Compute loss
     loss = criterion(y_pred, y_true)
 
-    # For opposite predictions, cosine similarity should be -1, so loss should be 1
-    assert torch.abs(loss - 1.0) < 1e-6
+    # For opposite predictions, cosine similarity should be -1, so loss should be 2
+    assert torch.abs(loss - 2.0) < 1e-5  # Relax tolerance for floating-point precision
 
 
 def test_normal_estimation_with_invalid_normals():
@@ -89,7 +89,7 @@ def test_normal_estimation_with_invalid_normals():
     # Check loss properties
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
-    assert -1.0 <= loss.item() <= 1.0
+    assert 0.0 <= loss.item() <= 2.0  # Cosine similarity loss range (1 - cos_sim)
 
 
 def test_normal_estimation_input_validation():

@@ -59,8 +59,17 @@ class DepthEstimationCriterion(DenseRegressionCriterion):
             
         Returns:
             Boolean tensor of shape (N, H, W), True for valid depths
+            
+        Raises:
+            AssertionError: If all depths in the target are invalid
         """
-        return y_true > 0
+        valid_mask = y_true > 0
+        
+        # Check if all depths are invalid
+        if not valid_mask.any():
+            raise AssertionError("All depths in target are invalid")
+            
+        return valid_mask
 
     def _compute_unreduced_loss(
         self,

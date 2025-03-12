@@ -3,26 +3,26 @@ import torch
 from criteria.vision_3d.point_cloud_segmentation_criterion import PointCloudSegmentationCriterion
 
 
-@pytest.mark.parametrize("batch_size, num_points, num_classes, ignore_index, class_weights", [
+@pytest.mark.parametrize("batch_size, num_points, num_classes, ignore_value, class_weights", [
     (2, 1000, 4, None, None),  # Basic case
     (1, 500, 3, -1, (1.0, 2.0, 0.5)),  # With class weights
-    (3, 2000, 5, 0, None),  # With ignore index
+    (3, 2000, 5, 0, None),  # With ignore value
 ])
-def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes, ignore_index, class_weights):
+def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes, ignore_value, class_weights):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Initialize criterion and move to device
     criterion = PointCloudSegmentationCriterion(
-        ignore_index=ignore_index,
+        ignore_value=ignore_value,
         class_weights=class_weights,
     ).to(device)
     
     # Create dummy predictions and targets
     y_pred = torch.randn(batch_size * num_points, num_classes).to(device)
-    if ignore_index is not None:
+    if ignore_value is not None:
         # Add some ignored points
         y_true = torch.randint(
-            low=ignore_index, high=num_classes, 
+            low=ignore_value, high=num_classes, 
             size=(batch_size * num_points,)
         ).to(device)
     else:
