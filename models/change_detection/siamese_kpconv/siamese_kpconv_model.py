@@ -47,6 +47,8 @@ class SiameseKPConv(nn.Module):
     (Kernel Point Convolution) operator for point cloud processing, which defines 
     convolution kernels as a set of kernel points in space.
     
+    For detailed documentation, see: docs/models/change_detection/siamese_kpconv.md
+    
     Args:
         in_channels: Number of input features per point (e.g., 3 for RGB)
         out_channels: Number of output classes (typically 2 for binary change detection)

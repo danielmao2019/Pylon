@@ -2,7 +2,19 @@ import torch
 
 
 class SegNet(torch.nn.Module):
-    __doc__ = r"""Reference: https://github.com/Cranial-XIX/CAGrad/blob/main/cityscapes/model_segnet_split.py
+    __doc__ = r"""
+    SegNet architecture for semantic segmentation and multi-task learning.
+    
+    SegNet has an encoder-decoder structure with symmetric skip connections.
+    The encoder consists of convolutional layers followed by batch normalization,
+    ReLU activation, and max-pooling layers. The decoder uses max-unpooling to 
+    preserve spatial information during upsampling.
+    
+    Reference: https://github.com/Cranial-XIX/CAGrad/blob/main/cityscapes/model_segnet_split.py
+    
+    For usage in multi-task learning, see datasets documentation:
+    - docs/datasets/multi_task/city_scapes.md
+    - docs/datasets/multi_task/nyu_v2.md
     """
 
     def __init__(self, wide: bool, deep: bool):

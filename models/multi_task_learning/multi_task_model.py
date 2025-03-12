@@ -3,6 +3,21 @@ import torch
 
 
 class MultiTaskBaseModel(torch.nn.Module):
+    """
+    Base class for multi-task learning models with shared backbone and task-specific decoders.
+    
+    This flexible architecture allows for various multi-task learning approaches by combining
+    a shared feature extractor (backbone) with task-specific decoders. It optionally supports
+    attention mechanisms for task-specific feature refinement.
+    
+    For multi-task learning documentation, see the dataset-specific documentation files:
+    - docs/datasets/multi_task/celeb_a.md
+    - docs/datasets/multi_task/city_scapes.md
+    - docs/datasets/multi_task/multi_task_facial_landmark.md
+    - docs/datasets/multi_task/nyu_v2.md
+    - docs/datasets/multi_task/pascal_context.md
+    - docs/datasets/multi_task/multi_mnist.md
+    """
 
     def __init__(
         self,

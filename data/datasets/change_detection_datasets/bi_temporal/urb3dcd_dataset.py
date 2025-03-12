@@ -11,9 +11,10 @@ import utils
 
 
 class Urb3DCDDataset(BaseDataset):
-    """Combined class that supports both sphere and cylinder sampling within an area
-    during training and validation. Default sampling radius is 2m.
-    If sample_per_epoch is not specified, samples are placed on a 2m grid.
+    __doc__ = r"""
+    URB3DCD dataset for 3D point cloud change detection with multiple change types.
+    
+    For detailed documentation, see: docs/datasets/change_detection/bi_temporal/urb3dcd.md
     """
 
     INPUT_NAMES = ['pc_0', 'pc_1', 'kdtree_0', 'kdtree_1']

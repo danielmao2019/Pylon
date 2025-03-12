@@ -14,9 +14,27 @@ We maintain flexible API to models defined in existing framework like `mmdetecti
 
 The name of this library is inspired by the protoss structure [Pylon](https://starcraft.fandom.com/wiki/Pylon) from the video game StarCraft II. Pylon serves as a fundamental structure for protoss players as it generates power fields in which other protoss units and structures could be deployed.
 
-## Documentation
+## Documentation Structure
 
-All documentation can be found in the [docs](docs/) directory. For environment setup instructions, see [docs/environment_setup.md](docs/environment_setup.md).
+The documentation is organized as follows:
+
+- **General Documentation**
+  - [Environment Setup](environment_setup.md) - How to set up the development environment
+  - [Index](index.md) - Documentation navigation
+
+- **Models**
+  - Change Detection
+    - [I3PE Model](models/change_detection/i3pe.md)
+    - [Siamese KPConv Model](models/change_detection/siamese_kpconv.md)
+    - [FTN Model](models/change_detection/ftn.md)
+  
+- **Datasets**
+  - Change Detection
+    - [SLPCCD Dataset](datasets/change_detection/slpccd.md)
+  
+- **Optimizers**
+  - Multi-Task Optimizers
+    - [PCGrad Derivation](optimizers/multi_task_optimizers/pcgrad_derivation.md)
 
 ## Contributors
 
