@@ -62,6 +62,7 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
             raise ValueError("All pixels in target are ignored. Cannot compute loss.")
         return valid_mask
 
+    @torch.no_grad()
     def _compute_class_weights(
         self,
         y_true: torch.Tensor,
@@ -79,16 +80,15 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
         Returns:
             Tensor of class weights
         """
-        with torch.no_grad():
-            class_counts = torch.bincount(y_true[valid_mask].view(-1), minlength=num_classes).float()
-            total_pixels = valid_mask.sum()
-            # Compute inverse frequency weights
-            weights = (total_pixels - class_counts) / total_pixels
-            weights = torch.clamp(weights, min=0.0)  # Ensure non-negative
-            weights[class_counts == 0] = 0  # Zero weight for missing classes
-            if weights.sum() > 0:  # Normalize only if there are non-zero weights
-                weights = weights / weights.sum()
-            return weights
+        class_counts = torch.bincount(y_true[valid_mask].view(-1), minlength=num_classes).float()
+        total_pixels = valid_mask.sum()
+        # Compute inverse frequency weights
+        weights = (total_pixels - class_counts) / total_pixels
+        weights = torch.clamp(weights, min=0.0)  # Ensure non-negative
+        weights[class_counts == 0] = 0  # Zero weight for missing classes
+        if weights.sum() > 0:  # Normalize only if there are non-zero weights
+            weights = weights / weights.sum()
+        return weights
 
     def _compute_unreduced_loss(
         self,
