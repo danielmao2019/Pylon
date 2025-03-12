@@ -21,7 +21,6 @@ class SLPCCDDataset(BaseDataset):
     - Two point clouds (pc_0 for 2016, pc_1 for 2020)
     - Change labels
     - Point cloud indices for cross-cloud neighborhood search
-
     The dataset supports multi-resolution processing via hierarchical sampling.
     """
 
@@ -53,7 +52,6 @@ class SLPCCDDataset(BaseDataset):
         **kwargs
     ) -> None:
         """Initialize the SLPCCD dataset.
-
         Args:
             num_points: Number of points to sample from each point cloud.
             random_subsample: Whether to randomly subsample points.
@@ -68,14 +66,12 @@ class SLPCCDDataset(BaseDataset):
         self.hierarchy_levels = hierarchy_levels
         self.knn_size = knn_size
         self.cross_knn_size = cross_knn_size
-
         # Create grid samplers for hierarchical representation
         if self.use_hierarchy:
             self.grid_samplers = []
             for i in range(hierarchy_levels):
                 size = 0.1 * (2 ** i)  # Increasing grid size for each level
                 self.grid_samplers.append(GridSampling3D(size=size, mode="mean"))
-
         super(SLPCCDDataset, self).__init__(*args, **kwargs)
 
     def _init_annotations(self) -> None:
@@ -104,7 +100,6 @@ class SLPCCDDataset(BaseDataset):
                         'pc_0_filepath': pc_0_path,
                         'pc_1_filepath': pc_1_path
                     })
-
         self.annotations = annotations
 
     def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
@@ -119,12 +114,10 @@ class SLPCCDDataset(BaseDataset):
         # Center the point cloud
         centroid = torch.mean(pc, dim=0)
         pc = pc - centroid
-
         # Scale to unit sphere
         max_dist = torch.max(torch.norm(pc, dim=1))
         if max_dist > 0:
             pc = pc / max_dist
-
         return pc
 
     def _random_subsample_point_cloud(self, pc: torch.Tensor, n_points: int) -> torch.Tensor:
@@ -140,7 +133,6 @@ class SLPCCDDataset(BaseDataset):
         if pc.shape[0] == 0:
             # Empty point cloud, return zeros
             return torch.zeros((n_points, pc.shape[1]), dtype=pc.dtype, device=pc.device)
-
         if pc.shape[0] < n_points:
             # Too few points, pad with duplicates
             indices = torch.randint(0, pc.shape[0], (n_points - pc.shape[0],), device=pc.device)
@@ -174,28 +166,23 @@ class SLPCCDDataset(BaseDataset):
 
     def _compute_cross_knn(self, pc1: torch.Tensor, pc2: torch.Tensor, k: int) -> torch.Tensor:
         """Compute k-nearest neighbors in pc2 for each point in pc1.
-
         Args:
             pc1: First point cloud tensor of shape (N, 3)
             pc2: Second point cloud tensor of shape (M, 3)
             k: Number of neighbors
-
         Returns:
             neighbors_idx: Indices of k-nearest neighbors in pc2 for each point in pc1 (N, k)
         """
         kdtree = KDTree(pc2.cpu().numpy())
         distances, neighbors = kdtree.query(pc1.cpu().numpy(), k=k)
-
         return torch.from_numpy(neighbors.astype(np.int64))
 
     def _build_hierarchy(self, pc_dict: Dict[str, torch.Tensor]) -> Dict[str, List[torch.Tensor]]:
         """Build hierarchical representation of point cloud.
-
         Args:
             pc_dict: Dictionary containing point cloud data
                 - pos: Point positions (N, 3)
                 - feat: Point features (N, D)
-
         Returns:
             Dictionary with hierarchical representation:
                 - xyz: List of point positions at each level [(N_0, 3), (N_1, 3), ...]
@@ -210,12 +197,10 @@ class SLPCCDDataset(BaseDataset):
             'pool_idx': [],
             'unsam_idx': []
         }
-
         current_data = {
             'pos': pc_dict['pos'],
             'feat': pc_dict['feat']
         }
-
         # Build hierarchy levels
         for i in range(self.hierarchy_levels - 1):
             # Apply grid sampling to get the next level
