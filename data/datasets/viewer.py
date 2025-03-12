@@ -14,13 +14,26 @@ from data.datasets.pointcloud_utils import (
     tensor_to_point_cloud
 )
 
+# Print debug information to help with path issues
+print(f"Current working directory: {os.getcwd()}")
+print(f"Repository root (estimated): {os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))}")
+print(f"Python sys.path: {sys.path}")
+
 # Find all available dataset configuration files
 def get_available_datasets():
     """Get a list of all available dataset configurations."""
     import importlib.util
     import os
 
-    dataset_dir = "configs/common/datasets/change_detection/train"
+    # Adjust the path to be relative to the repository root
+    # Since we're running from data/datasets, we need to go up two levels
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+    dataset_dir = os.path.join(repo_root, "configs/common/datasets/change_detection/train")
+    
+    if not os.path.exists(dataset_dir):
+        print(f"Warning: Dataset directory not found at {dataset_dir}")
+        return {}
+        
     dataset_configs = {}
     
     for file in os.listdir(dataset_dir):
@@ -45,6 +58,21 @@ def get_available_datasets():
 
 # Get all available datasets
 AVAILABLE_DATASETS = get_available_datasets()
+
+# Check if we found any datasets
+if not AVAILABLE_DATASETS:
+    print("Warning: No datasets were found. Adding a fallback dataset for testing.")
+    # Add a fallback test dataset for UI testing
+    AVAILABLE_DATASETS = {
+        "test_dataset": {
+            "train_dataset": {
+                "class": "TestDataset",
+                "args": {
+                    "data_root": "./",
+                }
+            }
+        }
+    }
 
 # Set a default dataset name (first in the list or fallback to urb3dcd)
 DEFAULT_DATASET = next(iter(AVAILABLE_DATASETS.keys())) if AVAILABLE_DATASETS else "urb3dcd"
@@ -268,58 +296,88 @@ def load_dataset(dataset_name):
     # Load dataset configuration
     dataset_cfg = AVAILABLE_DATASETS[dataset_name]['train_dataset']
     
-    # Adjust data_root path to be relative to the current directory
-    if 'data_root' in dataset_cfg['args']:
-        dataset_cfg['args']['data_root'] = os.path.relpath(
-            dataset_cfg['args']['data_root'], 
-            start="./data/datasets"
+    # Handle test dataset for UI testing
+    if dataset_cfg.get('class') == 'TestDataset':
+        # Return a placeholder for testing
+        return (
+            {'name': dataset_name, 'class_labels': {0: 'No Change', 1: 'Change'}},
+            [],
+            "Total samples: 0 (Test Dataset)",
+            [
+                html.H4("Test Dataset", style={'margin-top': '30px'}),
+                html.P("This is a placeholder for testing the UI when no real datasets are found.")
+            ],
+            0
         )
     
-    # Get transforms configuration
-    transforms_cfg = dataset_cfg['args'].get(
-        'transforms_cfg', 
-        {'class': data.transforms.Compose, 'args': {'transforms': []}}
-    )
+    # Adjust data_root path to be relative to the repository root
+    if 'data_root' in dataset_cfg['args']:
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+        # Make the path absolute by joining with repo_root if it's a relative path
+        data_root = dataset_cfg['args']['data_root']
+        if not os.path.isabs(data_root):
+            data_root = os.path.join(repo_root, data_root)
+        dataset_cfg['args']['data_root'] = data_root
     
-    # Build dataset
-    dataset = utils.builders.build_from_config(dataset_cfg)
-    current_dataset = dataset
-    current_transforms_cfg = transforms_cfg
-    
-    # Create transform checkboxes
-    transform_checkboxes = create_transform_checkboxes(transforms_cfg)
-    
-    # Check if the dataset has specific attributes for visualization
-    has_class_labels = hasattr(dataset, 'INV_OBJECT_LABEL') or hasattr(dataset, 'CLASS_LABELS')
-    class_labels = {}
-    
-    if hasattr(dataset, 'INV_OBJECT_LABEL'):
-        class_labels = dataset.INV_OBJECT_LABEL
-    elif hasattr(dataset, 'CLASS_LABELS'):
-        class_labels = {v: k for k, v in dataset.CLASS_LABELS.items()}
-    
-    # Create dataset info display
-    dataset_info = [
-        html.H4("Dataset Information:", style={'margin-top': '30px'}),
-        html.P(f"Dataset Type: {dataset.__class__.__name__}"),
-    ]
-    
-    if has_class_labels:
-        dataset_info.extend([
-            html.P("Change Classes:", style={'font-weight': 'bold'}),
-            html.Div([
-                html.P(f"{class_id}: {class_name}", style={'margin-left': '20px'})
-                for class_id, class_name in class_labels.items()
+    try:
+        # Get transforms configuration
+        transforms_cfg = dataset_cfg['args'].get(
+            'transforms_cfg', 
+            {'class': data.transforms.Compose, 'args': {'transforms': []}}
+        )
+        
+        # Build dataset
+        dataset = utils.builders.build_from_config(dataset_cfg)
+        current_dataset = dataset
+        current_transforms_cfg = transforms_cfg
+        
+        # Create transform checkboxes
+        transform_checkboxes = create_transform_checkboxes(transforms_cfg)
+        
+        # Check if the dataset has specific attributes for visualization
+        has_class_labels = hasattr(dataset, 'INV_OBJECT_LABEL') or hasattr(dataset, 'CLASS_LABELS')
+        class_labels = {}
+        
+        if hasattr(dataset, 'INV_OBJECT_LABEL'):
+            class_labels = dataset.INV_OBJECT_LABEL
+        elif hasattr(dataset, 'CLASS_LABELS'):
+            class_labels = {v: k for k, v in dataset.CLASS_LABELS.items()}
+        
+        # Create dataset info display
+        dataset_info = [
+            html.H4("Dataset Information:", style={'margin-top': '30px'}),
+            html.P(f"Dataset Type: {dataset.__class__.__name__}"),
+        ]
+        
+        if has_class_labels:
+            dataset_info.extend([
+                html.P("Change Classes:", style={'font-weight': 'bold'}),
+                html.Div([
+                    html.P(f"{class_id}: {class_name}", style={'margin-left': '20px'})
+                    for class_id, class_name in class_labels.items()
+                ])
             ])
-        ])
-    
-    return (
-        {'name': dataset_name, 'class_labels': class_labels},
-        transform_checkboxes,
-        f"Total samples: {len(dataset)}",
-        dataset_info,
-        0  # Reset index to 0
-    )
+        
+        return (
+            {'name': dataset_name, 'class_labels': class_labels},
+            transform_checkboxes,
+            f"Total samples: {len(dataset)}",
+            dataset_info,
+            0  # Reset index to 0
+        )
+    except Exception as e:
+        # Log the error and return an error message
+        print(f"Error loading dataset {dataset_name}: {e}")
+        return (
+            {'name': None, 'class_labels': {}},
+            [],
+            "Total samples: 0",
+            [
+                html.H4("Error Loading Dataset", style={'color': 'red', 'margin-top': '30px'}),
+                html.P(f"Error: {str(e)}")
+            ],
+            0
+        )
 
 @app.callback(
     Output('current-idx', 'data'),
@@ -404,40 +462,65 @@ def update_datapoint(current_idx, selected_transform_indices, point_size, point_
     if current_dataset is None or dataset_info['name'] is None:
         return html.Div(html.H3("No dataset loaded. Please select a dataset from the dropdown."))
     
+    # Handle test dataset case
+    if dataset_info['name'] == 'test_dataset':
+        return html.Div([
+            html.H2("Test Dataset Viewer", style={'text-align': 'center'}),
+            html.P("This is a placeholder UI for testing when no real datasets are available."),
+            html.P("Please ensure your config directories are correctly set up and accessible."),
+            html.Div(style={'background-color': '#f8f9fa', 'padding': '20px', 'border-radius': '10px', 'margin-top': '20px'}, children=[
+                html.H3("Troubleshooting Tips:"),
+                html.Ul([
+                    html.Li("Check that the repository structure is correct"),
+                    html.Li("Verify that 'configs/common/datasets/change_detection/train' exists in your repository"),
+                    html.Li("Make sure dataset config files have the expected format"),
+                    html.Li("Run the script from the repository root instead of the data/datasets directory")
+                ])
+            ])
+        ])
+    
     selected_transform_indices = [i[0] for i in selected_transform_indices if i]
 
-    # Load datapoint
-    inputs, labels, meta_info = current_dataset._load_datapoint(current_idx)
-    datapoint = {
-        'inputs': inputs,
-        'labels': labels,
-        'meta_info': meta_info,
-    }
-
-    # Filter transforms by selected indices
-    if current_transforms_cfg and 'args' in current_transforms_cfg and 'transforms' in current_transforms_cfg['args']:
-        filtered_transforms_cfg = {
-            'class': data.transforms.Compose,
-            'args': {
-                'transforms': [
-                    transform for i, transform in enumerate(current_transforms_cfg['args']['transforms'])
-                    if i in selected_transform_indices
-                ],
-            },
+    try:
+        # Load datapoint
+        inputs, labels, meta_info = current_dataset._load_datapoint(current_idx)
+        datapoint = {
+            'inputs': inputs,
+            'labels': labels,
+            'meta_info': meta_info,
         }
 
-        # Build the transformation pipeline with only selected transforms
-        active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
-        datapoint = active_transforms(datapoint)
+        # Filter transforms by selected indices
+        if current_transforms_cfg and 'args' in current_transforms_cfg and 'transforms' in current_transforms_cfg['args']:
+            filtered_transforms_cfg = {
+                'class': data.transforms.Compose,
+                'args': {
+                    'transforms': [
+                        transform for i, transform in enumerate(current_transforms_cfg['args']['transforms'])
+                        if i in selected_transform_indices
+                    ],
+                },
+            }
 
-    # Get class labels
-    class_labels = dataset_info['class_labels']
-    
-    # Check if we're dealing with a 3D dataset
-    if is_3d_dataset(datapoint):
-        return display_3d_datapoint(datapoint, point_size, point_opacity, class_labels)
-    else:
-        return display_2d_datapoint(datapoint)
+            # Build the transformation pipeline with only selected transforms
+            active_transforms = utils.builders.build_from_config(filtered_transforms_cfg)
+            datapoint = active_transforms(datapoint)
+
+        # Get class labels
+        class_labels = dataset_info['class_labels']
+        
+        # Check if we're dealing with a 3D dataset
+        if is_3d_dataset(datapoint):
+            return display_3d_datapoint(datapoint, point_size, point_opacity, class_labels)
+        else:
+            return display_2d_datapoint(datapoint)
+    except Exception as e:
+        # Handle errors that might occur during datapoint loading or processing
+        return html.Div([
+            html.H3("Error Loading Datapoint", style={'color': 'red'}),
+            html.P(f"An error occurred: {str(e)}"),
+            html.P("This could be due to missing data, incorrect paths, or incompatible data formats.")
+        ])
 
 def display_2d_datapoint(datapoint):
     """Display a 2D image datapoint."""
