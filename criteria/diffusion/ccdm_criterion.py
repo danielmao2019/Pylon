@@ -4,7 +4,7 @@ from typing import Dict
 import torch
 from ..base_criterion import BaseCriterion
 from utils.input_checks import check_semantic_segmentation_pred, check_semantic_segmentation_true
-from utils.semantic_segmentation import to_one_hot_encoding
+from utils.semantic_segmentation import to_one_hot
 
 
 class CCDMCriterion(BaseCriterion):
@@ -27,7 +27,7 @@ class CCDMCriterion(BaseCriterion):
         assert diffused_mask.dtype == original_mask.dtype == time.dtype == torch.int64, f"{diffused_mask.dtype=}, {original_mask.dtype=}, {time.dtype=}"
         assert 0 <= time.min() <= time.max() < self.num_steps, f"{time=}, {self.num_steps=}"
         # transform original mask into one-hot encoding
-        original_mask = to_one_hot_encoding(original_mask, num_classes=self.num_classes, ignore_index=self.ignore_index)
+        original_mask = to_one_hot(original_mask, num_classes=self.num_classes)
         assert diffused_mask.shape == original_mask.shape, f"{diffused_mask.shape=}, {original_mask.shape=}"
         assert diffused_mask.shape[1] == original_mask.shape[1] == self.num_classes, f"{diffused_mask.shape=}, {original_mask.shape=}"
         # compute theta post

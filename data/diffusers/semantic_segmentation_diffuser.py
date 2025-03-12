@@ -1,7 +1,7 @@
 from .base_diffuser import BaseDiffuser
 from typing import Tuple, List
 import torch
-from utils.semantic_segmentation import to_one_hot_encoding
+from utils.semantic_segmentation import to_one_hot
 
 
 class SemanticSegmentationDiffuser(BaseDiffuser):
@@ -41,7 +41,7 @@ class SemanticSegmentationDiffuser(BaseDiffuser):
         # sample time step
         time = torch.randint(low=0, high=self.num_steps, size=(), dtype=torch.int64)
         # initialize probability distribution from mask
-        probs = to_one_hot_encoding(mask, num_classes=self.num_classes, ignore_index=self.ignore_index).type(torch.float32)
+        probs = to_one_hot(mask, num_classes=self.num_classes)
         # diffuse probability distribution
         alpha_cumprod = self.alphas_cumprod[time]
         probs = alpha_cumprod * probs + (1 - alpha_cumprod) / self.num_classes
