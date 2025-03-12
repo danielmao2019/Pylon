@@ -76,5 +76,8 @@ class DiceLoss(DenseClassificationCriterion):
         # Compute Dice coefficient
         dice = (2 * intersection) / (cardinality_pred + cardinality_true).clamp(min=1e-6)
         
+        # Assert that dice coefficient is within valid range
+        assert torch.all((0.0 <= dice) & (dice <= 1.0)), "Dice coefficient must be between 0 and 1"
+        
         # Return Dice loss
         return 1 - dice
