@@ -62,7 +62,7 @@ config = {
         },
     },
     'criterion': {
-        'class': criteria.vision_2d.ChangeStarCriterion,
+        'class': criteria.vision_2d.change_detection.ChangeStarCriterion,
         'args': {},
     },
 }
