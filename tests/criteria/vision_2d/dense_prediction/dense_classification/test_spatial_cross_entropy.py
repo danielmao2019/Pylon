@@ -40,114 +40,72 @@ def test_spatial_cross_entropy_basic(sample_data):
     assert loss.item() > 0
 
 
-def test_spatial_cross_entropy_vs_pytorch(sample_data):
+@pytest.mark.parametrize("use_class_weights,use_ignore_index", [
+    (False, False),  # Basic comparison with PyTorch
+    (True, False),   # With class weights
+    (False, True),   # With ignore_index
+    (True, True),    # With both class weights and ignore_index
+])
+def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_weights, use_ignore_index):
     """
-    Test that our implementation matches PyTorch's cross entropy when using the same parameters.
-    """
-    y_pred, y_true = sample_data
-    device = y_pred.device
-    num_classes = y_pred.size(1)
-
-    # Initialize our criterion
-    criterion = SpatialCrossEntropyCriterion(num_classes=num_classes).to(device)
-
-    # Compute our loss
-    our_loss = criterion(y_pred, y_true)
-
-    # Compute PyTorch's loss
-    pytorch_loss = F.cross_entropy(y_pred, y_true, reduction='mean')
-
-    # Losses should be close
-    assert torch.isclose(our_loss, pytorch_loss, rtol=1e-4).item()
-
-
-def test_spatial_cross_entropy_with_class_weights(sample_data):
-    """
-    Test that our implementation matches PyTorch's cross entropy when using class weights.
+    Test that our implementation matches PyTorch's cross entropy with various parameter combinations.
+    
+    Args:
+        sample_data: Fixture providing input data
+        use_class_weights: Whether to test with class weights
+        use_ignore_index: Whether to test with ignore_index
     """
     y_pred, y_true = sample_data
     device = y_pred.device
     num_classes = y_pred.size(1)
-
-    # Create unequal class weights
-    class_weights = torch.tensor([0.2, 0.3, 0.5], device=device)
-
-    # Initialize our criterion with weights
-    criterion = SpatialCrossEntropyCriterion(num_classes=num_classes, class_weights=class_weights).to(device)
-
+    ignore_index = 255 if use_ignore_index else None
+    
+    # Create class weights if needed
+    class_weights = torch.tensor([0.2, 0.3, 0.5], device=device) if use_class_weights else None
+    
+    # Prepare test data
+    if use_ignore_index:
+        y_true_modified = y_true.clone()
+        y_true_modified[0, 0, 0] = ignore_index  # Set one pixel to ignore_index
+    else:
+        y_true_modified = y_true
+    
+    # Initialize our criterion with appropriate parameters
+    kwargs = {}
+    if class_weights is not None:
+        kwargs['class_weights'] = class_weights
+    if ignore_index is not None:
+        kwargs['ignore_index'] = ignore_index
+    
+    criterion = SpatialCrossEntropyCriterion(num_classes=num_classes, **kwargs).to(device)
+    
     # Compute our loss
-    our_loss = criterion(y_pred, y_true)
-
-    # Compute PyTorch's loss with weights
-    pytorch_loss = F.cross_entropy(y_pred, y_true, weight=class_weights, reduction='mean')
-
+    our_loss = criterion(y_pred, y_true_modified)
+    
+    # Compute PyTorch's loss with the same parameters
+    pytorch_kwargs = {}
+    if class_weights is not None:
+        pytorch_kwargs['weight'] = class_weights
+    if ignore_index is not None:
+        pytorch_kwargs['ignore_index'] = ignore_index
+    
+    pytorch_loss = F.cross_entropy(y_pred, y_true_modified, reduction='mean', **pytorch_kwargs)
+    
     # Losses should be close
-    assert torch.isclose(our_loss, pytorch_loss, rtol=1e-4).item()
-
-
-def test_spatial_cross_entropy_with_ignore_index(sample_data):
-    """
-    Test that our implementation matches PyTorch's cross entropy when using ignore_index.
-    """
-    y_pred, y_true = sample_data
-    device = y_pred.device
-    num_classes = y_pred.size(1)
-    ignore_index = 255
-
-    # Create a version with some ignored pixels
-    y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0, 0] = ignore_index
-
-    # Initialize our criterion with ignore_index
-    criterion = SpatialCrossEntropyCriterion(num_classes=num_classes, ignore_index=ignore_index).to(device)
-
-    # Compute our loss
-    our_loss = criterion(y_pred, y_true_ignored)
-
-    # Compute PyTorch's loss with ignore_index
-    pytorch_loss = F.cross_entropy(y_pred, y_true_ignored, ignore_index=ignore_index, reduction='mean')
-
-    # Losses should be close
-    assert torch.isclose(our_loss, pytorch_loss, rtol=1e-4).item()
-
-
-def test_spatial_cross_entropy_with_weights_and_ignore(sample_data):
-    """
-    Test that our implementation matches PyTorch's cross entropy when using both class weights and ignore_index.
-    """
-    y_pred, y_true = sample_data
-    device = y_pred.device
-    num_classes = y_pred.size(1)
-    ignore_index = 255
-
-    # Create unequal class weights
-    class_weights = torch.tensor([0.2, 0.3, 0.5], device=device)
-
-    # Create a version with some ignored pixels
-    y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0, 0] = ignore_index
-
-    # Initialize our criterion with weights and ignore_index
-    criterion = SpatialCrossEntropyCriterion(
-        num_classes=num_classes,
-        class_weights=class_weights,
-        ignore_index=ignore_index
-    ).to(device)
-
-    # Compute our loss
-    our_loss = criterion(y_pred, y_true_ignored)
-
-    # Compute PyTorch's loss with weights and ignore_index
-    pytorch_loss = F.cross_entropy(
-        y_pred,
-        y_true_ignored,
-        weight=class_weights,
-        ignore_index=ignore_index,
-        reduction='mean'
-    )
-
-    # Losses should be close
-    assert torch.isclose(our_loss, pytorch_loss, rtol=1e-4).item()
+    assert torch.isclose(our_loss, pytorch_loss, rtol=1e-4).item(), f"Loss mismatch: ours={our_loss.item()}, pytorch={pytorch_loss.item()}"
+    
+    # Add descriptive test message based on parameters
+    test_description = "Testing SpatialCrossEntropyCriterion "
+    if use_class_weights and use_ignore_index:
+        test_description += "with both class weights and ignore_index"
+    elif use_class_weights:
+        test_description += "with class weights"
+    elif use_ignore_index:
+        test_description += "with ignore_index"
+    else:
+        test_description += "base functionality"
+    
+    print(test_description)  # This will show in verbose test output
 
 
 def test_spatial_cross_entropy_all_ignored(sample_data):
