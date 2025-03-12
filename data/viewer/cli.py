@@ -13,7 +13,7 @@ repo_root = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__fi
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
-from data.viewer import run_viewer
+from data.viewer.viewer import DatasetViewer
 
 
 def main():
@@ -30,8 +30,9 @@ def main():
     print(f"Repository root (estimated): {repo_root}")
     print(f"Python sys.path: {sys.path}")
     
-    # Run the viewer
-    run_viewer(debug=args.debug, host=args.host, port=args.port)
+    # Create and run the viewer
+    viewer = DatasetViewer()
+    viewer.run(debug=args.debug, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
