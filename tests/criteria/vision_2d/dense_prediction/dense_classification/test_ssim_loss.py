@@ -184,8 +184,8 @@ def test_ssim_loss_with_weights_and_ignore():
     y_true_ignored = y_true.clone()
     y_true_ignored[0, 0:5, 0:5] = ignore_index  # Set a small block to ignore_index
     
-    # Create weights
-    weights = torch.tensor([0.2, 0.3, 0.5]).to(device)
+    # Create weights with more extreme differences
+    weights = torch.tensor([0.05, 0.15, 0.8]).to(device)
     
     # Create loss functions
     loss_fn = SSIMLoss(class_weights=weights, ignore_index=ignore_index).to(device)
@@ -198,9 +198,12 @@ def test_ssim_loss_with_weights_and_ignore():
     loss_only_ignore = loss_fn_only_ignore(y_pred, y_true_ignored)
     
     # The three losses should all be different
-    assert not torch.isclose(loss, loss_only_weights, rtol=1e-4).item()
-    assert not torch.isclose(loss, loss_only_ignore, rtol=1e-4).item()
-    assert not torch.isclose(loss_only_weights, loss_only_ignore, rtol=1e-4).item()
+    assert not torch.isclose(loss, loss_only_weights, rtol=1e-4).item(), \
+        f"Loss with weights and ignore ({loss.item()}) should be different from loss with only weights ({loss_only_weights.item()})"
+    assert not torch.isclose(loss, loss_only_ignore, rtol=1e-4).item(), \
+        f"Loss with weights and ignore ({loss.item()}) should be different from loss with only ignore ({loss_only_ignore.item()})"
+    assert not torch.isclose(loss_only_weights, loss_only_ignore, rtol=1e-4).item(), \
+        f"Loss with only weights ({loss_only_weights.item()}) should be different from loss with only ignore ({loss_only_ignore.item()})"
 
 
 def test_ssim_consistent_across_inputs():

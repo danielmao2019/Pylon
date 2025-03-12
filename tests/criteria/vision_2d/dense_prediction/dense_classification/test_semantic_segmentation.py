@@ -124,14 +124,14 @@ def test_semantic_segmentation_all_ignored(sample_data):
     num_classes = y_pred.size(1)
     ignore_index = 255
 
-    # Create target with all pixels ignored
-    y_true = torch.full_like(y_pred[:, 0], fill_value=ignore_index)
+    # Create target with all pixels ignored - ensure it's int64
+    y_true = torch.full_like(y_pred[:, 0], fill_value=ignore_index, dtype=torch.int64)
 
     # Initialize criterion
     criterion = SemanticSegmentationCriterion(ignore_index=ignore_index).to(device)
 
     # Loss computation should raise an error when all pixels are ignored
-    with pytest.raises(ValueError, match="No valid pixels found"):
+    with pytest.raises(ValueError, match="All pixels in target are ignored"):
         criterion(y_pred, y_true)
 
 
