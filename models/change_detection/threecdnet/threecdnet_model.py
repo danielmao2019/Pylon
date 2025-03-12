@@ -5,7 +5,7 @@ This is an implementation of the 3DCDNet paper:
 https://ieeexplore.ieee.org/document/9879908
 
 Original code repository:
-https://github.com/PointCloudYC/3DCDNet
+https://github.com/wangle53/3DCDNet
 """
 
 import torch
@@ -13,362 +13,172 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Dict, List, Tuple, Optional, Any
 
+from models.change_detection.threecdnet.modules import (
+    Conv1d, Conv2d, LocalFeatureAggregation, PointSetDifferenceModule
+)
 
-class MLP(nn.Module):
-    """Simple multi-layer perceptron module."""
+
+class C3DNet(nn.Module):
+    """Core 3D Change Detection Network.
     
-    def __init__(self, in_dim: int, hidden_dims: List[int], bn: bool = True, 
-                 dropout: Optional[float] = None, activation: Optional[str] = "relu"):
-        """Initialize MLP.
+    This is the single-branch network used within the Siamese architecture.
+    """
+    
+    def __init__(self, in_dim: int, out_dim: int):
+        """Initialize C3DNet.
         
         Args:
-            in_dim: Input dimension
-            hidden_dims: List of hidden dimensions
-            bn: Whether to use batch normalization
-            dropout: Dropout rate (if None, no dropout)
-            activation: Activation function to use
+            in_dim: Input dimension (e.g., 3 for XYZ coordinates)
+            out_dim: Output dimension
         """
-        super(MLP, self).__init__()
+        super(C3DNet, self).__init__()
         
-        self.layers = nn.ModuleList()
-        dims = [in_dim] + hidden_dims
+        self.in_dim = in_dim
+        self.out_dim = out_dim
         
-        for i in range(len(dims) - 1):
-            self.layers.append(nn.Linear(dims[i], dims[i+1]))
-            
-            if bn and i < len(dims) - 2:
-                self.layers.append(nn.BatchNorm1d(dims[i+1]))
+        # Initial feature transformation
+        self.fc0 = Conv1d(self.in_dim, 64, kernel_size=1, bn=True)
+        
+        # Encoder blocks
+        self.block1 = LocalFeatureAggregation(64, 128)
+        self.block2 = LocalFeatureAggregation(128, 256)
+        self.block3 = LocalFeatureAggregation(256, 512)
+        self.block4 = LocalFeatureAggregation(512, 1024)
+        
+        # Bottleneck
+        self.dt = Conv2d(1024, 1024, kernel_size=(1, 1), bn=True)
+        
+        # Decoder blocks with skip connections
+        self.d4 = Conv2d(1024*2, 512, kernel_size=(1, 1), bn=True)
+        self.d3 = Conv2d(512*2, 256, kernel_size=(1, 1), bn=True)
+        self.d2 = Conv2d(256*2, 128, kernel_size=(1, 1), bn=True)
+        self.d1 = Conv2d(128*2, 64, kernel_size=(1, 1), bn=True)
+        
+        # Final output layer
+        self.d0 = Conv2d(64, self.out_dim, kernel_size=(1, 1), bn=True)
+    
+    def forward(self, end_points: List):
+        """Forward pass of the C3DNet.
+        
+        Args:
+            end_points: A list containing:
+                - xyz: List of point coordinates at different levels
+                - neigh_idx: List of neighbor indices at different levels
+                - pool_idx: List of pooling indices between levels
+                - unsam_idx: List of upsampling indices between levels
                 
-            if activation and i < len(dims) - 2:
-                if activation == "relu":
-                    self.layers.append(nn.ReLU())
-                elif activation == "leaky_relu":
-                    self.layers.append(nn.LeakyReLU(0.1))
-                
-            if dropout and i < len(dims) - 2:
-                self.layers.append(nn.Dropout(dropout))
-                
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
+        Returns:
+            Output feature tensor of shape (B, out_dim, N, 1)
+        """
+        xyz, neigh_idx, pool_idx, unsam_idx = end_points
+        
+        # Encoder
+        # Initial feature embedding
+        out0 = self.fc0(xyz[0].permute(0, 2, 1))  # B, C, N
+        out0 = out0.unsqueeze(dim=3)  # B, C, N, 1
+        
+        # Hierarchical feature extraction
+        out1 = self.block1(out0, neigh_idx[0])
+        out1p = self.random_sample(out1, pool_idx[0])
+        
+        out2 = self.block2(out1p, neigh_idx[1])
+        out2p = self.random_sample(out2, pool_idx[1])
+        
+        out3 = self.block3(out2p, neigh_idx[2])
+        out3p = self.random_sample(out3, pool_idx[2])
+        
+        out4 = self.block4(out3p, neigh_idx[3])
+        out4p = self.random_sample(out4, pool_idx[3])
+        
+        # Bottleneck
+        out = self.dt(out4p)
+        
+        # Decoder with skip connections
+        out = torch.cat((out, out4p), 1)
+        out = self.d4(out)
+        out = self.nearest_interpolation(out, unsam_idx[3])
+        
+        out = torch.cat((out, out3p), 1)
+        out = self.d3(out)
+        out = self.nearest_interpolation(out, unsam_idx[2])
+        
+        out = torch.cat((out, out2p), 1)
+        out = self.d2(out)
+        out = self.nearest_interpolation(out, unsam_idx[1])
+        
+        out = torch.cat((out, out1p), 1)
+        out = self.d1(out)
+        out = self.nearest_interpolation(out, unsam_idx[0])
+        
+        # Final output
+        out = self.d0(out)
+        
+        return out
+    
+    @staticmethod
+    def random_sample(feature: torch.Tensor, pool_idx: torch.Tensor) -> torch.Tensor:
+        """Sample features based on pooling indices.
         
         Args:
-            x: Input tensor of shape (B, N, in_dim)
+            feature: Feature tensor of shape (B, C, N, 1)
+            pool_idx: Pooling indices of shape (B, N', K)
             
         Returns:
-            Output tensor of shape (B, N, hidden_dims[-1])
+            Sampled features of shape (B, C, N', 1)
         """
-        for layer in self.layers:
-            if isinstance(layer, nn.BatchNorm1d):
-                # BatchNorm1d expects (B, C, N) format
-                shape = x.shape
-                x = layer(x.transpose(1, 2)).transpose(1, 2)
-            else:
-                x = layer(x)
-        return x
-
-
-class PointNetSAModule(nn.Module):
-    """PointNet Set Abstraction Module."""
+        feature = feature.squeeze(dim=3)  # B, C, N
+        batch_size, feature_dim, _ = feature.shape
+        k = pool_idx.shape[-1]
+        
+        # Reshape pooling indices
+        pool_idx = pool_idx.reshape(batch_size, -1)  # B, N'*K
+        
+        # Gather features
+        pool_features = torch.gather(
+            feature, 
+            2, 
+            pool_idx.unsqueeze(1).repeat(1, feature_dim, 1)  # B, C, N'*K
+        )
+        
+        # Reshape to original dimensions and max pool
+        pool_features = pool_features.reshape(batch_size, feature_dim, -1, k)  # B, C, N', K
+        pool_features = pool_features.max(dim=3, keepdim=True)[0]  # B, C, N', 1
+        
+        return pool_features
     
-    def __init__(self, mlp_dims: List[int], bn: bool = True):
-        """Initialize PointNet SA module.
+    @staticmethod
+    def nearest_interpolation(feature: torch.Tensor, interp_idx: torch.Tensor) -> torch.Tensor:
+        """Interpolate features based on upsampling indices.
         
         Args:
-            mlp_dims: List of dimensions for MLP
-            bn: Whether to use batch normalization
-        """
-        super(PointNetSAModule, self).__init__()
-        
-        self.mlp = MLP(mlp_dims[0], mlp_dims[1:], bn=bn)
-    
-    def forward(self, xyz: torch.Tensor, features: torch.Tensor, neighbors_idx: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
-        
-        Args:
-            xyz: Point coordinates, shape (B, N, 3)
-            features: Point features, shape (B, N, C)
-            neighbors_idx: K-nearest neighbors indices, shape (B, N, K)
+            feature: Feature tensor of shape (B, C, N, 1)
+            interp_idx: Interpolation indices of shape (B, N', 1)
             
         Returns:
-            Updated features of shape (B, N, mlp_dims[-1])
+            Interpolated features of shape (B, C, N', 1)
         """
-        batch_size, num_points, k = neighbors_idx.size()
+        feature = feature.squeeze(dim=3)  # B, C, N
+        batch_size, feature_dim, _ = feature.shape
+        up_num_points = interp_idx.shape[1]
         
-        # Get features of neighbors
-        batch_indices = torch.arange(batch_size, device=xyz.device).view(-1, 1, 1).repeat(1, num_points, k)
-        point_indices = neighbors_idx
+        # Reshape interpolation indices
+        interp_idx = interp_idx.reshape(batch_size, up_num_points)  # B, N'
         
-        # Gather features for each point's neighbors
-        features_neighbors = features[batch_indices, point_indices]  # (B, N, K, C)
+        # Gather features
+        interpolated_features = torch.gather(
+            feature, 
+            2, 
+            interp_idx.unsqueeze(1).repeat(1, feature_dim, 1)  # B, C, N'
+        )
         
-        # Gather coordinates for each point's neighbors
-        xyz_neighbors = xyz[batch_indices, point_indices]  # (B, N, K, 3)
+        interpolated_features = interpolated_features.unsqueeze(3)  # B, C, N', 1
         
-        # Calculate relative positions
-        xyz_central = xyz.unsqueeze(2).repeat(1, 1, k, 1)  # (B, N, K, 3)
-        xyz_local = xyz_neighbors - xyz_central  # (B, N, K, 3)
-        
-        # Concatenate local position with features
-        if features is not None:
-            features_central = features.unsqueeze(2).repeat(1, 1, k, 1)  # (B, N, K, C)
-            features_local = torch.cat([xyz_local, features_central, features_neighbors], dim=-1)  # (B, N, K, 3+C+C)
-        else:
-            features_local = xyz_local  # (B, N, K, 3)
-        
-        # Reshape for MLP
-        features_local = features_local.view(batch_size * num_points, k, -1)
-        
-        # Apply MLP
-        features_local = self.mlp(features_local)  # (B*N, K, mlp_dims[-1])
-        
-        # Max pooling to get invariant features
-        features_local = features_local.view(batch_size, num_points, k, -1)
-        new_features = torch.max(features_local, dim=2)[0]  # (B, N, mlp_dims[-1])
-        
-        return new_features
-
-
-class PointSetDifferenceModule(nn.Module):
-    """Point Set Difference Module as described in the 3DCDNet paper."""
-    
-    def __init__(self, feature_dim: int, knn_size: int = 16):
-        """Initialize Point Set Difference Module.
-        
-        Args:
-            feature_dim: Dimension of input features
-            knn_size: Number of nearest neighbors for cross-point cloud search
-        """
-        super(PointSetDifferenceModule, self).__init__()
-        
-        self.knn_size = knn_size
-        
-        # MLP for feature difference processing
-        self.diff_mlp = MLP(feature_dim, [feature_dim, feature_dim])
-        
-        # MLP for feature similarity processing
-        self.sim_mlp = MLP(feature_dim, [feature_dim, feature_dim])
-        
-        # Final MLP to combine difference and similarity
-        self.final_mlp = MLP(feature_dim * 2, [feature_dim * 2, feature_dim])
-    
-    def forward(self, features_0: torch.Tensor, features_1: torch.Tensor, 
-                knn_idx_0_to_1: torch.Tensor, knn_idx_1_to_0: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass of the Point Set Difference Module.
-        
-        Args:
-            features_0: Features from first point cloud, shape (B, N, C)
-            features_1: Features from second point cloud, shape (B, N, C)
-            knn_idx_0_to_1: KNN indices from pc0 to pc1, shape (B, N, K)
-            knn_idx_1_to_0: KNN indices from pc1 to pc0, shape (B, N, K)
-            
-        Returns:
-            Tuple containing:
-            - Difference features for pc0, shape (B, N, C)
-            - Difference features for pc1, shape (B, N, C)
-        """
-        batch_size, num_points, feature_dim = features_0.size()
-        
-        # Extract neighboring features using KNN indices
-        batch_indices = torch.arange(batch_size, device=features_0.device).view(-1, 1, 1).repeat(1, num_points, self.knn_size)
-        
-        # Get neighbors from pc1 for each point in pc0
-        neighbors_1_for_0 = features_1[batch_indices, knn_idx_0_to_1]  # (B, N, K, C)
-        
-        # Get neighbors from pc0 for each point in pc1
-        neighbors_0_for_1 = features_0[batch_indices, knn_idx_1_to_0]  # (B, N, K, C)
-        
-        # Calculate feature differences
-        features_0_expanded = features_0.unsqueeze(2).repeat(1, 1, self.knn_size, 1)  # (B, N, K, C)
-        features_1_expanded = features_1.unsqueeze(2).repeat(1, 1, self.knn_size, 1)  # (B, N, K, C)
-        
-        # Compute differences
-        diff_0_to_1 = features_0_expanded - neighbors_1_for_0  # (B, N, K, C)
-        diff_1_to_0 = features_1_expanded - neighbors_0_for_1  # (B, N, K, C)
-        
-        # Process differences with MLP
-        diff_0_to_1 = diff_0_to_1.reshape(batch_size * num_points, self.knn_size, feature_dim)
-        diff_1_to_0 = diff_1_to_0.reshape(batch_size * num_points, self.knn_size, feature_dim)
-        
-        diff_0_to_1 = self.diff_mlp(diff_0_to_1)  # (B*N, K, C)
-        diff_1_to_0 = self.diff_mlp(diff_1_to_0)  # (B*N, K, C)
-        
-        # Reshape back
-        diff_0_to_1 = diff_0_to_1.reshape(batch_size, num_points, self.knn_size, feature_dim)
-        diff_1_to_0 = diff_1_to_0.reshape(batch_size, num_points, self.knn_size, feature_dim)
-        
-        # Max pooling over K neighbors
-        diff_0_to_1 = torch.max(diff_0_to_1, dim=2)[0]  # (B, N, C)
-        diff_1_to_0 = torch.max(diff_1_to_0, dim=2)[0]  # (B, N, C)
-        
-        # Compute similarities (dot product)
-        sim_0_to_1 = torch.sum(features_0_expanded * neighbors_1_for_0, dim=-1, keepdim=True)  # (B, N, K, 1)
-        sim_1_to_0 = torch.sum(features_1_expanded * neighbors_0_for_1, dim=-1, keepdim=True)  # (B, N, K, 1)
-        
-        # Normalize similarities
-        sim_0_to_1 = F.softmax(sim_0_to_1, dim=2)  # (B, N, K, 1)
-        sim_1_to_0 = F.softmax(sim_1_to_0, dim=2)  # (B, N, K, 1)
-        
-        # Weighted aggregation of neighbor features
-        weighted_neighbors_1_for_0 = torch.sum(neighbors_1_for_0 * sim_0_to_1, dim=2)  # (B, N, C)
-        weighted_neighbors_0_for_1 = torch.sum(neighbors_0_for_1 * sim_1_to_0, dim=2)  # (B, N, C)
-        
-        # Process similarity features
-        sim_0_to_1 = self.sim_mlp(weighted_neighbors_1_for_0)  # (B, N, C)
-        sim_1_to_0 = self.sim_mlp(weighted_neighbors_0_for_1)  # (B, N, C)
-        
-        # Combine difference and similarity features
-        combined_0_to_1 = torch.cat([diff_0_to_1, sim_0_to_1], dim=-1)  # (B, N, 2C)
-        combined_1_to_0 = torch.cat([diff_1_to_0, sim_1_to_0], dim=-1)  # (B, N, 2C)
-        
-        # Final processing
-        diff_features_0 = self.final_mlp(combined_0_to_1)  # (B, N, C)
-        diff_features_1 = self.final_mlp(combined_1_to_0)  # (B, N, C)
-        
-        return diff_features_0, diff_features_1
-
-
-class HierarchicalFeatureExtractor(nn.Module):
-    """Hierarchical feature extractor for point clouds."""
-    
-    def __init__(self, feature_dims: List[int], input_dim: int = 3):
-        """Initialize hierarchical feature extractor.
-        
-        Args:
-            feature_dims: List of feature dimensions for each level
-            input_dim: Input dimension (e.g., 3 for XYZ, more if features included)
-        """
-        super(HierarchicalFeatureExtractor, self).__init__()
-        
-        self.num_levels = len(feature_dims)
-        
-        # Create SA modules for each level
-        self.sa_modules = nn.ModuleList()
-        
-        # First level
-        self.sa_modules.append(PointNetSAModule([input_dim, 32, 32, feature_dims[0]]))
-        
-        # Subsequent levels
-        for i in range(1, self.num_levels):
-            self.sa_modules.append(
-                PointNetSAModule([feature_dims[i-1], feature_dims[i-1], feature_dims[i]])
-            )
-    
-    def forward(self, xyz_list: List[torch.Tensor], features: Optional[torch.Tensor],
-                neighbors_idx_list: List[torch.Tensor]) -> List[torch.Tensor]:
-        """Forward pass of the hierarchical feature extractor.
-        
-        Args:
-            xyz_list: List of point coordinates at each level, each of shape (B, N_l, 3)
-            features: Initial point features, shape (B, N_0, C) or None
-            neighbors_idx_list: List of K-nearest neighbors indices at each level
-            
-        Returns:
-            List of features at each level
-        """
-        features_list = []
-        
-        # First level
-        current_features = self.sa_modules[0](xyz_list[0], features, neighbors_idx_list[0])
-        features_list.append(current_features)
-        
-        # Subsequent levels
-        for i in range(1, self.num_levels):
-            current_features = self.sa_modules[i](xyz_list[i], current_features, neighbors_idx_list[i])
-            features_list.append(current_features)
-        
-        return features_list
-
-
-class FeatureDecoder(nn.Module):
-    """Feature decoder module for upsampling feature hierarchies."""
-    
-    def __init__(self, feature_dims: List[int]):
-        """Initialize feature decoder.
-        
-        Args:
-            feature_dims: List of feature dimensions at each level (in descending order)
-        """
-        super(FeatureDecoder, self).__init__()
-        
-        self.num_levels = len(feature_dims)
-        
-        # Create upsampling MLPs
-        self.up_mlps = nn.ModuleList()
-        
-        # MLPs for skip connections
-        self.skip_mlps = nn.ModuleList()
-        
-        # Create MLPs for each level except the last one
-        for i in range(self.num_levels - 1):
-            # Upsampling MLP
-            self.up_mlps.append(
-                MLP(feature_dims[i+1], [feature_dims[i+1], feature_dims[i]])
-            )
-            
-            # Skip connection MLP
-            self.skip_mlps.append(
-                MLP(feature_dims[i] * 2, [feature_dims[i] * 2, feature_dims[i]])
-            )
-    
-    def forward(self, features_list: List[torch.Tensor], 
-                pool_idx_list: List[torch.Tensor]) -> torch.Tensor:
-        """Forward pass of the feature decoder.
-        
-        Args:
-            features_list: List of features at each level, each of shape (B, N_l, C_l)
-            pool_idx_list: List of pooling indices for upsampling
-            
-        Returns:
-            Decoded features at the finest level
-        """
-        features = features_list[-1]  # Start with coarsest level
-        
-        # Upsample from coarsest to finest
-        for i in range(self.num_levels - 2, -1, -1):
-            batch_size = features.size(0)
-            num_points = features_list[i].size(1)
-            
-            # Apply MLP before upsampling
-            features = self.up_mlps[i](features)
-            
-            # Upsample using pooling indices
-            features_upsampled = self._upsample_using_pool_indices(
-                features, pool_idx_list[i], num_points
-            )
-            
-            # Skip connection
-            features = torch.cat([features_list[i], features_upsampled], dim=-1)
-            features = self.skip_mlps[i](features)
-        
-        return features
-    
-    def _upsample_using_pool_indices(self, features: torch.Tensor,
-                                      pool_indices: torch.Tensor,
-                                      target_size: int) -> torch.Tensor:
-        """Upsample features using pooling indices.
-        
-        Args:
-            features: Features to upsample, shape (B, N_coarse, C)
-            pool_indices: Pooling indices, shape (B, N_fine)
-            target_size: Target number of points
-            
-        Returns:
-            Upsampled features of shape (B, N_fine, C)
-        """
-        batch_size, _, feature_dim = features.size()
-        
-        # Create batch indices
-        batch_indices = torch.arange(batch_size, device=features.device).view(-1, 1).repeat(1, target_size)
-        
-        # Gather features using pooling indices
-        upsampled_features = features[batch_indices, pool_indices]
-        
-        return upsampled_features
+        return interpolated_features
 
 
 class ThreeCDNet(nn.Module):
     """
-    3DCDNet model for 3D point cloud change detection.
+    3DCDNet: Single-shot 3D Change Detection with Point Set Difference Modeling and Dual-path Feature Learning.
     
     This model uses a dual-path architecture with point set difference modeling
     for detecting changes between two point clouds.
@@ -379,7 +189,9 @@ class ThreeCDNet(nn.Module):
         num_classes: int = 2,
         input_dim: int = 3,
         feature_dims: List[int] = [64, 128, 256],
-        dropout: float = 0.1
+        dropout: float = 0.1,
+        k_neighbors: int = 16,
+        sub_sampling_ratio: List[int] = [4, 4, 4, 4]
     ):
         """Initialize 3DCDNet model.
         
@@ -388,34 +200,65 @@ class ThreeCDNet(nn.Module):
             input_dim: Input dimension (e.g., 3 for XYZ, more if RGB included)
             feature_dims: List of feature dimensions for hierarchical levels
             dropout: Dropout rate
+            k_neighbors: Number of neighbors for feature aggregation
+            sub_sampling_ratio: Downsampling ratio for each level
         """
         super(ThreeCDNet, self).__init__()
         
         self.num_classes = num_classes
         self.input_dim = input_dim
         self.feature_dims = feature_dims
+        self.k_neighbors = k_neighbors
+        self.sub_sampling_ratio = sub_sampling_ratio
         
-        # Dual-path encoders
-        self.encoder_0 = HierarchicalFeatureExtractor(feature_dims, input_dim)
-        self.encoder_1 = HierarchicalFeatureExtractor(feature_dims, input_dim)
+        # Main feature extractor network (shared weights)
+        self.net = C3DNet(input_dim, 64)
         
-        # Point Set Difference Module for each level
-        self.psdm_modules = nn.ModuleList([
-            PointSetDifferenceModule(dim) for dim in feature_dims
-        ])
+        # Change detection head
+        self.mlp1 = Conv1d(64, 32, kernel_size=1, bn=True)
+        self.mlp2 = Conv1d(32, num_classes, kernel_size=1, bias=False, bn=False, activation=None)
         
-        # Decoders
-        self.decoder_0 = FeatureDecoder(feature_dims)
-        self.decoder_1 = FeatureDecoder(feature_dims)
+        # Define point set difference module
+        self.psdm = PointSetDifferenceModule(64, knn_size=self.k_neighbors)
         
-        # Final change detection heads
-        self.change_head = nn.Sequential(
-            nn.Linear(feature_dims[0] * 2, feature_dims[0]),
-            nn.BatchNorm1d(feature_dims[0]),
-            nn.ReLU(),
-            nn.Dropout(dropout),
-            nn.Linear(feature_dims[0], num_classes)
-        )
+    def nearest_feature_difference(self, raw: torch.Tensor, query: torch.Tensor, 
+                                   nearest_idx: torch.Tensor) -> torch.Tensor:
+        """Compute feature differences between point clouds.
+        
+        Args:
+            raw: Features from first point cloud, shape (B, C, N, 1)
+            query: Features from second point cloud, shape (B, C, N, 1)
+            nearest_idx: K-nearest neighbors indices, shape (B, N, K)
+            
+        Returns:
+            Fused difference features of shape (B, C, N)
+        """
+        # Process raw and query to the correct shape for batch gathering
+        raw_features = raw.squeeze(-1).transpose(1, 2)    # B, N, C
+        query_features = query.squeeze(-1).transpose(1, 2)  # B, N, C
+        
+        batch_size, num_points, feature_dim = raw_features.shape
+        k_neighbors = nearest_idx.shape[-1]
+        
+        # Create batch indices for gathering
+        batch_indices = torch.arange(batch_size, device=raw.device).view(-1, 1, 1).repeat(1, num_points, k_neighbors)
+        
+        # Gather features from the query using nearest indices
+        nearest_features = query_features[batch_indices, nearest_idx]  # B, N, K, C
+        
+        # Expand raw features for broadcasting
+        raw_expanded = raw_features.unsqueeze(2).repeat(1, 1, k_neighbors, 1)  # B, N, K, C
+        
+        # Compute absolute differences
+        feature_diff = torch.abs(raw_expanded - nearest_features)  # B, N, K, C
+        
+        # Mean across neighbors
+        fused_features = torch.mean(feature_diff, dim=2)  # B, N, C
+        
+        # Transpose to get the correct shape for Conv1d
+        fused_features = fused_features.transpose(2, 1)  # B, C, N
+        
+        return fused_features
     
     def forward(self, data_dict: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         """Forward pass of the 3DCDNet model.
@@ -424,9 +267,9 @@ class ThreeCDNet(nn.Module):
             data_dict: Dictionary containing:
                 - pc_0: First point cloud data dict with:
                     - xyz: List of point coordinates at each level
-                    - feat: Point features (optional)
                     - neighbors_idx: List of neighbor indices at each level
                     - pool_idx: List of pooling indices between levels
+                    - unsam_idx: List of upsampling indices between levels
                 - pc_1: Second point cloud with the same structure
                 - knearst_idx_in_another_pc: Cross-point cloud KNN indices
                 
@@ -434,61 +277,67 @@ class ThreeCDNet(nn.Module):
             Dictionary with model outputs:
                 - logits: Change classification logits
         """
-        # Extract inputs
+        # Extract data from input dictionary
         pc_0 = data_dict['pc_0']
         pc_1 = data_dict['pc_1']
         
-        xyz_0_list = pc_0['xyz']
-        xyz_1_list = pc_1['xyz']
+        # Extract point cloud components for each point cloud
+        end_points0 = [
+            pc_0['xyz'],
+            pc_0['neighbors_idx'],
+            pc_0['pool_idx'],
+            pc_0['unsam_idx']
+        ]
         
-        feat_0 = pc_0.get('feat', [None])[0]  # Get features if available, otherwise None
-        feat_1 = pc_1.get('feat', [None])[0]
+        end_points1 = [
+            pc_1['xyz'],
+            pc_1['neighbors_idx'],
+            pc_1['pool_idx'],
+            pc_1['unsam_idx']
+        ]
         
-        neighbors_idx_0_list = pc_0['neighbors_idx']
-        neighbors_idx_1_list = pc_1['neighbors_idx']
+        # Get cross-cloud KNN indices
+        knearest_idx = [
+            pc_0['knearst_idx_in_another_pc'],
+            pc_1['knearst_idx_in_another_pc']
+        ]
         
-        pool_idx_0_list = pc_0['pool_idx']
-        pool_idx_1_list = pc_1['pool_idx']
+        # Forward pass through the network for each point cloud
+        out0 = self.net(end_points0)  # B, C, N, 1
+        out1 = self.net(end_points1)  # B, C, N, 1
         
-        knearst_idx_0_to_1 = pc_0['knearst_idx_in_another_pc']
-        knearst_idx_1_to_0 = pc_1['knearst_idx_in_another_pc']
+        # Extract KNN indices
+        knearest_01, knearest_10 = knearest_idx
         
-        # Hierarchical feature extraction
-        features_0_list = self.encoder_0(xyz_0_list, feat_0, neighbors_idx_0_list)
-        features_1_list = self.encoder_1(xyz_1_list, feat_1, neighbors_idx_1_list)
+        # Use Point Set Difference Module to compute differences
+        # First, prepare features by reshaping
+        batch_size = out0.shape[0]
+        num_points = out0.shape[2]
+        feature_dim = out0.shape[1]
         
-        # Point set difference modeling at each level
-        diff_features_0_list = []
-        diff_features_1_list = []
+        features_0 = out0.squeeze(-1).transpose(1, 2)  # B, N, C
+        features_1 = out1.squeeze(-1).transpose(1, 2)  # B, N, C
         
-        for i, (psdm, feat_0, feat_1) in enumerate(zip(self.psdm_modules, features_0_list, features_1_list)):
-            # Use the cross-KNN indices at the corresponding level
-            diff_0, diff_1 = psdm(feat_0, feat_1, knearst_idx_0_to_1, knearst_idx_1_to_0)
-            diff_features_0_list.append(diff_0)
-            diff_features_1_list.append(diff_1)
+        # Compute differences using PSDM
+        diff_features_0, diff_features_1 = self.psdm(
+            features_0, features_1, knearest_01, knearest_10
+        )
         
-        # Combine original features with difference features
-        combined_features_0_list = [torch.cat([f, d], dim=-1) for f, d in zip(features_0_list, diff_features_0_list)]
-        combined_features_1_list = [torch.cat([f, d], dim=-1) for f, d in zip(features_1_list, diff_features_1_list)]
+        # Process point cloud 0 features
+        fout0 = diff_features_0.transpose(2, 1)  # B, C, N
+        fout0 = self.mlp1(fout0)  # B, C, N
+        fout0 = self.mlp2(fout0)  # B, nc, N
+        logits_0 = fout0.transpose(2, 1)  # B, N, nc
         
-        # Update features_list with combined features
-        features_0_list = combined_features_0_list
-        features_1_list = combined_features_1_list
+        # Process point cloud 1 features
+        fout1 = diff_features_1.transpose(2, 1)  # B, C, N
+        fout1 = self.mlp1(fout1)  # B, C, N
+        fout1 = self.mlp2(fout1)  # B, nc, N
+        logits_1 = fout1.transpose(2, 1)  # B, N, nc
         
-        # Feature decoding
-        decoded_features_0 = self.decoder_0(features_0_list, pool_idx_0_list)
-        decoded_features_1 = self.decoder_1(features_1_list, pool_idx_1_list)
-        
-        # Combine features from both point clouds
-        combined_features = torch.cat([decoded_features_0, decoded_features_1], dim=-1)
-        
-        # Apply change detection head
-        batch_size, num_points, feature_dim = combined_features.shape
-        combined_features = combined_features.reshape(batch_size * num_points, -1)
-        
-        # Apply change detection head
-        logits = self.change_head(combined_features)
-        logits = logits.reshape(batch_size, num_points, -1)
+        # Return raw logits (not softmax) as requested for compatibility with criteria and metrics
+        # Combine the logits into a single tensor for both point clouds
+        logits = torch.cat([logits_0, logits_1], dim=1)  # B, 2N, nc
         
         return {'logits': logits}
 
