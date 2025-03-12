@@ -228,6 +228,7 @@ def create_app_layout():
         dcc.Store(id='current-idx', data=0),  # Store current index in memory
         dcc.Store(id='camera-view', data=None),  # Store camera view for syncing
         dcc.Store(id='current-dataset-info', data={'name': DEFAULT_DATASET}),  # Store current dataset info
+        dcc.Store(id='is-3d-dataset', data=False),  # Store whether current dataset is 3D
 
         # Main content area
         html.Div([
@@ -247,29 +248,8 @@ def create_app_layout():
                     html.Label("Select Active Transformations:", style={'font-weight': 'bold'}),
                     html.Div(id='transform-checkboxes', style={'margin-bottom': '20px', 'max-height': '200px', 'overflow-y': 'auto'})
                 ]),
-                html.Div(id='view-controls', children=[
-                    html.Label("3D View Options:", style={'margin-top': '20px', 'font-weight': 'bold'}),
-                    html.Label("Point Size:"),
-                    dcc.Slider(
-                        id='point-size-slider',
-                        min=1,
-                        max=5,
-                        step=0.5,
-                        value=2,
-                        marks={i: str(i) for i in range(1, 6)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    ),
-                    html.Label("Point Opacity:"),
-                    dcc.Slider(
-                        id='point-opacity-slider',
-                        min=0.1,
-                        max=1.0,
-                        step=0.1,
-                        value=0.8,
-                        marks={i/10: str(i/10) for i in range(1, 11)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    ),
-                ]),
+                # 3D View Options will be displayed conditionally
+                html.Div(id='view-controls', style={'display': 'none'}),
                 html.Div(id='dataset-info', children=[]),
             ], style={'width': '18%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px', 'background-color': '#f9f9f9'}),
 
@@ -288,6 +268,7 @@ app.layout = create_app_layout()
     Output('total-samples', 'children'),
     Output('dataset-info', 'children'),
     Output('current-idx', 'data', allow_duplicate=True),  # Allow duplicate to resolve the conflict
+    Output('is-3d-dataset', 'data', allow_duplicate=True),  # Also reset 3D flag when dataset changes
     Input('dataset-dropdown', 'value'),
     prevent_initial_call=True
 )
@@ -301,7 +282,8 @@ def load_dataset(dataset_name):
             [], 
             "Total samples: 0", 
             html.H4("No dataset loaded"), 
-            0
+            0,
+            False  # Not a 3D dataset
         )
     
     # Load dataset configuration
@@ -318,7 +300,8 @@ def load_dataset(dataset_name):
                 html.H4("Test Dataset", style={'margin-top': '30px'}),
                 html.P("This is a placeholder for testing the UI when no real datasets are found.")
             ],
-            0
+            0,
+            False  # Not a 3D dataset
         )
     
     # Adjust data_root path to be relative to the repository root
@@ -369,12 +352,16 @@ def load_dataset(dataset_name):
                 ])
             ])
         
+        # Try to determine if this is a 3D dataset based on the class name
+        is_3d = 'Point' in dataset.__class__.__name__ or '3D' in dataset.__class__.__name__
+        
         return (
             {'name': dataset_name, 'class_labels': class_labels},
             transform_checkboxes,
             f"Total samples: {len(dataset)}",
             dataset_info,
-            0  # Reset index to 0
+            0,  # Reset index to 0
+            is_3d  # Set initial 3D flag based on dataset class name
         )
     except Exception as e:
         # Log the error and return an error message
@@ -387,7 +374,8 @@ def load_dataset(dataset_name):
                 html.H4("Error Loading Dataset", style={'color': 'red', 'margin-top': '30px'}),
                 html.P(f"Error: {str(e)}")
             ],
-            0
+            0,
+            False  # Not a 3D dataset
         )
 
 # Add a separate callback to update the index display when the current index changes
@@ -471,16 +459,19 @@ def update_camera_views(camera_data, figures):
 
 @app.callback(
     Output('datapoint-display', 'children'),
+    Output('is-3d-dataset', 'data', allow_duplicate=True),
     Input('current-idx', 'data'),
     Input({'type': 'transform-checkbox', 'index': dash.ALL}, 'value'),
     Input('point-size-slider', 'value'),
     Input('point-opacity-slider', 'value'),
-    Input('current-dataset-info', 'data')
+    Input('current-dataset-info', 'data'),
+    State('is-3d-dataset', 'data'),
+    prevent_initial_call=True
 )
-def update_datapoint(current_idx, selected_transform_indices, point_size, point_opacity, dataset_info):
+def update_datapoint(current_idx, selected_transform_indices, point_size, point_opacity, dataset_info, is_3d):
     """Apply selected transformations and display datapoint details and images/point clouds."""
     if current_dataset is None or dataset_info['name'] is None:
-        return html.Div(html.H3("No dataset loaded. Please select a dataset from the dropdown."))
+        return html.Div(html.H3("No dataset loaded. Please select a dataset from the dropdown.")), False
     
     # Handle test dataset case
     if dataset_info['name'] == 'test_dataset':
@@ -497,7 +488,7 @@ def update_datapoint(current_idx, selected_transform_indices, point_size, point_
                     html.Li("Run the script from the repository root instead of the data/datasets directory")
                 ])
             ])
-        ])
+        ]), False
     
     selected_transform_indices = [i[0] for i in selected_transform_indices if i]
 
@@ -530,17 +521,19 @@ def update_datapoint(current_idx, selected_transform_indices, point_size, point_
         class_labels = dataset_info['class_labels']
         
         # Check if we're dealing with a 3D dataset
-        if is_3d_dataset(datapoint):
-            return display_3d_datapoint(datapoint, point_size, point_opacity, class_labels)
+        is_3d_datapoint = is_3d_dataset(datapoint)
+        
+        if is_3d_datapoint:
+            return display_3d_datapoint(datapoint, point_size, point_opacity, class_labels), True
         else:
-            return display_2d_datapoint(datapoint)
+            return display_2d_datapoint(datapoint), False
     except Exception as e:
         # Handle errors that might occur during datapoint loading or processing
         return html.Div([
             html.H3("Error Loading Datapoint", style={'color': 'red'}),
             html.P(f"An error occurred: {str(e)}"),
             html.P("This could be due to missing data, incorrect paths, or incompatible data formats.")
-        ])
+        ]), False
 
 def display_2d_datapoint(datapoint):
     """Display a 2D image datapoint."""
@@ -709,6 +702,43 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_label
             ], style={'max-height': '200px', 'overflow-y': 'auto'})
         ], style={'margin-top': '20px'}),
     ])
+
+@app.callback(
+    Output('view-controls', 'children'),
+    Output('view-controls', 'style'),
+    Input('is-3d-dataset', 'data')
+)
+def update_view_controls(is_3d):
+    """Show or hide 3D view controls based on the type of dataset currently displayed."""
+    # Set visibility style based on is_3d flag
+    style = {'display': 'block', 'margin-top': '20px'} if is_3d else {'display': 'none'}
+    
+    # Create 3D view controls
+    controls = [
+        html.Label("3D View Options:", style={'font-weight': 'bold'}),
+        html.Label("Point Size:"),
+        dcc.Slider(
+            id='point-size-slider',
+            min=1,
+            max=5,
+            step=0.5,
+            value=2,
+            marks={i: str(i) for i in range(1, 6)},
+            tooltip={"placement": "bottom", "always_visible": True}
+        ),
+        html.Label("Point Opacity:"),
+        dcc.Slider(
+            id='point-opacity-slider',
+            min=0.1,
+            max=1.0,
+            step=0.1,
+            value=0.8,
+            marks={i/10: str(i/10) for i in range(1, 11)},
+            tooltip={"placement": "bottom", "always_visible": True}
+        ),
+    ]
+    
+    return controls, style
 
 if __name__ == '__main__':
     app.run_server(debug=True)
