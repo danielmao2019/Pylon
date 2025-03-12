@@ -36,9 +36,9 @@ class SLPCCDDataset(BaseDataset):
     IGNORE_LABEL = -1
     SPLIT_OPTIONS = {'train', 'val', 'test'}
     DATASET_SIZE = {
-        'train': 399,  # Number from the train.txt file
-        'val': 96,     # Number from the val.txt file
-        'test': 129    # Number from the test.txt file
+        'train': 398,  # Number from the train.txt file
+        'val': 95,     # Number from the val.txt file
+        'test': 128    # Number from the test.txt file
     }
 
     def __init__(
@@ -96,8 +96,9 @@ class SLPCCDDataset(BaseDataset):
 
                 parts = line.strip().split()
                 if len(parts) >= 2:
-                    pc_0_path = os.path.join(self.data_root, parts[0])
-                    pc_1_path = os.path.join(self.data_root, parts[1])
+                    # Convert Windows-style paths to Unix-style
+                    pc_0_path = os.path.join(self.data_root, parts[0].replace('\\', '/'))
+                    pc_1_path = os.path.join(self.data_root, parts[1].replace('\\', '/'))
 
                     annotations.append({
                         'pc_0_filepath': pc_0_path,
