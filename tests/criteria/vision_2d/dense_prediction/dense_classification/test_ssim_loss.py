@@ -38,6 +38,36 @@ def test_ssim_loss(reduction, batch_size, num_classes, image_size):
     assert loss > 0, "Loss should be positive"
 
 
+@pytest.mark.parametrize("window_size", [5, 7, 11, 15])
+def test_ssim_loss_window_size(window_size):
+    """
+    Test SSIMLoss with different window sizes.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    batch_size, num_classes = 2, 3
+    height, width = 32, 32
+
+    # Create sample data
+    y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
+    y_true = torch.randint(0, num_classes, (batch_size, height, width)).to(device)
+
+    # Initialize SSIM loss with specified window size
+    loss_fn = SSIMLoss(window_size=window_size).to(device)
+    
+    # Check window dimensions
+    assert loss_fn.window.shape == (1, 1, window_size, window_size), \
+        f"Window shape should be (1, 1, {window_size}, {window_size}), got {loss_fn.window.shape}"
+    
+    # Compute loss
+    loss = loss_fn(y_pred, y_true)
+    
+    # Check loss
+    assert isinstance(loss, torch.Tensor)
+    assert loss.ndim == 0
+    assert torch.isfinite(loss).all()
+    assert loss > 0
+
+
 @pytest.mark.parametrize("invalid_shape", [(3,), (3, 32), (3, 32, 32)])
 def test_invalid_input_shapes(invalid_shape):
     """
@@ -127,3 +157,78 @@ def test_ssim_loss_all_ignored():
     # Loss computation should raise an error when all pixels are ignored
     with pytest.raises(ValueError, match="All pixels in target are ignored"):
         loss_fn(y_pred, y_true)
+
+
+def test_ssim_loss_with_weights_and_ignore():
+    """
+    Test SSIMLoss with both class weights and ignored pixels.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    batch_size, num_classes = 2, 3
+    height, width = 32, 32
+
+    # Create sample data
+    y_pred = torch.randn(batch_size, num_classes, height, width).to(device)
+    y_true = torch.randint(0, num_classes, (batch_size, height, width)).to(device)
+    
+    # Create a version with some ignored pixels
+    y_true_ignored = y_true.clone()
+    y_true_ignored[0, 0:5, 0:5] = 255  # Set a small block to ignore_index
+    
+    # Create weights
+    weights = torch.tensor([0.2, 0.3, 0.5]).to(device)
+    
+    # Test with both weights and ignore index
+    loss_fn = SSIMLoss(class_weights=weights, ignore_index=255).to(device)
+    loss = loss_fn(y_pred, y_true_ignored)
+    
+    # Test with only weights
+    loss_fn_only_weights = SSIMLoss(class_weights=weights).to(device)
+    loss_only_weights = loss_fn_only_weights(y_pred, y_true)
+    
+    # Test with only ignore index
+    loss_fn_only_ignore = SSIMLoss(ignore_index=255).to(device)
+    loss_only_ignore = loss_fn_only_ignore(y_pred, y_true_ignored)
+    
+    # The three losses should all be different
+    assert not torch.isclose(loss, loss_only_weights, rtol=1e-4).item()
+    assert not torch.isclose(loss, loss_only_ignore, rtol=1e-4).item()
+    assert not torch.isclose(loss_only_weights, loss_only_ignore, rtol=1e-4).item()
+
+
+def test_ssim_consistent_across_inputs():
+    """
+    Test that SSIMLoss produces consistent outputs for similar inputs.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    batch_size, num_classes = 2, 3
+    height, width = 32, 32
+    
+    # Create similar prediction patterns
+    y_pred1 = torch.zeros(batch_size, num_classes, height, width).to(device)
+    y_pred1[:, 0, :, :] = 1.0  # All pixels predicted as class 0
+    
+    y_pred2 = torch.zeros(batch_size, num_classes, height, width).to(device)
+    y_pred2[:, 1, :, :] = 1.0  # All pixels predicted as class 1
+    
+    # Create targets where class 0 is correct for y_pred1 and class 1 is correct for y_pred2
+    y_true1 = torch.zeros(batch_size, height, width, dtype=torch.long).to(device)
+    y_true2 = torch.ones(batch_size, height, width, dtype=torch.long).to(device)
+    
+    # Initialize loss function
+    loss_fn = SSIMLoss().to(device)
+    
+    # Calculate losses
+    loss1 = loss_fn(y_pred1, y_true1)
+    loss2 = loss_fn(y_pred2, y_true2)
+    
+    # Losses should be similar since the patterns are similar, just with different classes
+    assert torch.isclose(loss1, loss2, rtol=1e-4).item()
+    
+    # Cross-computation (incorrect predictions) should yield higher loss
+    loss_cross1 = loss_fn(y_pred1, y_true2)
+    loss_cross2 = loss_fn(y_pred2, y_true1)
+    
+    # Cross losses should be higher than correct matches
+    assert loss_cross1 > loss1
+    assert loss_cross2 > loss2
