@@ -27,7 +27,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         self,
         ignore_value: int = 255,
         reduction: str = 'mean',
-        class_weights: Optional[torch.Tensor] = None,
+        class_weights: Optional[torch.Tensor | list | tuple | np.ndarray] = None,
     ) -> None:
         """
         Initialize the criterion.
@@ -35,7 +35,8 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         Args:
             ignore_value: Value to ignore in loss computation. Defaults to 255.
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
-            class_weights: Optional tensor of shape (C,) containing weights for each class.
+            class_weights: Optional weights for each class. Can be a sequence, numpy array or tensor.
+                         Must be 1D with non-negative values. Will be normalized to sum to 1.
         """
         super(DenseClassificationCriterion, self).__init__(
             ignore_value=ignore_value,
@@ -44,8 +45,22 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         
         # Register class weights as buffer if provided
         if class_weights is not None:
+            # Convert to tensor if needed
             if not isinstance(class_weights, torch.Tensor):
                 class_weights = torch.tensor(class_weights)
+            
+            # Check shape
+            if class_weights.ndim != 1:
+                raise ValueError(f"class_weights must be 1-dimensional, got shape {class_weights.shape}")
+                
+            # Check values
+            if torch.any(class_weights < 0):
+                raise ValueError("class_weights cannot contain negative values")
+            if torch.all(class_weights == 0):
+                raise ValueError("class_weights cannot all be zero")
+                
+            # Normalize to sum to 1
+            class_weights = class_weights / class_weights.sum()
             self.register_buffer('class_weights', class_weights)
         else:
             self.register_buffer('class_weights', None)
