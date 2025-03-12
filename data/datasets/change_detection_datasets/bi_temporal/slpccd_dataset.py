@@ -252,21 +252,43 @@ class SLPCCDDataset(BaseDataset):
         pc_0_filepath = self.annotations[idx]['pc_0_filepath']
         pc_1_filepath = self.annotations[idx]['pc_1_filepath']
         
+        # Check if there's a segmentation file (change labels)
+        # In SLPCCD, change labels are often stored in a separate file with '_seg' suffix
+        pc_1_seg_filepath = pc_1_filepath.replace('.txt', '_seg.txt')
+        has_seg_file = os.path.exists(pc_1_seg_filepath)
+        
         # Load point clouds
         pc_0 = utils.io.load_point_cloud(pc_0_filepath)
         pc_1 = utils.io.load_point_cloud(pc_1_filepath)
         
-        # Extract positions and labels
+        # Extract positions
         pc_0_xyz = pc_0[:, :3]
         pc_1_xyz = pc_1[:, :3]
         
-        # The change label is typically in the 4th column (index 3)
-        # If point cloud 1 has a 4th column, use it as the change map
-        if pc_1.size(1) > 3:
-            change_map = pc_1[:, 3].long()
+        # Extract features (RGB if available, otherwise ones)
+        # In SLPCCD, RGB values are typically in columns 3-5 when available
+        if pc_0.size(1) >= 6:  # Has RGB values
+            pc_0_feat = pc_0[:, 3:6]  # RGB values as features
         else:
-            # If no change labels are provided, use dummy labels (all zeros)
-            change_map = torch.zeros(pc_1_xyz.size(0), dtype=torch.long)
+            pc_0_feat = torch.ones((pc_0_xyz.size(0), 1), dtype=torch.float32)
+        
+        if pc_1.size(1) >= 6:  # Has RGB values
+            pc_1_feat = pc_1[:, 3:6]  # RGB values as features
+        else:
+            pc_1_feat = torch.ones((pc_1_xyz.size(0), 1), dtype=torch.float32)
+        
+        # Load change labels
+        if has_seg_file:
+            # Load segmentation file containing change labels
+            pc_1_seg = utils.io.load_point_cloud(pc_1_seg_filepath)
+            change_map = pc_1_seg[:, 3].long()  # 4th column of seg file contains labels
+        else:
+            # If no segmentation file, check if pc_1 has labels in 4th column
+            if pc_1.size(1) > 3:
+                change_map = pc_1[:, 3].long()
+            else:
+                # If no change labels are provided, use dummy labels (all zeros)
+                change_map = torch.zeros(pc_1_xyz.size(0), dtype=torch.long)
         
         # Store original point cloud lengths
         pc_0_raw_length = pc_0_xyz.size(0)
@@ -291,10 +313,10 @@ class SLPCCDDataset(BaseDataset):
                     indices = torch.randperm(pc_1_xyz.size(0))[:self.num_points]
                     change_map = change_map[indices]
                 pc_1_xyz = self._random_subsample_point_cloud(pc_1_xyz, self.num_points)
-        
-        # Add simple features (ones) to each point cloud
-        pc_0_feat = torch.ones((pc_0_xyz.size(0), 1), dtype=torch.float32)
-        pc_1_feat = torch.ones((pc_1_xyz.size(0), 1), dtype=torch.float32)
+                
+            # Also subsample features to match
+            pc_0_feat = self._random_subsample_point_cloud(pc_0_feat, self.num_points)
+            pc_1_feat = self._random_subsample_point_cloud(pc_1_feat, self.num_points)
         
         # Create point cloud dictionaries
         pc_0_dict = {'pos': pc_0_xyz, 'feat': pc_0_feat}
@@ -317,7 +339,8 @@ class SLPCCDDataset(BaseDataset):
                 'pool_idx': pc_0_hierarchy['pool_idx'],
                 'unsam_idx': pc_0_hierarchy['unsam_idx'],
                 'knearst_idx_in_another_pc': knearst_idx_in_another_pc_0,
-                'raw_length': pc_0_raw_length
+                'raw_length': pc_0_raw_length,
+                'feat': pc_0_hierarchy['feat']
             }
             
             inputs['pc_1'] = {
@@ -326,7 +349,8 @@ class SLPCCDDataset(BaseDataset):
                 'pool_idx': pc_1_hierarchy['pool_idx'],
                 'unsam_idx': pc_1_hierarchy['unsam_idx'],
                 'knearst_idx_in_another_pc': knearst_idx_in_another_pc_1,
-                'raw_length': pc_1_raw_length
+                'raw_length': pc_1_raw_length,
+                'feat': pc_1_hierarchy['feat']
             }
         else:
             # Simple non-hierarchical representation
@@ -334,14 +358,16 @@ class SLPCCDDataset(BaseDataset):
                 'xyz': pc_0_xyz,
                 'neighbors_idx': self._compute_knn(pc_0_xyz, self.knn_size),
                 'knearst_idx_in_another_pc': knearst_idx_in_another_pc_0,
-                'raw_length': pc_0_raw_length
+                'raw_length': pc_0_raw_length,
+                'feat': pc_0_feat
             }
             
             inputs['pc_1'] = {
                 'xyz': pc_1_xyz,
                 'neighbors_idx': self._compute_knn(pc_1_xyz, self.knn_size),
                 'knearst_idx_in_another_pc': knearst_idx_in_another_pc_1,
-                'raw_length': pc_1_raw_length
+                'raw_length': pc_1_raw_length,
+                'feat': pc_1_feat
             }
         
         # Prepare labels and metadata
