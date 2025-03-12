@@ -7,17 +7,9 @@ import utils
 
 class CelebADataset(BaseDataset):
     __doc__ = r"""
-
-    Download: https://mmlab.ie.cuhk.edu.hk/projects/CelebA.html
-
-    Used in:
-        Just Pick a Sign: Optimizing Deep Multitask Models with Gradient Sign Dropout (https://arxiv.org/pdf/2010.06808.pdf)
-        Reasonable Effectiveness of Random Weighting: A Litmus Test for Multi-Task Learning (https://arxiv.org/pdf/2111.10603.pdf)
-        FAMO: Fast Adaptive Multitask Optimization (https://arxiv.org/pdf/2306.03792.pdf)
-        Towards Impartial Multi-task Learning (https://openreview.net/pdf?id=IMPnRXEWpvr)
-        Multi-Task Learning as Multi-Objective Optimization (https://arxiv.org/pdf/1810.04650.pdf)
-        Gradient Surgery for Multi-Task Learning (https://arxiv.org/pdf/2001.06782.pdf)
-        Heterogeneous Face Attribute Estimation: A Deep Multi-Task Learning Approach (https://arxiv.org/pdf/1706.00906.pdf)
+    CelebA dataset for multi-task learning with facial attribute classification tasks.
+    
+    For detailed documentation, see: docs/datasets/multi_task/celeba.md
     """
 
     TOTAL_SIZE = 202599
