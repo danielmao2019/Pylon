@@ -23,27 +23,6 @@ class DiceLoss(DenseClassificationCriterion):
         class_weights (Optional[torch.Tensor]): Optional weights for each class
     """
 
-    def __init__(
-        self,
-        ignore_value: int = 255,
-        reduction: str = 'mean',
-        class_weights: Optional[torch.Tensor] = None,
-    ) -> None:
-        """
-        Initialize the criterion.
-        
-        Args:
-            ignore_value: Value to ignore in loss computation (usually background/unlabeled pixels).
-            reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
-            class_weights: Optional weights for each class to address class imbalance.
-                         Weights will be normalized to sum to 1 and must be non-negative.
-        """
-        super(DiceLoss, self).__init__(
-            ignore_value=ignore_value,
-            reduction=reduction,
-            class_weights=class_weights
-        )
-
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
         """
         Validate inputs specific to Dice loss.
