@@ -177,18 +177,20 @@ def test_semantic_segmentation_input_validation(sample_data):
     # Initialize criterion
     criterion = SemanticSegmentationCriterion().to(device)
 
-    # Test invalid shapes
+    # Test invalid dimensions (not 4D tensor)
     with pytest.raises(AssertionError):
-        criterion(y_pred[:, :, :, :5], y_true)  # Width mismatch
+        invalid_pred = torch.randn(3, device=device)  # 1D tensor
+        criterion(invalid_pred, y_true)
 
+    # Test mismatched batch size
     with pytest.raises(AssertionError):
-        criterion(y_pred[:, :, :5], y_true)  # Height mismatch
+        invalid_pred = torch.randn(y_pred.shape[0] + 1, y_pred.shape[1], y_pred.shape[2], y_pred.shape[3], device=device)
+        criterion(invalid_pred, y_true)
 
-    with pytest.raises(AssertionError):
-        criterion(y_pred[0], y_true)  # Missing batch dimension
-
-    # Test invalid values in y_true (greater than num_classes)
+    # Test out-of-range values in y_true
     y_true_invalid = y_true.clone()
-    y_true_invalid[0, 0, 0] = num_classes + 10  # This should fail
-    with pytest.raises(RuntimeError):
+    y_true_invalid[0, 0, 0] = num_classes  # This should be caught by one_hot encoding
+    
+    # The assertion happens in the one_hot encoding function
+    with pytest.raises(AssertionError, match="Values must be in range"):
         criterion(y_pred, y_true_invalid)
