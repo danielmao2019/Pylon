@@ -3,10 +3,8 @@ import random
 import numpy as np
 import torch
 import dash
-from dash import dcc, html, Input, Output, State, callback_context, ALL
+from dash import dcc, html, Input, Output, State, ALL
 import plotly.express as px
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import sys
 sys.path.append("../..")
 import data
@@ -16,8 +14,18 @@ from data.datasets.pointcloud_utils import (
     tensor_to_point_cloud
 )
 
+# Select which dataset configuration to load
+# Change this line to switch between datasets
+dataset_name = "slpccd"  # Options: "urb3dcd", "slpccd"
+
 # Load dataset instance
-from configs.common.datasets.change_detection.train.urb3dcd import config
+if dataset_name == "urb3dcd":
+    from configs.common.datasets.change_detection.train.urb3dcd import config
+elif dataset_name == "slpccd":
+    from configs.common.datasets.change_detection.train.slpccd import config
+else:
+    raise ValueError(f"Unknown dataset: {dataset_name}")
+
 dataset_cfg = config['train_dataset']
 dataset_cfg['args']['data_root'] = os.path.relpath(dataset_cfg['args']['data_root'], start="./data/datasets")
 transforms_cfg = dataset_cfg['args'].get('transforms_cfg', {'class': data.transforms.Compose, 'args': {'transforms': []}})
