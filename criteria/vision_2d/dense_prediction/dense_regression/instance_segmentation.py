@@ -43,12 +43,6 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
         """
         check_instance_segmentation(y_pred=y_pred, y_true=y_true)
         
-        # Instance IDs should be non-negative
-        if (y_pred < 0).any():
-            raise ValueError("Predicted instance IDs must be non-negative")
-        if (y_true < 0).any():
-            raise ValueError("Ground truth instance IDs must be non-negative")
-
     def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
         """
         Get mask for valid instance IDs (not equal to ignore_value).
@@ -67,7 +61,13 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
         # Check if all pixels are ignored
         if not valid_mask.any():
             raise AssertionError("All pixels in target are ignored")
-            
+
+        # Instance IDs should be non-negative
+        if (y_pred[valid_mask] < 0).any():
+            raise ValueError("Predicted instance IDs must be non-negative")
+        if (y_true[valid_mask] < 0).any():
+            raise ValueError("Ground truth instance IDs must be non-negative")
+
         return valid_mask
 
     def _compute_unreduced_loss(
