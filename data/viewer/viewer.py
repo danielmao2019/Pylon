@@ -13,6 +13,7 @@ import utils
 from data.viewer.utils.dataset_utils import get_available_datasets, format_value, is_3d_dataset
 from data.viewer.ui.components import display_2d_datapoint, display_3d_datapoint, create_transform_checkboxes
 
+
 class DatasetViewer:
     """Dataset viewer class for visualization of datasets."""
 
