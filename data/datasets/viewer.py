@@ -78,7 +78,11 @@ if not AVAILABLE_DATASETS:
 DEFAULT_DATASET = next(iter(AVAILABLE_DATASETS.keys())) if AVAILABLE_DATASETS else "urb3dcd"
 
 # Dash app setup
-app = dash.Dash(__name__, title="Dataset Viewer")
+app = dash.Dash(
+    __name__, 
+    title="Dataset Viewer",
+    suppress_callback_exceptions=True  # Add this to handle callbacks to components created by other callbacks
+)
 
 # Store for current dataset
 current_dataset = None
@@ -248,8 +252,30 @@ def create_app_layout():
                     html.Label("Select Active Transformations:", style={'font-weight': 'bold'}),
                     html.Div(id='transform-checkboxes', style={'margin-bottom': '20px', 'max-height': '200px', 'overflow-y': 'auto'})
                 ]),
-                # 3D View Options will be displayed conditionally
-                html.Div(id='view-controls', style={'display': 'none'}),
+                # 3D View Options - include in initial layout but hidden by default
+                html.Div(id='view-controls', children=[
+                    html.Label("3D View Options:", style={'font-weight': 'bold'}),
+                    html.Label("Point Size:"),
+                    dcc.Slider(
+                        id='point-size-slider',
+                        min=1,
+                        max=5,
+                        step=0.5,
+                        value=2,
+                        marks={i: str(i) for i in range(1, 6)},
+                        tooltip={"placement": "bottom", "always_visible": True}
+                    ),
+                    html.Label("Point Opacity:"),
+                    dcc.Slider(
+                        id='point-opacity-slider',
+                        min=0.1,
+                        max=1.0,
+                        step=0.1,
+                        value=0.8,
+                        marks={i/10: str(i/10) for i in range(1, 11)},
+                        tooltip={"placement": "bottom", "always_visible": True}
+                    ),
+                ], style={'display': 'none'}),  # Hidden by default
                 html.Div(id='dataset-info', children=[]),
             ], style={'width': '18%', 'display': 'inline-block', 'vertical-align': 'top', 'padding': '10px', 'background-color': '#f9f9f9'}),
 
@@ -704,41 +730,13 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_label
     ])
 
 @app.callback(
-    Output('view-controls', 'children'),
     Output('view-controls', 'style'),
     Input('is-3d-dataset', 'data')
 )
 def update_view_controls(is_3d):
     """Show or hide 3D view controls based on the type of dataset currently displayed."""
     # Set visibility style based on is_3d flag
-    style = {'display': 'block', 'margin-top': '20px'} if is_3d else {'display': 'none'}
-    
-    # Create 3D view controls
-    controls = [
-        html.Label("3D View Options:", style={'font-weight': 'bold'}),
-        html.Label("Point Size:"),
-        dcc.Slider(
-            id='point-size-slider',
-            min=1,
-            max=5,
-            step=0.5,
-            value=2,
-            marks={i: str(i) for i in range(1, 6)},
-            tooltip={"placement": "bottom", "always_visible": True}
-        ),
-        html.Label("Point Opacity:"),
-        dcc.Slider(
-            id='point-opacity-slider',
-            min=0.1,
-            max=1.0,
-            step=0.1,
-            value=0.8,
-            marks={i/10: str(i/10) for i in range(1, 11)},
-            tooltip={"placement": "bottom", "always_visible": True}
-        ),
-    ]
-    
-    return controls, style
+    return {'display': 'block', 'margin-top': '20px'} if is_3d else {'display': 'none'}
 
 if __name__ == '__main__':
     app.run_server(debug=True)
