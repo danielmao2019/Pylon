@@ -81,7 +81,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         Args:
             y_pred: Logits tensor of shape (N, C, H, W)
             y_true: Labels tensor of shape (N, H, W)
-            valid_mask: Boolean tensor of shape (N, 1, H, W)
+            valid_mask: Boolean tensor of shape (N, H, W)
             
         Returns:
             Loss tensor of shape (N,) containing per-sample losses
@@ -92,6 +92,9 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         # Convert labels to one-hot
         y_true = self._to_one_hot(y_true, y_pred.size(1))  # (N, C, H, W)
         
+        # Unsqueeze valid mask to (N, 1, H, W)
+        valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)
+
         # Compute per-class losses
         per_class_loss = self._compute_per_class_loss(y_pred, y_true, valid_mask)  # (N, C)
         
@@ -107,7 +110,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         self,
         y_pred: torch.Tensor,  # (N, C, H, W) probabilities
         y_true: torch.Tensor,  # (N, C, H, W) one-hot encoded
-        valid_mask: torch.Tensor,  # (N, 1, H, W)
+        valid_mask: torch.Tensor,  # (N, 1, H, W) unsqueezed valid mask
     ) -> torch.Tensor:  # (N, C)
         """
         Compute the loss for each class and sample.
