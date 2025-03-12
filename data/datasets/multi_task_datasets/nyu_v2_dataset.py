@@ -9,21 +9,10 @@ import utils
 
 
 class NYUv2Dataset(BaseDataset):
-    __doc__ = r"""Reference: https://github.com/facebookresearch/astmt/blob/master/fblib/dataloaders/nyud.py
-
-    Download: https://data.vision.ee.ethz.ch/kmaninis/share/MTL/NYUD_MT.tgz
-
-    Used in:
-        GradNorm: Gradient Normalization for Adaptive Loss Balancing in Deep Multitask Networks (https://arxiv.org/pdf/1711.02257.pdf)
-        Reasonable Effectiveness of Random Weighting: A Litmus Test for Multi-Task Learning (https://arxiv.org/pdf/2111.10603.pdf)
-        Conflict-Averse Gradient Descent for Multi-task Learning (https://arxiv.org/pdf/2110.14048.pdf)
-        FAMO: Fast Adaptive Multitask Optimization (https://arxiv.org/pdf/2306.03792.pdf)
-        Towards Impartial Multi-task Learning (https://openreview.net/pdf?id=IMPnRXEWpvr)
-        Multi-Task Learning as a Bargaining Game (https://arxiv.org/pdf/2202.01017.pdf)
-        Independent Component Alignment for Multi-Task Learning (https://arxiv.org/pdf/2305.19000.pdf)
-        Regularizing Deep Multi-Task Networks using Orthogonal Gradients (https://arxiv.org/pdf/1912.06844.pdf)
-        Gradient Surgery for Multi-Task Learning (https://arxiv.org/pdf/2001.06782.pdf)
-        Achievement-based Training Progress Balancing for Multi-Task Learning (https://openaccess.thecvf.com/content/ICCV2023/papers/Yun_Achievement-Based_Training_Progress_Balancing_for_Multi-Task_Learning_ICCV_2023_paper.pdf)
+    __doc__ = r"""
+    NYU-v2 dataset for multi-task learning with depth estimation, normal estimation, semantic segmentation, and edge detection tasks.
+    
+    For detailed documentation, see: docs/datasets/multi_task/nyu_v2.md
     """
 
     SPLIT_OPTIONS = ['train', 'val']

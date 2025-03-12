@@ -9,11 +9,10 @@ import utils
 
 
 class PASCALContextDataset(BaseDataset):
-    __doc__ = r"""Reference: https://github.com/SimonVandenhende/Multi-Task-Learning-PyTorch/blob/master/data/pascal_context.py
-
-    Download
-        Original dataset: https://data.vision.ee.ethz.ch/kmaninis/share/MTL/PASCAL_MT.tgz
-        db_info: https://github.com/SimonVandenhende/Multi-Task-Learning-PyTorch/tree/master/data/db_info
+    __doc__ = r"""
+    PASCAL Context dataset for multi-task learning with semantic segmentation, human part segmentation, surface normal estimation, and saliency detection tasks.
+    
+    For detailed documentation, see: docs/datasets/multi_task/pascal_context.md
     """
 
     SPLIT_OPTIONS = ['train', 'val']

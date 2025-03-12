@@ -9,34 +9,9 @@ import utils
 
 class OSCDDataset(BaseDataset):
     __doc__ = r"""
-    References:
-        * https://github.com/ServiceNow/seasonal-contrast/blob/main/datasets/oscd_dataset.py
-        * https://github.com/granularai/fabric/blob/igarss2019/utils/dataloaders.py
-        * https://github.com/NIX369/UNet_LSTM/blob/master/custom.py
-        * https://github.com/mpapadomanolaki/UNetLSTM/blob/master/custom.py
-        * https://github.com/WennyXY/DINO-MC/blob/main/data_process/oscd_dataset.py
-
-    Download:
-        * https://ieee-dataport.org/open-access/oscd-onera-satellite-change-detection
-        ```bash
-        mkdir <data-root>
-        cd <data-root>
-        # <download the zip files and README.txt from the link above>
-        # unzip and rename all packages
-        unzip 'Onera Satellite Change Detection dataset - Images.zip'
-        rm 'Onera Satellite Change Detection dataset - Images.zip'
-        mv 'Onera Satellite Change Detection dataset - Images' images
-        unzip 'Onera Satellite Change Detection dataset - Train Labels.zip'
-        rm 'Onera Satellite Change Detection dataset - Train Labels.zip'
-        mv 'Onera Satellite Change Detection dataset - Train Labels' train_labels
-        unzip 'Onera Satellite Change Detection dataset - Test Labels.zip'
-        rm 'Onera Satellite Change Detection dataset - Test Labels.zip'
-        mv 'Onera Satellite Change Detection dataset - Test Labels' test_labels
-        # create a soft-link
-        ln -s <data-root> <project-root>/data/datasets/soft_links
-        ```
-    Used in:
-
+    OSCD (Onera Satellite Change Detection) Dataset for bi-temporal change detection.
+    
+    For detailed documentation, see: docs/datasets/change_detection/bi_temporal/oscd.md
     """
 
     SPLIT_OPTIONS = ['train', 'test']
