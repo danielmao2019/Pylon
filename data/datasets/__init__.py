@@ -32,6 +32,7 @@ from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset impo
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
 from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
+from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
 ## Single-Temporal
 from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import Bi2SingleTemporal
 from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
@@ -65,6 +66,7 @@ __all__ = (
     'CDDDataset',
     'SYSU_CD_Dataset',
     'Urb3DCDDataset',
+    'SLPCCDDataset',
     ## Single-Temporal
     'Bi2SingleTemporal',
     'I3PEDataset',
