@@ -15,24 +15,6 @@ class SpatialCrossEntropyCriterion(DenseClassificationCriterion):
         ignore_index: Index to ignore in the loss computation.
     """
 
-    def __init__(
-        self,
-        ignore_index: int = 255,
-        reduction: str = 'mean',
-    ) -> None:
-        """
-        Initialize the criterion.
-        
-        Args:
-            ignore_index: Index to ignore in the loss computation. Defaults to 255.
-            reduction: Specifies the reduction to apply to the output: 'mean' or 'sum'.
-        """
-        super(SpatialCrossEntropyCriterion, self).__init__(
-            ignore_index=ignore_index,
-            reduction=reduction,
-            num_classes=None,  # Will be inferred from input
-        )
-
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
         """
         Validate inputs specific to semantic segmentation.

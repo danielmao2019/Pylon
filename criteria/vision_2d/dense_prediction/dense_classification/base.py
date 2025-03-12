@@ -3,6 +3,7 @@ from abc import abstractmethod
 import torch
 import torch.nn.functional as F
 from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
+from utils.semantic_segmentation.one_hot_encoding import to_one_hot
 
 
 class DenseClassificationCriterion(DensePredictionCriterion):
@@ -49,19 +50,6 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         else:
             self.register_buffer('class_weights', None)
 
-    def _to_one_hot(self, y_true: torch.Tensor, num_classes: int) -> torch.Tensor:
-        """
-        Convert integer labels to one-hot encoding.
-        
-        Args:
-            y_true: Integer labels tensor of shape (N, H, W)
-            num_classes: Number of classes
-            
-        Returns:
-            One-hot encoded tensor of shape (N, C, H, W)
-        """
-        return F.one_hot(y_true, num_classes=num_classes).permute(0, 3, 1, 2)
-
     def _compute_unreduced_loss(
         self,
         y_pred: torch.Tensor,
@@ -90,7 +78,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         y_pred = torch.nn.functional.softmax(y_pred, dim=1)  # (N, C, H, W)
         
         # Convert labels to one-hot
-        y_true = self._to_one_hot(y_true, y_pred.size(1))  # (N, C, H, W)
+        y_true = to_one_hot(y_true, y_pred.size(1), self.ignore_index)  # (N, C, H, W)
         
         # Unsqueeze valid mask to (N, 1, H, W)
         valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)

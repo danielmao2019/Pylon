@@ -155,7 +155,7 @@ class SSIMLoss(DenseClassificationCriterion):
         ssim_map = numerator / denominator  # (N, C, H, W)
         
         # Average over spatial dimensions for valid pixels only
-        valid_pixels = valid_mask.sum(dim=(2, 3))  # (N, C)
+        valid_pixels = valid_mask.sum(dim=(2, 3))  # (N, 1)
         ssim_per_class = (ssim_map * valid_mask).sum(dim=(2, 3)) / (valid_pixels + 1e-8)  # (N, C)
         
         # Return SSIM loss

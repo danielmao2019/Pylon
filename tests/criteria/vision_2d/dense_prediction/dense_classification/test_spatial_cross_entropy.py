@@ -29,7 +29,7 @@ def test_spatial_cross_entropy_basic(sample_data):
     device = y_pred.device
 
     # Initialize criterion
-    criterion = SpatialCrossEntropyCriterion(num_classes=y_pred.size(1)).to(device)
+    criterion = SpatialCrossEntropyCriterion().to(device)
 
     # Compute loss
     loss = criterion(y_pred, y_true)
@@ -77,7 +77,7 @@ def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_we
     if ignore_index is not None:
         kwargs['ignore_index'] = ignore_index
     
-    criterion = SpatialCrossEntropyCriterion(num_classes=num_classes, **kwargs).to(device)
+    criterion = SpatialCrossEntropyCriterion(**kwargs).to(device)
     
     # Compute our loss
     our_loss = criterion(y_pred, y_true_modified)
@@ -121,7 +121,7 @@ def test_spatial_cross_entropy_all_ignored(sample_data):
     y_true = torch.full_like(y_pred[:, 0], fill_value=ignore_index)
 
     # Initialize criterion
-    criterion = SpatialCrossEntropyCriterion(num_classes=num_classes, ignore_index=ignore_index).to(device)
+    criterion = SpatialCrossEntropyCriterion(ignore_index=ignore_index).to(device)
 
     # Loss computation should raise an error when all pixels are ignored
     with pytest.raises(ValueError, match="All pixels in target are ignored"):
