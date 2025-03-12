@@ -1,7 +1,7 @@
 from typing import Optional
 from abc import abstractmethod
+import numpy
 import torch
-import torch.nn.functional as F
 from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
 from utils.semantic_segmentation.one_hot_encoding import to_one_hot
 
@@ -27,7 +27,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         self,
         ignore_value: int = 255,
         reduction: str = 'mean',
-        class_weights: Optional[torch.Tensor | list | tuple | np.ndarray] = None,
+        class_weights: Optional[torch.Tensor | list | tuple | numpy.ndarray] = None,
     ) -> None:
         """
         Initialize the criterion.
