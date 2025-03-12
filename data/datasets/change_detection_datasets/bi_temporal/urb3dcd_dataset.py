@@ -110,6 +110,11 @@ class Urb3DCDDataset(BaseDataset):
 
         self.annotations = self.annotations[:1]
 
+        if len(self.annotations) == 0:
+            raise ValueError(f"No point cloud pairs found in {base_dir}")
+
+        self.annotations = self.annotations[:1]
+
         # For non-patched mode, just use the file paths as is
         if not self.patched:
             return
@@ -308,19 +313,19 @@ class Urb3DCDDataset(BaseDataset):
             'pc_0': data['pc_0'],
             'pc_1': data['pc_1']
         }
-
+        
         # Create labels dictionary
         labels = {
             'change_map': data['change_map']
         }
-
+        
         # Create meta_info dictionary
         meta_info = {
             'idx': idx,
             'pc_0_filepath': data['pc_0_filepath'],
             'pc_1_filepath': data['pc_1_filepath']
         }
-
+        
         return inputs, labels, meta_info
 
     def _load_datapoint_patched(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
@@ -415,10 +420,15 @@ class Urb3DCDDataset(BaseDataset):
         pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
         assert pc0.size(1) == 4, f"{pc0.shape=}"
         pc0_xyz = pc0[:, :3]
+        # Add ones feature
+        pc0_features = torch.ones((pc0_xyz.size(0), 1), dtype=pc0_xyz.dtype)  # [N, 1]
 
         # Load second point cloud (XYZ coordinates + label)
         pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
         pc1_xyz = pc1[:, :3]
+        # Add ones feature
+        pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
+
         change_map = pc1[:, 3]  # Labels are in the 4th column for the second point cloud
 
         # Convert to correct types
@@ -426,12 +436,10 @@ class Urb3DCDDataset(BaseDataset):
         pc1_xyz = pc1_xyz.type(torch.float32)
         change_map = change_map.type(torch.int64)
 
-        # Compute features for point clouds - follow the approach from original repository:
-        # Use a constant feature of one for each point as in the original implementation
-        pc0_features = torch.ones((pc0_xyz.shape[0], 1), dtype=torch.float32, device=pc0_xyz.device)
-        pc1_features = torch.ones((pc1_xyz.shape[0], 1), dtype=torch.float32, device=pc1_xyz.device)
+        # Normalize point clouds
+        self._normalize(pc0_xyz, pc1_xyz)
 
-        # Build KDTrees
+        # Build KDTrees (after normalization)
         kdtree_0 = KDTree(np.asarray(pc0_xyz), leaf_size=10)
         kdtree_1 = KDTree(np.asarray(pc1_xyz), leaf_size=10)
 
@@ -571,7 +579,7 @@ class Urb3DCDDataset(BaseDataset):
         }
 
     def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
-        """Normalize point clouds by centering them at the origin.
+        """Normalize point clouds by centering them at their mean.
 
         Args:
             pc0: First point cloud (N, 3)
@@ -583,25 +591,19 @@ class Urb3DCDDataset(BaseDataset):
         if pc0.shape[0] == 0 and pc1.shape[0] == 0:
             raise ValueError("Cannot normalize: both point clouds are empty")
 
-        # If one point cloud is empty, use the other's min values
+        # If one point cloud is empty, use the other's mean values
         if pc0.shape[0] == 0:
-            min0 = torch.unsqueeze(pc1.min(0)[0], 0)
-            min1 = min0
+            mean0 = pc1.mean(0, keepdim=True)
+            mean1 = mean0
         elif pc1.shape[0] == 0:
-            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
-            min1 = min0
+            mean0 = pc0.mean(0, keepdim=True)
+            mean1 = mean0
         else:
-            min0 = torch.unsqueeze(pc0.min(0)[0], 0)
-            min1 = torch.unsqueeze(pc1.min(0)[0], 0)
-
-        minG = torch.cat((min0, min1), axis=0).min(0)[0]
+            mean0 = pc0.mean(0, keepdim=True)
+            mean1 = pc1.mean(0, keepdim=True)
 
         if pc0.shape[0] > 0:
-            pc0[:, 0] = (pc0[:, 0] - minG[0])  # x
-            pc0[:, 1] = (pc0[:, 1] - minG[1])  # y
-            pc0[:, 2] = (pc0[:, 2] - minG[2])  # z
+            pc0.sub_(mean0)  # Center at mean
 
         if pc1.shape[0] > 0:
-            pc1[:, 0] = (pc1[:, 0] - minG[0])  # x
-            pc1[:, 1] = (pc1[:, 1] - minG[1])  # y
-            pc1[:, 2] = (pc1[:, 2] - minG[2])  # z
+            pc1.sub_(mean1)  # Center at mean
