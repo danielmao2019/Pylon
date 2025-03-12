@@ -85,11 +85,13 @@ class DenseClassificationCriterion(DensePredictionCriterion):
 
         # Compute per-class losses
         per_class_loss = self._compute_per_class_loss(y_pred, y_true, valid_mask)  # (N, C)
-        
-        # Apply class weights if provided
-        if self.class_weights is not None:
-            per_class_loss = per_class_loss * self.class_weights.view(1, -1)
-        
+        # Define class weights tensor - use provided weights or uniform weighting
+        num_classes = per_class_loss.size(1)
+        class_weights = self.class_weights if self.class_weights is not None else \
+            torch.full((num_classes,), 1.0/num_classes, device=per_class_loss.device)
+            
+        # Apply class weights
+        per_class_loss = per_class_loss * class_weights.view(1, -1)
         # Sum over classes
         return per_class_loss.sum(dim=1)  # (N,)
 
