@@ -5,6 +5,11 @@ from models.change_detection.i3pe.resnet_50_101 import ResNet50
 
 
 class I3PEModel(torch.nn.Module):
+    """
+    I3PE (Intra-Image Patch Exchange) model for change detection using a single temporal image.
+    
+    For detailed documentation, see: docs/models/change_detection/i3pe.md
+    """
 
     def __init__(self, pretrained=True, output_stride=16, BatchNorm=torch.nn.BatchNorm2d, Backbone='ResNet50'):
         super(I3PEModel, self).__init__()

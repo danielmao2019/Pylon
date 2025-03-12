@@ -3,7 +3,13 @@ import torch
 
 
 class CelebA_FAMO(torch.nn.Module):
-    __doc__ = r"""Reference: https://github.com/Cranial-XIX/FAMO/blob/main/experiments/celeba/models.py
+    __doc__ = r"""
+    FAMO model for the CelebA dataset multi-task attribute classification.
+    The model uses the Fast Adaptive Multitask Optimization (FAMO) approach for training.
+    
+    Reference: https://github.com/Cranial-XIX/FAMO/blob/main/experiments/celeba/models.py
+    
+    For multi-task learning documentation, see: docs/datasets/multi_task/celeb_a.md
     """
 
     LABEL_NAMES = ['5_o_Clock_Shadow', 'Arched_Eyebrows', 'Attractive', 'Bags_Under_Eyes', 'Bald', 'Bangs', 'Big_Lips', 'Big_Nose', 'Black_Hair', 'Blond_Hair', 'Blurry', 'Brown_Hair', 'Bushy_Eyebrows', 'Chubby', 'Double_Chin', 'Eyeglasses', 'Goatee', 'Gray_Hair', 'Heavy_Makeup', 'High_Cheekbones', 'Male',
