@@ -1,7 +1,7 @@
 import pytest
 import torch
 import numpy as np
-from criteria.vision_2d.normal_estimation_criterion import NormalEstimationCriterion
+from criteria.vision_2d.dense_prediction.dense_regression.normal_estimation import NormalEstimationCriterion
 
 
 def test_normal_estimation_basic():
@@ -22,7 +22,7 @@ def test_normal_estimation_basic():
     # Check loss properties
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0  # Scalar output
-    assert -1.0 <= loss.item() <= 1.0  # Cosine similarity range
+    assert 0.0 <= loss.item() <= 2.0  # Cosine similarity loss range (1 - cos_sim)
 
 
 def test_normal_estimation_perfect_predictions():

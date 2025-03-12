@@ -8,25 +8,25 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
     Criterion for instance segmentation tasks.
     
     This criterion computes the L1 loss between predicted and ground truth instance IDs
-    for each pixel in the image, ignoring pixels marked with ignore_index (typically
+    for each pixel in the image, ignoring pixels marked with ignore_value (typically
     background or unlabeled regions).
     
     Attributes:
-        ignore_index: Index to ignore in loss computation (typically background/unlabeled regions).
+        ignore_value: Value to ignore in loss computation (typically background/unlabeled regions).
         reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
     """
 
-    def __init__(self, ignore_index: int, reduction: str = 'mean') -> None:
+    def __init__(self, ignore_value: int, reduction: str = 'mean') -> None:
         """
         Initialize the criterion.
         
         Args:
-            ignore_index: Index to ignore in loss computation (typically background
+            ignore_value: Value to ignore in loss computation (typically background
                         or unlabeled regions).
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         """
         super(InstanceSegmentationCriterion, self).__init__(
-            ignore_index=ignore_index,
+            ignore_value=ignore_value,
             reduction=reduction
         )
 
@@ -51,15 +51,24 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
 
     def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
         """
-        Get mask for valid instance IDs (not equal to ignore_index).
+        Get mask for valid instance IDs (not equal to ignore_value).
         
         Args:
             y_true: Ground truth instance IDs tensor of shape (N, H, W)
             
         Returns:
             Boolean tensor of shape (N, H, W), True for valid instance IDs
+            
+        Raises:
+            AssertionError: If all pixels in the target are ignored
         """
-        return y_true != self.ignore_index
+        valid_mask = y_true != self.ignore_value
+        
+        # Validate that there are non-ignored pixels
+        if not valid_mask.any():
+            raise ValueError("All pixels in target are ignored")
+
+        return valid_mask
 
     def _compute_unreduced_loss(
         self,

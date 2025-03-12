@@ -9,18 +9,18 @@ class NormalEstimationCriterion(DenseRegressionCriterion):
     Criterion for normal estimation tasks.
     
     This criterion computes the cosine similarity loss between predicted and ground truth
-    surface normal vectors for each pixel in the image.
-    
-    The loss is defined as 1 - mean(cosine_similarity) over valid pixels, where
-    cosine_similarity is computed as the dot product between normalized vectors.
-    Invalid normals are identified by having zero norm.
+    normal vectors for each pixel in the image, ignoring pixels marked with ignore_value
+    (typically zero vectors for invalid normals).
     
     Attributes:
-        ignore_index: Value to ignore in loss computation (typically 0 for invalid normals).
+        ignore_value: Value to ignore in loss computation (typically 0 for invalid normals).
         reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
     """
 
-    def __init__(self, reduction: str = 'mean') -> None:
+    def __init__(
+        self,
+        reduction: str = 'mean',
+    ) -> None:
         """
         Initialize the criterion.
         
@@ -28,8 +28,8 @@ class NormalEstimationCriterion(DenseRegressionCriterion):
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         """
         super(NormalEstimationCriterion, self).__init__(
-            ignore_index=0,  # Zero vectors represent invalid normals
-            reduction=reduction
+            ignore_value=0,  # Zero vectors represent invalid normals
+            reduction=reduction,
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:

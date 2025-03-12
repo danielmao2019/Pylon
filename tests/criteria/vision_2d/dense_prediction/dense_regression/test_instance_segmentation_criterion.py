@@ -1,20 +1,20 @@
 import pytest
 import torch
 import numpy as np
-from criteria.vision_2d.instance_segmentation_criterion import InstanceSegmentationCriterion
+from criteria.vision_2d.dense_prediction.dense_regression.instance_segmentation import InstanceSegmentationCriterion
 
 
 def test_instance_segmentation_init():
     # Test initialization with different ignore indices
-    criterion = InstanceSegmentationCriterion(ignore_index=-1)
-    assert criterion.ignore_index == -1
+    criterion = InstanceSegmentationCriterion(ignore_value=-1)
+    assert criterion.ignore_value == -1
 
-    criterion = InstanceSegmentationCriterion(ignore_index=255)
-    assert criterion.ignore_index == 255
+    criterion = InstanceSegmentationCriterion(ignore_value=255)
+    assert criterion.ignore_value == 255
 
 
 def test_instance_segmentation_basic():
-    criterion = InstanceSegmentationCriterion(ignore_index=-1)
+    criterion = InstanceSegmentationCriterion(ignore_value=-1)
     batch_size = 2
     height = 4
     width = 4
@@ -33,7 +33,7 @@ def test_instance_segmentation_basic():
 
 
 def test_instance_segmentation_perfect_predictions():
-    criterion = InstanceSegmentationCriterion(ignore_index=-1)
+    criterion = InstanceSegmentationCriterion(ignore_value=-1)
     batch_size = 2
     height = 4
     width = 4
@@ -52,14 +52,14 @@ def test_instance_segmentation_perfect_predictions():
 
 
 def test_instance_segmentation_with_ignored_regions():
-    criterion = InstanceSegmentationCriterion(ignore_index=-1)
+    criterion = InstanceSegmentationCriterion(ignore_value=-1)
     batch_size = 2
     height = 4
     width = 4
 
     # Create sample data with some ignored regions
     y_true = torch.randint(0, 10, (batch_size, height, width))
-    y_true[0, 0, 0] = -1  # Set some pixels to ignore_index
+    y_true[0, 0, 0] = -1  # Set some pixels to ignore_value
     y_true[1, 1, 1] = -1
 
     y_pred = torch.rand(batch_size, height, width)
@@ -74,7 +74,7 @@ def test_instance_segmentation_with_ignored_regions():
 
 
 def test_instance_segmentation_all_ignored():
-    criterion = InstanceSegmentationCriterion(ignore_index=-1)
+    criterion = InstanceSegmentationCriterion(ignore_value=-1)
     batch_size = 2
     height = 4
     width = 4
@@ -89,7 +89,7 @@ def test_instance_segmentation_all_ignored():
 
 
 def test_instance_segmentation_input_validation():
-    criterion = InstanceSegmentationCriterion(ignore_index=-1)
+    criterion = InstanceSegmentationCriterion(ignore_value=-1)
 
     # Test mismatched shapes
     with pytest.raises(AssertionError):

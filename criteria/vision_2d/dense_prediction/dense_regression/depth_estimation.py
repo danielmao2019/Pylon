@@ -8,15 +8,18 @@ class DepthEstimationCriterion(DenseRegressionCriterion):
     Criterion for depth estimation tasks.
     
     This criterion computes the L1 loss between predicted and ground truth depth values
-    for each pixel in the image, ignoring pixels with invalid depth measurements
-    (typically marked as 0).
+    for each pixel in the image, ignoring pixels marked with ignore_value (typically
+    zero values for invalid depths).
     
     Attributes:
-        ignore_index: Value to ignore in loss computation (typically 0 for invalid depths).
+        ignore_value: Value to ignore in loss computation (typically 0 for invalid depths).
         reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
     """
 
-    def __init__(self, reduction: str = 'mean') -> None:
+    def __init__(
+        self,
+        reduction: str = 'mean',
+    ) -> None:
         """
         Initialize the criterion.
         
@@ -24,8 +27,8 @@ class DepthEstimationCriterion(DenseRegressionCriterion):
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         """
         super(DepthEstimationCriterion, self).__init__(
-            ignore_index=0,  # Zero values represent invalid depths
-            reduction=reduction
+            ignore_value=0,  # Zero values represent invalid depths
+            reduction=reduction,
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
@@ -41,11 +44,11 @@ class DepthEstimationCriterion(DenseRegressionCriterion):
         """
         check_depth_estimation(y_pred=y_pred, y_true=y_true)
         
-        # Validate regression values (depths should be non-negative)
+        # Depth values should be non-negative
         if (y_pred < 0).any():
-            raise ValueError("Predicted depths must be non-negative")
+            raise ValueError("Predicted depth values must be non-negative")
         if (y_true < 0).any():
-            raise ValueError("Ground truth depths must be non-negative")
+            raise ValueError("Ground truth depth values must be non-negative")
 
     def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
         """

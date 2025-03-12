@@ -34,7 +34,7 @@ class DenseRegressionCriterion(DensePredictionCriterion):
             normalize_inputs: Whether to normalize predictions and targets before computing loss.
         """
         super(DenseRegressionCriterion, self).__init__(
-            ignore_index=ignore_value,
+            ignore_value=ignore_value,
             reduction=reduction,
         )
 
@@ -46,16 +46,11 @@ class DenseRegressionCriterion(DensePredictionCriterion):
     ) -> torch.Tensor:
         """
         Compute the loss for each sample in the batch before reduction.
-        
-        This method:
-        1. Optionally normalizes inputs
-        2. Computes per-channel losses
-        3. Reduces over channels
-        
+
         Args:
             y_pred: Prediction tensor of shape (N, C, H, W)
-            y_true: Target tensor of shape (N, C, H, W)
-            valid_mask: Boolean tensor of shape (N, 1, H, W)
+            y_true: Ground truth tensor of shape (N, C, H, W)
+            valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
             
         Returns:
             Loss tensor of shape (N,) containing per-sample losses
