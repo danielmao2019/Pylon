@@ -8,11 +8,11 @@ class CEDiceLoss(SingleTaskCriterion):
 
     COMBINE_OPTIONS = {'mean', 'sum'}
 
-    def __init__(self, combine='sum') -> None:
+    def __init__(self, combine='sum', class_weights=None, ignore_index=255) -> None:
         super(CEDiceLoss, self).__init__()
         assert combine in self.COMBINE_OPTIONS
-        self.ce_loss = SemanticSegmentationCriterion(reduction='mean')
-        self.dice_loss = DiceLoss(reduction='mean')
+        self.ce_loss = SemanticSegmentationCriterion(reduction='mean', class_weights=class_weights, ignore_index=ignore_index)
+        self.dice_loss = DiceLoss(reduction='mean', class_weights=class_weights, ignore_index=ignore_index)
         self.combine = combine
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:

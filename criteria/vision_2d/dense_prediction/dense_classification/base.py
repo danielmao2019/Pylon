@@ -78,7 +78,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         y_pred = torch.nn.functional.softmax(y_pred, dim=1)  # (N, C, H, W)
         
         # Convert labels to one-hot
-        y_true = to_one_hot(y_true, y_pred.size(1))  # (N, C, H, W)
+        y_true = to_one_hot(y_true, y_pred.size(1), self.ignore_index)  # (N, C, H, W)
         
         # Unsqueeze valid mask to (N, 1, H, W)
         valid_mask = valid_mask.unsqueeze(1)  # (N, 1, H, W)
