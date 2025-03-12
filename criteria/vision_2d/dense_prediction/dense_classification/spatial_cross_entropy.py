@@ -1,6 +1,6 @@
 from typing import Tuple, Optional
 import torch
-from criteria.wrappers import DenseClassificationCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
 from utils.input_checks import check_semantic_segmentation
 
 

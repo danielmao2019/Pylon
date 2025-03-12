@@ -1,6 +1,6 @@
 from typing import Optional
 import torch
-from criteria.wrappers import DenseRegressionCriterion
+from criteria.vision_2d.dense_prediction.dense_regression.base import DenseRegressionCriterion
 from utils.input_checks import check_normal_estimation
 
 

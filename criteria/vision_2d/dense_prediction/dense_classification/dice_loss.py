@@ -1,40 +1,50 @@
 from typing import Optional
 import torch
-from criteria.wrappers.dense_prediction_criterion import DenseClassificationCriterion
+import torch.nn.functional as F
+from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
 class DiceLoss(DenseClassificationCriterion):
     """
-    Criterion for computing Dice loss in semantic segmentation tasks.
+    Criterion for computing Dice loss.
     
     This criterion computes the Dice loss between predicted class probabilities
-    and one-hot encoded ground truth labels for each class.
+    and ground truth labels for each pixel in the image.
+    
+    The Dice loss is defined as 1 - 2|X∩Y|/(|X|+|Y|) where X and Y are the
+    predicted and ground truth segmentation masks.
     
     Attributes:
-        ignore_index: Index to ignore in the loss computation.
+        ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+        class_weights: Optional weights for each class (registered as buffer).
+        reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
     """
 
     def __init__(
         self,
         ignore_index: int = 255,
         reduction: str = 'mean',
+        class_weights: Optional[torch.Tensor] = None,
     ) -> None:
         """
         Initialize the criterion.
         
         Args:
-            ignore_index: Index to ignore in the loss computation. Defaults to 255.
-            reduction: Specifies the reduction to apply to the output: 'mean' or 'sum'.
+            ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+            reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
+            class_weights: Optional weights for each class to address class imbalance.
+                         Weights will be normalized to sum to 1 and must be non-negative.
         """
         super(DiceLoss, self).__init__(
             ignore_index=ignore_index,
             reduction=reduction,
+            class_weights=class_weights
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
         """
-        Validate inputs specific to semantic segmentation.
+        Validate inputs specific to Dice loss.
         
         Args:
             y_pred: Predicted logits tensor of shape (N, C, H, W)
@@ -77,9 +87,13 @@ class DiceLoss(DenseClassificationCriterion):
         Returns:
             Loss tensor of shape (N, C) containing per-class losses for each sample
         """
-        # Compute Dice loss per class
+        # Compute intersection and cardinalities
         intersection = torch.sum(y_pred * y_true * valid_mask, dim=(2, 3))  # (N, C)
-        total = torch.sum((y_pred + y_true) * valid_mask, dim=(2, 3))  # (N, C)
-        dice_per_class = 1 - (2 * intersection / total.clamp(min=1e-6))  # (N, C)
-
-        return dice_per_class
+        cardinality_pred = torch.sum(y_pred * valid_mask, dim=(2, 3))  # (N, C)
+        cardinality_true = torch.sum(y_true * valid_mask, dim=(2, 3))  # (N, C)
+        
+        # Compute Dice coefficient
+        dice = (2 * intersection) / (cardinality_pred + cardinality_true).clamp(min=1e-6)
+        
+        # Return Dice loss
+        return 1 - dice

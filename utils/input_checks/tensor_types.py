@@ -111,6 +111,74 @@ def check_normal_estimation(y_pred: Any, y_true: Any, batched: Optional[bool] = 
     return y_pred, y_true
 
 # ====================================================================================================
+# instance segmentation
+# ====================================================================================================
+
+def check_instance_segmentation_pred(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
+    """
+    Check if the prediction for instance segmentation is valid.
+    
+    Args:
+        obj: The prediction tensor to check.
+        batched: Whether the tensor contains instances from multiple examples.
+        
+    Returns:
+        The validated tensor.
+    
+    Raises:
+        AssertionError: If the tensor is not valid.
+    """
+    assert type(obj) == torch.Tensor, f"{type(obj)=}"
+    assert obj.ndim == (3 if batched else 2), f"{obj.shape=}"
+    assert obj.is_floating_point(), f"{obj.dtype=}"
+    assert not torch.any(torch.isnan(obj))
+    return obj
+
+
+def check_instance_segmentation_true(obj: Any, batched: Optional[bool] = True) -> torch.Tensor:
+    """
+    Check if the ground truth for instance segmentation is valid.
+    
+    Args:
+        obj: The ground truth tensor to check.
+        batched: Whether the tensor contains instances from multiple examples.
+        
+    Returns:
+        The validated tensor.
+    
+    Raises:
+        AssertionError: If the tensor is not valid.
+    """
+    assert type(obj) == torch.Tensor, f"{type(obj)=}"
+    assert obj.ndim == (3 if batched else 2), f"{obj.shape=}"
+    assert obj.dtype == torch.int64, f"{obj.dtype=}"
+    assert not torch.any(torch.isnan(obj))
+    return obj
+
+
+def check_instance_segmentation(y_pred: Any, y_true: Any, batched: Optional[bool] = True) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Check if the prediction and ground truth for instance segmentation are valid.
+    
+    Args:
+        y_pred: The prediction tensor to check.
+        y_true: The ground truth tensor to check.
+        batched: Whether the tensors contain instances from multiple examples.
+        
+    Returns:
+        The validated tensors (y_pred, y_true).
+    
+    Raises:
+        AssertionError: If the tensors are not valid.
+    """
+    check_instance_segmentation_pred(obj=y_pred, batched=batched)
+    check_instance_segmentation_true(obj=y_true, batched=batched)
+    if batched:
+        assert y_pred.size(0) == y_true.size(0), f"{y_pred.shape=}, {y_true.shape=}"
+    assert y_pred.shape[-2:] == y_true.shape[-2:], f"{y_pred.shape=}, {y_true.shape=}"
+    return y_pred, y_true
+
+# ====================================================================================================
 # point cloud segmentation
 # ====================================================================================================
 

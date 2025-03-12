@@ -1,6 +1,7 @@
 from typing import Tuple, Optional
 import torch
-from criteria.wrappers import DenseClassificationCriterion
+import torch.nn.functional as F
+from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -19,28 +20,23 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
 
     def __init__(
         self,
-        ignore_index: Optional[int] = None,
-        class_weights: Optional[Tuple[float, ...]] = None,
-        reduction: str = 'mean'
+        ignore_index: int = 255,
+        reduction: str = 'mean',
+        class_weights: Optional[torch.Tensor] = None,
     ) -> None:
         """
         Initialize the criterion.
         
         Args:
             ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
-                         Defaults to 255 (common in semantic segmentation).
+            reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
             class_weights: Optional weights for each class to address class imbalance.
                          Weights will be normalized to sum to 1 and must be non-negative.
-            reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         """
-        # Set default ignore_index before calling parent
-        if ignore_index is None:
-            ignore_index = 255  # Common default for semantic segmentation
-            
         super(SemanticSegmentationCriterion, self).__init__(
             ignore_index=ignore_index,
-            class_weights=class_weights,
-            reduction=reduction
+            reduction=reduction,
+            class_weights=class_weights
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
@@ -85,15 +81,11 @@ class SemanticSegmentationCriterion(DenseClassificationCriterion):
         Returns:
             Loss tensor of shape (N, C) containing per-class losses for each sample
         """
-        # Convert probabilities to log probabilities
-        log_probs = torch.log(y_pred.clamp(min=1e-6))  # (N, C, H, W)
-
         # Compute cross entropy loss per class
-        # Sum over spatial dimensions for each class
-        ce_per_class = -torch.sum(y_true * log_probs * valid_mask, dim=(2, 3))  # (N, C)
-
+        ce_per_class = -torch.sum(y_true * torch.log(y_pred.clamp(min=1e-6)) * valid_mask, dim=(2, 3))  # (N, C)
+        
         # Normalize by number of valid pixels per sample
         valid_pixels_per_sample = valid_mask.squeeze(1).sum(dim=(1, 2))  # (N,)
         ce_per_class = ce_per_class / valid_pixels_per_sample.unsqueeze(1).clamp(min=1)  # (N, C)
-
+        
         return ce_per_class

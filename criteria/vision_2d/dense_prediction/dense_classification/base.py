@@ -1,4 +1,5 @@
 from typing import Optional
+from abc import abstractmethod
 import torch
 import torch.nn.functional as F
 from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion

@@ -2,7 +2,7 @@ from typing import Optional
 import math
 import torch
 import torch.nn.functional as F
-from criteria.wrappers.dense_prediction_criterion import DenseClassificationCriterion
+from criteria.vision_2d.dense_prediction.dense_classification.base import DenseClassificationCriterion
 from utils.input_checks import check_semantic_segmentation
 
 
@@ -83,59 +83,77 @@ def compute_ssim(
 
 class SSIMLoss(DenseClassificationCriterion):
     """
-    Structural Similarity Index (SSIM) Loss for semantic segmentation.
+    Criterion for computing SSIM loss.
     
-    This criterion computes the SSIM loss between predicted class probabilities
-    and one-hot encoded ground truth labels for each class.
+    This criterion computes the Structural Similarity Index (SSIM) loss between
+    predicted class probabilities and ground truth labels for each pixel in the image.
+    
+    The SSIM loss is defined as 1 - SSIM where SSIM measures the structural similarity
+    between two images based on luminance, contrast, and structure.
     
     Attributes:
-        ignore_index: Index to ignore in the loss computation.
-        num_classes: Number of classes for semantic segmentation.
+        ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+        class_weights: Optional weights for each class (registered as buffer).
+        reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         window_size: Size of the Gaussian window for SSIM computation.
-        C1: Stability constant for luminance comparison.
-        C2: Stability constant for contrast comparison.
+        window: Gaussian window tensor (registered as buffer).
     """
 
     def __init__(
         self,
-        num_classes: int,
         ignore_index: int = 255,
-        window_size: int = 11,
-        C1: float = 0.01 ** 2,
-        C2: float = 0.03 ** 2,
         reduction: str = 'mean',
+        class_weights: Optional[torch.Tensor] = None,
+        window_size: int = 11,
     ) -> None:
         """
         Initialize the criterion.
         
         Args:
-            num_classes: Number of classes for semantic segmentation.
-            ignore_index: Index to ignore in the loss computation. Defaults to 255.
-            window_size: Size of the Gaussian window. Must be odd. Defaults to 11.
-            C1: Stability constant for luminance comparison. Defaults to 0.01^2.
-            C2: Stability constant for contrast comparison. Defaults to 0.03^2.
-            reduction: Specifies the reduction to apply to the output: 'mean' or 'sum'.
+            ignore_index: Index to ignore in loss computation (usually background/unlabeled pixels).
+            reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
+            class_weights: Optional weights for each class to address class imbalance.
+                         Weights will be normalized to sum to 1 and must be non-negative.
+            window_size: Size of the Gaussian window for SSIM computation.
         """
         super(SSIMLoss, self).__init__(
             ignore_index=ignore_index,
             reduction=reduction,
+            class_weights=class_weights
         )
-
-        if window_size % 2 == 0:
-            raise ValueError("window_size must be an odd number")
-
-        self.num_classes = num_classes
-        self.window_size = window_size
-        self.C1 = C1
-        self.C2 = C2
-
-        # Create and register window
-        window = create_window(window_size, num_classes=num_classes)
+        
+        # Create Gaussian window
+        window = self._create_window(window_size)
         self.register_buffer('window', window)
+
+    def _create_window(self, window_size: int) -> torch.Tensor:
+        """
+        Create a 2D Gaussian window.
+        
+        Args:
+            window_size: Size of the window (must be odd)
+            
+        Returns:
+            2D Gaussian window tensor of shape (1, 1, window_size, window_size)
+        """
+        assert window_size % 2 == 1, f"Window size must be odd, got {window_size}"
+        
+        # Create 1D Gaussian window
+        sigma = 1.5
+        gauss = torch.exp(
+            -torch.pow(torch.linspace(-(window_size//2), window_size//2, window_size), 2.0) / (2.0 * sigma * sigma)
+        )
+        gauss = gauss / gauss.sum()
+        
+        # Create 2D Gaussian window
+        window = gauss.unsqueeze(0) * gauss.unsqueeze(1)  # (window_size, window_size)
+        window = window.unsqueeze(0).unsqueeze(0)  # (1, 1, window_size, window_size)
+        
+        return window
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
         """
-        Validate inputs specific to semantic segmentation.
+        Validate inputs specific to SSIM loss.
         
         Args:
             y_pred: Predicted logits tensor of shape (N, C, H, W)
@@ -145,10 +163,6 @@ class SSIMLoss(DenseClassificationCriterion):
             ValueError: If validation fails
         """
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
-        assert y_pred.size(1) == self.window.size(0), (
-            f"Number of classes in prediction ({y_pred.size(1)}) must match "
-            f"number of classes in window ({self.window.size(0)})"
-        )
 
     def _get_valid_mask(self, y_true: torch.Tensor) -> torch.Tensor:
         """
@@ -158,12 +172,15 @@ class SSIMLoss(DenseClassificationCriterion):
             y_true: Ground truth labels tensor of shape (N, H, W)
             
         Returns:
-            Boolean tensor of shape (N, 1, H, W), True for valid pixels
+            Boolean tensor of shape (N, H, W), True for valid pixels
+            
+        Raises:
+            ValueError: If all pixels in target are ignored
         """
         valid_mask = (y_true != self.ignore_index)
         if valid_mask.sum() == 0:
             raise ValueError("All pixels in target are ignored. Cannot compute loss.")
-        return valid_mask.unsqueeze(1)  # (N, 1, H, W)
+        return valid_mask  # (N, H, W)
 
     def _compute_per_class_loss(
         self,
@@ -172,7 +189,7 @@ class SSIMLoss(DenseClassificationCriterion):
         valid_mask: torch.Tensor,  # (N, 1, H, W)
     ) -> torch.Tensor:  # (N, C)
         """
-        Compute SSIM loss for each class and sample.
+        Compute SSIM loss for each class and sample in the batch.
         
         Args:
             y_pred: Predicted probabilities tensor of shape (N, C, H, W)
@@ -182,11 +199,41 @@ class SSIMLoss(DenseClassificationCriterion):
         Returns:
             Loss tensor of shape (N, C) containing per-class losses for each sample
         """
-        # Compute SSIM loss per class
-        return compute_ssim(
-            y_pred * valid_mask, y_true * valid_mask,
-            self.window,
-            self.window_size,
-            self.num_classes,
-            self.C1, self.C2
-        )  # (N, C)
+        # Apply valid mask by broadcasting to all channels
+        valid_mask = valid_mask.expand(-1, y_pred.size(1), -1, -1)  # (N, C, H, W)
+        y_pred = y_pred * valid_mask
+        y_true = y_true * valid_mask
+        
+        # Compute means
+        mu_pred = F.conv2d(y_pred, self.window.expand(y_pred.size(1), -1, -1, -1),
+                          padding=self.window.size(-1)//2, groups=y_pred.size(1))  # (N, C, H, W)
+        mu_true = F.conv2d(y_true, self.window.expand(y_true.size(1), -1, -1, -1),
+                          padding=self.window.size(-1)//2, groups=y_true.size(1))  # (N, C, H, W)
+        
+        # Compute variances and covariance
+        mu_pred_sq = mu_pred.pow(2)
+        mu_true_sq = mu_true.pow(2)
+        mu_pred_true = mu_pred * mu_true
+        
+        sigma_pred_sq = F.conv2d(y_pred * y_pred, self.window.expand(y_pred.size(1), -1, -1, -1),
+                                padding=self.window.size(-1)//2, groups=y_pred.size(1)) - mu_pred_sq
+        sigma_true_sq = F.conv2d(y_true * y_true, self.window.expand(y_true.size(1), -1, -1, -1),
+                                padding=self.window.size(-1)//2, groups=y_true.size(1)) - mu_true_sq
+        sigma_pred_true = F.conv2d(y_pred * y_true, self.window.expand(y_pred.size(1), -1, -1, -1),
+                                  padding=self.window.size(-1)//2, groups=y_pred.size(1)) - mu_pred_true
+        
+        # Constants for numerical stability
+        C1 = 0.01 ** 2
+        C2 = 0.03 ** 2
+        
+        # Compute SSIM
+        numerator = (2 * mu_pred_true + C1) * (2 * sigma_pred_true + C2)
+        denominator = (mu_pred_sq + mu_true_sq + C1) * (sigma_pred_sq + sigma_true_sq + C2)
+        ssim_map = numerator / denominator  # (N, C, H, W)
+        
+        # Average over spatial dimensions for valid pixels only
+        valid_pixels = valid_mask.sum(dim=(2, 3))  # (N, C)
+        ssim_per_class = (ssim_map * valid_mask).sum(dim=(2, 3)) / (valid_pixels + 1e-8)  # (N, C)
+        
+        # Return SSIM loss
+        return 1 - ssim_per_class
