@@ -224,7 +224,6 @@ class SLPCCDDataset(BaseDataset):
 
     def _load_point_cloud_files(self, idx: int) -> Dict[str, Any]:
         """Load point cloud files for a given datapoint.
-
         Args:
             idx: Index of the datapoint to load
 
