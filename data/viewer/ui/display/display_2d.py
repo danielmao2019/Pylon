@@ -1,7 +1,6 @@
 """UI components for displaying dataset items."""
 from dash import dcc, html
 import plotly.express as px
-import plotly.graph_objects as go
 import torch
 import numpy as np
 import random
