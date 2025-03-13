@@ -216,13 +216,3 @@ def test_c3dnet_feature_extraction():
     # Check the output shape
     assert output.shape == (batch_size, 64, xyz_list[0].shape[1], 1)
     assert output.dtype == torch.float32
-
-
-if __name__ == "__main__":
-    # This allows the file to be run directly for quick testing
-    test_batch_data = test_batch()
-    test_model_instantiation()
-    test_model_forward_pass(test_batch_data)
-    test_nearest_feature_difference()
-    test_c3dnet_feature_extraction()
-    print("All tests passed!")
