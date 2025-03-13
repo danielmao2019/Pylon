@@ -30,17 +30,14 @@ def register_index_callbacks(app, viewer):
             dataset_info = viewer.state.get_state()['dataset_info']
             dataset_name = dataset_info['name']
             
-            # Get dataset
-            dataset = viewer.datasets.get(dataset_name)
-            if dataset is None:
+            # Get datapoint using dataset manager
+            datapoint = viewer.dataset_manager.get_datapoint(dataset_name, index)
+            if datapoint is None:
                 return (
-                    html.Div("Error: Dataset not found."),
+                    html.Div("Error: Datapoint not found."),
                     index,
                     create_index_controls(dataset_info)
                 )
-            
-            # Get datapoint
-            datapoint = dataset[index]
             
             # Create display content
             display_content = html.Div([

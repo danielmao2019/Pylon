@@ -27,60 +27,32 @@ def register_transform_callbacks(app, viewer):
             raise PreventUpdate
 
         dataset_name = dataset_info['name']
-        dataset = viewer.datasets.get(dataset_name)
-
-        if dataset is None or datapoint_idx >= len(dataset):
-            raise PreventUpdate
-
+        
+        # Get list of selected transforms
+        selected_transforms = [
+            transform for transform, selected in zip(dataset_info['available_transforms'], transform_values)
+            if selected
+        ]
+        
+        # Apply transforms using dataset manager
+        datapoint = viewer.dataset_manager.apply_transforms(dataset_name, datapoint_idx, selected_transforms)
+        if datapoint is None:
+            return html.Div([
+                html.H3("Error Applying Transforms", style={'color': 'red'}),
+                html.P("Failed to apply transforms to datapoint.")
+            ])
+        
+        # Display the transformed datapoint
         try:
-            # Get the datapoint
-            datapoint = dataset[datapoint_idx]
-
-            # Determine if this is a 3D dataset
-            is_3d = is_3d_dataset(dataset, datapoint)
-
-            # Get class labels if available
-            class_labels = dataset_info.get('class_labels', {})
-
-            # Apply transforms if any are selected
-            if transform_values and any(transform_values):
-                # Get the list of selected transforms
-                selected_transforms = [
-                    transform for transform, selected in zip(viewer.available_transforms, transform_values)
-                    if selected
-                ]
-
-                # Apply each selected transform
-                for transform in selected_transforms:
-                    if transform in viewer.transform_functions:
-                        datapoint = viewer.transform_functions[transform](datapoint)
-
-            # Display the transformed datapoint
-            try:
-                if is_3d:
-                    display = display_3d_datapoint(datapoint, class_labels=class_labels)
-                else:
-                    display = display_2d_datapoint(datapoint)
-            except Exception as e:
-                error_traceback = traceback.format_exc()
-                return html.Div([
-                    html.H3(f"Error Displaying Transformed Datapoint: {str(e)}", style={'color': 'red'}),
-                    html.P("Error traceback:"),
-                    html.Pre(error_traceback, style={
-                        'background-color': '#ffeeee',
-                        'padding': '10px',
-                        'border-radius': '5px',
-                        'max-height': '300px',
-                        'overflow-y': 'auto'
-                    })
-                ])
-
+            if dataset_info['is_3d']:
+                display = display_3d_datapoint(datapoint, class_labels=dataset_info['class_labels'])
+            else:
+                display = display_2d_datapoint(datapoint)
             return display
-
         except Exception as e:
             error_traceback = traceback.format_exc()
             return html.Div([
-                html.H3(f"Error Applying Transforms: {str(e)}", style={'color': 'red'}),
+                html.H3(f"Error Displaying Transformed Datapoint: {str(e)}", style={'color': 'red'}),
                 html.P("Error traceback:"),
                 html.Pre(error_traceback, style={
                     'background-color': '#ffeeee',
