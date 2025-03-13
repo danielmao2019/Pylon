@@ -61,7 +61,8 @@ class DatasetViewer:
         self.app = dash.Dash(
             __name__,
             title="Dataset Viewer",
-            suppress_callback_exceptions=True  # Add this to handle callbacks to components created by other callbacks
+            suppress_callback_exceptions=True,  # Add this to handle callbacks to components created by other callbacks
+            prevent_initial_callbacks='initial_duplicate'  # Handle duplicate callbacks properly
         )
 
         # Create layout
