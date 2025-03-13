@@ -9,6 +9,7 @@ from data.viewer.layout.display.dataset import create_dataset_info_display
 from data.viewer.layout.controls.dataset import create_dataset_selector, create_reload_button
 from data.viewer.layout.controls.navigation import create_navigation_controls
 from data.viewer.layout.controls.transforms import create_transform_checkboxes, create_transforms_section
+from data.viewer.layout.app import create_app_layout
 
 
 __all__ = [
@@ -21,4 +22,5 @@ __all__ = [
     'create_dataset_info_display',
     'create_transform_checkboxes',
     'create_transforms_section',
+    'create_app_layout',
 ]

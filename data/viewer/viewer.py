@@ -13,6 +13,7 @@ from data.viewer.layout.controls.dataset import create_dataset_selector, create_
 from data.viewer.layout.controls.navigation import create_navigation_controls
 from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.layout.controls.transforms import create_transforms_section
+from data.viewer.layout import create_app_layout
 
 # Import callback modules
 from data.viewer.callbacks.dataset import register_dataset_callbacks
@@ -77,7 +78,7 @@ class DatasetViewer:
         )
 
         # Create layout
-        self.app.layout = self._create_app_layout()
+        self.app.layout = create_app_layout(self.available_datasets)
 
         # Register callbacks
         self._register_callbacks()
@@ -122,51 +123,6 @@ class DatasetViewer:
                 self.logger.error(f"Error loading dataset: {name}: {e}")
                 self.logger.error(traceback.format_exc())
                 raise DatasetLoadError(f"Failed to load dataset {name}: {str(e)}")
-
-    def _create_app_layout(self):
-        """Create the main application layout."""
-        # Initialize Dash components
-        layout = html.Div([
-            # Hidden stores for keeping track of state
-            dcc.Store(id='dataset-info', data={}),
-            dcc.Store(id='is-3d-dataset', data=False),
-
-            # Header
-            html.Div([
-                html.H1("Dataset Viewer", style={'text-align': 'center', 'margin-bottom': '20px'}),
-
-                # Dataset selector and reload button
-                html.Div([
-                    create_dataset_selector(self.available_datasets),
-                    create_reload_button()
-                ], style={'display': 'flex', 'align-items': 'flex-end'}),
-
-                # Navigation controls
-                create_navigation_controls()
-            ], style={'padding': '20px', 'background-color': '#f8f9fa', 'border-radius': '5px', 'margin-bottom': '20px'}),
-
-            # Main content area
-            html.Div([
-                # Left sidebar with controls and info
-                html.Div([
-                    # Dataset info section
-                    html.Div(id='dataset-info-display', style={'margin-bottom': '20px'}),
-                    
-                    # Transforms section
-                    html.Div(id='transforms-section', style={'margin-bottom': '20px'}),
-
-                    # 3D View Controls - initially hidden, shown only for 3D datasets
-                    create_3d_controls(visible=False)
-                ], style={'width': '25%', 'padding': '20px', 'background-color': '#f8f9fa', 'border-radius': '5px'}),
-
-                # Right main display area
-                html.Div([
-                    html.Div(id='datapoint-display', style={'padding': '10px'})
-                ], style={'width': '75%', 'padding': '20px', 'background-color': '#ffffff', 'border-radius': '5px'})
-            ], style={'display': 'flex', 'gap': '20px'})
-        ])
-
-        return layout
 
     def _register_callbacks(self):
         """Register all callbacks for the app."""
