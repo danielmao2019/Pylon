@@ -158,17 +158,15 @@ class DatasetManager:
         """
         return self._configs.get(dataset_name)
 
-    def load_dataset(self, dataset_name: str) -> Tuple[bool, str, Dict[str, Any]]:
+    def load_dataset(self, dataset_name: str) -> Dict[str, Any]:
         """Load a dataset.
 
         Args:
             dataset_name: Name of the dataset to load
 
         Returns:
-            Tuple of (success, message, dataset_info)
+            Dataset info dictionary
         """
-        if dataset_name not in self._configs:
-            return False, f"Dataset {dataset_name} not found", {}
 
         # Create cache for dataset if needed
         if dataset_name not in self._caches:
@@ -201,7 +199,7 @@ class DatasetManager:
             'available_transforms': transforms,
         }
 
-        return True, "Dataset loaded successfully", info
+        return info
 
     def _load_dataset_from_config(self, config: Dict[str, Any]) -> Any:
         """Load a dataset from its configuration.

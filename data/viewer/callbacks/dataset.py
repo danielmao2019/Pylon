@@ -40,18 +40,7 @@ def load_dataset(dataset_name):
 
     # Load dataset using dataset manager
     logger.info(f"Attempting to load dataset: {dataset_name}")
-    success, message, dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
-    logger.info(f"Dataset load result - Success: {success}, Message: {message}")
-
-    if not success:
-        logger.error(f"Failed to load dataset: {message}")
-        viewer.state.reset()
-        return (
-            {}, 0, 0, 0, {},
-            html.Div(f"Error Loading Dataset: {message}"),
-            create_dataset_info_display(),
-            create_transforms_section(),
-        )
+    dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
 
     # Update state with dataset info
     logger.info(f"Updating state with dataset info: {dataset_info}")
