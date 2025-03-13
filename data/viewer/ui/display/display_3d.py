@@ -7,7 +7,6 @@ from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.pointcloud_utils import create_synchronized_point_cloud_figures
 
 
-
 def get_point_cloud_stats(pc, change_map=None, class_names=None):
     """Get statistical information about a point cloud.
 
