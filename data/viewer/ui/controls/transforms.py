@@ -83,4 +83,4 @@ def create_transforms_section(dataset_config=None):
     return html.Div([
         html.H3("Transforms", style={'margin-top': '0'}),
         html.Div(transform_checkboxes, style={'max-height': '200px', 'overflow-y': 'auto'})
-    ]) 
+    ])
