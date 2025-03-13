@@ -100,7 +100,7 @@ class CallbackRegistry:
             # If any output allows duplicates, add prevent_initial_call
             kwargs = {}
             if has_duplicate:
-                kwargs['prevent_initial_call'] = True
+                kwargs['prevent_initial_call'] = 'initial_duplicate'
             
             app.callback(
                 callback_info['outputs'],
