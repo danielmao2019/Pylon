@@ -54,7 +54,7 @@ class DatasetViewer:
         self.dataset_manager = DatasetManager()
         
         # Get available datasets from the manager
-        self.available_datasets = self.dataset_manager._configs()
+        self.available_datasets = self.dataset_manager._configs
         self.logger.info(f"Found {len(self.available_datasets)} available datasets")
 
         # Initialize state management
