@@ -1,6 +1,5 @@
 """Dataset viewer module for visualizing datasets."""
 import dash
-from dash import dcc, html
 import traceback
 import os
 import logging
@@ -8,11 +7,7 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 
 # Import viewer sub-modules
-from data.viewer.utils.dataset_utils import format_value
-from data.viewer.layout.controls.dataset import create_dataset_selector, create_reload_button, get_available_datasets
-from data.viewer.layout.controls.navigation import create_navigation_controls
-from data.viewer.layout.controls.controls_3d import create_3d_controls
-from data.viewer.layout.controls.transforms import create_transforms_section
+from data.viewer.layout.controls.dataset import get_available_datasets
 from data.viewer.layout import create_app_layout
 
 # Import callback modules
@@ -25,7 +20,6 @@ from data.viewer.callbacks.transforms import register_transform_callbacks
 from data.viewer.states import ViewerState
 
 # Other project imports - required for functionality
-import data
 import utils.builders
 
 
