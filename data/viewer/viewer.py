@@ -11,7 +11,15 @@ import utils
 
 # Import viewer sub-modules
 from data.viewer.utils.dataset_utils import get_available_datasets, format_value, is_3d_dataset
-from data.viewer.ui.components import display_2d_datapoint, display_3d_datapoint, create_transform_checkboxes
+from data.viewer.ui.display import display_2d_datapoint, display_3d_datapoint
+from data.viewer.ui.controls import (
+    create_dataset_selector, 
+    create_reload_button, 
+    create_navigation_controls, 
+    create_3d_controls,
+    create_dataset_info_display
+)
+from data.viewer.ui.transforms import create_transforms_section
 
 
 class DatasetViewer:
@@ -90,113 +98,28 @@ class DatasetViewer:
             html.Div([
                 html.H1("Dataset Viewer", style={'text-align': 'center', 'margin-bottom': '20px'}),
 
+                # Dataset selector and reload button
                 html.Div([
-                    html.Div([
-                        html.Label("Select Dataset:"),
-                        dcc.Dropdown(
-                            id='dataset-dropdown',
-                            options=[{'label': name, 'value': name} for name in sorted(self.available_datasets.keys())],
-                            value=None,
-                            style={'width': '100%'}
-                        )
-                    ], style={'width': '70%', 'display': 'inline-block', 'vertical-align': 'top'}),
-
-                    html.Div([
-                        html.Button(
-                            "Reload Datasets",
-                            id='reload-button',
-                            style={
-                                'background-color': '#007bff',
-                                'color': 'white',
-                                'border': 'none',
-                                'padding': '10px 15px',
-                                'cursor': 'pointer',
-                                'border-radius': '5px',
-                                'margin-top': '20px'
-                            }
-                        ),
-                    ], style={'width': '30%', 'display': 'inline-block', 'text-align': 'right'})
+                    create_dataset_selector(self.available_datasets),
+                    create_reload_button()
                 ], style={'display': 'flex', 'align-items': 'flex-end'}),
 
-                html.Div([
-                    html.Div([
-                        html.Label("Navigate Datapoints:"),
-                        html.Div([
-                            dcc.Slider(
-                                id='datapoint-index-slider',
-                                min=0,
-                                max=10,
-                                value=0,
-                                marks={i: str(i) for i in range(11)},
-                                step=1
-                            ),
-                        ], style={'flex': 1, 'margin-right': '20px'}),
-                    ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
-
-                    html.Div([
-                        html.Button("⏮ Prev",
-                            id='prev-btn',
-                            n_clicks=0,
-                            style={
-                                'background-color': '#e7e7e7',
-                                'border': 'none',
-                                'padding': '10px 20px',
-                                'margin-right': '10px',
-                                'border-radius': '5px',
-                                'cursor': 'pointer'
-                            }
-                        ),
-                        html.Button("Next ⏭",
-                            id='next-btn',
-                            n_clicks=0,
-                            style={
-                                'background-color': '#e7e7e7',
-                                'border': 'none',
-                                'padding': '10px 20px',
-                                'border-radius': '5px',
-                                'cursor': 'pointer'
-                            }
-                        ),
-                        html.Div(id='current-index-display',
-                            children="",
-                            style={'display': 'inline-block', 'margin-left': '20px', 'font-weight': 'bold'}
-                        ),
-                    ], style={'display': 'flex', 'align-items': 'center', 'justify-content': 'flex-start'}),
-                ], style={'margin-top': '20px', 'padding': '10px 0'})
+                # Navigation controls
+                create_navigation_controls()
             ], style={'padding': '20px', 'background-color': '#f8f9fa', 'border-radius': '5px', 'margin-bottom': '20px'}),
 
             # Main content area
             html.Div([
-                # Left sidebar with controls
+                # Left sidebar with controls and info
                 html.Div([
+                    # Dataset info section
+                    html.Div(id='dataset-info-display', style={'margin-bottom': '20px'}),
+                    
                     # Transforms section
                     html.Div(id='transforms-section', style={'margin-bottom': '20px'}),
 
                     # 3D View Controls - initially hidden, shown only for 3D datasets
-                    html.Div([
-                        html.H3("3D View Controls", style={'margin-top': '0'}),
-
-                        html.Label("Point Size"),
-                        dcc.Slider(
-                            id='point-size-slider',
-                            min=1,
-                            max=10,
-                            value=2,
-                            marks={i: str(i) for i in [1, 3, 5, 7, 10]},
-                            step=0.5
-                        ),
-
-                        html.Label("Point Opacity", style={'margin-top': '20px'}),
-                        dcc.Slider(
-                            id='point-opacity-slider',
-                            min=0.1,
-                            max=1.0,
-                            value=0.8,
-                            marks={i/10: str(i/10) for i in range(1, 11, 2)},
-                            step=0.1
-                        ),
-
-                    ], id='view-controls', style={'display': 'none', 'margin-top': '20px'})
+                    create_3d_controls(visible=False)
                 ], style={'width': '25%', 'padding': '20px', 'background-color': '#f8f9fa', 'border-radius': '5px'}),
 
                 # Right main display area
@@ -219,6 +142,8 @@ class DatasetViewer:
                 Output('datapoint-index-slider', 'value'),
                 Output('datapoint-index-slider', 'marks'),
                 Output('datapoint-display', 'children', allow_duplicate=True),
+                Output('dataset-info-display', 'children'),
+                Output('transforms-section', 'children'),
                 Output('is-3d-dataset', 'data', allow_duplicate=True)
             ],
             [Input('dataset-dropdown', 'value')],
@@ -239,12 +164,6 @@ class DatasetViewer:
             ],
             [State('is-3d-dataset', 'data')]
         )(self._update_datapoint)
-
-        # Callback to update transforms section
-        self.app.callback(
-            Output('transforms-section', 'children'),
-            [Input('dataset-info', 'data')]
-        )(self._update_transforms_section)
 
         # Callback to apply transforms
         self.app.callback(
@@ -298,13 +217,16 @@ class DatasetViewer:
             return (
                 {}, 0, 0, 0, {},
                 html.Div("No dataset selected."),
+                create_dataset_info_display(),
+                create_transforms_section(),
                 False
             )
 
         # Special case for the test dataset
         if dataset_name == 'test_dataset':
+            dataset_info = {'name': 'test_dataset', 'length': 10, 'class_labels': {}}
             return (
-                {'name': 'test_dataset', 'class_labels': {}},
+                dataset_info,
                 0, 9, 0, {i: str(i) for i in range(0, 10, 2)},
                 html.Div([
                     html.H2("Test Dataset Viewer", style={'text-align': 'center'}),
@@ -320,6 +242,8 @@ class DatasetViewer:
                         ])
                     ])
                 ]),
+                create_dataset_info_display(dataset_info),
+                create_transforms_section(),
                 False
             )
 
@@ -329,6 +253,8 @@ class DatasetViewer:
                 return (
                     {}, 0, 0, 0, {},
                     html.Div(f"Failed to load dataset: {dataset_name}. Dataset configuration might be invalid."),
+                    create_dataset_info_display(),
+                    create_transforms_section(),
                     False
                 )
 
@@ -360,7 +286,7 @@ class DatasetViewer:
                 print(f"Warning: Could not get class labels from dataset: {e}")
 
             # Determine if this is a 3D dataset based on class name
-            is_3d = 'Point' in dataset.__class__.__name__ or '3D' in dataset.__class__.__name__
+            is_3d = is_3d_dataset(dataset)
 
             # Create dataset info for the data store
             dataset_info = {
@@ -369,13 +295,18 @@ class DatasetViewer:
                 'class_labels': class_labels
             }
 
+            # Get first datapoint for display
+            initial_message = html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_length} datapoints. Use the slider to navigate.")
+
             return (
                 dataset_info,
                 0,                   # min slider value
                 dataset_length - 1,  # max slider value
                 0,                   # initial slider value
                 marks,               # slider marks
-                html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_length} datapoints. Use the slider to navigate."),
+                initial_message,
+                create_dataset_info_display(dataset_info),
+                create_transforms_section(self.available_datasets.get(dataset_name)),
                 is_3d                # is 3D dataset flag
             )
         except Exception as e:
@@ -392,6 +323,8 @@ class DatasetViewer:
                         'overflow-y': 'auto'
                     })
                 ]),
+                create_dataset_info_display(),
+                create_transforms_section(),
                 False
             )
 
@@ -418,10 +351,13 @@ class DatasetViewer:
             # Determine if this is a 3D dataset based on the class name or data structure
             is_3d = is_3d_dataset(dataset, datapoint)
 
+            # Get class labels if available
+            class_labels = dataset_info.get('class_labels', {})
+
             # Display the datapoint based on its type
             try:
                 if is_3d:
-                    display = display_3d_datapoint(datapoint, point_size, point_opacity)
+                    display = display_3d_datapoint(datapoint, point_size, point_opacity, class_labels)
                 else:
                     display = display_2d_datapoint(datapoint)
             except Exception as e:
@@ -450,43 +386,9 @@ class DatasetViewer:
         except Exception as e:
             error_traceback = traceback.format_exc()
             return html.Div([
-                html.H3(f"Error: {str(e)}", style={'color': 'red'}),
-                html.Pre(error_traceback, style={
-                    'background-color': '#ffeeee',
-                    'padding': '10px',
-                    'border-radius': '5px',
-                    'max-height': '300px',
-                    'overflow-y': 'auto'
-                })
+                html.H3("Error", style={'color': 'red'}),
+                html.P(f"Error loading datapoint: {str(e)}")
             ]), is_3d_prev
-
-    def _update_transforms_section(self, dataset_info):
-        """Update the transforms section with checkboxes for the current dataset."""
-        if not dataset_info or dataset_info == {}:
-            return html.Div()
-
-        dataset_name = dataset_info.get('name')
-        if not dataset_name or dataset_name not in self.available_datasets:
-            return html.Div()
-
-        # Get the transforms configuration
-        dataset_cfg = self.available_datasets[dataset_name].get('train_dataset', {})
-        transforms_cfg = dataset_cfg.get('args', {}).get('transforms_cfg')
-
-        if not transforms_cfg or 'args' not in transforms_cfg or 'transforms' not in transforms_cfg['args']:
-            return html.Div([
-                html.H3("Transforms", style={'margin-top': '0'}),
-                html.P("No transforms available for this dataset.")
-            ])
-
-        # Create checkboxes for each transform
-        transforms = transforms_cfg['args']['transforms']
-        transform_checkboxes = create_transform_checkboxes(transforms)
-
-        return html.Div([
-            html.H3("Transforms", style={'margin-top': '0'}),
-            html.Div(transform_checkboxes, style={'max-height': '200px', 'overflow-y': 'auto'})
-        ])
 
     def _apply_transforms(self, transform_values, dataset_info, datapoint_idx):
         """Apply the selected transforms to the current datapoint."""
@@ -509,8 +411,9 @@ class DatasetViewer:
             # If no transforms selected, just return the datapoint as is
             try:
                 is_3d = is_3d_dataset(dataset, datapoint)
+                class_labels = dataset_info.get('class_labels', {})
                 if is_3d:
-                    return display_3d_datapoint(datapoint)
+                    return display_3d_datapoint(datapoint, class_names=class_labels)
                 else:
                     return display_2d_datapoint(datapoint)
             except Exception as e:
@@ -549,8 +452,9 @@ class DatasetViewer:
 
             # Display the transformed datapoint
             is_3d = is_3d_dataset(dataset, transformed_datapoint)
+            class_labels = dataset_info.get('class_labels', {})
             if is_3d:
-                return display_3d_datapoint(transformed_datapoint)
+                return display_3d_datapoint(transformed_datapoint, class_names=class_labels)
             else:
                 return display_2d_datapoint(transformed_datapoint)
         except Exception as e:
