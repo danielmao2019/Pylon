@@ -19,134 +19,89 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
     Returns:
         html.Div containing the visualization
     """
-    # Check if the inputs have the expected structure
-    pc_1 = datapoint['inputs'].get('pc_1')
-    pc_2 = datapoint['inputs'].get('pc_2')
-    change_map = datapoint['labels'].get('change_map')
+    # Get point clouds and change map
+    pc_1 = datapoint['inputs']['pc_1']
+    pc_2 = datapoint['inputs']['pc_2']
+    change_map = datapoint['labels']['change_map']
     
-    # Verify that all required data is present
-    error_messages = []
+    # Get stats for point clouds
+    pc_1_stats_children = get_3d_stats(pc_1, class_names=class_names)
+    pc_2_stats_children = get_3d_stats(pc_2, class_names=class_names)
+    change_stats_children = get_3d_stats(pc_1, change_map, class_names=class_names)
     
-    if pc_1 is None:
-        error_messages.append("Point Cloud 1 (pc_1) is missing")
-    elif not isinstance(pc_1, torch.Tensor):
-        error_messages.append(f"Point Cloud 1 (pc_1) has unexpected type: {type(pc_1).__name__}")
-        
-    if pc_2 is None:
-        error_messages.append("Point Cloud 2 (pc_2) is missing")
-    elif not isinstance(pc_2, torch.Tensor):
-        error_messages.append(f"Point Cloud 2 (pc_2) has unexpected type: {type(pc_2).__name__}")
-        
-    if change_map is None:
-        error_messages.append("Change map is missing")
-    elif not isinstance(change_map, torch.Tensor):
-        error_messages.append(f"Change map has unexpected type: {type(change_map).__name__}")
+    # Create figures for point clouds
+    point_clouds = [pc_1, pc_2]
+    colors = [None, None]
     
-    # If any errors were found, display them
-    if error_messages:
-        return html.Div([
-            html.H3("Error Displaying 3D Point Cloud Data", style={'color': 'red'}),
-            html.P("The dataset structure doesn't match the expected format:"),
-            html.Ul([html.Li(msg) for msg in error_messages]),
-            html.P("Datapoint structure:"),
+    # For change map visualization, we'll use pc_1 with colors from change_map
+    if change_map is not None:
+        point_clouds.append(pc_1)
+        colors.append(change_map.float())  # Convert to float for proper coloring
+    
+    titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
+    
+    # Create synchronized 3D views
+    figures = create_synchronized_point_cloud_figures(
+        point_clouds, 
+        colors=colors,
+        titles=titles,
+        point_sizes=[point_size] * len(point_clouds),
+        opacities=[point_opacity] * len(point_clouds),
+        colorscales=['Viridis', 'Viridis', 'Reds']
+    )
+    
+    # Extract metadata
+    meta_info = datapoint.get('meta_info', {})
+    meta_display = []
+    if meta_info:
+        meta_display = [
+            html.H4("Metadata:"),
+            html.Pre(format_value(meta_info), 
+                  style={'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px', 
+                         'overflow-y': 'auto', 'border-radius': '5px'})
+        ]
+    
+    # Compile the complete display
+    return html.Div([
+        # Point cloud displays
+        html.Div([
             html.Div([
-                html.P(f"Inputs keys: {list(datapoint['inputs'].keys())}"),
-                html.P(f"Labels keys: {list(datapoint['labels'].keys())}"),
-                html.Pre(f"Meta info: {format_value(datapoint.get('meta_info', {}))}")
-            ], style={'background-color': '#f0f0f0', 'padding': '10px', 'border-radius': '5px'})
-        ])
-
-    # Prepare the point clouds for visualization
-    try:
-        # Get stats for point clouds
-        pc_1_stats_children = get_3d_stats(pc_1, class_names=class_names)
-        pc_2_stats_children = get_3d_stats(pc_2, class_names=class_names)
-        change_stats_children = get_3d_stats(pc_1, change_map, class_names=class_names)
+                dcc.Graph(figure=figures[0])
+            ], style={'width': '33%', 'display': 'inline-block'}),
+            
+            html.Div([
+                dcc.Graph(figure=figures[1])
+            ], style={'width': '33%', 'display': 'inline-block'}),
+            
+            html.Div([
+                dcc.Graph(figure=figures[2] if len(figures) > 2 else {})
+            ], style={'width': '33%', 'display': 'inline-block'}),
+        ]),
         
-        # Create figures for point clouds
-        point_clouds = [pc_1, pc_2]
-        colors = [None, None]
-        
-        # For change map visualization, we'll use pc_1 with colors from change_map
-        if change_map is not None:
-            point_clouds.append(pc_1)
-            colors.append(change_map.float())  # Convert to float for proper coloring
-        
-        titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
-        
-        # Create synchronized 3D views
-        figures = create_synchronized_point_cloud_figures(
-            point_clouds, 
-            colors=colors,
-            titles=titles,
-            point_sizes=[point_size] * len(point_clouds),
-            opacities=[point_opacity] * len(point_clouds),
-            colorscales=['Viridis', 'Viridis', 'Reds']
-        )
-        
-        # Extract metadata
-        meta_info = datapoint.get('meta_info', {})
-        meta_display = []
-        if meta_info:
-            meta_display = [
-                html.H4("Metadata:"),
-                html.Pre(format_value(meta_info), 
-                      style={'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px', 
-                             'overflow-y': 'auto', 'border-radius': '5px'})
-            ]
-        
-        # Compile the complete display
-        return html.Div([
-            # Point cloud displays
+        # Info section
+        html.Div([
+            # Point cloud statistics
             html.Div([
                 html.Div([
-                    dcc.Graph(figure=figures[0])
-                ], style={'width': '33%', 'display': 'inline-block'}),
+                    html.H4("Point Cloud 1 Statistics:"),
+                    html.Div(pc_1_stats_children)
+                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
                 
                 html.Div([
-                    dcc.Graph(figure=figures[1])
-                ], style={'width': '33%', 'display': 'inline-block'}),
+                    html.H4("Point Cloud 2 Statistics:"),
+                    html.Div(pc_2_stats_children)
+                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
                 
                 html.Div([
-                    dcc.Graph(figure=figures[2] if len(figures) > 2 else {})
-                ], style={'width': '33%', 'display': 'inline-block'}),
+                    html.H4("Change Statistics:"),
+                    html.Div(change_stats_children)
+                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
             ]),
             
-            # Info section
-            html.Div([
-                # Point cloud statistics
-                html.Div([
-                    html.Div([
-                        html.H4("Point Cloud 1 Statistics:"),
-                        html.Div(pc_1_stats_children)
-                    ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-                    
-                    html.Div([
-                        html.H4("Point Cloud 2 Statistics:"),
-                        html.Div(pc_2_stats_children)
-                    ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-                    
-                    html.Div([
-                        html.H4("Change Statistics:"),
-                        html.Div(change_stats_children)
-                    ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-                ]),
-                
-                # Metadata
-                html.Div(meta_display, style={'margin-top': '20px'})
-            ], style={'margin-top': '20px'})
-        ])
-    except Exception as e:
-        return html.Div([
-            html.H3("Error Processing Point Clouds", style={'color': 'red'}),
-            html.P(f"An error occurred while processing the point clouds: {str(e)}"),
-            html.P("Datapoint structure:"),
-            html.P(f"Inputs keys: {list(datapoint['inputs'].keys())}"),
-            html.P(f"Labels keys: {list(datapoint['labels'].keys())}"),
-            html.P(f"Point Cloud 1 shape: {pc_1.shape if pc_1 is not None else 'None'}"),
-            html.P(f"Point Cloud 2 shape: {pc_2.shape if pc_2 is not None else 'None'}"),
-            html.P(f"Change map shape: {change_map.shape if change_map is not None else 'None'}")
-        ])
+            # Metadata
+            html.Div(meta_display, style={'margin-top': '20px'})
+        ], style={'margin-top': '20px'})
+    ])
 
 
 def tensor_to_point_cloud(tensor):
@@ -167,50 +122,44 @@ def get_3d_stats(pc, change_map=None, class_names=None):
     Returns:
         List of html components with point cloud statistics
     """
-    if not isinstance(pc, torch.Tensor):
-        return []
+    # Basic stats
+    pc_np = pc.detach().cpu().numpy()
+    stats_items = [
+        html.Li(f"Total Points: {len(pc_np)}"),
+        html.Li(f"Dimensions: {pc_np.shape[1]}"),
+        html.Li(f"X Range: [{pc_np[:, 0].min():.2f}, {pc_np[:, 0].max():.2f}]"),
+        html.Li(f"Y Range: [{pc_np[:, 1].min():.2f}, {pc_np[:, 1].max():.2f}]"),
+        html.Li(f"Z Range: [{pc_np[:, 2].min():.2f}, {pc_np[:, 2].max():.2f}]"),
+        html.Li(f"Center: [{pc_np[:, 0].mean():.2f}, {pc_np[:, 1].mean():.2f}, {pc_np[:, 2].mean():.2f}]")
+    ]
 
-    try:
-        # Basic stats
-        pc_np = pc.detach().cpu().numpy()
-        stats_items = [
-            html.Li(f"Total Points: {len(pc_np)}"),
-            html.Li(f"Dimensions: {pc_np.shape[1]}"),
-            html.Li(f"X Range: [{pc_np[:, 0].min():.2f}, {pc_np[:, 0].max():.2f}]"),
-            html.Li(f"Y Range: [{pc_np[:, 1].min():.2f}, {pc_np[:, 1].max():.2f}]"),
-            html.Li(f"Z Range: [{pc_np[:, 2].min():.2f}, {pc_np[:, 2].max():.2f}]"),
-            html.Li(f"Center: [{pc_np[:, 0].mean():.2f}, {pc_np[:, 1].mean():.2f}, {pc_np[:, 2].mean():.2f}]")
-        ]
+    # Add class distribution if change_map is provided
+    if change_map is not None:
+        unique_classes, class_counts = torch.unique(change_map, return_counts=True)
 
-        # Add class distribution if change_map is provided
-        if change_map is not None:
-            unique_classes, class_counts = torch.unique(change_map, return_counts=True)
+        # Convert to numpy for display
+        unique_classes = unique_classes.cpu().numpy()
+        class_counts = class_counts.cpu().numpy()
 
-            # Convert to numpy for display
-            unique_classes = unique_classes.cpu().numpy()
-            class_counts = class_counts.cpu().numpy()
-
-            # Calculate distribution
-            total_points = change_map.numel()
+        # Calculate distribution
+        total_points = change_map.numel()
+        
+        stats_items.append(html.Li("Class Distribution:"))
+        class_list_items = []
+        
+        for cls, count in zip(unique_classes, class_counts):
+            percentage = (count / total_points) * 100
+            cls_key = cls.item() if hasattr(cls, 'item') else cls
             
-            stats_items.append(html.Li("Class Distribution:"))
-            class_list_items = []
-            
-            for cls, count in zip(unique_classes, class_counts):
-                percentage = (count / total_points) * 100
-                cls_key = cls.item() if hasattr(cls, 'item') else cls
-                
-                class_name = class_names[cls_key] if class_names and cls_key in class_names else f"Class {cls_key}"
-                class_list_items.append(
-                    html.Li(f"{class_name}: {count} points ({percentage:.2f}%)", 
-                           style={'marginLeft': '20px'})
-                )
-            
-            stats_items.append(html.Ul(class_list_items))
+            class_name = class_names[cls_key] if class_names and cls_key in class_names else f"Class {cls_key}"
+            class_list_items.append(
+                html.Li(f"{class_name}: {count} points ({percentage:.2f}%)", 
+                       style={'marginLeft': '20px'})
+            )
+        
+        stats_items.append(html.Ul(class_list_items))
 
-        return html.Ul(stats_items)
-    except Exception as e:
-        return [html.Li(f"Error calculating stats: {str(e)}")]
+    return html.Ul(stats_items)
 
 
 def create_3d_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viridis',

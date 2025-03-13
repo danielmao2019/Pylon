@@ -19,16 +19,6 @@ from data.viewer.managers.dataset_manager import DatasetManager
 import utils.builders
 
 
-class ViewerError(Exception):
-    """Base exception for viewer-related errors."""
-    pass
-
-
-class DatasetLoadError(ViewerError):
-    """Exception raised when dataset loading fails."""
-    pass
-
-
 class DatasetViewer:
     """Dataset viewer class for visualization of datasets."""
 

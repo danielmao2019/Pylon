@@ -4,7 +4,6 @@ This module contains the DatasetManager class which handles loading, caching,
 and managing datasets for the viewer.
 """
 from typing import Dict, Any, Optional, List, Tuple
-import traceback
 import threading
 from collections import OrderedDict
 import numpy as np
@@ -134,20 +133,17 @@ class DatasetManager:
         for file in os.listdir(config_dir):
             if file.endswith('.py') and not file.startswith('_'):
                 dataset_name = file[:-3]  # Remove .py extension
-                try:
-                    # Try to import the config to ensure it's valid
-                    spec = importlib.util.spec_from_file_location(
-                        f"configs.common.datasets.change_detection.train.{dataset_name}",
-                        os.path.join(config_dir, file)
-                    )
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
+                # Import the config to ensure it's valid
+                spec = importlib.util.spec_from_file_location(
+                    f"configs.common.datasets.change_detection.train.{dataset_name}",
+                    os.path.join(config_dir, file)
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
 
-                    if hasattr(module, 'config'):
-                        # Add to the list of valid datasets
-                        dataset_configs[dataset_name] = module.config
-                except Exception as e:
-                    print(f"Error loading dataset config {dataset_name}: {e}")
+                if hasattr(module, 'config'):
+                    # Add to the list of valid datasets
+                    dataset_configs[dataset_name] = module.config
 
         return dataset_configs
 
@@ -171,72 +167,63 @@ class DatasetManager:
         Returns:
             Tuple of (success, message, dataset_info)
         """
-        try:
-            if dataset_name not in self._configs:
-                return False, f"Dataset {dataset_name} not found", {}
+        if dataset_name not in self._configs:
+            return False, f"Dataset {dataset_name} not found", {}
 
-            # Create cache for dataset if needed
-            if dataset_name not in self._caches:
-                self._caches[dataset_name] = DatasetCache()
+        # Create cache for dataset if needed
+        if dataset_name not in self._caches:
+            self._caches[dataset_name] = DatasetCache()
 
-            # Load dataset if not already loaded
-            if dataset_name not in self._datasets:
-                config = self._configs[dataset_name]
-                dataset = self._load_dataset_from_config(config)
-                self._datasets[dataset_name] = dataset
+        # Load dataset if not already loaded
+        if dataset_name not in self._datasets:
+            config = self._configs[dataset_name]
+            dataset = self._load_dataset_from_config(config)
+            self._datasets[dataset_name] = dataset
 
-            dataset = self._datasets[dataset_name]
+        dataset = self._datasets[dataset_name]
 
-            # Get transforms from dataset config
-            dataset_cfg = config.get('train_dataset', {})
-            transforms_cfg = dataset_cfg.get('args', {}).get('transforms_cfg', {})
-            transforms = transforms_cfg.get('args', {}).get('transforms', [])
+        # Get transforms from dataset config
+        dataset_cfg = config.get('train_dataset', {})
+        transforms_cfg = dataset_cfg.get('args', {}).get('transforms_cfg', {})
+        transforms = transforms_cfg.get('args', {}).get('transforms', [])
 
-            # Register transform functions
-            self._transform_functions.clear()  # Clear existing transforms
-            for i, (transform, _) in enumerate(transforms):
-                self.register_transform(f"transform_{i}", transform)
+        # Register transform functions
+        self._transform_functions.clear()  # Clear existing transforms
+        for i, (transform, _) in enumerate(transforms):
+            self.register_transform(f"transform_{i}", transform)
 
-            # Get dataset info
-            info = {
-                'name': dataset_name,
-                'length': len(dataset),
-                'class_labels': getattr(dataset, 'class_labels', {}),
-                'is_3d': THREE_D_DATASETS.get(dataset_name, False),
-                'available_transforms': transforms,
-            }
+        # Get dataset info
+        info = {
+            'name': dataset_name,
+            'length': len(dataset),
+            'class_labels': getattr(dataset, 'class_labels', {}),
+            'is_3d': THREE_D_DATASETS.get(dataset_name, False),
+            'available_transforms': transforms,
+        }
 
-            return True, "Dataset loaded successfully", info
+        return True, "Dataset loaded successfully", info
 
-        except Exception as e:
-            return False, str(e), {}
-
-    def _load_dataset_from_config(self, config: Dict[str, Any]) -> Optional[Any]:
+    def _load_dataset_from_config(self, config: Dict[str, Any]) -> Any:
         """Load a dataset from its configuration.
 
         Args:
             config: Dataset configuration
 
         Returns:
-            Loaded dataset or None if loading failed
+            Loaded dataset
         """
-        try:
-            # Adjust data_root path to be relative to the repository root if needed
-            dataset_cfg = config.get('train_dataset', {})
-            if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
-                repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-                dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
+        # Adjust data_root path to be relative to the repository root if needed
+        dataset_cfg = config.get('train_dataset', {})
+        if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+            dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
 
-            # Build dataset
-            dataset = utils.builders.build_from_config(dataset_cfg)
-            self.logger.info(f"Loaded dataset: {dataset_cfg.get('class', 'Unknown').__name__}")
-            return dataset
-        except Exception as e:
-            self.logger.error(f"Error loading dataset: {e}")
-            self.logger.error(traceback.format_exc())
-            raise DatasetLoadError(f"Failed to load dataset: {str(e)}")
+        # Build dataset
+        dataset = utils.builders.build_from_config(dataset_cfg)
+        self.logger.info(f"Loaded dataset: {dataset_cfg.get('class', 'Unknown').__name__}")
+        return dataset
 
-    def get_datapoint(self, dataset_name: str, index: int) -> Optional[Any]:
+    def get_datapoint(self, dataset_name: str, index: int) -> Any:
         """Get a datapoint from the dataset.
 
         Args:
@@ -244,35 +231,26 @@ class DatasetManager:
             index: Index of the datapoint
 
         Returns:
-            Datapoint or None if not found
+            Datapoint
         """
-        try:
-            # Check cache first
-            if dataset_name in self._caches:
-                cached_item = self._caches[dataset_name].get(index)
-                if cached_item is not None:
-                    return cached_item
+        # Check cache first
+        if dataset_name in self._caches:
+            cached_item = self._caches[dataset_name].get(index)
+            if cached_item is not None:
+                return cached_item
 
-            # Get dataset
-            dataset = self._datasets.get(dataset_name)
-            if dataset is None:
-                return None
+        # Get from dataset
+        dataset = self._datasets[dataset_name]
+        item = dataset[index]
 
-            # Get item
-            item = dataset[index]
+        # Cache the item
+        if dataset_name in self._caches:
+            self._caches[dataset_name].put(index, item)
 
-            # Cache item
-            if dataset_name in self._caches:
-                self._caches[dataset_name].put(index, item)
+        # Preload adjacent items
+        self._preload_adjacent_items(dataset_name, index)
 
-            # Preload adjacent items
-            self._preload_adjacent_items(dataset_name, index)
-
-            return item
-
-        except Exception as e:
-            print(f"Error getting datapoint: {e}")
-            return None
+        return item
 
     def _preload_adjacent_items(self, dataset_name: str, current_index: int) -> None:
         """Preload items adjacent to the current index.
@@ -298,13 +276,10 @@ class DatasetManager:
             if 0 <= index < len(dataset):
                 # Check if already cached
                 if cache.get(index) is None:
-                    try:
-                        item = dataset[index]
-                        cache.put(index, item)
-                    except Exception:
-                        continue
+                    item = dataset[index]
+                    cache.put(index, item)
 
-    def apply_transforms(self, dataset_name: str, index: int, transforms: List[str]) -> Optional[Any]:
+    def apply_transforms(self, dataset_name: str, index: int, transforms: List[str]) -> Any:
         """Apply transforms to a datapoint.
 
         Args:
@@ -313,26 +288,19 @@ class DatasetManager:
             transforms: List of transform indices to apply
 
         Returns:
-            Transformed datapoint or None if error
+            Transformed datapoint
         """
-        try:
-            # Get original datapoint
-            datapoint = self.get_datapoint(dataset_name, index)
-            if datapoint is None:
-                return None
+        # Get original datapoint
+        datapoint = self.get_datapoint(dataset_name, index)
 
-            # Apply transforms
-            for transform_idx in transforms:
-                transform_name = f"transform_{transform_idx}"
-                if transform_name in self._transform_functions:
-                    transform_func = self._transform_functions[transform_name]
-                    datapoint = transform_func(datapoint)
+        # Apply transforms
+        for transform_idx in transforms:
+            transform_name = f"transform_{transform_idx}"
+            if transform_name in self._transform_functions:
+                transform_func = self._transform_functions[transform_name]
+                datapoint = transform_func(datapoint)
 
-            return datapoint
-
-        except Exception as e:
-            print(f"Error applying transforms: {e}")
-            return None
+        return datapoint
 
     def register_transform(self, name: str, transform_func: callable) -> None:
         """Register a transform function.
