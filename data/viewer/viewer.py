@@ -9,10 +9,7 @@ from pathlib import Path
 from data.viewer.layout.app import create_app_layout
 
 # Import callback modules
-from data.viewer.callbacks.dataset import register_dataset_callbacks
-from data.viewer.callbacks.display import register_display_callbacks
-from data.viewer.callbacks.navigation import register_navigation_callbacks
-from data.viewer.callbacks.transforms import register_transform_callbacks
+from data.viewer.callbacks import registry
 
 # Import state management
 from data.viewer.states import ViewerState
@@ -97,11 +94,10 @@ class DatasetViewer:
 
     def _register_callbacks(self):
         """Register all callbacks for the app."""
-        # Register callbacks from each module
-        register_dataset_callbacks(self.app, self)
-        register_display_callbacks(self.app, self)
-        register_navigation_callbacks(self.app, self)
-        register_transform_callbacks(self.app, self)
+        # Set the viewer instance in the registry
+        registry.viewer = self
+        # Register all callbacks with the app
+        registry.register_callbacks(self.app)
 
     def run(self, debug=False, host="0.0.0.0", port=8050):
         """Run the viewer application."""
