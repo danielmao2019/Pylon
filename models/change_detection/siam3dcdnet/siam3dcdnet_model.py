@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from typing import Dict, List, Tuple, Optional, Any
 
-from models.change_detection.siam3dcnet.modules import (
+from models.change_detection.siam3dcdnet.modules import (
     Conv1d, Conv2d, LFA, gather_neighbour
 )
 
