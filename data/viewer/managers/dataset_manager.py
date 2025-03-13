@@ -125,12 +125,9 @@ class DatasetManager:
         # If no config_dir is provided, use the default location
         if config_dir is None:
             # Adjust the path to be relative to the repository root
-            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
             config_dir = os.path.join(repo_root, "configs/common/datasets/change_detection/train")
-
-        if not os.path.exists(config_dir):
-            print(f"Warning: Dataset directory not found at {config_dir}")
-            return {}
+        assert os.path.isdir(config_dir), f"Dataset directory not found at {config_dir}"
 
         dataset_configs = {}
 
