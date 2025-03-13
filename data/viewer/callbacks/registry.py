@@ -90,10 +90,23 @@ class CallbackRegistry:
             app: Dash application instance
         """
         for callback_id, callback_info in self._callbacks.items():
+            # Get outputs and check if any have allow_duplicate=True
+            outputs = callback_info['outputs']
+            has_duplicate = any(
+                isinstance(output, dict) and output.get('allow_duplicate')
+                for output in (outputs if isinstance(outputs, list) else [outputs])
+            )
+            
+            # If any output allows duplicates, add prevent_initial_call
+            kwargs = {}
+            if has_duplicate:
+                kwargs['prevent_initial_call'] = True
+            
             app.callback(
                 callback_info['outputs'],
                 callback_info['inputs'],
-                callback_info['states']
+                callback_info['states'],
+                **kwargs
             )(callback_info['function'])
 
     def get_callbacks(self, group: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
