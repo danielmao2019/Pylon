@@ -190,41 +190,20 @@ class DatasetManager:
             Loaded dataset or None if loading failed
         """
         try:
-            # Import dataset class
-            dataset_class = config.get('class')
-            if not dataset_class:
-                return None
-            
-            # Get dataset arguments
-            args = config.get('args', {})
-            
-            # Create dataset instance
-            dataset = dataset_class(**args)
-            
-            return dataset
-            
-        except Exception as e:
-            print(f"Error loading dataset from config: {e}")
-            return None
-    
-    def _load_available_datasets(self) -> None:
-        """Load available datasets from configuration files."""
-        for name, config in self.available_datasets.items():
-            try:
-                # Adjust data_root path to be relative to the repository root if needed
-                dataset_cfg = config.get('train_dataset', {})
-                if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
-                    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-                    dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
+            # Adjust data_root path to be relative to the repository root if needed
+            dataset_cfg = config.get('train_dataset', {})
+            if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
+                repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+                dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
 
-                # Build dataset
-                dataset = utils.builders.build_from_config(dataset_cfg)
-                self.datasets[name] = dataset
-                self.logger.info(f"Loaded dataset: {name}")
-            except Exception as e:
-                self.logger.error(f"Error loading dataset: {name}: {e}")
-                self.logger.error(traceback.format_exc())
-                raise DatasetLoadError(f"Failed to load dataset {name}: {str(e)}")
+            # Build dataset
+            dataset = utils.builders.build_from_config(dataset_cfg)
+            self.logger.info(f"Loaded dataset: {name}")
+            return dataset
+        except Exception as e:
+            self.logger.error(f"Error loading dataset: {name}: {e}")
+            self.logger.error(traceback.format_exc())
+            raise DatasetLoadError(f"Failed to load dataset {name}: {str(e)}")
 
     def get_datapoint(self, dataset_name: str, index: int) -> Optional[Any]:
         """Get a datapoint from the dataset.
