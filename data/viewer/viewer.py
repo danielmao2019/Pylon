@@ -9,7 +9,7 @@ from pathlib import Path
 
 # Import viewer sub-modules
 from data.viewer.utils.dataset_utils import format_value
-from data.viewer.layout.controls.dataset import create_dataset_selector, create_reload_button
+from data.viewer.layout.controls.dataset import create_dataset_selector, create_reload_button, get_available_datasets
 from data.viewer.layout.controls.navigation import create_navigation_controls
 from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.layout.controls.transforms import create_transforms_section

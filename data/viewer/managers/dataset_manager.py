@@ -9,7 +9,7 @@ import weakref
 import threading
 from collections import OrderedDict
 import numpy as np
-from data.viewer.utils.dataset_utils import get_available_datasets
+from data.viewer.layout.controls.dataset import get_available_datasets
 
 # Mapping of dataset names to whether they are 3D datasets
 THREE_D_DATASETS = {
