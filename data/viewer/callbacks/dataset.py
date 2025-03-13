@@ -3,11 +3,13 @@ from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 import html
 import traceback
+import logging
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.display.dataset import create_dataset_info_display
 from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.callbacks.registry import callback
 
+logger = logging.getLogger(__name__)
 
 @callback(
     outputs=[
@@ -25,6 +27,8 @@ from data.viewer.callbacks.registry import callback
 )
 def load_dataset(dataset_name):
     """Load a selected dataset and reset the datapoint slider."""
+    logger.info(f"Dataset loading callback triggered with dataset: {dataset_name}")
+    
     def create_error_display(message, error_trace=None):
         """Helper to create error display."""
         error_content = [html.H3(f"Error Loading Dataset: {message}", style={'color': 'red'})]
@@ -49,16 +53,21 @@ def load_dataset(dataset_name):
         )
 
     if dataset_name is None:
+        logger.info("No dataset selected, returning default outputs")
         return get_default_outputs(html.Div("No dataset selected."))
 
     try:
         # Load dataset using dataset manager
+        logger.info(f"Attempting to load dataset: {dataset_name}")
         success, message, dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
+        logger.info(f"Dataset load result - Success: {success}, Message: {message}")
 
         if not success:
+            logger.error(f"Failed to load dataset: {message}")
             return get_default_outputs(create_error_display(message, traceback.format_exc()))
 
         # Update state with dataset info
+        logger.info(f"Updating state with dataset info: {dataset_info}")
         viewer.state.update_dataset_info(
             name=dataset_info['name'],
             length=dataset_info['length'],
@@ -78,6 +87,7 @@ def load_dataset(dataset_name):
 
         # Get initial message
         initial_message = html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_info['length']} datapoints. Use the slider to navigate.")
+        logger.info("Dataset loaded successfully, returning updated UI components")
 
         return (
             viewer.state.get_state()['dataset_info'],
@@ -91,6 +101,8 @@ def load_dataset(dataset_name):
         )
 
     except Exception as e:
+        logger.error(f"Exception during dataset loading: {str(e)}")
+        logger.error(traceback.format_exc())
         return get_default_outputs(create_error_display(str(e), traceback.format_exc()))
 
 
