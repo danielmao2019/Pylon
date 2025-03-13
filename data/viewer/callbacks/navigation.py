@@ -2,9 +2,10 @@
 from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 
+
 def register_navigation_callbacks(app, viewer):
     """Register callbacks related to navigation operations."""
-    
+
     @app.callback(
         Output('datapoint-index-slider', 'value'),
         [
@@ -22,7 +23,7 @@ def register_navigation_callbacks(app, viewer):
         """Update the datapoint index based on prev/next button clicks."""
         if prev_clicks is None and next_clicks is None:
             raise PreventUpdate
-            
+
         # Determine which button was clicked
         if prev_clicks is not None:
             # Previous button clicked
@@ -30,7 +31,7 @@ def register_navigation_callbacks(app, viewer):
         else:
             # Next button clicked
             new_value = min(max_value, current_value + 1)
-            
+
         return new_value
 
     @app.callback(
@@ -42,6 +43,6 @@ def register_navigation_callbacks(app, viewer):
         """Update the display of the current datapoint index."""
         if dataset_info is None or dataset_info == {}:
             return "No dataset loaded"
-            
+
         total = dataset_info.get('length', 0)
-        return f"Datapoint {current_value + 1} of {total}" 
+        return f"Datapoint {current_value + 1} of {total}"

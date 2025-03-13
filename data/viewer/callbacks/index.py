@@ -5,9 +5,10 @@ import html
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.controls.index import create_index_controls
 
+
 def register_index_callbacks(app, viewer):
     """Register callbacks related to index operations."""
-    
+
     @app.callback(
         [
             Output('datapoint-display', 'children'),
@@ -21,15 +22,15 @@ def register_index_callbacks(app, viewer):
         """Update the displayed datapoint when the index changes."""
         if index is None:
             raise PreventUpdate
-            
+
         try:
             # Update state
             viewer.state.update_index(index)
-            
+
             # Get current dataset info
             dataset_info = viewer.state.get_state()['dataset_info']
             dataset_name = dataset_info['name']
-            
+
             # Get datapoint using dataset manager
             datapoint = viewer.dataset_manager.get_datapoint(dataset_name, index)
             if datapoint is None:
@@ -38,7 +39,7 @@ def register_index_callbacks(app, viewer):
                     index,
                     create_index_controls(dataset_info)
                 )
-            
+
             # Create display content
             display_content = html.Div([
                 html.H3(f"Datapoint {index}"),
@@ -51,16 +52,16 @@ def register_index_callbacks(app, viewer):
                     html.Span(str(datapoint['image'].shape))
                 ])
             ])
-            
+
             return (
                 display_content,
                 index,
                 create_index_controls(dataset_info)
             )
-            
+
         except Exception as e:
             error_message = html.Div([
                 html.H3("Error Loading Datapoint", style={'color': 'red'}),
                 html.P(str(e))
             ])
-            return error_message, index, create_index_controls(viewer.state.get_state()['dataset_info']) 
+            return error_message, index, create_index_controls(viewer.state.get_state()['dataset_info'])

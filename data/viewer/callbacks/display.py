@@ -7,7 +7,7 @@ from data.viewer.layout.display.display_3d import display_3d_datapoint
 
 def register_display_callbacks(app, viewer):
     """Register callbacks related to display operations."""
-    
+
     @app.callback(
         [
             Output('datapoint-display', 'children'),
@@ -91,4 +91,4 @@ def register_display_callbacks(app, viewer):
         """Update the visibility of 3D view controls based on dataset type."""
         if is_3d:
             return {'display': 'block'}
-        return {'display': 'none'} 
+        return {'display': 'none'}

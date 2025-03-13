@@ -7,6 +7,7 @@ from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.display.dataset import create_dataset_info_display
 from data.viewer.layout.controls.transforms import create_transforms_section
 
+
 def register_dataset_callbacks(app, viewer):
     """Register callbacks related to dataset operations."""
 
