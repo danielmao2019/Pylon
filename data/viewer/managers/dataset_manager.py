@@ -3,16 +3,14 @@
 This module contains the DatasetManager class which handles loading, caching,
 and managing datasets for the viewer.
 """
-from typing import Dict, Any, Optional, List, Tuple, Callable
+from typing import Dict, Any, Optional, List, Tuple
 import traceback
-import weakref
 import threading
 from collections import OrderedDict
 import numpy as np
 import os
-from data.viewer.layout.controls.dataset import get_available_datasets
 import utils.builders
-import logging
+import importlib.util
 
 # Mapping of dataset names to whether they are 3D datasets
 THREE_D_DATASETS = {
@@ -111,7 +109,7 @@ class DatasetManager:
         self._datasets: Dict[str, Any] = {}
         
         # Dataset configurations
-        self._configs = get_available_datasets()
+        self._configs = self._get_dataset_configs()
         
         # Cache for each dataset
         self._caches: Dict[str, DatasetCache] = {}
@@ -121,15 +119,41 @@ class DatasetManager:
         
         # Transform functions
         self._transform_functions: Dict[str, callable] = {}
-        
-    def get_available_datasets(self) -> List[str]:
-        """Get list of available dataset names.
-        
-        Returns:
-            List of dataset names
-        """
-        return list(self._configs.keys())
-        
+
+    def _get_dataset_configs(self, config_dir=None):
+        """Get a list of all available dataset configurations."""
+        # If no config_dir is provided, use the default location
+        if config_dir is None:
+            # Adjust the path to be relative to the repository root
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../.."))
+            config_dir = os.path.join(repo_root, "configs/common/datasets/change_detection/train")
+
+        if not os.path.exists(config_dir):
+            print(f"Warning: Dataset directory not found at {config_dir}")
+            return {}
+
+        dataset_configs = {}
+
+        for file in os.listdir(config_dir):
+            if file.endswith('.py') and not file.startswith('_'):
+                dataset_name = file[:-3]  # Remove .py extension
+                try:
+                    # Try to import the config to ensure it's valid
+                    spec = importlib.util.spec_from_file_location(
+                        f"configs.common.datasets.change_detection.train.{dataset_name}",
+                        os.path.join(config_dir, file)
+                    )
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+
+                    if hasattr(module, 'config'):
+                        # Add to the list of valid datasets
+                        dataset_configs[dataset_name] = module.config
+                except Exception as e:
+                    print(f"Error loading dataset config {dataset_name}: {e}")
+
+        return dataset_configs
+
     def get_dataset_config(self, dataset_name: str) -> Optional[Dict[str, Any]]:
         """Get configuration for a dataset.
         
@@ -324,4 +348,4 @@ class DatasetManager:
     
     def clear_cache(self) -> None:
         """Clear the dataset cache."""
-        self._datasets.clear() 
+        self._datasets.clear()
