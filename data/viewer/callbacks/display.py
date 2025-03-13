@@ -79,15 +79,3 @@ def update_datapoint(dataset_info, datapoint_idx, point_size, point_opacity):
             html.H3("Error", style={'color': 'red'}),
             html.P(f"Error loading datapoint: {str(e)}")
         ])
-
-
-@callback(
-    outputs=Output('view-controls', 'style'),
-    inputs=[Input('dataset-info', 'data')],
-    group="display"
-)
-def update_view_controls(dataset_info):
-    """Update the visibility of 3D view controls based on dataset type."""
-    if dataset_info and dataset_info.get('is_3d', False):
-        return {'display': 'block'}
-    return {'display': 'none'}

@@ -51,3 +51,15 @@ def update_3d_settings(selected_setting, setting_params):
             html.P(str(e))
         ])
         return error_message, viewer.state.get_state()['3d_settings']
+
+
+@callback(
+    outputs=Output('view-controls', 'style'),
+    inputs=[Input('dataset-info', 'data')],
+    group="display"
+)
+def update_view_controls(dataset_info):
+    """Update the visibility of 3D view controls based on dataset type."""
+    if dataset_info and dataset_info.get('is_3d', False):
+        return {'display': 'block'}
+    return {'display': 'none'}
