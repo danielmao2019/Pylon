@@ -4,14 +4,15 @@ This module contains all the callback handlers for the dataset viewer applicatio
 The callbacks handle user interactions and update the UI accordingly.
 """
 
-from data.viewer.callbacks.dataset import register_dataset_callbacks
-from data.viewer.callbacks.display import register_display_callbacks
-from data.viewer.callbacks.navigation import register_navigation_callbacks
-from data.viewer.callbacks.transforms import register_transform_callbacks
+from data.viewer.callbacks.registry import registry
+from data.viewer.callbacks import dataset, display, settings_3d, transforms, navigation, index  # import all callback modules
 
 __all__ = [
-    'register_dataset_callbacks',
-    'register_display_callbacks',
-    'register_navigation_callbacks',
-    'register_transform_callbacks'
+    'register_all_callbacks'
 ]
+
+def register_all_callbacks(app, viewer):
+    """Register all callbacks with the Dash app using the registry system."""
+    # All callbacks are automatically registered via the @callback decorator
+    # Just need to register them with the app
+    registry.register_callbacks(app)
