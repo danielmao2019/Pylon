@@ -1,3 +1,14 @@
+# Dataset Viewer Documentation
+
+## Overview
+
+The Dataset Viewer is a powerful tool for visualizing and exploring datasets. It provides an interactive web interface built with Dash that allows users to:
+
+- Browse and select datasets
+- Navigate through dataset items
+- Apply transforms to data
+- Visualize 2D and 3D data
+- Customize visualization settings
 
 ## Quick Start
 
