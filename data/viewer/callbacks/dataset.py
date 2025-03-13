@@ -37,37 +37,6 @@ def register_dataset_callbacks(app, viewer):
                 False
             )
 
-        # Special case for the test dataset
-        if dataset_name == 'test_dataset':
-            viewer.state.update_dataset_info(
-                name='test_dataset',
-                length=10,
-                class_labels={},
-                is_3d=False,
-                available_transforms=[]
-            )
-            return (
-                viewer.state.get_state()['dataset_info'],
-                0, 9, 0, {i: str(i) for i in range(0, 10, 2)},
-                html.Div([
-                    html.H2("Test Dataset Viewer", style={'text-align': 'center'}),
-                    html.P("This is a placeholder UI for testing when no real datasets are available."),
-                    html.P("Please ensure your config directories are correctly set up and accessible."),
-                    html.Div(style={'background-color': '#f8f9fa', 'padding': '20px', 'border-radius': '10px', 'margin-top': '20px'}, children=[
-                        html.H3("Troubleshooting Tips:"),
-                        html.Ul([
-                            html.Li("Check that the repository structure is correct"),
-                            html.Li("Verify that dataset configurations exist in your repository"),
-                            html.Li("Make sure dataset config files have the expected format"),
-                            html.Li("Run the script from the repository root instead of the data/datasets directory")
-                        ])
-                    ])
-                ]),
-                create_dataset_info_display(viewer.state.get_state()['dataset_info']),
-                create_transforms_section(),
-                False
-            )
-
         try:
             # Load dataset using dataset manager
             success, message, dataset_info = viewer.dataset_manager.load_dataset(dataset_name)

@@ -69,22 +69,6 @@ class DatasetViewer:
         # Load datasets
         self._load_available_datasets()
 
-        # Add a test dataset if no datasets are available
-        if not self.available_datasets:
-            self.logger.warning("No datasets were found. Adding a fallback dataset for testing.")
-            self.available_datasets = {
-                "test_dataset": {
-                    "train_dataset": {
-                        "class": "TestDataset",
-                        "args": {
-                            "data_root": "./",
-                        }
-                    }
-                }
-            }
-            # Add the test dataset to available datasets
-            self.datasets["test_dataset"] = None
-
         # Dash app setup
         self.app = dash.Dash(
             __name__,
