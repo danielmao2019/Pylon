@@ -3,6 +3,9 @@ import dash
 from dash import dcc, html
 import traceback
 import os
+import logging
+from typing import Optional, Dict, Any
+from pathlib import Path
 
 # Import viewer sub-modules
 from data.viewer.utils.dataset_utils import get_available_datasets, format_value, is_3d_dataset
@@ -25,20 +28,40 @@ import data
 import utils.builders
 
 
+class ViewerError(Exception):
+    """Base exception for viewer-related errors."""
+    pass
+
+
+class DatasetLoadError(ViewerError):
+    """Exception raised when dataset loading fails."""
+    pass
+
+
 class DatasetViewer:
     """Dataset viewer class for visualization of datasets."""
 
-    def __init__(self):
-        """Initialize the dataset viewer."""
+    def __init__(self, log_level: str = "INFO", log_file: Optional[str] = None):
+        """Initialize the dataset viewer.
+        
+        Args:
+            log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+            log_file: Optional path to log file
+        """
+        # Setup logging
+        self._setup_logging(log_level, log_file)
+        self.logger = logging.getLogger(__name__)
+
         # Print debug information to help with path issues
-        print(f"Current working directory: {os.getcwd()}")
-        print(f"Repository root (estimated): {os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))}")
+        self.logger.info(f"Current working directory: {os.getcwd()}")
+        self.logger.info(f"Repository root (estimated): {os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))}")
 
         # Get all available datasets
         self.available_datasets = get_available_datasets()
+        self.logger.info(f"Found {len(self.available_datasets)} available datasets")
 
         # Store for available datasets
-        self.datasets = {}
+        self.datasets: Dict[str, Any] = {}
 
         # Initialize state management
         self.state = ViewerState()
@@ -48,7 +71,7 @@ class DatasetViewer:
 
         # Add a test dataset if no datasets are available
         if not self.available_datasets:
-            print("Warning: No datasets were found. Adding a fallback dataset for testing.")
+            self.logger.warning("No datasets were found. Adding a fallback dataset for testing.")
             self.available_datasets = {
                 "test_dataset": {
                     "train_dataset": {
@@ -75,7 +98,29 @@ class DatasetViewer:
         # Register callbacks
         self._register_callbacks()
 
-    def _load_available_datasets(self):
+    def _setup_logging(self, log_level: str, log_file: Optional[str]) -> None:
+        """Setup logging configuration.
+        
+        Args:
+            log_level: Logging level
+            log_file: Optional path to log file
+        """
+        # Create logs directory if it doesn't exist
+        if log_file:
+            log_path = Path(log_file)
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        # Configure logging
+        logging.basicConfig(
+            level=getattr(logging, log_level.upper()),
+            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            handlers=[
+                logging.StreamHandler(),
+                *([logging.FileHandler(log_file)] if log_file else [])
+            ]
+        )
+
+    def _load_available_datasets(self) -> None:
         """Load available datasets from configuration files."""
         for name, config in self.available_datasets.items():
             try:
@@ -88,9 +133,11 @@ class DatasetViewer:
                 # Build dataset
                 dataset = utils.builders.build_from_config(dataset_cfg)
                 self.datasets[name] = dataset
-                print(f"Loaded dataset: {name}")
+                self.logger.info(f"Loaded dataset: {name}")
             except Exception as e:
-                print(f"Error loading dataset: {name}: {e}")
+                self.logger.error(f"Error loading dataset: {name}: {e}")
+                self.logger.error(traceback.format_exc())
+                raise DatasetLoadError(f"Failed to load dataset {name}: {str(e)}")
 
     def _create_app_layout(self):
         """Create the main application layout."""
