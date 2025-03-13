@@ -3,7 +3,7 @@ from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 import html
 from data.viewer.states.viewer_state import ViewerEvent
-from data.viewer.layout.controls.settings_3d import create_3d_settings_section
+from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.callbacks.registry import callback
 
 

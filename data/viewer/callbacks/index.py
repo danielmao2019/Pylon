@@ -3,15 +3,14 @@ from dash import Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 import html
 from data.viewer.states.viewer_state import ViewerEvent
-from data.viewer.layout.controls.index import create_index_controls
+from data.viewer.layout.controls.navigation import create_navigation_controls
 from data.viewer.callbacks.registry import callback
 
 
 @callback(
     outputs=[
         Output('datapoint-display', 'children'),
-        Output('datapoint-index', 'data'),
-        Output('index-controls', 'children')
+        Output('datapoint-index', 'data')
     ],
     inputs=[Input('datapoint-index-slider', 'value')],
     group="index"
@@ -34,8 +33,7 @@ def update_datapoint(index):
         if datapoint is None:
             return (
                 html.Div("Error: Datapoint not found."),
-                index,
-                create_index_controls(dataset_info)
+                index
             )
 
         # Create display content
@@ -53,8 +51,7 @@ def update_datapoint(index):
 
         return (
             display_content,
-            index,
-            create_index_controls(dataset_info)
+            index
         )
 
     except Exception as e:
@@ -62,4 +59,4 @@ def update_datapoint(index):
             html.H3("Error Loading Datapoint", style={'color': 'red'}),
             html.P(str(e))
         ])
-        return error_message, index, create_index_controls(viewer.state.get_state()['dataset_info'])
+        return error_message, index
