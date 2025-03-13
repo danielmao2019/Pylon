@@ -1,3 +1,6 @@
+"""UI components for 3D visualization controls."""
+from dash import dcc, html
+
 
 def create_3d_controls(visible=False, point_size=2, point_opacity=0.8):
     """
