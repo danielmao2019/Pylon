@@ -5,6 +5,7 @@ import traceback
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
 
+
 def register_display_callbacks(app, viewer):
     """Register callbacks related to display operations."""
 
