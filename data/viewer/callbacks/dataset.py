@@ -2,7 +2,6 @@
 from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 import html
-import traceback
 import logging
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.display.dataset import create_dataset_info_display
@@ -29,81 +28,64 @@ def load_dataset(dataset_name):
     """Load a selected dataset and reset the datapoint slider."""
     logger.info(f"Dataset loading callback triggered with dataset: {dataset_name}")
     
-    def create_error_display(message, error_trace=None):
-        """Helper to create error display."""
-        error_content = [html.H3(f"Error Loading Dataset: {message}", style={'color': 'red'})]
-        if error_trace:
-            error_content.append(html.Pre(error_trace, style={
-                'background-color': '#ffeeee',
-                'padding': '10px',
-                'border-radius': '5px',
-                'max-height': '300px',
-                'overflow-y': 'auto'
-            }))
-        return html.Div(error_content)
-
-    def get_default_outputs(error_display):
-        """Helper to get default outputs when loading fails."""
+    if dataset_name is None:
+        logger.info("No dataset selected")
         viewer.state.reset()
         return (
             {}, 0, 0, 0, {},
-            error_display,
+            html.Div("No dataset selected."),
             create_dataset_info_display(),
             create_transforms_section(),
         )
 
-    if dataset_name is None:
-        logger.info("No dataset selected, returning default outputs")
-        return get_default_outputs(html.Div("No dataset selected."))
+    # Load dataset using dataset manager
+    logger.info(f"Attempting to load dataset: {dataset_name}")
+    success, message, dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
+    logger.info(f"Dataset load result - Success: {success}, Message: {message}")
 
-    try:
-        # Load dataset using dataset manager
-        logger.info(f"Attempting to load dataset: {dataset_name}")
-        success, message, dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
-        logger.info(f"Dataset load result - Success: {success}, Message: {message}")
-
-        if not success:
-            logger.error(f"Failed to load dataset: {message}")
-            return get_default_outputs(create_error_display(message, traceback.format_exc()))
-
-        # Update state with dataset info
-        logger.info(f"Updating state with dataset info: {dataset_info}")
-        viewer.state.update_dataset_info(
-            name=dataset_info['name'],
-            length=dataset_info['length'],
-            class_labels=dataset_info['class_labels'],
-            is_3d=dataset_info['is_3d'],
-            available_transforms=dataset_info['available_transforms']
-        )
-
-        # Create slider marks
-        marks = {}
-        if dataset_info['length'] <= 10:
-            marks = {i: str(i) for i in range(dataset_info['length'])}
-        else:
-            step = max(1, dataset_info['length'] // 10)
-            marks = {i: str(i) for i in range(0, dataset_info['length'], step)}
-            marks[dataset_info['length'] - 1] = str(dataset_info['length'] - 1)
-
-        # Get initial message
-        initial_message = html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_info['length']} datapoints. Use the slider to navigate.")
-        logger.info("Dataset loaded successfully, returning updated UI components")
-
+    if not success:
+        logger.error(f"Failed to load dataset: {message}")
+        viewer.state.reset()
         return (
-            viewer.state.get_state()['dataset_info'],
-            0,                   # min slider value
-            dataset_info['length'] - 1,  # max slider value
-            0,                   # initial slider value
-            marks,               # slider marks
-            initial_message,
-            create_dataset_info_display(viewer.state.get_state()['dataset_info']),
-            create_transforms_section(dataset_info['available_transforms']),
+            {}, 0, 0, 0, {},
+            html.Div(f"Error Loading Dataset: {message}"),
+            create_dataset_info_display(),
+            create_transforms_section(),
         )
 
-    except Exception as e:
-        logger.error(f"Exception during dataset loading: {str(e)}")
-        logger.error(traceback.format_exc())
-        return get_default_outputs(create_error_display(str(e), traceback.format_exc()))
+    # Update state with dataset info
+    logger.info(f"Updating state with dataset info: {dataset_info}")
+    viewer.state.update_dataset_info(
+        name=dataset_info['name'],
+        length=dataset_info['length'],
+        class_labels=dataset_info['class_labels'],
+        is_3d=dataset_info['is_3d'],
+        available_transforms=dataset_info['available_transforms']
+    )
+
+    # Create slider marks
+    marks = {}
+    if dataset_info['length'] <= 10:
+        marks = {i: str(i) for i in range(dataset_info['length'])}
+    else:
+        step = max(1, dataset_info['length'] // 10)
+        marks = {i: str(i) for i in range(0, dataset_info['length'], step)}
+        marks[dataset_info['length'] - 1] = str(dataset_info['length'] - 1)
+
+    # Get initial message
+    initial_message = html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_info['length']} datapoints. Use the slider to navigate.")
+    logger.info("Dataset loaded successfully, returning updated UI components")
+
+    return (
+        viewer.state.get_state()['dataset_info'],
+        0,                   # min slider value
+        dataset_info['length'] - 1,  # max slider value
+        0,                   # initial slider value
+        marks,               # slider marks
+        initial_message,
+        create_dataset_info_display(viewer.state.get_state()['dataset_info']),
+        create_transforms_section(dataset_info['available_transforms']),
+    )
 
 
 @callback(
