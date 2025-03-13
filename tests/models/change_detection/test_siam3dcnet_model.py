@@ -10,7 +10,7 @@ import torch.nn as nn
 import numpy as np
 from typing import Dict, List, Tuple, Any
 
-from models.change_detection.siam3dcnet.siam3dcnet_model import Siam3DCDNet
+from models.change_detection.siam3dcdnet.siam3dcdnet_model import Siam3DCDNet
 
 
 @pytest.fixture
