@@ -60,27 +60,15 @@ def create_transforms_section(dataset_config=None):
     Returns:
         html.Div containing the transforms section
     """
-    if not dataset_config:
-        return html.Div([
-            html.H3("Transforms", style={'margin-top': '0'}),
-            html.P("No dataset selected or no transforms available.")
-        ])
-    
     # Get the transforms configuration
-    dataset_cfg = dataset_config.get('train_dataset', {})
+    dataset_cfg = dataset_config.get('train_dataset', {}) if dataset_config else {}
     transforms_cfg = dataset_cfg.get('args', {}).get('transforms_cfg')
 
-    if not transforms_cfg or 'args' not in transforms_cfg or 'transforms' not in transforms_cfg['args']:
-        return html.Div([
-            html.H3("Transforms", style={'margin-top': '0'}),
-            html.P("No transforms available for this dataset.")
-        ])
-
-    # Create checkboxes for each transform
-    transforms = transforms_cfg['args']['transforms']
-    transform_checkboxes = create_transform_checkboxes(transforms)
+    transforms = []
+    if transforms_cfg and 'args' in transforms_cfg and 'transforms' in transforms_cfg['args']:
+        transforms = transforms_cfg['args']['transforms']
 
     return html.Div([
         html.H3("Transforms", style={'margin-top': '0'}),
-        html.Div(transform_checkboxes, style={'max-height': '200px', 'overflow-y': 'auto'})
+        html.Div(create_transform_checkboxes(transforms), style={'max-height': '200px', 'overflow-y': 'auto'})
     ])

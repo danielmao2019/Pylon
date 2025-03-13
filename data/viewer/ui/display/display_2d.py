@@ -58,46 +58,17 @@ def display_2d_datapoint(datapoint):
     try:
         img_1_display = tensor_to_image(img_1)
         img_2_display = tensor_to_image(img_2)
-        
-        # Handle change map (could be binary or multi-class)
         change_map_display = tensor_to_image(change_map)
         
-        # Create the figures
-        fig_img_1 = px.imshow(img_1_display, title="Image 1")
-        fig_img_2 = px.imshow(img_2_display, title="Image 2")
-        fig_change = px.imshow(change_map_display, title="Change Map", color_continuous_scale="Viridis")
+        # Create the figures using helper function
+        fig_img_1 = create_2d_figure(img_1_display, title="Image 1")
+        fig_img_2 = create_2d_figure(img_2_display, title="Image 2")
+        fig_change = create_2d_figure(change_map_display, title="Change Map", colorscale="Viridis")
         
-        # Compute change map statistics
-        if change_map.dim() > 2 and change_map.shape[0] > 1:
-            # Handle multi-class change maps
-            change_classes = torch.argmax(change_map, dim=0).float()
-            num_classes = change_map.shape[0]
-            class_distribution = {i: float((change_classes == i).sum()) / change_classes.numel() 
-                                for i in range(num_classes)}
-            
-            change_stats = [
-                html.H4("Change Map Statistics:"),
-                html.Ul([
-                    html.Li(f"Classes: {num_classes}"),
-                    html.Li(f"Distribution: {class_distribution}")
-                ])
-            ]
-        else:
-            # Binary change map
-            if change_map.dim() <= 2:
-                changes = change_map
-            else:
-                changes = change_map[0]  # Take first channel if multi-channel
-                
-            percent_changed = float((changes > 0.5).sum()) / changes.numel() * 100
-            change_stats = [
-                html.H4("Change Map Statistics:"),
-                html.Ul([
-                    html.Li(f"Changed pixels: {percent_changed:.2f}%"),
-                    html.Li(f"Max value: {float(changes.max()):.4f}"),
-                    html.Li(f"Min value: {float(changes.min()):.4f}")
-                ])
-            ]
+        # Get statistics using helper function
+        img_1_stats = get_2d_stats(img_1)
+        img_2_stats = get_2d_stats(img_2)
+        change_stats = get_2d_stats(img_1, change_map)
         
         # Extract metadata
         meta_info = datapoint.get('meta_info', {})
@@ -129,9 +100,24 @@ def display_2d_datapoint(datapoint):
             
             # Info section
             html.Div([
-                html.Div(change_stats, style={'margin-top': '20px'}),
+                html.Div([
+                    html.Div([
+                        html.H4("Image 1 Statistics:"),
+                        html.Ul([html.Li(f"{k}: {v}") for k, v in img_1_stats.items()])
+                    ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+                    
+                    html.Div([
+                        html.H4("Image 2 Statistics:"),
+                        html.Ul([html.Li(f"{k}: {v}") for k, v in img_2_stats.items()])
+                    ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+                    
+                    html.Div([
+                        html.H4("Change Statistics:"),
+                        html.Ul([html.Li(f"{k}: {v}") for k, v in change_stats.items()])
+                    ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+                ]),
                 html.Div(meta_display, style={'margin-top': '20px'})
-            ])
+            ], style={'margin-top': '20px'})
         ])
     except Exception as e:
         return html.Div([
@@ -158,3 +144,84 @@ def tensor_to_image(tensor):
         return np.transpose(img, (1, 2, 0))
     else:
         raise ValueError("Unsupported tensor shape for image conversion")
+
+
+def get_2d_stats(img, change_map=None):
+    """Get statistical information about a 2D image.
+
+    Args:
+        img: Image tensor of shape (C, H, W)
+        change_map: Optional tensor with change classes for each pixel
+
+    Returns:
+        Dictionary with image statistics
+    """
+    if not isinstance(img, torch.Tensor):
+        return {}
+
+    try:
+        # Basic stats
+        img_np = img.detach().cpu().numpy()
+        stats = {
+            "Shape": f"{img_np.shape}",
+            "Min Value": f"{img_np.min():.4f}",
+            "Max Value": f"{img_np.max():.4f}",
+            "Mean Value": f"{img_np.mean():.4f}",
+            "Std Dev": f"{img_np.std():.4f}"
+        }
+
+        # Add change map statistics if provided
+        if change_map is not None:
+            if change_map.dim() > 2 and change_map.shape[0] > 1:
+                # Multi-class change map
+                change_classes = torch.argmax(change_map, dim=0)
+                num_classes = change_map.shape[0]
+                class_distribution = {
+                    i: float((change_classes == i).sum()) / change_classes.numel() * 100
+                    for i in range(num_classes)
+                }
+                stats["Number of Classes"] = num_classes
+                stats["Class Distribution"] = {
+                    f"Class {i}": f"{pct:.2f}%" 
+                    for i, pct in class_distribution.items()
+                }
+            else:
+                # Binary change map
+                changes = change_map[0] if change_map.dim() > 2 else change_map
+                percent_changed = float((changes > 0.5).sum()) / changes.numel() * 100
+                stats["Changed Pixels"] = f"{percent_changed:.2f}%"
+                stats["Change Min"] = f"{float(changes.min()):.4f}"
+                stats["Change Max"] = f"{float(changes.max()):.4f}"
+
+        return stats
+
+    except Exception as e:
+        return {"Error": str(e)}
+
+
+def create_2d_figure(img, title="Image", colorscale="Viridis"):
+    """Create a 2D image figure with standard formatting.
+    
+    Args:
+        img: Image array to display
+        title: Title for the figure
+        colorscale: Color scale to use for the image
+        
+    Returns:
+        Plotly Figure object
+    """
+    fig = px.imshow(
+        img,
+        title=title,
+        color_continuous_scale=colorscale
+    )
+    
+    fig.update_layout(
+        title_x=0.5,
+        margin=dict(l=20, r=20, t=40, b=20),
+        coloraxis_showscale=True,
+        showlegend=False,
+        height=400
+    )
+    
+    return fig
