@@ -130,20 +130,20 @@ class DatasetManager:
 
         dataset_configs = {}
 
-        for file in os.listdir(config_dir):
-            if file.endswith('.py') and not file.startswith('_'):
-                dataset_name = file[:-3]  # Remove .py extension
-                # Import the config to ensure it's valid
-                spec = importlib.util.spec_from_file_location(
-                    f"configs.common.datasets.change_detection.train.{dataset_name}",
-                    os.path.join(config_dir, file)
-                )
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
+        for dataset_name in ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'urb3dcd', 'slpccd']:
+            config_file = os.path.join(config_dir, f"{dataset_name}.py")
+            assert os.path.isfile(config_file), f"Dataset config file not found at {config_file}"
+            # Import the config to ensure it's valid
+            spec = importlib.util.spec_from_file_location(
+                f"configs.common.datasets.change_detection.train.{dataset_name}",
+                config_file
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
 
-                if hasattr(module, 'config'):
-                    # Add to the list of valid datasets
-                    dataset_configs[dataset_name] = module.config
+            assert hasattr(module, 'config'), f"Dataset config not found in {config_file}"
+            # Add to the list of valid datasets
+            dataset_configs[dataset_name] = module.config
 
         return dataset_configs
 
