@@ -9,7 +9,7 @@ from data.viewer.layout.controls.transforms import create_transforms_section
 
 def register_dataset_callbacks(app, viewer):
     """Register callbacks related to dataset operations."""
-    
+
     @app.callback(
         [
             Output('dataset-info', 'data'),
@@ -40,7 +40,7 @@ def register_dataset_callbacks(app, viewer):
         try:
             # Load dataset using dataset manager
             success, message, dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
-            
+
             if not success:
                 viewer.state.reset()
                 return (
@@ -92,7 +92,7 @@ def register_dataset_callbacks(app, viewer):
                 create_transforms_section(dataset_info['available_transforms']),
                 dataset_info['is_3d']  # is 3D dataset flag
             )
-            
+
         except Exception as e:
             error_traceback = traceback.format_exc()
             viewer.state.reset()
@@ -122,15 +122,15 @@ def register_dataset_callbacks(app, viewer):
         """Reload available datasets."""
         if n_clicks is None:
             raise PreventUpdate
-            
+
         # Get updated list of datasets
         viewer.dataset_manager._load_available_datasets()
         available_datasets = viewer.dataset_manager.get_available_datasets()
-        
+
         # Create options for the dropdown
         options = [
             {'label': name, 'value': name}
             for name in available_datasets
         ]
-        
-        return options 
+
+        return options
