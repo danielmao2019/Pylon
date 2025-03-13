@@ -2,7 +2,6 @@
 from dash import Input, Output, State
 import html
 import traceback
-from data.viewer.utils.dataset_utils import is_3d_dataset
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
 
@@ -42,8 +41,8 @@ def register_display_callbacks(app, viewer):
 
             datapoint = dataset[datapoint_idx]
 
-            # Determine if this is a 3D dataset based on the class name or data structure
-            is_3d = is_3d_dataset(dataset, datapoint)
+            # Get is_3d from dataset info
+            is_3d = dataset_info.get('is_3d', False)
 
             # Get class labels if available
             class_labels = dataset_info.get('class_labels', {})

@@ -9,7 +9,13 @@ import weakref
 import threading
 from collections import OrderedDict
 import numpy as np
-from data.viewer.utils.dataset_utils import get_available_datasets, is_3d_dataset
+from data.viewer.utils.dataset_utils import get_available_datasets
+
+# Mapping of dataset names to whether they are 3D datasets
+THREE_D_DATASETS = {
+    'urb3dcd': True,  # Urb3DCDDataset
+    'slpccd': True,   # SLPCCDDataset
+}
 
 
 class DatasetCache:
@@ -169,7 +175,7 @@ class DatasetManager:
                 'name': dataset_name,
                 'length': len(dataset),
                 'class_labels': getattr(dataset, 'class_labels', {}),
-                'is_3d': is_3d_dataset(dataset),
+                'is_3d': THREE_D_DATASETS.get(dataset_name, False),
                 'available_transforms': self._get_available_transforms(dataset)
             }
             

@@ -5,9 +5,6 @@ import plotly.graph_objects as go
 import torch
 import numpy as np
 import random
-from data.viewer.utils.dataset_utils import format_value, get_point_cloud_stats
-from data.viewer.utils.pointcloud_utils import create_synchronized_point_cloud_figures
-
 
 
 def create_dataset_info_display(dataset_info=None):

@@ -3,7 +3,6 @@ from dash import Input, Output, State, ALL
 from dash.exceptions import PreventUpdate
 import html
 import traceback
-from data.viewer.utils.dataset_utils import is_3d_dataset
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
 from data.viewer.states.viewer_state import ViewerEvent

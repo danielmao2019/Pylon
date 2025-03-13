@@ -6,6 +6,7 @@ import numpy as np
 import random
 from typing import Dict, List, Optional, Union, Any
 from data.viewer.utils.dataset_utils import format_value
+import plotly.graph_objects as go
 
 
 def display_2d_datapoint(datapoint: Dict[str, Any]) -> html.Div:
