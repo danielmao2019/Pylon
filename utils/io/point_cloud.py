@@ -38,23 +38,10 @@ def _read_from_txt(filename: str) -> np.ndarray:
     """
     assert os.path.isfile(filename), f"File not found: {filename}"
     
+    # SLPCCD format has a header line and point count line that need to be skipped
     try:
-        # First try with space delimiter
-        try:
-            data = np.loadtxt(filename, delimiter=' ')
-        except Exception:
-            # If that fails, try comma delimiter
-            try:
-                data = np.loadtxt(filename, delimiter=',')
-            except Exception:
-                # Finally try with auto-detection for mixed delimiters
-                with open(filename, 'r') as f:
-                    first_line = f.readline().strip()
-                    if ',' in first_line:
-                        delimiter = ','
-                    else:
-                        delimiter = None  # Auto-detect
-                data = np.loadtxt(filename, delimiter=delimiter)
+        # Skip the first two lines (header and point count) for SLPCCD format
+        data = np.loadtxt(filename, delimiter=' ', skiprows=2)
         
         # Validate data has at least XYZ coordinates
         if data.shape[1] < 3:
@@ -66,56 +53,19 @@ def _read_from_txt(filename: str) -> np.ndarray:
         # Copy XYZ coordinates
         vertices[:, 0:3] = data[:, 0:3]
         
-        # Copy or set feature channel (label/intensity)
-        if data.shape[1] >= 4:
-            # If there's a 4th column, use it as the feature
+        # For SLPCCD format, use the 7th column (index 6) if available for label
+        if data.shape[1] >= 7:  # X Y Z Rf Gf Bf label
+            vertices[:, 3] = data[:, 6]  # Use label as feature
+        elif data.shape[1] >= 4:
+            # Otherwise use 4th column as feature
             vertices[:, 3] = data[:, 3]
         else:
-            # Otherwise set to 0
+            # Set to 0 if not available
             vertices[:, 3] = 0.0
             
-        # Debug information for parsing errors
-        if np.isnan(vertices).any():
-            print(f"Warning: NaN values detected in point cloud file: {filename}")
-            # Replace NaN values with zeros
-            vertices = np.nan_to_num(vertices)
-            
         return vertices
-        
     except Exception as e:
-        # Try a more robust parsing method with manual file reading
-        try:
-            data_list = []
-            with open(filename, 'r') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue  # Skip empty lines and comments
-                    
-                    # Try to split by different delimiters
-                    if ',' in line:
-                        parts = line.split(',')
-                    else:
-                        parts = line.split()
-                    
-                    # Convert to float, require at least XYZ
-                    if len(parts) >= 3:
-                        point = [float(parts[0]), float(parts[1]), float(parts[2])]
-                        # Add feature if available
-                        if len(parts) >= 4:
-                            point.append(float(parts[3]))
-                        else:
-                            point.append(0.0)
-                        data_list.append(point)
-            
-            if not data_list:
-                raise ValueError(f"No valid points found in {filename}")
-                
-            vertices = np.array(data_list, dtype=np.float32)
-            return vertices
-            
-        except Exception as e2:
-            raise IOError(f"Failed to load point cloud from {filename}: {str(e)} -> {str(e2)}")
+        raise IOError(f"Failed to load point cloud from {filename}: {str(e)}")
 
 
 def load_point_cloud(pathPC, nameInPly: Optional[str] = None, name_feat: Optional[str] = "label_ch") -> torch.Tensor:
