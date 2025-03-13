@@ -10,7 +10,6 @@ from data.viewer.callbacks.registry import callback
 @callback(
     outputs=[
         Output('datapoint-display', 'children'),
-        Output('is-3d-dataset', 'data')
     ],
     inputs=[
         Input('dataset-info', 'data'),
@@ -18,26 +17,25 @@ from data.viewer.callbacks.registry import callback
         Input('point-size-slider', 'value'),
         Input('point-opacity-slider', 'value')
     ],
-    states=[State('is-3d-dataset', 'data')],
     group="display"
 )
-def update_datapoint(dataset_info, datapoint_idx, point_size, point_opacity, is_3d_prev):
+def update_datapoint(dataset_info, datapoint_idx, point_size, point_opacity):
     """
     Update the displayed datapoint based on the slider value.
     Also handles 3D point cloud visualization settings.
     """
     if dataset_info is None or dataset_info == {}:
-        return html.Div("No dataset loaded."), False
+        return html.Div("No dataset loaded.")
 
     try:
         dataset_name = dataset_info.get('name', 'unknown')
         dataset = viewer.datasets.get(dataset_name)
         if dataset is None:
-            return html.Div(f"Dataset '{dataset_name}' not found."), False
+            return html.Div(f"Dataset '{dataset_name}' not found.")
 
         # Get the datapoint
         if datapoint_idx >= len(dataset):
-            return html.Div(f"Datapoint index {datapoint_idx} is out of range for dataset of size {len(dataset)}."), is_3d_prev
+            return html.Div(f"Datapoint index {datapoint_idx} is out of range for dataset of size {len(dataset)}.")
 
         datapoint = dataset[datapoint_idx]
 
@@ -53,6 +51,7 @@ def update_datapoint(dataset_info, datapoint_idx, point_size, point_opacity, is_
                 display = display_3d_datapoint(datapoint, point_size, point_opacity, class_labels)
             else:
                 display = display_2d_datapoint(datapoint)
+            return display
         except Exception as e:
             error_traceback = traceback.format_exc()
             return html.Div([
@@ -72,25 +71,23 @@ def update_datapoint(dataset_info, datapoint_idx, point_size, point_opacity, is_
                     'max-height': '300px',
                     'overflow-y': 'auto'
                 })
-            ]), is_3d
-
-        return display, is_3d
+            ])
 
     except Exception as e:
         error_traceback = traceback.format_exc()
         return html.Div([
             html.H3("Error", style={'color': 'red'}),
             html.P(f"Error loading datapoint: {str(e)}")
-        ]), is_3d_prev
+        ])
 
 
 @callback(
     outputs=Output('view-controls', 'style'),
-    inputs=[Input('is-3d-dataset', 'data')],
+    inputs=[Input('dataset-info', 'data')],
     group="display"
 )
-def update_view_controls(is_3d):
+def update_view_controls(dataset_info):
     """Update the visibility of 3D view controls based on dataset type."""
-    if is_3d:
+    if dataset_info and dataset_info.get('is_3d', False):
         return {'display': 'block'}
     return {'display': 'none'}

@@ -18,8 +18,7 @@ from data.viewer.callbacks.registry import callback
         Output('datapoint-index-slider', 'marks'),
         Output('datapoint-display', 'children', allow_duplicate=True),
         Output('dataset-info-display', 'children'),
-        Output('transforms-section', 'children'),
-        Output('is-3d-dataset', 'data', allow_duplicate=True)
+        Output('transforms-section', 'children')
     ],
     inputs=[Input('dataset-dropdown', 'value')],
     group="dataset"
@@ -47,7 +46,6 @@ def load_dataset(dataset_name):
             error_display,
             create_dataset_info_display(),
             create_transforms_section(),
-            False
         )
 
     if dataset_name is None:
@@ -90,7 +88,6 @@ def load_dataset(dataset_name):
             initial_message,
             create_dataset_info_display(viewer.state.get_state()['dataset_info']),
             create_transforms_section(dataset_info['available_transforms']),
-            dataset_info['is_3d']  # is 3D dataset flag
         )
 
     except Exception as e:

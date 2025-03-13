@@ -18,7 +18,8 @@ def create_app_layout(available_datasets):
     layout = html.Div([
         # Hidden stores for keeping track of state
         dcc.Store(id='dataset-info', data={}),
-        dcc.Store(id='is-3d-dataset', data=False),
+        dcc.Store(id='transforms-store', data={}),
+        dcc.Store(id='3d-settings-store', data={}),
 
         # Header
         html.Div([
