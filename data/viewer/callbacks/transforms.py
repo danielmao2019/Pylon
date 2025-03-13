@@ -64,7 +64,7 @@ def apply_transforms(transform_values, dataset_info, datapoint_idx):
 
 @callback(
     outputs=[
-        Output('transforms-section', 'children'),
+        Output('transforms-section', 'children', allow_duplicate=True),
         Output('transforms-store', 'data')
     ],
     inputs=[
