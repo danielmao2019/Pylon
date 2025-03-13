@@ -5,21 +5,19 @@ from dash.exceptions import PreventUpdate
 import traceback
 import os
 
-# Import project modules
-import data
-import utils
-
 # Import viewer sub-modules
 from data.viewer.utils.dataset_utils import get_available_datasets, format_value, is_3d_dataset
-from data.viewer.ui.display import display_2d_datapoint, display_3d_datapoint
-from data.viewer.ui.controls import (
-    create_dataset_selector, 
-    create_reload_button, 
-    create_navigation_controls, 
-    create_3d_controls,
-    create_dataset_info_display
-)
-from data.viewer.ui.transforms import create_transforms_section
+from data.viewer.ui.display.display_2d import display_2d_datapoint
+from data.viewer.ui.display.display_3d import display_3d_datapoint
+from data.viewer.ui.controls.dataset import create_dataset_selector
+from data.viewer.ui.controls.navigation import create_navigation_controls, create_reload_button
+from data.viewer.ui.controls.controls_3d import create_3d_controls
+from data.viewer.ui.controls.dataset import create_dataset_info_display
+from data.viewer.ui.controls.transforms import create_transforms_section
+
+# Other project imports - required for functionality
+import data
+import utils.builders
 
 
 class DatasetViewer:
