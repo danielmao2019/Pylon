@@ -6,7 +6,7 @@ import random
 import numpy as np
 import torch
 import traceback
-from pathlib import Path
+
 
 def format_value(value):
     """Format a value for display in error messages."""
