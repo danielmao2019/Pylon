@@ -193,7 +193,7 @@ class DatasetManager:
                 'length': len(dataset),
                 'class_labels': getattr(dataset, 'class_labels', {}),
                 'is_3d': THREE_D_DATASETS.get(dataset_name, False),
-                'available_transforms': self._get_available_transforms(dataset)
+                'available_transforms': dataset.transforms,
             }
 
             return True, "Dataset loaded successfully", info
@@ -321,17 +321,6 @@ class DatasetManager:
         except Exception as e:
             print(f"Error applying transforms: {e}")
             return None
-
-    def _get_available_transforms(self, dataset: Any) -> List[str]:
-        """Get list of available transforms for a dataset.
-
-        Args:
-            dataset: Dataset object
-
-        Returns:
-            List of transform names
-        """
-        return dataset.transforms
 
     def register_transform(self, name: str, transform_func: callable) -> None:
         """Register a transform function.

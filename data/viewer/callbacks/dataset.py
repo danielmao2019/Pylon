@@ -26,38 +26,39 @@ from data.viewer.callbacks.registry import callback
 )
 def load_dataset(dataset_name):
     """Load a selected dataset and reset the datapoint slider."""
-    if dataset_name is None:
+    def create_error_display(message, error_trace=None):
+        """Helper to create error display."""
+        error_content = [html.H3(f"Error Loading Dataset: {message}", style={'color': 'red'})]
+        if error_trace:
+            error_content.append(html.Pre(error_trace, style={
+                'background-color': '#ffeeee',
+                'padding': '10px',
+                'border-radius': '5px',
+                'max-height': '300px',
+                'overflow-y': 'auto'
+            }))
+        return html.Div(error_content)
+
+    def get_default_outputs(error_display):
+        """Helper to get default outputs when loading fails."""
         viewer.state.reset()
         return (
             {}, 0, 0, 0, {},
-            html.Div("No dataset selected."),
+            error_display,
             create_dataset_info_display(),
             create_transforms_section(),
             False
         )
+
+    if dataset_name is None:
+        return get_default_outputs(html.Div("No dataset selected."))
 
     try:
         # Load dataset using dataset manager
         success, message, dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
 
         if not success:
-            viewer.state.reset()
-            return (
-                {}, 0, 0, 0, {},
-                html.Div([
-                    html.H3(f"Error Loading Dataset: {message}", style={'color': 'red'}),
-                    html.Pre(traceback.format_exc(), style={
-                        'background-color': '#ffeeee',
-                        'padding': '10px',
-                        'border-radius': '5px',
-                        'max-height': '300px',
-                        'overflow-y': 'auto'
-                    })
-                ]),
-                create_dataset_info_display(),
-                create_transforms_section(),
-                False
-            )
+            return get_default_outputs(create_error_display(message, traceback.format_exc()))
 
         # Update state with dataset info
         viewer.state.update_dataset_info(
@@ -93,24 +94,7 @@ def load_dataset(dataset_name):
         )
 
     except Exception as e:
-        error_traceback = traceback.format_exc()
-        viewer.state.reset()
-        return (
-            {}, 0, 0, 0, {},
-            html.Div([
-                html.H3(f"Error Loading Dataset: {str(e)}", style={'color': 'red'}),
-                html.Pre(error_traceback, style={
-                    'background-color': '#ffeeee',
-                    'padding': '10px',
-                    'border-radius': '5px',
-                    'max-height': '300px',
-                    'overflow-y': 'auto'
-                })
-            ]),
-            create_dataset_info_display(),
-            create_transforms_section(),
-            False
-        )
+        return get_default_outputs(create_error_display(str(e), traceback.format_exc()))
 
 
 @callback(
