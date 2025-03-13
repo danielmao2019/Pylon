@@ -18,6 +18,7 @@ from data.viewer.callbacks.transforms import register_transform_callbacks
 
 # Import state management
 from data.viewer.states import ViewerState
+from data.viewer.managers.dataset_manager import DatasetManager
 
 # Other project imports - required for functionality
 import utils.builders
@@ -51,18 +52,18 @@ class DatasetViewer:
         self.logger.info(f"Current working directory: {os.getcwd()}")
         self.logger.info(f"Repository root (estimated): {os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))}")
 
-        # Get all available datasets
-        self.available_datasets = get_available_datasets()
+        # Initialize dataset manager
+        self.dataset_manager = DatasetManager()
+        
+        # Get available datasets from the manager
+        self.available_datasets = self.dataset_manager.get_available_datasets()
         self.logger.info(f"Found {len(self.available_datasets)} available datasets")
 
         # Store for available datasets
-        self.datasets: Dict[str, Any] = {}
+        self.datasets: Dict[str, Any] = self.dataset_manager._load_available_datasets()
 
         # Initialize state management
         self.state = ViewerState()
-
-        # Load datasets
-        self._load_available_datasets()
 
         # Dash app setup
         self.app = dash.Dash(
@@ -98,25 +99,6 @@ class DatasetViewer:
                 *([logging.FileHandler(log_file)] if log_file else [])
             ]
         )
-
-    def _load_available_datasets(self) -> None:
-        """Load available datasets from configuration files."""
-        for name, config in self.available_datasets.items():
-            try:
-                # Adjust data_root path to be relative to the repository root if needed
-                dataset_cfg = config.get('train_dataset', {})
-                if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
-                    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-                    dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
-
-                # Build dataset
-                dataset = utils.builders.build_from_config(dataset_cfg)
-                self.datasets[name] = dataset
-                self.logger.info(f"Loaded dataset: {name}")
-            except Exception as e:
-                self.logger.error(f"Error loading dataset: {name}: {e}")
-                self.logger.error(traceback.format_exc())
-                raise DatasetLoadError(f"Failed to load dataset {name}: {str(e)}")
 
     def _register_callbacks(self):
         """Register all callbacks for the app."""

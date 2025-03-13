@@ -9,7 +9,10 @@ import weakref
 import threading
 from collections import OrderedDict
 import numpy as np
+import os
 from data.viewer.layout.controls.dataset import get_available_datasets
+import utils.builders
+import logging
 
 # Mapping of dataset names to whether they are 3D datasets
 THREE_D_DATASETS = {
@@ -108,10 +111,7 @@ class DatasetManager:
         self._datasets: Dict[str, Any] = {}
         
         # Dataset configurations
-        self._configs: Dict[str, Dict[str, Any]] = {}
-        
-        # Transform functions
-        self._transform_functions: Dict[str, callable] = {}
+        self._configs = get_available_datasets()
         
         # Cache for each dataset
         self._caches: Dict[str, DatasetCache] = {}
@@ -119,12 +119,8 @@ class DatasetManager:
         # Preloading settings
         self._preload_window = 5  # Number of items to preload in each direction
         
-        # Load available datasets
-        self._load_available_datasets()
-        
-    def _load_available_datasets(self) -> None:
-        """Load available dataset configurations."""
-        self._configs = get_available_datasets()
+        # Transform functions
+        self._transform_functions: Dict[str, callable] = {}
         
     def get_available_datasets(self) -> List[str]:
         """Get list of available dataset names.
@@ -144,7 +140,7 @@ class DatasetManager:
             Dataset configuration or None if not found
         """
         return self._configs.get(dataset_name)
-        
+
     def load_dataset(self, dataset_name: str) -> Tuple[bool, str, Dict[str, Any]]:
         """Load a dataset.
         
@@ -211,6 +207,25 @@ class DatasetManager:
             print(f"Error loading dataset from config: {e}")
             return None
     
+    def _load_available_datasets(self) -> None:
+        """Load available datasets from configuration files."""
+        for name, config in self.available_datasets.items():
+            try:
+                # Adjust data_root path to be relative to the repository root if needed
+                dataset_cfg = config.get('train_dataset', {})
+                if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
+                    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+                    dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
+
+                # Build dataset
+                dataset = utils.builders.build_from_config(dataset_cfg)
+                self.datasets[name] = dataset
+                self.logger.info(f"Loaded dataset: {name}")
+            except Exception as e:
+                self.logger.error(f"Error loading dataset: {name}: {e}")
+                self.logger.error(traceback.format_exc())
+                raise DatasetLoadError(f"Failed to load dataset {name}: {str(e)}")
+
     def get_datapoint(self, dataset_name: str, index: int) -> Optional[Any]:
         """Get a datapoint from the dataset.
         
