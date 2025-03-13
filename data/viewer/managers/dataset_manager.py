@@ -187,13 +187,23 @@ class DatasetManager:
 
             dataset = self._datasets[dataset_name]
 
+            # Get transforms from dataset config
+            dataset_cfg = config.get('train_dataset', {})
+            transforms_cfg = dataset_cfg.get('args', {}).get('transforms_cfg', {})
+            transforms = transforms_cfg.get('args', {}).get('transforms', [])
+
+            # Register transform functions
+            self._transform_functions.clear()  # Clear existing transforms
+            for i, (transform, _) in enumerate(transforms):
+                self.register_transform(f"transform_{i}", transform)
+
             # Get dataset info
             info = {
                 'name': dataset_name,
                 'length': len(dataset),
                 'class_labels': getattr(dataset, 'class_labels', {}),
                 'is_3d': THREE_D_DATASETS.get(dataset_name, False),
-                'available_transforms': dataset.transforms,
+                'available_transforms': transforms,
             }
 
             return True, "Dataset loaded successfully", info
@@ -300,7 +310,7 @@ class DatasetManager:
         Args:
             dataset_name: Name of the dataset
             index: Index of the datapoint
-            transforms: List of transform names to apply
+            transforms: List of transform indices to apply
 
         Returns:
             Transformed datapoint or None if error
@@ -312,9 +322,11 @@ class DatasetManager:
                 return None
 
             # Apply transforms
-            for transform in transforms:
-                if transform in self._transform_functions:
-                    datapoint = self._transform_functions[transform](datapoint)
+            for transform_idx in transforms:
+                transform_name = f"transform_{transform_idx}"
+                if transform_name in self._transform_functions:
+                    transform_func = self._transform_functions[transform_name]
+                    datapoint = transform_func(datapoint)
 
             return datapoint
 

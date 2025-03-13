@@ -48,23 +48,28 @@ def create_transform_checkboxes(transforms: List[Tuple]) -> List[html.Div]:
     return transform_checkboxes
 
 
-def create_transforms_section(dataset_config: Optional[Dict] = None) -> html.Div:
+def create_transforms_section(transforms_or_config: Optional[Union[Dict, List[Tuple]]] = None) -> html.Div:
     """
     Create the transforms section with checkboxes.
     
     Args:
-        dataset_config: Dataset configuration dictionary
+        transforms_or_config: Either a dataset configuration dictionary or a list of transforms
         
     Returns:
         html.Div containing the transforms section
     """
-    # Get the transforms configuration
-    dataset_cfg: Dict = dataset_config.get('train_dataset', {}) if dataset_config else {}
-    transforms_cfg: Optional[Dict] = dataset_cfg.get('args', {}).get('transforms_cfg')
-
     transforms = []
-    if transforms_cfg and 'args' in transforms_cfg and 'transforms' in transforms_cfg['args']:
-        transforms = transforms_cfg['args']['transforms']
+    
+    if isinstance(transforms_or_config, dict):
+        # Handle dataset config case
+        dataset_cfg: Dict = transforms_or_config.get('train_dataset', {})
+        transforms_cfg: Optional[Dict] = dataset_cfg.get('args', {}).get('transforms_cfg')
+        
+        if transforms_cfg and 'args' in transforms_cfg and 'transforms' in transforms_cfg['args']:
+            transforms = transforms_cfg['args']['transforms']
+    elif isinstance(transforms_or_config, list):
+        # Handle direct transforms list case
+        transforms = transforms_or_config
 
     return html.Div([
         html.H3("Transforms", style={'margin-top': '0'}),
