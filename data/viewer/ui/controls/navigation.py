@@ -1,5 +1,5 @@
 """UI components for dataset navigation."""
-from dash import dcc, html
+from dash import html
 
 
 def create_navigation_controls(datapoint_index=0, min_index=0, max_index=10):
