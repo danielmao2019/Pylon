@@ -20,19 +20,6 @@ def format_value(value):
     else:
         return str(value)
 
-def tensor_to_image(tensor):
-    """Convert a PyTorch tensor to a displayable image."""
-    img = tensor.cpu().numpy()
-    img = (img-img.min())/(img.max()-img.min())
-    if img.ndim == 2:  # Grayscale image
-        return img
-    elif img.ndim == 3:  # RGB image (C, H, W) -> (H, W, C)
-        if img.shape[0] > 3:
-            img = img[random.sample(range(img.shape[0]), 3), :, :]
-        return np.transpose(img, (1, 2, 0))
-    else:
-        raise ValueError("Unsupported tensor shape for image conversion")
-
 def is_point_cloud(data):
     """Check if the input data is a point cloud."""
     if isinstance(data, torch.Tensor):
