@@ -10,6 +10,7 @@ import numpy as np
 import os
 import utils.builders
 import importlib.util
+import logging
 
 # Mapping of dataset names to whether they are 3D datasets
 THREE_D_DATASETS = {
@@ -104,6 +105,9 @@ class DatasetManager:
             cache_size: Maximum number of items to cache
             cache_memory_mb: Maximum memory usage for cache in MB
         """
+        # Initialize logger first
+        self.logger = logging.getLogger(__name__)
+        
         # Dataset cache
         self._datasets: Dict[str, Any] = {}
 
