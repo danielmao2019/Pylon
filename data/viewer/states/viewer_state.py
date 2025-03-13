@@ -60,7 +60,6 @@ class ViewerStateSnapshot:
     dataset_info: DatasetInfo
     current_index: int
     transforms: Dict[str, bool]
-    is_3d: bool
     point_size: float
     point_opacity: float
 
@@ -70,7 +69,6 @@ class ViewerStateSnapshot:
             'dataset_info': asdict(self.dataset_info),
             'current_index': self.current_index,
             'transforms': self.transforms,
-            'is_3d': self.is_3d,
             'point_size': self.point_size,
             'point_opacity': self.point_opacity
         }
@@ -82,7 +80,6 @@ class ViewerStateSnapshot:
             dataset_info=DatasetInfo(**data['dataset_info']),
             current_index=data['current_index'],
             transforms=data['transforms'],
-            is_3d=data['is_3d'],
             point_size=data['point_size'],
             point_opacity=data['point_opacity']
         )
@@ -117,7 +114,6 @@ class ViewerState:
         self.transforms: Dict[str, bool] = {}
         
         # 3D visualization settings
-        self.is_3d: bool = False
         self.point_size: float = 1.0
         self.point_opacity: float = 1.0
         
@@ -171,7 +167,6 @@ class ViewerState:
             dataset_info=self.dataset_info,
             current_index=self.current_index,
             transforms=self.transforms.copy(),
-            is_3d=self.is_3d,
             point_size=self.point_size,
             point_opacity=self.point_opacity
         )
@@ -220,7 +215,6 @@ class ViewerState:
         self.dataset_info = snapshot.dataset_info
         self.current_index = snapshot.current_index
         self.transforms = snapshot.transforms.copy()
-        self.is_3d = snapshot.is_3d
         self.point_size = snapshot.point_size
         self.point_opacity = snapshot.point_opacity
         self._emit_event(ViewerEvent.STATE_CHANGED)
@@ -235,7 +229,6 @@ class ViewerState:
             dataset_info=self.dataset_info,
             current_index=self.current_index,
             transforms=self.transforms,
-            is_3d=self.is_3d,
             point_size=self.point_size,
             point_opacity=self.point_opacity
         )
@@ -283,7 +276,6 @@ class ViewerState:
         # Update state
         self.current_dataset = name
         self.dataset_info = new_info
-        self.is_3d = is_3d
         self.min_index = 0
         self.max_index = length - 1
         self.current_index = 0
@@ -367,7 +359,6 @@ class ViewerState:
             'min_index': self.min_index,
             'max_index': self.max_index,
             'transforms': self.transforms,
-            'is_3d': self.is_3d,
             'point_size': self.point_size,
             'point_opacity': self.point_opacity
         }
@@ -380,7 +371,6 @@ class ViewerState:
         self.min_index = 0
         self.max_index = 0
         self.transforms = {}
-        self.is_3d = False
         self.point_size = 1.0
         self.point_opacity = 1.0
         self._save_to_history()
