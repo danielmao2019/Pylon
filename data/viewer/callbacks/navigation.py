@@ -5,7 +5,7 @@ from data.viewer.callbacks.registry import callback
 
 
 @callback(
-    outputs=Output('datapoint-index-slider', 'value'),
+    outputs=Output('datapoint-index-slider', 'value', allow_duplicate=True),
     inputs=[
         Input('prev-btn', 'n_clicks'),
         Input('next-btn', 'n_clicks'),
