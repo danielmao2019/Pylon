@@ -1,11 +1,10 @@
 """UI components for displaying dataset items."""
 from dash import dcc, html
-import plotly.express as px
 import plotly.graph_objects as go
 import torch
 import numpy as np
-import random
 from data.viewer.utils.dataset_utils import format_value
+from data.viewer.utils.pointcloud_utils import create_synchronized_point_cloud_figures
 
 
 
