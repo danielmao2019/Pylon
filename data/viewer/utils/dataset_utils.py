@@ -1,11 +1,6 @@
 """Utility functions for the dataset viewer."""
-import os
-import importlib.util
 import json
-import random
-import numpy as np
 import torch
-import traceback
 
 
 def format_value(value):
