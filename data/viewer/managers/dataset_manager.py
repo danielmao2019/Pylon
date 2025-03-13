@@ -213,7 +213,7 @@ class DatasetManager:
         # Adjust data_root path to be relative to the repository root if needed
         dataset_cfg = config.get('train_dataset', {})
         if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
-            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
+            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
             dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
 
         # Build dataset

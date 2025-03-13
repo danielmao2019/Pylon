@@ -6,7 +6,7 @@ import logging
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.display.dataset import create_dataset_info_display
 from data.viewer.layout.controls.transforms import create_transforms_section
-from data.viewer.callbacks.registry import callback
+from data.viewer.callbacks.registry import callback, registry
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ def load_dataset(dataset_name):
     
     if dataset_name is None:
         logger.info("No dataset selected")
-        viewer.state.reset()
+        registry.viewer.state.reset()
         return (
             {}, 0, 0, 0, {},
             html.Div("No dataset selected."),
@@ -40,11 +40,11 @@ def load_dataset(dataset_name):
 
     # Load dataset using dataset manager
     logger.info(f"Attempting to load dataset: {dataset_name}")
-    dataset_info = viewer.dataset_manager.load_dataset(dataset_name)
+    dataset_info = registry.viewer.dataset_manager.load_dataset(dataset_name)
 
     # Update state with dataset info
     logger.info(f"Updating state with dataset info: {dataset_info}")
-    viewer.state.update_dataset_info(
+    registry.viewer.state.update_dataset_info(
         name=dataset_info['name'],
         length=dataset_info['length'],
         class_labels=dataset_info['class_labels'],
@@ -66,13 +66,13 @@ def load_dataset(dataset_name):
     logger.info("Dataset loaded successfully, returning updated UI components")
 
     return (
-        viewer.state.get_state()['dataset_info'],
+        registry.viewer.state.get_state()['dataset_info'],
         0,                   # min slider value
         dataset_info['length'] - 1,  # max slider value
         0,                   # initial slider value
         marks,               # slider marks
         initial_message,
-        create_dataset_info_display(viewer.state.get_state()['dataset_info']),
+        create_dataset_info_display(registry.viewer.state.get_state()['dataset_info']),
         create_transforms_section(dataset_info['available_transforms']),
     )
 
@@ -88,8 +88,8 @@ def reload_datasets(n_clicks):
         raise PreventUpdate
 
     # Get updated list of datasets
-    viewer.dataset_manager._load_available_datasets()
-    available_datasets = viewer.dataset_manager._configs
+    registry.viewer.dataset_manager._load_available_datasets()
+    available_datasets = registry.viewer.dataset_manager._configs
 
     # Create options for the dropdown
     options = [
