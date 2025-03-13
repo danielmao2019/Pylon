@@ -4,16 +4,16 @@ This module contains the ViewerState class which manages the state of the datase
 including the current dataset, index, and transform settings.
 """
 from typing import Dict, Any, Optional
-from dataclasses import dataclass, field
 
 
-@dataclass
 class DatasetInfo:
     """Information about the currently loaded dataset."""
-    name: str = ""
-    length: int = 0
-    class_labels: Dict[int, str] = field(default_factory=dict)
-    is_3d: bool = False
+    def __init__(self):
+        """Initialize dataset information."""
+        self.name: str = ""
+        self.length: int = 0
+        self.class_labels: Dict[int, str] = {}
+        self.is_3d: bool = False
 
 
 class ViewerState:
@@ -56,12 +56,11 @@ class ViewerState:
             is_3d: Whether the dataset contains 3D data
         """
         self.current_dataset = name
-        self.dataset_info = DatasetInfo(
-            name=name,
-            length=length,
-            class_labels=class_labels,
-            is_3d=is_3d
-        )
+        self.dataset_info = DatasetInfo()
+        self.dataset_info.name = name
+        self.dataset_info.length = length
+        self.dataset_info.class_labels = class_labels
+        self.dataset_info.is_3d = is_3d
         self.is_3d = is_3d
         self.min_index = 0
         self.max_index = length - 1
