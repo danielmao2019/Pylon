@@ -6,6 +6,8 @@ import traceback
 from data.viewer.utils.dataset_utils import is_3d_dataset
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
+from data.viewer.states.viewer_state import ViewerEvent
+from data.viewer.layout.controls.transforms import create_transforms_section
 
 def register_transform_callbacks(app, viewer):
     """Register callbacks related to transform operations."""
@@ -87,4 +89,43 @@ def register_transform_callbacks(app, viewer):
                     'max-height': '300px',
                     'overflow-y': 'auto'
                 })
-            ]) 
+            ])
+
+    @app.callback(
+        [
+            Output('transforms-section', 'children'),
+            Output('transforms-store', 'data')
+        ],
+        [
+            Input('transforms-dropdown', 'value'),
+            Input('transforms-params', 'data')
+        ],
+        prevent_initial_call=True
+    )
+    def update_transforms(selected_transform, transform_params):
+        """Update the transforms section when a transform is selected or parameters change."""
+        if selected_transform is None and transform_params is None:
+            raise PreventUpdate
+            
+        try:
+            # Get current dataset info
+            dataset_info = viewer.state.get_state()['dataset_info']
+            available_transforms = dataset_info.get('available_transforms', [])
+            
+            # Update state with new transform
+            viewer.state.update_transforms(selected_transform, transform_params)
+            
+            # Create updated transforms section
+            transforms_section = create_transforms_section(available_transforms)
+            
+            return (
+                transforms_section,
+                viewer.state.get_state()['transforms']
+            )
+            
+        except Exception as e:
+            error_message = html.Div([
+                html.H3("Error Updating Transforms", style={'color': 'red'}),
+                html.P(str(e))
+            ])
+            return error_message, viewer.state.get_state()['transforms'] 
