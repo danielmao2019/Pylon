@@ -207,7 +207,7 @@ def test_c3dnet_feature_extraction():
     end_points = [xyz_list, neighbor_idx_list, pool_idx_list, unsam_idx_list]
     
     # Create and test the C3Dnet
-    from models.change_detection.siam3dcnet.siam3dcnet_model import C3Dnet
+    from models.change_detection.siam3dcdnet.siam3dcdnet_model import C3Dnet
     model = C3Dnet(in_d=3, out_d=64)
     
     with torch.no_grad():
