@@ -4,73 +4,6 @@ import plotly.graph_objects as go
 import torch
 import numpy as np
 from data.viewer.utils.dataset_utils import format_value
-from data.viewer.utils.pointcloud_utils import create_synchronized_point_cloud_figures
-
-
-def get_point_cloud_stats(pc, change_map=None, class_names=None):
-    """Get statistical information about a point cloud.
-
-    Args:
-        pc: Point cloud tensor of shape (N, 3+)
-        change_map: Optional tensor with change classes for each point
-        class_names: Optional dictionary mapping class IDs to class names
-
-    Returns:
-        Dictionary with point cloud statistics
-    """
-    if not isinstance(pc, torch.Tensor):
-        return {}
-
-    try:
-        # Basic stats
-        pc_np = pc.detach().cpu().numpy()
-        stats = {
-            "Total Points": len(pc_np),
-            "Dimensions": pc_np.shape[1],
-            "X Range": f"[{pc_np[:, 0].min():.2f}, {pc_np[:, 0].max():.2f}]",
-            "Y Range": f"[{pc_np[:, 1].min():.2f}, {pc_np[:, 1].max():.2f}]",
-            "Z Range": f"[{pc_np[:, 2].min():.2f}, {pc_np[:, 2].max():.2f}]",
-            "Center": f"[{pc_np[:, 0].mean():.2f}, {pc_np[:, 1].mean():.2f}, {pc_np[:, 2].mean():.2f}]",
-        }
-
-        # Add class distribution if change_map is provided
-        if change_map is not None:
-            unique_classes, class_counts = torch.unique(change_map, return_counts=True)
-
-            # Convert to numpy for display
-            unique_classes = unique_classes.cpu().numpy()
-            class_counts = class_counts.cpu().numpy()
-
-            # Calculate distribution
-            total_points = change_map.numel()
-            class_distribution = []
-
-            for cls, count in zip(unique_classes, class_counts):
-                percentage = (count / total_points) * 100
-                cls_key = cls.item() if hasattr(cls, 'item') else cls
-
-                if class_names and cls_key in class_names:
-                    class_label = class_names[cls_key]
-                    class_distribution.append({
-                        "class_id": cls_key,
-                        "class_name": class_label,
-                        "count": int(count),
-                        "percentage": percentage
-                    })
-                else:
-                    class_distribution.append({
-                        "class_id": cls_key,
-                        "class_name": f"Class {cls_key}",
-                        "count": int(count),
-                        "percentage": percentage
-                    })
-
-            stats["class_distribution"] = class_distribution
-
-        return stats
-    except Exception as e:
-        print(f"Error calculating point cloud stats: {e}")
-        return {"error": str(e)}
 
 
 def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names=None):
@@ -126,9 +59,9 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
     # Prepare the point clouds for visualization
     try:
         # Get stats for point clouds
-        pc_1_stats = get_point_cloud_stats(pc_1, class_names=class_names)
-        pc_2_stats = get_point_cloud_stats(pc_2, class_names=class_names)
-        change_stats = get_point_cloud_stats(pc_1, change_map, class_names=class_names)
+        pc_1_stats_children = get_3d_stats(pc_1, class_names=class_names)
+        pc_2_stats_children = get_3d_stats(pc_2, class_names=class_names)
+        change_stats_children = get_3d_stats(pc_1, change_map, class_names=class_names)
         
         # Create figures for point clouds
         point_clouds = [pc_1, pc_2]
@@ -185,17 +118,17 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
                 html.Div([
                     html.Div([
                         html.H4("Point Cloud 1 Statistics:"),
-                        html.Ul([html.Li(f"{k}: {v}") for k, v in pc_1_stats.items()])
+                        html.Div(pc_1_stats_children)
                     ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
                     
                     html.Div([
                         html.H4("Point Cloud 2 Statistics:"),
-                        html.Ul([html.Li(f"{k}: {v}") for k, v in pc_2_stats.items()])
+                        html.Div(pc_2_stats_children)
                     ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
                     
                     html.Div([
                         html.H4("Change Statistics:"),
-                        html.Ul([html.Li(f"{k}: {v}") for k, v in change_stats.items()])
+                        html.Div(change_stats_children)
                     ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
                 ]),
                 
@@ -215,13 +148,72 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
             html.P(f"Change map shape: {change_map.shape if change_map is not None else 'None'}")
         ])
 
+
 def tensor_to_point_cloud(tensor):
     """Convert a PyTorch tensor to a displayable point cloud."""
     if isinstance(tensor, torch.Tensor):
         return tensor.cpu().numpy()
     return tensor
 
-def create_point_cloud_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viridis',
+
+def get_3d_stats(pc, change_map=None, class_names=None):
+    """Get statistical information about a point cloud.
+
+    Args:
+        pc: Point cloud tensor of shape (N, 3+)
+        change_map: Optional tensor with change classes for each point
+        class_names: Optional dictionary mapping class IDs to class names
+
+    Returns:
+        List of html components with point cloud statistics
+    """
+    if not isinstance(pc, torch.Tensor):
+        return []
+
+    try:
+        # Basic stats
+        pc_np = pc.detach().cpu().numpy()
+        stats_items = [
+            html.Li(f"Total Points: {len(pc_np)}"),
+            html.Li(f"Dimensions: {pc_np.shape[1]}"),
+            html.Li(f"X Range: [{pc_np[:, 0].min():.2f}, {pc_np[:, 0].max():.2f}]"),
+            html.Li(f"Y Range: [{pc_np[:, 1].min():.2f}, {pc_np[:, 1].max():.2f}]"),
+            html.Li(f"Z Range: [{pc_np[:, 2].min():.2f}, {pc_np[:, 2].max():.2f}]"),
+            html.Li(f"Center: [{pc_np[:, 0].mean():.2f}, {pc_np[:, 1].mean():.2f}, {pc_np[:, 2].mean():.2f}]")
+        ]
+
+        # Add class distribution if change_map is provided
+        if change_map is not None:
+            unique_classes, class_counts = torch.unique(change_map, return_counts=True)
+
+            # Convert to numpy for display
+            unique_classes = unique_classes.cpu().numpy()
+            class_counts = class_counts.cpu().numpy()
+
+            # Calculate distribution
+            total_points = change_map.numel()
+            
+            stats_items.append(html.Li("Class Distribution:"))
+            class_list_items = []
+            
+            for cls, count in zip(unique_classes, class_counts):
+                percentage = (count / total_points) * 100
+                cls_key = cls.item() if hasattr(cls, 'item') else cls
+                
+                class_name = class_names[cls_key] if class_names and cls_key in class_names else f"Class {cls_key}"
+                class_list_items.append(
+                    html.Li(f"{class_name}: {count} points ({percentage:.2f}%)", 
+                           style={'marginLeft': '20px'})
+                )
+            
+            stats_items.append(html.Ul(class_list_items))
+
+        return html.Ul(stats_items)
+    except Exception as e:
+        return [html.Li(f"Error calculating stats: {str(e)}")]
+
+
+def create_3d_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viridis',
                              point_size=2, opacity=0.8, colorbar_title="Class"):
     """Create a 3D point cloud visualization figure.
 
@@ -237,8 +229,10 @@ def create_point_cloud_figure(pc_data, colors=None, title="Point Cloud", colorsc
     Returns:
         Plotly Figure object
     """
-    # Make sure pc_data is a numpy array
+    # Convert input data to numpy arrays
     pc_data = tensor_to_point_cloud(pc_data)
+    if colors is not None:
+        colors = tensor_to_point_cloud(colors)
 
     # Subsample large point clouds if necessary for better performance
     max_points = 100000  # Adjust based on performance needs
@@ -246,14 +240,13 @@ def create_point_cloud_figure(pc_data, colors=None, title="Point Cloud", colorsc
         indices = np.random.choice(pc_data.shape[0], max_points, replace=False)
         pc_data = pc_data[indices]
         if colors is not None:
-            colors = tensor_to_point_cloud(colors)[indices]
+            colors = colors[indices]
 
     # Create figure
     fig = go.Figure()
 
     # Add point cloud
     if colors is not None:
-        colors = tensor_to_point_cloud(colors)
         fig.add_trace(go.Scatter3d(
             x=pc_data[:, 0],
             y=pc_data[:, 1],
@@ -317,6 +310,7 @@ def create_point_cloud_figure(pc_data, colors=None, title="Point Cloud", colorsc
 
     return fig
 
+
 def create_synchronized_point_cloud_figures(point_clouds, colors=None, titles=None,
                                           point_sizes=None, opacities=None, colorscales=None):
     """Create multiple 3D point cloud figures with synchronized camera views.
@@ -350,7 +344,7 @@ def create_synchronized_point_cloud_figures(point_clouds, colors=None, titles=No
     figs = []
     for i, (pc, color, title, point_size, opacity, colorscale) in enumerate(
             zip(point_clouds, colors, titles, point_sizes, opacities, colorscales)):
-        fig = create_point_cloud_figure(
+        fig = create_3d_figure(
             pc,
             colors=color,
             title=title,
