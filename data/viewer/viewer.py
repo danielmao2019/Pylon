@@ -59,9 +59,6 @@ class DatasetViewer:
         self.available_datasets = self.dataset_manager.get_available_datasets()
         self.logger.info(f"Found {len(self.available_datasets)} available datasets")
 
-        # Store for available datasets
-        self.datasets: Dict[str, Any] = self.dataset_manager._load_available_datasets()
-
         # Initialize state management
         self.state = ViewerState()
 
