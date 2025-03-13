@@ -219,12 +219,12 @@ class DatasetManager:
 
             # Build dataset
             dataset = utils.builders.build_from_config(dataset_cfg)
-            self.logger.info(f"Loaded dataset: {name}")
+            self.logger.info(f"Loaded dataset: {dataset_cfg.get('class', 'Unknown').__name__}")
             return dataset
         except Exception as e:
-            self.logger.error(f"Error loading dataset: {name}: {e}")
+            self.logger.error(f"Error loading dataset: {e}")
             self.logger.error(traceback.format_exc())
-            raise DatasetLoadError(f"Failed to load dataset {name}: {str(e)}")
+            raise DatasetLoadError(f"Failed to load dataset: {str(e)}")
 
     def get_datapoint(self, dataset_name: str, index: int) -> Optional[Any]:
         """Get a datapoint from the dataset.
@@ -331,8 +331,7 @@ class DatasetManager:
         Returns:
             List of transform names
         """
-        # This would be implemented based on your transform system
-        return []
+        return dataset.transforms
 
     def register_transform(self, name: str, transform_func: callable) -> None:
         """Register a transform function.
