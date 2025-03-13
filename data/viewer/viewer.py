@@ -17,6 +17,9 @@ from data.viewer.callbacks.display import register_display_callbacks
 from data.viewer.callbacks.navigation import register_navigation_callbacks
 from data.viewer.callbacks.transforms import register_transform_callbacks
 
+# Import state management
+from data.viewer.states import ViewerState
+
 # Other project imports - required for functionality
 import data
 import utils.builders
@@ -36,6 +39,9 @@ class DatasetViewer:
 
         # Store for available datasets
         self.datasets = {}
+
+        # Initialize state management
+        self.state = ViewerState()
 
         # Load datasets
         self._load_available_datasets()
