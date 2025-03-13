@@ -1,13 +1,11 @@
 """Dataset viewer module for visualizing datasets."""
 import dash
-import traceback
 import os
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional
 from pathlib import Path
 
 # Import layout modules
-from data.viewer.layout.controls.dataset import get_available_datasets
 from data.viewer.layout.app import create_app_layout
 
 # Import callback modules
@@ -56,7 +54,7 @@ class DatasetViewer:
         self.dataset_manager = DatasetManager()
         
         # Get available datasets from the manager
-        self.available_datasets = self.dataset_manager.get_available_datasets()
+        self.available_datasets = self.dataset_manager._configs()
         self.logger.info(f"Found {len(self.available_datasets)} available datasets")
 
         # Initialize state management

@@ -125,7 +125,7 @@ def register_dataset_callbacks(app, viewer):
 
         # Get updated list of datasets
         viewer.dataset_manager._load_available_datasets()
-        available_datasets = viewer.dataset_manager.get_available_datasets()
+        available_datasets = viewer.dataset_manager._configs()
 
         # Create options for the dropdown
         options = [
