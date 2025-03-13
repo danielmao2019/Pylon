@@ -6,9 +6,9 @@ import logging
 from typing import Optional, Dict, Any
 from pathlib import Path
 
-# Import viewer sub-modules
+# Import layout modules
 from data.viewer.layout.controls.dataset import get_available_datasets
-from data.viewer.layout import create_app_layout
+from data.viewer.layout.app import create_app_layout
 
 # Import callback modules
 from data.viewer.callbacks.dataset import register_dataset_callbacks
