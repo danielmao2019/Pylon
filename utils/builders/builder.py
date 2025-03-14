@@ -1,4 +1,5 @@
 from typing import Any
+from copy import deepcopy
 
 
 def build_from_config(config: Any, **kwargs) -> Any:
@@ -9,14 +10,19 @@ def build_from_config(config: Any, **kwargs) -> Any:
         kwargs: keyword arguments only used for building objects from `config`.
     """
     if type(config) == dict and set(config.keys()) == {'class', 'args'}:
+        # Create a deep copy to avoid modifying input
+        config_copy = deepcopy(config)
+        
         # merge args
         assert type(kwargs) == dict, f"{type(kwargs)=}"
-        assert set(config.keys()) & set(kwargs.keys()) == set(), f"{config.keys()=}, {kwargs.keys()=}"
-        config['args'].update(kwargs)
+        assert set(config_copy.keys()) & set(kwargs.keys()) == set(), f"{config_copy.keys()=}, {kwargs.keys()=}"
+        config_copy['args'].update(kwargs)
+        
         # build args
-        for key in config['args']:
-            config['args'][key] = build_from_config(config['args'][key])
+        for key in config_copy['args']:
+            config_copy['args'][key] = build_from_config(config_copy['args'][key])
+            
         # build self
-        return config['class'](**config['args'])
+        return config_copy['class'](**config_copy['args'])
     else:
         return config
