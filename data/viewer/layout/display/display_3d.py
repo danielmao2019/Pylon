@@ -1,12 +1,19 @@
 """UI components for displaying dataset items."""
+from typing import Dict, Optional, Union, Any
+import numpy as np
+import torch
 from dash import dcc, html
 import plotly.graph_objects as go
-import torch
-import numpy as np
 from data.viewer.utils.dataset_utils import format_value
 
 
-def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names=None, camera_state=None):
+def display_3d_datapoint(
+    datapoint: Dict[str, Any],
+    point_size: float = 2,
+    point_opacity: float = 0.8,
+    class_names: Optional[Dict[int, str]] = None,
+    camera_state: Optional[Dict[str, Any]] = None
+) -> html.Div:
     """Display a 3D point cloud datapoint with all relevant information.
     
     Args:
@@ -116,14 +123,18 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
     ])
 
 
-def tensor_to_point_cloud(tensor):
+def tensor_to_point_cloud(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable point cloud."""
     if isinstance(tensor, torch.Tensor):
         return tensor.cpu().numpy()
     return tensor
 
 
-def get_3d_stats(pc, change_map=None, class_names=None):
+def get_3d_stats(
+    pc: torch.Tensor,
+    change_map: Optional[torch.Tensor] = None,
+    class_names: Optional[Dict[int, str]] = None
+) -> html.Ul:
     """Get statistical information about a point cloud.
 
     Args:
@@ -169,8 +180,16 @@ def get_3d_stats(pc, change_map=None, class_names=None):
     return html.Ul(stats_items)
 
 
-def create_3d_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viridis',
-                    point_size=2, opacity=0.8, colorbar_title="Class", camera_state=None):
+def create_3d_figure(
+    pc_data: Union[torch.Tensor, np.ndarray],
+    colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    title: str = "Point Cloud",
+    colorscale: str = 'Viridis',
+    point_size: float = 2,
+    opacity: float = 0.8,
+    colorbar_title: str = "Class",
+    camera_state: Optional[Dict[str, Any]] = None
+) -> go.Figure:
     """Create a 3D point cloud visualization figure.
 
     Args:
