@@ -56,7 +56,7 @@ class Urb3DCDDataset(BaseDataset):
         patched: Optional[bool] = True,
         sample_per_epoch: Optional[int] = 128,
         fix_samples: Optional[bool] = False,
-        radius: Optional[float] = 20,
+        radius: Optional[float] = 50,
         *args,
         **kwargs
     ) -> None:
