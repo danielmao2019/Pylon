@@ -35,7 +35,7 @@ class TestTransformManager(unittest.TestCase):
         self.assertEqual(len(self.manager._transforms), 1)
         self.assertEqual(self.manager._transforms[0][0], mock_transform1)
         self.assertEqual(self.manager._transforms[0][1], [('inputs', 'img_1')])
-        
+
         # Register another transform
         transform2 = (mock_transform2, [('inputs', 'img_1')])
         self.manager.register_transform(transform2)
@@ -48,12 +48,12 @@ class TestTransformManager(unittest.TestCase):
         transform2 = (mock_transform2, [('inputs', 'img_1')])
         self.manager.register_transform(transform1)
         self.manager.register_transform(transform2)
-        
+
         # Test applying single transform
         result = self.manager.apply_transforms(self.test_data, [0])
         expected = np.array([2, 3, 4])  # Original + 1
         np.testing.assert_array_equal(result['inputs']['img_1'], expected)
-        
+
         # Test applying multiple transforms
         result = self.manager.apply_transforms(self.test_data, [1])
         expected = np.array([4, 6, 8])  # (Original + 1) * 2
@@ -65,7 +65,7 @@ class TestTransformManager(unittest.TestCase):
         transform2 = (mock_transform2, [('inputs', 'img_1')])
         self.manager.register_transform(transform1)
         self.manager.register_transform(transform2)
-        
+
         self.manager.clear_transforms()
         self.assertEqual(len(self.manager._transforms), 0)
         self.assertEqual(len(self.manager.get_available_transforms()), 0)
@@ -74,7 +74,7 @@ class TestTransformManager(unittest.TestCase):
         """Test getting transform info."""
         transform = (mock_transform1, [('inputs', 'img_1')])
         self.manager.register_transform(transform)
-        
+
         info = self.manager.get_transform_info(0)
         self.assertEqual(info['index'], 0)
         self.assertEqual(info['name'], mock_transform1.__class__.__name__)
@@ -86,7 +86,7 @@ class TestTransformManager(unittest.TestCase):
         transform2 = (mock_transform2, [('inputs', 'img_1')])
         self.manager.register_transform(transform1)
         self.manager.register_transform(transform2)
-        
+
         transforms = self.manager.get_available_transforms()
         self.assertEqual(len(transforms), 2)
         self.assertEqual(transforms[0]['name'], mock_transform1.__class__.__name__)
@@ -106,12 +106,12 @@ class TestTransformManager(unittest.TestCase):
         }
         self.manager.register_transforms_from_config(valid_config)
         self.assertEqual(len(self.manager._transforms), 2)
-        
+
         # Test invalid config
         with self.assertRaises(AssertionError):
             invalid_config = {'transforms': []}
             self.manager.register_transforms_from_config(invalid_config)
-        
+
         # Test non-dict config
         with self.assertRaises(AssertionError):
             self.manager.register_transforms_from_config([])  # Should raise AssertionError
