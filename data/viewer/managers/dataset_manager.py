@@ -101,39 +101,65 @@ class DatasetManager:
         }
         
         return info
-        
-    def get_datapoint(self, dataset_name: str, index: int, transform_name: Optional[str] = None) -> Optional[Any]:
-        """Get a datapoint from a dataset, optionally applying a transform.
+
+    def _load_raw_datapoint(self, dataset_name: str, index: int) -> Optional[Dict[str, Dict[str, Any]]]:
+        """Load raw datapoint without any transforms.
         
         Args:
             dataset_name: Name of the dataset
             index: Index of the datapoint
-            transform_name: Optional name of transform to apply
             
         Returns:
-            Dataset datapoint or None if not found/error
+            Dict with structure:
+            {
+                'inputs': Dict[str, torch.Tensor],
+                'labels': Dict[str, torch.Tensor],
+                'meta_info': Dict[str, Any]
+            }
+            or None if loading fails
+        """
+        dataset = self._datasets.get(dataset_name)
+        inputs, labels, meta_info = dataset._load_datapoint(index)
+        return {
+            'inputs': inputs,
+            'labels': labels,
+            'meta_info': meta_info
+        }
+        
+    def get_datapoint(self, dataset_name: str, index: int, transform_names: Optional[List[str]] = None) -> Optional[Dict[str, Dict[str, Any]]]:
+        """Get datapoint with optional transforms applied.
+        
+        Args:
+            dataset_name: Name of dataset
+            index: Index of datapoint
+            transform_names: Optional list of transform names to apply
+            
+        Returns:
+            Dict containing inputs, labels and meta_info, with transforms applied if specified
         """
         if dataset_name not in self._datasets:
             self.logger.error(f"Dataset not loaded: {dataset_name}")
             return None
             
         # Try to get from cache first
-        cache = self._caches[dataset_name]
-        item = cache.get(index)
+        cache_key = (index, tuple(transform_names) if transform_names else None)
+        cache = self._caches.get(dataset_name)
+        if cache is not None:
+            cached = cache.get(cache_key)
+            if cached is not None:
+                return cached
         
-        if item is None:
-            try:
-                item = self._datasets[dataset_name][index]
-                cache.put(index, item)
-            except Exception as e:
-                self.logger.error(f"Error getting datapoint {index} from dataset {dataset_name}: {str(e)}")
-                return None
-                
-        # Apply transform if requested
-        if transform_name is not None:
-            item = self.transform_manager.apply_transform(transform_name, item)
+        # Load raw datapoint
+        datapoint = self._load_raw_datapoint(dataset_name, index)
+        # Apply transforms if specified
+        if transform_names:
+            compose = self.transform_manager.build_transform_compose(transform_names)
+            datapoint = compose(datapoint)
             
-        return item
+        # Cache and return
+        if cache is not None:
+            cache.put(cache_key, datapoint)
+        return datapoint
         
     def clear_cache(self, dataset_name: Optional[str] = None) -> None:
         """Clear cache for a dataset or all datasets.
@@ -160,3 +186,30 @@ class DatasetManager:
         if dataset_name not in self._caches:
             return None
         return self._caches[dataset_name].get_stats()
+
+    def apply_transforms(self, dataset_name: str, index: int, transform_names: List[str]) -> Optional[Any]:
+        """Apply a sequence of transforms to a datapoint.
+        
+        Args:
+            dataset_name: Name of the dataset
+            index: Index of the datapoint
+            transform_names: List of transform names to apply
+            
+        Returns:
+            Transformed datapoint or None if any operation fails
+        """
+        # Get the original datapoint
+        datapoint = self.get_datapoint(dataset_name, index)
+        if datapoint is None:
+            self.logger.error(f"Failed to get datapoint {index} from dataset {dataset_name}")
+            return None
+            
+        # Apply each transform in sequence
+        for transform_name in transform_names:
+            transformed = self.transform_manager.apply_transform(transform_name, datapoint)
+            if transformed is None:
+                self.logger.error(f"Failed to apply transform {transform_name}")
+                return None
+            datapoint = transformed
+            
+        return datapoint

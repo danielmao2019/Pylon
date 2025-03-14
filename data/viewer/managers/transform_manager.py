@@ -1,6 +1,8 @@
 """Transform manager module."""
-from typing import Dict, Any, List, Callable, Optional
+from typing import Dict, Any, List, Callable, Optional, Tuple
 import logging
+from data.transforms.compose import Compose
+
 
 class TransformManager:
     """Manages dataset transformations."""
@@ -32,27 +34,26 @@ class TransformManager:
         """
         return self._transforms.get(name)
         
-    def apply_transform(self, name: str, data: Any) -> Optional[Any]:
-        """Apply a transform to data.
+    def build_transform_compose(self, transform_names: List[str]) -> Optional[Compose]:
+        """Build a Compose transform from a list of transform names.
         
         Args:
-            name: Name of the transform to apply
-            data: Data to transform
+            transform_names: List of transform names to compose
             
         Returns:
-            Transformed data or None if transform fails
+            Compose transform object or None if any transform is not found
         """
-        transform = self.get_transform(name)
-        if transform is None:
-            self.logger.error(f"Transform not found: {name}")
-            return None
+        transforms: List[Tuple[Callable, Optional[Dict[str, Any]]]] = []
+        
+        for name in transform_names:
+            transform = self.get_transform(name)
+            if transform is None:
+                self.logger.error(f"Transform not found: {name}")
+                return None
+            transforms.append((transform, None))  # None for default params
             
-        try:
-            return transform(data)
-        except Exception as e:
-            self.logger.error(f"Error applying transform {name}: {str(e)}")
-            return None
-            
+        return Compose(transforms=transforms)
+        
     def clear_transforms(self) -> None:
         """Clear all registered transforms."""
         self._transforms.clear()
