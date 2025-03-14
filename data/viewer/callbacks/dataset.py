@@ -91,9 +91,8 @@ def reload_datasets(n_clicks: Optional[int]) -> List[Dict[str, str]]:
     if n_clicks is None:
         raise PreventUpdate
 
-    # Get updated list of datasets
-    registry.viewer.dataset_manager._load_available_datasets()
-    available_datasets = registry.viewer.dataset_manager._configs
+    # Get list of available datasets
+    available_datasets = registry.viewer.dataset_manager.get_available_datasets()
 
     # Create options for the dropdown
     return [{'label': name, 'value': name} for name in available_datasets]
