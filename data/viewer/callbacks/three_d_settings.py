@@ -1,8 +1,7 @@
 """3D settings-related callbacks for the viewer."""
-from dash import Input, Output, State
-from dash.exceptions import PreventUpdate
-import html
 from typing import Dict, List, Optional, Union
+from dash import Input, Output, State, html
+from dash.exceptions import PreventUpdate
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.callbacks.registry import callback, registry
