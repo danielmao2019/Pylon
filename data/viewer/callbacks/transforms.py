@@ -60,6 +60,10 @@ def apply_transforms(
 )
 def update_transforms(dataset_info: Dict[str, Any]) -> List[Union[html.Div, Dict[str, Any]]]:
     """Update the transforms section when dataset info changes."""
+    # If no dataset is selected, maintain current state
+    if not dataset_info:
+        raise PreventUpdate
+
     assert isinstance(dataset_info, dict), f"Dataset info must be a dictionary. Got {type(dataset_info)}."
     assert 'transforms' in dataset_info, f"Dataset info missing 'transforms' field. Got {dataset_info.keys()}."
     transforms = dataset_info['transforms']
