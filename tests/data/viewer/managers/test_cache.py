@@ -1,7 +1,7 @@
 """Unit tests for dataset cache."""
 import unittest
 import numpy as np
-from data.viewer.cache.dataset_cache import DatasetCache
+from data.viewer.managers.dataset_cache import DatasetCache
 
 class TestDatasetCache(unittest.TestCase):
     """Test cases for DatasetCache."""
