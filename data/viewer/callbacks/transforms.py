@@ -38,9 +38,9 @@ def apply_transforms(
 
     # Get transformed datapoint using dataset manager
     datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx, selected_indices)
-    assert isinstance(datapoint, dict), "Datapoint must be a dictionary"
-    assert 'inputs' in datapoint, "Datapoint missing 'inputs' field"
-    assert isinstance(datapoint['inputs'], dict), "Datapoint 'inputs' must be a dictionary"
+    assert isinstance(datapoint, dict), f"Datapoint must be a dictionary. Got {type(datapoint)}.    "
+    assert 'inputs' in datapoint, f"Datapoint missing 'inputs' field. Got {datapoint.keys()}."
+    assert isinstance(datapoint['inputs'], dict), f"Datapoint 'inputs' must be a dictionary. Got {type(datapoint['inputs'])}."
 
     # Display the transformed datapoint
     if dataset_info['is_3d']:
