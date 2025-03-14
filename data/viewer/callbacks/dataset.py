@@ -1,7 +1,6 @@
 """Dataset-related callbacks for the viewer."""
-from dash import Input, Output, State
+from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
-import html
 import logging
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.display.dataset import create_dataset_info_display
