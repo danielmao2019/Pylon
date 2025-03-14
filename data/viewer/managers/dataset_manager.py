@@ -102,16 +102,16 @@ class DatasetManager:
         
         return info
         
-    def get_item(self, dataset_name: str, index: int, transform_name: Optional[str] = None) -> Optional[Any]:
-        """Get an item from a dataset, optionally applying a transform.
+    def get_datapoint(self, dataset_name: str, index: int, transform_name: Optional[str] = None) -> Optional[Any]:
+        """Get a datapoint from a dataset, optionally applying a transform.
         
         Args:
             dataset_name: Name of the dataset
-            index: Index of the item
+            index: Index of the datapoint
             transform_name: Optional name of transform to apply
             
         Returns:
-            Dataset item or None if not found/error
+            Dataset datapoint or None if not found/error
         """
         if dataset_name not in self._datasets:
             self.logger.error(f"Dataset not loaded: {dataset_name}")
@@ -126,7 +126,7 @@ class DatasetManager:
                 item = self._datasets[dataset_name][index]
                 cache.put(index, item)
             except Exception as e:
-                self.logger.error(f"Error getting item {index} from dataset {dataset_name}: {str(e)}")
+                self.logger.error(f"Error getting datapoint {index} from dataset {dataset_name}: {str(e)}")
                 return None
                 
         # Apply transform if requested
