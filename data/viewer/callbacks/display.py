@@ -7,6 +7,7 @@ from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
 from data.viewer.callbacks.registry import callback, registry
 
+
 logger = logging.getLogger(__name__)
 
 @callback(
