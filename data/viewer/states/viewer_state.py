@@ -310,20 +310,18 @@ class ViewerState:
                 'new_index': self.current_index
             })
     
-    def update_transforms(self, transforms: Dict[str, bool]) -> None:
+    def update_transforms(self, transforms: List[Dict[str, Any]]) -> None:
         """Update the transform settings.
         
         Args:
-            transforms: Dictionary mapping transform names to enabled state
+            transforms: List of transform info dictionaries
         """
-        # Validate transforms
-        for transform in transforms:
-            if transform not in self.dataset_info.available_transforms:
-                raise ValueError(f"Unknown transform: {transform}")
-
-        self.transforms = transforms
+        # Initialize transform states
+        self.transforms = {
+            str(transform['index']): False for transform in transforms
+        }
         self._save_to_history()
-        self._emit_event(ViewerEvent.TRANSFORMS_CHANGED, transforms)
+        self._emit_event(ViewerEvent.TRANSFORMS_CHANGED, self.transforms)
     
     def update_3d_settings(self, point_size: float, point_opacity: float) -> None:
         """Update 3D visualization settings.

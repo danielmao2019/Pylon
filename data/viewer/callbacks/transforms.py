@@ -20,7 +20,7 @@ from data.viewer.callbacks.registry import callback, registry
     group="transforms"
 )
 def apply_transforms(
-    transform_values: List[bool],
+    transform_values: List[List[int]],
     dataset_info: Optional[Dict[str, Any]],
     datapoint_idx: int
 ) -> List[html.Div]:
@@ -32,8 +32,8 @@ def apply_transforms(
 
     # Get list of selected transform indices
     selected_indices = [
-        i for i, selected in enumerate(transform_values)
-        if selected
+        idx for values in transform_values
+        for idx in values  # values will be a list containing the index if checked, empty if not
     ]
 
     # Get transformed datapoint using dataset manager
@@ -52,39 +52,20 @@ def apply_transforms(
         Output('transforms-section', 'children', allow_duplicate=True),
         Output('transforms-store', 'data')
     ],
-    inputs=[
-        Input('transforms-dropdown', 'value'),
-        Input('transforms-params', 'data')
-    ],
+    inputs=[Input('dataset-info', 'data')],
     group="transforms"
 )
-def update_transforms(
-    selected_transform: Optional[str],
-    transform_params: Optional[Dict[str, Union[str, int, float, bool]]]
-) -> List[Union[html.Div, Dict[str, Any]]]:
-    """Update the transforms section when a transform is selected or parameters change."""
-    if selected_transform is None and transform_params is None:
-        raise PreventUpdate
+def update_transforms(dataset_info: Optional[Dict[str, Any]]) -> List[Union[html.Div, Dict[str, Any]]]:
+    """Update the transforms section when dataset info changes."""
+    transforms = dataset_info.get('transforms', [])
+    
+    # Update state with new transforms
+    registry.viewer.state.update_transforms(transforms)
 
-    try:
-        # Get current dataset info
-        dataset_info = registry.viewer.state.get_state()['dataset_info']
-        transforms = dataset_info.get('transforms', [])
+    # Create updated transforms section
+    transforms_section = create_transforms_section(transforms)
 
-        # Update state with new transform
-        registry.viewer.state.update_transforms(selected_transform, transform_params)
-
-        # Create updated transforms section
-        transforms_section = create_transforms_section(transforms)
-
-        return [
-            transforms_section,
-            registry.viewer.state.get_state()['transforms']
-        ]
-
-    except Exception as e:
-        error_message = html.Div([
-            html.H3("Error Updating Transforms", style={'color': 'red'}),
-            html.P(str(e))
-        ])
-        return [error_message, registry.viewer.state.get_state()['transforms']]
+    return [
+        transforms_section,
+        registry.viewer.state.get_state()['transforms']
+    ]
