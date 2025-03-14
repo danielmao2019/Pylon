@@ -4,7 +4,7 @@ from dash.exceptions import PreventUpdate
 import html
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.controls.controls_3d import create_3d_controls
-from data.viewer.callbacks.registry import callback
+from data.viewer.callbacks.registry import callback, registry
 
 
 @callback(
@@ -25,24 +25,24 @@ def update_3d_settings(selected_setting, setting_params):
 
     try:
         # Get current dataset info
-        dataset_info = viewer.state.get_state()['dataset_info']
+        dataset_info = registry.viewer.state.get_state()['dataset_info']
         is_3d = dataset_info.get('is_3d', False)
 
         if not is_3d:
             return (
                 html.Div("3D settings are only available for 3D datasets."),
-                viewer.state.get_state()['3d_settings']
+                registry.viewer.state.get_state()['3d_settings']
             )
 
         # Update state with new 3D settings
-        viewer.state.update_3d_settings(selected_setting, setting_params)
+        registry.viewer.state.update_3d_settings(selected_setting, setting_params)
 
         # Create updated 3D settings section
         settings_section = create_3d_settings_section()
 
         return (
             settings_section,
-            viewer.state.get_state()['3d_settings']
+            registry.viewer.state.get_state()['3d_settings']
         )
 
     except Exception as e:
@@ -50,7 +50,7 @@ def update_3d_settings(selected_setting, setting_params):
             html.H3("Error Updating 3D Settings", style={'color': 'red'}),
             html.P(str(e))
         ])
-        return error_message, viewer.state.get_state()['3d_settings']
+        return error_message, registry.viewer.state.get_state()['3d_settings']
 
 
 @callback(
