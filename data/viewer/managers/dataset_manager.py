@@ -95,7 +95,7 @@ class DatasetManager:
             'name': dataset_name,
             'length': len(dataset),
             'class_labels': getattr(dataset, 'class_labels', {}),
-            'available_transforms': self.transform_manager.get_transform_names(),
+            'transforms': self.transform_manager.get_available_transforms(),
             'cache_stats': self._caches[dataset_name].get_stats(),
             'is_3d': THREE_D_DATASETS.get(dataset_name, False)
         }

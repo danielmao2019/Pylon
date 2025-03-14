@@ -69,13 +69,13 @@ def update_transforms(
     try:
         # Get current dataset info
         dataset_info = registry.viewer.state.get_state()['dataset_info']
-        available_transforms = dataset_info.get('available_transforms', [])
+        transforms = dataset_info.get('transforms', [])
 
         # Update state with new transform
         registry.viewer.state.update_transforms(selected_transform, transform_params)
 
         # Create updated transforms section
-        transforms_section = create_transforms_section(available_transforms)
+        transforms_section = create_transforms_section(transforms)
 
         return [
             transforms_section,

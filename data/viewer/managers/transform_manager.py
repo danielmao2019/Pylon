@@ -33,6 +33,34 @@ class TransformManager:
             return self._transforms[index]
         except IndexError:
             return None
+
+    def get_transform_info(self, index: int) -> Optional[Dict[str, Any]]:
+        """Get information about a transform.
+        
+        Args:
+            index: Index of the transform
+            
+        Returns:
+            Dictionary containing transform information or None if not found
+        """
+        transform = self.get_transform(index)
+        if transform is None:
+            return None
+        return {
+            'index': index,
+            'name': transform.__class__.__name__,
+            'description': transform.__doc__ or "No description available"
+        }
+        
+    def get_available_transforms(self) -> List[Dict[str, Any]]:
+        """Get information about all available transforms.
+        
+        Returns:
+            List of dictionaries containing transform information
+        """
+        return [
+            self.get_transform_info(i) for i in range(len(self._transforms))
+        ]
         
     def apply_transforms(self, data: Any, transform_indices: List[int]) -> Optional[Any]:
         """Apply a sequence of transforms to data.
