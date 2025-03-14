@@ -31,10 +31,14 @@ def load_dataset(dataset_name):
         logger.info("No dataset selected")
         registry.viewer.state.reset()
         return (
-            {}, 0, 0, 0, {},
-            html.Div("No dataset selected."),
-            create_dataset_info_display(),
-            create_transforms_section(),
+            {},  # dataset-info
+            0,   # min
+            0,   # max
+            [0], # value
+            {},  # marks
+            html.Div("No dataset selected."),  # datapoint-display
+            create_dataset_info_display(),  # dataset-info-display
+            create_transforms_section(),  # transforms-section
         )
 
     # Load dataset using dataset manager
@@ -65,14 +69,14 @@ def load_dataset(dataset_name):
     logger.info("Dataset loaded successfully, returning updated UI components")
 
     return (
-        registry.viewer.state.get_state()['dataset_info'],
-        0,                   # min slider value
-        dataset_info['length'] - 1,  # max slider value
-        0,                   # initial slider value
-        marks,               # slider marks
-        initial_message,
-        create_dataset_info_display(registry.viewer.state.get_state()['dataset_info']),
-        create_transforms_section(dataset_info['available_transforms']),
+        registry.viewer.state.get_state()['dataset_info'],  # dataset-info
+        0,                   # min
+        dataset_info['length'] - 1,  # max
+        [0],                # value
+        marks,              # marks
+        initial_message,    # datapoint-display
+        create_dataset_info_display(registry.viewer.state.get_state()['dataset_info']),  # dataset-info-display
+        create_transforms_section(dataset_info['available_transforms']),  # transforms-section
     )
 
 
