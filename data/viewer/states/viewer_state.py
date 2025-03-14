@@ -372,4 +372,4 @@ class ViewerState:
         self.point_size = 1.0
         self.point_opacity = 1.0
         self._save_to_history()
-        self._emit_event(ViewerEvent.STATE_CHANGED) 
+        self._emit_event(ViewerEvent.STATE_CHANGED)

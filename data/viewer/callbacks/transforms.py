@@ -44,7 +44,7 @@ def apply_transforms(
 
     # Display the transformed datapoint
     if dataset_info['is_3d']:
-        display = display_3d_datapoint(datapoint, class_labels=dataset_info['class_labels'])
+        display = display_3d_datapoint(datapoint, class_names=dataset_info['class_labels'])
     else:
         display = display_2d_datapoint(datapoint)
     return [display]

@@ -15,9 +15,6 @@ from data.viewer.callbacks import registry
 from data.viewer.states import ViewerState
 from data.viewer.managers.dataset_manager import DatasetManager
 
-# Other project imports - required for functionality
-import utils.builders
-
 
 class DatasetViewer:
     """Dataset viewer class for visualization of datasets."""

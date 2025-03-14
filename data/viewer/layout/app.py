@@ -20,6 +20,11 @@ def create_app_layout(available_datasets):
         dcc.Store(id='dataset-info', data={}),
         dcc.Store(id='transforms-store', data={}),
         dcc.Store(id='3d-settings-store', data={}),
+        dcc.Store(id='camera-state', data={
+            'up': {'x': 0, 'y': 0, 'z': 1},
+            'center': {'x': 0, 'y': 0, 'z': 0},
+            'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
+        }),
 
         # Header
         html.Div([
