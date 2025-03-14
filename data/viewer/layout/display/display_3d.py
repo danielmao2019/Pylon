@@ -24,8 +24,8 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
     assert 'pc_1' in inputs and 'pc_2' in inputs, "Point cloud 1 (pc_1) and point cloud 2 (pc_2) must be present in the inputs"
     assert isinstance(inputs['pc_1'], dict) and isinstance(inputs['pc_2'], dict), "Point clouds must be dictionaries"
 
-    pc_1 = inputs['pc_1']['xyz']  # First point cloud
-    pc_2 = inputs['pc_2']['xyz']  # Second point cloud
+    pc_1 = inputs['pc_1']['pos']  # First point cloud
+    pc_2 = inputs['pc_2']['pos']  # Second point cloud
     change_map = datapoint['labels']['change_map']
 
     # Get stats for point clouds
