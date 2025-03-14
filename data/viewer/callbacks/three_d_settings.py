@@ -54,7 +54,7 @@ def update_3d_settings(selected_setting, setting_params):
 
 
 @callback(
-    outputs=Output('view-controls', 'style'),
+    outputs=[Output('view-controls', 'style')],
     inputs=[Input('dataset-info', 'data')],
     group="display"
 )
