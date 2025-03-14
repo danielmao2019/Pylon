@@ -30,40 +30,21 @@ def apply_transforms(
 
     dataset_name = dataset_info['name']
 
-    # Get list of selected transforms
-    selected_transforms = [
-        transform for transform, selected in zip(dataset_info['available_transforms'], transform_values)
+    # Get list of selected transform indices
+    selected_indices = [
+        i for i, selected in enumerate(transform_values)
         if selected
     ]
 
     # Apply transforms using dataset manager
-    datapoint = registry.viewer.dataset_manager.apply_transforms(dataset_name, datapoint_idx, selected_transforms)
-    if datapoint is None:
-        return [html.Div([
-            html.H3("Error Applying Transforms", style={'color': 'red'}),
-            html.P("Failed to apply transforms to datapoint.")
-        ])]
+    datapoint = registry.viewer.dataset_manager.transform_manager.apply_transforms(dataset_name, datapoint_idx, selected_indices)
 
     # Display the transformed datapoint
-    try:
-        if dataset_info['is_3d']:
-            display = display_3d_datapoint(datapoint, class_labels=dataset_info['class_labels'])
-        else:
-            display = display_2d_datapoint(datapoint)
-        return [display]
-    except Exception as e:
-        error_traceback = traceback.format_exc()
-        return [html.Div([
-            html.H3(f"Error Displaying Transformed Datapoint: {str(e)}", style={'color': 'red'}),
-            html.P("Error traceback:"),
-            html.Pre(error_traceback, style={
-                'background-color': '#ffeeee',
-                'padding': '10px',
-                'border-radius': '5px',
-                'max-height': '300px',
-                'overflow-y': 'auto'
-            })
-        ])]
+    if dataset_info['is_3d']:
+        display = display_3d_datapoint(datapoint, class_labels=dataset_info['class_labels'])
+    else:
+        display = display_2d_datapoint(datapoint)
+    return [display]
 
 
 @callback(

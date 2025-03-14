@@ -186,30 +186,3 @@ class DatasetManager:
         if dataset_name not in self._caches:
             return None
         return self._caches[dataset_name].get_stats()
-
-    def apply_transforms(self, dataset_name: str, index: int, transform_names: List[str]) -> Optional[Any]:
-        """Apply a sequence of transforms to a datapoint.
-        
-        Args:
-            dataset_name: Name of the dataset
-            index: Index of the datapoint
-            transform_names: List of transform names to apply
-            
-        Returns:
-            Transformed datapoint or None if any operation fails
-        """
-        # Get the original datapoint
-        datapoint = self.get_datapoint(dataset_name, index)
-        if datapoint is None:
-            self.logger.error(f"Failed to get datapoint {index} from dataset {dataset_name}")
-            return None
-            
-        # Apply each transform in sequence
-        for transform_name in transform_names:
-            transformed = self.transform_manager.apply_transform(transform_name, datapoint)
-            if transformed is None:
-                self.logger.error(f"Failed to apply transform {transform_name}")
-                return None
-            datapoint = transformed
-            
-        return datapoint
