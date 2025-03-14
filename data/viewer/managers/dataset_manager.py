@@ -208,7 +208,7 @@ class DatasetManager:
             'length': len(dataset),
             'class_labels': getattr(dataset, 'class_labels', {}),
             'is_3d': THREE_D_DATASETS.get(dataset_name, False),
-            'available_transforms': transforms,
+            'available_transforms': list(range(len(transforms))),
         }
 
         return info
