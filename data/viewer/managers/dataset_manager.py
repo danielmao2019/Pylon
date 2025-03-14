@@ -12,6 +12,10 @@ import utils.builders
 import importlib.util
 import logging
 
+from data.viewer.cache.dataset_cache import DatasetCache
+from data.viewer.managers.dataset_loader import DatasetLoader
+from data.viewer.managers.transform_manager import TransformManager
+
 # Mapping of dataset names to whether they are 3D datasets
 THREE_D_DATASETS = {
     'urb3dcd': True,  # Urb3DCDDataset
@@ -19,308 +23,139 @@ THREE_D_DATASETS = {
 }
 
 
-class DatasetCache:
-    """LRU cache for dataset items with memory limits."""
-
-    def __init__(self, max_size: int = 100, max_memory_mb: float = 1000):
-        """Initialize the cache.
-
-        Args:
-            max_size: Maximum number of items to cache
-            max_memory_mb: Maximum memory usage in MB
-        """
-        self.max_size = max_size
-        self.max_memory_bytes = max_memory_mb * 1024 * 1024
-        self.cache: OrderedDict[int, Any] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def get(self, key: int) -> Optional[Any]:
-        """Get an item from the cache.
-
-        Args:
-            key: Cache key
-
-        Returns:
-            Cached item or None if not found
-        """
-        with self._lock:
-            if key in self.cache:
-                # Move to end (most recently used)
-                value = self.cache.pop(key)
-                self.cache[key] = value
-                return value
-            return None
-
-    def put(self, key: int, value: Any) -> None:
-        """Put an item in the cache.
-
-        Args:
-            key: Cache key
-            value: Value to cache
-        """
-        with self._lock:
-            # Remove if exists
-            if key in self.cache:
-                self.cache.pop(key)
-
-            # Add new item
-            self.cache[key] = value
-
-            # Trim if needed
-            while len(self.cache) > self.max_size:
-                self.cache.popitem(last=False)
-
-            # Check memory usage
-            while self._get_memory_usage() > self.max_memory_bytes:
-                self.cache.popitem(last=False)
-
-    def _get_memory_usage(self) -> int:
-        """Get current memory usage of cache in bytes."""
-        total_size = 0
-        for value in self.cache.values():
-            if isinstance(value, np.ndarray):
-                total_size += value.nbytes
-            else:
-                # Rough estimate for other types
-                total_size += len(str(value))
-        return total_size
-
-
 class DatasetManager:
-    """Manages dataset loading, caching, and operations.
+    """Manages dataset operations including loading, caching, and transformations."""
 
-    This class handles:
-    - Loading and caching datasets
-    - Managing dataset configurations
-    - Providing dataset information
-    - Handling dataset transforms
-    - Lazy loading of dataset items
-    - Preloading of adjacent items
-    """
-
-    def __init__(self, cache_size: int = 100, cache_memory_mb: float = 1000):
+    def __init__(self, config_dir: Optional[str] = None, cache_size: int = 100, cache_memory_mb: float = 1000):
         """Initialize the dataset manager.
-
+        
         Args:
+            config_dir: Optional directory containing dataset configurations
             cache_size: Maximum number of items to cache
             cache_memory_mb: Maximum memory usage for cache in MB
         """
-        # Initialize logger first
         self.logger = logging.getLogger(__name__)
         
-        # Dataset cache
+        # Initialize components
+        self.loader = DatasetLoader(config_dir)
+        self.transform_manager = TransformManager()
         self._datasets: Dict[str, Any] = {}
-
-        # Dataset configurations
-        self._configs = self._get_dataset_configs()
-        
-        # Cache for each dataset
         self._caches: Dict[str, DatasetCache] = {}
-
-        # Preloading settings
-        self._preload_window = 5  # Number of items to preload in each direction
-
-        # Transform functions
-        self._transform_functions: Dict[str, callable] = {}
-
-    def _get_dataset_configs(self, config_dir=None):
-        """Get a list of all available dataset configurations."""
-        # If no config_dir is provided, use the default location
-        if config_dir is None:
-            # Adjust the path to be relative to the repository root
-            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-            config_dir = os.path.join(repo_root, "configs/common/datasets/change_detection/train")
-        assert os.path.isdir(config_dir), f"Dataset directory not found at {config_dir}"
-
-        dataset_configs = {}
-
-        for dataset_name in ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'urb3dcd', 'slpccd']:
-            config_file = os.path.join(config_dir, f"{dataset_name}.py")
-            assert os.path.isfile(config_file), f"Dataset config file not found at {config_file}"
-            # Import the config to ensure it's valid
-            spec = importlib.util.spec_from_file_location(
-                f"configs.common.datasets.change_detection.train.{dataset_name}",
-                config_file
-            )
-            module = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(module)
-
-            assert hasattr(module, 'config'), f"Dataset config not found in {config_file}"
-            # Add to the list of valid datasets
-            dataset_configs[dataset_name] = module.config
-
-        return dataset_configs
-
-    def get_dataset_config(self, dataset_name: str) -> Optional[Dict[str, Any]]:
-        """Get configuration for a dataset.
-
-        Args:
-            dataset_name: Name of the dataset
-
+        
+        # Cache settings
+        self.cache_size = cache_size
+        self.cache_memory_mb = cache_memory_mb
+        
+        # Store configurations for easy access
+        self._configs = self.loader.configs
+        
+    def get_available_datasets(self) -> List[str]:
+        """Get list of available datasets.
+        
         Returns:
-            Dataset configuration or None if not found
+            List of dataset names
         """
-        return self._configs.get(dataset_name)
-
+        return list(self._configs.keys())
+        
     def load_dataset(self, dataset_name: str) -> Dict[str, Any]:
-        """Load a dataset.
-
+        """Load a dataset and return its information.
+        
         Args:
             dataset_name: Name of the dataset to load
-
+            
         Returns:
             Dataset info dictionary
         """
-        # Get dataset config
-        config = self._configs[dataset_name]
-
         # Create cache for dataset if needed
         if dataset_name not in self._caches:
-            self._caches[dataset_name] = DatasetCache()
-
+            self._caches[dataset_name] = DatasetCache(
+                max_size=self.cache_size,
+                max_memory_mb=self.cache_memory_mb
+            )
+            
         # Load dataset if not already loaded
         if dataset_name not in self._datasets:
-            dataset = self._load_dataset_from_config(config)
+            dataset = self.loader.load_dataset(dataset_name)
+            if dataset is None:
+                raise ValueError(f"Failed to load dataset: {dataset_name}")
             self._datasets[dataset_name] = dataset
-
+            
         dataset = self._datasets[dataset_name]
-
+        
         # Get transforms from dataset config
+        config = self.loader.get_config(dataset_name)
         dataset_cfg = config.get('train_dataset', {})
         transforms_cfg = dataset_cfg.get('args', {}).get('transforms_cfg', {})
         
-        # Handle transforms configuration
-        if isinstance(transforms_cfg, dict):
-            assert 'class' in transforms_cfg and 'args' in transforms_cfg, f"Transform config must contain 'class' and 'args' keys"
-            transforms = transforms_cfg['args'].get('transforms', [])
-        else:
-            # If transforms_cfg is a Compose object
-            transforms = getattr(transforms_cfg, 'transforms', [])
-
-        # Register transform functions
-        self._transform_functions.clear()  # Clear existing transforms
-        for i, (transform, _) in enumerate(transforms):
-            self.register_transform(f"transform_{i}", transform)
-
+        # Register transforms
+        self.transform_manager.register_transforms_from_config(transforms_cfg)
+        
         # Get dataset info
         info = {
             'name': dataset_name,
             'length': len(dataset),
             'class_labels': getattr(dataset, 'class_labels', {}),
-            'is_3d': THREE_D_DATASETS.get(dataset_name, False),
-            'available_transforms': list(range(len(transforms))),
+            'transforms': self.transform_manager.get_transform_names(),
+            'cache_stats': self._caches[dataset_name].get_stats()
         }
-
+        
         return info
-
-    def _load_dataset_from_config(self, config: Dict[str, Any]) -> Any:
-        """Load a dataset from its configuration.
-
-        Args:
-            config: Dataset configuration
-
-        Returns:
-            Loaded dataset
-        """
-        # Adjust data_root path to be relative to the repository root if needed
-        dataset_cfg = config.get('train_dataset', {})
-        if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args']['data_root']):
-            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-            dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
-
-        # Build dataset
-        dataset = utils.builders.build_from_config(dataset_cfg)
-        self.logger.info(f"Loaded dataset: {dataset_cfg.get('class', 'Unknown').__name__}")
-        return dataset
-
-    def get_datapoint(self, dataset_name: str, index: int) -> Any:
-        """Get a datapoint from the dataset.
-
+        
+    def get_item(self, dataset_name: str, index: int, transform_name: Optional[str] = None) -> Optional[Any]:
+        """Get an item from a dataset, optionally applying a transform.
+        
         Args:
             dataset_name: Name of the dataset
-            index: Index of the datapoint
-
+            index: Index of the item
+            transform_name: Optional name of transform to apply
+            
         Returns:
-            Datapoint
-        """
-        # Check cache first
-        if dataset_name in self._caches:
-            cached_item = self._caches[dataset_name].get(index)
-            if cached_item is not None:
-                return cached_item
-
-        # Get from dataset
-        dataset = self._datasets[dataset_name]
-        item = dataset[index]
-
-        # Cache the item
-        if dataset_name in self._caches:
-            self._caches[dataset_name].put(index, item)
-
-        # Preload adjacent items
-        self._preload_adjacent_items(dataset_name, index)
-
-        return item
-
-    def _preload_adjacent_items(self, dataset_name: str, current_index: int) -> None:
-        """Preload items adjacent to the current index.
-
-        Args:
-            dataset_name: Name of the dataset
-            current_index: Current index
+            Dataset item or None if not found/error
         """
         if dataset_name not in self._datasets:
-            return
-
-        dataset = self._datasets[dataset_name]
-        cache = self._caches.get(dataset_name)
-        if cache is None:
-            return
-
-        # Preload items in a window around current_index
-        for offset in range(-self._preload_window, self._preload_window + 1):
-            if offset == 0:
-                continue
-
-            index = current_index + offset
-            if 0 <= index < len(dataset):
-                # Check if already cached
-                if cache.get(index) is None:
-                    item = dataset[index]
-                    cache.put(index, item)
-
-    def apply_transforms(self, dataset_name: str, index: int, transforms: List[str]) -> Any:
-        """Apply transforms to a datapoint.
-
+            self.logger.error(f"Dataset not loaded: {dataset_name}")
+            return None
+            
+        # Try to get from cache first
+        cache = self._caches[dataset_name]
+        item = cache.get(index)
+        
+        if item is None:
+            try:
+                item = self._datasets[dataset_name][index]
+                cache.put(index, item)
+            except Exception as e:
+                self.logger.error(f"Error getting item {index} from dataset {dataset_name}: {str(e)}")
+                return None
+                
+        # Apply transform if requested
+        if transform_name is not None:
+            item = self.transform_manager.apply_transform(transform_name, item)
+            
+        return item
+        
+    def clear_cache(self, dataset_name: Optional[str] = None) -> None:
+        """Clear cache for a dataset or all datasets.
+        
+        Args:
+            dataset_name: Optional name of dataset to clear cache for
+        """
+        if dataset_name is not None:
+            if dataset_name in self._caches:
+                self._caches[dataset_name].clear()
+        else:
+            for cache in self._caches.values():
+                cache.clear()
+                
+    def get_cache_stats(self, dataset_name: str) -> Optional[Dict[str, int]]:
+        """Get cache statistics for a dataset.
+        
         Args:
             dataset_name: Name of the dataset
-            index: Index of the datapoint
-            transforms: List of transform indices to apply
-
+            
         Returns:
-            Transformed datapoint
+            Cache statistics or None if dataset not found
         """
-        # Get original datapoint
-        datapoint = self.get_datapoint(dataset_name, index)
-
-        # Apply transforms
-        for transform_idx in transforms:
-            transform_name = f"transform_{transform_idx}"
-            if transform_name in self._transform_functions:
-                transform_func = self._transform_functions[transform_name]
-                datapoint = transform_func(datapoint)
-
-        return datapoint
-
-    def register_transform(self, name: str, transform_func: callable) -> None:
-        """Register a transform function.
-
-        Args:
-            name: Name of the transform
-            transform_func: Transform function to register
-        """
-        self._transform_functions[name] = transform_func
-
-    def clear_cache(self) -> None:
-        """Clear the dataset cache."""
-        self._datasets.clear()
+        if dataset_name not in self._caches:
+            return None
+        return self._caches[dataset_name].get_stats()
