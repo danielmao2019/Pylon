@@ -21,6 +21,7 @@ def update_index_from_buttons(prev_clicks, next_clicks, current_value, min_value
     """Update the datapoint index based on prev/next button clicks."""
     if prev_clicks is None and next_clicks is None:
         raise PreventUpdate
+    assert isinstance(current_value, int)
 
     # Determine which button was clicked
     if prev_clicks is not None:
@@ -41,6 +42,7 @@ def update_index_from_buttons(prev_clicks, next_clicks, current_value, min_value
 )
 def update_index_display(current_value, dataset_info):
     """Update the display of the current datapoint index."""
+    assert isinstance(current_value, int)
     if dataset_info is None or dataset_info == {}:
         return "No dataset loaded"
 

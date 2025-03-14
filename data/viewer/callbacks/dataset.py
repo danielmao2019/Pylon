@@ -34,7 +34,7 @@ def load_dataset(dataset_name):
             {},  # dataset-info
             0,   # min
             0,   # max
-            [0], # value
+            0, # value
             {},  # marks
             html.Div("No dataset selected."),  # datapoint-display
             create_dataset_info_display(),  # dataset-info-display
@@ -72,7 +72,7 @@ def load_dataset(dataset_name):
         registry.viewer.state.get_state()['dataset_info'],  # dataset-info
         0,                   # min
         dataset_info['length'] - 1,  # max
-        [0],                # value
+        0,                # value
         marks,              # marks
         initial_message,    # datapoint-display
         create_dataset_info_display(registry.viewer.state.get_state()['dataset_info']),  # dataset-info-display
