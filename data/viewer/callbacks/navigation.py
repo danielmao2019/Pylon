@@ -31,7 +31,7 @@ def update_index_from_buttons(prev_clicks, next_clicks, current_value, min_value
         # Next button clicked
         new_value = min(max_value, current_value + 1)
 
-    return new_value
+    return [new_value]
 
 
 @callback(

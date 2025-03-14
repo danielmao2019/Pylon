@@ -29,10 +29,10 @@ def update_3d_settings(selected_setting, setting_params):
         is_3d = dataset_info.get('is_3d', False)
 
         if not is_3d:
-            return (
+            return [
                 html.Div("3D settings are only available for 3D datasets."),
                 registry.viewer.state.get_state()['3d_settings']
-            )
+            ]
 
         # Update state with new 3D settings
         registry.viewer.state.update_3d_settings(selected_setting, setting_params)
@@ -40,17 +40,17 @@ def update_3d_settings(selected_setting, setting_params):
         # Create updated 3D settings section
         settings_section = create_3d_settings_section()
 
-        return (
+        return [
             settings_section,
             registry.viewer.state.get_state()['3d_settings']
-        )
+        ]
 
     except Exception as e:
         error_message = html.Div([
             html.H3("Error Updating 3D Settings", style={'color': 'red'}),
             html.P(str(e))
         ])
-        return error_message, registry.viewer.state.get_state()['3d_settings']
+        return [error_message, registry.viewer.state.get_state()['3d_settings']]
 
 
 @callback(
