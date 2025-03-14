@@ -6,15 +6,15 @@ import numpy as np
 from data.viewer.utils.dataset_utils import format_value
 
 
-def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names=None):
-    """
-    Display a 3D point cloud datapoint with all relevant information.
+def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names=None, camera_state=None):
+    """Display a 3D point cloud datapoint with all relevant information.
     
     Args:
         datapoint: Dictionary containing inputs, labels, and meta_info
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         class_names: Optional dictionary mapping class indices to names
+        camera_state: Optional dictionary containing camera position state
         
     Returns:
         html.Div containing the visualization
@@ -44,15 +44,19 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
     
     titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
     
-    # Create synchronized 3D views
-    figures = create_synchronized_point_cloud_figures(
-        point_clouds, 
-        colors=colors,
-        titles=titles,
-        point_sizes=[point_size] * len(point_clouds),
-        opacities=[point_opacity] * len(point_clouds),
-        colorscales=['Viridis', 'Viridis', 'Reds']
-    )
+    # Create figures
+    figures = []
+    for i, (pc, color, title) in enumerate(zip(point_clouds, colors, titles)):
+        fig = create_3d_figure(
+            pc,
+            colors=color,
+            title=title,
+            point_size=point_size,
+            opacity=point_opacity,
+            colorscale='Reds' if i == 2 else 'Viridis',
+            camera_state=camera_state
+        )
+        figures.append(fig)
     
     # Extract metadata
     meta_info = datapoint.get('meta_info', {})
@@ -73,15 +77,16 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
         # Point cloud displays
         html.Div([
             html.Div([
-                dcc.Graph(figure=figures[0])
+                dcc.Graph(figure=figures[0], id={'type': 'point-cloud-graph', 'index': 0})
             ], style={'width': '33%', 'display': 'inline-block'}),
             
             html.Div([
-                dcc.Graph(figure=figures[1])
+                dcc.Graph(figure=figures[1], id={'type': 'point-cloud-graph', 'index': 1})
             ], style={'width': '33%', 'display': 'inline-block'}),
             
             html.Div([
-                dcc.Graph(figure=figures[2] if len(figures) > 2 else {})
+                dcc.Graph(figure=figures[2] if len(figures) > 2 else {}, 
+                         id={'type': 'point-cloud-graph', 'index': 2})
             ], style={'width': '33%', 'display': 'inline-block'}),
         ]),
         
@@ -143,12 +148,8 @@ def get_3d_stats(pc, change_map=None, class_names=None):
     # Add class distribution if change_map is provided
     if change_map is not None:
         unique_classes, class_counts = torch.unique(change_map, return_counts=True)
-
-        # Convert to numpy for display
         unique_classes = unique_classes.cpu().numpy()
         class_counts = class_counts.cpu().numpy()
-
-        # Calculate distribution
         total_points = change_map.numel()
         
         stats_items.append(html.Li("Class Distribution:"))
@@ -157,7 +158,6 @@ def get_3d_stats(pc, change_map=None, class_names=None):
         for cls, count in zip(unique_classes, class_counts):
             percentage = (count / total_points) * 100
             cls_key = cls.item() if hasattr(cls, 'item') else cls
-            
             class_name = class_names[cls_key] if class_names and cls_key in class_names else f"Class {cls_key}"
             class_list_items.append(
                 html.Li(f"{class_name}: {count} points ({percentage:.2f}%)", 
@@ -170,7 +170,7 @@ def get_3d_stats(pc, change_map=None, class_names=None):
 
 
 def create_3d_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viridis',
-                             point_size=2, opacity=0.8, colorbar_title="Class"):
+                    point_size=2, opacity=0.8, colorbar_title="Class", camera_state=None):
     """Create a 3D point cloud visualization figure.
 
     Args:
@@ -181,6 +181,7 @@ def create_3d_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viri
         point_size: Size of the points
         opacity: Opacity of the points
         colorbar_title: Title for the colorbar
+        camera_state: Optional dictionary containing camera position state
 
     Returns:
         Plotly Figure object
@@ -217,7 +218,7 @@ def create_3d_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viri
                     title=colorbar_title,
                     thickness=15,
                     len=0.6,
-                    x=1.02,  # Position colorbar outside the plot area
+                    x=1.02,
                     xanchor="left",
                     xpad=10
                 )
@@ -246,68 +247,27 @@ def create_3d_figure(pc_data, colors=None, title="Point Cloud", colorscale='Viri
     z_range = [pc_data[:, 2].min(), pc_data[:, 2].max()]
 
     # Set layout
+    camera = camera_state if camera_state else {
+        'up': {'x': 0, 'y': 0, 'z': 1},
+        'center': {'x': 0, 'y': 0, 'z': 0},
+        'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
+    }
+
     fig.update_layout(
         title=title,
+        uirevision='camera',  # This ensures camera views stay in sync
         scene=dict(
             xaxis_title='X',
             yaxis_title='Y',
             zaxis_title='Z',
             aspectmode='data',
-            camera=dict(
-                eye=dict(x=1.5, y=1.5, z=1.5)
-            ),
+            camera=camera,
             xaxis=dict(range=x_range),
             yaxis=dict(range=y_range),
             zaxis=dict(range=z_range)
         ),
-        margin=dict(l=0, r=40, b=0, t=40),  # Increased right margin for colorbar
+        margin=dict(l=0, r=40, b=0, t=40),
         height=500,
     )
 
     return fig
-
-
-def create_synchronized_point_cloud_figures(point_clouds, colors=None, titles=None,
-                                          point_sizes=None, opacities=None, colorscales=None):
-    """Create multiple 3D point cloud figures with synchronized camera views.
-
-    Args:
-        point_clouds: List of point cloud data arrays
-        colors: List of color arrays (optional)
-        titles: List of titles for each figure
-        point_sizes: List of point sizes for each figure
-        opacities: List of opacity values for each figure
-        colorscales: List of colorscales for each figure
-
-    Returns:
-        List of Plotly Figure objects
-    """
-    if titles is None:
-        titles = [f"Point Cloud {i+1}" for i in range(len(point_clouds))]
-
-    if colors is None:
-        colors = [None] * len(point_clouds)
-
-    if point_sizes is None:
-        point_sizes = [2] * len(point_clouds)
-
-    if opacities is None:
-        opacities = [0.8] * len(point_clouds)
-
-    if colorscales is None:
-        colorscales = ['Viridis'] * len(point_clouds)
-
-    figs = []
-    for i, (pc, color, title, point_size, opacity, colorscale) in enumerate(
-            zip(point_clouds, colors, titles, point_sizes, opacities, colorscales)):
-        fig = create_3d_figure(
-            pc,
-            colors=color,
-            title=title,
-            point_size=point_size,
-            opacity=opacity,
-            colorscale=colorscale
-        )
-        figs.append(fig)
-
-    return figs

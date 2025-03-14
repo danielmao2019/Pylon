@@ -1,5 +1,5 @@
 """Display-related callbacks for the viewer."""
-from dash import Input, Output, State, html
+from dash import Input, Output, html
 import logging
 from typing import Dict, List, Optional, Union
 from data.viewer.layout.display.display_2d import display_2d_datapoint
