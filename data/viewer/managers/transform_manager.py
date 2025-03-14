@@ -31,7 +31,26 @@ class TransformManager:
             assert len(key_pair) == 2, f"Each key pair must have length 2, got {len(key_pair)}"
             assert all(isinstance(k, str) for k in key_pair), f"Keys must be strings, got {key_pair}"
         self._transforms.append((transform_fn, input_keys))
+
+    def register_transforms_from_config(self, transforms_cfg: Dict[str, Any]) -> None:
+        """Register transforms from a configuration dictionary.
         
+        Args:
+            transforms_cfg: Transform configuration dictionary
+        """
+        assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
+        assert 'class' in transforms_cfg, f"Transform configuration must contain 'class' key. Got {transforms_cfg.keys()}."
+        assert 'args' in transforms_cfg, f"Transform configuration must contain 'args' key. Got {transforms_cfg.keys()}."
+
+        # Register each transform directly from the config
+        transforms = transforms_cfg['args'].get('transforms', [])
+        for transform in transforms:
+            self.register_transform(transform)
+
+    def clear_transforms(self) -> None:
+        """Clear all registered transforms."""
+        self._transforms.clear()
+
     def get_transform_info(self, index: int) -> Dict[str, Any]:
         """Get information about a transform.
         
@@ -48,7 +67,7 @@ class TransformManager:
             'name': transform_fn.__class__.__name__,
             'input_keys': input_keys
         }
-        
+
     def get_available_transforms(self) -> List[Dict[str, Any]]:
         """Get information about all available transforms.
         
@@ -58,7 +77,7 @@ class TransformManager:
         return [
             self.get_transform_info(i) for i in range(len(self._transforms))
         ]
-        
+
     def apply_transforms(self, data: Any, transform_indices: List[int]) -> Optional[Any]:
         """Apply a sequence of transforms to data.
         
@@ -73,22 +92,3 @@ class TransformManager:
         transforms = [self._transforms[idx] for idx in transform_indices]
         compose = Compose(transforms=transforms)
         return compose(data)
-
-    def clear_transforms(self) -> None:
-        """Clear all registered transforms."""
-        self._transforms.clear()
-
-    def register_transforms_from_config(self, transforms_cfg: Dict[str, Any]) -> None:
-        """Register transforms from a configuration dictionary.
-        
-        Args:
-            transforms_cfg: Transform configuration dictionary
-        """
-        assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
-        assert 'class' in transforms_cfg, f"Transform configuration must contain 'class' key. Got {transforms_cfg.keys()}."
-        assert 'args' in transforms_cfg, f"Transform configuration must contain 'args' key. Got {transforms_cfg.keys()}."
-
-        # Register each transform directly from the config
-        transforms = transforms_cfg['args'].get('transforms', [])
-        for transform in transforms:
-            self.register_transform(transform)
