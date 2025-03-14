@@ -5,13 +5,11 @@ from data.viewer.managers.transform_manager import TransformManager
 
 def mock_transform1(data):
     """Mock transform that adds 1 to all elements."""
-    data['inputs']['img_1'] = data['inputs']['img_1'] + 1
-    return data
+    return data + 1
 
 def mock_transform2(data):
     """Mock transform that multiplies all elements by 2."""
-    data['inputs']['img_1'] = data['inputs']['img_1'] * 2
-    return data
+    return data * 2
 
 def mock_failing_transform(data):
     """Mock transform that raises an exception."""
@@ -53,11 +51,13 @@ class TestTransformManager(unittest.TestCase):
         
         # Test applying single transform
         result = self.manager.apply_transforms(self.test_data, [0])
-        np.testing.assert_array_equal(result['inputs']['img_1'], self.test_data['inputs']['img_1'] + 1)
+        expected = np.array([2, 3, 4])  # Original + 1
+        np.testing.assert_array_equal(result['inputs']['img_1'], expected)
         
         # Test applying multiple transforms
         result = self.manager.apply_transforms(self.test_data, [0, 1])
-        np.testing.assert_array_equal(result['inputs']['img_1'], (self.test_data['inputs']['img_1'] + 1) * 2)
+        expected = np.array([4, 6, 8])  # (Original + 1) * 2
+        np.testing.assert_array_equal(result['inputs']['img_1'], expected)
 
     def test_clear_transforms(self):
         """Test clearing transforms."""
