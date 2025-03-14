@@ -71,28 +71,6 @@ class TransformManager:
         Returns:
             Transformed data or None if any transform fails
         """
-        result = data
-        for idx in transform_indices:
-            transform = self.get_transform(idx)
-            if transform is None:
-                self.logger.error(f"Transform at index {idx} not found")
-                return None
-            try:
-                result = transform(result)
-            except Exception as e:
-                self.logger.error(f"Failed to apply transform {idx}: {str(e)}")
-                return None
-        return result
-        
-    def build_transform_compose(self, transform_indices: List[int]) -> Optional[Compose]:
-        """Build a Compose transform from a list of transform indices.
-        
-        Args:
-            transform_indices: List of transform indices to compose
-            
-        Returns:
-            Compose transform object or None if any transform is not found
-        """
         transforms: List[Tuple[Callable, Optional[Dict[str, Any]]]] = []
         
         for idx in transform_indices:
@@ -102,20 +80,13 @@ class TransformManager:
                 return None
             transforms.append((transform, None))  # None for default params
             
-        return Compose(transforms=transforms)
-        
+        compose = Compose(transforms=transforms)
+        return compose(data)
+
     def clear_transforms(self) -> None:
         """Clear all registered transforms."""
         self._transforms.clear()
-        
-    def get_num_transforms(self) -> int:
-        """Get number of registered transforms.
-        
-        Returns:
-            Number of transforms
-        """
-        return len(self._transforms)
-        
+
     def register_transforms_from_config(self, transforms_cfg: Dict[str, Any]) -> None:
         """Register transforms from a configuration dictionary.
         
