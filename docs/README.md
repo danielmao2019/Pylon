@@ -36,6 +36,13 @@ The documentation is organized as follows:
   - Multi-Task Optimizers
     - [PCGrad Derivation](optimizers/multi_task_optimizers/pcgrad_derivation.md)
 
+### Testing
+
+```bash
+# Run tests
+pytest tests/
+```
+
 ## Contributors
 
 * Dayou (Daniel) Mao, {[daniel.mao@uwaterloo.ca](mailto:daniel.mao@uwaterloo.ca)}.
@@ -43,3 +50,7 @@ The documentation is organized as follows:
     Cheriton School of Computer Science, University of Waterloo
 
     Vision and Image Processing Research Group, University of Waterloo
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
