@@ -64,7 +64,7 @@ def update_transforms(dataset_info: Dict[str, Any]) -> List[Union[html.Div, Dict
     assert 'transforms' in dataset_info, f"Dataset info missing 'transforms' field. Got {dataset_info.keys()}."
     transforms = dataset_info['transforms']
     assert isinstance(transforms, list), f"Transforms must be a list. Got {type(transforms)}."
-    
+
     # Update state with new transforms
     registry.viewer.state.update_transforms(transforms)
 
