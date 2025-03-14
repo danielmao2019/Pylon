@@ -12,7 +12,7 @@ import utils.builders
 import importlib.util
 import logging
 
-from data.viewer.cache.dataset_cache import DatasetCache
+from data.viewer.managers.dataset_cache import DatasetCache
 from data.viewer.managers.dataset_loader import DatasetLoader
 from data.viewer.managers.transform_manager import TransformManager
 
