@@ -33,19 +33,8 @@ def update_datapoint(dataset_info, datapoint_idx, point_size, point_opacity):
     dataset_name = dataset_info.get('name', 'unknown')
     logger.info(f"Attempting to get dataset: {dataset_name}")
     
-    # Get dataset from manager through registry
-    dataset = registry.viewer.dataset_manager.get_dataset(dataset_name)
-    if dataset is None:
-        logger.error(f"Dataset '{dataset_name}' not found in manager")
-        return html.Div(f"Dataset '{dataset_name}' not found.")
-
-    # Get the datapoint
-    if datapoint_idx >= len(dataset):
-        logger.error(f"Datapoint index {datapoint_idx} out of range for dataset of size {len(dataset)}")
-        return html.Div(f"Datapoint index {datapoint_idx} is out of range for dataset of size {len(dataset)}.")
-
-    logger.info(f"Loading datapoint at index {datapoint_idx}")
-    datapoint = dataset[datapoint_idx]
+    # Get datapoint from manager through registry
+    datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx)
 
     # Get is_3d from dataset info
     is_3d = dataset_info.get('is_3d', False)
