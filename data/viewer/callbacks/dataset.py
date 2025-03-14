@@ -1,4 +1,5 @@
 """Dataset-related callbacks for the viewer."""
+from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 import logging
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
     inputs=[Input('dataset-dropdown', 'value')],
     group="dataset"
 )
-def load_dataset(dataset_name):
+def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int, html.Div]]:
     """Load a selected dataset and reset the datapoint slider."""
     logger.info(f"Dataset loading callback triggered with dataset: {dataset_name}")
     
@@ -85,7 +86,7 @@ def load_dataset(dataset_name):
     inputs=[Input('reload-button', 'n_clicks')],
     group="dataset"
 )
-def reload_datasets(n_clicks):
+def reload_datasets(n_clicks: Optional[int]) -> List[Dict[str, str]]:
     """Reload available datasets."""
     if n_clicks is None:
         raise PreventUpdate
@@ -95,9 +96,4 @@ def reload_datasets(n_clicks):
     available_datasets = registry.viewer.dataset_manager._configs
 
     # Create options for the dropdown
-    options = [
-        {'label': name, 'value': name}
-        for name in available_datasets
-    ]
-
-    return [options]
+    return [{'label': name, 'value': name} for name in available_datasets]

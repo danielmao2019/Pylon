@@ -1,8 +1,8 @@
 """Navigation-related callbacks for the viewer."""
-from dash import Input, Output, State
+from typing import List, Optional
+from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
-from typing import List, Optional
 
 
 @callback(

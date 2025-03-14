@@ -1,7 +1,7 @@
 """Transform-related callbacks for the viewer."""
-from dash import Input, Output, State, ALL
+from typing import Dict, List, Optional, Union, Any
+from dash import Input, Output, State, ALL, html
 from dash.exceptions import PreventUpdate
-import html
 import traceback
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
@@ -19,7 +19,11 @@ from data.viewer.callbacks.registry import callback, registry
     ],
     group="transforms"
 )
-def apply_transforms(transform_values, dataset_info, datapoint_idx):
+def apply_transforms(
+    transform_values: List[bool],
+    dataset_info: Optional[Dict[str, Any]],
+    datapoint_idx: int
+) -> List[html.Div]:
     """Apply the selected transforms to the current datapoint."""
     if not dataset_info or 'name' not in dataset_info:
         raise PreventUpdate
@@ -73,7 +77,10 @@ def apply_transforms(transform_values, dataset_info, datapoint_idx):
     ],
     group="transforms"
 )
-def update_transforms(selected_transform, transform_params):
+def update_transforms(
+    selected_transform: Optional[str],
+    transform_params: Optional[Dict[str, Union[str, int, float, bool]]]
+) -> List[Union[html.Div, Dict[str, Any]]]:
     """Update the transforms section when a transform is selected or parameters change."""
     if selected_transform is None and transform_params is None:
         raise PreventUpdate
