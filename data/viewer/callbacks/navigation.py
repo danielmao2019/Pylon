@@ -37,14 +37,9 @@ def update_index_from_buttons(prev_clicks, next_clicks, current_value, min_value
 @callback(
     outputs=Output('current-index-display', 'children'),
     inputs=[Input('datapoint-index-slider', 'value')],
-    states=[State('dataset-info', 'data')],
     group="navigation"
 )
-def update_index_display(current_value, dataset_info):
-    """Update the display of the current datapoint index."""
-    assert isinstance(current_value, int)
-    if dataset_info is None or dataset_info == {}:
-        return "No dataset loaded"
-
-    total = dataset_info.get('length', 0)
-    return f"Datapoint {current_value + 1} of {total}"
+def update_current_index(current_idx):
+    """Update the current index display."""
+    assert isinstance(current_idx, int)
+    return [f"Current Index: {current_idx}"]
