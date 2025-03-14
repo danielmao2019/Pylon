@@ -6,10 +6,132 @@ import subprocess
 import os
 import random
 import torch
+import threading
+import logging
+import time
+from collections import OrderedDict
+import json
+import hashlib
+from pathlib import Path
+import psutil
 from data.transforms.compose import Compose
 from utils.input_checks import check_read_dir
 from utils.builders import build_from_config
 from utils.ops import apply_tensor_op
+
+
+class DatasetCache:
+    """A thread-safe cache manager for dataset items with LRU eviction policy."""
+    
+    def __init__(
+        self,
+        max_memory_percent: float = 80.0,
+        persist_path: Optional[str] = None,
+        version: str = "1.0",
+    ):
+        """
+        Args:
+            max_memory_percent (float): Maximum percentage of system memory to use
+            persist_path (str, optional): Path to persist cache to disk
+            version (str): Cache version for compatibility checking
+        """
+        self.max_memory_percent = max_memory_percent
+        self.persist_path = Path(persist_path) if persist_path else None
+        self.version = version
+        
+        # Initialize cache structures
+        self.cache = OrderedDict()
+        self.lock = threading.Lock()
+        self.hits = 0
+        self.misses = 0
+        
+        # Load persisted cache if available
+        if self.persist_path and self.persist_path.exists():
+            self._load_persistent_cache()
+            
+        # Setup logging
+        self.logger = logging.getLogger(__name__)
+        
+    def get(self, key: int) -> Optional[Dict[str, Any]]:
+        """Thread-safe cache retrieval with LRU update."""
+        with self.lock:
+            if key in self.cache:
+                self.hits += 1
+                value = self.cache.pop(key)
+                self.cache[key] = value
+                return copy.deepcopy(value)
+            self.misses += 1
+            return None
+            
+    def put(self, key: int, value: Dict[str, Any]) -> None:
+        """Thread-safe cache insertion with memory management."""
+        with self.lock:
+            # Check memory usage and evict if needed
+            while self._get_memory_usage() > self.max_memory_percent and self.cache:
+                self.cache.popitem(last=False)  # Remove oldest item
+                
+            self.cache[key] = copy.deepcopy(value)
+            
+            # Periodically persist cache
+            if self.persist_path and len(self.cache) % 1000 == 0:
+                self._persist_cache()
+                
+    def _get_memory_usage(self) -> float:
+        """Get current memory usage percentage."""
+        return psutil.Process().memory_percent()
+        
+    def _persist_cache(self) -> None:
+        """Persist cache to disk."""
+        if not self.persist_path:
+            return
+            
+        cache_data = {
+            "version": self.version,
+            "timestamp": time.time(),
+            "hits": self.hits,
+            "misses": self.misses,
+            "cache": self.cache
+        }
+        
+        temp_path = self.persist_path.with_suffix('.tmp')
+        try:
+            with open(temp_path, 'wb') as f:
+                torch.save(cache_data, f)
+            temp_path.rename(self.persist_path)
+        except Exception as e:
+            self.logger.error(f"Failed to persist cache: {e}")
+            if temp_path.exists():
+                temp_path.unlink()
+                
+    def _load_persistent_cache(self) -> None:
+        """Load cache from disk."""
+        try:
+            cache_data = torch.load(self.persist_path)
+            if cache_data["version"] != self.version:
+                self.logger.warning("Cache version mismatch, starting fresh")
+                return
+                
+            self.cache = OrderedDict(cache_data["cache"])
+            self.hits = cache_data["hits"]
+            self.misses = cache_data["misses"]
+            
+            self.logger.info(
+                f"Loaded cache with {len(self.cache)} items. "
+                f"Hit rate: {self.hits/(self.hits+self.misses+1e-6):.2%}"
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to load persistent cache: {e}")
+            
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache statistics."""
+        with self.lock:
+            return {
+                "size": len(self.cache),
+                "hits": self.hits,
+                "misses": self.misses,
+                "hit_rate": self.hits / (self.hits + self.misses + 1e-6),
+                "memory_usage": self._get_memory_usage()
+            }
 
 
 class BaseDataset(torch.utils.data.Dataset, ABC):
@@ -27,30 +149,53 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         use_cache: Optional[bool] = True,
+        cache_dir: Optional[str] = None,
+        max_cache_memory_percent: float = 80.0,
         device: Optional[Union[torch.device, str]] = torch.device('cuda'),
         check_sha1sum: Optional[bool] = False,
     ) -> None:
-        r"""
+        """
         Args:
-            use_cache (bool): controls whether loaded data points stays in RAM. Default: True.
+            use_cache (bool): controls whether loaded data points stays in RAM. Default: True
+            cache_dir (str, optional): directory to persist cache to disk
+            max_cache_memory_percent (float): maximum percentage of system memory to use for cache
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
+        
         # input checks
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
+            
         # initialize
         super(BaseDataset, self).__init__()
         self._init_split(split=split)
         self._init_indices(indices=indices)
         self._init_transforms(transforms_cfg=transforms_cfg)
+        
+        # Initialize cache
         if use_cache:
-            self.cache: List[Dict[str, Dict[str, Any]]] = []
+            persist_path = None
+            if cache_dir:
+                # Create unique cache file name based on dataset parameters
+                cache_hash = hashlib.sha256(
+                    f"{self.data_root}_{split}_{indices}_{transforms_cfg}".encode()
+                ).hexdigest()[:8]
+                persist_path = os.path.join(cache_dir, f"dataset_cache_{cache_hash}.pt")
+                
+            self.cache = DatasetCache(
+                max_memory_percent=max_cache_memory_percent,
+                persist_path=persist_path,
+                version="1.0"
+            )
         else:
             self.cache = None
+            
         self._init_device(device)
+        
         # sanity check
         self.check_sha1sum = check_sha1sum
         self._sanity_check()
+        
         # initialize annotations at the end because of splits
         self._init_annotations_all_splits()
 
@@ -227,19 +372,37 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         raise NotImplementedError("[ERROR] _load_datapoint not implemented for abstract base class.")
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
-        if self.cache is None or idx >= len(self.cache) or self.cache[idx] is None:
-            inputs, labels, meta_info = self._load_datapoint(idx)
-            datapoint = {
-                'inputs': inputs,
-                'labels': labels,
-                'meta_info': meta_info,
-            }
-            datapoint = self.transforms(datapoint)
-            if self.cache is not None:
-                if idx >= len(self.cache):
-                    self.cache += [None] * (idx - len(self.cache) + 1)
-                self.cache[idx] = copy.deepcopy(datapoint)
-        else:
-            datapoint = copy.deepcopy(self.cache[idx])
-        datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=datapoint)
-        return datapoint
+        if self.cache is not None:
+            cached_item = self.cache.get(idx)
+            if cached_item is not None:
+                return apply_tensor_op(
+                    func=lambda x: x.to(self.device), 
+                    inputs=cached_item
+                )
+        
+        # Load and process item
+        inputs, labels, meta_info = self._load_datapoint(idx)
+        datapoint = {
+            'inputs': inputs,
+            'labels': labels,
+            'meta_info': meta_info,
+        }
+        datapoint = self.transforms(datapoint)
+        
+        # Cache the processed item
+        if self.cache is not None:
+            self.cache.put(idx, copy.deepcopy(datapoint))
+            
+        return apply_tensor_op(
+            func=lambda x: x.to(self.device), 
+            inputs=datapoint
+        )
+
+    def visualize(self, output_dir: str) -> None:
+        raise NotImplementedError("Class method 'visualize' not implemented.")
+
+    def get_cache_stats(self) -> Optional[Dict[str, Any]]:
+        """Get cache statistics if caching is enabled."""
+        if self.cache is not None:
+            return self.cache.get_stats()
+        return None
