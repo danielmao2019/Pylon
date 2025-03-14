@@ -1,7 +1,6 @@
 """UI components for handling dataset transforms."""
 from typing import Dict, List, Optional, Union, Tuple, Any
 from dash import dcc, html
-from data.viewer.callbacks.registry import registry
 
 
 def create_transform_checkboxes(transforms: List[int]) -> List[html.Div]:
@@ -17,12 +16,15 @@ def create_transform_checkboxes(transforms: List[int]) -> List[html.Div]:
     if not transforms:
         return [html.P("No transforms available")]
     
+    # Import registry here to avoid circular import
+    from data.viewer.callbacks.registry import registry
+    
     transform_checkboxes: List[html.Div] = []
     for i in transforms:
         # Get transform function from registry
         transform_name = f"transform_{i}"
         transform_func = registry.viewer.dataset_manager._transform_functions.get(transform_name)
-        
+
         # Create display name from transform function
         if transform_func:
             display_name = transform_func.__class__.__name__
