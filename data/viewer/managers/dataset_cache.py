@@ -18,6 +18,9 @@ class DatasetCache:
         self._max_size = max_size
         self._max_memory = max_memory_mb * 1024 * 1024  # Convert to bytes
         self._current_memory = 0
+        self._hits = 0
+        self._misses = 0
+        self._evictions = 0
         
     def get(self, key: Tuple[int, Optional[Tuple[str, ...]]]) -> Optional[Dict[str, Dict[str, Any]]]:
         """Get an item from the cache.
@@ -32,7 +35,9 @@ class DatasetCache:
             value = self._cache[key]
             # Move to end (most recently used)
             self._cache.move_to_end(key)
+            self._hits += 1
             return value
+        self._misses += 1
         return None
         
     def put(self, key: Tuple[int, Optional[Tuple[str, ...]]],
@@ -51,6 +56,7 @@ class DatasetCache:
                self._current_memory + memory_size > self._max_memory) and self._cache:
             _, removed_value = self._cache.popitem(last=False)
             self._current_memory -= sys.getsizeof(removed_value)
+            self._evictions += 1
             
         # Add new item
         self._cache[key] = value
@@ -60,6 +66,9 @@ class DatasetCache:
         """Clear the cache."""
         self._cache.clear()
         self._current_memory = 0
+        self._hits = 0
+        self._misses = 0
+        self._evictions = 0
         
     def get_stats(self) -> Dict[str, int]:
         """Get cache statistics.
@@ -71,5 +80,8 @@ class DatasetCache:
             'size': len(self._cache),
             'memory_bytes': self._current_memory,
             'max_size': self._max_size,
-            'max_memory_bytes': self._max_memory
+            'max_memory_bytes': self._max_memory,
+            'hits': self._hits,
+            'misses': self._misses,
+            'evictions': self._evictions
         }
