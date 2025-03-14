@@ -20,32 +20,17 @@ class TransformManager:
         """
         self._transforms.append(transform_fn)
         
-    def get_transform(self, index: int) -> Optional[Callable]:
-        """Get a registered transform function.
-        
-        Args:
-            index: Index of the transform
-            
-        Returns:
-            Transform function or None if not found
-        """
-        try:
-            return self._transforms[index]
-        except IndexError:
-            return None
-
-    def get_transform_info(self, index: int) -> Optional[Dict[str, Any]]:
+    def get_transform_info(self, index: int) -> Dict[str, Any]:
         """Get information about a transform.
         
         Args:
             index: Index of the transform
             
         Returns:
-            Dictionary containing transform information or None if not found
+            Dictionary containing transform information
         """
-        transform = self.get_transform(index)
-        if transform is None:
-            return None
+        assert 0 <= index < len(self._transforms), f"Transform index {index} out of range [0, {len(self._transforms)})"
+        transform = self._transforms[index]
         return {
             'index': index,
             'name': transform.__class__.__name__
@@ -74,11 +59,8 @@ class TransformManager:
         transforms: List[Tuple[Callable, Optional[Dict[str, Any]]]] = []
         
         for idx in transform_indices:
-            transform = self.get_transform(idx)
-            if transform is None:
-                self.logger.error(f"Transform at index {idx} not found")
-                return None
-            transforms.append((transform, None))  # None for default params
+            assert 0 <= idx < len(self._transforms), f"Transform index {idx} out of range [0, {len(self._transforms)})"
+            transforms.append((self._transforms[idx], None))  # None for default params
             
         compose = Compose(transforms=transforms)
         return compose(data)
