@@ -1,4 +1,5 @@
 from typing import Tuple, List, Dict, Callable, Union, Any, Optional
+import copy
 from .base_transform import BaseTransform
 
 
@@ -42,6 +43,10 @@ class Compose(BaseTransform):
         # input checks
         assert type(datapoint) == dict, f"{type(datapoint)=}"
         assert set(datapoint.keys()) == set(['inputs', 'labels', 'meta_info']), f"{datapoint.keys()=}"
+        
+        # Create a deep copy of the input datapoint to avoid in-place modification
+        datapoint = copy.deepcopy(datapoint)
+        
         # apply each component transform
         for i, transform in enumerate(self.transforms):
             func, input_keys = transform
