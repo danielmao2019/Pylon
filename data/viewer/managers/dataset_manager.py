@@ -171,6 +171,8 @@ class DatasetManager:
         Returns:
             Dataset info dictionary
         """
+        # Get dataset config
+        config = self._configs[dataset_name]
 
         # Create cache for dataset if needed
         if dataset_name not in self._caches:
@@ -178,7 +180,6 @@ class DatasetManager:
 
         # Load dataset if not already loaded
         if dataset_name not in self._datasets:
-            config = self._configs[dataset_name]
             dataset = self._load_dataset_from_config(config)
             self._datasets[dataset_name] = dataset
 
@@ -187,7 +188,14 @@ class DatasetManager:
         # Get transforms from dataset config
         dataset_cfg = config.get('train_dataset', {})
         transforms_cfg = dataset_cfg.get('args', {}).get('transforms_cfg', {})
-        transforms = transforms_cfg.get('args', {}).get('transforms', [])
+        
+        # Handle transforms configuration
+        if isinstance(transforms_cfg, dict):
+            assert 'class' in transforms_cfg and 'args' in transforms_cfg, f"Transform config must contain 'class' and 'args' keys"
+            transforms = transforms_cfg['args'].get('transforms', [])
+        else:
+            # If transforms_cfg is a Compose object
+            transforms = getattr(transforms_cfg, 'transforms', [])
 
         # Register transform functions
         self._transform_functions.clear()  # Clear existing transforms
