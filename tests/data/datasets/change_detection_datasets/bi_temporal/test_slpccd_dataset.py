@@ -38,7 +38,7 @@ def test_load_real_dataset(split):
         assert set(inputs.keys()) == set(SLPCCDDataset.INPUT_NAMES)
         
         # Check point cloud data for both time points
-        for pc_key in ['pc_0', 'pc_1']:
+        for pc_key in ['pc_1', 'pc_2']:
             assert pc_key in inputs
             assert 'xyz' in inputs[pc_key]
             assert isinstance(inputs[pc_key]['xyz'], torch.Tensor)
@@ -52,7 +52,7 @@ def test_load_real_dataset(split):
         # Check meta info
         meta = datapoint['meta_info']
         assert 'idx' in meta
-        assert 'pc_0_filepath' in meta
         assert 'pc_1_filepath' in meta
+        assert 'pc_2_filepath' in meta
         
     print(f"Successfully verified all datapoints in {split} dataset")

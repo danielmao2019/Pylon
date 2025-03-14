@@ -19,11 +19,15 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
     Returns:
         html.Div containing the visualization
     """
-    # Get point clouds and change map
-    pc_1 = datapoint['inputs']['pc_1']
-    pc_2 = datapoint['inputs']['pc_2']
+    # Check if the inputs have the expected structure
+    inputs = datapoint['inputs']
+    assert 'pc_1' in inputs and 'pc_2' in inputs, "Point cloud 1 (pc_1) and point cloud 2 (pc_2) must be present in the inputs"
+    assert isinstance(inputs['pc_1'], dict) and isinstance(inputs['pc_2'], dict), "Point clouds must be dictionaries"
+
+    pc_1 = inputs['pc_1']['xyz']  # First point cloud
+    pc_2 = inputs['pc_2']['xyz']  # Second point cloud
     change_map = datapoint['labels']['change_map']
-    
+
     # Get stats for point clouds
     pc_1_stats_children = get_3d_stats(pc_1, class_names=class_names)
     pc_2_stats_children = get_3d_stats(pc_2, class_names=class_names)
@@ -56,9 +60,12 @@ def display_3d_datapoint(datapoint, point_size=2, point_opacity=0.8, class_names
     if meta_info:
         meta_display = [
             html.H4("Metadata:"),
-            html.Pre(format_value(meta_info), 
-                  style={'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px', 
-                         'overflow-y': 'auto', 'border-radius': '5px'})
+            html.Pre(
+                format_value(meta_info), 
+                style={
+                    'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px', 
+                    'overflow-y': 'auto', 'border-radius': '5px',
+                })
         ]
     
     # Compile the complete display

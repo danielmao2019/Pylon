@@ -36,10 +36,9 @@ def _validate_change_map(change_map: torch.Tensor) -> None:
 
 def _validate_point_count_consistency(pc1: Dict[str, torch.Tensor], change_map: torch.Tensor) -> None:
     """Validate that pc_1 and change_map have the same number of points."""
-    assert pc1['pos'].size(0) == change_map.size(0), (
-        f"Number of points in pc_1 ({pc1['pos'].size(0)}) does not match "
+    assert pc1['pos'].size(0) == change_map.size(0), \
+        f"Number of points in pc_1 ({pc1['pos'].size(0)}) does not match " \
         f"number of points in change_map ({change_map.size(0)})"
-    )
 
 
 @pytest.mark.parametrize("dataset_params", [
@@ -72,11 +71,11 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
         meta_info = datapoint['meta_info']
         # Validate point clouds
         assert isinstance(inputs, dict)
-        assert set(inputs.keys()) == {'pc_0', 'pc_1'}
-        assert isinstance(inputs['pc_0'], dict)
-        _validate_point_cloud(inputs['pc_0'], 'pc_0')
+        assert set(inputs.keys()) == {'pc_1', 'pc_2'}
         assert isinstance(inputs['pc_1'], dict)
         _validate_point_cloud(inputs['pc_1'], 'pc_1')
+        assert isinstance(inputs['pc_2'], dict)
+        _validate_point_cloud(inputs['pc_2'], 'pc_2')
 
         # Validate change map
         assert isinstance(labels, dict)
@@ -85,19 +84,19 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
         _validate_change_map(labels['change_map'])
 
         # Validate point count consistency
-        _validate_point_count_consistency(inputs['pc_1'], labels['change_map'])
+        _validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
         # Validate meta info
         assert isinstance(meta_info, dict)
-        assert 'point_idx_pc0' in meta_info
         assert 'point_idx_pc1' in meta_info
-        assert isinstance(meta_info['point_idx_pc0'], torch.Tensor)
+        assert 'point_idx_pc2' in meta_info
         assert isinstance(meta_info['point_idx_pc1'], torch.Tensor)
-        assert meta_info['point_idx_pc0'].dtype == torch.long
+        assert isinstance(meta_info['point_idx_pc2'], torch.Tensor)
         assert meta_info['point_idx_pc1'].dtype == torch.long
-        assert 'pc_0_filepath' in meta_info
+        assert meta_info['point_idx_pc2'].dtype == torch.long
         assert 'pc_1_filepath' in meta_info
-        assert isinstance(meta_info['pc_0_filepath'], str)
+        assert 'pc_2_filepath' in meta_info
         assert isinstance(meta_info['pc_1_filepath'], str)
+        assert isinstance(meta_info['pc_2_filepath'], str)
 
 
 def test_fixed_samples_consistency() -> None:
@@ -119,16 +118,16 @@ def test_fixed_samples_consistency() -> None:
         labels2 = datapoint2['labels']
         meta_info2 = datapoint2['meta_info']
         # Test inputs consistency
-        assert torch.allclose(inputs1['pc_0']['pos'], inputs2['pc_0']['pos'])
-        assert torch.allclose(inputs1['pc_0']['feat'], inputs2['pc_0']['feat'])
         assert torch.allclose(inputs1['pc_1']['pos'], inputs2['pc_1']['pos'])
         assert torch.allclose(inputs1['pc_1']['feat'], inputs2['pc_1']['feat'])
+        assert torch.allclose(inputs1['pc_2']['pos'], inputs2['pc_2']['pos'])
+        assert torch.allclose(inputs1['pc_2']['feat'], inputs2['pc_2']['feat'])
 
         # Test labels consistency
         assert torch.equal(labels1['change_map'], labels2['change_map'])
 
         # Test metadata consistency
-        assert meta_info1['pc_0_filepath'] == meta_info2['pc_0_filepath']
         assert meta_info1['pc_1_filepath'] == meta_info2['pc_1_filepath']
-        assert torch.equal(meta_info1['point_idx_pc0'], meta_info2['point_idx_pc0'])
+        assert meta_info1['pc_2_filepath'] == meta_info2['pc_2_filepath']
         assert torch.equal(meta_info1['point_idx_pc1'], meta_info2['point_idx_pc1'])
+        assert torch.equal(meta_info1['point_idx_pc2'], meta_info2['point_idx_pc2'])

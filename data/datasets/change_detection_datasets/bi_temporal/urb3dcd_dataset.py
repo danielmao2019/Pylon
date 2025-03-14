@@ -17,7 +17,7 @@ class Urb3DCDDataset(BaseDataset):
     For detailed documentation, see: docs/datasets/change_detection/bi_temporal/urb3dcd.md
     """
 
-    INPUT_NAMES = ['pc_0', 'pc_1', 'kdtree_0', 'kdtree_1']
+    INPUT_NAMES = ['pc_1', 'pc_2', 'kdtree_1', 'kdtree_2']
     LABEL_NAMES = ['change_map']
     NUM_CLASSES = 7
     INV_OBJECT_LABEL = {
@@ -94,16 +94,16 @@ class Urb3DCDDataset(BaseDataset):
         base_dir = os.path.join(self.data_root, version_info['dir'], version_info['subdir'], self.SPLIT_MAP[self.split])
 
         # Find all point cloud pairs using glob
-        pc0_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud0.ply"), recursive=True))
         pc1_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud1.ply"), recursive=True))
+        pc2_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud2.ply"), recursive=True))
 
-        if len(pc0_files) != len(pc1_files):
-            raise ValueError(f"Number of pointCloud0 files ({len(pc0_files)}) does not match pointCloud1 files ({len(pc1_files)})")
+        if len(pc1_files) != len(pc2_files):
+            raise ValueError(f"Number of pointCloud1 files ({len(pc1_files)}) does not match pointCloud2 files ({len(pc2_files)})")
 
         # Store file paths in annotations
         self.annotations = [
-            {'pc_0_filepath': pc0, 'pc_1_filepath': pc1}
-            for pc0, pc1 in zip(pc0_files, pc1_files)
+            {'pc_1_filepath': pc1, 'pc_2_filepath': pc2}
+            for pc1, pc2 in zip(pc1_files, pc2_files)
         ]
 
         if len(self.annotations) == 0:
@@ -149,15 +149,15 @@ class Urb3DCDDataset(BaseDataset):
             - pos: Center positions (N, 3)
             - idx: Point cloud indices (N,)
             - change_map: Change labels (N,)
-            - pc_0_filepath: List of file paths for first point clouds
-            - pc_1_filepath: List of file paths for second point clouds
+            - pc_1_filepath: List of file paths for first point clouds
+            - pc_2_filepath: List of file paths for second point clouds
         """
         centers_list = []
         for idx in range(len(self.annotations)):
             # Load point cloud but skip sampling during initialization
             data = self._load_point_cloud_whole(idx)
             data_dict = {
-                'pos': data['pc_1']['pos'],
+                'pos': data['pc_2']['pos'],
                 'change_map': data['change_map']
             }
             sampled_data = self._grid_sampling(data_dict)
@@ -165,8 +165,8 @@ class Urb3DCDDataset(BaseDataset):
                 'pos': sampled_data['pos'],
                 'change_map': sampled_data['change_map'],
                 'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
-                'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
-                'pc_1_filepath': self.annotations[idx]['pc_1_filepath']
+                'pc_1_filepath': self.annotations[idx]['pc_1_filepath'],
+                'pc_2_filepath': self.annotations[idx]['pc_2_filepath']
             }
             centers_list.append(centers)
 
@@ -175,8 +175,8 @@ class Urb3DCDDataset(BaseDataset):
             'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
             'change_map': torch.cat([c['change_map'] for c in centers_list], dim=0),
             'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
-            'pc_0_filepath': [c['pc_0_filepath'] for c in centers_list],
-            'pc_1_filepath': [c['pc_1_filepath'] for c in centers_list]
+            'pc_1_filepath': [c['pc_1_filepath'] for c in centers_list],
+            'pc_2_filepath': [c['pc_2_filepath'] for c in centers_list]
         }
 
     def _prepare_fixed_centers(self, all_centers: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -184,14 +184,14 @@ class Urb3DCDDataset(BaseDataset):
 
         Args:
             all_centers: Dictionary containing all potential centers and their metadata.
-                Must contain 'pos', 'idx', 'change_map', 'pc_0_filepath', and 'pc_1_filepath'.
+                Must contain 'pos', 'idx', 'change_map', 'pc_1_filepath', and 'pc_2_filepath'.
 
         Returns:
             List of dictionaries, each containing center information for one sample:
             - pos: Center position (3,)
             - idx: Point cloud index (scalar)
-            - pc_0_filepath: File path for first point cloud
-            - pc_1_filepath: File path for second point cloud
+            - pc_1_filepath: File path for first point cloud
+            - pc_2_filepath: File path for second point cloud
         """
         chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
         unique_labels, counts = torch.unique(torch.tensor(chosen_labels), return_counts=True)
@@ -206,8 +206,8 @@ class Urb3DCDDataset(BaseDataset):
                 fixed_centers.append({
                     'pos': valid_pos[idx],
                     'idx': valid_idx[idx],
-                    'pc_0_filepath': all_centers['pc_0_filepath'][valid_idx[idx]],
-                    'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]]
+                    'pc_1_filepath': all_centers['pc_1_filepath'][valid_idx[idx]],
+                    'pc_2_filepath': all_centers['pc_2_filepath'][valid_idx[idx]]
                 })
         return fixed_centers
 
@@ -218,14 +218,14 @@ class Urb3DCDDataset(BaseDataset):
 
         Args:
             all_centers: Dictionary containing all potential centers and their metadata.
-                Must contain 'pos', 'idx', 'change_map', 'pc_0_filepath', and 'pc_1_filepath'.
+                Must contain 'pos', 'idx', 'change_map', 'pc_1_filepath', and 'pc_2_filepath'.
 
         Returns:
             List of dictionaries, each containing center information for one sample:
             - pos: Center position (3,)
             - idx: Point cloud index (scalar)
-            - pc_0_filepath: File path for first point cloud
-            - pc_1_filepath: File path for second point cloud
+            - pc_1_filepath: File path for first point cloud
+            - pc_2_filepath: File path for second point cloud
         """
         chosen_labels = random.choices(self._labels.tolist(), weights=self._label_counts.tolist(), k=self._sample_per_epoch)
         random_centers = []
@@ -245,8 +245,8 @@ class Urb3DCDDataset(BaseDataset):
                 random_centers.append({
                     'pos': all_centers['pos'][selected_idx],
                     'idx': all_centers['idx'][selected_idx],
-                    'pc_0_filepath': all_centers['pc_0_filepath'][all_centers['idx'][selected_idx]],
-                    'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][selected_idx]]
+                    'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][selected_idx]],
+                    'pc_2_filepath': all_centers['pc_2_filepath'][all_centers['idx'][selected_idx]]
                 })
             else:
                 print(f"Warning: No centers found for label {label}")
@@ -258,22 +258,22 @@ class Urb3DCDDataset(BaseDataset):
 
         Args:
             all_centers: Dictionary containing all potential centers and their metadata.
-                Must contain 'pos', 'idx', 'change_map', 'pc_0_filepath', and 'pc_1_filepath'.
+                Must contain 'pos', 'idx', 'change_map', 'pc_1_filepath', and 'pc_2_filepath'.
 
         Returns:
             List of dictionaries, each containing center information for one sample:
             - pos: Center position (3,)
             - idx: Point cloud index (scalar)
-            - pc_0_filepath: File path for first point cloud
-            - pc_1_filepath: File path for second point cloud
+            - pc_1_filepath: File path for first point cloud
+            - pc_2_filepath: File path for second point cloud
         """
         grid_centers = []
         for i in range(len(all_centers['pos'])):
             grid_centers.append({
                 'pos': all_centers['pos'][i],
                 'idx': all_centers['idx'][i],
-                'pc_0_filepath': all_centers['pc_0_filepath'][all_centers['idx'][i]],
-                'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][i]]
+                'pc_1_filepath': all_centers['pc_1_filepath'][all_centers['idx'][i]],
+                'pc_2_filepath': all_centers['pc_2_filepath'][all_centers['idx'][i]]
             })
         return grid_centers
 
@@ -311,8 +311,8 @@ class Urb3DCDDataset(BaseDataset):
 
         # Create inputs dictionary - without KDTrees since they're only for data loading
         inputs = {
-            'pc_0': data['pc_0'],
-            'pc_1': data['pc_1']
+            'pc_1': data['pc_1'],
+            'pc_2': data['pc_2']
         }
         
         # Create labels dictionary
@@ -323,8 +323,8 @@ class Urb3DCDDataset(BaseDataset):
         # Create meta_info dictionary
         meta_info = {
             'idx': idx,
-            'pc_0_filepath': data['pc_0_filepath'],
-            'pc_1_filepath': data['pc_1_filepath']
+            'pc_1_filepath': data['pc_1_filepath'],
+            'pc_2_filepath': data['pc_2_filepath']
         }
         
         return inputs, labels, meta_info
@@ -348,16 +348,16 @@ class Urb3DCDDataset(BaseDataset):
             data = self._load_point_cloud_patched(idx)
 
             # Extract needed components
-            pc0 = data['pc_0']
             pc1 = data['pc_1']
+            pc2 = data['pc_2']
             change_map = data['change_map']
 
             # Check if the datapoint is valid
-            if self._is_valid_datapoint(pc0, pc1, change_map):
+            if self._is_valid_datapoint(pc1, pc2, change_map):
                 # Create inputs dictionary - without KDTrees since they're only for data loading
                 inputs = {
-                    'pc_0': pc0,
-                    'pc_1': pc1
+                    'pc_1': pc1,
+                    'pc_2': pc2
                 }
 
                 # Create labels dictionary
@@ -370,10 +370,10 @@ class Urb3DCDDataset(BaseDataset):
                     'idx': idx,
                     'center_idx': self.annotations[idx].get('idx', idx),
                     'center_pos': self.annotations[idx].get('pos', None),
-                    'point_idx_pc0': data['point_idx_pc0'],
                     'point_idx_pc1': data['point_idx_pc1'],
-                    'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
+                    'point_idx_pc2': data['point_idx_pc2'],
                     'pc_1_filepath': self.annotations[idx]['pc_1_filepath'],
+                    'pc_2_filepath': self.annotations[idx]['pc_2_filepath'],
                     'attempts': attempts,
                 }
 
@@ -399,72 +399,72 @@ class Urb3DCDDataset(BaseDataset):
 
         Returns:
             Dictionary containing:
-            - pc_0: Dictionary with 'pos' and 'feat' for first point cloud
-            - pc_1: Dictionary with 'pos' and 'feat' for second point cloud
+            - pc_1: Dictionary with 'pos' and 'feat' for first point cloud
+            - pc_2: Dictionary with 'pos' and 'feat' for second point cloud
             - change_map: Change labels for second point cloud (M,)
-            - kdtree_0: KDTree for first point cloud
-            - kdtree_1: KDTree for second point cloud
+            - kdtree_1: KDTree for first point cloud
+            - kdtree_2: KDTree for second point cloud
         """
         # Assert existence of file paths
-        assert 'pc_0_filepath' in self.annotations[idx], f"Missing pc_0_filepath in annotation {idx}"
         assert 'pc_1_filepath' in self.annotations[idx], f"Missing pc_1_filepath in annotation {idx}"
+        assert 'pc_2_filepath' in self.annotations[idx], f"Missing pc_2_filepath in annotation {idx}"
 
         files = {
-            'pc_0_filepath': self.annotations[idx]['pc_0_filepath'],
-            'pc_1_filepath': self.annotations[idx]['pc_1_filepath']
+            'pc_1_filepath': self.annotations[idx]['pc_1_filepath'],
+            'pc_2_filepath': self.annotations[idx]['pc_2_filepath']
         }
 
-        print("Loading " + files['pc_1_filepath'])
+        print("Loading " + files['pc_2_filepath'])
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
 
         # Load first point cloud (only has XYZ coordinates)
-        pc0 = utils.io.load_point_cloud(files['pc_0_filepath'], nameInPly=nameInPly)
-        assert pc0.size(1) == 4, f"{pc0.shape=}"
-        pc0_xyz = pc0[:, :3]
-        # Add ones feature
-        pc0_features = torch.ones((pc0_xyz.size(0), 1), dtype=pc0_xyz.dtype)  # [N, 1]
-
-        # Load second point cloud (XYZ coordinates + label)
         pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
+        assert pc1.size(1) == 4, f"{pc1.shape=}"
         pc1_xyz = pc1[:, :3]
         # Add ones feature
         pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
 
-        change_map = pc1[:, 3]  # Labels are in the 4th column for the second point cloud
+        # Load second point cloud (XYZ coordinates + label)
+        pc2 = utils.io.load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly)
+        pc2_xyz = pc2[:, :3]
+        # Add ones feature
+        pc2_features = torch.ones((pc2_xyz.size(0), 1), dtype=pc2_xyz.dtype)  # [N, 1]
+
+        change_map = pc2[:, 3]  # Labels are in the 4th column for the second point cloud
 
         # Convert to correct types
-        pc0_xyz = pc0_xyz.type(torch.float32)
         pc1_xyz = pc1_xyz.type(torch.float32)
+        pc2_xyz = pc2_xyz.type(torch.float32)
         change_map = change_map.type(torch.int64)
 
         # Normalize point clouds
-        self._normalize(pc0_xyz, pc1_xyz)
+        self._normalize(pc1_xyz, pc2_xyz)
 
         # Build KDTrees (after normalization)
-        kdtree_0 = KDTree(np.asarray(pc0_xyz), leaf_size=10)
         kdtree_1 = KDTree(np.asarray(pc1_xyz), leaf_size=10)
+        kdtree_2 = KDTree(np.asarray(pc2_xyz), leaf_size=10)
 
         # Create point indices for metadata - full point cloud so indices are just the range
-        point_idx_pc0 = torch.arange(pc0_xyz.shape[0], dtype=torch.long)
         point_idx_pc1 = torch.arange(pc1_xyz.shape[0], dtype=torch.long)
+        point_idx_pc2 = torch.arange(pc2_xyz.shape[0], dtype=torch.long)
 
         # Return data dictionary
         return {
-            'pc_0': {
-                'pos': pc0_xyz,
-                'feat': pc0_features
-            },
             'pc_1': {
                 'pos': pc1_xyz,
                 'feat': pc1_features
             },
+            'pc_2': {
+                'pos': pc2_xyz,
+                'feat': pc2_features
+            },
             'change_map': change_map,
-            'kdtree_0': kdtree_0,
             'kdtree_1': kdtree_1,
-            'point_idx_pc0': point_idx_pc0,
+            'kdtree_2': kdtree_2,
             'point_idx_pc1': point_idx_pc1,
-            'pc_0_filepath': files['pc_0_filepath'],
+            'point_idx_pc2': point_idx_pc2,
             'pc_1_filepath': files['pc_1_filepath'],
+            'pc_2_filepath': files['pc_2_filepath'],
             'idx': idx
         }
 
@@ -476,11 +476,11 @@ class Urb3DCDDataset(BaseDataset):
 
         Returns:
             Dictionary containing:
-            - pc_0: Dictionary with 'pos' and 'feat' for sampled first point cloud
-            - pc_1: Dictionary with 'pos' and 'feat' for sampled second point cloud
+            - pc_1: Dictionary with 'pos' and 'feat' for sampled first point cloud
+            - pc_2: Dictionary with 'pos' and 'feat' for sampled second point cloud
             - change_map: Sampled change labels
-            - point_idx_pc0: Indices of sampled points in first point cloud
-            - point_idx_pc1: Indices of sampled points in second point cloud
+            - point_idx_pc1: Indices of sampled points in first point cloud
+            - point_idx_pc2: Indices of sampled points in second point cloud
             - idx: Point cloud index
         """
         # First load the whole point cloud
@@ -495,21 +495,21 @@ class Urb3DCDDataset(BaseDataset):
 
         return sampled_data
 
-    def _is_valid_datapoint(self, pc0: Dict[str, torch.Tensor], pc1: Dict[str, torch.Tensor], change_map: torch.Tensor) -> bool:
+    def _is_valid_datapoint(self, pc1: Dict[str, torch.Tensor], pc2: Dict[str, torch.Tensor], change_map: torch.Tensor) -> bool:
         """Check if a datapoint is valid.
 
         A datapoint is valid if it has at least 1 point and contains both changed and unchanged points.
 
         Args:
-            pc0: First point cloud dictionary with keys 'pos' and 'feat'
-            pc1: Second point cloud dictionary with keys 'pos' and 'feat'
+            pc1: First point cloud dictionary with keys 'pos' and 'feat'
+            pc2: Second point cloud dictionary with keys 'pos' and 'feat'
             change_map: Tensor of shape (N,) containing class labels from 0 to NUM_CLASSES-1
 
         Returns:
             True if the datapoint is valid, False otherwise
         """
         # Check if point clouds are not empty
-        if pc0['pos'].size(0) == 0 or pc1['pos'].size(0) == 0:
+        if pc1['pos'].size(0) == 0 or pc2['pos'].size(0) == 0:
             print(f"Invalid datapoint: Point clouds are empty.")
             return False
 
@@ -520,8 +520,8 @@ class Urb3DCDDataset(BaseDataset):
         # If we have at least some minimum number of points, consider it valid
         # This threshold can be adjusted based on requirements
         min_points = 5
-        if pc0['pos'].size(0) < min_points or pc1['pos'].size(0) < min_points:
-            print(f"Invalid datapoint: Not enough points. pc_0: {pc0['pos'].size(0)} points, pc_1: {pc1['pos'].size(0)} points")
+        if pc1['pos'].size(0) < min_points or pc2['pos'].size(0) < min_points:
+            print(f"Invalid datapoint: Not enough points. pc_1: {pc1['pos'].size(0)} points, pc_2: {pc2['pos'].size(0)} points")
             return False
 
         return True
@@ -536,75 +536,75 @@ class Urb3DCDDataset(BaseDataset):
 
         Returns:
             Dictionary containing:
-            - pc_0: Sampled first point cloud
-            - pc_1: Sampled second point cloud
+            - pc_1: Sampled first point cloud
+            - pc_2: Sampled second point cloud
             - change_map: Sampled change labels
-            - point_idx_pc0: Point indices in first point cloud
-            - point_idx_pc1: Point indices in second point cloud
+            - point_idx_pc1: Point indices in first point cloud
+            - point_idx_pc2: Point indices in second point cloud
             - idx: Point cloud index
         """
         print(f"\nSampling cylinder at center {center}, radius {self._radius}")
-        print(f"Point cloud shapes: pc_0={data['pc_0']['pos'].shape}, pc_1={data['pc_1']['pos'].shape}")
+        print(f"Point cloud shapes: pc_1={data['pc_1']['pos'].shape}, pc_2={data['pc_2']['pos'].shape}")
 
         assert center.shape == (3,)
         cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
 
         # Separate XYZ coordinates from features
-        pc0_xyz = data['pc_0']['pos']
-        pc0_features = data['pc_0']['feat']
         pc1_xyz = data['pc_1']['pos']
         pc1_features = data['pc_1']['feat']
+        pc2_xyz = data['pc_2']['pos']
+        pc2_features = data['pc_2']['feat']
 
         # Create data dictionaries for both point clouds (using only XYZ for sampling)
-        data_dict_0 = {'pos': pc0_xyz}
-        data_dict_1 = {'pos': pc1_xyz, 'change_map': data['change_map']}
+        data_dict_1 = {'pos': pc1_xyz}
+        data_dict_2 = {'pos': pc2_xyz, 'change_map': data['change_map']}
 
         # Apply cylinder sampling
-        sampled_data_0 = cylinder_sampler(data['kdtree_0'], data_dict_0)
         sampled_data_1 = cylinder_sampler(data['kdtree_1'], data_dict_1)
+        sampled_data_2 = cylinder_sampler(data['kdtree_2'], data_dict_2)
 
         # Return sampled data as dictionaries with separate pos and feat
         return {
-            'pc_0': {
-                'pos': sampled_data_0['pos'],
-                'feat': pc0_features[sampled_data_0['point_idx']],
-            },
             'pc_1': {
                 'pos': sampled_data_1['pos'],
                 'feat': pc1_features[sampled_data_1['point_idx']],
             },
-            'change_map': sampled_data_1['change_map'],
-            'point_idx_pc0': sampled_data_0['point_idx'],
+            'pc_2': {
+                'pos': sampled_data_2['pos'],
+                'feat': pc2_features[sampled_data_2['point_idx']],
+            },
+            'change_map': sampled_data_2['change_map'],
             'point_idx_pc1': sampled_data_1['point_idx'],
+            'point_idx_pc2': sampled_data_2['point_idx'],
             'idx': idx
         }
 
-    def _normalize(self, pc0: torch.Tensor, pc1: torch.Tensor) -> None:
+    def _normalize(self, pc1: torch.Tensor, pc2: torch.Tensor) -> None:
         """Normalize point clouds by centering them at their mean.
 
         Args:
-            pc0: First point cloud (N, 3)
-            pc1: Second point cloud (M, 3)
+            pc1: First point cloud (N, 3)
+            pc2: Second point cloud (M, 3)
 
         Raises:
             ValueError: If both point clouds are empty.
         """
-        if pc0.shape[0] == 0 and pc1.shape[0] == 0:
+        if pc1.shape[0] == 0 and pc2.shape[0] == 0:
             raise ValueError("Cannot normalize: both point clouds are empty")
 
         # If one point cloud is empty, use the other's mean values
-        if pc0.shape[0] == 0:
-            mean0 = pc1.mean(0, keepdim=True)
-            mean1 = mean0
-        elif pc1.shape[0] == 0:
-            mean0 = pc0.mean(0, keepdim=True)
-            mean1 = mean0
-        else:
-            mean0 = pc0.mean(0, keepdim=True)
+        if pc1.shape[0] == 0:
+            mean1 = pc2.mean(0, keepdim=True)
+            mean2 = mean1
+        elif pc2.shape[0] == 0:
             mean1 = pc1.mean(0, keepdim=True)
-
-        if pc0.shape[0] > 0:
-            pc0.sub_(mean0)  # Center at mean
+            mean2 = mean1
+        else:
+            mean1 = pc1.mean(0, keepdim=True)
+            mean2 = pc2.mean(0, keepdim=True)
 
         if pc1.shape[0] > 0:
             pc1.sub_(mean1)  # Center at mean
+
+        if pc2.shape[0] > 0:
+            pc2.sub_(mean2)  # Center at mean
