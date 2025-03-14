@@ -1,7 +1,6 @@
 import torch
 import data
 import criteria
-from ._transforms_cfg import transforms_cfg
 
 
 config = {

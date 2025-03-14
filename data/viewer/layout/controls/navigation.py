@@ -71,4 +71,3 @@ def create_navigation_controls(datapoint_index=0, min_index=0, max_index=10):
             ),
         ], style={'display': 'flex', 'align-items': 'center', 'justify-content': 'flex-start'}),
     ], style={'margin-top': '20px', 'padding': '10px 0'})
-

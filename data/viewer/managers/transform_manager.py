@@ -32,12 +32,20 @@ class TransformManager:
             assert all(isinstance(k, str) for k in key_pair), f"Keys must be strings, got {key_pair}"
         self._transforms.append((transform_fn, input_keys))
 
-    def register_transforms_from_config(self, transforms_cfg: Dict[str, Any]) -> None:
+    def register_transforms_from_config(self, transforms_cfg: Optional[Dict[str, Any]] = None) -> None:
         """Register transforms from a configuration dictionary.
         
         Args:
-            transforms_cfg: Transform configuration dictionary
+            transforms_cfg: Transform configuration dictionary. If None or empty, no transforms will be registered.
         """
+        # Clear existing transforms
+        self.clear_transforms()
+        
+        # If no transforms config provided, return without registering any transforms
+        if not transforms_cfg:
+            return
+            
+        # Validate config structure
         assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
         assert 'class' in transforms_cfg, f"Transform configuration must contain 'class' key. Got {transforms_cfg.keys()}."
         assert 'args' in transforms_cfg, f"Transform configuration must contain 'args' key. Got {transforms_cfg.keys()}."
