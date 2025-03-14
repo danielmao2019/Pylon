@@ -19,18 +19,15 @@ def create_transform_checkboxes(transforms: List[Dict[str, Any]]) -> List[html.D
     transform_checkboxes: List[html.Div] = []
     for transform in transforms:
         transform_checkboxes.append(
-            html.Div([
+            html.Div(
                 dcc.Checklist(
                     id={'type': 'transform-checkbox', 'index': transform['index']},
                     options=[{'label': transform['name'], 'value': transform['index']}],
                     value=[],
-                    style={'display': 'inline-block', 'margin-right': '10px'}
+                    style={'display': 'inline-block'}
                 ),
-                html.Div(
-                    transform['description'],
-                    style={'font-size': 'small', 'color': 'gray', 'margin-left': '25px'}
-                )
-            ], style={'margin': '5px 0'})
+                style={'margin': '5px 0'}
+            )
         )
 
     return transform_checkboxes

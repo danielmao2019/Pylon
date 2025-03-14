@@ -48,8 +48,7 @@ class TransformManager:
             return None
         return {
             'index': index,
-            'name': transform.__class__.__name__,
-            'description': transform.__doc__ or "No description available"
+            'name': transform.__class__.__name__
         }
         
     def get_available_transforms(self) -> List[Dict[str, Any]]:
