@@ -33,8 +33,8 @@ def update_datapoint(dataset_info, datapoint_idx, point_size, point_opacity):
     dataset_name = dataset_info.get('name', 'unknown')
     logger.info(f"Attempting to get dataset: {dataset_name}")
     
-    # Get dataset from manager instead of viewer.datasets
-    dataset = viewer.dataset_manager.get_dataset(dataset_name)
+    # Get dataset from manager through registry
+    dataset = registry.viewer.dataset_manager.get_dataset(dataset_name)
     if dataset is None:
         logger.error(f"Dataset '{dataset_name}' not found in manager")
         return html.Div(f"Dataset '{dataset_name}' not found.")
