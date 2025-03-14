@@ -38,6 +38,9 @@ def apply_transforms(
 
     # Get transformed datapoint using dataset manager
     datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx, selected_indices)
+    assert isinstance(datapoint, dict), "Datapoint must be a dictionary"
+    assert 'inputs' in datapoint, "Datapoint missing 'inputs' field"
+    assert isinstance(datapoint['inputs'], dict), "Datapoint 'inputs' must be a dictionary"
 
     # Display the transformed datapoint
     if dataset_info['is_3d']:
@@ -55,9 +58,12 @@ def apply_transforms(
     inputs=[Input('dataset-info', 'data')],
     group="transforms"
 )
-def update_transforms(dataset_info: Optional[Dict[str, Any]]) -> List[Union[html.Div, Dict[str, Any]]]:
+def update_transforms(dataset_info: Dict[str, Any]) -> List[Union[html.Div, Dict[str, Any]]]:
     """Update the transforms section when dataset info changes."""
-    transforms = dataset_info.get('transforms', [])
+    assert isinstance(dataset_info, dict), f"Dataset info must be a dictionary. Got {type(dataset_info)}."
+    assert 'transforms' in dataset_info, f"Dataset info missing 'transforms' field. Got {dataset_info.keys()}."
+    transforms = dataset_info['transforms']
+    assert isinstance(transforms, list), f"Transforms must be a list. Got {type(transforms)}."
     
     # Update state with new transforms
     registry.viewer.state.update_transforms(transforms)
