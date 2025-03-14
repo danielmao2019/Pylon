@@ -6,19 +6,19 @@ from dash import dcc, html
 def create_transform_checkboxes(transforms: List[int]) -> List[html.Div]:
     """
     Create checkboxes for each transform in the list.
-    
+
     Args:
         transforms: List of transform indices
-        
+
     Returns:
         List of html.Div elements containing transform checkboxes
     """
     if not transforms:
         return [html.P("No transforms available")]
-    
+
     # Import registry here to avoid circular import
     from data.viewer.callbacks.registry import registry
-    
+
     transform_checkboxes: List[html.Div] = []
     for i in transforms:
         # Get transform function from registry
@@ -30,7 +30,7 @@ def create_transform_checkboxes(transforms: List[int]) -> List[html.Div]:
             display_name = transform_func.__class__.__name__
         else:
             display_name = f"Transform {i}"
-        
+
         # Create the checkbox
         transform_checkboxes.append(
             html.Div([
@@ -42,27 +42,27 @@ def create_transform_checkboxes(transforms: List[int]) -> List[html.Div]:
                 )
             ], style={'margin': '5px 0'})
         )
-    
+
     return transform_checkboxes
 
 
 def create_transforms_section(transforms_or_config: Optional[Union[Dict, List[Tuple]]] = None) -> html.Div:
     """
     Create the transforms section with checkboxes.
-    
+
     Args:
         transforms_or_config: Either a dataset configuration dictionary or a list of transforms
-        
+
     Returns:
         html.Div containing the transforms section
     """
     transforms = []
-    
+
     if isinstance(transforms_or_config, dict):
         # Handle dataset config case
         dataset_cfg: Dict = transforms_or_config.get('train_dataset', {})
         transforms_cfg: Optional[Dict] = dataset_cfg.get('args', {}).get('transforms_cfg')
-        
+
         if transforms_cfg and 'args' in transforms_cfg and 'transforms' in transforms_cfg['args']:
             transforms = transforms_cfg['args']['transforms']
     elif isinstance(transforms_or_config, list):
