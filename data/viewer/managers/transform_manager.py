@@ -10,16 +10,21 @@ class TransformManager:
     def __init__(self):
         """Initialize the transform manager."""
         self.logger = logging.getLogger(__name__)
-        # Store transform function and its input key pairs
+        # Store transforms in the exact format expected by Compose
         self._transforms: List[Tuple[Callable, List[Tuple[str, str]]]] = []
         
-    def register_transform(self, transform_fn: Callable, input_keys: List[Tuple[str, str]]) -> None:
-        """Register a transform function.
+    def register_transform(self, transform: Tuple[Callable, Union[Tuple[str, str], List[Tuple[str, str]]]]) -> None:
+        """Register a transform.
         
         Args:
-            transform_fn: Transform function to register
-            input_keys: List of (outer_key, inner_key) pairs specifying which fields to transform
+            transform: Tuple of (transform_fn, input_keys) where input_keys is either a single key pair
+                     or a list of key pairs specifying which fields to transform
         """
+        transform_fn, input_keys = transform
+        # Convert single key pair to list if needed
+        if isinstance(input_keys, tuple):
+            input_keys = [input_keys]
+        # Validate input keys
         assert isinstance(input_keys, list), f"input_keys must be a list, got {type(input_keys)}"
         for key_pair in input_keys:
             assert isinstance(key_pair, tuple), f"Each key pair must be a tuple, got {type(key_pair)}"
@@ -64,13 +69,8 @@ class TransformManager:
         Returns:
             Transformed data or None if any transform fails
         """
-        transforms: List[Tuple[Callable, List[Tuple[str, str]]]] = []
-        
-        for idx in transform_indices:
-            assert 0 <= idx < len(self._transforms), f"Transform index {idx} out of range [0, {len(self._transforms)})"
-            transform_fn, input_keys = self._transforms[idx]
-            transforms.append((transform_fn, input_keys))
-            
+        # Simply select the transforms in the order specified by indices
+        transforms = [self._transforms[idx] for idx in transform_indices]
         compose = Compose(transforms=transforms)
         return compose(data)
 
@@ -88,9 +88,7 @@ class TransformManager:
         assert 'class' in transforms_cfg, f"Transform configuration must contain 'class' key. Got {transforms_cfg.keys()}."
         assert 'args' in transforms_cfg, f"Transform configuration must contain 'args' key. Got {transforms_cfg.keys()}."
 
+        # Register each transform directly from the config
         transforms = transforms_cfg['args'].get('transforms', [])
-        for transform_fn, input_keys in transforms:
-            # Handle case where input_keys is a single tuple
-            if isinstance(input_keys, tuple):
-                input_keys = [input_keys]
-            self.register_transform(transform_fn, input_keys)
+        for transform in transforms:
+            self.register_transform(transform)
