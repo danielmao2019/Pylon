@@ -23,7 +23,7 @@ def create_transform_checkboxes(transforms: List[int]) -> List[html.Div]:
     for i in transforms:
         # Get transform function from registry
         transform_name = f"transform_{i}"
-        transform_func = registry.viewer.dataset_manager._transform_functions.get(transform_name)
+        transform_func = registry.viewer.dataset_manager.transform_manager._transforms.get(transform_name)
 
         # Create display name from transform function
         if transform_func:
