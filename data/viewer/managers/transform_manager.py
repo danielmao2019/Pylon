@@ -95,9 +95,9 @@ class TransformManager:
         Args:
             transforms_cfg: Transform configuration dictionary
         """
-        assert isinstance(transforms_cfg, dict), "Transform configuration must be a dictionary"
-        assert 'class' in transforms_cfg, "Transform configuration must contain 'class' key"
-        assert 'args' in transforms_cfg, "Transform configuration must contain 'args' key"
+        assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
+        assert 'class' in transforms_cfg, f"Transform configuration must contain 'class' key. Got {transforms_cfg.keys()}."
+        assert 'args' in transforms_cfg, f"Transform configuration must contain 'args' key. Got {transforms_cfg.keys()}."
 
         transforms = transforms_cfg['args'].get('transforms', [])
         for transform, _ in transforms:
