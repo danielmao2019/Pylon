@@ -1,6 +1,6 @@
 """Navigation-related callbacks for the viewer."""
 from typing import List, Optional
-from dash import Input, Output, State, html
+from dash import Input, Output, State, html, callback_context
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
 
@@ -30,12 +30,13 @@ def update_index_from_buttons(
         raise PreventUpdate
     assert isinstance(current_value, int)
 
-    # Determine which button was clicked
-    if prev_clicks is not None:
-        # Previous button clicked
+    # Get the ID of the button that triggered the callback
+    triggered_id = callback_context.triggered[0]['prop_id'].split('.')[0]
+
+    # Update value based on which button was clicked
+    if triggered_id == 'prev-btn':
         new_value = max(min_value, current_value - 1)
-    else:
-        # Next button clicked
+    else:  # next-btn
         new_value = min(max_value, current_value + 1)
 
     return [new_value]
