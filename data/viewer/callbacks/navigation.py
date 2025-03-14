@@ -2,6 +2,7 @@
 from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
+from typing import List, Optional
 
 
 @callback(
@@ -17,7 +18,13 @@ from data.viewer.callbacks.registry import callback
     ],
     group="navigation"
 )
-def update_index_from_buttons(prev_clicks, next_clicks, current_value, min_value, max_value):
+def update_index_from_buttons(
+    prev_clicks: Optional[int],
+    next_clicks: Optional[int],
+    current_value: int,
+    min_value: int,
+    max_value: int
+) -> List[int]:
     """Update the datapoint index based on prev/next button clicks."""
     if prev_clicks is None and next_clicks is None:
         raise PreventUpdate
@@ -39,7 +46,7 @@ def update_index_from_buttons(prev_clicks, next_clicks, current_value, min_value
     inputs=[Input('datapoint-index-slider', 'value')],
     group="navigation"
 )
-def update_current_index(current_idx):
+def update_current_index(current_idx: int) -> List[str]:
     """Update the current index display."""
     assert isinstance(current_idx, int)
     return [f"Current Index: {current_idx}"]

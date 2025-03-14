@@ -30,16 +30,16 @@ def load_dataset(dataset_name):
     if dataset_name is None:
         logger.info("No dataset selected")
         registry.viewer.state.reset()
-        return (
+        return [
             {},  # dataset-info
             0,   # min
             0,   # max
-            0, # value
+            0,   # value
             {},  # marks
             html.Div("No dataset selected."),  # datapoint-display
             create_dataset_info_display(),  # dataset-info-display
             create_transforms_section(),  # transforms-section
-        )
+        ]
 
     # Load dataset using dataset manager
     logger.info(f"Attempting to load dataset: {dataset_name}")
@@ -68,7 +68,7 @@ def load_dataset(dataset_name):
     initial_message = html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_info['length']} datapoints. Use the slider to navigate.")
     logger.info("Dataset loaded successfully, returning updated UI components")
 
-    return (
+    return [
         registry.viewer.state.get_state()['dataset_info'],  # dataset-info
         0,                   # min
         dataset_info['length'] - 1,  # max
@@ -77,7 +77,7 @@ def load_dataset(dataset_name):
         initial_message,    # datapoint-display
         create_dataset_info_display(registry.viewer.state.get_state()['dataset_info']),  # dataset-info-display
         create_transforms_section(dataset_info['available_transforms']),  # transforms-section
-    )
+    ]
 
 
 @callback(
@@ -100,4 +100,4 @@ def reload_datasets(n_clicks):
         for name in available_datasets
     ]
 
-    return options
+    return [options]
