@@ -91,11 +91,13 @@ class DatasetManager:
         self.transform_manager.register_transforms_from_config(transforms_cfg)
         
         # Get dataset info
+        transforms = self.transform_manager.get_transform_names()
         info = {
             'name': dataset_name,
             'length': len(dataset),
             'class_labels': getattr(dataset, 'class_labels', {}),
-            'transforms': self.transform_manager.get_transform_names(),
+            'transforms': transforms,
+            'available_transforms': transforms,  # Keep for backward compatibility
             'cache_stats': self._caches[dataset_name].get_stats(),
             'is_3d': THREE_D_DATASETS.get(dataset_name, False)
         }
