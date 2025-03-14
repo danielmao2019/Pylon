@@ -21,66 +21,74 @@ class TestTransformManager(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.manager = TransformManager()
-        self.test_data = np.array([1, 2, 3])
+        self.test_data = {
+            'inputs': {'img_1': np.array([1, 2, 3])},
+            'labels': {},
+            'meta_info': {}
+        }
 
     def test_register_transform(self):
         """Test transform registration."""
         # Register a transform
-        self.manager.register_transform('add_one', mock_transform1)
-        self.assertIn('add_one', self.manager._transforms)
+        transform = (mock_transform1, [('inputs', 'img_1')])
+        self.manager.register_transform(transform)
+        self.assertEqual(len(self.manager._transforms), 1)
+        self.assertEqual(self.manager._transforms[0][0], mock_transform1)
+        self.assertEqual(self.manager._transforms[0][1], [('inputs', 'img_1')])
         
-        # Register same transform again (should overwrite)
-        self.manager.register_transform('add_one', mock_transform2)
-        result = self.manager.apply_transform('add_one', self.test_data)
-        np.testing.assert_array_equal(result, self.test_data * 2)
+        # Register another transform
+        transform2 = (mock_transform2, [('inputs', 'img_1')])
+        self.manager.register_transform(transform2)
+        self.assertEqual(len(self.manager._transforms), 2)
 
-    def test_get_transform(self):
-        """Test getting transforms."""
-        # Test getting non-existent transform
-        self.assertIsNone(self.manager.get_transform('nonexistent'))
-        
-        # Test getting existing transform
-        self.manager.register_transform('add_one', mock_transform1)
-        transform = self.manager.get_transform('add_one')
-        self.assertIsNotNone(transform)
-        self.assertEqual(transform(1), 2)
-
-    def test_apply_transform(self):
+    def test_apply_transforms(self):
         """Test applying transforms."""
-        self.manager.register_transform('add_one', mock_transform1)
-        self.manager.register_transform('multiply_two', mock_transform2)
+        # Register transforms
+        transform1 = (mock_transform1, [('inputs', 'img_1')])
+        transform2 = (mock_transform2, [('inputs', 'img_1')])
+        self.manager.register_transform(transform1)
+        self.manager.register_transform(transform2)
         
-        # Test successful transform
-        result = self.manager.apply_transform('add_one', self.test_data)
-        np.testing.assert_array_equal(result, self.test_data + 1)
+        # Test applying single transform
+        result = self.manager.apply_transforms(self.test_data, [0])
+        np.testing.assert_array_equal(result['inputs']['img_1'], self.test_data['inputs']['img_1'] + 1)
         
-        # Test non-existent transform
-        result = self.manager.apply_transform('nonexistent', self.test_data)
-        self.assertIsNone(result)
-        
-        # Test failing transform
-        self.manager.register_transform('fail', mock_failing_transform)
-        result = self.manager.apply_transform('fail', self.test_data)
-        self.assertIsNone(result)
+        # Test applying multiple transforms
+        result = self.manager.apply_transforms(self.test_data, [0, 1])
+        np.testing.assert_array_equal(result['inputs']['img_1'], (self.test_data['inputs']['img_1'] + 1) * 2)
 
     def test_clear_transforms(self):
         """Test clearing transforms."""
-        self.manager.register_transform('add_one', mock_transform1)
-        self.manager.register_transform('multiply_two', mock_transform2)
+        transform1 = (mock_transform1, [('inputs', 'img_1')])
+        transform2 = (mock_transform2, [('inputs', 'img_1')])
+        self.manager.register_transform(transform1)
+        self.manager.register_transform(transform2)
         
         self.manager.clear_transforms()
         self.assertEqual(len(self.manager._transforms), 0)
-        self.assertEqual(len(self.manager.get_transform_names()), 0)
+        self.assertEqual(len(self.manager.get_available_transforms()), 0)
 
-    def test_get_transform_names(self):
-        """Test getting transform names."""
-        self.manager.register_transform('add_one', mock_transform1)
-        self.manager.register_transform('multiply_two', mock_transform2)
+    def test_get_transform_info(self):
+        """Test getting transform info."""
+        transform = (mock_transform1, [('inputs', 'img_1')])
+        self.manager.register_transform(transform)
         
-        names = self.manager.get_transform_names()
-        self.assertEqual(len(names), 2)
-        self.assertIn('add_one', names)
-        self.assertIn('multiply_two', names)
+        info = self.manager.get_transform_info(0)
+        self.assertEqual(info['index'], 0)
+        self.assertEqual(info['name'], mock_transform1.__class__.__name__)
+        self.assertEqual(info['input_keys'], [('inputs', 'img_1')])
+
+    def test_get_available_transforms(self):
+        """Test getting available transforms."""
+        transform1 = (mock_transform1, [('inputs', 'img_1')])
+        transform2 = (mock_transform2, [('inputs', 'img_1')])
+        self.manager.register_transform(transform1)
+        self.manager.register_transform(transform2)
+        
+        transforms = self.manager.get_available_transforms()
+        self.assertEqual(len(transforms), 2)
+        self.assertEqual(transforms[0]['name'], mock_transform1.__class__.__name__)
+        self.assertEqual(transforms[1]['name'], mock_transform2.__class__.__name__)
 
     def test_register_transforms_from_config(self):
         """Test registering transforms from configuration."""
@@ -89,8 +97,8 @@ class TestTransformManager(unittest.TestCase):
             'class': 'Compose',
             'args': {
                 'transforms': [
-                    (mock_transform1, None),
-                    (mock_transform2, None)
+                    (mock_transform1, [('inputs', 'img_1')]),
+                    (mock_transform2, [('inputs', 'img_1')])
                 ]
             }
         }
@@ -98,8 +106,10 @@ class TestTransformManager(unittest.TestCase):
         self.assertEqual(len(self.manager._transforms), 2)
         
         # Test invalid config
-        invalid_config = {'transforms': []}
-        self.manager.register_transforms_from_config(invalid_config)
+        with self.assertRaises(AssertionError):
+            invalid_config = {'transforms': []}
+            self.manager.register_transforms_from_config(invalid_config)
         
         # Test non-dict config
-        self.manager.register_transforms_from_config([])  # Should not raise exception 
+        with self.assertRaises(AssertionError):
+            self.manager.register_transforms_from_config([])  # Should raise AssertionError 
