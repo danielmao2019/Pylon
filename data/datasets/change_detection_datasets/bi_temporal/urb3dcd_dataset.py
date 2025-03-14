@@ -94,8 +94,8 @@ class Urb3DCDDataset(BaseDataset):
         base_dir = os.path.join(self.data_root, version_info['dir'], version_info['subdir'], self.SPLIT_MAP[self.split])
 
         # Find all point cloud pairs using glob
-        pc1_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud1.ply"), recursive=True))
-        pc2_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud2.ply"), recursive=True))
+        pc1_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud0.ply"), recursive=True))
+        pc2_files = sorted(glob.glob(os.path.join(base_dir, "**/pointCloud1.ply"), recursive=True))
 
         if len(pc1_files) != len(pc2_files):
             raise ValueError(f"Number of pointCloud1 files ({len(pc1_files)}) does not match pointCloud2 files ({len(pc2_files)})")
