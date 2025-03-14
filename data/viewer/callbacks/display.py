@@ -17,8 +17,6 @@ logger = logging.getLogger(__name__)
         Input({'type': 'point-cloud-graph', 'index': 0}, 'relayoutData'),
         Input({'type': 'point-cloud-graph', 'index': 1}, 'relayoutData'),
         Input({'type': 'point-cloud-graph', 'index': 2}, 'relayoutData'),
-    ],
-    state=[
         State('camera-state', 'data'),
     ],
     group="display"
