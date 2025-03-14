@@ -1,15 +1,15 @@
 """UI components for handling dataset transforms."""
 from typing import Dict, List, Optional, Union, Tuple, Any
 from dash import dcc, html
+from data.viewer.callbacks.registry import registry
 
 
-def create_transform_checkboxes(transforms: List[Tuple]) -> List[html.Div]:
+def create_transform_checkboxes(transforms: List[int]) -> List[html.Div]:
     """
     Create checkboxes for each transform in the list.
     
     Args:
-        transforms: List of transform configurations as tuples of (transform, paths)
-        where transform can be either a dict config or an actual transform instance
+        transforms: List of transform indices
         
     Returns:
         List of html.Div elements containing transform checkboxes
@@ -18,20 +18,16 @@ def create_transform_checkboxes(transforms: List[Tuple]) -> List[html.Div]:
         return [html.P("No transforms available")]
     
     transform_checkboxes: List[html.Div] = []
-    for i, (transform, _) in enumerate(transforms):
-        class_name = transform.__class__.__name__
-        # Get the transform arguments from the instance
-        transform_args = {
-            k: v for k, v in transform.__dict__.items()
-            if not k.startswith('_')  # Skip private attributes
-        }
+    for i in transforms:
+        # Get transform function from registry
+        transform_name = f"transform_{i}"
+        transform_func = registry.viewer.dataset_manager._transform_functions.get(transform_name)
         
-        # Create display name
-        args_str: str = ", ".join(f"{k}={v}" for k, v in transform_args.items())
-        if args_str:
-            display_name: str = f"{class_name}({args_str})"
+        # Create display name from transform function
+        if transform_func:
+            display_name = transform_func.__class__.__name__
         else:
-            display_name = class_name
+            display_name = f"Transform {i}"
         
         # Create the checkbox
         transform_checkboxes.append(
