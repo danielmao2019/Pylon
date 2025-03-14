@@ -36,8 +36,8 @@ def apply_transforms(
         if selected
     ]
 
-    # Apply transforms using dataset manager
-    datapoint = registry.viewer.dataset_manager.transform_manager.apply_transforms(dataset_name, datapoint_idx, selected_indices)
+    # Get transformed datapoint using dataset manager
+    datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx, selected_indices)
 
     # Display the transformed datapoint
     if dataset_info['is_3d']:

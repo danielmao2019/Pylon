@@ -126,13 +126,13 @@ class DatasetManager:
             'meta_info': meta_info
         }
         
-    def get_datapoint(self, dataset_name: str, index: int, transform_names: Optional[List[str]] = None) -> Optional[Dict[str, Dict[str, Any]]]:
+    def get_datapoint(self, dataset_name: str, index: int, transform_indices: Optional[List[int]] = None) -> Optional[Dict[str, Dict[str, Any]]]:
         """Get datapoint with optional transforms applied.
         
         Args:
             dataset_name: Name of dataset
             index: Index of datapoint
-            transform_names: Optional list of transform names to apply
+            transform_indices: Optional list of transform indices to apply
             
         Returns:
             Dict containing inputs, labels and meta_info, with transforms applied if specified
@@ -142,7 +142,7 @@ class DatasetManager:
             return None
             
         # Try to get from cache first
-        cache_key = (index, tuple(transform_names) if transform_names else None)
+        cache_key = (index, tuple(transform_indices) if transform_indices else None)
         cache = self._caches.get(dataset_name)
         if cache is not None:
             cached = cache.get(cache_key)
@@ -151,10 +151,10 @@ class DatasetManager:
         
         # Load raw datapoint
         datapoint = self._load_raw_datapoint(dataset_name, index)
+            
         # Apply transforms if specified
-        if transform_names:
-            compose = self.transform_manager.build_transform_compose(transform_names)
-            datapoint = compose(datapoint)
+        if transform_indices:
+            datapoint = self.transform_manager.apply_transforms(datapoint, transform_indices)
             
         # Cache and return
         if cache is not None:
