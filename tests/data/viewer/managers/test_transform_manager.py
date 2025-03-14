@@ -112,4 +112,4 @@ class TestTransformManager(unittest.TestCase):
         
         # Test non-dict config
         with self.assertRaises(AssertionError):
-            self.manager.register_transforms_from_config([])  # Should raise AssertionError 
+            self.manager.register_transforms_from_config([])  # Should raise AssertionError
