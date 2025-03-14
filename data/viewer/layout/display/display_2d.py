@@ -128,7 +128,16 @@ def display_2d_datapoint(datapoint: Dict[str, Any]) -> html.Div:
 def tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable image."""
     img: np.ndarray = tensor.cpu().numpy()
-    img = (img-img.min())/(img.max()-img.min())
+    
+    # Handle normalization with zero division check
+    img_min = img.min()
+    img_max = img.max()
+    if img_max > img_min:
+        img = (img - img_min) / (img_max - img_min)
+    else:
+        # If all values are the same, return zeros
+        img = np.zeros_like(img)
+    
     if img.ndim == 2:  # Grayscale image
         return img
     elif img.ndim == 3:  # RGB image (C, H, W) -> (H, W, C)

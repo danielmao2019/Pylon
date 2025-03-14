@@ -71,14 +71,23 @@ class TransformManager:
         Args:
             transforms_cfg: Transform configuration dictionary
         """
-        if not isinstance(transforms_cfg, dict):
-            self.logger.error("Invalid transforms configuration")
+        # Handle empty or None config
+        if not transforms_cfg:
+            self.logger.debug("No transforms configuration provided")
             return
             
+        # Handle Compose object case
+        if not isinstance(transforms_cfg, dict):
+            transforms = getattr(transforms_cfg, 'transforms', [])
+            for i, (transform, _) in enumerate(transforms):
+                self.register_transform(f"transform_{i}", transform)
+            return
+            
+        # Handle dictionary case
         if 'class' not in transforms_cfg or 'args' not in transforms_cfg:
-            self.logger.error("Transform config must contain 'class' and 'args' keys")
+            self.logger.debug("Transform config missing required keys")
             return
             
         transforms = transforms_cfg['args'].get('transforms', [])
         for i, (transform, _) in enumerate(transforms):
-            self.register_transform(f"transform_{i}", transform) 
+            self.register_transform(f"transform_{i}", transform)
