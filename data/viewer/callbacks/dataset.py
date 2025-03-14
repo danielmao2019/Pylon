@@ -53,7 +53,7 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
         length=dataset_info['length'],
         class_labels=dataset_info['class_labels'],
         is_3d=dataset_info['is_3d'],
-        available_transforms=dataset_info['available_transforms']
+        transforms=dataset_info['transforms']
     )
 
     # Create slider marks
@@ -69,16 +69,6 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
     initial_message = html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_info['length']} datapoints. Use the slider to navigate.")
     logger.info("Dataset loaded successfully, returning updated UI components")
 
-    # Get current dataset info
-    dataset_info = registry.viewer.state.get_state()['dataset_info']
-    transforms = dataset_info.get('transforms', [])
-
-    # Update state with new transform
-    registry.viewer.state.update_transforms(transforms)
-
-    # Create updated transforms section
-    transforms_section = create_transforms_section(transforms)
-
     return [
         registry.viewer.state.get_state()['dataset_info'],  # dataset-info
         0,                   # min
@@ -87,7 +77,7 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
         marks,              # marks
         initial_message,    # datapoint-display
         create_dataset_info_display(registry.viewer.state.get_state()['dataset_info']),  # dataset-info-display
-        transforms_section,  # transforms-section
+        create_transforms_section(dataset_info['transforms']),  # transforms-section
     ]
 
 

@@ -26,14 +26,14 @@ class DatasetInfo:
     length: int = 0
     class_labels: Dict[int, str] = None
     is_3d: bool = False
-    available_transforms: List[str] = None
+    transforms: List[Dict[str, Any]] = None
 
     def __post_init__(self):
         """Initialize default values for mutable fields."""
         if self.class_labels is None:
             self.class_labels = {}
-        if self.available_transforms is None:
-            self.available_transforms = []
+        if self.transforms is None:
+            self.transforms = []
 
     def validate(self) -> bool:
         """Validate the dataset information.
@@ -49,7 +49,7 @@ class DatasetInfo:
             return False
         if not isinstance(self.is_3d, bool):
             return False
-        if not isinstance(self.available_transforms, list):
+        if not isinstance(self.transforms, list):
             return False
         return True
 
@@ -250,7 +250,7 @@ class ViewerState:
         self._save_to_history()
     
     def update_dataset_info(self, name: str, length: int, class_labels: Dict[int, str], 
-                          is_3d: bool, available_transforms: List[str] = None) -> None:
+                          is_3d: bool, transforms: List[Dict[str, Any]] = None) -> None:
         """Update the current dataset information.
         
         Args:
@@ -258,7 +258,7 @@ class ViewerState:
             length: Number of datapoints in the dataset
             class_labels: Dictionary mapping class indices to labels
             is_3d: Whether the dataset contains 3D data
-            available_transforms: List of available transforms for the dataset
+            transforms: List of transform info dictionaries
         """
         # Create new dataset info
         new_info = DatasetInfo(
@@ -266,7 +266,7 @@ class ViewerState:
             length=length,
             class_labels=class_labels,
             is_3d=is_3d,
-            available_transforms=available_transforms
+            transforms=transforms or []
         )
 
         # Validate
@@ -280,8 +280,8 @@ class ViewerState:
         self.max_index = length - 1
         self.current_index = 0
         
-        # Reset transforms when dataset changes
-        self.transforms = {transform: False for transform in self.dataset_info.available_transforms}
+        # Initialize transform states
+        self.transforms = {str(i): False for i in range(len(new_info.transforms))}
         
         # Save to history and emit event
         self._save_to_history()
