@@ -5,11 +5,13 @@ from data.viewer.managers.transform_manager import TransformManager
 
 def mock_transform1(data):
     """Mock transform that adds 1 to all elements."""
-    return data + 1
+    data['inputs']['img_1'] = data['inputs']['img_1'] + 1
+    return data
 
 def mock_transform2(data):
     """Mock transform that multiplies all elements by 2."""
-    return data * 2
+    data['inputs']['img_1'] = data['inputs']['img_1'] * 2
+    return data
 
 def mock_failing_transform(data):
     """Mock transform that raises an exception."""

@@ -9,6 +9,7 @@ class TestDatasetCache(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures."""
         self.cache = DatasetCache(max_size=2, max_memory_mb=100)
+        self.test_data = {'data': np.zeros(1000)}  # ~8KB
 
     def test_cache_put_get(self):
         """Test basic put and get operations."""
@@ -67,17 +68,18 @@ class TestDatasetCache(unittest.TestCase):
         self.assertIsNone(self.cache.get(1))
         
     def test_cache_clear(self):
-        """Test cache clear operation."""
-        self.cache.put(1, "test1")
-        self.cache.put(2, "test2")
+        """Test clearing the cache."""
+        # Add some items
+        self.cache.put((0, None), self.test_data)
+        self.cache.put((1, None), self.test_data)
         
+        # Clear cache
         self.cache.clear()
         
-        self.assertIsNone(self.cache.get(1))
-        self.assertIsNone(self.cache.get(2))
-        
+        # Verify cache is empty
         stats = self.cache.get_stats()
+        self.assertEqual(stats['size'], 0)
+        self.assertEqual(stats['memory_bytes'], 0)
         self.assertEqual(stats['hits'], 0)
-        self.assertEqual(stats['misses'], 2)
+        self.assertEqual(stats['misses'], 0)
         self.assertEqual(stats['evictions'], 0)
-        self.assertEqual(stats['memory_usage'], 0) 
