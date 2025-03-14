@@ -55,7 +55,7 @@ class TestTransformManager(unittest.TestCase):
         np.testing.assert_array_equal(result['inputs']['img_1'], expected)
 
         # Test applying multiple transforms
-        result = self.manager.apply_transforms(self.test_data, [1])
+        result = self.manager.apply_transforms(self.test_data, [0, 1])
         expected = np.array([4, 6, 8])  # (Original + 1) * 2
         np.testing.assert_array_equal(result['inputs']['img_1'], expected)
 
