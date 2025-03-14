@@ -7,7 +7,7 @@ from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.controls.transforms import create_transforms_section
-from data.viewer.callbacks.registry import callback
+from data.viewer.callbacks.registry import callback, registry
 
 
 @callback(
@@ -33,7 +33,7 @@ def apply_transforms(transform_values, dataset_info, datapoint_idx):
     ]
 
     # Apply transforms using dataset manager
-    datapoint = viewer.dataset_manager.apply_transforms(dataset_name, datapoint_idx, selected_transforms)
+    datapoint = registry.viewer.dataset_manager.apply_transforms(dataset_name, datapoint_idx, selected_transforms)
     if datapoint is None:
         return html.Div([
             html.H3("Error Applying Transforms", style={'color': 'red'}),
@@ -80,18 +80,18 @@ def update_transforms(selected_transform, transform_params):
 
     try:
         # Get current dataset info
-        dataset_info = viewer.state.get_state()['dataset_info']
+        dataset_info = registry.viewer.state.get_state()['dataset_info']
         available_transforms = dataset_info.get('available_transforms', [])
 
         # Update state with new transform
-        viewer.state.update_transforms(selected_transform, transform_params)
+        registry.viewer.state.update_transforms(selected_transform, transform_params)
 
         # Create updated transforms section
         transforms_section = create_transforms_section(available_transforms)
 
         return (
             transforms_section,
-            viewer.state.get_state()['transforms']
+            registry.viewer.state.get_state()['transforms']
         )
 
     except Exception as e:
@@ -99,4 +99,4 @@ def update_transforms(selected_transform, transform_params):
             html.H3("Error Updating Transforms", style={'color': 'red'}),
             html.P(str(e))
         ])
-        return error_message, viewer.state.get_state()['transforms']
+        return error_message, registry.viewer.state.get_state()['transforms']
