@@ -259,7 +259,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
                 self.cache.put(idx, copy.deepcopy(raw_datapoint))
         
         # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
-        transformed_datapoint = self.transforms(copy.deepcopy(raw_datapoint))
+        transformed_datapoint = self.transforms(raw_datapoint)
         
         # Move to device
         return apply_tensor_op(
