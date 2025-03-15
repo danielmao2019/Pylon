@@ -4,6 +4,16 @@ import psutil
 from data.cache import DatasetCache
 
 
+def calculate_datapoint_memory(datapoint):
+    """Calculate approximate memory usage of a datapoint in bytes."""
+    tensor = datapoint['inputs']['image']
+    # Calculate tensor memory (float32 = 4 bytes)
+    tensor_memory = tensor.numel() * 4  # tensor.element_size() could also be used
+    # Add overhead for Python objects, metadata, etc (conservative estimate)
+    overhead = 1024  # 1KB overhead for dict structure, metadata, etc
+    return tensor_memory + overhead
+
+
 @pytest.fixture
 def cache_with_items(sample_datapoint):
     """Create a cache with initial items."""
@@ -36,10 +46,18 @@ def test_lru_eviction_scenarios(cache_with_items, sample_datapoint,
     for i in access_order:
         cache.get(i)
     
-    # Force eviction by setting low memory limit
-    cache.max_memory_percent = psutil.Process().memory_percent() - 0.1
+    # Calculate memory threshold based on data size
+    item_memory = calculate_datapoint_memory(sample_datapoint)
+    total_items_memory = item_memory * 3  # Memory for 3 items
+    process = psutil.Process()
+    base_memory_percent = process.memory_percent()
     
-    # Add new item to trigger eviction
+    # Set threshold to allow 3 items plus small overhead (10% of item size)
+    memory_overhead = item_memory * 0.1
+    max_memory_percent = base_memory_percent + ((total_items_memory + memory_overhead) / psutil.virtual_memory().total) * 100
+    
+    # Set memory limit and add new item to trigger eviction
+    cache.max_memory_percent = max_memory_percent
     cache.put(3, sample_datapoint)
     
     # Verify evicted items
