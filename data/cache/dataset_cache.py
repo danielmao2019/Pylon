@@ -35,7 +35,7 @@ class DatasetCache:
         self.checksums = {}  # key -> checksum mapping for validation
         self.memory_usage = {}  # key -> memory usage in bytes
         self.total_memory = 0  # Total memory usage in bytes
-        
+
         # Statistics
         self.lock = threading.Lock()
         self.hits = 0
@@ -144,7 +144,7 @@ class DatasetCache:
             self.cache[key] = copied_value
             self.memory_usage[key] = new_item_memory
             self.total_memory += new_item_memory
-            
+
             if self.enable_validation:
                 self.checksums[key] = self._compute_checksum(copied_value)
 
