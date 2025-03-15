@@ -98,7 +98,7 @@ class SiameseKPConvCollator(BaseCollator):
         meta_info_dict = transpose_buffer(datapoints_dict["meta_info"])
         batched_meta_info = {}
         for key, values in meta_info_dict.items():
-            batched_meta_info[key] = self._default_collate(values, "meta_info", key)
+            batched_meta_info[key] = self._default_collate(values=values)
         
         return {
             "inputs": batched_inputs,

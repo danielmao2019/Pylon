@@ -86,9 +86,7 @@ class ChangeStarCollator(BaseCollator):
         # Process meta information
         datapoints["meta_info"] = transpose_buffer(datapoints["meta_info"])
         for key, values in datapoints["meta_info"].items():
-            datapoints["meta_info"][key] = self._default_collate(
-                values=values, key1="meta_info", key2=key,
-            )
+            datapoints["meta_info"][key] = self._default_collate(values=values)
 
         return datapoints
 
@@ -123,8 +121,6 @@ class ChangeStarCollator(BaseCollator):
         # Process meta information
         datapoints["meta_info"] = transpose_buffer(datapoints["meta_info"])
         for key, values in datapoints["meta_info"].items():
-            datapoints["meta_info"][key] = self._default_collate(
-                values=values, key1="meta_info", key2=key,
-            )
+            datapoints["meta_info"][key] = self._default_collate(values=values)
 
         return datapoints
