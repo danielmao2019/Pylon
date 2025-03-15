@@ -30,11 +30,17 @@ class DatasetCache:
         self.max_memory_percent = max_memory_percent
         self.enable_validation = enable_validation
 
+        # Calculate max cache size in bytes based on system memory
+        total_system_memory = psutil.virtual_memory().total
+        self.max_cache_bytes = int((max_memory_percent / 100.0) * total_system_memory)
+
         # Initialize cache structures
-        self.cache = OrderedDict()
-        self.checksums = {}  # Store checksums for validation
-        self.memory_usage = {}  # Track memory usage per item
-        self.total_memory = 0  # Track total memory usage
+        self.cache = OrderedDict()  # LRU cache with key -> value mapping
+        self.checksums = {}  # key -> checksum mapping for validation
+        self.memory_usage = {}  # key -> memory usage in bytes
+        self.total_memory = 0  # Total memory usage in bytes
+        
+        # Statistics
         self.lock = threading.Lock()
         self.hits = 0
         self.misses = 0
@@ -45,7 +51,6 @@ class DatasetCache:
 
     def _compute_checksum(self, value: Dict[str, Any]) -> str:
         """Compute a checksum for a cached item."""
-        # Convert tensors to numpy for consistent hashing
         def prepare_for_hash(item):
             if isinstance(item, torch.Tensor):
                 return item.cpu().numpy().tobytes()
@@ -55,7 +60,6 @@ class DatasetCache:
                 return [prepare_for_hash(x) for x in item]
             return item
 
-        # Prepare data for hashing
         hashable_data = prepare_for_hash(value)
         return hashlib.sha256(str(hashable_data).encode()).hexdigest()
 
@@ -82,10 +86,9 @@ class DatasetCache:
             if key in self.cache:
                 value = self.cache[key]
 
-                # Validate item before returning
                 if self._validate_item(key, value):
                     self.hits += 1
-                    # Update LRU order - move to end (most recently used)
+                    # Update LRU order
                     self.cache.move_to_end(key)
                     self.logger.debug(f"Current LRU order after get({key}): {list(self.cache.keys())}")
                     return copy.deepcopy(value)
@@ -101,9 +104,6 @@ class DatasetCache:
     @staticmethod
     def _calculate_item_memory(value: Dict[str, Any]) -> int:
         """Calculate approximate memory usage of a cached item in bytes."""
-        total_memory = 0
-
-        # Calculate memory for tensors
         def process_item(item):
             if isinstance(item, torch.Tensor):
                 # Calculate tensor memory (size in bytes)
@@ -115,48 +115,44 @@ class DatasetCache:
             return 0  # Other types negligible
 
         memory = process_item(value)
-        # Add overhead for Python objects, metadata, etc
-        overhead = 1024  # 1KB overhead per item
+        overhead = 1024  # 1KB overhead for Python objects
         return memory + overhead
 
     def put(self, key: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache insertion with memory management and checksum computation."""
         with self.lock:
-            # Make a copy of the value and calculate its memory
+            # Make a copy and calculate its memory
             copied_value = copy.deepcopy(value)
             new_item_memory = self._calculate_item_memory(copied_value)
 
             # Remove old entry if it exists
             if key in self.cache:
-                self.logger.debug(f"Removing old entry for key {key}")
                 old_memory = self.memory_usage.pop(key)
                 self.total_memory -= old_memory
                 self.cache.pop(key)
                 self.checksums.pop(key, None)
 
-            # Get current system memory limit in bytes
-            total_system_memory = psutil.virtual_memory().total
-            max_cache_memory = (self.max_memory_percent / 100.0) * total_system_memory
+            # Update max cache size if max_memory_percent was changed
+            if self.max_memory_percent != (self.max_cache_bytes / psutil.virtual_memory().total * 100):
+                old_max = self.max_cache_bytes
+                self.max_cache_bytes = int((self.max_memory_percent / 100.0) * psutil.virtual_memory().total)
 
             # Evict items if needed to stay under memory limit
-            while self.cache and (self.total_memory + new_item_memory > max_cache_memory):
+            while self.cache and (self.total_memory + new_item_memory > self.max_cache_bytes):
                 # Get the least recently used key
                 evict_key = next(iter(self.cache))
                 evicted_memory = self.memory_usage.pop(evict_key)
                 self.total_memory -= evicted_memory
                 self.cache.pop(evict_key)
                 self.checksums.pop(evict_key, None)
-                self.logger.debug(f"Evicted LRU key {evict_key} to free {evicted_memory} bytes")
 
             # Store new item
             self.cache[key] = copied_value
             self.memory_usage[key] = new_item_memory
             self.total_memory += new_item_memory
-
+            
             if self.enable_validation:
                 self.checksums[key] = self._compute_checksum(copied_value)
-
-            self.logger.debug(f"Current LRU order after put({key}): {list(self.cache.keys())}")
 
     def _get_memory_usage(self) -> float:
         """Get current memory usage percentage."""

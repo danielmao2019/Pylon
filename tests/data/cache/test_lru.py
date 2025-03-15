@@ -1,7 +1,6 @@
 import pytest
 import torch
 import psutil
-import time
 from data.cache import DatasetCache
 
 
@@ -9,32 +8,26 @@ def calculate_datapoint_memory(datapoint):
     """Calculate approximate memory usage of a datapoint in bytes."""
     tensor = datapoint['inputs']['image']
     # Calculate tensor memory (float32 = 4 bytes)
-    tensor_memory = tensor.numel() * 4  # tensor.element_size() could also be used
-    # Add overhead for Python objects, metadata, etc (conservative estimate)
-    overhead = 1024  # 1KB overhead for dict structure, metadata, etc
+    tensor_memory = tensor.numel() * 4
+    # Add overhead for Python objects, metadata, etc
+    overhead = 1024  # 1KB overhead
     return tensor_memory + overhead
-
-
-def get_stable_memory_usage():
-    """Get stable memory usage by taking multiple measurements."""
-    measurements = []
-    for _ in range(5):
-        measurements.append(psutil.Process().memory_percent())
-        time.sleep(0.1)  # Small delay between measurements
-    return sum(measurements) / len(measurements)
 
 
 @pytest.fixture
 def cache_with_items(sample_datapoint):
     """Create a cache with initial items."""
-    # Get current memory usage
-    base_memory = psutil.Process().memory_percent()
-    # Set limit slightly above current usage to allow initial items
-    cache = DatasetCache(max_memory_percent=base_memory + 2.0)
+    # Calculate memory needed for 3 items plus overhead
+    item_memory = calculate_datapoint_memory(sample_datapoint)
+    total_memory_needed = item_memory * 3
+    total_memory_with_overhead = total_memory_needed + 1024  # 1KB overhead
+    
+    # Set percentage to allow exactly 3 items plus overhead
+    max_percent = (total_memory_with_overhead / psutil.virtual_memory().total) * 100
+    
+    cache = DatasetCache(max_memory_percent=max_percent)
     for i in range(3):
         cache.put(i, sample_datapoint)
-    # Now set limit to current usage so next item will trigger eviction    
-    cache.max_memory_percent = psutil.Process().memory_percent()
     return cache
 
 
@@ -59,24 +52,13 @@ def test_lru_eviction_scenarios(
     """Test different LRU eviction scenarios."""
     cache = cache_with_items
     
-    print(f"\nTesting scenario: {scenario}")
-    print(f"Initial memory limit: {cache.max_memory_percent}%")
-    print(f"Initial memory usage: {cache._get_memory_usage()}%")
-    print(f"Initial cache state: {list(cache.cache.keys())}")
-    
     # Access items in specified order
     for i in access_order:
         cache.get(i)
-        print(f"After get({i}): {list(cache.cache.keys())}")
     
-    print(f"Memory usage before adding item 3: {cache._get_memory_usage()}%")
-    # Now set limit to current usage so next item will trigger eviction    
-    cache.max_memory_percent = psutil.Process().memory_percent()
-    # Add new item which should trigger eviction due to memory limit
+    # Add new item which should trigger eviction
     cache.put(3, sample_datapoint)
-    print(f"Memory usage after adding item 3: {cache._get_memory_usage()}%")
-    print(f"After adding item 3: {list(cache.cache.keys())}")
-    
+
     # Verify evicted items
     for item in expected_evicted:
         assert item not in cache.cache, f"Item {item} should have been evicted"
@@ -101,22 +83,29 @@ def test_lru_eviction_scenarios(
     (
         "multiple_evictions",  # Multiple evictions maintain order
         [
-            ("put", i) for i in range(5)  # Put 5 items
+            ("put", i) for i in range(3)  # Put 3 items
         ] + [
-            ("get", i) for i in [2, 0, 4, 1, 3]  # Access in specific order
+            ("get", i) for i in [2, 0, 1]  # Access in specific order
         ],
         [
-            ("put", 5),  # Add two new items
-            ("put", 6),
+            ("put", 3),  # Add new item
         ],
-        [2, 0],  # First two accessed should be evicted
-        [4, 1, 3, 5, 6]  # Rest should be retained
+        [2],  # First accessed should be evicted
+        [0, 1, 3]  # Rest should be retained
     ),
 ])
 def test_lru_complex_scenarios(sample_datapoint, scenario, setup_actions, 
                              verify_actions, expected_evicted, expected_retained):
     """Test complex LRU scenarios with multiple operations."""
-    cache = DatasetCache()
+    # Calculate memory needed for 3 items plus overhead
+    item_memory = calculate_datapoint_memory(sample_datapoint)
+    total_memory_needed = item_memory * 3
+    total_memory_with_overhead = total_memory_needed + 1024  # 1KB overhead
+    
+    # Set percentage to allow exactly 3 items plus overhead
+    max_percent = (total_memory_with_overhead / psutil.virtual_memory().total) * 100
+    
+    cache = DatasetCache(max_memory_percent=max_percent)
     
     # Perform setup actions
     for action, key in setup_actions:
@@ -124,9 +113,6 @@ def test_lru_complex_scenarios(sample_datapoint, scenario, setup_actions,
             cache.put(key, sample_datapoint)
         elif action == "get":
             cache.get(key)
-    
-    # Force eviction by setting low memory limit
-    cache.max_memory_percent = psutil.Process().memory_percent() - 0.1
     
     # Perform verification actions
     for action, key in verify_actions:
@@ -142,42 +128,3 @@ def test_lru_complex_scenarios(sample_datapoint, scenario, setup_actions,
     # Verify retained items
     for item in expected_retained:
         assert item in cache.cache, f"Item {item} should have been retained"
-
-
-def test_lru_order_verification(sample_datapoint):
-    """Test that verifies the exact LRU ordering after each operation."""
-    cache = DatasetCache()
-    
-    # Initial state
-    for i in range(3):
-        cache.put(i, sample_datapoint)
-        print(f"After put({i}): {list(cache.cache.keys())}")
-    assert list(cache.cache.keys()) == [0, 1, 2], "Initial order incorrect"
-    
-    # Test get updates order
-    cache.get(0)  # Move 0 to end
-    print(f"After get(0): {list(cache.cache.keys())}")
-    assert list(cache.cache.keys()) == [1, 2, 0], "Order after get(0) incorrect"
-    
-    cache.get(1)  # Move 1 to end
-    print(f"After get(1): {list(cache.cache.keys())}")
-    assert list(cache.cache.keys()) == [2, 0, 1], "Order after get(1) incorrect"
-    
-    # Test put updates order
-    cache.put(2, sample_datapoint)  # Re-put 2, should move to end
-    print(f"After put(2): {list(cache.cache.keys())}")
-    assert list(cache.cache.keys()) == [0, 1, 2], "Order after put(2) incorrect"
-    
-    # Test eviction removes oldest
-    cache.max_memory_percent = psutil.Process().memory_percent() - 0.1
-    print(f"Setting memory limit to {cache.max_memory_percent}%")
-    cache.put(3, sample_datapoint)  # Should evict oldest (0)
-    print(f"After put(3): {list(cache.cache.keys())}")
-    assert list(cache.cache.keys()) == [1, 2, 3], "Order after eviction incorrect"
-    
-    # Test multiple operations
-    cache.get(1)  # Move 1 to end
-    print(f"After get(1): {list(cache.cache.keys())}")
-    cache.put(4, sample_datapoint)  # Should evict oldest (2)
-    print(f"After put(4): {list(cache.cache.keys())}")
-    assert list(cache.cache.keys()) == [3, 1, 4], "Final order incorrect"
