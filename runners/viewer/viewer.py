@@ -4,6 +4,7 @@ import dash
 from runners.viewer.states.trainer import TrainingState
 from runners.viewer.layout.main import create_main_layout
 from runners.viewer.callbacks.navigation import register_navigation_callbacks
+from utils.automation.cfg_log_conversion import get_work_dir
 
 
 class TrainerViewer:
@@ -29,20 +30,14 @@ class TrainerViewer:
         """Modify work directory to use viewer subdirectory.
         
         Example:
-            Input:  ./logs/benchmarks/exp001/config.yaml
-            Output: ./logs/viewer/exp001
+            Input:  ./configs/reproduce/change_detection/xxx/config.py
+            Output: ./logs/viewer/change_detection/xxx
         """
-        # Get the parent directory of the config file
-        config_dir = config_path.parent
-        
-        # Split the path into parts
-        parts = config_dir.parts
-        
-        # Find the 'logs' directory in the path
-        logs_idx = parts.index('logs')
-        # Replace the directory after 'logs' with 'viewer'
-        new_parts = parts[:logs_idx+1] + ('viewer',) + parts[logs_idx+2:]
-        return Path(*new_parts)
+        # Get the corresponding work directory
+        work_dir = Path(get_work_dir(str(config_path)))
+        # Replace the second directory with 'viewer'
+        parts = work_dir.parts
+        return Path(*parts[:2]) / 'viewer' / Path(*parts[2:])
     
     def run(self, host: str = "localhost", port: int = 8050, debug: bool = True):
         """Start the Dash server."""
