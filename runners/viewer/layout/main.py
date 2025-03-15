@@ -7,11 +7,20 @@ def create_main_layout():
         # Header
         html.H1("Training Viewer", style={'textAlign': 'center'}),
         
-        # Navigation buttons
+        # Training iteration navigation
         html.Div([
-            html.Button("Previous", id="btn-prev", n_clicks=0),
-            html.Button("Next", id="btn-next", n_clicks=0),
-            html.Div(id="iteration-display", children="Iteration: 0")
+            html.H3("Training Iteration Control"),
+            html.Button("Previous", id="btn-prev-iter", n_clicks=0),
+            html.Button("Next", id="btn-next-iter", n_clicks=0),
+            html.Div(id="iteration-display", children="Training Iteration: 0")
+        ], style={'textAlign': 'center', 'margin': '20px'}),
+        
+        # Sample navigation
+        html.Div([
+            html.H3("Sample Navigation"),
+            html.Button("Previous", id="btn-prev-sample", n_clicks=0),
+            html.Button("Next", id="btn-next-sample", n_clicks=0),
+            html.Div(id="sample-display", children="Sample: 0")
         ], style={'textAlign': 'center', 'margin': '20px'}),
         
         # Image displays
