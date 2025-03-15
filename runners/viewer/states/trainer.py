@@ -6,6 +6,8 @@ import utils.determinism
 import importlib.util
 from utils.automation.cfg_log_conversion import get_work_dir, get_repo_root
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from runners.multi_val_dataset_trainer import MultiValDatasetTrainer
+from runners.gan_trainers.gan_trainer import GANTrainer
 
 
 class TrainingState:
@@ -17,17 +19,21 @@ class TrainingState:
 
         # Load config and initialize trainer
         self.config = self._load_config()
-        self.trainer = SupervisedSingleTaskTrainer(config=self.config, device=self.device)
         
-        # Initialize trainer components through the trainer
-        self.trainer._init_logger()
-        self.trainer._init_determinism_()
-        self.trainer._init_dataloaders_()
-        self.trainer._init_model_()
-        self.trainer._init_criterion_()
-        self.trainer._init_optimizer_()
-        self.trainer._init_scheduler_()
-        self.trainer._init_state_()
+        # Determine trainer type from config
+        trainer_type = self.config.get('trainer_type', 'supervised_single_task')
+        trainer_map = {
+            'supervised_single_task': SupervisedSingleTaskTrainer,
+            'multi_val_dataset': MultiValDatasetTrainer,
+            'gan': GANTrainer
+        }
+        trainer_cls = trainer_map.get(trainer_type)
+        if trainer_cls is None:
+            raise ValueError(f"Unknown trainer type: {trainer_type}")
+            
+        # Initialize trainer and components
+        self.trainer = trainer_cls(config=self.config, device=self.device)
+        self.trainer._init_components_()
         
         # Store references to trainer components we need
         self.model = self.trainer.model
