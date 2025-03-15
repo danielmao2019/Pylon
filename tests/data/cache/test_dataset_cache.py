@@ -77,10 +77,10 @@ def test_cache_memory_management():
     num_channels = 3  # RGB images
     memory_threshold = 0.01  # 0.01% increase target
     
-    # Calculate required iterations (add 1 for safety)
+    # Calculate required iterations (add 3 for safety)
     tensor_bytes = tensor_dim * tensor_dim * num_channels * 4  # 4 bytes per float32
     threshold_bytes = psutil.virtual_memory().total * (memory_threshold / 100)
-    required_iterations = int(threshold_bytes / tensor_bytes) + 1
+    required_iterations = int(threshold_bytes / tensor_bytes) + 3
     
     # Initialize cache with memory limit
     initial_memory = psutil.Process().memory_percent()
@@ -90,7 +90,7 @@ def test_cache_memory_management():
     tensors = []
     start_memory = psutil.Process().memory_percent()
     
-    for iteration in range(required_iterations + 2):  # +2 to ensure we exceed threshold
+    for iteration in range(required_iterations):
         # Create and store tensor
         tensor = torch.randn(num_channels, tensor_dim, tensor_dim, dtype=torch.float32)
         tensors.append(tensor)  # Keep reference to prevent garbage collection
