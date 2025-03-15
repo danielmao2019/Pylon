@@ -240,30 +240,31 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         raise NotImplementedError("[ERROR] _load_datapoint not implemented for abstract base class.")
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
+        # Try to get raw datapoint from cache first
+        raw_datapoint = None
         if self.cache is not None:
-            cached_item = self.cache.get(idx)
-            if cached_item is not None:
-                return apply_tensor_op(
-                    func=lambda x: x.to(self.device), 
-                    inputs=cached_item
-                )
-        
-        # Load and process item
-        inputs, labels, meta_info = self._load_datapoint(idx)
-        datapoint = {
-            'inputs': inputs,
-            'labels': labels,
-            'meta_info': meta_info,
-        }
-        datapoint = self.transforms(datapoint)
-        
-        # Cache the processed item
-        if self.cache is not None:
-            self.cache.put(idx, copy.deepcopy(datapoint))
+            raw_datapoint = self.cache.get(idx)
             
+        # If not in cache, load from disk and cache it
+        if raw_datapoint is None:
+            # Load raw datapoint
+            inputs, labels, meta_info = self._load_datapoint(idx)
+            raw_datapoint = {
+                'inputs': inputs,
+                'labels': labels,
+                'meta_info': meta_info,
+            }
+            # Cache the raw datapoint
+            if self.cache is not None:
+                self.cache.put(idx, copy.deepcopy(raw_datapoint))
+        
+        # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
+        transformed_datapoint = self.transforms(copy.deepcopy(raw_datapoint))
+        
+        # Move to device
         return apply_tensor_op(
             func=lambda x: x.to(self.device), 
-            inputs=datapoint
+            inputs=transformed_datapoint
         )
 
     def visualize(self, output_dir: str) -> None:
