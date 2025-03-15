@@ -6,11 +6,11 @@ import json
 import utils.determinism
 import importlib.util
 import sys
+from utils.automation.cfg_log_conversion import get_work_dir, get_repo_root
 
 
 class TrainingState:
-    def __init__(self, work_dir: Path, config_path: Path):
-        self.work_dir = work_dir
+    def __init__(self, config_path: Path):
         self.config_path = config_path
         self.current_iteration = 0
         self.class_colors = self._get_default_colors()
@@ -22,22 +22,24 @@ class TrainingState:
         self._init_trainer()
         
     def _load_config(self):
-        """Load config from Python file.
-        
-        The config file should contain a dictionary named 'config'.
-        Example:
-            Input: /path/to/configs/reproduce/change_detection/xxx/config.py
-        """
+        """Load config from Python file and modify work_dir for viewer."""
         # Load the config module
         spec = importlib.util.spec_from_file_location("config_file", self.config_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         
-        # Get the config dictionary and return a copy
+        # Get the config dictionary
         config = module.config
         
-        # Modify work_dir to use viewer subdirectory
-        config['work_dir'] = str(self.work_dir)
+        # Get the corresponding work directory using repo root
+        work_dir = Path(get_work_dir(str(self.config_path)))
+        # Get relative path from repo root
+        rel_path = work_dir.relative_to(get_repo_root() / 'logs')
+        # Construct new path with 'viewer' as second directory
+        viewer_work_dir = get_repo_root() / 'logs' / 'viewer' / rel_path
+        
+        # Update config with viewer work directory
+        config['work_dir'] = str(viewer_work_dir)
         
         return config
     
