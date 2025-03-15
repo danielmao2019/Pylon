@@ -18,9 +18,15 @@ class DatasetCache:
     ):
         """
         Args:
-            max_memory_percent (float): Maximum percentage of system memory to use
+            max_memory_percent (float): Maximum percentage of system memory to use (0-100)
             enable_validation (bool): Whether to enable checksum validation
+            
+        Raises:
+            ValueError: If max_memory_percent is not between 0 and 100
         """
+        if not 0 <= max_memory_percent <= 100:
+            raise ValueError(f"max_memory_percent must be between 0 and 100, got {max_memory_percent}")
+            
         self.max_memory_percent = max_memory_percent
         self.enable_validation = enable_validation
         
