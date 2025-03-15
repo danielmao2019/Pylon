@@ -1,5 +1,14 @@
 import argparse
+import os
+import sys
+
+# Add repository root to Python path
+repo_root = os.path.abspath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+
 from runners.viewer import TrainerViewer
+
 
 def main():
     parser = argparse.ArgumentParser(description="Training Visualization Tool")
@@ -32,6 +41,7 @@ def main():
     # Initialize and run the viewer
     viewer = TrainerViewer(args.config_filepath)
     viewer.run(host=args.host, port=args.port, debug=args.debug)
+
 
 if __name__ == "__main__":
     main()
