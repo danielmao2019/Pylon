@@ -2,15 +2,15 @@ import pytest
 import torch
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def sample_tensor():
     """Create a sample tensor for testing."""
     return torch.randn(3, 64, 64)
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def sample_datapoint(sample_tensor):
-    """Create a sample datapoint structure that mimics real dataset items."""
+    """Create a sample datapoint structure for testing."""
     return {
         'inputs': {'image': sample_tensor},
         'labels': {'class': torch.tensor([1])},
