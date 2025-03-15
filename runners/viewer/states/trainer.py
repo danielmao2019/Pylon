@@ -8,7 +8,8 @@ from utils.automation.cfg_log_conversion import get_work_dir, get_repo_root
 class TrainingState:
     def __init__(self, config_path: Path):
         self.config_path = config_path
-        self.current_iteration = 0
+        self.current_batch_idx = 0
+        self.current_sample_idx = 0
         self.class_colors = self._get_default_colors()
         self.device = torch.device('cuda')
 
@@ -25,6 +26,9 @@ class TrainingState:
         self.criterion = self.trainer.criterion
         self.optimizer = self.trainer.optimizer
         self.scheduler = self.trainer.scheduler
+        
+        # Initialize first batch
+        self._load_current_batch()
 
     def _load_config(self):
         """Load config from Python file and modify work_dir for viewer."""
@@ -58,13 +62,16 @@ class TrainingState:
 
         return config
 
-    def get_current_data(self):
-        """Get data for current iteration."""
-        if not hasattr(self, 'current_batch'):
-            # Get first batch
-            self.current_batch = next(iter(self.train_dataloader))
-
-        # Create data point dictionary without device transfer
+    def _load_current_batch(self):
+        """Load the current batch based on current_batch_idx."""
+        # Convert dataloader to list for random access
+        if not hasattr(self, '_batches'):
+            self._batches = list(self.train_dataloader)
+        
+        # Get current batch
+        self.current_batch = self._batches[self.current_batch_idx]
+        
+        # Create data point dictionary
         dp = {
             'inputs': self.current_batch['inputs'],
             'labels': self.current_batch['labels']
@@ -72,25 +79,71 @@ class TrainingState:
 
         # Use trainer's train step
         self.trainer._train_step_(dp)
+        
+        # Store processed outputs
+        self.current_outputs = dp['outputs']
 
+    def get_current_data(self):
+        """Get data for current sample in current batch."""
         # Convert tensors to numpy for visualization
         return {
-            'input1': self.current_batch['inputs']['img_1'].cpu().numpy(),
-            'input2': self.current_batch['inputs']['img_2'].cpu().numpy(),
-            'pred': dp['outputs']['logits'].argmax(dim=1).cpu().numpy(),
-            'gt': self.current_batch['labels']['change_map'].cpu().numpy()
+            'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),
+            'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),
+            'pred': self.current_outputs['logits'][self.current_sample_idx].argmax(dim=0).cpu().numpy(),
+            'gt': self.current_batch['labels']['change_map'][self.current_sample_idx].cpu().numpy()
         }
 
-    def next_iteration(self):
-        """Move to next iteration if available."""
-        try:
-            self.current_batch = next(iter(self.train_dataloader))
-            self.current_iteration += 1
-            return self.current_iteration
-        except StopIteration:
-            # Reset dataloader iterator
-            self.train_dataloader = iter(self.train_dataloader)
-            return self.current_iteration
+    def next_batch(self):
+        """Move to next batch if available."""
+        if not hasattr(self, '_batches'):
+            self._load_current_batch()
+            return 0
+
+        next_idx = (self.current_batch_idx + 1) % len(self._batches)
+        if next_idx != self.current_batch_idx:
+            self.current_batch_idx = next_idx
+            self.current_sample_idx = 0  # Reset sample index for new batch
+            self._load_current_batch()
+        return self.current_batch_idx
+
+    def prev_batch(self):
+        """Move to previous batch if available."""
+        if not hasattr(self, '_batches'):
+            self._load_current_batch()
+            return 0
+
+        next_idx = (self.current_batch_idx - 1) % len(self._batches)
+        if next_idx != self.current_batch_idx:
+            self.current_batch_idx = next_idx
+            self.current_sample_idx = 0  # Reset sample index for new batch
+            self._load_current_batch()
+        return self.current_batch_idx
+
+    def next_sample(self):
+        """Move to next sample in current batch if available."""
+        batch_size = len(self.current_batch['inputs']['img_1'])
+        next_idx = (self.current_sample_idx + 1) % batch_size
+        if next_idx != self.current_sample_idx:
+            self.current_sample_idx = next_idx
+        return self.current_sample_idx
+
+    def prev_sample(self):
+        """Move to previous sample in current batch if available."""
+        batch_size = len(self.current_batch['inputs']['img_1'])
+        next_idx = (self.current_sample_idx - 1) % batch_size
+        if next_idx != self.current_sample_idx:
+            self.current_sample_idx = next_idx
+        return self.current_sample_idx
+
+    def get_navigation_info(self):
+        """Get current navigation state."""
+        batch_size = len(self.current_batch['inputs']['img_1'])
+        return {
+            'current_batch': self.current_batch_idx,
+            'total_batches': len(self._batches) if hasattr(self, '_batches') else 1,
+            'current_sample': self.current_sample_idx,
+            'batch_size': batch_size
+        }
 
     def _get_default_colors(self):
         """Return default color mapping for visualization."""
