@@ -132,9 +132,33 @@ class TrainingState:
         }
 
     def class_to_rgb(self, class_indices):
-        """Convert class indices to RGB values."""
-        rgb = np.zeros((*class_indices.shape, 3), dtype=np.uint8)
+        """Convert class indices to RGB values.
+        
+        Args:
+            class_indices: Tensor or array of shape (H, W) containing class indices,
+                         or (C, H, W) containing class probabilities
+        
+        Returns:
+            numpy array of shape (H, W, 3) containing RGB values
+        """
+        # Convert to numpy if needed
+        if isinstance(class_indices, torch.Tensor):
+            class_indices = class_indices.cpu().numpy()
+            
+        # Handle multi-channel input (C, H, W) by taking argmax along channel dimension
+        if class_indices.ndim == 3 and class_indices.shape[0] != 3:  # Exclude RGB inputs
+            class_indices = np.argmax(class_indices, axis=0)
+            
+        # Ensure 2D input
+        if class_indices.ndim != 2:
+            raise ValueError(f"Expected 2D array of class indices, got shape {class_indices.shape}")
+            
+        # Create empty RGB image
+        height, width = class_indices.shape
+        rgb = np.zeros((height, width, 3), dtype=np.uint8)
+        
+        # Map each class index to its RGB color
         for class_idx, color in self.class_colors.items():
-            mask = class_indices == class_idx
-            rgb[mask] = color
+            rgb[class_indices == class_idx] = color
+            
         return rgb
