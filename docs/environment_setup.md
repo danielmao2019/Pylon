@@ -1,31 +1,92 @@
-# Environment Setup
+# Environment Setup Guide
 
+## Overview
+This document outlines the setup process for the Pylon development environment. The environment is built using Conda for package management and includes dependencies for machine learning, computer vision, and related tools.
+
+## System Requirements
+- Python 3.10
+- CUDA 11.8 compatible GPU (for PyTorch GPU acceleration)
+
+## Installation Steps
+
+### 1. Conda Environment Setup
+First, ensure you have the latest version of Conda and create a new environment:
 ```bash
+# Update Conda to latest version
 conda update -n base -c defaults conda -y
+
+# Create and activate new environment
 conda create --name Pylon python=3.10 -y
 conda activate Pylon
+
+# Update pip to latest version
 pip install --upgrade pip
+```
+
+### 2. Deep Learning Framework
+Install PyTorch and related packages:
+```bash
+# Install PyTorch with CUDA support
 conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia -y
+
+# Install MMEngine and related components
 pip install -U openmim
 mim install mmengine mmcv==2.0.0 mmdet==3.0.0
 pip install mmsegmentation==1.2.2
+```
 
-# Scientific and ML packages
-conda install scipy scikit-learn scikit-image timm einops -c conda-forge -y
+### 3. Core Dependencies
 
-# Computer vision packages
-conda install opencv pycocotools rasterio imageio -c conda-forge -y
+#### Scientific and Machine Learning
+```bash
+conda install -c conda-forge -y \
+    scipy \
+    scikit-learn \
+    scikit-image \
+    timm \
+    einops
+```
 
-# Visualization and plotting
-conda install matplotlib dash plotly pandas tqdm -c conda-forge -y
+#### Computer Vision
+```bash
+conda install -c conda-forge -y \
+    opencv \
+    pycocotools \
+    rasterio \
+    imageio
+```
 
-# System utilities
-conda install psutil -c conda-forge -y
+#### Visualization and Data Analysis
+```bash
+conda install -c conda-forge -y \
+    matplotlib \
+    dash \
+    plotly \
+    pandas \
+    tqdm
+```
 
-# Testing and development
-conda install pytest -c conda-forge -y
+#### System Utilities
+```bash
+conda install -c conda-forge -y psutil
+```
 
-# Text and file processing
-conda install ftfy regex plyfile -c conda-forge -y
-pip install fvcore triton jsbeautifier
+#### Development and Testing
+```bash
+conda install -c conda-forge -y pytest
+```
+
+#### Text and File Processing
+```bash
+# Conda packages
+conda install -c conda-forge -y \
+    ftfy \
+    regex \
+    plyfile
+
+# Pip packages
+pip install \
+    fvcore \
+    triton \
+    jsbeautifier
 ```
