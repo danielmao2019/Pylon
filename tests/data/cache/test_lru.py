@@ -1,6 +1,7 @@
 import pytest
 import torch
 import psutil
+import time
 from data.cache import DatasetCache
 
 
@@ -14,10 +15,20 @@ def calculate_datapoint_memory(datapoint):
     return tensor_memory + overhead
 
 
+def get_stable_memory_usage():
+    """Get stable memory usage by taking multiple measurements."""
+    measurements = []
+    for _ in range(5):
+        measurements.append(psutil.Process().memory_percent())
+        time.sleep(0.1)  # Small delay between measurements
+    return sum(measurements) / len(measurements)
+
+
 @pytest.fixture
 def cache_with_items(sample_datapoint):
     """Create a cache with initial items."""
-    cache = DatasetCache()
+    # Start with a low memory limit
+    cache = DatasetCache(max_memory_percent=psutil.Process().memory_percent())
     for i in range(3):
         cache.put(i, sample_datapoint)
     return cache
@@ -42,23 +53,17 @@ def test_lru_eviction_scenarios(cache_with_items, sample_datapoint,
     """Test different LRU eviction scenarios."""
     cache = cache_with_items
     
+    print(f"\nTesting scenario: {scenario}")
+    print(f"Initial cache state: {list(cache.cache.keys())}")
+    
     # Access items in specified order
     for i in access_order:
         cache.get(i)
+        print(f"After get({i}): {list(cache.cache.keys())}")
     
-    # Calculate memory threshold based on data size
-    item_memory = calculate_datapoint_memory(sample_datapoint)
-    total_items_memory = item_memory * 3  # Memory for 3 items
-    process = psutil.Process()
-    base_memory_percent = process.memory_percent()
-    
-    # Set threshold to allow 3 items plus small overhead (10% of item size)
-    memory_overhead = item_memory * 0.1
-    max_memory_percent = base_memory_percent + ((total_items_memory + memory_overhead) / psutil.virtual_memory().total) * 100
-    
-    # Set memory limit and add new item to trigger eviction
-    cache.max_memory_percent = max_memory_percent
+    # Add new item which should trigger eviction due to memory limit
     cache.put(3, sample_datapoint)
+    print(f"After adding item 3: {list(cache.cache.keys())}")
     
     # Verify evicted items
     for item in expected_evicted:
