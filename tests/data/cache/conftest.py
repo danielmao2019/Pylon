@@ -1,6 +1,7 @@
 import pytest
 import torch
 import psutil
+import copy
 from data.cache import DatasetCache
 
 
@@ -50,10 +51,13 @@ def three_item_cache(sample_datapoint):
 
 @pytest.fixture
 def cache_with_items(three_item_cache, sample_datapoint):
-    """Create a cache pre-populated with 3 items."""
-    cache = three_item_cache
+    """Create a cache pre-populated with 3 items.
+    
+    Returns a new copy of the cache to ensure test isolation.
+    """
+    cache = copy.deepcopy(three_item_cache)
     for i in range(3):
-        cache.put(i, sample_datapoint)
+        cache.put(i, copy.deepcopy(sample_datapoint))
     return cache
 
 
