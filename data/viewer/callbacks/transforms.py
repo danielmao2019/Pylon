@@ -2,10 +2,8 @@
 from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State, ALL, html
 from dash.exceptions import PreventUpdate
-import traceback
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
-from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.callbacks.registry import callback, registry
 
