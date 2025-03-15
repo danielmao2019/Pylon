@@ -17,7 +17,7 @@ class TrainerViewer:
         self.work_dir.mkdir(parents=True, exist_ok=True)
         
         # Initialize state
-        self.state = TrainingState()
+        self.state = TrainingState(self.work_dir)
         
         # Initialize Dash app
         self.app = dash.Dash(__name__)
