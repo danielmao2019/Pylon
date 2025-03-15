@@ -29,12 +29,12 @@ def register_navigation_callbacks(app, state):
         data = state.get_current_data()
         
         # Create figures
-        input1_fig = create_image_figure(data["input1"][0].transpose(1, 2, 0))
-        input2_fig = create_image_figure(data["input2"][0].transpose(1, 2, 0))
+        input1_fig = create_image_figure(data["input1"].transpose(1, 2, 0))
+        input2_fig = create_image_figure(data["input2"].transpose(1, 2, 0))
         
         # Convert predictions and ground truth to RGB
-        pred_rgb = state.class_to_rgb(data["pred"][0])
-        gt_rgb = state.class_to_rgb(data["gt"][0])
+        pred_rgb = state.class_to_rgb(data["pred"])
+        gt_rgb = state.class_to_rgb(data["gt"])
         
         pred_fig = create_image_figure(pred_rgb / 255.0)
         gt_fig = create_image_figure(gt_rgb / 255.0)
