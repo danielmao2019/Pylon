@@ -75,8 +75,8 @@ class TrainingState:
 
         # Convert tensors to numpy for visualization
         return {
-            'input1': self.current_batch['inputs']['image1'].cpu().numpy(),
-            'input2': self.current_batch['inputs']['image2'].cpu().numpy(),
+            'input1': self.current_batch['inputs']['img_1'].cpu().numpy(),
+            'input2': self.current_batch['inputs']['img_2'].cpu().numpy(),
             'pred': dp['outputs']['logits'].argmax(dim=1).cpu().numpy(),
             'gt': self.current_batch['labels']['change_map'].cpu().numpy()
         }
