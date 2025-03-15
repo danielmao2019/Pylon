@@ -20,7 +20,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         assert 'optimizer' in self.config, f"{self.config.keys()=}"
         # initialize optimizer
         optimizer_config = self.config['optimizer']
-        optimizer_config['args']['optimizer_config']['args']['params'] = self.model.parameters()
+        optimizer_config['args']['optimizer_config']['args']['params'] = list(self.model.parameters())
         self.optimizer = utils.builders.build_from_config(optimizer_config)
 
     def _init_scheduler_(self):
