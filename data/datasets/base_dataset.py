@@ -243,6 +243,3 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             datapoint = copy.deepcopy(self.cache[idx])
         datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=datapoint)
         return datapoint
-
-    def visualize(self, output_dir: str) -> None:
-        raise NotImplementedError("Class method 'visualize' not implemented.")
