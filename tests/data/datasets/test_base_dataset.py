@@ -5,7 +5,7 @@ from data.datasets.base_dataset import BaseDataset
 from utils.ops import buffer_equal
 
 
-class TestDataset(BaseDataset):
+class SampleDataset(BaseDataset):
 
     SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
     INPUT_NAMES = ['input']
@@ -39,7 +39,7 @@ def test_base_dataset_None(
     indices: Optional[Dict[str, List[int]]],
     expected: Dict[str, List[int]],
 ) -> None:
-    dataset = TestDataset(split=None, indices=indices)
+    dataset = SampleDataset(split=None, indices=indices)
     assert dataset.split is None and not hasattr(dataset, 'split_percentage')
     assert not hasattr(dataset, 'indices') and hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
@@ -68,7 +68,7 @@ def test_base_dataset_tuple(
     split: Tuple[float, ...],
     expected: Dict[str, int],
 ) -> None:
-    dataset = TestDataset(split=split, indices=None)
+    dataset = SampleDataset(split=split, indices=None)
     assert not hasattr(dataset, 'split') and type(dataset.split_percentages) == tuple
     assert not hasattr(dataset, 'indices') and not hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
@@ -91,8 +91,8 @@ def test_base_dataset_tuple(
 
 def test_base_dataset_cache():
     # check dataset
-    dataset_cached = TestDataset(split='train', indices=list(range(10)), use_cache=True)
-    dataset = TestDataset(split='train', indices=list(range(10)), use_cache=False)
+    dataset_cached = SampleDataset(split='train', indices=list(range(10)), use_cache=True)
+    dataset = SampleDataset(split='train', indices=list(range(10)), use_cache=False)
     assert len(dataset_cached) == len(dataset) == 10
     for _ in range(2):
         for idx in range(10):
