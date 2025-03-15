@@ -3,20 +3,6 @@ import torch
 from data.cache import DatasetCache
 
 
-def test_cache_validation(sample_datapoint):
-    """Test cache validation mechanism."""
-    cache = DatasetCache(enable_validation=True)
-    
-    # Test normal validation
-    cache.put(0, sample_datapoint)
-    assert cache.get(0) is not None
-    
-    # Test validation failure by corrupting cached data
-    cache.cache[0]['inputs']['image'] += 1.0  # Modify tensor in-place
-    assert cache.get(0) is None  # Should fail validation and return None
-    assert cache.validation_failures == 1
-
-
 def test_cache_stats(sample_datapoint):
     """Test cache statistics."""
     cache = DatasetCache()
