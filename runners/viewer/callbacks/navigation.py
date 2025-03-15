@@ -1,4 +1,4 @@
-from dash import Input, Output
+from dash import Input, Output, ctx
 import plotly.graph_objects as go
 
 
@@ -13,12 +13,11 @@ def register_navigation_callbacks(app, state):
          Input("btn-next", "n_clicks")]
     )
     def update_iteration(prev_clicks, next_clicks):
-        # Determine which button was clicked
-        ctx = app.callback_context
+        # Determine which button was clicked using the new ctx module
         if not ctx.triggered:
             button_id = None
         else:
-            button_id = ctx.triggered[0]["prop_id"].split(".")[0]
+            button_id = ctx.triggered_id
         
         # Update iteration based on button click
         if button_id == "btn-next":
