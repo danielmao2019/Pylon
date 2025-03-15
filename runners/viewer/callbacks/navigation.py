@@ -76,8 +76,18 @@ def register_navigation_callbacks(app, state):
             # Convert predictions and ground truth to RGB
             pred_rgb = state.class_to_rgb(data["pred"])
             gt_rgb = state.class_to_rgb(data["gt"])
-            pred_array = tensor_to_image(pred_rgb / 255.0)
-            gt_array = tensor_to_image(gt_rgb / 255.0)
+            
+            # Handle RGB tensors properly
+            if isinstance(pred_rgb, torch.Tensor):
+                pred_rgb = pred_rgb.permute(1, 2, 0)  # (C, H, W) -> (H, W, C)
+                gt_rgb = gt_rgb.permute(1, 2, 0)
+            elif isinstance(pred_rgb, np.ndarray):
+                pred_rgb = np.transpose(pred_rgb, (1, 2, 0))
+                gt_rgb = np.transpose(gt_rgb, (1, 2, 0))
+                
+            # Normalize to [0, 1] range
+            pred_array = pred_rgb.float() / 255.0 if isinstance(pred_rgb, torch.Tensor) else pred_rgb / 255.0
+            gt_array = gt_rgb.float() / 255.0 if isinstance(gt_rgb, torch.Tensor) else gt_rgb / 255.0
             
             # Create figures
             input1_fig = create_image_figure(input1_array, title="Input Image 1")
