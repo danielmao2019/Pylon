@@ -1,14 +1,81 @@
 import numpy as np
+from pathlib import Path
+import torch
+from utils.builders import build_from_config
+import json
+import utils.determinism
 
 
 class TrainingState:
-    def __init__(self):
+    def __init__(self, work_dir: Path):
+        self.work_dir = work_dir
         self.current_iteration = 0
-        self.max_iteration = 100  # TODO: Get from actual training data
         self.class_colors = self._get_default_colors()
+        self.device = torch.device('cuda')
         
-        # Temporary: Create dummy data for testing
-        self._create_dummy_data()
+        # Load config and initialize trainer components
+        self.config = self._load_config()
+        self._init_determinism()
+        self._init_trainer()
+        
+    def _load_config(self):
+        """Load config from the work directory."""
+        config_path = self.work_dir / 'config.json'
+        if not config_path.exists():
+            raise FileNotFoundError(f"Config file not found at {config_path}")
+        with open(config_path) as f:
+            return json.load(f)
+    
+    def _init_determinism(self):
+        """Initialize determinism settings."""
+        utils.determinism.set_determinism()
+        if 'init_seed' in self.config:
+            utils.determinism.set_seed(seed=self.config['init_seed'])
+    
+    def _init_trainer(self):
+        """Initialize trainer components."""
+        # Initialize model
+        if self.config.get('model', None):
+            self.model = build_from_config(self.config['model'])
+            self.model = self.model.to(self.device)
+            self.model.train()  # Set to training mode
+        else:
+            self.model = None
+            
+        # Initialize training dataloader
+        if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
+            train_dataset = build_from_config(self.config['train_dataset'])
+            self.train_dataloader = build_from_config(
+                dataset=train_dataset,
+                shuffle=True,
+                config=self.config['train_dataloader']
+            )
+        else:
+            self.train_dataloader = None
+            
+        # Initialize criterion
+        if self.config.get('criterion', None):
+            self.criterion = build_from_config(self.config['criterion'])
+            self.criterion = self.criterion.to(self.device)
+        else:
+            self.criterion = None
+            
+        # Initialize optimizer
+        if self.config.get('optimizer', None) and self.model:
+            self.optimizer = build_from_config(
+                params=self.model.parameters(),
+                config=self.config['optimizer']
+            )
+        else:
+            self.optimizer = None
+            
+        # Initialize scheduler
+        if self.config.get('scheduler', None) and self.optimizer:
+            scheduler_cfg = self.config['scheduler']
+            scheduler_cfg['args']['optimizer'] = self.optimizer
+            self.scheduler = build_from_config(scheduler_cfg)
+        else:
+            self.scheduler = None
     
     def _get_default_colors(self):
         """Return default color mapping for visualization."""
@@ -19,34 +86,46 @@ class TrainingState:
             3: [0, 0, 255],    # Change class 3 (blue)
         }
     
-    def _create_dummy_data(self):
-        """Create dummy data for testing."""
-        # This is temporary and will be replaced with actual data loading
-        self.dummy_data = {
-            'input1': np.random.rand(1, 3, 64, 64),
-            'input2': np.random.rand(1, 3, 64, 64),
-            'pred': np.random.randint(0, 4, (1, 64, 64)),
-            'gt': np.random.randint(0, 4, (1, 64, 64))
-        }
-    
     def get_current_data(self):
         """Get data for current iteration."""
-        # TODO: Implement actual data loading
-        return self.dummy_data
+        if not hasattr(self, 'current_batch'):
+            # Get first batch
+            self.current_batch = next(iter(self.train_dataloader))
+            
+        # Move batch to device
+        inputs = {k: v.to(self.device) for k, v in self.current_batch['inputs'].items()}
+        labels = {k: v.to(self.device) for k, v in self.current_batch['labels'].items()}
+            
+        # Forward pass
+        self.optimizer.zero_grad()  # Zero gradients
+        with torch.autocast(device_type='cuda', dtype=torch.float16):
+            outputs = self.model(inputs)
+            losses = self.criterion(y_pred=outputs, y_true=labels)
+            
+        # Backward pass
+        losses['total'].backward()
+        self.optimizer.step()
+        if self.scheduler:
+            self.scheduler.step()
+            
+        # Convert tensors to numpy for visualization
+        return {
+            'input1': self.current_batch['inputs']['image1'].cpu().numpy(),
+            'input2': self.current_batch['inputs']['image2'].cpu().numpy(),
+            'pred': outputs['logits'].argmax(dim=1).cpu().numpy(),
+            'gt': self.current_batch['labels']['change_map'].cpu().numpy()
+        }
     
     def next_iteration(self):
         """Move to next iteration if available."""
-        if self.current_iteration < self.max_iteration - 1:
+        try:
+            self.current_batch = next(iter(self.train_dataloader))
             self.current_iteration += 1
-            self._create_dummy_data()  # Temporary: Create new dummy data
-        return self.current_iteration
-    
-    def prev_iteration(self):
-        """Move to previous iteration if available."""
-        if self.current_iteration > 0:
-            self.current_iteration -= 1
-            self._create_dummy_data()  # Temporary: Create new dummy data
-        return self.current_iteration
+            return self.current_iteration
+        except StopIteration:
+            # Reset dataloader iterator
+            self.train_dataloader = iter(self.train_dataloader)
+            return self.current_iteration
     
     def class_to_rgb(self, class_indices):
         """Convert class indices to RGB values."""
