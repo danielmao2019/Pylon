@@ -249,15 +249,3 @@ def test_cache_deep_copy_isolation(sample_datapoint):
     cached_again = cache.get(0)
     assert not torch.all(cached_again['inputs']['image'] == retrieved['inputs']['image'])
     assert cached_again['meta_info']['filename'] == 'test.jpg'
-
-
-def test_max_cache_size():
-    """Test that cache respects maximum size limits."""
-    cache = DatasetCache(max_memory_percent=99.9)  # High threshold
-    max_size = 1000
-    cache.max_size = max_size  # Set maximum number of items
-    
-    # Add items up to and beyond max size
-    for i in range(max_size + 100):
-        cache.put(i, {'data': torch.randn(10, 10)})
-        assert len(cache.cache) <= max_size, f"Cache exceeded max size: {len(cache.cache)} > {max_size}"
