@@ -14,11 +14,11 @@ class TrainingState:
 
         # Load config and initialize trainer
         self.config = self._load_config()
-        
+
         # Initialize trainer using the runner class specified in config
         self.trainer = self.config['runner'](config=self.config)
         self.trainer._init_components_()
-        
+
         # Store references to trainer components we need
         self.model = self.trainer.model
         self.train_dataloader = self.trainer.train_dataloader
