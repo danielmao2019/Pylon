@@ -5,28 +5,36 @@ import plotly.graph_objects as go
 def register_navigation_callbacks(app, state):
     @app.callback(
         [Output("iteration-display", "children"),
+         Output("sample-display", "children"),
          Output("input-image-1", "figure"),
          Output("input-image-2", "figure"),
          Output("pred-change-map", "figure"),
          Output("gt-change-map", "figure")],
-        [Input("btn-prev", "n_clicks"),
-         Input("btn-next", "n_clicks")]
+        [Input("btn-prev-iter", "n_clicks"),
+         Input("btn-next-iter", "n_clicks"),
+         Input("btn-prev-sample", "n_clicks"),
+         Input("btn-next-sample", "n_clicks")]
     )
-    def update_iteration(prev_clicks, next_clicks):
+    def update_display(prev_iter_clicks, next_iter_clicks, prev_sample_clicks, next_sample_clicks):
         # Determine which button was clicked using the new ctx module
         if not ctx.triggered:
             button_id = None
         else:
             button_id = ctx.triggered_id
         
-        # Update iteration based on button click
-        if button_id == "btn-next":
+        # Update based on button click
+        if button_id == "btn-next-iter":
             state.next_iteration()
-        elif button_id == "btn-prev":
+        elif button_id == "btn-prev-iter":
             state.prev_iteration()
+        elif button_id == "btn-next-sample":
+            state.next_sample()
+        elif button_id == "btn-prev-sample":
+            state.prev_sample()
         
         # Get current data
         data = state.get_current_data()
+        nav_info = state.get_navigation_info()
         
         # Create figures
         input1_fig = create_image_figure(data["input1"].transpose(1, 2, 0))
@@ -40,7 +48,8 @@ def register_navigation_callbacks(app, state):
         gt_fig = create_image_figure(gt_rgb / 255.0)
         
         return (
-            f"Iteration: {state.current_iteration}",
+            f"Training Iteration: {nav_info['current_iteration']} / {nav_info['total_iterations']}",
+            f"Sample: {nav_info['current_sample']} / {nav_info['batch_size']}",
             input1_fig,
             input2_fig,
             pred_fig,
