@@ -30,10 +30,6 @@ class DatasetCache:
         self.max_memory_percent = max_memory_percent
         self.enable_validation = enable_validation
 
-        # Calculate max cache size in bytes based on system memory
-        total_system_memory = psutil.virtual_memory().total
-        self.max_cache_bytes = int((max_memory_percent / 100.0) * total_system_memory)
-
         # Initialize cache structures
         self.cache = OrderedDict()  # LRU cache with key -> value mapping
         self.checksums = {}  # key -> checksum mapping for validation
@@ -132,13 +128,11 @@ class DatasetCache:
                 self.cache.pop(key)
                 self.checksums.pop(key, None)
 
-            # Update max cache size if max_memory_percent was changed
-            if self.max_memory_percent != (self.max_cache_bytes / psutil.virtual_memory().total * 100):
-                old_max = self.max_cache_bytes
-                self.max_cache_bytes = int((self.max_memory_percent / 100.0) * psutil.virtual_memory().total)
+            # Calculate current max cache size in bytes
+            max_cache_bytes = int((self.max_memory_percent / 100.0) * psutil.virtual_memory().total)
 
             # Evict items if needed to stay under memory limit
-            while self.cache and (self.total_memory + new_item_memory > self.max_cache_bytes):
+            while self.cache and (self.total_memory + new_item_memory > max_cache_bytes):
                 # Get the least recently used key
                 evict_key = next(iter(self.cache))
                 evicted_memory = self.memory_usage.pop(evict_key)
