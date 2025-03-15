@@ -35,7 +35,7 @@ class OSCDDataset(BaseDataset):
     def __init__(self, bands: Optional[Union[str, List[str]]] = '3ch', **kwargs) -> None:
         assert (
             (bands is None)
-            or (bands in {'3ch', '13ch'})
+            or (isinstance(bands, str) and bands in {'3ch', '13ch'})
             or (isinstance(bands, list) and all(isinstance(b, str) for b in bands))
         )
         self.bands = bands
