@@ -129,14 +129,15 @@ def test_cache_memory_management():
 
 
 def test_cache_lru_behavior(sample_datapoint):
-    """Test Least Recently Used (LRU) behavior."""
+    """Test Least Recently Used (LRU) behavior in various scenarios."""
     cache = DatasetCache()
     
+    # Test 1: Basic LRU eviction order
     # Add multiple items
     for i in range(3):
         cache.put(i, sample_datapoint)
     
-    # Access items in specific order
+    # Access items in specific order to set up LRU
     access_order = [0, 2, 1, 2, 0]
     for i in access_order:
         cache.get(i)
@@ -148,9 +149,70 @@ def test_cache_lru_behavior(sample_datapoint):
     cache.put(3, sample_datapoint)
     
     # Item 1 should be evicted as it was least recently used
-    assert 1 not in cache.cache
-    assert 0 in cache.cache
-    assert 2 in cache.cache
+    assert 1 not in cache.cache, "LRU item should have been evicted"
+    assert 0 in cache.cache, "Most recently used item should be retained"
+    assert 2 in cache.cache, "Second most recently used item should be retained"
+    assert 3 in cache.cache, "Newly added item should be present"
+
+    # Test 2: Re-putting existing items should update LRU order
+    cache = DatasetCache()
+    for i in range(3):
+        cache.put(i, sample_datapoint)
+    
+    # Put existing item again
+    cache.put(0, sample_datapoint)  # This should move 0 to most recent
+    
+    # Force eviction
+    cache.max_memory_percent = psutil.Process().memory_percent() - 0.1
+    cache.put(3, sample_datapoint)
+    
+    # Item 1 should be evicted (not 2) since 0 was moved to most recent
+    assert 1 not in cache.cache, "LRU item should have been evicted"
+    assert 0 in cache.cache, "Recently re-put item should be retained"
+    assert 2 in cache.cache, "Non-LRU item should be retained"
+
+    # Test 3: Multiple evictions should maintain LRU order
+    cache = DatasetCache()
+    for i in range(5):
+        cache.put(i, sample_datapoint)
+    
+    # Access in specific order: [2, 0, 4, 1, 3]
+    access_order = [2, 0, 4, 1, 3]
+    for i in access_order:
+        cache.get(i)
+    
+    # Force multiple evictions
+    cache.max_memory_percent = psutil.Process().memory_percent() - 0.1
+    
+    # Add two new items to force two evictions
+    cache.put(5, sample_datapoint)
+    cache.put(6, sample_datapoint)
+    
+    # First two items in access order should remain (3, 1)
+    assert 2 not in cache.cache, "First LRU item should be evicted"
+    assert 0 not in cache.cache, "Second LRU item should be evicted"
+    assert 4 in cache.cache, "More recently used item should be retained"
+    assert 1 in cache.cache, "More recently used item should be retained"
+    assert 3 in cache.cache, "Most recently used item should be retained"
+    
+    # Test 4: Get misses shouldn't affect LRU order
+    cache = DatasetCache()
+    for i in range(3):
+        cache.put(i, sample_datapoint)
+    
+    # Try to get non-existent items
+    cache.get(10)
+    cache.get(11)
+    
+    # Force eviction
+    cache.max_memory_percent = psutil.Process().memory_percent() - 0.1
+    cache.put(3, sample_datapoint)
+    
+    # Original LRU order should be maintained
+    assert 0 not in cache.cache, "First inserted item should be evicted"
+    assert 1 in cache.cache, "Second inserted item should be retained"
+    assert 2 in cache.cache, "Last inserted item should be retained"
+    assert 3 in cache.cache, "Newly added item should be present"
 
 
 def test_cache_thread_safety(sample_datapoint):
