@@ -26,20 +26,14 @@ class DatasetCache:
     def __init__(
         self,
         max_memory_percent: float = 80.0,
-        persist_path: Optional[str] = None,
-        version: str = "1.0",
         enable_validation: bool = True,
     ):
         """
         Args:
             max_memory_percent (float): Maximum percentage of system memory to use
-            persist_path (str, optional): Path to persist cache to disk
-            version (str): Cache version for compatibility checking
             enable_validation (bool): Whether to enable checksum validation
         """
         self.max_memory_percent = max_memory_percent
-        self.persist_path = Path(persist_path) if persist_path else None
-        self.version = version
         self.enable_validation = enable_validation
         
         # Initialize cache structures
@@ -50,10 +44,6 @@ class DatasetCache:
         self.misses = 0
         self.validation_failures = 0
         
-        # Load persisted cache if available
-        if self.persist_path and self.persist_path.exists():
-            self._load_persistent_cache()
-            
         # Setup logging
         self.logger = logging.getLogger(__name__)
         
@@ -124,78 +114,10 @@ class DatasetCache:
             self.cache[key] = value_copy
             if self.enable_validation:
                 self.checksums[key] = self._compute_checksum(value_copy)
-            
-            # Periodically persist cache
-            if self.persist_path and len(self.cache) % 1000 == 0:
-                self._persist_cache()
                 
     def _get_memory_usage(self) -> float:
         """Get current memory usage percentage."""
         return psutil.Process().memory_percent()
-        
-    def _persist_cache(self) -> None:
-        """Persist cache and checksums to disk."""
-        if not self.persist_path:
-            return
-            
-        cache_data = {
-            "version": self.version,
-            "timestamp": time.time(),
-            "hits": self.hits,
-            "misses": self.misses,
-            "validation_failures": self.validation_failures,
-            "cache": self.cache,
-            "checksums": self.checksums
-        }
-        
-        temp_path = self.persist_path.with_suffix('.tmp')
-        try:
-            with open(temp_path, 'wb') as f:
-                torch.save(cache_data, f)
-            temp_path.rename(self.persist_path)
-        except Exception as e:
-            self.logger.error(f"Failed to persist cache: {e}")
-            if temp_path.exists():
-                temp_path.unlink()
-                
-    def _load_persistent_cache(self) -> None:
-        """Load cache and checksums from disk with validation."""
-        try:
-            cache_data = torch.load(self.persist_path)
-            if cache_data["version"] != self.version:
-                self.logger.warning("Cache version mismatch, starting fresh")
-                return
-                
-            # Load basic stats
-            self.hits = cache_data["hits"]
-            self.misses = cache_data["misses"]
-            self.validation_failures = cache_data.get("validation_failures", 0)
-            
-            # Load and validate cache items
-            self.cache = OrderedDict()
-            self.checksums = {}
-            
-            for key, value in cache_data["cache"].items():
-                stored_checksum = cache_data["checksums"].get(key)
-                if not self.enable_validation or stored_checksum is None:
-                    self.cache[key] = value
-                    self.checksums[key] = self._compute_checksum(value)
-                else:
-                    current_checksum = self._compute_checksum(value)
-                    if current_checksum == stored_checksum:
-                        self.cache[key] = value
-                        self.checksums[key] = stored_checksum
-                    else:
-                        self.validation_failures += 1
-                        self.logger.warning(f"Validation failed for cached item {key} during load")
-            
-            self.logger.info(
-                f"Loaded cache with {len(self.cache)} items. "
-                f"Hit rate: {self.hits/(self.hits+self.misses+1e-6):.2%}, "
-                f"Validation failures: {self.validation_failures}"
-            )
-        except Exception as e:
-            self.logger.error(f"Failed to load persistent cache: {e}")
             
     def get_stats(self) -> Dict[str, Any]:
         """Get cache statistics including validation metrics."""
@@ -225,7 +147,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         use_cache: Optional[bool] = True,
-        cache_dir: Optional[str] = None,
         max_cache_memory_percent: float = 80.0,
         device: Optional[Union[torch.device, str]] = torch.device('cuda'),
         check_sha1sum: Optional[bool] = False,
@@ -233,7 +154,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         """
         Args:
             use_cache (bool): controls whether loaded data points stays in RAM. Default: True
-            cache_dir (str, optional): directory to persist cache to disk
             max_cache_memory_percent (float): maximum percentage of system memory to use for cache
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
@@ -250,18 +170,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         
         # Initialize cache
         if use_cache:
-            persist_path = None
-            if cache_dir:
-                # Create unique cache file name based on dataset parameters
-                cache_hash = hashlib.sha256(
-                    f"{self.data_root}_{split}_{indices}_{transforms_cfg}".encode()
-                ).hexdigest()[:8]
-                persist_path = os.path.join(cache_dir, f"dataset_cache_{cache_hash}.pt")
-                
             self.cache = DatasetCache(
                 max_memory_percent=max_cache_memory_percent,
-                persist_path=persist_path,
-                version="1.0"
+                enable_validation=True
             )
         else:
             self.cache = None
