@@ -104,15 +104,21 @@ class DatasetCache:
             value (Dict[str, Any]): The value to store. Will be deep copied before storage.
         """
         with self.lock:
+            # If key exists, remove it first to update LRU order
+            if key in self.cache:
+                self.cache.pop(key)
+                self.checksums.pop(key, None)
+            
             # Check memory usage and evict if needed
             while self._get_memory_usage() > self.max_memory_percent and self.cache:
                 evicted_key, _ = self.cache.popitem(last=False)  # Remove oldest item
                 self.checksums.pop(evicted_key, None)
                 
             # Store item and its checksum (with deep copy)
-            self.cache[key] = copy.deepcopy(value)
+            copied_value = copy.deepcopy(value)
+            self.cache[key] = copied_value
             if self.enable_validation:
-                self.checksums[key] = self._compute_checksum(self.cache[key])
+                self.checksums[key] = self._compute_checksum(copied_value)
                 
     def _get_memory_usage(self) -> float:
         """Get current memory usage percentage."""
