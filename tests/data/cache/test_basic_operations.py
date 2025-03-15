@@ -3,20 +3,6 @@ import torch
 from data.cache import DatasetCache
 
 
-@pytest.fixture
-def sample_tensor():
-    return torch.randn(3, 64, 64)
-
-
-@pytest.fixture
-def sample_datapoint(sample_tensor):
-    return {
-        'inputs': {'image': sample_tensor},
-        'labels': {'class': torch.tensor([1])},
-        'meta_info': {'filename': 'test.jpg'}
-    }
-
-
 def test_cache_put_and_get(sample_datapoint):
     """Test basic put and get operations."""
     cache = DatasetCache()
