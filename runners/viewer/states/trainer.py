@@ -5,6 +5,7 @@ from utils.builders import build_from_config
 import utils.determinism
 import importlib.util
 from utils.automation.cfg_log_conversion import get_work_dir, get_repo_root
+from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 
 class TrainingState:
@@ -14,10 +15,26 @@ class TrainingState:
         self.class_colors = self._get_default_colors()
         self.device = torch.device('cuda')
 
-        # Load config and initialize trainer components
+        # Load config and initialize trainer
         self.config = self._load_config()
-        self._init_determinism()
-        self._init_trainer()
+        self.trainer = SupervisedSingleTaskTrainer(config=self.config, device=self.device)
+        
+        # Initialize trainer components through the trainer
+        self.trainer._init_logger()
+        self.trainer._init_determinism_()
+        self.trainer._init_dataloaders_()
+        self.trainer._init_model_()
+        self.trainer._init_criterion_()
+        self.trainer._init_optimizer_()
+        self.trainer._init_scheduler_()
+        self.trainer._init_state_()
+        
+        # Store references to trainer components we need
+        self.model = self.trainer.model
+        self.train_dataloader = self.trainer.train_dataloader
+        self.criterion = self.trainer.criterion
+        self.optimizer = self.trainer.optimizer
+        self.scheduler = self.trainer.scheduler
 
     def _load_config(self):
         """Load config from Python file and modify work_dir for viewer."""
@@ -51,91 +68,26 @@ class TrainingState:
 
         return config
 
-    def _init_determinism(self):
-        """Initialize determinism settings."""
-        utils.determinism.set_determinism()
-        if 'init_seed' in self.config:
-            utils.determinism.set_seed(seed=self.config['init_seed'])
-
-    def _init_trainer(self):
-        """Initialize trainer components."""
-        # Initialize model
-        if self.config.get('model', None):
-            self.model = build_from_config(self.config['model'])
-            self.model = self.model.to(self.device)
-            self.model.train()  # Set to training mode
-        else:
-            self.model = None
-            
-        # Initialize training dataloader
-        if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
-            train_dataset = build_from_config(self.config['train_dataset'])
-            self.train_dataloader = build_from_config(
-                dataset=train_dataset,
-                shuffle=True,
-                config=self.config['train_dataloader']
-            )
-        else:
-            self.train_dataloader = None
-            
-        # Initialize criterion
-        if self.config.get('criterion', None):
-            self.criterion = build_from_config(self.config['criterion'])
-            self.criterion = self.criterion.to(self.device)
-        else:
-            self.criterion = None
-            
-        # Initialize optimizer
-        if self.config.get('optimizer', None) and self.model:
-            optimizer_config = self.config['optimizer']
-            optimizer_config['args']['optimizer_config']['args']['params'] = self.model.parameters()
-            self.optimizer = build_from_config(optimizer_config)
-        else:
-            self.optimizer = None
-            
-        # Initialize scheduler
-        if self.config.get('scheduler', None) and self.optimizer:
-            scheduler_config = self.config['scheduler']
-            self.scheduler = utils.builders.build_scheduler(trainer=self, cfg=scheduler_config)
-        else:
-            self.scheduler = None
-
-    def _get_default_colors(self):
-        """Return default color mapping for visualization."""
-        return {
-            0: [0, 0, 0],      # Background (black)
-            1: [255, 0, 0],    # Change class 1 (red)
-            2: [0, 255, 0],    # Change class 2 (green)
-            3: [0, 0, 255],    # Change class 3 (blue)
-        }
-
     def get_current_data(self):
         """Get data for current iteration."""
         if not hasattr(self, 'current_batch'):
             # Get first batch
             self.current_batch = next(iter(self.train_dataloader))
 
-        # Move batch to device
-        inputs = {k: v.to(self.device) for k, v in self.current_batch['inputs'].items()}
-        labels = {k: v.to(self.device) for k, v in self.current_batch['labels'].items()}
+        # Create data point dictionary
+        dp = {
+            'inputs': {k: v.to(self.device) for k, v in self.current_batch['inputs'].items()},
+            'labels': {k: v.to(self.device) for k, v in self.current_batch['labels'].items()}
+        }
 
-        # Forward pass
-        self.optimizer.zero_grad()  # Zero gradients
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
-            outputs = self.model(inputs)
-            losses = self.criterion(y_pred=outputs, y_true=labels)
-
-        # Backward pass
-        losses['total'].backward()
-        self.optimizer.step()
-        if self.scheduler:
-            self.scheduler.step()
+        # Use trainer's train step
+        self.trainer._train_step_(dp)
 
         # Convert tensors to numpy for visualization
         return {
             'input1': self.current_batch['inputs']['image1'].cpu().numpy(),
             'input2': self.current_batch['inputs']['image2'].cpu().numpy(),
-            'pred': outputs['logits'].argmax(dim=1).cpu().numpy(),
+            'pred': dp['outputs']['logits'].argmax(dim=1).cpu().numpy(),
             'gt': self.current_batch['labels']['change_map'].cpu().numpy()
         }
 
@@ -149,6 +101,15 @@ class TrainingState:
             # Reset dataloader iterator
             self.train_dataloader = iter(self.train_dataloader)
             return self.current_iteration
+
+    def _get_default_colors(self):
+        """Return default color mapping for visualization."""
+        return {
+            0: [0, 0, 0],      # Background (black)
+            1: [255, 0, 0],    # Change class 1 (red)
+            2: [0, 255, 0],    # Change class 2 (green)
+            3: [0, 0, 255],    # Change class 3 (blue)
+        }
 
     def class_to_rgb(self, class_indices):
         """Convert class indices to RGB values."""
