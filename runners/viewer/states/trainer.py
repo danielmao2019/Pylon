@@ -41,6 +41,15 @@ class TrainingState:
         # Update config with viewer work directory
         config['work_dir'] = str(viewer_work_dir)
         
+        # Append repo root to dataset paths
+        repo_root = get_repo_root()
+        for dataset_type in ['train_dataset', 'val_dataset', 'test_dataset']:
+            if dataset_type in config and isinstance(config[dataset_type], dict):
+                assert 'args' in config[dataset_type]
+                assert 'data_root' in config[dataset_type]['args']
+                rel_path = config[dataset_type]['args']['data_root']
+                config[dataset_type]['args']['data_root'] = str(repo_root / rel_path)
+        
         return config
     
     def _init_determinism(self):
