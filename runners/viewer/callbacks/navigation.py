@@ -19,7 +19,8 @@ def register_navigation_callbacks(app, state):
         state: State management object
     """
     @app.callback(
-        [Output("iteration-display", "children"),
+        [Output("epoch-display", "children"),
+         Output("iteration-display", "children"),
          Output("sample-display", "children"),
          Output("input-image-1", "figure"),
          Output("input-image-2", "figure"),
@@ -35,6 +36,7 @@ def register_navigation_callbacks(app, state):
         
         Returns:
             Tuple containing:
+                - Epoch display text
                 - Iteration display text
                 - Sample display text
                 - Input image 1 figure
@@ -85,10 +87,12 @@ def register_navigation_callbacks(app, state):
             gt_fig = create_image_figure(gt_array, title="Ground Truth")
             
             # Create display text
+            epoch_text = f"Epoch: {nav_info['current_epoch']}"
             iter_text = f"Training Iteration: {nav_info['current_iteration']} / {nav_info['total_iterations']}"
             sample_text = f"Sample: {nav_info['current_sample']} / {nav_info['batch_size']}"
             
             return (
+                epoch_text,
                 iter_text,
                 sample_text,
                 input1_fig,
@@ -107,6 +111,7 @@ def register_navigation_callbacks(app, state):
                 margin=dict(l=0, r=0, t=0, b=0)
             )
             return (
+                "Error: Failed to update display",
                 "Error: Failed to update display",
                 "Error: Failed to update display",
                 empty_fig,

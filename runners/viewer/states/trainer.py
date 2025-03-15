@@ -10,6 +10,7 @@ class TrainingState:
         self.config_path = config_path
         self.current_iteration = 0
         self.current_sample_idx = 0
+        self.current_epoch = 0  # Add epoch tracking
         self.class_colors = self._get_default_colors()
         self.device = torch.device('cuda')
 
@@ -96,6 +97,7 @@ class TrainingState:
         # Handle end of iterator
         if self.current_iteration >= len(self.train_dataloader):
             self.current_iteration = 0
+            self.current_epoch += 1  # Increment epoch when dataloader resets
             self.dataloader_iter = iter(self.train_dataloader)
             
         self._load_next_batch()
@@ -119,7 +121,8 @@ class TrainingState:
             'current_iteration': self.current_iteration,
             'total_iterations': len(self.train_dataloader),
             'current_sample': self.current_sample_idx,
-            'batch_size': len(self.current_batch['inputs']['img_1'])
+            'batch_size': len(self.current_batch['inputs']['img_1']),
+            'current_epoch': self.current_epoch  # Add epoch to navigation info
         }
 
     def _get_default_colors(self):

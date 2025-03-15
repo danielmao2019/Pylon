@@ -1,44 +1,42 @@
 from dash import html, dcc
 
 
-def create_main_layout():
-    """Create the main layout of the viewer."""
+def create_layout():
+    """Create the main layout for the viewer application."""
     return html.Div([
-        # Header
-        html.H1("Training Viewer", style={'textAlign': 'center'}),
-        
-        # Training iteration navigation
+        # Navigation controls
         html.Div([
-            html.H3("Training Iteration Control"),
-            html.Button("Previous", id="btn-prev-iter", n_clicks=0),
-            html.Button("Next", id="btn-next-iter", n_clicks=0),
-            html.Div(id="iteration-display", children="Training Iteration: 0")
-        ], style={'textAlign': 'center', 'margin': '20px'}),
-        
-        # Sample navigation
-        html.Div([
-            html.H3("Sample Navigation"),
-            html.Button("Previous", id="btn-prev-sample", n_clicks=0),
-            html.Button("Next", id="btn-next-sample", n_clicks=0),
-            html.Div(id="sample-display", children="Sample: 0")
-        ], style={'textAlign': 'center', 'margin': '20px'}),
+            html.Div([
+                html.Button("Previous Iteration", id="btn-prev-iter"),
+                html.Button("Next Iteration", id="btn-next-iter"),
+                html.Button("Previous Sample", id="btn-prev-sample"),
+                html.Button("Next Sample", id="btn-next-sample"),
+            ], style={'marginBottom': '10px'}),
+            
+            # Status displays
+            html.Div([
+                html.Div(id="epoch-display", style={'marginRight': '20px', 'display': 'inline-block'}),
+                html.Div(id="iteration-display", style={'marginRight': '20px', 'display': 'inline-block'}),
+                html.Div(id="sample-display", style={'display': 'inline-block'})
+            ])
+        ], style={'marginBottom': '20px'}),
         
         # Image displays
         html.Div([
-            # Input images
             html.Div([
-                html.H3("Input Image 1"),
-                dcc.Graph(id="input-image-1"),
-                html.H3("Input Image 2"),
-                dcc.Graph(id="input-image-2"),
-            ], style={'width': '50%', 'display': 'inline-block'}),
+                dcc.Graph(id="input-image-1")
+            ], style={'width': '25%', 'display': 'inline-block'}),
             
-            # Prediction and ground truth
             html.Div([
-                html.H3("Predicted Change Map"),
-                dcc.Graph(id="pred-change-map"),
-                html.H3("Ground Truth Change Map"),
-                dcc.Graph(id="gt-change-map"),
-            ], style={'width': '50%', 'display': 'inline-block'})
+                dcc.Graph(id="input-image-2")
+            ], style={'width': '25%', 'display': 'inline-block'}),
+            
+            html.Div([
+                dcc.Graph(id="pred-change-map")
+            ], style={'width': '25%', 'display': 'inline-block'}),
+            
+            html.Div([
+                dcc.Graph(id="gt-change-map")
+            ], style={'width': '25%', 'display': 'inline-block'})
         ])
     ])
