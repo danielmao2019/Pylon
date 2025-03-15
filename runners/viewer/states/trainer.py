@@ -85,7 +85,7 @@ class TrainingState:
         return {
             'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),
             'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),
-            'pred': self.current_outputs['logits'][self.current_sample_idx].argmax(dim=0).cpu().numpy(),
+            'pred': self.current_outputs[self.current_sample_idx].argmax(dim=0).cpu().numpy(),
             'gt': self.current_batch['labels']['change_map'][self.current_sample_idx].cpu().numpy()
         }
 
