@@ -27,10 +27,14 @@ def get_stable_memory_usage():
 @pytest.fixture
 def cache_with_items(sample_datapoint):
     """Create a cache with initial items."""
-    # Start with a low memory limit
-    cache = DatasetCache(max_memory_percent=psutil.Process().memory_percent())
+    # Get current memory usage
+    base_memory = psutil.Process().memory_percent()
+    # Set limit slightly above current usage to allow initial items
+    cache = DatasetCache(max_memory_percent=base_memory + 2.0)
     for i in range(3):
         cache.put(i, sample_datapoint)
+    # Now set limit to current usage so next item will trigger eviction    
+    cache.max_memory_percent = psutil.Process().memory_percent()
     return cache
 
 
@@ -54,6 +58,8 @@ def test_lru_eviction_scenarios(cache_with_items, sample_datapoint,
     cache = cache_with_items
     
     print(f"\nTesting scenario: {scenario}")
+    print(f"Initial memory limit: {cache.max_memory_percent}%")
+    print(f"Initial memory usage: {cache._get_memory_usage()}%")
     print(f"Initial cache state: {list(cache.cache.keys())}")
     
     # Access items in specified order
@@ -61,8 +67,10 @@ def test_lru_eviction_scenarios(cache_with_items, sample_datapoint,
         cache.get(i)
         print(f"After get({i}): {list(cache.cache.keys())}")
     
+    print(f"Memory usage before adding item 3: {cache._get_memory_usage()}%")
     # Add new item which should trigger eviction due to memory limit
     cache.put(3, sample_datapoint)
+    print(f"Memory usage after adding item 3: {cache._get_memory_usage()}%")
     print(f"After adding item 3: {list(cache.cache.keys())}")
     
     # Verify evicted items

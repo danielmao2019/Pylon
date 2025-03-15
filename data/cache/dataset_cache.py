@@ -108,20 +108,21 @@ class DatasetCache:
                 self.cache.pop(key)
                 self.checksums.pop(key, None)
             
-            # Check memory usage and evict one item at a time if needed
-            while self.cache and self._get_memory_usage() > self.max_memory_percent:
-                evicted_key, _ = self.cache.popitem(last=False)  # Remove oldest item
-                self.logger.debug(f"Evicting oldest key {evicted_key} due to memory limit")
-                self.checksums.pop(evicted_key, None)
-                self.logger.debug(f"Current LRU order after eviction: {list(self.cache.keys())}")
-                # Break after one eviction if we're under the limit
-                if self._get_memory_usage() <= self.max_memory_percent:
-                    break
-            
-            # Store item and its checksum
+            # Store item and its checksum first - it will be at the end (most recently used)
             self.cache[key] = copied_value  # OrderedDict adds to end by default
             if self.enable_validation:
                 self.checksums[key] = self._compute_checksum(copied_value)
+            
+            # Check memory usage and evict least recently used items if needed
+            while self.cache and len(self.cache) > 1 and self._get_memory_usage() > self.max_memory_percent:
+                # Get the first key (least recently used) that isn't the one we just added
+                keys = list(self.cache.keys())
+                evict_key = next(k for k in keys if k != key)
+                self.logger.debug(f"Evicting LRU key {evict_key} due to memory limit")
+                self.cache.pop(evict_key)
+                self.checksums.pop(evict_key, None)
+                self.logger.debug(f"Current LRU order after eviction: {list(self.cache.keys())}")
+                
             self.logger.debug(f"Current LRU order after put({key}): {list(self.cache.keys())}")
                 
     def _get_memory_usage(self) -> float:
