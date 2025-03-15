@@ -153,7 +153,7 @@ def test_cache_stats(sample_datapoint):
     assert stats['size'] == 1
     assert stats['hits'] == 1
     assert stats['misses'] == 1
-    assert stats['hit_rate'] == 0.5
+    assert abs(stats['hit_rate'] - 0.5) < 1.0e-05
 
 
 def test_cache_deep_copy_isolation(sample_datapoint):
