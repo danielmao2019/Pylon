@@ -70,7 +70,7 @@ class DatasetCache:
         
         if not is_valid:
             self.validation_failures += 1
-            self.logger.warning(f"Cache validation failed for key {key}")
+            raise ValueError(f"Cache validation failed for key {key} - data corruption detected")
             
         return is_valid
 

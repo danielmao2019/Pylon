@@ -56,5 +56,6 @@ def test_cache_validation(sample_datapoint):
     
     # Test validation failure by corrupting cached data
     cache.cache[0]['inputs']['image'] += 1.0  # Modify tensor in-place
-    assert cache.get(0) is None  # Should fail validation and return None
+    with pytest.raises(ValueError, match="Cache validation failed for key 0 - data corruption detected"):
+        cache.get(0)  # Should raise ValueError
     assert cache.validation_failures == 1
