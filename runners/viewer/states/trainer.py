@@ -81,12 +81,11 @@ class TrainingState:
 
     def get_current_data(self):
         """Get data for current sample in current batch."""
-        # Convert tensors to numpy for visualization
         return {
-            'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),
-            'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),
-            'pred': self.current_outputs[self.current_sample_idx].argmax(dim=0).cpu().numpy(),
-            'gt': self.current_batch['labels']['change_map'][self.current_sample_idx].cpu().numpy()
+            'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
+            'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
+            'pred': self.current_outputs[self.current_sample_idx].argmax(dim=0).cpu().numpy(),  # [H,W]
+            'gt': self.current_batch['labels']['change_map'][self.current_sample_idx].cpu().numpy(),  # [H,W]
         }
 
     def next_iteration(self):
