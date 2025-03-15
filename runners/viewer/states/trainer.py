@@ -64,10 +64,10 @@ class TrainingState:
             # Get first batch
             self.current_batch = next(iter(self.train_dataloader))
 
-        # Create data point dictionary
+        # Create data point dictionary without device transfer
         dp = {
-            'inputs': {k: v.to(self.device) for k, v in self.current_batch['inputs'].items()},
-            'labels': {k: v.to(self.device) for k, v in self.current_batch['labels'].items()}
+            'inputs': self.current_batch['inputs'],
+            'labels': self.current_batch['labels']
         }
 
         # Use trainer's train step
