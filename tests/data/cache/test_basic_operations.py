@@ -44,3 +44,17 @@ def test_cache_deep_copy_isolation(sample_datapoint):
     cached_again = cache.get(0)
     assert not torch.all(cached_again['inputs']['image'] == retrieved['inputs']['image'])
     assert cached_again['meta_info']['filename'] == 'test.jpg'
+
+
+def test_cache_validation(sample_datapoint):
+    """Test cache validation mechanism."""
+    cache = DatasetCache(enable_validation=True)
+    
+    # Test normal validation
+    cache.put(0, sample_datapoint)
+    assert cache.get(0) is not None
+    
+    # Test validation failure by corrupting cached data
+    cache.cache[0]['inputs']['image'] += 1.0  # Modify tensor in-place
+    assert cache.get(0) is None  # Should fail validation and return None
+    assert cache.validation_failures == 1
