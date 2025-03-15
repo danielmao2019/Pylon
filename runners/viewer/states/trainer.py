@@ -4,11 +4,14 @@ import torch
 from utils.builders import build_from_config
 import json
 import utils.determinism
+import importlib.util
+import sys
 
 
 class TrainingState:
-    def __init__(self, work_dir: Path):
+    def __init__(self, work_dir: Path, config_path: Path):
         self.work_dir = work_dir
+        self.config_path = config_path
         self.current_iteration = 0
         self.class_colors = self._get_default_colors()
         self.device = torch.device('cuda')
@@ -19,12 +22,24 @@ class TrainingState:
         self._init_trainer()
         
     def _load_config(self):
-        """Load config from the work directory."""
-        config_path = self.work_dir / 'config.json'
-        if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found at {config_path}")
-        with open(config_path) as f:
-            return json.load(f)
+        """Load config from Python file.
+        
+        The config file should contain a dictionary named 'config'.
+        Example:
+            Input: /path/to/configs/reproduce/change_detection/xxx/config.py
+        """
+        # Load the config module
+        spec = importlib.util.spec_from_file_location("config_file", self.config_path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        # Get the config dictionary and return a copy
+        config = module.config
+        
+        # Modify work_dir to use viewer subdirectory
+        config['work_dir'] = str(self.work_dir)
+        
+        return config
     
     def _init_determinism(self):
         """Initialize determinism settings."""
