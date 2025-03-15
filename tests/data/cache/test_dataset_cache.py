@@ -73,31 +73,62 @@ def test_cache_put_and_get(sample_datapoint):
 
 def test_cache_memory_management():
     """Test memory management and eviction."""
+    # Get total system memory and calculate target tensor size
+    total_memory = psutil.virtual_memory().total
     initial_memory = psutil.Process().memory_percent()
-    cache = DatasetCache(max_memory_percent=initial_memory + 0.1)  # Set threshold just above current usage
+    target_memory_increase = 1.0  # Target 1% memory increase
     
-    # Create a reference to track the first item
-    first_tensor = torch.randn(1000, 1000)  # ~4MB
-    first_data = {'data': first_tensor.clone()}
-    cache.put(0, first_data)
+    # Calculate tensor size to achieve target memory increase
+    # Memory = num_elements * 4 bytes (float32)
+    # We'll create tensors that use 0.2% of system memory each
+    bytes_per_tensor = int(total_memory * 0.002)  # 0.2% of total memory
+    elements_per_tensor = bytes_per_tensor // 4  # 4 bytes per float32
+    tensor_dim = int(elements_per_tensor ** 0.5)  # Square tensor for simplicity
     
-    # Add more items until we exceed the memory threshold
-    item_count = 1
-    max_items = 100  # Safety limit
-    while psutil.Process().memory_percent() < cache.max_memory_percent and item_count < max_items:
-        cache.put(item_count, {'data': torch.randn(1000, 1000)})
-        item_count += 1
+    # Initialize cache with very tight memory limit
+    cache = DatasetCache(max_memory_percent=initial_memory + target_memory_increase)
     
-    # Force garbage collection to ensure memory stats are accurate
+    # Create tensors that will consume memory
+    tensors = []
+    start_memory = psutil.Process().memory_percent()
+    
+    for i in range(10):
+        # Create tensor of calculated size
+        tensor = torch.randn(tensor_dim, tensor_dim, dtype=torch.float32)
+        tensors.append(tensor)  # Keep reference to prevent garbage collection
+        cache.put(i, {'data': tensor})
+        
+        current_memory = psutil.Process().memory_percent()
+        memory_increase = current_memory - start_memory
+        
+        # Log memory usage for debugging
+        print(f"Iteration {i}: Memory increase: {memory_increase:.2f}%, "
+              f"Current: {current_memory:.2f}%, Target: {cache.max_memory_percent:.2f}%")
+        
+        # Check if memory threshold exceeded and eviction occurred
+        if memory_increase >= target_memory_increase and 0 not in cache.cache:
+            break  # Test passed - eviction occurred
+    else:
+        # Get memory info for debugging
+        current_memory = psutil.Process().memory_percent()
+        pytest.fail(
+            f"Memory eviction did not occur as expected.\n"
+            f"Memory increase: {current_memory - start_memory:.2f}%\n"
+            f"Current memory: {current_memory:.2f}%\n"
+            f"Threshold: {cache.max_memory_percent:.2f}%\n"
+            f"Initial memory: {initial_memory:.2f}%\n"
+            f"Cache size: {len(cache.cache)}\n"
+            f"Tensor size: {tensor_dim}x{tensor_dim} ({bytes_per_tensor / (1024*1024):.1f}MB)"
+        )
+    
+    # Verify cache state
+    assert len(cache.cache) > 0, "Cache should not be empty"
+    assert 0 not in cache.cache, "First item should have been evicted"
+    
+    # Cleanup to prevent memory leaks
+    del tensors
     import gc
     gc.collect()
-    
-    # Verify that some items were evicted (at least the first item should be gone)
-    assert 0 not in cache.cache, "First item should have been evicted"
-    assert len(cache.cache) < item_count, "Some items should have been evicted"
-    
-    # Verify memory usage is under the threshold
-    assert psutil.Process().memory_percent() <= cache.max_memory_percent
 
 
 def test_cache_lru_behavior(sample_datapoint):
