@@ -41,12 +41,12 @@ class BaseCollator:
                     datapoints[key1][key2] = self.collators[key1][key2](values)
                 else:
                     # Default collation behavior
-                    datapoints[key1][key2] = self._default_collate(values, key1, key2)
+                    datapoints[key1][key2] = self._default_collate(values=values)
 
         return datapoints
 
     @staticmethod
-    def _default_collate(values: List[Any], key1: str, key2: str) -> Union[torch.Tensor, List[Any]]:
+    def _default_collate(values: List[Any]) -> Union[torch.Tensor, List[Any]]:
         """
         Default collation logic for handling common types.
 
@@ -58,10 +58,6 @@ class BaseCollator:
         Returns:
             A collated tensor or the original list if collation is not possible.
         """
-        if all(value is None or isinstance(value, str) for value in values):
-            # Leave strings and None values as-is
-            return values
-
         if all(isinstance(value, int) for value in values):
             # Convert integers to a tensor
             return torch.tensor(values, dtype=torch.int64)
