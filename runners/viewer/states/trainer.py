@@ -20,19 +20,8 @@ class TrainingState:
         # Load config and initialize trainer
         self.config = self._load_config()
         
-        # Determine trainer type from config
-        trainer_type = self.config.get('trainer_type', 'supervised_single_task')
-        trainer_map = {
-            'supervised_single_task': SupervisedSingleTaskTrainer,
-            'multi_val_dataset': MultiValDatasetTrainer,
-            'gan': GANTrainer
-        }
-        trainer_cls = trainer_map.get(trainer_type)
-        if trainer_cls is None:
-            raise ValueError(f"Unknown trainer type: {trainer_type}")
-            
-        # Initialize trainer and components
-        self.trainer = trainer_cls(config=self.config, device=self.device)
+        # Initialize trainer using the runner class specified in config
+        self.trainer = self.config['runner'](config=self.config, device=self.device)
         self.trainer._init_components_()
         
         # Store references to trainer components we need
