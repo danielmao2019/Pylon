@@ -4,20 +4,6 @@ import threading
 from data.cache import DatasetCache
 
 
-@pytest.fixture
-def sample_tensor():
-    return torch.randn(3, 64, 64)
-
-
-@pytest.fixture
-def sample_datapoint(sample_tensor):
-    return {
-        'inputs': {'image': sample_tensor},
-        'labels': {'class': torch.tensor([1])},
-        'meta_info': {'filename': 'test.jpg'}
-    }
-
-
 def test_cache_thread_safety(sample_datapoint):
     """Test thread safety of cache operations."""
     cache = DatasetCache()
