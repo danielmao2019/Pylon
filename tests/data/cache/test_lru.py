@@ -107,3 +107,42 @@ def test_lru_complex_scenarios(sample_datapoint, scenario, setup_actions,
     # Verify retained items
     for item in expected_retained:
         assert item in cache.cache, f"Item {item} should have been retained"
+
+
+def test_lru_order_verification(sample_datapoint):
+    """Test that verifies the exact LRU ordering after each operation."""
+    cache = DatasetCache()
+    
+    # Initial state
+    for i in range(3):
+        cache.put(i, sample_datapoint)
+        print(f"After put({i}): {list(cache.cache.keys())}")
+    assert list(cache.cache.keys()) == [0, 1, 2], "Initial order incorrect"
+    
+    # Test get updates order
+    cache.get(0)  # Move 0 to end
+    print(f"After get(0): {list(cache.cache.keys())}")
+    assert list(cache.cache.keys()) == [1, 2, 0], "Order after get(0) incorrect"
+    
+    cache.get(1)  # Move 1 to end
+    print(f"After get(1): {list(cache.cache.keys())}")
+    assert list(cache.cache.keys()) == [2, 0, 1], "Order after get(1) incorrect"
+    
+    # Test put updates order
+    cache.put(2, sample_datapoint)  # Re-put 2, should move to end
+    print(f"After put(2): {list(cache.cache.keys())}")
+    assert list(cache.cache.keys()) == [0, 1, 2], "Order after put(2) incorrect"
+    
+    # Test eviction removes oldest
+    cache.max_memory_percent = psutil.Process().memory_percent() - 0.1
+    print(f"Setting memory limit to {cache.max_memory_percent}%")
+    cache.put(3, sample_datapoint)  # Should evict oldest (0)
+    print(f"After put(3): {list(cache.cache.keys())}")
+    assert list(cache.cache.keys()) == [1, 2, 3], "Order after eviction incorrect"
+    
+    # Test multiple operations
+    cache.get(1)  # Move 1 to end
+    print(f"After get(1): {list(cache.cache.keys())}")
+    cache.put(4, sample_datapoint)  # Should evict oldest (2)
+    print(f"After put(4): {list(cache.cache.keys())}")
+    assert list(cache.cache.keys()) == [3, 1, 4], "Final order incorrect"

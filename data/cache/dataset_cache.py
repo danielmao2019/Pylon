@@ -83,12 +83,13 @@ class DatasetCache:
                 # Validate item before returning
                 if self._validate_item(key, value):
                     self.hits += 1
-                    # Update LRU order
-                    self.cache.pop(key)
-                    self.cache[key] = value
+                    # Update LRU order - move to end (most recently used)
+                    self.cache.move_to_end(key)
+                    self.logger.debug(f"Current LRU order after get({key}): {list(self.cache.keys())}")
                     return copy.deepcopy(value)
                 else:
                     # Remove invalid item
+                    self.logger.debug(f"Removing invalid key {key} from cache")
                     self.cache.pop(key)
                     self.checksums.pop(key, None)
                     
@@ -96,29 +97,32 @@ class DatasetCache:
             return None
             
     def put(self, key: int, value: Dict[str, Any]) -> None:
-        """Thread-safe cache insertion with memory management and checksum computation.
-        Makes a deep copy of the value before storing.
-        
-        Args:
-            key (int): The key to store the value under
-            value (Dict[str, Any]): The value to store. Will be deep copied before storage.
-        """
+        """Thread-safe cache insertion with memory management and checksum computation."""
         with self.lock:
-            # If key exists, remove it first to update LRU order
+            # Make a copy of the value first to know its memory impact
+            copied_value = copy.deepcopy(value)
+            
+            # Remove old entry if it exists
             if key in self.cache:
+                self.logger.debug(f"Removing old entry for key {key}")
                 self.cache.pop(key)
                 self.checksums.pop(key, None)
             
-            # Check memory usage and evict if needed
-            while self._get_memory_usage() > self.max_memory_percent and self.cache:
+            # Check memory usage and evict one item at a time if needed
+            while self.cache and self._get_memory_usage() > self.max_memory_percent:
                 evicted_key, _ = self.cache.popitem(last=False)  # Remove oldest item
+                self.logger.debug(f"Evicting oldest key {evicted_key} due to memory limit")
                 self.checksums.pop(evicted_key, None)
-                
-            # Store item and its checksum (with deep copy)
-            copied_value = copy.deepcopy(value)
-            self.cache[key] = copied_value
+                self.logger.debug(f"Current LRU order after eviction: {list(self.cache.keys())}")
+                # Break after one eviction if we're under the limit
+                if self._get_memory_usage() <= self.max_memory_percent:
+                    break
+            
+            # Store item and its checksum
+            self.cache[key] = copied_value  # OrderedDict adds to end by default
             if self.enable_validation:
                 self.checksums[key] = self._compute_checksum(copied_value)
+            self.logger.debug(f"Current LRU order after put({key}): {list(self.cache.keys())}")
                 
     def _get_memory_usage(self) -> float:
         """Get current memory usage percentage."""
