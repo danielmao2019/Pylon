@@ -52,8 +52,10 @@ def cache_with_items(sample_datapoint):
         [1, 2, 3]  # Later items retained
     ),
 ])
-def test_lru_eviction_scenarios(cache_with_items, sample_datapoint, 
-                              scenario, access_order, expected_evicted, expected_retained):
+def test_lru_eviction_scenarios(
+    cache_with_items, sample_datapoint, 
+    scenario, access_order, expected_evicted, expected_retained,
+):
     """Test different LRU eviction scenarios."""
     cache = cache_with_items
     
@@ -68,6 +70,8 @@ def test_lru_eviction_scenarios(cache_with_items, sample_datapoint,
         print(f"After get({i}): {list(cache.cache.keys())}")
     
     print(f"Memory usage before adding item 3: {cache._get_memory_usage()}%")
+    # Now set limit to current usage so next item will trigger eviction    
+    cache.max_memory_percent = psutil.Process().memory_percent()
     # Add new item which should trigger eviction due to memory limit
     cache.put(3, sample_datapoint)
     print(f"Memory usage after adding item 3: {cache._get_memory_usage()}%")

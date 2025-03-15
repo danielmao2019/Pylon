@@ -33,6 +33,8 @@ class DatasetCache:
         # Initialize cache structures
         self.cache = OrderedDict()
         self.checksums = {}  # Store checksums for validation
+        self.memory_usage = {}  # Track memory usage per item
+        self.total_memory = 0  # Track total memory usage
         self.lock = threading.Lock()
         self.hits = 0
         self.misses = 0
@@ -96,33 +98,63 @@ class DatasetCache:
             self.misses += 1
             return None
             
+    def _calculate_item_memory(self, value: Dict[str, Any]) -> int:
+        """Calculate approximate memory usage of a cached item in bytes."""
+        total_memory = 0
+        
+        # Calculate memory for tensors
+        def process_item(item):
+            if isinstance(item, torch.Tensor):
+                # Calculate tensor memory (size in bytes)
+                return item.numel() * item.element_size()
+            elif isinstance(item, dict):
+                return sum(process_item(v) for v in item.values())
+            elif isinstance(item, (list, tuple)):
+                return sum(process_item(x) for x in item)
+            return 0  # Other types negligible
+            
+        memory = process_item(value)
+        # Add overhead for Python objects, metadata, etc
+        overhead = 1024  # 1KB overhead per item
+        return memory + overhead
+        
     def put(self, key: int, value: Dict[str, Any]) -> None:
         """Thread-safe cache insertion with memory management and checksum computation."""
         with self.lock:
-            # Make a copy of the value first to know its memory impact
+            # Make a copy of the value and calculate its memory
             copied_value = copy.deepcopy(value)
+            new_item_memory = self._calculate_item_memory(copied_value)
             
             # Remove old entry if it exists
             if key in self.cache:
                 self.logger.debug(f"Removing old entry for key {key}")
+                old_memory = self.memory_usage.pop(key)
+                self.total_memory -= old_memory
                 self.cache.pop(key)
                 self.checksums.pop(key, None)
             
-            # Store item and its checksum first - it will be at the end (most recently used)
-            self.cache[key] = copied_value  # OrderedDict adds to end by default
+            # Get current system memory limit in bytes
+            total_system_memory = psutil.virtual_memory().total
+            max_cache_memory = (self.max_memory_percent / 100.0) * total_system_memory
+            
+            # Evict items if needed to stay under memory limit
+            while self.cache and (self.total_memory + new_item_memory > max_cache_memory):
+                # Get the least recently used key
+                evict_key = next(iter(self.cache))
+                evicted_memory = self.memory_usage.pop(evict_key)
+                self.total_memory -= evicted_memory
+                self.cache.pop(evict_key)
+                self.checksums.pop(evict_key, None)
+                self.logger.debug(f"Evicted LRU key {evict_key} to free {evicted_memory} bytes")
+            
+            # Store new item
+            self.cache[key] = copied_value
+            self.memory_usage[key] = new_item_memory
+            self.total_memory += new_item_memory
+            
             if self.enable_validation:
                 self.checksums[key] = self._compute_checksum(copied_value)
             
-            # Check memory usage and evict least recently used items if needed
-            while self.cache and len(self.cache) > 1 and self._get_memory_usage() > self.max_memory_percent:
-                # Get the first key (least recently used) that isn't the one we just added
-                keys = list(self.cache.keys())
-                evict_key = next(k for k in keys if k != key)
-                self.logger.debug(f"Evicting LRU key {evict_key} due to memory limit")
-                self.cache.pop(evict_key)
-                self.checksums.pop(evict_key, None)
-                self.logger.debug(f"Current LRU order after eviction: {list(self.cache.keys())}")
-                
             self.logger.debug(f"Current LRU order after put({key}): {list(self.cache.keys())}")
                 
     def _get_memory_usage(self) -> float:

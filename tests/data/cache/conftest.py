@@ -5,7 +5,7 @@ import torch
 @pytest.fixture
 def sample_tensor():
     """Create a sample tensor for testing."""
-    return torch.randn(3, 64, 64)
+    return torch.randn(3, 1024, 1024)
 
 
 @pytest.fixture
