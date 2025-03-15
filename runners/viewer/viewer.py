@@ -16,8 +16,8 @@ class TrainerViewer:
         self.work_dir = self._modify_work_dir(self.config_path)
         self.work_dir.mkdir(parents=True, exist_ok=True)
         
-        # Initialize state
-        self.state = TrainingState(self.work_dir)
+        # Initialize state with both config path and work dir
+        self.state = TrainingState(self.work_dir, self.config_path)
         
         # Initialize Dash app
         self.app = dash.Dash(__name__)
