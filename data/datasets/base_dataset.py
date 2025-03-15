@@ -28,22 +28,27 @@ class DatasetCache:
         max_memory_percent: float = 80.0,
         persist_path: Optional[str] = None,
         version: str = "1.0",
+        enable_validation: bool = True,
     ):
         """
         Args:
             max_memory_percent (float): Maximum percentage of system memory to use
             persist_path (str, optional): Path to persist cache to disk
             version (str): Cache version for compatibility checking
+            enable_validation (bool): Whether to enable checksum validation
         """
         self.max_memory_percent = max_memory_percent
         self.persist_path = Path(persist_path) if persist_path else None
         self.version = version
+        self.enable_validation = enable_validation
         
         # Initialize cache structures
         self.cache = OrderedDict()
+        self.checksums = {}  # Store checksums for validation
         self.lock = threading.Lock()
         self.hits = 0
         self.misses = 0
+        self.validation_failures = 0
         
         # Load persisted cache if available
         if self.persist_path and self.persist_path.exists():
@@ -52,25 +57,73 @@ class DatasetCache:
         # Setup logging
         self.logger = logging.getLogger(__name__)
         
+    def _compute_checksum(self, value: Dict[str, Any]) -> str:
+        """Compute a checksum for a cached item."""
+        # Convert tensors to numpy for consistent hashing
+        def prepare_for_hash(item):
+            if isinstance(item, torch.Tensor):
+                return item.cpu().numpy().tobytes()
+            elif isinstance(item, dict):
+                return {k: prepare_for_hash(v) for k, v in item.items()}
+            elif isinstance(item, (list, tuple)):
+                return [prepare_for_hash(x) for x in item]
+            return item
+
+        # Prepare data for hashing
+        hashable_data = prepare_for_hash(value)
+        return hashlib.sha256(str(hashable_data).encode()).hexdigest()
+
+    def _validate_item(self, key: int, value: Dict[str, Any]) -> bool:
+        """Validate a cached item against its stored checksum."""
+        if not self.enable_validation:
+            return True
+            
+        if key not in self.checksums:
+            return False
+            
+        current_checksum = self._compute_checksum(value)
+        is_valid = current_checksum == self.checksums[key]
+        
+        if not is_valid:
+            self.validation_failures += 1
+            self.logger.warning(f"Cache validation failed for key {key}")
+            
+        return is_valid
+
     def get(self, key: int) -> Optional[Dict[str, Any]]:
-        """Thread-safe cache retrieval with LRU update."""
+        """Thread-safe cache retrieval with LRU update and validation."""
         with self.lock:
             if key in self.cache:
-                self.hits += 1
-                value = self.cache.pop(key)
-                self.cache[key] = value
-                return copy.deepcopy(value)
+                value = self.cache[key]
+                
+                # Validate item before returning
+                if self._validate_item(key, value):
+                    self.hits += 1
+                    # Update LRU order
+                    self.cache.pop(key)
+                    self.cache[key] = value
+                    return copy.deepcopy(value)
+                else:
+                    # Remove invalid item
+                    self.cache.pop(key)
+                    self.checksums.pop(key, None)
+                    
             self.misses += 1
             return None
             
     def put(self, key: int, value: Dict[str, Any]) -> None:
-        """Thread-safe cache insertion with memory management."""
+        """Thread-safe cache insertion with memory management and checksum computation."""
         with self.lock:
             # Check memory usage and evict if needed
             while self._get_memory_usage() > self.max_memory_percent and self.cache:
-                self.cache.popitem(last=False)  # Remove oldest item
+                evicted_key, _ = self.cache.popitem(last=False)  # Remove oldest item
+                self.checksums.pop(evicted_key, None)
                 
-            self.cache[key] = copy.deepcopy(value)
+            # Store item and its checksum
+            value_copy = copy.deepcopy(value)
+            self.cache[key] = value_copy
+            if self.enable_validation:
+                self.checksums[key] = self._compute_checksum(value_copy)
             
             # Periodically persist cache
             if self.persist_path and len(self.cache) % 1000 == 0:
@@ -81,7 +134,7 @@ class DatasetCache:
         return psutil.Process().memory_percent()
         
     def _persist_cache(self) -> None:
-        """Persist cache to disk."""
+        """Persist cache and checksums to disk."""
         if not self.persist_path:
             return
             
@@ -90,7 +143,9 @@ class DatasetCache:
             "timestamp": time.time(),
             "hits": self.hits,
             "misses": self.misses,
-            "cache": self.cache
+            "validation_failures": self.validation_failures,
+            "cache": self.cache,
+            "checksums": self.checksums
         }
         
         temp_path = self.persist_path.with_suffix('.tmp')
@@ -104,33 +159,54 @@ class DatasetCache:
                 temp_path.unlink()
                 
     def _load_persistent_cache(self) -> None:
-        """Load cache from disk."""
+        """Load cache and checksums from disk with validation."""
         try:
             cache_data = torch.load(self.persist_path)
             if cache_data["version"] != self.version:
                 self.logger.warning("Cache version mismatch, starting fresh")
                 return
                 
-            self.cache = OrderedDict(cache_data["cache"])
+            # Load basic stats
             self.hits = cache_data["hits"]
             self.misses = cache_data["misses"]
+            self.validation_failures = cache_data.get("validation_failures", 0)
+            
+            # Load and validate cache items
+            self.cache = OrderedDict()
+            self.checksums = {}
+            
+            for key, value in cache_data["cache"].items():
+                stored_checksum = cache_data["checksums"].get(key)
+                if not self.enable_validation or stored_checksum is None:
+                    self.cache[key] = value
+                    self.checksums[key] = self._compute_checksum(value)
+                else:
+                    current_checksum = self._compute_checksum(value)
+                    if current_checksum == stored_checksum:
+                        self.cache[key] = value
+                        self.checksums[key] = stored_checksum
+                    else:
+                        self.validation_failures += 1
+                        self.logger.warning(f"Validation failed for cached item {key} during load")
             
             self.logger.info(
                 f"Loaded cache with {len(self.cache)} items. "
-                f"Hit rate: {self.hits/(self.hits+self.misses+1e-6):.2%}"
+                f"Hit rate: {self.hits/(self.hits+self.misses+1e-6):.2%}, "
+                f"Validation failures: {self.validation_failures}"
             )
         except Exception as e:
             self.logger.error(f"Failed to load persistent cache: {e}")
             
     def get_stats(self) -> Dict[str, Any]:
-        """Get cache statistics."""
+        """Get cache statistics including validation metrics."""
         with self.lock:
             return {
                 "size": len(self.cache),
                 "hits": self.hits,
                 "misses": self.misses,
                 "hit_rate": self.hits / (self.hits + self.misses + 1e-6),
-                "memory_usage": self._get_memory_usage()
+                "memory_usage": self._get_memory_usage(),
+                "validation_failures": self.validation_failures
             }
 
 
