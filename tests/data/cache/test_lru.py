@@ -5,20 +5,6 @@ from data.cache import DatasetCache
 
 
 @pytest.fixture
-def sample_tensor():
-    return torch.randn(3, 64, 64)
-
-
-@pytest.fixture
-def sample_datapoint(sample_tensor):
-    return {
-        'inputs': {'image': sample_tensor},
-        'labels': {'class': torch.tensor([1])},
-        'meta_info': {'filename': 'test.jpg'}
-    }
-
-
-@pytest.fixture
 def cache_with_items(sample_datapoint):
     """Create a cache with initial items."""
     cache = DatasetCache()
