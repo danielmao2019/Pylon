@@ -256,7 +256,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             }
             # Cache the raw datapoint
             if self.cache is not None:
-                self.cache.put(idx, copy.deepcopy(raw_datapoint))
+                self.cache.put(idx, raw_datapoint)
         
         # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
         transformed_datapoint = self.transforms(raw_datapoint)

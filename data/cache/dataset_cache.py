@@ -90,18 +90,23 @@ class DatasetCache:
             return None
             
     def put(self, key: int, value: Dict[str, Any]) -> None:
-        """Thread-safe cache insertion with memory management and checksum computation."""
+        """Thread-safe cache insertion with memory management and checksum computation.
+        Makes a deep copy of the value before storing.
+        
+        Args:
+            key (int): The key to store the value under
+            value (Dict[str, Any]): The value to store. Will be deep copied before storage.
+        """
         with self.lock:
             # Check memory usage and evict if needed
             while self._get_memory_usage() > self.max_memory_percent and self.cache:
                 evicted_key, _ = self.cache.popitem(last=False)  # Remove oldest item
                 self.checksums.pop(evicted_key, None)
                 
-            # Store item and its checksum
-            value_copy = copy.deepcopy(value)
-            self.cache[key] = value_copy
+            # Store item and its checksum (with deep copy)
+            self.cache[key] = copy.deepcopy(value)
             if self.enable_validation:
-                self.checksums[key] = self._compute_checksum(value_copy)
+                self.checksums[key] = self._compute_checksum(self.cache[key])
                 
     def _get_memory_usage(self) -> float:
         """Get current memory usage percentage."""
