@@ -26,9 +26,23 @@ class TrainerViewer:
         register_navigation_callbacks(self.app, self.state)
     
     def _modify_work_dir(self, config_path: Path) -> Path:
-        # TODO: Implement proper config parsing
-        # For now, just create a dummy path
-        return Path("./logs/viewer/test")
+        """Modify work directory to use viewer subdirectory.
+        
+        Example:
+            Input:  ./logs/benchmarks/exp001/config.yaml
+            Output: ./logs/viewer/exp001
+        """
+        # Get the parent directory of the config file
+        config_dir = config_path.parent
+        
+        # Split the path into parts
+        parts = config_dir.parts
+        
+        # Find the 'logs' directory in the path
+        logs_idx = parts.index('logs')
+        # Replace the directory after 'logs' with 'viewer'
+        new_parts = parts[:logs_idx+1] + ('viewer',) + parts[logs_idx+2:]
+        return Path(*new_parts)
     
     def run(self, host: str = "localhost", port: int = 8050, debug: bool = True):
         """Start the Dash server."""
