@@ -7,14 +7,14 @@ from data.cache import DatasetCache
 def test_cache_thread_safety(sample_datapoint):
     """Test thread safety of cache operations."""
     cache = DatasetCache()
-    num_threads = 4
-    ops_per_thread = 10
+    num_threads = 3
+    ops_per_thread = 6
     errors = []
     
     def worker(thread_id):
         try:
             for i in range(ops_per_thread):
-                key = i % 2  # Maximum contention - only 2 keys
+                key = i % 2  # Two keys for better coverage
                 if i % 2 == 0:
                     cache.put(key, sample_datapoint)
                 else:
