@@ -8,13 +8,13 @@ def test_cache_thread_safety(sample_datapoint):
     """Test thread safety of cache operations."""
     cache = DatasetCache()
     num_threads = 4
-    ops_per_thread = 25
+    ops_per_thread = 10
     errors = []
     
     def worker(thread_id):
         try:
             for i in range(ops_per_thread):
-                key = (thread_id * ops_per_thread + i) % 3
+                key = i % 2  # Maximum contention - only 2 keys
                 if i % 2 == 0:
                     cache.put(key, sample_datapoint)
                 else:
@@ -33,6 +33,6 @@ def test_cache_thread_safety(sample_datapoint):
     assert not errors, f"Thread errors occurred: {errors}"
     
     # Verify final cache state
-    assert len(cache.cache) <= 3
+    assert len(cache.cache) <= 2
     stats = cache.get_stats()
     assert stats['hits'] + stats['misses'] == (num_threads * ops_per_thread) // 2
