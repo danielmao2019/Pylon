@@ -60,27 +60,38 @@ def create_main_layout():
             ], style={'marginBottom': '30px'}),
         ]),
         
-        # Image displays with better styling
+        # Image displays with two-column layout
         html.Div([
+            # Left column - Input Images
             html.Div([
-                html.H3("Input Image 1", style={'textAlign': 'center', 'color': '#2c3e50'}),
-                dcc.Graph(id="input-image-1")
-            ], style={'width': '25%', 'display': 'inline-block', 'padding': '10px'}),
+                html.H2("Input Images", style={'textAlign': 'center', 'color': '#2c3e50', 'marginBottom': '20px'}),
+                html.Div([
+                    html.H3("Image 1", style={'textAlign': 'center', 'color': '#2c3e50'}),
+                    dcc.Graph(id="input-image-1")
+                ], style={'marginBottom': '20px'}),
+                
+                html.Div([
+                    html.H3("Image 2", style={'textAlign': 'center', 'color': '#2c3e50'}),
+                    dcc.Graph(id="input-image-2")
+                ])
+            ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top',
+                     'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '8px',
+                     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)', 'marginRight': '2%'}),
             
+            # Right column - Change Maps
             html.Div([
-                html.H3("Input Image 2", style={'textAlign': 'center', 'color': '#2c3e50'}),
-                dcc.Graph(id="input-image-2")
-            ], style={'width': '25%', 'display': 'inline-block', 'padding': '10px'}),
-            
-            html.Div([
-                html.H3("Predicted Changes", style={'textAlign': 'center', 'color': '#2c3e50'}),
-                dcc.Graph(id="pred-change-map")
-            ], style={'width': '25%', 'display': 'inline-block', 'padding': '10px'}),
-            
-            html.Div([
-                html.H3("Ground Truth", style={'textAlign': 'center', 'color': '#2c3e50'}),
-                dcc.Graph(id="gt-change-map")
-            ], style={'width': '25%', 'display': 'inline-block', 'padding': '10px'})
-        ], style={'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '8px',
-                  'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'})
+                html.H2("Change Maps", style={'textAlign': 'center', 'color': '#2c3e50', 'marginBottom': '20px'}),
+                html.Div([
+                    html.H3("Predicted Changes", style={'textAlign': 'center', 'color': '#2c3e50'}),
+                    dcc.Graph(id="pred-change-map")
+                ], style={'marginBottom': '20px'}),
+                
+                html.Div([
+                    html.H3("Ground Truth", style={'textAlign': 'center', 'color': '#2c3e50'}),
+                    dcc.Graph(id="gt-change-map")
+                ])
+            ], style={'width': '48%', 'display': 'inline-block', 'verticalAlign': 'top',
+                     'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '8px',
+                     'boxShadow': '0 2px 4px rgba(0,0,0,0.1'})
+        ])
     ], style={'padding': '20px', 'backgroundColor': '#f9f9f9', 'minHeight': '100vh'})
