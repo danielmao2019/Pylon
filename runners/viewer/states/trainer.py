@@ -32,9 +32,15 @@ class TrainingState:
         self.optimizer = self.trainer.optimizer
         self.scheduler = self.trainer.scheduler
         
-        # Initialize dataloader iterator and first batch
+        # Initialize dataloader iterator and process first batch
         self.dataloader_iter = iter(self.train_dataloader)
-        self.current_batch = None
+        self.current_batch = next(self.dataloader_iter)
+        dp = {
+            'inputs': self.current_batch['inputs'],
+            'labels': self.current_batch['labels']
+        }
+        self.trainer._train_step_(dp)
+        self.current_outputs = dp['outputs']
 
     def _load_config(self):
         """Load config from Python file and modify work_dir for viewer."""
@@ -100,21 +106,11 @@ class TrainingState:
 
     def next_sample(self):
         """Move to next sample in current batch if available."""
-        # If no batch has been processed yet, do first iteration
-        if self.current_batch is None:
-            self.next_iteration()
-            return self.current_sample_idx
-            
-        batch_size = len(self.current_batch['inputs']['img_1'])
-        self.current_sample_idx = (self.current_sample_idx + 1) % batch_size
+        self.current_sample_idx = (self.current_sample_idx + 1) % self.batch_size
         return self.current_sample_idx
 
     def get_current_data(self):
         """Get data for current sample in current batch."""
-        # If no batch has been processed yet, do first iteration
-        if self.current_batch is None:
-            self.next_iteration()
-            
         return {
             'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
             'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
