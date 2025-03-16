@@ -10,7 +10,7 @@ class TrainingState:
         self.config_path = config_path
         self.current_iteration = 0
         self.current_sample_idx = 0
-        self.current_epoch = 0  # Add epoch tracking
+        self.current_epoch = 0
         self.class_colors = self._get_default_colors()
         self.device = torch.device('cuda')
 
@@ -28,9 +28,8 @@ class TrainingState:
         self.optimizer = self.trainer.optimizer
         self.scheduler = self.trainer.scheduler
         
-        # Initialize dataloader iterator and first batch
+        # Initialize dataloader iterator
         self.dataloader_iter = iter(self.train_dataloader)
-        self._load_next_batch()
 
     def _load_config(self):
         """Load config from Python file and modify work_dir for viewer."""
@@ -64,30 +63,14 @@ class TrainingState:
 
         return config
 
-    def _load_next_batch(self):
-        """Load next batch and process it."""
-        self.current_batch = next(self.dataloader_iter)
-        
-        # Create data point dictionary
-        dp = {
-            'inputs': self.current_batch['inputs'],
-            'labels': self.current_batch['labels']
-        }
-
-        # Use trainer's train step
-        self.trainer._train_step_(dp)
-        
-        # Store processed outputs
-        self.current_outputs = dp['outputs']
-
-    def get_current_data(self):
-        """Get data for current sample in current batch."""
-        return {
-            'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
-            'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
-            'pred': self.current_outputs[self.current_sample_idx].argmax(dim=0).cpu().numpy(),  # [H,W]
-            'gt': self.current_batch['labels']['change_map'][self.current_sample_idx].cpu().numpy(),  # [H,W]
-        }
+    def next_epoch(self):
+        """Move to next training epoch using trainer's functionality."""
+        self.trainer._train_epoch_()
+        self.current_epoch += 1
+        self.current_iteration = 0
+        self.current_sample_idx = 0
+        self.dataloader_iter = iter(self.train_dataloader)
+        return self.current_epoch
 
     def next_iteration(self):
         """Move to next training iteration."""
@@ -97,11 +80,27 @@ class TrainingState:
         # Handle end of iterator
         if self.current_iteration >= len(self.train_dataloader):
             self.current_iteration = 0
-            self.current_epoch += 1  # Increment epoch when dataloader resets
-            self.dataloader_iter = iter(self.train_dataloader)
+            return self.next_epoch()
             
-        self._load_next_batch()
+        # Load and process next batch
+        self.current_batch = next(self.dataloader_iter)
+        dp = {
+            'inputs': self.current_batch['inputs'],
+            'labels': self.current_batch['labels']
+        }
+        self.trainer._train_step_(dp)
+        self.current_outputs = dp['outputs']
+        
         return self.current_iteration
+
+    def get_current_data(self):
+        """Get data for current sample in current batch."""
+        return {
+            'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
+            'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
+            'pred': self.current_outputs[self.current_sample_idx].argmax(dim=0).cpu().numpy(),  # [H,W]
+            'gt': self.current_batch['labels']['change_map'][self.current_sample_idx].cpu().numpy(),  # [H,W]
+        }
 
     def next_sample(self):
         """Move to next sample in current batch if available."""
@@ -122,7 +121,7 @@ class TrainingState:
             'total_iterations': len(self.train_dataloader),
             'current_sample': self.current_sample_idx,
             'batch_size': len(self.current_batch['inputs']['img_1']),
-            'current_epoch': self.current_epoch  # Add epoch to navigation info
+            'current_epoch': self.current_epoch
         }
 
     def _get_default_colors(self):
