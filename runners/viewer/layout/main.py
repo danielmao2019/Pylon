@@ -12,6 +12,42 @@ def create_main_layout():
 
         # Navigation and Status Panel
         html.Div([
+            # Quick Navigation Sliders
+            html.Div([
+                # Epoch slider
+                html.Div([
+                    html.Div("Epoch Navigation", 
+                            style={'fontSize': '16px', 'fontWeight': 'bold', 'marginBottom': '10px',
+                                  'color': '#2c3e50', 'textAlign': 'center'}),
+                    dcc.Slider(
+                        id='epoch-slider',
+                        min=0,
+                        max=100,  # Will be updated dynamically
+                        step=1,
+                        value=0,
+                        marks={i: str(i) for i in range(0, 101, 10)},
+                        tooltip={"placement": "bottom", "always_visible": True}
+                    ),
+                ], style={'marginBottom': '20px'}),
+                
+                # Iteration slider
+                html.Div([
+                    html.Div("Iteration in Current Epoch", 
+                            style={'fontSize': '16px', 'fontWeight': 'bold', 'marginBottom': '10px',
+                                  'color': '#2c3e50', 'textAlign': 'center'}),
+                    dcc.Slider(
+                        id='iteration-slider',
+                        min=0,
+                        max=100,  # Will be updated dynamically
+                        step=1,
+                        value=0,
+                        marks={i: str(i) for i in range(0, 101, 10)},
+                        tooltip={"placement": "bottom", "always_visible": True}
+                    ),
+                ]),
+            ], style={'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '8px',
+                     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)', 'marginBottom': '20px'}),
+
             # Navigation controls with better styling
             html.Div([
                 html.Button("◀ Previous Iteration", 
