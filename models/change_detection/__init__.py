@@ -24,6 +24,7 @@ from models.change_detection import csa_cdgan
 from models.change_detection.change_mamba.st_mamba_bcd import STMambaBCD
 from models.change_detection.siamese_kpconv.siamese_kpconv_model import SiameseKPConv
 from models.change_detection.siam3dcdnet.siam3dcdnet_model import Siam3DCDNet
+from models.change_detection.hcgmnet import HCGMNet
 # Single-Temporal Models
 from models.change_detection.change_star.change_star import ChangeStar
 from models.change_detection.i3pe.i3pe_model import I3PEModel
@@ -55,6 +56,7 @@ __all__ = (
     'STMambaBCD',
     'SiameseKPConv',
     'Siam3DCDNet',
+    'HCGMNet',
     # Single-Temporal Models
     'ChangeStar',
     'I3PEModel',
