@@ -1,6 +1,7 @@
 from typing import Dict, Any
 import pytest
 import torch
+from torch.utils.data import DataLoader
 from utils.ops import buffer_equal
 
 
@@ -82,8 +83,8 @@ def test_cache_with_dataloader(SampleDataset):
     }
     
     # Create dataloaders
-    loader_cached = torch.utils.data.DataLoader(cached, **dataloader_params)
-    loader_uncached = torch.utils.data.DataLoader(uncached, **dataloader_params)
+    loader_cached = DataLoader(cached, **dataloader_params)
+    loader_uncached = DataLoader(uncached, **dataloader_params)
     
     # Multiple epochs to verify cache consistency
     for _ in range(3):
@@ -100,7 +101,7 @@ def test_cache_with_different_batch_sizes(SampleDataset):
     results = []
     
     for batch_size in batch_sizes:
-        loader = torch.utils.data.DataLoader(
+        loader = DataLoader(
             dataset,
             batch_size=batch_size,
             shuffle=False,
@@ -121,3 +122,55 @@ def test_cache_with_different_batch_sizes(SampleDataset):
     for items1, items2 in zip(results[:-1], results[1:]):
         for item1, item2 in zip(items1, items2):
             assert buffer_equal(item1, item2)
+
+
+def test_cache_hits_with_transforms(SampleDataset, random_transforms):
+    """Test that data is properly cached even with transforms enabled."""
+    dataset = SampleDataset(split='train', indices=list(range(5)), use_cache=True, transforms_cfg=random_transforms)
+    
+    # First access should cache
+    _ = dataset[0]
+    cache_stats = dataset.get_cache_stats()
+    assert cache_stats['hits'] == 0
+    assert cache_stats['misses'] == 1
+    
+    # Second access should hit cache
+    _ = dataset[0]
+    cache_stats = dataset.get_cache_stats()
+    assert cache_stats['hits'] == 1
+    assert cache_stats['misses'] == 1
+
+
+def test_transform_randomness_preserved(SampleDataset, random_transforms):
+    """Test that transforms remain random even with cached data."""
+    dataset = SampleDataset(split='train', indices=list(range(5)), use_cache=True, transforms_cfg=random_transforms)
+    
+    # Multiple accesses to same index should give different results
+    first_access = dataset[0]
+    second_access = dataset[0]
+    
+    # Data should be different due to random transforms
+    assert not torch.allclose(
+        first_access['inputs']['input'].float(), 
+        second_access['inputs']['input'].float()
+    )
+
+
+def test_transform_randomness_in_dataloader(SampleDataset, random_transforms):
+    """Test that transform randomness works through DataLoader."""
+    dataset = SampleDataset(split='train', indices=list(range(10)), use_cache=True, transforms_cfg=random_transforms)
+    loader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
+    
+    # Run two epochs and collect results
+    epoch1_data = []
+    epoch2_data = []
+    
+    for batch in loader:
+        epoch1_data.append(batch['inputs']['input'].clone())
+    
+    for batch in loader:
+        epoch2_data.append(batch['inputs']['input'].clone())
+    
+    # Compare corresponding batches between epochs
+    for batch1, batch2 in zip(epoch1_data, epoch2_data):
+        assert not torch.allclose(batch1.float(), batch2.float())
