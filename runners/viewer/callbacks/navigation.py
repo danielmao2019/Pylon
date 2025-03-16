@@ -1,12 +1,9 @@
 """Navigation-related callbacks for the runners viewer."""
-from dash import Input, Output, State, callback_context, html
+from dash import Input, Output, callback_context
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 import logging
-from typing import Dict, List, Optional, Union, Any
-import numpy as np
-import torch
-from runners.viewer.utils import tensor_to_image, create_image_figure
+from runners.viewer.utils import tensor_to_image, create_image_figure, class_to_rgb
 
 logger = logging.getLogger(__name__)
 
@@ -101,8 +98,8 @@ def register_navigation_callbacks(app, state):
             input2_array = tensor_to_image(data["input2"])
             
             # Convert predictions and ground truth to RGB
-            pred_array = state.class_to_rgb(data["pred"]) / 255.0
-            gt_array = state.class_to_rgb(data["gt"]) / 255.0
+            pred_array = class_to_rgb(data["pred"], state.class_colors) / 255.0
+            gt_array = class_to_rgb(data["gt"], state.class_colors) / 255.0
             
             # Create figures
             input1_fig = create_image_figure(input1_array, title="Input Image 1")
