@@ -1,24 +1,7 @@
 from typing import Any, Tuple, List, Dict, Optional
 import pytest
 import torch
-from data.datasets.base_dataset import BaseDataset
 from utils.ops import buffer_equal
-
-
-class SampleDataset(BaseDataset):
-
-    SPLIT_OPTIONS = ['train', 'val', 'test', 'weird']
-    INPUT_NAMES = ['input']
-    LABEL_NAMES = ['label']
-
-    def _init_annotations(self) -> None:
-        # all splits are the same
-        self.annotations = list(range(100))
-
-    def _load_datapoint(self, idx: int) -> Tuple[
-        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
-    ]:
-        return {'input': self.annotations[idx]}, {'label': self.annotations[idx]}, {}
 
 
 @pytest.mark.parametrize("indices, expected", [
@@ -38,6 +21,7 @@ class SampleDataset(BaseDataset):
 def test_base_dataset_None(
     indices: Optional[Dict[str, List[int]]],
     expected: Dict[str, List[int]],
+    SampleDataset,
 ) -> None:
     dataset = SampleDataset(split=None, indices=indices)
     assert dataset.split is None and not hasattr(dataset, 'split_percentage')
@@ -67,6 +51,7 @@ def test_base_dataset_None(
 def test_base_dataset_tuple(
     split: Tuple[float, ...],
     expected: Dict[str, int],
+    SampleDataset,
 ) -> None:
     dataset = SampleDataset(split=split, indices=None)
     assert not hasattr(dataset, 'split') and type(dataset.split_percentages) == tuple
@@ -89,7 +74,7 @@ def test_base_dataset_tuple(
     ) for split in ['train', 'val', 'test', 'weird']]) == set()
 
 
-def test_base_dataset_cache():
+def test_base_dataset_cache(SampleDataset):
     # check dataset
     dataset_cached = SampleDataset(split='train', indices=list(range(10)), use_cache=True)
     dataset = SampleDataset(split='train', indices=list(range(10)), use_cache=False)
