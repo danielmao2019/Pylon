@@ -267,9 +267,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             inputs=transformed_datapoint
         )
 
-    def visualize(self, output_dir: str) -> None:
-        raise NotImplementedError("Class method 'visualize' not implemented.")
-
     def get_cache_stats(self) -> Optional[Dict[str, Any]]:
         """Get cache statistics if caching is enabled."""
         if self.cache is not None:
