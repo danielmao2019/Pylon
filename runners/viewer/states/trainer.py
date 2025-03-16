@@ -29,8 +29,9 @@ class TrainingState:
         self.optimizer = self.trainer.optimizer
         self.scheduler = self.trainer.scheduler
         
-        # Initialize dataloader iterator
+        # Initialize dataloader iterator and first batch
         self.dataloader_iter = iter(self.train_dataloader)
+        self.current_batch = None
 
     def _load_config(self):
         """Load config from Python file and modify work_dir for viewer."""
