@@ -17,6 +17,9 @@ class TrainingState:
 
         # Load config and initialize trainer
         self.config = self._load_config()
+        
+        # Store batch size from config
+        self.batch_size = self.config['train_dataloader']['args']['batch_size']
 
         # Initialize trainer using the runner class specified in config
         self.trainer = self.config['runner'](config=self.config)
@@ -125,6 +128,6 @@ class TrainingState:
             'current_iteration': self.current_iteration,
             'total_iterations': len(self.train_dataloader),
             'current_sample': self.current_sample_idx,
-            'batch_size': len(self.current_batch['inputs']['img_1']),
+            'batch_size': self.batch_size,
             'current_epoch': self.current_epoch
         }
