@@ -1,7 +1,7 @@
 from dash import html, dcc
 
 
-def create_layout():
+def create_main_layout():
     """Create the main layout for the viewer application."""
     return html.Div([
         # Navigation controls
