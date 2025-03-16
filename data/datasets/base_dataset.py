@@ -6,6 +6,7 @@ import subprocess
 import os
 import random
 import torch
+from data.cache import DatasetCache
 from data.transforms.compose import Compose
 from utils.input_checks import check_read_dir
 from utils.builders import build_from_config
@@ -27,30 +28,42 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
         use_cache: Optional[bool] = True,
+        max_cache_memory_percent: float = 80.0,
         device: Optional[Union[torch.device, str]] = torch.device('cuda'),
         check_sha1sum: Optional[bool] = False,
     ) -> None:
-        r"""
+        """
         Args:
-            use_cache (bool): controls whether loaded data points stays in RAM. Default: True.
+            use_cache (bool): controls whether loaded data points stays in RAM. Default: True
+            max_cache_memory_percent (float): maximum percentage of system memory to use for cache
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
+        
         # input checks
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
+            
         # initialize
         super(BaseDataset, self).__init__()
         self._init_split(split=split)
         self._init_indices(indices=indices)
         self._init_transforms(transforms_cfg=transforms_cfg)
+        
+        # Initialize cache
         if use_cache:
-            self.cache: List[Dict[str, Dict[str, Any]]] = []
+            self.cache = DatasetCache(
+                max_memory_percent=max_cache_memory_percent,
+                enable_validation=True
+            )
         else:
             self.cache = None
+            
         self._init_device(device)
+        
         # sanity check
         self.check_sha1sum = check_sha1sum
         self._sanity_check()
+        
         # initialize annotations at the end because of splits
         self._init_annotations_all_splits()
 
@@ -227,19 +240,35 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         raise NotImplementedError("[ERROR] _load_datapoint not implemented for abstract base class.")
 
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
-        if self.cache is None or idx >= len(self.cache) or self.cache[idx] is None:
+        # Try to get raw datapoint from cache first
+        raw_datapoint = None
+        if self.cache is not None:
+            raw_datapoint = self.cache.get(idx)
+            
+        # If not in cache, load from disk and cache it
+        if raw_datapoint is None:
+            # Load raw datapoint
             inputs, labels, meta_info = self._load_datapoint(idx)
-            datapoint = {
+            raw_datapoint = {
                 'inputs': inputs,
                 'labels': labels,
                 'meta_info': meta_info,
             }
-            datapoint = self.transforms(datapoint)
+            # Cache the raw datapoint
             if self.cache is not None:
-                if idx >= len(self.cache):
-                    self.cache += [None] * (idx - len(self.cache) + 1)
-                self.cache[idx] = copy.deepcopy(datapoint)
-        else:
-            datapoint = copy.deepcopy(self.cache[idx])
-        datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=datapoint)
-        return datapoint
+                self.cache.put(idx, raw_datapoint)
+        
+        # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
+        transformed_datapoint = self.transforms(raw_datapoint)
+        
+        # Move to device
+        return apply_tensor_op(
+            func=lambda x: x.to(self.device), 
+            inputs=transformed_datapoint
+        )
+
+    def get_cache_stats(self) -> Optional[Dict[str, Any]]:
+        """Get cache statistics if caching is enabled."""
+        if self.cache is not None:
+            return self.cache.get_stats()
+        return None
