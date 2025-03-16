@@ -23,7 +23,8 @@ def test_base_dataset_None(
     expected_indices: Dict[str, List[int]],
     SampleDataset,
 ) -> None:
-    dataset = SampleDataset(split=None, indices=indices)
+    # Create dataset with CPU device for testing
+    dataset = SampleDataset(split=None, indices=indices, device=torch.device('cpu'))
     assert dataset.split is None and not hasattr(dataset, 'split_percentage')
     assert not hasattr(dataset, 'indices') and hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
@@ -44,6 +45,7 @@ def test_base_dataset_None(
             input_tensor = datapoint['inputs']['input']
             assert isinstance(input_tensor, torch.Tensor)
             assert input_tensor.shape == (3, 32, 32)
+            assert input_tensor.device == torch.device('cpu')
             # Verify that the tensor is deterministic for each index by checking it against a fresh one
             torch.manual_seed(expected_idx)
             expected_tensor = torch.randn(3, 32, 32)
@@ -65,7 +67,8 @@ def test_base_dataset_tuple(
     expected: Dict[str, int],
     SampleDataset,
 ) -> None:
-    dataset = SampleDataset(split=split, indices=None)
+    # Create dataset with CPU device for testing
+    dataset = SampleDataset(split=split, indices=None, device=torch.device('cpu'))
     assert not hasattr(dataset, 'split') and type(dataset.split_percentages) == tuple
     assert not hasattr(dataset, 'indices') and not hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
