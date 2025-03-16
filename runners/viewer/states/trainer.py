@@ -93,6 +93,12 @@ class TrainingState:
         
         return self.current_iteration
 
+    def next_sample(self):
+        """Move to next sample in current batch if available."""
+        batch_size = len(self.current_batch['inputs']['img_1'])
+        self.current_sample_idx = (self.current_sample_idx + 1) % batch_size
+        return self.current_sample_idx
+
     def get_current_data(self):
         """Get data for current sample in current batch."""
         return {
@@ -101,18 +107,6 @@ class TrainingState:
             'pred': self.current_outputs[self.current_sample_idx].argmax(dim=0).cpu().numpy(),  # [H,W]
             'gt': self.current_batch['labels']['change_map'][self.current_sample_idx].cpu().numpy(),  # [H,W]
         }
-
-    def next_sample(self):
-        """Move to next sample in current batch if available."""
-        batch_size = len(self.current_batch['inputs']['img_1'])
-        self.current_sample_idx = (self.current_sample_idx + 1) % batch_size
-        return self.current_sample_idx
-
-    def prev_sample(self):
-        """Move to previous sample in current batch if available."""
-        batch_size = len(self.current_batch['inputs']['img_1'])
-        self.current_sample_idx = (self.current_sample_idx - 1) % batch_size
-        return self.current_sample_idx
 
     def get_navigation_info(self):
         """Get current navigation state."""
