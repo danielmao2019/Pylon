@@ -142,3 +142,13 @@ def get_image_stats(img: torch.Tensor, change_map: Optional[torch.Tensor] = None
 
     except Exception as e:
         return {"Error": str(e)}
+
+
+def get_default_colors():
+    """Return default color mapping for visualization."""
+    return {
+        0: [0, 0, 0],      # Background (black)
+        1: [255, 0, 0],    # Change class 1 (red)
+        2: [0, 255, 0],    # Change class 2 (green)
+        3: [0, 0, 255],    # Change class 3 (blue)
+    }

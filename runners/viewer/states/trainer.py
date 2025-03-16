@@ -3,6 +3,7 @@ from pathlib import Path
 import torch
 import importlib.util
 from utils.automation.cfg_log_conversion import get_work_dir, get_repo_root
+from runners.viewer.utils import get_default_colors
 
 
 class TrainingState:
@@ -11,7 +12,7 @@ class TrainingState:
         self.current_iteration = 0
         self.current_sample_idx = 0
         self.current_epoch = 0
-        self.class_colors = self._get_default_colors()
+        self.class_colors = get_default_colors()
         self.device = torch.device('cuda')
 
         # Load config and initialize trainer
@@ -116,15 +117,6 @@ class TrainingState:
             'current_sample': self.current_sample_idx,
             'batch_size': len(self.current_batch['inputs']['img_1']),
             'current_epoch': self.current_epoch
-        }
-
-    def _get_default_colors(self):
-        """Return default color mapping for visualization."""
-        return {
-            0: [0, 0, 0],      # Background (black)
-            1: [255, 0, 0],    # Change class 1 (red)
-            2: [0, 255, 0],    # Change class 2 (green)
-            3: [0, 0, 255],    # Change class 3 (blue)
         }
 
     def class_to_rgb(self, class_indices):
