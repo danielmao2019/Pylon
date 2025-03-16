@@ -97,12 +97,21 @@ class TrainingState:
 
     def next_sample(self):
         """Move to next sample in current batch if available."""
+        # If no batch has been processed yet, do first iteration
+        if self.current_batch is None:
+            self.next_iteration()
+            return self.current_sample_idx
+            
         batch_size = len(self.current_batch['inputs']['img_1'])
         self.current_sample_idx = (self.current_sample_idx + 1) % batch_size
         return self.current_sample_idx
 
     def get_current_data(self):
         """Get data for current sample in current batch."""
+        # If no batch has been processed yet, do first iteration
+        if self.current_batch is None:
+            self.next_iteration()
+            
         return {
             'input1': self.current_batch['inputs']['img_1'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
             'input2': self.current_batch['inputs']['img_2'][self.current_sample_idx].cpu().numpy(),  # [C,H,W]
