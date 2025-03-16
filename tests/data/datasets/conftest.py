@@ -3,8 +3,7 @@ import pytest
 import torch
 from data.datasets.base_dataset import BaseDataset
 from data.transforms.compose import Compose
-from data.transforms.random_rotation import RandomRotation
-from data.transforms.flip import Flip
+from data.transforms.random_noise import RandomNoise
 
 
 @pytest.fixture
@@ -22,8 +21,10 @@ def SampleDataset():
         def _load_datapoint(self, idx: int) -> Tuple[
             Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
         ]:
-            # Create a simple tensor for testing transforms
-            tensor = torch.ones(3, 32, 32) * self.annotations[idx]
+            # Create a random tensor for testing transforms
+            # Use the annotation index as the random seed for reproducibility
+            torch.manual_seed(self.annotations[idx])
+            tensor = torch.randn(3, 32, 32)  # Random noise
             return {'input': tensor}, {'label': self.annotations[idx]}, {}
     
     return _SampleDataset
@@ -32,10 +33,13 @@ def SampleDataset():
 @pytest.fixture
 def random_transforms():
     """Random transforms for testing cache behavior with randomization."""
-    rotation = RandomRotation(range=(-30, 30))  # Random rotation between -30 and 30 degrees
-    flip = Flip(axis=2)  # Horizontal flip
+    noise = RandomNoise(std=0.2)  # Add significant noise for visible effect
     
-    return Compose([
-        (rotation, ('inputs', 'input')),
-        (flip, ('inputs', 'input')),
-    ])
+    return {
+        'class': Compose,
+        'args': {
+            'transforms': [
+                (noise, [('inputs', 'input')]),
+            ]
+        }
+    }
