@@ -60,20 +60,61 @@ def register_navigation_callbacks(app, state):
             
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
         
+        # Create empty figure template for training/error states
+        def create_message_figure(message):
+            fig = go.Figure()
+            fig.update_layout(
+                xaxis=dict(showticklabels=False, showgrid=False),
+                yaxis=dict(showticklabels=False, showgrid=False),
+                margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            fig.add_annotation(
+                text=message,
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font=dict(size=16, color='#2c3e50'),
+                align='center'
+            )
+            return fig
+        
         try:
             # Handle slider navigation
             if trigger_id in ["epoch-slider", "iteration-slider"]:
                 current_epoch = state.current_epoch
                 current_iter = state.current_iteration
+                target_epoch = epoch_value if trigger_id == "epoch-slider" else current_epoch
+                target_iter = iter_value if trigger_id == "iteration-slider" else current_iter
                 
+                # If we're jumping ahead, show training message
+                if (trigger_id == "epoch-slider" and epoch_value > current_epoch) or \
+                   (trigger_id == "iteration-slider" and iter_value > current_iter):
+                    message = f"Model is training...\nMoving to epoch {target_epoch}, iteration {target_iter}"
+                    empty_fig = create_message_figure(message)
+                    return (
+                        f"Target Epoch: {target_epoch}",
+                        f"Target Iteration: {target_iter}",
+                        "Training in progress...",
+                        empty_fig,
+                        empty_fig,
+                        empty_fig,
+                        empty_fig,
+                        target_epoch,
+                        target_iter
+                    )
+                
+                # Move forward to desired position
                 if trigger_id == "epoch-slider" and epoch_value > current_epoch:
-                    # Move forward to desired epoch
                     for _ in range(epoch_value - current_epoch):
                         state.next_epoch()
                 elif trigger_id == "iteration-slider" and iter_value > current_iter:
-                    # Move forward to desired iteration in current epoch
                     for _ in range(iter_value - current_iter):
                         state.next_iteration()
+                        
             # Handle button navigation
             else:
                 if trigger_id == "btn-next-epoch":
@@ -120,49 +161,23 @@ def register_navigation_callbacks(app, state):
                 input2_fig,
                 pred_fig,
                 gt_fig,
-                nav_info['current_epoch'],  # Update epoch slider
-                nav_info['current_iteration']  # Update iteration slider
+                nav_info['current_epoch'],
+                nav_info['current_iteration']
             )
             
         except Exception as e:
             logger.error(f"Error updating display: {str(e)}")
-            # Return empty figures on error
-            empty_fig = go.Figure()
-            empty_fig.update_layout(
-                xaxis=dict(showticklabels=False, showgrid=False),
-                yaxis=dict(showticklabels=False, showgrid=False),
-                margin=dict(l=0, r=0, t=0, b=0),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            
-            # Add informative text about training progress
-            if trigger_id in ["epoch-slider", "iteration-slider"]:
-                target_epoch = epoch_value if trigger_id == "epoch-slider" else state.current_epoch
-                target_iter = iter_value if trigger_id == "iteration-slider" else state.current_iteration
-                message = f"Model is still training...\nWaiting for epoch {target_epoch}, iteration {target_iter}"
-            else:
-                message = "Error: Failed to update display"
-                
-            empty_fig.add_annotation(
-                text=message,
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                y=0.5,
-                showarrow=False,
-                font=dict(size=16, color='#2c3e50'),
-                align='center'
-            )
+            message = "Error: Failed to update display"
+            empty_fig = create_message_figure(message)
             
             return (
-                f"Target Epoch: {target_epoch}" if 'target_epoch' in locals() else "Error: Failed to update display",
-                f"Target Iteration: {target_iter}" if 'target_iter' in locals() else "Error: Failed to update display",
+                "Error: Failed to update display",
+                "Error: Failed to update display",
                 "Waiting for data...",
                 empty_fig,
                 empty_fig,
                 empty_fig,
                 empty_fig,
-                target_epoch if 'target_epoch' in locals() else 0,
-                target_iter if 'target_iter' in locals() else 0
+                0,
+                0
             )
