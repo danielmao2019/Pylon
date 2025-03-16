@@ -26,7 +26,9 @@ def register_navigation_callbacks(app, state):
     def update_sliders_max(iteration_display):
         """Update both sliders' maximum values."""
         try:
-            total_epochs = state.total_epochs
+            # Get total epochs from config
+            total_epochs = state.config.get('epochs', 100)  # Default to 100 if not found
+            # Get iterations per epoch from dataloader length
             iterations_per_epoch = len(state.train_dataloader)
             return total_epochs - 1, iterations_per_epoch - 1
         except Exception as e:
@@ -43,14 +45,17 @@ def register_navigation_callbacks(app, state):
          Output("gt-change-map", "figure"),
          Output("epoch-slider", "value"),
          Output("iteration-slider", "value")],
-        [Input("btn-prev-iter", "n_clicks"),
+        [Input("btn-prev-epoch", "n_clicks"),
+         Input("btn-next-epoch", "n_clicks"),
+         Input("btn-prev-iter", "n_clicks"),
          Input("btn-next-iter", "n_clicks"),
          Input("btn-prev-sample", "n_clicks"),
          Input("btn-next-sample", "n_clicks"),
          Input("epoch-slider", "value"),
          Input("iteration-slider", "value")]
     )
-    def update_display(prev_iter_clicks, next_iter_clicks, prev_sample_clicks, next_sample_clicks, epoch_value, iter_value):
+    def update_display(prev_epoch_clicks, next_epoch_clicks, prev_iter_clicks, next_iter_clicks, 
+                      prev_sample_clicks, next_sample_clicks, epoch_value, iter_value):
         """Update the display based on navigation controls or slider values."""
         ctx = callback_context
         if not ctx.triggered:
@@ -74,7 +79,11 @@ def register_navigation_callbacks(app, state):
                         state.next_iteration()
             # Handle button navigation
             else:
-                if trigger_id == "btn-next-iter":
+                if trigger_id == "btn-next-epoch":
+                    state.next_epoch()
+                elif trigger_id == "btn-prev-epoch":
+                    state.prev_epoch()
+                elif trigger_id == "btn-next-iter":
                     state.next_iteration()
                 elif trigger_id == "btn-prev-iter":
                     state.prev_iteration()
