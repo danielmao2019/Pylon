@@ -4,7 +4,7 @@ import torch
 from utils.ops import buffer_equal
 
 
-@pytest.mark.parametrize("indices, expected", [
+@pytest.mark.parametrize("indices, expected_indices", [
     (
         None,
         {'train': list(range(100)), 'val': list(range(100)), 'test': list(range(100)), 'weird': list(range(100))},
@@ -20,7 +20,7 @@ from utils.ops import buffer_equal
 ])
 def test_base_dataset_None(
     indices: Optional[Dict[str, List[int]]],
-    expected: Dict[str, List[int]],
+    expected_indices: Dict[str, List[int]],
     SampleDataset,
 ) -> None:
     dataset = SampleDataset(split=None, indices=indices)
@@ -34,8 +34,20 @@ def test_base_dataset_None(
         assert split_subset.indices == (indices.get(split, None) if indices else None)
         assert not hasattr(split_subset, 'split_indices')
         assert not hasattr(split_subset, 'split_subsets')
-        assert list(datapoint['inputs']['input'] for datapoint in split_subset) == expected[split]
-        assert list(datapoint['labels']['label'] for datapoint in split_subset) == expected[split]
+        
+        # For each index, verify the label matches the index
+        for idx, datapoint in enumerate(split_subset):
+            expected_idx = expected_indices[split][idx]
+            assert datapoint['labels']['label'] == expected_idx
+            
+            # Verify input tensor properties
+            input_tensor = datapoint['inputs']['input']
+            assert isinstance(input_tensor, torch.Tensor)
+            assert input_tensor.shape == (3, 32, 32)
+            # Verify that the tensor is deterministic for each index by checking it against a fresh one
+            torch.manual_seed(expected_idx)
+            expected_tensor = torch.randn(3, 32, 32)
+            assert torch.allclose(input_tensor, expected_tensor)
 
 
 @pytest.mark.parametrize("split, expected", [
@@ -66,9 +78,12 @@ def test_base_dataset_tuple(
         assert not hasattr(split_subset, 'split_subsets')
         assert len(split_subset) == expected[split], \
             f"{split=}, {len(split_subset)=}, {expected[split]=}"
-    assert set.intersection(*[set(
-        (
-            dataset.split_subsets[split][idx]['inputs']['input'],
-            dataset.split_subsets[split][idx]['labels']['label'],
-        ) for idx in range(len(dataset.split_subsets[split]))
-    ) for split in ['train', 'val', 'test', 'weird']]) == set()
+    
+    # Verify that splits are disjoint by checking labels
+    all_labels = {split: set(datapoint['labels']['label'] for datapoint in dataset.split_subsets[split])
+                 for split in ['train', 'val', 'test', 'weird']}
+    for split1 in ['train', 'val', 'test', 'weird']:
+        for split2 in ['train', 'val', 'test', 'weird']:
+            if split1 != split2:
+                assert all_labels[split1].isdisjoint(all_labels[split2]), \
+                    f"Labels in {split1} and {split2} overlap"
