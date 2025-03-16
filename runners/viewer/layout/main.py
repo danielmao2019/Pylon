@@ -115,7 +115,14 @@ def create_main_layout():
                      'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'})
         ], style={'marginBottom': '30px'}),
         
-        # Image displays with two-column layout
+        # Training Progress Message Panel (initially hidden)
+        html.Div(id="message-panel", 
+                style={'display': 'none', 'backgroundColor': '#ffffff', 'padding': '40px',
+                       'borderRadius': '8px', 'boxShadow': '0 2px 4px rgba(0,0,0,0.1)',
+                       'marginBottom': '30px', 'textAlign': 'center', 'fontSize': '18px',
+                       'color': '#2c3e50'}),
+        
+        # Image displays with two-column layout (initially visible)
         html.Div([
             # Left column - Input Images
             html.Div([
@@ -158,5 +165,5 @@ def create_main_layout():
             ], style={'width': '49%', 'display': 'inline-block', 'verticalAlign': 'top',
                      'backgroundColor': '#ffffff', 'padding': '20px', 'borderRadius': '8px',
                      'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'})
-        ], style={'width': '100%', 'display': 'flex', 'justifyContent': 'space-between'})
+        ], id="image-display-container", style={'width': '100%', 'display': 'flex', 'justifyContent': 'space-between'})
     ], style={'padding': '20px', 'backgroundColor': '#f9f9f9', 'minHeight': '100vh'})

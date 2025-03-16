@@ -36,6 +36,9 @@ def register_navigation_callbacks(app, state):
         [Output("epoch-display", "children"),
          Output("iteration-display", "children"),
          Output("sample-display", "children"),
+         Output("message-panel", "children"),
+         Output("message-panel", "style"),
+         Output("image-display-container", "style"),
          Output("input-image-1", "figure"),
          Output("input-image-2", "figure"),
          Output("pred-change-map", "figure"),
@@ -60,27 +63,21 @@ def register_navigation_callbacks(app, state):
             
         trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
         
-        # Create empty figure template for training/error states
-        def create_message_figure(message):
-            fig = go.Figure()
-            fig.update_layout(
-                xaxis=dict(showticklabels=False, showgrid=False),
-                yaxis=dict(showticklabels=False, showgrid=False),
-                margin=dict(l=0, r=0, t=0, b=0),
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)'
-            )
-            fig.add_annotation(
-                text=message,
-                xref="paper",
-                yref="paper",
-                x=0.5,
-                y=0.5,
-                showarrow=False,
-                font=dict(size=16, color='#2c3e50'),
-                align='center'
-            )
-            return fig
+        # Style configurations
+        message_visible_style = {
+            'display': 'block',
+            'backgroundColor': '#ffffff',
+            'padding': '40px',
+            'borderRadius': '8px',
+            'boxShadow': '0 2px 4px rgba(0,0,0,0.1)',
+            'marginBottom': '30px',
+            'textAlign': 'center',
+            'fontSize': '18px',
+            'color': '#2c3e50'
+        }
+        message_hidden_style = {'display': 'none'}
+        images_visible_style = {'width': '100%', 'display': 'flex', 'justifyContent': 'space-between'}
+        images_hidden_style = {'display': 'none'}
         
         try:
             # Handle slider navigation
@@ -94,11 +91,14 @@ def register_navigation_callbacks(app, state):
                 if (trigger_id == "epoch-slider" and epoch_value > current_epoch) or \
                    (trigger_id == "iteration-slider" and iter_value > current_iter):
                     message = f"Model is training...\nMoving to epoch {target_epoch}, iteration {target_iter}"
-                    empty_fig = create_message_figure(message)
+                    empty_fig = go.Figure()
                     return (
                         f"Target Epoch: {target_epoch}",
                         f"Target Iteration: {target_iter}",
                         "Training in progress...",
+                        message,
+                        message_visible_style,
+                        images_hidden_style,
                         empty_fig,
                         empty_fig,
                         empty_fig,
@@ -157,6 +157,9 @@ def register_navigation_callbacks(app, state):
                 epoch_text,
                 iter_text,
                 sample_text,
+                "",  # No message when showing images
+                message_hidden_style,
+                images_visible_style,
                 input1_fig,
                 input2_fig,
                 pred_fig,
@@ -168,12 +171,15 @@ def register_navigation_callbacks(app, state):
         except Exception as e:
             logger.error(f"Error updating display: {str(e)}")
             message = "Error: Failed to update display"
-            empty_fig = create_message_figure(message)
+            empty_fig = go.Figure()
             
             return (
                 "Error: Failed to update display",
                 "Error: Failed to update display",
                 "Waiting for data...",
+                message,
+                message_visible_style,
+                images_hidden_style,
                 empty_fig,
                 empty_fig,
                 empty_fig,
