@@ -1,6 +1,6 @@
-import pytest
 import torch
-from models.change_detection.hcgmnet import HCGMNet
+from models.change_detection.hcgmnet.model import HCGMNet
+
 
 def test_hcgmnet_inference() -> None:
     """Test HCGMNet forward pass during inference."""
@@ -21,6 +21,7 @@ def test_hcgmnet_inference() -> None:
     assert 'change_map' in outputs, f"Expected 'change_map' key in outputs, got {outputs.keys()}"
     assert outputs['change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['change_map'].shape}"
     assert 'aux_change_map' not in outputs, f"'aux_change_map' should not be present in inference mode"
+
 
 def test_hcgmnet_training() -> None:
     """Test HCGMNet forward pass during training."""
@@ -43,6 +44,7 @@ def test_hcgmnet_training() -> None:
     assert outputs['change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['change_map'].shape}"
     assert outputs['aux_change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['aux_change_map'].shape}"
 
+
 def test_hcgmnet_different_input_size() -> None:
     """Test HCGMNet with different input sizes."""
     model = HCGMNet(num_classes=2)
@@ -64,4 +66,4 @@ def test_hcgmnet_different_input_size() -> None:
     }
     
     outputs = model(inputs)
-    assert outputs['change_map'].shape == torch.Size([2, 2, 320, 240]), f"Unexpected shape: {outputs['change_map'].shape}" 
+    assert outputs['change_map'].shape == torch.Size([2, 2, 320, 240]), f"Unexpected shape: {outputs['change_map'].shape}"
