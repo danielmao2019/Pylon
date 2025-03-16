@@ -19,55 +19,71 @@ def register_navigation_callbacks(app, state):
         state: State management object
     """
     @app.callback(
+        [Output('epoch-slider', 'max'),
+         Output('iteration-slider', 'max')],
+        [Input('iteration-display', 'children')]
+    )
+    def update_sliders_max(iteration_display):
+        """Update both sliders' maximum values."""
+        try:
+            total_epochs = state.total_epochs
+            iterations_per_epoch = len(state.train_dataloader)
+            return total_epochs - 1, iterations_per_epoch - 1
+        except Exception as e:
+            logger.error(f"Error updating slider max: {str(e)}")
+            return 100, 100  # Default values
+            
+    @app.callback(
         [Output("epoch-display", "children"),
          Output("iteration-display", "children"),
          Output("sample-display", "children"),
          Output("input-image-1", "figure"),
          Output("input-image-2", "figure"),
          Output("pred-change-map", "figure"),
-         Output("gt-change-map", "figure")],
+         Output("gt-change-map", "figure"),
+         Output("epoch-slider", "value"),
+         Output("iteration-slider", "value")],
         [Input("btn-prev-iter", "n_clicks"),
          Input("btn-next-iter", "n_clicks"),
          Input("btn-prev-sample", "n_clicks"),
-         Input("btn-next-sample", "n_clicks")]
+         Input("btn-next-sample", "n_clicks"),
+         Input("epoch-slider", "value"),
+         Input("iteration-slider", "value")]
     )
-    def update_display(prev_iter_clicks, next_iter_clicks, prev_sample_clicks, next_sample_clicks):
-        """Update the display based on navigation button clicks.
-        
-        Returns:
-            Tuple containing:
-                - Epoch display text
-                - Iteration display text
-                - Sample display text
-                - Input image 1 figure
-                - Input image 2 figure
-                - Predicted change map figure
-                - Ground truth change map figure
-        """
-        # Check if callback was triggered
+    def update_display(prev_iter_clicks, next_iter_clicks, prev_sample_clicks, next_sample_clicks, epoch_value, iter_value):
+        """Update the display based on navigation controls or slider values."""
         ctx = callback_context
         if not ctx.triggered:
             raise PreventUpdate
             
-        # Get button that triggered the callback
-        button_id = ctx.triggered_id
-        
-        # Update state based on button click
-        try:
-            if button_id == "btn-next-iter":
-                state.next_iteration()
-            elif button_id == "btn-prev-iter":
-                state.prev_iteration()
-            elif button_id == "btn-next-sample":
-                state.next_sample()
-            elif button_id == "btn-prev-sample":
-                state.prev_sample()
-        except Exception as e:
-            logger.error(f"Error updating state: {str(e)}")
-            raise PreventUpdate
+        trigger_id = ctx.triggered[0]['prop_id'].split('.')[0]
         
         try:
-            # Get current data
+            # Handle slider navigation
+            if trigger_id in ["epoch-slider", "iteration-slider"]:
+                current_epoch = state.current_epoch
+                current_iter = state.current_iteration
+                
+                if trigger_id == "epoch-slider" and epoch_value > current_epoch:
+                    # Move forward to desired epoch
+                    for _ in range(epoch_value - current_epoch):
+                        state.next_epoch()
+                elif trigger_id == "iteration-slider" and iter_value > current_iter:
+                    # Move forward to desired iteration in current epoch
+                    for _ in range(iter_value - current_iter):
+                        state.next_iteration()
+            # Handle button navigation
+            else:
+                if trigger_id == "btn-next-iter":
+                    state.next_iteration()
+                elif trigger_id == "btn-prev-iter":
+                    state.prev_iteration()
+                elif trigger_id == "btn-next-sample":
+                    state.next_sample()
+                elif trigger_id == "btn-prev-sample":
+                    state.prev_sample()
+                    
+            # Get current data and info
             data = state.get_current_data()
             nav_info = state.get_navigation_info()
             
@@ -76,7 +92,6 @@ def register_navigation_callbacks(app, state):
             input2_array = tensor_to_image(data["input2"])
             
             # Convert predictions and ground truth to RGB
-            # class_to_rgb now returns (H, W, C) format
             pred_array = state.class_to_rgb(data["pred"]) / 255.0
             gt_array = state.class_to_rgb(data["gt"]) / 255.0
             
@@ -98,7 +113,9 @@ def register_navigation_callbacks(app, state):
                 input1_fig,
                 input2_fig,
                 pred_fig,
-                gt_fig
+                gt_fig,
+                nav_info['current_epoch'],  # Update epoch slider
+                nav_info['current_iteration']  # Update iteration slider
             )
             
         except Exception as e:
@@ -117,5 +134,7 @@ def register_navigation_callbacks(app, state):
                 empty_fig,
                 empty_fig,
                 empty_fig,
-                empty_fig
+                empty_fig,
+                0,  # Reset epoch slider
+                0   # Reset iteration slider
             )
