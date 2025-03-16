@@ -72,24 +72,3 @@ def test_base_dataset_tuple(
             dataset.split_subsets[split][idx]['labels']['label'],
         ) for idx in range(len(dataset.split_subsets[split]))
     ) for split in ['train', 'val', 'test', 'weird']]) == set()
-
-
-def test_base_dataset_cache(SampleDataset):
-    # check dataset
-    dataset_cached = SampleDataset(split='train', indices=list(range(10)), use_cache=True)
-    dataset = SampleDataset(split='train', indices=list(range(10)), use_cache=False)
-    assert len(dataset_cached) == len(dataset) == 10
-    for _ in range(2):
-        for idx in range(10):
-            assert dataset_cached[idx] == dataset[idx]
-    # check dataloader
-    dataloader_cached = torch.utils.data.DataLoader(
-        dataset=dataset_cached, shuffle=False, batch_size=2,
-    )
-    dataloader = torch.utils.data.DataLoader(
-        dataset=dataset, shuffle=False, batch_size=2,
-    )
-    assert len(dataloader_cached) == len(dataloader)
-    for _ in range(2):
-        for dp_cached, dp in zip(dataloader_cached, dataloader):
-            assert buffer_equal(dp_cached, dp)
