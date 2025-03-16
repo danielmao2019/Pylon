@@ -35,12 +35,12 @@ def test_base_dataset_None(
         assert split_subset.indices == (indices.get(split, None) if indices else None)
         assert not hasattr(split_subset, 'split_indices')
         assert not hasattr(split_subset, 'split_subsets')
-        
+
         # For each index, verify the label matches the index
         for idx, datapoint in enumerate(split_subset):
             expected_idx = expected_indices[split][idx]
             assert datapoint['labels']['label'] == expected_idx
-            
+
             # Verify input tensor properties
             input_tensor = datapoint['inputs']['input']
             assert isinstance(input_tensor, torch.Tensor)
@@ -81,7 +81,7 @@ def test_base_dataset_tuple(
         assert not hasattr(split_subset, 'split_subsets')
         assert len(split_subset) == expected[split], \
             f"{split=}, {len(split_subset)=}, {expected[split]=}"
-    
+
     # Verify that splits are disjoint by checking labels
     all_labels = {split: set(datapoint['labels']['label'] for datapoint in dataset.split_subsets[split])
                  for split in ['train', 'val', 'test', 'weird']}

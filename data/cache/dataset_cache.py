@@ -43,14 +43,14 @@ class DatasetCache:
 
         # Setup logging
         self.logger = logging.getLogger(__name__)
-        
+
         # Initialize lock
         self._init_lock()
-    
+
     def _init_lock(self):
         """Initialize the thread lock. Called both at init and after unpickling."""
         self.lock = threading.Lock()
-    
+
     def __getstate__(self):
         """Get object state for pickling, excluding the lock."""
         state = self.__dict__.copy()
@@ -58,25 +58,25 @@ class DatasetCache:
         del state['lock']
         del state['logger']
         return state
-    
+
     def __setstate__(self, state):
         """Restore object state from pickling and recreate the lock."""
         self.__dict__.update(state)
         # Restore unpicklable objects
         self._init_lock()
         self.logger = logging.getLogger(__name__)
-    
+
     def __deepcopy__(self, memo):
         """Implement deep copy support."""
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
-        
+
         # Deep copy all attributes except lock and logger
         for k, v in self.__dict__.items():
             if k not in ('lock', 'logger'):
                 setattr(result, k, copy.deepcopy(v, memo))
-        
+
         # Initialize new lock and logger
         result._init_lock()
         result.logger = logging.getLogger(__name__)
