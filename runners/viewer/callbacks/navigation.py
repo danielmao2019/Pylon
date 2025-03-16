@@ -134,16 +134,38 @@ def register_navigation_callbacks(app, state):
             empty_fig.update_layout(
                 xaxis=dict(showticklabels=False, showgrid=False),
                 yaxis=dict(showticklabels=False, showgrid=False),
-                margin=dict(l=0, r=0, t=0, b=0)
+                margin=dict(l=0, r=0, t=0, b=0),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
             )
+            
+            # Add informative text about training progress
+            if trigger_id in ["epoch-slider", "iteration-slider"]:
+                target_epoch = epoch_value if trigger_id == "epoch-slider" else state.current_epoch
+                target_iter = iter_value if trigger_id == "iteration-slider" else state.current_iteration
+                message = f"Model is still training...\nWaiting for epoch {target_epoch}, iteration {target_iter}"
+            else:
+                message = "Error: Failed to update display"
+                
+            empty_fig.add_annotation(
+                text=message,
+                xref="paper",
+                yref="paper",
+                x=0.5,
+                y=0.5,
+                showarrow=False,
+                font=dict(size=16, color='#2c3e50'),
+                align='center'
+            )
+            
             return (
-                "Error: Failed to update display",
-                "Error: Failed to update display",
-                "Error: Failed to update display",
+                f"Target Epoch: {target_epoch}" if 'target_epoch' in locals() else "Error: Failed to update display",
+                f"Target Iteration: {target_iter}" if 'target_iter' in locals() else "Error: Failed to update display",
+                "Waiting for data...",
                 empty_fig,
                 empty_fig,
                 empty_fig,
                 empty_fig,
-                0,  # Reset epoch slider
-                0   # Reset iteration slider
+                target_epoch if 'target_epoch' in locals() else 0,
+                target_iter if 'target_iter' in locals() else 0
             )
