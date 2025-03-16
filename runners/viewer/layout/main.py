@@ -50,51 +50,70 @@ def create_main_layout():
 
             # Navigation controls with better styling
             html.Div([
-                html.Button("◀ Previous Iteration", 
-                           id="btn-prev-iter",
-                           style={'marginRight': '10px', 'backgroundColor': '#3498db', 'color': 'white', 
-                                 'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
-                html.Button("Next Iteration ▶", 
-                           id="btn-next-iter",
-                           style={'marginRight': '20px', 'backgroundColor': '#3498db', 'color': 'white', 
-                                 'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
-                html.Button("◀ Previous Sample", 
-                           id="btn-prev-sample",
-                           style={'marginRight': '10px', 'backgroundColor': '#2ecc71', 'color': 'white', 
-                                 'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
-                html.Button("Next Sample ▶", 
-                           id="btn-next-sample",
-                           style={'backgroundColor': '#2ecc71', 'color': 'white', 
-                                 'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
-            ], style={'marginBottom': '20px', 'textAlign': 'center'}),
-            
-            # Status displays with better styling
-            html.Div([
+                # Epoch navigation
                 html.Div([
-                    html.Div("Current Status", 
-                            style={'fontSize': '18px', 'fontWeight': 'bold', 'marginBottom': '10px',
-                                  'color': '#2c3e50', 'textAlign': 'center'}),
-                    html.Div([
-                        html.Div([
-                            html.Span("Epoch: ", style={'fontWeight': 'bold'}),
-                            html.Span(id="epoch-display")
-                        ], style={'backgroundColor': '#f1c40f', 'padding': '10px 20px', 'borderRadius': '4px',
-                                'marginRight': '20px', 'display': 'inline-block'}),
-                        html.Div([
-                            html.Span("Iteration: ", style={'fontWeight': 'bold'}),
-                            html.Span(id="iteration-display")
-                        ], style={'backgroundColor': '#e74c3c', 'padding': '10px 20px', 'borderRadius': '4px',
-                                'marginRight': '20px', 'display': 'inline-block'}),
-                        html.Div([
-                            html.Span("Sample: ", style={'fontWeight': 'bold'}),
-                            html.Span(id="sample-display")
-                        ], style={'backgroundColor': '#27ae60', 'padding': '10px 20px', 'borderRadius': '4px',
-                                'display': 'inline-block'})
-                    ], style={'textAlign': 'center'})
-                ], style={'backgroundColor': '#ecf0f1', 'padding': '15px', 'borderRadius': '8px',
-                         'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'})
-            ], style={'marginBottom': '30px'}),
+                    html.Button("◀ Previous Epoch", 
+                              id="btn-prev-epoch",
+                              style={'marginRight': '10px', 'backgroundColor': '#9b59b6', 'color': 'white', 
+                                    'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
+                    html.Button("Next Epoch ▶", 
+                              id="btn-next-epoch",
+                              style={'backgroundColor': '#9b59b6', 'color': 'white', 
+                                    'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
+                ], style={'marginBottom': '10px', 'textAlign': 'center'}),
+                
+                # Iteration navigation
+                html.Div([
+                    html.Button("◀ Previous Iteration", 
+                              id="btn-prev-iter",
+                              style={'marginRight': '10px', 'backgroundColor': '#3498db', 'color': 'white', 
+                                    'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
+                    html.Button("Next Iteration ▶", 
+                              id="btn-next-iter",
+                              style={'backgroundColor': '#3498db', 'color': 'white', 
+                                    'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
+                ], style={'marginBottom': '10px', 'textAlign': 'center'}),
+                
+                # Sample navigation
+                html.Div([
+                    html.Button("◀ Previous Sample", 
+                              id="btn-prev-sample",
+                              style={'marginRight': '10px', 'backgroundColor': '#2ecc71', 'color': 'white', 
+                                    'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
+                    html.Button("Next Sample ▶", 
+                              id="btn-next-sample",
+                              style={'backgroundColor': '#2ecc71', 'color': 'white', 
+                                    'border': 'none', 'padding': '10px 15px', 'borderRadius': '4px'}),
+                ], style={'textAlign': 'center'}),
+            ], style={'marginBottom': '20px'}),
         ]),
+        
+        # Status displays with better styling
+        html.Div([
+            html.Div([
+                html.Div("Current Status", 
+                        style={'fontSize': '18px', 'fontWeight': 'bold', 'marginBottom': '10px',
+                              'color': '#2c3e50', 'textAlign': 'center'}),
+                html.Div([
+                    html.Div([
+                        html.Span("Epoch: ", style={'fontWeight': 'bold'}),
+                        html.Span(id="epoch-display")
+                    ], style={'backgroundColor': '#f1c40f', 'padding': '10px 20px', 'borderRadius': '4px',
+                             'marginRight': '20px', 'display': 'inline-block'}),
+                    html.Div([
+                        html.Span("Iteration: ", style={'fontWeight': 'bold'}),
+                        html.Span(id="iteration-display")
+                    ], style={'backgroundColor': '#e74c3c', 'padding': '10px 20px', 'borderRadius': '4px',
+                             'marginRight': '20px', 'display': 'inline-block'}),
+                    html.Div([
+                        html.Span("Sample: ", style={'fontWeight': 'bold'}),
+                        html.Span(id="sample-display")
+                    ], style={'backgroundColor': '#27ae60', 'padding': '10px 20px', 'borderRadius': '4px',
+                             'display': 'inline-block'})
+                ], style={'textAlign': 'center'})
+            ], style={'backgroundColor': '#ecf0f1', 'padding': '15px', 'borderRadius': '8px',
+                     'boxShadow': '0 2px 4px rgba(0,0,0,0.1)'})
+        ], style={'marginBottom': '30px'}),
         
         # Image displays with two-column layout
         html.Div([
