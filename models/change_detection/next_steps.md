@@ -6,11 +6,27 @@ We currently have implemented:
 
 ## Recommended Models for Implementation
 
-### 1. SiamGCN (Siamese Graph Convolutional Network)
-- **Paper**: "3D Urban Change Detection with Point Cloud Siamese Networks" (ISPRS 2021) by Tao Ku et al.
+### 1. SiameseKPConv
+- **Paper**: "Siamese KPConv: 3D multiple change detection from raw point clouds using deep learning" (ISPRS Journal, 2023)
+  - Paper Link: https://doi.org/10.1016/j.isprsjprs.2023.02.001
+- **Implementation Resources**:
+  - Official repository: https://github.com/IdeGelis/torch-points3d-SiameseKPConv
+- **Benchmark Dataset**:
+  - Urb3DCD: Urban point cloud simulated dataset
+  - Includes different data qualities (resolution and noise levels)
+- **Key Features**:
+  - Uses KPConv to process raw 3D point clouds
+  - Employs a Siamese architecture for bi-temporal point cloud comparison
+  - Achieves state-of-the-art performance on 3D change detection
+- **Integration Notes**:
+  - Core implementation already available in our codebase
+  - Can serve as a baseline for other methods
+
+### 2. SiamGCN (Siamese Graph Convolutional Network)
+- **Paper**: "3D Urban Change Detection with Point Cloud Siamese Networks" (ISPRS 2021)
   - Paper Link: https://doi.org/10.5194/isprs-archives-XLIII-B3-2021-879-2021
 - **Implementation Resources**:
-  - Original code: https://github.com/kutao207/SiamGCN
+  - Official repository: https://github.com/kutao207/SiamGCN
 - **Benchmark Dataset**:
   - SHREC2021: Street-level point cloud data with annotated changes
   - Contains both real LiDAR data and synthetic city scenes
@@ -22,17 +38,13 @@ We currently have implemented:
   - Would complement SiameseKPConv with graph-based feature learning
   - Particularly effective for sparse point cloud data
 
-### 2. SiamVFE and SiamGCN-GCA
-- **Paper**: Work related to "SiamVFE & SiamGCN-GCA for the task of point cloud change detection for city scenes"
-  - Builds upon the original SiamGCN work
-  - No formal paper published yet; implementation details available in GitHub repository
+### 3. SiamVFE and SiamGCN-GCA (Enhanced SiamGCN with Graph Context Attention)
 - **Implementation Resources**:
   - Official repository: https://github.com/grgzam/SiamVFE_SiamGCN-GCA
   - Features pre-processing tools and evaluation scripts for city scenes
 - **Benchmark Dataset**:
   - SHREC2023: Updated version of the street-level point cloud dataset
   - Contains both real LiDAR data (2016/2020) and synthetic city scenes
-  - Available through the repository
 - **Key Features**:
   - SiamVFE: Uses voxel feature encoding for point cloud change detection
   - SiamGCN-GCA: Enhances SiamGCN with Graph Context Attention mechanisms
@@ -40,33 +52,17 @@ We currently have implemented:
 - **Integration Notes**:
   - More advanced than original SiamGCN with additional attention mechanisms
   - Provides both voxel-based and graph-based approaches for comparison
+  - Extension of the original SiamGCN with additional capabilities
 
-### 3. ChangeGAN
-- **Paper**: "ChangeGAN: A Deep Network for Change Detection in Coarsely Registered Point Clouds" (IEEE Robotics and Automation Letters, Vol. 6, 2021)
-  - Note: No public DOI could be found for this specific paper
-- **Implementation Resources**:
-  - No public official implementation found
-  - Can reference related GAN-based approaches for point clouds
-- **Benchmark Dataset**:
-  - Typically evaluated on custom datasets with deliberately misaligned point clouds
-  - Could be tested on modified versions of Urb3DCD with artificial registration errors
-- **Key Features**:
-  - Generative adversarial network for point cloud change detection
-  - Robust to registration errors and alignment issues
-  - Works with coarsely registered point clouds
-- **Integration Notes**:
-  - Would add capability to handle imperfectly aligned point cloud data
-  - GAN-based approach offers a different learning paradigm compared to existing models
-
-### 4. Encoder Fusion SiamKPConv
+### 4. SiamKPConv Variants (OneConvFusion, Encoder Fusion SiamKPConv, Triplet KPConv)
 - **Paper**: "Change detection needs change information: improving deep 3D point cloud change detection" (2023)
   - Paper Link: https://arxiv.org/abs/2304.12639
 - **Implementation Resources**:
   - Official repository: https://github.com/IdeGelis/torch-points3d-SiamKPConvVariants
   - Contains implementations of multiple SiamKPConv variants:
-    - OneConvFusion
-    - Encoder Fusion SiamKPConv
-    - Triplet KPConv
+    - OneConvFusion: Introduces change information early in the network
+    - Encoder Fusion SiamKPConv: Uses multi-level feature fusion
+    - Triplet KPConv: Three-stream architecture for change detection
   - Built on top of the Torch-Points3D framework
 - **Benchmark Dataset**:
   - Urb3DCD: Urban point cloud simulated dataset with various qualities
@@ -78,3 +74,4 @@ We currently have implemented:
   - Better fusion of temporal information
 - **Integration Notes**:
   - Could be implemented as an extension/improvement to our existing SiameseKPConv
+  - Encoder Fusion SiamKPConv offers the best performance among the variants
