@@ -7,15 +7,6 @@ from criteria import vision_2d
 from criteria import vision_3d
 from criteria import diffusion
 from criteria import wrappers
-from criteria.wrappers import *
-from criteria.vision_2d.classification import *
-from criteria.vision_2d.detection import *
-from criteria.vision_2d.dense_prediction import *
-from criteria.vision_2d.generative import *
-from criteria.vision_2d.change_detection import *
-from criteria.vision_3d.dense_prediction import *
-from criteria.vision_3d.detection import *
-from criteria.diffusion import *
 
 
 __all__ = (
