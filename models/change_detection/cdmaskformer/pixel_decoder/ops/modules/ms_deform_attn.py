@@ -32,13 +32,18 @@ def _is_power_of_2(n):
 
 
 class MSDeformAttn(nn.Module):
+    """
+    Multi-Scale Deformable Attention Module.
+    
+    Args:
+        d_model (int): Number of input channels.
+        n_levels (int): Number of feature levels.
+        n_heads (int): Number of attention heads.
+        n_points (int): Number of sampling points per attention head per feature level.
+    """
     def __init__(self, d_model=256, n_levels=4, n_heads=8, n_points=4):
         """
-        Multi-Scale Deformable Attention Module
-        :param d_model      hidden dimension
-        :param n_levels     number of feature levels
-        :param n_heads      number of attention heads
-        :param n_points     number of sampling points per attention head per feature level
+        Initialize the Multi-Scale Deformable Attention Module.
         """
         super().__init__()
         if d_model % n_heads != 0:
@@ -64,6 +69,7 @@ class MSDeformAttn(nn.Module):
         self._reset_parameters()
 
     def _reset_parameters(self):
+        """Reset module parameters."""
         constant_(self.sampling_offsets.weight.data, 0.)
         thetas = torch.arange(self.n_heads, dtype=torch.float32) * (2.0 * math.pi / self.n_heads)
         grid_init = torch.stack([thetas.cos(), thetas.sin()], -1)
@@ -81,15 +87,18 @@ class MSDeformAttn(nn.Module):
 
     def forward(self, query, reference_points, input_flatten, input_spatial_shapes, input_level_start_index, input_padding_mask=None):
         """
-        :param query                       (N, Length_{query}, C)
-        :param reference_points            (N, Length_{query}, n_levels, 2), range in [0, 1], top-left (0,0), bottom-right (1, 1), including padding area
-                                        or (N, Length_{query}, n_levels, 4), add additional (w, h) to form reference boxes
-        :param input_flatten               (N, \sum_{l=0}^{L-1} H_l \cdot W_l, C)
-        :param input_spatial_shapes        (n_levels, 2), [(H_0, W_0), (H_1, W_1), ..., (H_{L-1}, W_{L-1})]
-        :param input_level_start_index     (n_levels, ), [0, H_0*W_0, H_0*W_0+H_1*W_1, H_0*W_0+H_1*W_1+H_2*W_2, ..., H_0*W_0+H_1*W_1+...+H_{L-1}*W_{L-1}]
-        :param input_padding_mask          (N, \sum_{l=0}^{L-1} H_l \cdot W_l), True for padding elements, False for non-padding elements
-
-        :return output                     (N, Length_{query}, C)
+        Forward function for the Multi-Scale Deformable Attention Module.
+        
+        Args:
+            query (torch.Tensor): Query of transformer, [bs, query_length, d_model]
+            reference_points (torch.Tensor): Reference points, [bs, query_length, n_levels, 2], range in [0, 1], top-left (0,0), bottom-right (1, 1)
+            input_flatten (torch.Tensor): Flattened input features, [bs, sum(h*w), d_model]
+            input_spatial_shapes (torch.Tensor): Spatial shapes of inputs, [n_levels, 2]
+            input_level_start_index (torch.Tensor): The start index of each level, [n_levels]
+            input_padding_mask (torch.Tensor, optional): Input padding mask, [bs, sum(h*w)]
+            
+        Returns:
+            torch.Tensor: Output tensor with shape [bs, query_length, d_model].
         """
         N, Len_q, _ = query.shape
         N, Len_in, _ = input_flatten.shape
@@ -98,15 +107,14 @@ class MSDeformAttn(nn.Module):
         value = self.value_proj(input_flatten)
         if input_padding_mask is not None:
             value = value.masked_fill(input_padding_mask[..., None], float(0))
-        value = value.view(N, Len_in, self.n_heads, self.d_model // self.n_heads)        
+        value = value.view(N, Len_in, self.n_heads, self.d_model // self.n_heads)
         sampling_offsets = self.sampling_offsets(query).view(N, Len_q, self.n_heads, self.n_levels, self.n_points, 2)
         attention_weights = self.attention_weights(query).view(N, Len_q, self.n_heads, self.n_levels * self.n_points)
         attention_weights = F.softmax(attention_weights, -1).view(N, Len_q, self.n_heads, self.n_levels, self.n_points)
-
-        # N, Len_q, n_heads, n_levels, n_points, 3        
-        # input_spatial_shapes是以(h, w)格式存储，reference_points中以(x, y)格式存储，所以需要调换input_spatial_shapes中(h,w)的顺序
+        
+        # Calculate reference points based on spatial shapes
         offset_normalizer = torch.stack([input_spatial_shapes[..., 1], input_spatial_shapes[..., 0]], -1)
-        sampling_locations = reference_points[:, :, None, :, None, :] + sampling_offsets / offset_normalizer[None, None, None, :, None, :]    
+        sampling_locations = reference_points[:, :, None, :, None, :] + sampling_offsets / offset_normalizer[None, None, None, :, None, :]
 
         # try:
         #     output = MSDeformAttnFunction.apply(value, input_spatial_shapes, input_level_start_index, sampling_locations, attention_weights, self.im2col_step)
