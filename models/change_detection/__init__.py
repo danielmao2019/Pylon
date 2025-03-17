@@ -6,6 +6,7 @@ from models.change_detection.fc_siam.fully_convolutional_siamese_networks import
 from models.change_detection.snunet.snunet import SNUNet_ECAM
 from models.change_detection.dsifn.dsifn_model import DSIFN
 from models.change_detection.tiny_cd.tiny_cd_model import TinyCD
+from models.change_detection.hcgmnet.model import HCGMNet
 from models.change_detection import changer
 from models.change_detection.change_former.models.change_former_v1 import ChangeFormerV1
 from models.change_detection.change_former.models.change_former_v2 import ChangeFormerV2
@@ -37,6 +38,7 @@ __all__ = (
     'SNUNet_ECAM',
     'DSIFN',
     'TinyCD',
+    'HCGMNet',
     'changer',
     'ChangeFormerV1',
     'ChangeFormerV2',
