@@ -16,45 +16,4 @@ __all__ = (
     'vision_3d',
     'diffusion',
     'wrappers',
-    # Wrappers
-    'MultiTaskCriterion',
-    'SingleTaskCriterion',
-    'PyTorchCriterionWrapper',
-    
-    # 2D Vision - Classification
-    'ClassificationCriterion',
-    
-    # 2D Vision - Detection
-    'ObjectDetectionCriterion',
-    
-    # 2D Vision - Dense Prediction
-    'DepthEstimationCriterion',
-    'NormalEstimationCriterion',
-    'SemanticSegmentationCriterion',
-    'SpatialCrossEntropyCriterion',
-    'IoULoss',
-    'SSIMLoss',
-    'InstanceSegmentationCriterion',
-    
-    # 2D Vision - Change Detection
-    'SNUNetCriterion',
-    'FTNLoss',
-    'PPSLCriterion',
-    'DsifnCriterion',
-    'EdgeLoss',
-    'FPNLoss',
-    'STMambaBCDCriterion',
-    'CDMaskFormerCriterion',
-    
-    # 2D Vision - Generative
-    'GenerativeRCriterion',
-    
-    # 3D Vision - Dense Prediction
-    '3DSemanticSegmentationCriterion',
-    
-    # 3D Vision - Detection
-    '3DObjectDetectionCriterion',
-    
-    # Diffusion
-    'CCDMCriterion',
 )
