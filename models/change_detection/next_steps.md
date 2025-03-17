@@ -4,7 +4,7 @@
 We currently have implemented:
 - SiameseKPConv: A Siamese network based on KPConv for 3D point cloud change detection
 
-## Recommended Models for Implementation
+## Papers with Official Repositories
 
 ### Siamese KPConv: 3D multiple change detection from raw point clouds using deep learning
 - **Venue**: ISPRS Journal of Photogrammetry and Remote Sensing
@@ -87,6 +87,40 @@ We currently have implemented:
 - **Integration Notes**:
   - Focuses on street-level scenarios
   - Includes pretrained models and testing pipeline
+
+### 3D urban change detection with point cloud siamese networks
+- **Venue**: Remote Sensing
+- **Year**: 2020
+- **Paper Link**: https://www.mdpi.com/2072-4292/12/24/4174
+- **Citations**: Not specified
+- **GitHub Repository**: https://github.com/grgzam/SiamVFE_SiamGCN-GCA
+- **Benchmark Datasets**:
+  - Custom urban point cloud datasets
+- **Key Features**:
+  - Applies Siamese network architecture specifically for urban change detection
+  - Processes raw point clouds directly
+  - Achieves good performance on urban datasets
+- **Integration Notes**:
+  - Could complement SiameseKPConv with different feature extraction approaches
+  - Alternative Siamese network implementation for comparison
+
+### City-scale scene change detection using point clouds
+- **Venue**: IEEE International Conference on Robotics and Automation
+- **Year**: 2021
+- **Paper Link**: https://ieeexplore.ieee.org/abstract/document/9561252
+- **Citations**: Not specified
+- **GitHub Repository**: https://github.com/ZJULiHongxin/HRNet-MSFA (related to approach)
+- **Benchmark Datasets**:
+  - Custom city-scale dataset collected by the authors
+- **Key Features**:
+  - Scales to city-level change detection
+  - Likely offers efficient processing techniques for large-scale data
+  - Aimed at practical deployment in real urban settings
+- **Integration Notes**:
+  - Could provide scalability improvements to existing methods
+  - Valuable for large-area monitoring applications
+
+## Papers with No Official Repositories
 
 ### Point cloud registration and change detection in urban environment using an onboard lidar sensor and MLS reference data
 - **Venue**: International Journal of Applied Earth Observation and Geoinformation
@@ -265,22 +299,6 @@ We currently have implemented:
   - Could enhance semantic understanding of detected changes
   - Valuable for urban planning and monitoring applications
 
-### City-scale scene change detection using point clouds
-- **Venue**: IEEE International Conference on Robotics and Automation
-- **Year**: 2021
-- **Paper Link**: https://ieeexplore.ieee.org/abstract/document/9561252
-- **Citations**: Not specified
-- **GitHub Repository**: https://github.com/ZJULiHongxin/HRNet-MSFA (related to approach)
-- **Benchmark Datasets**:
-  - Custom city-scale dataset collected by the authors
-- **Key Features**:
-  - Scales to city-level change detection
-  - Likely offers efficient processing techniques for large-scale data
-  - Aimed at practical deployment in real urban settings
-- **Integration Notes**:
-  - Could provide scalability improvements to existing methods
-  - Valuable for large-area monitoring applications
-
 ### Change detection and deformation analysis in point clouds
 - **Venue**: Photogrammetric Engineering & Remote Sensing
 - **Year**: 2013
@@ -344,22 +362,6 @@ We currently have implemented:
 - **Integration Notes**:
   - Could provide specialized vegetation monitoring capabilities
   - Useful for environmental and urban forestry applications
-
-### 3D urban change detection with point cloud siamese networks
-- **Venue**: Remote Sensing
-- **Year**: 2020
-- **Paper Link**: https://www.mdpi.com/2072-4292/12/24/4174
-- **Citations**: Not specified
-- **GitHub Repository**: https://github.com/grgzam/SiamVFE_SiamGCN-GCA
-- **Benchmark Datasets**:
-  - Custom urban point cloud datasets
-- **Key Features**:
-  - Applies Siamese network architecture specifically for urban change detection
-  - Processes raw point clouds directly
-  - Achieves good performance on urban datasets
-- **Integration Notes**:
-  - Could complement SiameseKPConv with different feature extraction approaches
-  - Alternative Siamese network implementation for comparison
 
 ### Change detection for indoor construction progress monitoring based on BIM, point clouds and uncertainties
 - **Venue**: Automation in Construction
