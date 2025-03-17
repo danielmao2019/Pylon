@@ -2,6 +2,8 @@
 # # Modified by Bowen Cheng from: https://github.com/facebookresearch/detr/blob/master/models/position_encoding.py
 """
 Various positional encodings for the transformer.
+
+This is ported from the original position encoding implementation.
 """
 import math
 
@@ -16,6 +18,15 @@ class PositionEmbeddingSine(nn.Module):
     """
 
     def __init__(self, num_pos_feats=64, temperature=10000, normalize=False, scale=None):
+        """
+        Initialize the position embedding.
+        
+        Args:
+            num_pos_feats (int): Number of positional features
+            temperature (float): Temperature for the position embedding
+            normalize (bool): Whether to normalize the position embedding
+            scale (float): Scale factor for the position embedding
+        """
         super().__init__()
         self.num_pos_feats = num_pos_feats
         self.temperature = temperature
@@ -27,6 +38,16 @@ class PositionEmbeddingSine(nn.Module):
         self.scale = scale
 
     def forward(self, x, mask=None):
+        """
+        Forward pass for the position embedding.
+        
+        Args:
+            x (torch.Tensor): Input tensor
+            mask (torch.Tensor): Mask tensor
+            
+        Returns:
+            torch.Tensor: Position embedding
+        """
         if mask is None:
             mask = torch.zeros((x.size(0), x.size(2), x.size(3)), device=x.device, dtype=torch.bool)
         not_mask = ~mask
@@ -59,6 +80,5 @@ class PositionEmbeddingSine(nn.Module):
             "normalize: {}".format(self.normalize),
             "scale: {}".format(self.scale),
         ]
-        # _repr_indent = 4
         lines = [head] + [" " * _repr_indent + line for line in body]
         return "\n".join(lines)

@@ -2,7 +2,7 @@ import torch
 from torch import nn
 from addict import Dict
 from typing import Dict as DictType
-from typing import Union
+from typing import Union, List
 
 from models.change_detection.cdmaskformer.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
 from models.change_detection.cdmaskformer.transformer_decoder.mask2former_transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
@@ -155,10 +155,10 @@ class TFF(nn.Module):
         return x
     
 class CDMask(nn.Module):
-    def __init__(self, channels,
-                 num_classes = 1,
-                 num_queries = 10,
-                 dec_layers = 14):
+    def __init__(self, channels: List[int],
+                 num_classes: int = 1,
+                 num_queries: int = 10,
+                 dec_layers: int = 14):
         super().__init__()
         self.channels = channels
         self.backbone_feature_shape = dict()
@@ -172,7 +172,7 @@ class CDMask(nn.Module):
 
         self.sem_seg_head = MaskFormerHead(self.backbone_feature_shape, num_classes, num_queries, dec_layers)
 
-    def semantic_inference(self, mask_cls, mask_pred):
+    def semantic_inference(self, mask_cls: torch.Tensor, mask_pred: torch.Tensor) -> torch.Tensor:
         mask_cls = F.softmax(mask_cls, dim=-1)[...,1:]
         mask_pred = mask_pred.sigmoid()  
         semseg = torch.einsum("bqc,bqhw->bchw", mask_cls, mask_pred).detach()

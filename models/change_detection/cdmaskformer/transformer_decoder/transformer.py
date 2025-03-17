@@ -1,12 +1,9 @@
 # Copyright (c) Facebook, Inc. and its affiliates.
 # Modified by Bowen Cheng from: https://github.com/facebookresearch/detr/blob/master/models/transformer.py
 """
-Transformer class.
+Transformer module for CDMaskFormer.
 
-Copy-paste from torch.nn.Transformer with modifications:
-    * positional encodings are passed in MHattention
-    * extra LN at the end of encoder is removed
-    * decoder returns a stack of activations from all decoding layers
+Implements transformer utility functions.
 """
 import copy
 from typing import List, Optional
@@ -355,15 +352,36 @@ class TransformerDecoderLayer(nn.Module):
 
 
 def _get_clones(module, N):
+    """
+    Create N copies of a module.
+    
+    Args:
+        module (nn.Module): Module to be cloned
+        N (int): Number of copies to create
+        
+    Returns:
+        nn.ModuleList: List containing N copies of the module
+    """
     return nn.ModuleList([copy.deepcopy(module) for i in range(N)])
 
 
 def _get_activation_fn(activation):
-    """Return an activation function given a string"""
+    """
+    Return an activation function based on the string description.
+    
+    Args:
+        activation (str): Name of the activation function
+        
+    Returns:
+        callable: The activation function
+        
+    Raises:
+        RuntimeError: If the activation function is not supported
+    """
     if activation == "relu":
         return F.relu
     if activation == "gelu":
         return F.gelu
     if activation == "glu":
         return F.glu
-    raise RuntimeError(f"activation should be relu/gelu, not {activation}.")
+    raise RuntimeError(f"activation should be relu/gelu/glu, not {activation}")
