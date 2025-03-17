@@ -164,4 +164,4 @@ class CDMaskFormerCriterion(BaseCriterion):
         """
         losses = self.forward(y_pred, y_true)
         self.buffer.append(losses["loss"])
-        return losses["loss"] 
+        return losses["loss"]

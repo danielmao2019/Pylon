@@ -16,7 +16,6 @@ from criteria.vision_2d.change_detection import *
 from criteria.vision_3d.dense_prediction import *
 from criteria.vision_3d.detection import *
 from criteria.diffusion import *
-from criteria.change_detection import *
 
 
 __all__ = (

@@ -1,6 +1,6 @@
 import pytest
 import torch
-from criteria.change_detection import CDMaskFormerCriterion
+from criteria.vision_2d.change_detection import CDMaskFormerCriterion
 
 def test_cdmaskformer_criterion() -> None:
     # Create a sample batch size and dimensions
@@ -53,4 +53,4 @@ def test_cdmaskformer_criterion() -> None:
     all_ignored_loss = criterion(outputs, all_ignored_targets)
     
     # The loss should be zero since no valid pixels to compute on
-    assert all_ignored_loss.item() == 0, "Loss with all pixels ignored should be zero" 
+    assert all_ignored_loss.item() == 0, "Loss with all pixels ignored should be zero"
