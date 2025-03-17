@@ -1,0 +1,9 @@
+# Pretrained weights
+*.pth
+*.pt
+*.ckpt
+*.bin
+*.h5
+*.hdf5
+*.model
+*.weights
