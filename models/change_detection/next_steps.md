@@ -7,15 +7,12 @@ We currently have implemented:
 ## Recommended Models for Implementation
 
 ### 1. SiamGCN (Siamese Graph Convolutional Network)
-- **Paper**: "3D Urban Change Detection with Point Cloud Siamese Networks" (ISPRS 2021)
+- **Paper**: "3D Urban Change Detection with Point Cloud Siamese Networks" (ISPRS 2021) by Tao Ku et al.
 - **Implementation Resources**:
   - Original code: https://github.com/kutao207/SiamGCN
-  - Enhanced version: SiamGCN-GCA available at https://github.com/grgzam/SiamVFE_SiamGCN-GCA
-  - Features pre-processing tools and evaluation scripts for city scenes
 - **Benchmark Dataset**:
-  - SHREC2023/SHREC2021: Street-level point cloud data with annotated changes
-  - Contains both real LiDAR data (2016/2020) and synthetic city scenes
-  - Available through the SiamGCN-GCA repository
+  - SHREC2021: Street-level point cloud data with annotated changes
+  - Contains both real LiDAR data and synthetic city scenes
 - **Key Features**:
   - Uses EdgeConv operators to extract representative features from point clouds
   - Employs a Siamese architecture based on graph convolutional networks
@@ -24,7 +21,24 @@ We currently have implemented:
   - Would complement SiameseKPConv with graph-based feature learning
   - Particularly effective for sparse point cloud data
 
-### 2. ChangeGAN
+### 2. SiamVFE and SiamGCN-GCA
+- **Paper**: Work related to "SiamVFE & SiamGCN-GCA for the task of point cloud change detection for city scenes"
+- **Implementation Resources**:
+  - Official repository: https://github.com/grgzam/SiamVFE_SiamGCN-GCA
+  - Features pre-processing tools and evaluation scripts for city scenes
+- **Benchmark Dataset**:
+  - SHREC2023: Updated version of the street-level point cloud dataset
+  - Contains both real LiDAR data (2016/2020) and synthetic city scenes
+  - Available through the repository
+- **Key Features**:
+  - SiamVFE: Uses voxel feature encoding for point cloud change detection
+  - SiamGCN-GCA: Enhances SiamGCN with Graph Context Attention mechanisms
+  - Improved performance over the original SiamGCN architecture
+- **Integration Notes**:
+  - More advanced than original SiamGCN with additional attention mechanisms
+  - Provides both voxel-based and graph-based approaches for comparison
+
+### 3. ChangeGAN
 - **Paper**: "ChangeGAN: A Deep Network for Change Detection in Coarsely Registered Point Clouds" (IEEE Robotics and Automation Letters, Vol. 6, 2021)
 - **Implementation Resources**:
   - No public official implementation found
@@ -40,7 +54,7 @@ We currently have implemented:
   - Would add capability to handle imperfectly aligned point cloud data
   - GAN-based approach offers a different learning paradigm compared to existing models
 
-### 3. Encoder Fusion SiamKPConv
+### 4. Encoder Fusion SiamKPConv
 - **Paper**: "Change detection needs change information: improving deep 3D point cloud change detection" (2023)
 - **Implementation Resources**:
   - Official repository: https://github.com/IdeGelis/torch-points3d-SiamKPConvVariants
@@ -61,9 +75,10 @@ We currently have implemented:
   - Could be implemented as an extension/improvement to our existing SiameseKPConv
 
 ## Implementation Priorities
-1. **SiamGCN**: Highest priority due to complementary approach to SiameseKPConv and good performance on urban datasets
-2. **Encoder Fusion SiamKPConv**: Medium priority as an enhancement to existing architecture
-3. **ChangeGAN**: Medium priority for handling registration errors
+1. **SiamGCN**: High priority due to its foundational graph-based approach
+2. **SiamGCN-GCA**: High priority as it offers improvements over the original SiamGCN
+3. **Encoder Fusion SiamKPConv**: Medium priority as an enhancement to existing architecture
+4. **ChangeGAN**: Medium priority for handling registration errors
 
 ## Technical Requirements
 - PyTorch Geometric for graph convolutional operations
