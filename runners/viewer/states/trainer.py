@@ -4,6 +4,7 @@ import torch
 import importlib.util
 from utils.automation.cfg_log_conversion import get_work_dir, get_repo_root
 from runners.viewer.utils import get_default_colors, class_to_rgb
+import utils.determinism
 
 
 class TrainingState:
@@ -76,11 +77,21 @@ class TrainingState:
 
     def next_epoch(self):
         """Move to next training epoch using trainer's functionality."""
+        # Set seed for deterministic behavior
+        utils.determinism.set_seed(seed=self.trainer.train_seeds[self.current_epoch])
+        
+        # Call trainer's train epoch method
         self.trainer._train_epoch_()
+        
+        # Update trainer's cumulative epoch counter
+        self.trainer.cum_epochs = self.trainer.cum_epochs + 1
+        
+        # Update our state
         self.current_epoch += 1
         self.current_iteration = 0
         self.current_sample_idx = 0
         self.dataloader_iter = iter(self.train_dataloader)
+        
         return self.current_epoch
 
     def next_iteration(self):
