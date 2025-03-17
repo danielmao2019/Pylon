@@ -28,7 +28,7 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
         assert 'optimizer' in self.config, f"{self.config.keys()=}"
         # initialize optimizer
         optimizer_config = self.config['optimizer']
-        optimizer_config['args']['optimizer_config']['args']['params'] = self.model.parameters()
+        optimizer_config['args']['optimizer_config']['args']['params'] = list(self.model.parameters())
         dummy_dp0 = self.train_dataloader.dataset[0]
         dummy_dp1 = self.train_dataloader.dataset[1]
         dummy_example = self.train_dataloader.collate_fn([dummy_dp0, dummy_dp1])
