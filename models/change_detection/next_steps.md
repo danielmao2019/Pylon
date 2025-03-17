@@ -8,6 +8,7 @@ We currently have implemented:
 
 ### 1. SiamGCN (Siamese Graph Convolutional Network)
 - **Paper**: "3D Urban Change Detection with Point Cloud Siamese Networks" (ISPRS 2021) by Tao Ku et al.
+  - Paper Link: https://doi.org/10.5194/isprs-archives-XLIII-B3-2021-879-2021
 - **Implementation Resources**:
   - Original code: https://github.com/kutao207/SiamGCN
 - **Benchmark Dataset**:
@@ -23,6 +24,8 @@ We currently have implemented:
 
 ### 2. SiamVFE and SiamGCN-GCA
 - **Paper**: Work related to "SiamVFE & SiamGCN-GCA for the task of point cloud change detection for city scenes"
+  - Builds upon the original SiamGCN work
+  - No formal paper published yet; implementation details available in GitHub repository
 - **Implementation Resources**:
   - Official repository: https://github.com/grgzam/SiamVFE_SiamGCN-GCA
   - Features pre-processing tools and evaluation scripts for city scenes
@@ -40,6 +43,7 @@ We currently have implemented:
 
 ### 3. ChangeGAN
 - **Paper**: "ChangeGAN: A Deep Network for Change Detection in Coarsely Registered Point Clouds" (IEEE Robotics and Automation Letters, Vol. 6, 2021)
+  - Note: No public DOI could be found for this specific paper
 - **Implementation Resources**:
   - No public official implementation found
   - Can reference related GAN-based approaches for point clouds
@@ -56,6 +60,7 @@ We currently have implemented:
 
 ### 4. Encoder Fusion SiamKPConv
 - **Paper**: "Change detection needs change information: improving deep 3D point cloud change detection" (2023)
+  - Paper Link: https://arxiv.org/abs/2304.12639
 - **Implementation Resources**:
   - Official repository: https://github.com/IdeGelis/torch-points3d-SiamKPConvVariants
   - Contains implementations of multiple SiamKPConv variants:
