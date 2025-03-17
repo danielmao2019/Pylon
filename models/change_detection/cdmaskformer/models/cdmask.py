@@ -1,9 +1,11 @@
 import torch
 from torch import nn
 from addict import Dict
+from typing import Dict as DictType
+from typing import Union
 
-from rscd.models.decoderheads.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
-from rscd.models.decoderheads.transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
+from models.change_detection.cdmaskformer.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
+from models.change_detection.cdmaskformer.transformer_decoder.mask2former_transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
 
 from torch.nn import functional as F
 
@@ -171,7 +173,6 @@ class CDMask(nn.Module):
         self.sem_seg_head = MaskFormerHead(self.backbone_feature_shape, num_classes, num_queries, dec_layers)
 
     def semantic_inference(self, mask_cls, mask_pred):
-        # mask_cls = F.softmax(mask_cls, dim=-1)
         mask_cls = F.softmax(mask_cls, dim=-1)[...,1:]
         mask_pred = mask_pred.sigmoid()  
         semseg = torch.einsum("bqc,bqhw->bchw", mask_cls, mask_pred).detach()
@@ -183,12 +184,16 @@ class CDMask(nn.Module):
                 semseg[i, j] = (semseg[i, j] - minval) / (maxval - minval)
         return semseg
 
-    def forward(self, inputs):
-        featuresA, featuresB =inputs
+    def forward(self, inputs: DictType[str, torch.Tensor]) -> Union[DictType[str, torch.Tensor], torch.Tensor]:
+        # Extract features from dictionary input
+        featuresA, featuresB = inputs['featuresA'], inputs['featuresB']
+        
+        # Apply TFF modules
         features = [self.tff1(featuresA[0], featuresB[0]),
-                self.tff2(featuresA[1], featuresB[1]),
-                self.tff3(featuresA[2], featuresB[2]),
-                self.tff4(featuresA[3], featuresB[3]),]
+                   self.tff2(featuresA[1], featuresB[1]),
+                   self.tff3(featuresA[2], featuresB[2]),
+                   self.tff4(featuresA[3], featuresB[3])]
+        
         features = {
             'res2': features[0],
             'res3': features[1],
@@ -196,18 +201,25 @@ class CDMask(nn.Module):
             'res5': features[3]
         }
 
+        # Get raw outputs from mask former head
         outputs = self.sem_seg_head(features)
-
-        mask_cls_results = outputs["pred_logits"]
-        mask_pred_results = outputs["pred_masks"]
-
-        mask_pred_results = F.interpolate(
-            mask_pred_results,
+        
+        # Upsample mask predictions to original size
+        outputs["pred_masks"] = F.interpolate(
+            outputs["pred_masks"],
             scale_factor=(4,4),
             mode="bilinear",
             align_corners=False,
         )
-        pred_masks = self.semantic_inference(mask_cls_results, mask_pred_results)
-
-        return [pred_masks, outputs]
+        
+        # Return based on training mode
+        if self.training:
+            # During training, return the full dictionary for loss computation
+            return outputs
+        else:
+            # During evaluation, apply semantic inference and return only the processed change map
+            mask_cls_results = outputs["pred_logits"]
+            mask_pred_results = outputs["pred_masks"]
+            change_map = self.semantic_inference(mask_cls_results, mask_pred_results)
+            return change_map
     

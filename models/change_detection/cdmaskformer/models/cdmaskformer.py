@@ -8,6 +8,18 @@ class CDMaskFormer(nn.Module):
     def __init__(self, backbone_name, backbone_args, cdmask_args):
         super().__init__()
         self.backbone = get_backbone(backbone_name, **backbone_args)
+        
+        # Extract backbone output channels
+        channels = [
+            self.backbone.out_channels['res2'],
+            self.backbone.out_channels['res3'],
+            self.backbone.out_channels['res4'],
+            self.backbone.out_channels['res5']
+        ]
+        
+        # Update cdmask_args with backbone channels
+        cdmask_args['channels'] = channels
+        
         self.cdmask = CDMask(**cdmask_args)
         
     def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
