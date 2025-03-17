@@ -175,28 +175,63 @@
     - Citations: 3
     - Link: https://ieeexplore.ieee.org/abstract/document/10283101
 
-26. **Construction scene change detection based on octree structure optimization**
+26. **Deep learning with simulated laser scanning data for 3D point cloud classification**
+    - Authors: AM Esmorís, H Weiser, L Winiwarter
+    - Year: 2024
+    - Venue: ISPRS Journal of Photogrammetry and Remote Sensing
+    - Citations: 5
+    - Link: https://www.sciencedirect.com/science/article/pii/S0924271624002569
+
+27. **Landslide Detection in 3D Point Clouds With Deep Siamese Convolutional Network**
+    - Authors: I De Gélis, T Bernard, D Lague
+    - Year: 2024
+    - Venue: IGARSS 2024-2024 IEEE International Geoscience and Remote Sensing Symposium
+    - Citations: Not specified
+    - Link: https://ieeexplore.ieee.org/abstract/document/10641348
+
+28. **A Change Detection Method for Misaligned Point Clouds in Mobile Robot System**
+    - Authors: M Fujiwaka, M Nakanoya
+    - Year: 2023
+    - Venue: 2023 Seventh IEEE International Conference
+    - Citations: Not specified
+    - Link: https://ieeexplore.ieee.org/abstract/document/10473543
+
+29. **"Low Supervision" Deep Cluster Change Detection (CDCluster) On Remote Sensing RGB Data: Towards The Unsupervising Clustering Framework**
+    - Authors: GF Garcia, I De Gelis, T Corpetti
+    - Year: 2023
+    - Venue: IGARSS 2023-2023 IEEE International Geoscience and Remote Sensing Symposium
+    - Citations: Not specified
+    - Link: https://ieeexplore.ieee.org/abstract/document/10282898
+
+30. **Deep Learning-based Change Detection and Classification for Airborne Laser Scanning Data**
+    - Authors: J Nofulla
+    - Year: 2023
+    - Venue: University of Twente
+    - Citations: Not specified
+    - Link: http://essay.utwente.nl/95642/
+
+31. **Construction scene change detection based on octree structure optimization**
     - Authors: X Liu, X Ge
     - Year: 2024
     - Venue: Conference on Remote Sensing, Mapping, and Geospatial Data
     - Citations: Not specified
     - Link: https://www.spiedigitallibrary.org/conference-proceedings-of-spie/13402/1340211/Construction-scene-change-detection-based-on-octree-structure-optimization/10.1117/12.3049115.short
 
-27. **Virtual laser scanning of dynamic scenes (VLS-4D): Current approaches and future perspectives in remote sensing**
+32. **Virtual laser scanning of dynamic scenes (VLS-4D): Current approaches and future perspectives in remote sensing**
     - Authors: H Weiser, B Höfle
     - Year: 2024
     - Venue: EarthArXiv
     - Citations: Not specified
     - Link: https://eartharxiv.org/repository/view/7832/
 
-28. **Beyond Siamese KPConv: Early Encoding and Less Supervision**
+33. **Beyond Siamese KPConv: Early Encoding and Less Supervision**
     - Authors: I de Gélis, S Lefèvre, T Corpetti
     - Year: 2024
     - Venue: Northern Lights Deep Learning Workshop
     - Citations: Not specified
     - Link: https://hal.science/hal-04913386/document
 
-29. **3D CHANGE DETECTION FOR SEMI-AUTOMATIC UPDATE OF BUILDINGS IN 3D CITY MODELS**
+34. **3D CHANGE DETECTION FOR SEMI-AUTOMATIC UPDATE OF BUILDINGS IN 3D CITY MODELS**
     - Authors: A Tamort, A Kharroubi, R Hajji
     - Year: 2024
     - Venue: ISPRS Archives of the Photogrammetry, Remote Sensing and Spatial Information Sciences
