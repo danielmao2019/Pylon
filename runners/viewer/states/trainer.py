@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 import importlib.util
 from utils.automation.cfg_log_conversion import get_work_dir, get_repo_root
-from runners.viewer.utils import get_default_colors, class_to_rgb
+from runners.viewer.utils import get_default_colors
 import utils.determinism
 
 
