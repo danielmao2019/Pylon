@@ -1,11 +1,12 @@
 import torch
+import pytest
 from models.change_detection.hcgmnet.model import HCGMNet
 
 
 def test_hcgmnet_inference() -> None:
     """Test HCGMNet forward pass during inference."""
     model = HCGMNet(num_classes=2)
-    model.eval()  # Set to evaluation mode
+    model.eval()
     
     # Create dummy input tensors
     inputs = {
@@ -26,7 +27,7 @@ def test_hcgmnet_inference() -> None:
 def test_hcgmnet_training() -> None:
     """Test HCGMNet forward pass during training."""
     model = HCGMNet(num_classes=2)
-    model.train()  # Set to training mode
+    model.train()
     
     # Create dummy input tensors
     inputs = {

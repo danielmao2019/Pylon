@@ -56,11 +56,17 @@ class ChangeGuideModule(nn.Module):
     def forward(self, x, guiding_map0):
         m_batchsize, C, height, width = x.size()
 
+        # For multi-class output, extract the "change" class logits (class index 1)
+        if guiding_map0.size(1) > 1:
+            guiding_map0 = guiding_map0[:, 1:2, :, :]  # Shape: [B, 1, H, W]
+        
+        # Resize guiding map to match feature map dimensions
         guiding_map0 = F.interpolate(guiding_map0, x.size()[2:], mode='bilinear', align_corners=True)
-
-        # Using guiding_map directly as logits without sigmoid
+        
+        # Convert logits to probability
         guiding_map = F.sigmoid(guiding_map0)
 
+        # Apply attention mechanism
         query = self.query_conv(x) * (1 + guiding_map)
         proj_query = query.view(m_batchsize, -1, width*height).permute(0, 2, 1)
         key = self.key_conv(x) * (1 + guiding_map)
@@ -77,6 +83,7 @@ class ChangeGuideModule(nn.Module):
         out = torch.bmm(proj_value, attention.permute(0, 2, 1))
         out = out.view(m_batchsize, C, height, width)
 
+        # Apply residual connection with learnable weight
         out = self.gamma * out + x
 
         return out
