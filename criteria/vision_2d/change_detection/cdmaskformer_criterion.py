@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from typing import Dict, List
 from criteria.wrappers import SingleTaskCriterion
 from utils.matcher import HungarianMatcher
+from models.change_detection.cdmaskformer.utils.nested_tensor import nested_tensor_from_tensor_list
 
 
 def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
