@@ -1,27 +1,130 @@
 import torch
 import torch.nn.functional as F
-from typing import Dict
+from typing import Dict, List, Tuple
 from criteria.wrappers import SingleTaskCriterion
+from utils.matcher import HungarianMatcher
+from criteria.vision_2d import DiceLoss
+
+
+def compute_class_cost(outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
+    """
+    Compute classification cost for Hungarian matching.
+    For change detection, we use the negative probability of the change class.
+    """
+    out_prob = outputs["pred_logits"].softmax(-1)  # [num_queries, num_classes+1]
+    # Use class 1 (change class) probability
+    # For each query, we calculate cost for assigning it to the target
+    cost_class = -out_prob[:, 1].unsqueeze(1)  # [num_queries, 1]
+    return cost_class
+
+
+def compute_mask_cost(outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
+    """
+    Compute mask BCE cost for Hungarian matching.
+    """
+    pred_masks = outputs["pred_masks"]  # [num_queries, H, W]
+    tgt_masks = targets["masks"]  # [num_targets, H, W] (typically just one mask for change)
+    
+    # Flatten spatial dimensions
+    pred_masks = pred_masks.flatten(1)  # [num_queries, H*W]
+    tgt_masks = tgt_masks.flatten(1)    # [num_targets, H*W]
+    
+    # Compute cost matrix [num_queries, num_targets]
+    cost_mask = torch.zeros((pred_masks.shape[0], tgt_masks.shape[0]), device=pred_masks.device)
+    
+    for i in range(tgt_masks.shape[0]):
+        # For each target, compute BCE with all queries
+        target_i = tgt_masks[i:i+1]  # [1, H*W]
+        cost_mask[:, i] = F.binary_cross_entropy_with_logits(
+            pred_masks,
+            target_i.expand(pred_masks.shape[0], -1),
+            reduction='none'
+        ).mean(dim=1)
+    
+    return cost_mask
+
+
+def compute_dice_cost(outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
+    """
+    Compute dice cost for Hungarian matching.
+    """
+    pred_masks = outputs["pred_masks"]  # [num_queries, H, W]
+    tgt_masks = targets["masks"]  # [num_targets, H, W]
+    
+    # Flatten spatial dimensions
+    pred_masks = pred_masks.flatten(1)  # [num_queries, H*W]
+    tgt_masks = tgt_masks.flatten(1)    # [num_targets, H*W]
+    
+    # Compute cost matrix [num_queries, num_targets]
+    cost_dice = torch.zeros((pred_masks.shape[0], tgt_masks.shape[0]), device=pred_masks.device)
+    
+    for i in range(tgt_masks.shape[0]):
+        # For each target, compute dice with all queries
+        target_i = tgt_masks[i]  # [H*W]
+        
+        # Apply sigmoid to predicted masks
+        pred_masks_prob = torch.sigmoid(pred_masks)
+        
+        # Compute intersection and union for dice coefficient
+        numerator = 2 * (pred_masks_prob * target_i.unsqueeze(0)).sum(dim=1)
+        denominator = pred_masks_prob.sum(dim=1) + target_i.sum() + 1e-7
+        dice_coef = numerator / denominator
+        cost_dice[:, i] = 1 - dice_coef
+    
+    return cost_dice
+
+
+def dice_loss(pred_masks: torch.Tensor, target_masks: torch.Tensor, valid_mask: torch.Tensor = None) -> torch.Tensor:
+    """
+    Compute the DICE loss between predicted masks and target masks.
+    
+    Args:
+        pred_masks: Predicted mask probabilities after sigmoid, shape [N, H, W]
+        target_masks: Target masks, shape [N, H, W]
+        valid_mask: Optional mask of valid pixels, shape [H, W]
+        
+    Returns:
+        Scalar DICE loss
+    """
+    # Apply valid mask if provided
+    if valid_mask is not None:
+        # Expand valid_mask to match pred_masks shape
+        valid_mask_expanded = valid_mask.unsqueeze(0).expand_as(pred_masks)
+        
+        # Apply mask: set invalid regions to 0 in both pred and target
+        pred_masks = pred_masks * valid_mask_expanded
+        target_masks = target_masks * valid_mask_expanded
+    
+    # Flatten spatial dimensions
+    pred_flat = pred_masks.flatten(1)  # [N, H*W]
+    target_flat = target_masks.flatten(1)  # [N, H*W]
+    
+    # Compute intersection and union
+    intersection = 2.0 * (pred_flat * target_flat).sum(dim=1)
+    denominator = pred_flat.sum(dim=1) + target_flat.sum(dim=1) + 1e-7
+    
+    # Compute dice coefficient and loss
+    dice_coef = intersection / denominator
+    dice_loss = 1.0 - dice_coef
+    
+    # Average across batch
+    return dice_loss.mean()
 
 
 class CDMaskFormerCriterion(SingleTaskCriterion):
     """
-    Criterion for CDMaskFormer that combines dice loss and cross-entropy loss.
-    
-    This criterion follows the MaskFormer approach where the loss combines:
-    1. Binary cross-entropy loss for mask classification
-    2. Dice loss for mask prediction quality
-    
-    The criterion handles both training and evaluation modes and properly matches
-    predictions with ground truth using bipartite matching.
+    Criterion for CDMaskFormer that combines mask classification and mask prediction losses.
+    This criterion follows the Mask2Former approach with Hungarian matching.
     """
     
     def __init__(
         self,
         num_classes: int = 1,
         ignore_value: int = 255,
-        dice_weight: float = 1.0,
-        ce_weight: float = 1.0
+        class_weight: float = 2.0,
+        dice_weight: float = 5.0,
+        mask_weight: float = 5.0,
+        no_object_weight: float = 0.1
     ) -> None:
         """
         Initialize the CDMaskFormer criterion.
@@ -29,113 +132,154 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         Args:
             num_classes: Number of classes for semantic segmentation (default is 1 for binary change detection)
             ignore_value: Value to ignore in loss computation (typically 255 for unlabeled regions)
+            class_weight: Weight for the classification loss component
             dice_weight: Weight for the dice loss component
-            ce_weight: Weight for the cross-entropy loss component
+            mask_weight: Weight for the mask/BCE loss component
+            no_object_weight: Weight for the no-object class
         """
         super(CDMaskFormerCriterion, self).__init__()
         self.num_classes = num_classes
         self.ignore_value = ignore_value
+        self.class_weight = class_weight
         self.dice_weight = dice_weight
-        self.ce_weight = ce_weight
-
-    def _compute_loss(self, outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
+        self.mask_weight = mask_weight
+        self.no_object_weight = no_object_weight
+        
+        # Initialize matcher with cost functions
+        cost_functions = {
+            "class": (compute_class_cost, class_weight),
+            "mask": (compute_mask_cost, mask_weight),
+            "dice": (compute_dice_cost, dice_weight)
+        }
+        self.matcher = HungarianMatcher(cost_functions=cost_functions)
+        
+        # Create class weights with higher weight for no-object class
+        self.register_buffer(
+            "empty_weight", 
+            torch.ones(self.num_classes + 1)
+        )
+        self.empty_weight[0] = self.no_object_weight
+        
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
-        Compute the loss between model outputs and targets.
+        Compute loss for CDMaskFormer.
         
         Args:
-            outputs: Dictionary containing outputs from the model with keys:
-                     - 'pred_logits': Classification logits (B, N, C+1) where N is num_queries and C is num_classes
-                     - 'pred_masks': Predicted masks (B, N, H, W)
-            targets: Dictionary containing ground truth with keys:
-                     - 'labels': Ground truth labels (B, H, W)
-                     
+            y_pred: Dictionary containing outputs from the model with keys 'pred_logits', 'pred_masks', etc.
+            y_true: Dictionary containing ground truth with keys 'labels'
+            
         Returns:
             Scalar loss tensor
         """
-        # Extract predictions and targets
-        pred_logits = outputs["pred_logits"]  # (B, N, C+1)
-        pred_masks = outputs["pred_masks"]    # (B, N, H, W)
-        target_masks = targets["labels"]      # (B, H, W)
+        outputs = y_pred
+        targets = y_true
         
-        # Create binary target masks for change detection
-        # Convert target_masks to one-hot encoding
-        valid_mask = target_masks != self.ignore_value
-        
-        # Check if all pixels are ignored
+        # Check if there's anything to match
+        device = outputs["pred_logits"].device
+        valid_mask = targets["labels"] != self.ignore_value
         if not valid_mask.any():
-            # Return zero loss if all pixels are ignored
-            device = pred_logits.device
-            return torch.tensor(0.0, device=device)
-            
-        target_masks_binary = (target_masks > 0).float()  # Assuming change is any value > 0
+            loss = torch.tensor(0.0, device=device)
+            self.buffer.append(loss)
+            return loss
         
-        batch_size, num_queries = pred_logits.shape[:2]
-        device = pred_logits.device
+        # Format targets for the matcher
+        formatted_targets = []
+        for b in range(targets["labels"].shape[0]):
+            if valid_mask[b].any():
+                # Convert to binary masks: 1 for change, 0 for no change
+                bin_mask = (targets["labels"][b] > 0).float()
+                # For change detection, we have a single target mask per image
+                formatted_targets.append({
+                    "labels": torch.tensor([1], device=device),  # Class 1 for change
+                    "masks": bin_mask.unsqueeze(0)  # [1, H, W]
+                })
+            else:
+                # Empty target for this batch element
+                formatted_targets.append({
+                    "labels": torch.tensor([], device=device),
+                    "masks": torch.zeros((0, targets["labels"].shape[1], targets["labels"].shape[2]), device=device)
+                })
         
-        # Compute binary cross-entropy loss
-        pred_logits_flattened = pred_logits.view(batch_size * num_queries, -1)  # (B*N, C+1)
-        pred_scores = F.softmax(pred_logits_flattened, dim=-1)  # (B*N, C+1)
+        # Find matches between queries and targets
+        indices = self.matcher(outputs, formatted_targets)
         
-        # For binary change detection, we focus on the positive class (class 1)
-        # We ignore the no_object class (class 0)
-        pred_scores = pred_scores[:, 1:]  # (B*N, C)
+        # Compute classification loss
+        pred_logits = outputs["pred_logits"]  # [bs, num_queries, num_classes+1]
+        bs, num_queries = pred_logits.shape[:2]
         
-        # Compute cross-entropy loss (per-query classification loss)
-        ce_loss = 0
-        dice_loss = 0
-        total_valid_masks = 0
+        # Initialize target classes with -1 (no object class)
+        target_classes = torch.full((bs, num_queries), -1, dtype=torch.int64, device=device)
         
-        for b in range(batch_size):
-            if not valid_mask[b].any():
+        # For each batch element, set the matched queries to class 1 (change)
+        for b, (src_idx, tgt_idx) in enumerate(indices):
+            if len(src_idx) > 0:
+                # Get the target classes for the matched queries
+                # In change detection, all targets are class 1 (change)
+                target_classes[b, src_idx] = formatted_targets[b]["labels"][tgt_idx]
+        
+        # For cross-entropy, we need to map -1 to 0 (background class)
+        # since cross_entropy expects targets in [0, C-1]
+        target_classes_for_ce = target_classes.clone()
+        target_classes_for_ce[target_classes_for_ce == -1] = 0
+        
+        # Compute cross-entropy loss directly
+        # Flatten predictions and targets
+        pred_logits_flat = pred_logits.view(-1, pred_logits.shape[-1])  # [bs*num_queries, num_classes+1]
+        target_classes_flat = target_classes_for_ce.view(-1)  # [bs*num_queries]
+        
+        loss_ce = F.cross_entropy(
+            pred_logits_flat, 
+            target_classes_flat,
+            weight=self.empty_weight
+        )
+        
+        # Compute mask loss and dice loss only for matched queries
+        loss_mask = 0
+        loss_dice = 0
+        total_matched = 0
+        
+        for b, (src_idx, tgt_idx) in enumerate(indices):
+            if not valid_mask[b].any() or len(src_idx) == 0:
                 continue
                 
-            # Get binary target for this image
-            target = target_masks_binary[b][valid_mask[b]]  # (num_valid_pixels,)
+            # Get matched query predictions and target masks
+            pred_mask = outputs["pred_masks"][b, src_idx]  # [num_matched, H, W]
+            tgt_mask = formatted_targets[b]["masks"][tgt_idx]  # [num_matched, H, W]
             
-            # Get predicted masks for this image
-            masks_pred = pred_masks[b]  # (N, H, W)
-            masks_pred_flattened = masks_pred[:, valid_mask[b]]  # (N, num_valid_pixels)
-            
-            # Apply sigmoid to get probabilities
-            masks_pred_prob = torch.sigmoid(masks_pred_flattened)  # (N, num_valid_pixels)
-            
-            # Compute BCE loss for each query
-            bce_per_query = F.binary_cross_entropy(
-                masks_pred_prob, 
-                target.unsqueeze(0).expand(num_queries, -1),
-                reduction='none'
-            )  # (N, num_valid_pixels)
-            
-            # Average over pixels
-            bce_per_query = bce_per_query.mean(dim=1)  # (N,)
-            
-            # Use the minimum BCE loss across all queries
-            ce_loss += bce_per_query.min()
-            
-            # Compute Dice loss for the best matching query
-            best_query = bce_per_query.argmin()
-            pred_mask = masks_pred_prob[best_query]  # (num_valid_pixels,)
-            
-            # Calculate Dice coefficient
-            intersection = (pred_mask * target).sum()
-            union = pred_mask.sum() + target.sum()
-            dice_coef = (2.0 * intersection) / (union + 1e-7)
-            
-            # Dice loss
-            dice_loss += 1.0 - dice_coef
-            total_valid_masks += 1
+            # Only compute loss for valid pixels
+            valid_b = valid_mask[b]
+            if valid_b.any():
+                # Apply sigmoid for predicted masks
+                pred_mask_prob = torch.sigmoid(pred_mask)
+                
+                # Prepare binary target mask
+                binary_target = tgt_mask.bool().float()  # [num_matched, H, W]
+                
+                # Use BCE for mask loss - only on valid pixels
+                # First, mask out invalid pixels
+                valid_mask_expanded = valid_b.unsqueeze(0).expand_as(binary_target)
+                loss_mask += F.binary_cross_entropy_with_logits(
+                    pred_mask[valid_mask_expanded],
+                    binary_target[valid_mask_expanded]
+                )
+                
+                # Use our custom dice_loss function
+                loss_dice += dice_loss(
+                    pred_mask_prob,  # Already sigmoidized
+                    binary_target,   # Binary targets
+                    valid_b          # Valid pixel mask
+                )
+                
+                total_matched += 1
         
-        # Normalize losses
-        if total_valid_masks > 0:
-            ce_loss /= total_valid_masks
-            dice_loss /= total_valid_masks
-        else:
-            # This should not happen since we already checked valid_mask.any()
-            # But just in case, return zero loss
-            ce_loss = torch.tensor(0.0, device=device)
-            dice_loss = torch.tensor(0.0, device=device)
+        # Normalize the losses
+        if total_matched > 0:
+            loss_mask /= total_matched
+            loss_dice /= total_matched
         
-        # Combine losses
-        total_loss = self.ce_weight * ce_loss + self.dice_weight * dice_loss
+        # Compute total loss
+        loss = self.class_weight * loss_ce + self.mask_weight * loss_mask + self.dice_weight * loss_dice
         
-        return total_loss
+        # Store in buffer and return
+        self.buffer.append(loss)
+        return loss
