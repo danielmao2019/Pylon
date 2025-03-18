@@ -114,6 +114,11 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
     """
     Criterion for CDMaskFormer that combines mask classification and mask prediction losses.
     This criterion follows the Mask2Former approach with Hungarian matching.
+    
+    Class mapping:
+    - -1: no object (queries that don't match any target)
+    - 0: no change (background class)
+    - 1: change class (foreground)
     """
     
     def __init__(
@@ -186,8 +191,10 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         for b in range(targets["labels"].shape[0]):
             if valid_mask[b].any():
                 # Convert to binary masks: 1 for change, 0 for no change
-                bin_mask = (targets["labels"][b] > 0).float()
-                # For change detection, we have a single target mask per image
+                # Only match for change class (class 1)
+                bin_mask = (targets["labels"][b] == 1).float()
+
+                # For change detection, we match only the change class
                 formatted_targets.append({
                     "labels": torch.tensor([1], device=device),  # Class 1 for change
                     "masks": bin_mask.unsqueeze(0)  # [1, H, W]
@@ -207,19 +214,20 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         bs, num_queries = pred_logits.shape[:2]
         
         # Initialize target classes with -1 (no object class)
+        # In MaskFormer, unmatched queries are assigned to no-object class (-1)
         target_classes = torch.full((bs, num_queries), -1, dtype=torch.int64, device=device)
         
         # For each batch element, set the matched queries to class 1 (change)
         for b, (src_idx, tgt_idx) in enumerate(indices):
             if len(src_idx) > 0:
                 # Get the target classes for the matched queries
-                # In change detection, all targets are class 1 (change)
+                # All targets we match are class 1 (change class)
                 target_classes[b, src_idx] = formatted_targets[b]["labels"][tgt_idx]
         
-        # For cross-entropy, we need to map -1 to 0 (background class)
-        # since cross_entropy expects targets in [0, C-1]
+        # For cross-entropy, map -1 (no object) to class index 0 
+        # Cross entropy expects targets in [0, C-1] range
         target_classes_for_ce = target_classes.clone()
-        target_classes_for_ce[target_classes_for_ce == -1] = 0
+        target_classes_for_ce[target_classes_for_ce == -1] = 0  # Map no-object to index 0
         
         # Compute cross-entropy loss directly
         # Flatten predictions and targets
