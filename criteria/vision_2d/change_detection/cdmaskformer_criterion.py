@@ -230,6 +230,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         # Compute the number of masks for normalization
         num_masks = sum(len(t["labels"]) for t in y_true)
         num_masks = torch.as_tensor([num_masks], dtype=torch.float, device=y_pred["pred_logits"].device)
+        num_masks = max(num_masks.item(), 1)
         
         # Compute classification loss
         loss_ce = self._compute_classification_loss(y_pred, y_true, indices)
@@ -280,8 +281,11 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         src_masks = src_masks[src_idx]
         
         masks = [t["masks"] for t in targets]
-        target_masks = torch.cat([t[i] for t, (_, i) in zip(masks, indices)], dim=0)
-        target_masks = target_masks.to(src_masks)
+        # Use nested_tensor_from_tensor_list to handle potentially different sized masks
+        nested_target = nested_tensor_from_tensor_list(masks)
+        target_masks, valid = nested_target.decompose()
+        target_masks = target_masks.to(src_masks.device)
+        target_masks = target_masks[tgt_idx]
         
         src_masks = src_masks.flatten(1)
         target_masks = target_masks.flatten(1)
