@@ -115,4 +115,4 @@ class RegistrationRecall(SingleTaskMetric):
             Dict[str, torch.Tensor]: Dictionary of summarized metric scores.
         """
         result = super(RegistrationRecall, self).summarize(output_path)
-        return result 
+        return result
