@@ -195,7 +195,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         )
         self.empty_weight[0] = self.no_object_weight
         
-    def _compute_loss(self, y_pred: Dict[str, torch.Tensor], y_true: List[Dict[str, torch.Tensor]]) -> torch.Tensor:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: List[Dict[str, torch.Tensor]]) -> torch.Tensor:
         """
         Compute the CDMaskFormer loss.
         
@@ -258,6 +258,10 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         
         # Compute total loss
         total_loss = sum(losses.values())
+        
+        # Store loss in buffer for tracking
+        self.buffer.append(total_loss.detach().cpu())
+        
         return total_loss
     
     def _compute_classification_loss(self, outputs, targets, indices):
