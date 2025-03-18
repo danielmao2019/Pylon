@@ -1,10 +1,10 @@
 import torch
 import torch.nn.functional as F
-from criteria.base_criterion import BaseCriterion
 from typing import Dict
+from criteria.wrappers import SingleTaskCriterion
 
 
-class CDMaskFormerCriterion(BaseCriterion):
+class CDMaskFormerCriterion(SingleTaskCriterion):
     """
     Criterion for CDMaskFormer that combines dice loss and cross-entropy loss.
     
@@ -37,10 +37,10 @@ class CDMaskFormerCriterion(BaseCriterion):
         self.ignore_value = ignore_value
         self.dice_weight = dice_weight
         self.ce_weight = ce_weight
-        
-    def forward(self, outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+
+    def _compute_loss(self, outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
-        Forward pass for the criterion.
+        Compute the loss between model outputs and targets.
         
         Args:
             outputs: Dictionary containing outputs from the model with keys:
@@ -50,7 +50,7 @@ class CDMaskFormerCriterion(BaseCriterion):
                      - 'labels': Ground truth labels (B, H, W)
                      
         Returns:
-            Dictionary containing total loss and individual loss components
+            Scalar loss tensor
         """
         # Extract predictions and targets
         pred_logits = outputs["pred_logits"]  # (B, N, C+1)
@@ -65,12 +65,7 @@ class CDMaskFormerCriterion(BaseCriterion):
         if not valid_mask.any():
             # Return zero loss if all pixels are ignored
             device = pred_logits.device
-            zero_loss = torch.tensor(0.0, device=device)
-            return {
-                "loss": zero_loss,
-                "ce_loss": zero_loss,
-                "dice_loss": zero_loss
-            }
+            return torch.tensor(0.0, device=device)
             
         target_masks_binary = (target_masks > 0).float()  # Assuming change is any value > 0
         
@@ -143,26 +138,4 @@ class CDMaskFormerCriterion(BaseCriterion):
         # Combine losses
         total_loss = self.ce_weight * ce_loss + self.dice_weight * dice_loss
         
-        # Return loss components
-        losses = {
-            "loss": total_loss,
-            "ce_loss": ce_loss,
-            "dice_loss": dice_loss
-        }
-        
-        return losses
-        
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
-        """
-        Call the criterion to compute the loss.
-        
-        Args:
-            y_pred: Dictionary containing outputs from the model
-            y_true: Dictionary containing ground truth targets
-            
-        Returns:
-            Scalar loss tensor
-        """
-        losses = self.forward(y_pred, y_true)
-        self.buffer.append(losses["loss"])
-        return losses["loss"]
+        return total_loss
