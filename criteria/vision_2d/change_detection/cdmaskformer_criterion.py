@@ -153,59 +153,28 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         empty_weight[0] = no_object_weight
         self.register_buffer('empty_weight', empty_weight)
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Union[Dict[str, torch.Tensor], List[Dict[str, torch.Tensor]]]) -> torch.Tensor:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: List[Dict[str, torch.Tensor]]) -> torch.Tensor:
         """
         Perform forward pass through the criterion.
         
         Args:
-            y_pred: Dict with model predictions
-            y_true: Ground truth targets, can be a Dict with 'change_map' or a List of Dicts with instance targets
+            y_pred: Dict with model predictions containing 'pred_logits' and 'pred_masks'
+            y_true: List of dictionaries, each with 'labels' and 'masks' for instance segmentation
             
         Returns:
             Total loss (scalar tensor)
         """
-        # Handle input formats - convert dict input to list of dicts if needed
-        if isinstance(y_true, dict):
-            # Extract the change map
-            if 'change_map' in y_true:
-                change_map = y_true['change_map']
-                
-                # Convert to list of dictionaries with 'labels' and 'masks'
-                formatted_targets = []
-                batch_size = change_map.shape[0]
-                
-                for b in range(batch_size):
-                    batch_mask = change_map[b]
-                    
-                    # Convert semantic segmentation to instance segmentation
-                    if torch.any(batch_mask == 1):
-                        # Create a binary mask for change
-                        binary_mask = (batch_mask == 1).float().unsqueeze(0)
-                        
-                        # Create labels tensor (1 for change class)
-                        labels = torch.tensor([1], dtype=torch.int64, device=batch_mask.device)
-                        
-                        formatted_targets.append({
-                            'labels': labels,
-                            'masks': binary_mask
-                        })
-                    else:
-                        # No change regions
-                        formatted_targets.append({
-                            'labels': torch.tensor([], dtype=torch.int64, device=batch_mask.device),
-                            'masks': torch.zeros((0, batch_mask.shape[0], batch_mask.shape[1]), 
-                                               dtype=torch.float, device=batch_mask.device)
-                        })
-                
-                # Update y_true to use the formatted targets
-                y_true = formatted_targets
-            else:
-                # Handle other dictionary formats if needed
-                batch_size = y_pred['pred_logits'].shape[0]
-                device = y_pred['pred_logits'].device
-                y_true = [{'labels': torch.tensor([], dtype=torch.int64, device=device), 
-                           'masks': torch.zeros((0, 1, 1), dtype=torch.float, device=device)} 
-                         for _ in range(batch_size)]
+        # Assert expected input structure
+        assert isinstance(y_pred, dict), "Model output must be a dictionary"
+        assert "pred_logits" in y_pred, "Model output must contain 'pred_logits'"
+        assert "pred_masks" in y_pred, "Model output must contain 'pred_masks'"
+        
+        # Assert targets are a list of dictionaries with required keys
+        assert isinstance(y_true, list), "Targets must be a list of dictionaries"
+        for target in y_true:
+            assert isinstance(target, dict), "Each target must be a dictionary"
+            assert "labels" in target, "Each target must contain 'labels'"
+            assert "masks" in target, "Each target must contain 'masks'"
         
         outputs = y_pred.copy()
         
@@ -301,10 +270,8 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         masks = [t["masks"] for t in targets]
         
         # Use nested tensor from tensor list to handle different-sized targets
-        target_masks = nested_tensor_from_tensor_list(masks)
-        if isinstance(target_masks, tuple):
-            target_masks = target_masks[0]
-        target_masks = target_masks.to(src_masks)
+        target_masks, valid = nested_tensor_from_tensor_list(masks).decompose()
+        target_masks = target_masks.to(src_masks.device)
         target_masks = target_masks[tgt_idx]
 
         src_masks = src_masks.flatten(1)

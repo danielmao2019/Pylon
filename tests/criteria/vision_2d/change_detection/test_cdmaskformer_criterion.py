@@ -10,30 +10,31 @@ def test_cdmaskformer_criterion() -> None:
     height, width = 32, 32
     
     # Create the criterion
-    criterion = CDMaskFormerCriterion(num_classes=num_classes, ignore_value=255)
+    criterion = CDMaskFormerCriterion(num_classes=num_classes)
     
     # Create fake model outputs (what would come from CDMaskFormer)
     pred_logits = torch.randn(batch_size, num_queries, num_classes + 1)  # Class logits (+1 for no-object)
-    pred_masks = torch.randn(batch_size, num_queries, height, width)  # Mask logits
+    pred_masks = torch.randn(batch_size, num_queries, height // 4, width // 4)  # Mask logits at lower resolution
     
     outputs = {
         "pred_logits": pred_logits,
         "pred_masks": pred_masks
     }
     
-    # Create fake target with ground truth labels
-    # Values: 0 for no change, 1 for change, 255 for ignore
-    labels = torch.zeros(batch_size, height, width, dtype=torch.long)
-    
-    # Add some change regions
-    labels[:, 10:20, 10:20] = 1
-    
-    # Add some ignore regions
-    labels[:, 25:30, 25:30] = 255
-    
-    targets = {
-        "labels": labels
-    }
+    # Create formatted targets that match the expected format in the criterion
+    targets = []
+    for b in range(batch_size):
+        # Create a single instance mask
+        masks = torch.zeros((1, height, width), dtype=torch.float)
+        masks[0, 10:20, 10:20] = 1.0  # A square in the middle
+        
+        # Create labels tensor (1 for change class)
+        labels = torch.tensor([1], dtype=torch.int64)
+        
+        targets.append({
+            'labels': labels,
+            'masks': masks
+        })
     
     # Compute loss
     loss = criterion(outputs, targets)
@@ -45,12 +46,18 @@ def test_cdmaskformer_criterion() -> None:
     assert not torch.isnan(loss), "Loss should not be NaN"
     assert not torch.isinf(loss), "Loss should not be Inf"
     
-    # Test with all pixels ignored
-    all_ignored_labels = torch.full((batch_size, height, width), 255, dtype=torch.long)
-    all_ignored_targets = {"labels": all_ignored_labels}
+    # Test with empty targets
+    empty_targets = []
+    for _ in range(batch_size):
+        empty_targets.append({
+            'labels': torch.tensor([], dtype=torch.int64),
+            'masks': torch.zeros((0, height, width), dtype=torch.float)
+        })
     
-    # This should handle gracefully and not raise an error
-    all_ignored_loss = criterion(outputs, all_ignored_targets)
+    # Compute loss with empty targets
+    empty_loss = criterion(outputs, empty_targets)
     
-    # The loss should be zero since no valid pixels to compute on
-    assert all_ignored_loss.item() == 0, "Loss with all pixels ignored should be zero"
+    # Check that the loss is valid
+    assert isinstance(empty_loss, torch.Tensor), "Loss should be a tensor"
+    assert empty_loss.ndim == 0, "Loss should be a scalar"
+    assert empty_loss.item() > 0, "Loss with empty targets should still be positive (classification error)"
