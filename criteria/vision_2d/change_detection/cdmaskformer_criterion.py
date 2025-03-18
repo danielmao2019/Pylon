@@ -1,9 +1,8 @@
 import torch
 import torch.nn.functional as F
-from typing import Dict, List, Tuple
+from typing import Dict
 from criteria.wrappers import SingleTaskCriterion
 from utils.matcher import HungarianMatcher
-from criteria.vision_2d import DiceLoss
 
 
 def compute_class_cost(outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
