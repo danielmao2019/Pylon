@@ -1,7 +1,8 @@
 import torch
 import torch.nn.functional as F
 from criteria.base_criterion import BaseCriterion
-from typing import Dict, List, Optional
+from typing import Dict
+
 
 class CDMaskFormerCriterion(BaseCriterion):
     """

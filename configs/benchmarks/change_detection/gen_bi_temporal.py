@@ -167,6 +167,14 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.CEDiceLoss, 'args': {{}}}}\n"
         config += '\n'
+    elif model == "CDMaskFormer":
+        config += f"from configs.common.models.change_detection.cdmaskformer import model_config\n"
+        config += f"config['model'] = model_config\n"
+        config += '\n'
+        config += f"# criterion config\n"
+        config += f"import criteria\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.CDMaskFormerCriterion, 'args': {{}}}}\n"
+        config += '\n'
     elif model == "CSA_CDGAN":
         config += f"from configs.common.models.change_detection.csa_cdgan import model_config\n"
         config += f"config['model'] = model_config\n"
@@ -219,7 +227,7 @@ if __name__ == "__main__":
             'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50', 'Changer-s101',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'ChangeNextV1', 'ChangeNextV2', 'ChangeNextV3',
-            'FTN', 'SRCNet', 'BiFA', 'CDXFormer',
+            'FTN', 'SRCNet', 'BiFA', 'CDXFormer', 'CDMaskFormer',
             'CSA_CDGAN',
             'ChangeMamba-Base', 'ChangeMamba-Small', 'ChangeMamba-Tiny',
         ],
