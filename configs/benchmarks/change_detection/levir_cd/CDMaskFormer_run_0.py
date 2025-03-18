@@ -62,7 +62,7 @@ config['model'] = model_config
 
 # criterion config
 import criteria
-config['criterion'] = {'class': criteria.vision_2d.change_detection.CDMaskFormerCriterion, 'args': {}}
+config['criterion'] = {'class': criteria.vision_2d.change_detection.CDMaskFormerCriterion, 'args': {'num_classes': 1}}
 
 # seeds
 config['init_seed'] = 53713097

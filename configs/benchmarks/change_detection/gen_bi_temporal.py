@@ -173,7 +173,7 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
-        config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.CDMaskFormerCriterion, 'args': {{}}}}\n"
+        config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.CDMaskFormerCriterion, 'args': {{'num_classes': 1}}}}\n"
         config += '\n'
     elif model == "CSA_CDGAN":
         config += f"from configs.common.models.change_detection.csa_cdgan import model_config\n"
