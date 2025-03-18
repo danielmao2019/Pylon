@@ -1,10 +1,9 @@
 import torch
 import schedulers
-from runners import BaseTrainer
 from utils.builders import build_from_config
 
 
-def build_scheduler(trainer: BaseTrainer, cfg: dict) -> torch.optim.lr_scheduler._LRScheduler:
+def build_scheduler(trainer: "runners.BaseTrainer", cfg: dict) -> torch.optim.lr_scheduler._LRScheduler:
     assert isinstance(cfg, dict) and set(cfg.keys()) == {'class', 'args'}
     cfg['args']['optimizer'] = trainer.optimizer.optimizer
     if cfg['class'] == torch.optim.lr_scheduler.LambdaLR:
