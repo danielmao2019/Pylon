@@ -49,6 +49,8 @@ The model uses a specialized criterion that combines:
 1. Binary cross-entropy loss for mask classification
 2. Dice loss for mask prediction quality
 
+The CDMaskFormerCriterion inherits from SingleTaskCriterion and implements the standard interface used across the Pylon framework.
+
 ```python
 from criteria.vision_2d.change_detection import CDMaskFormerCriterion
 
