@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from typing import Dict, List
+from typing import Dict, List, Union
 from criteria.wrappers import SingleTaskCriterion
 from utils.matcher import HungarianMatcher
 from models.change_detection.cdmaskformer.utils.nested_tensor import nested_tensor_from_tensor_list
@@ -104,180 +104,194 @@ def sigmoid_focal_loss(inputs: torch.Tensor, targets: torch.Tensor, num_masks: f
     return loss.mean(1).sum() / num_masks
 
 
-def compute_class_cost(outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Compute classification cost for Hungarian matching.
-    """
-    out_prob = outputs["pred_logits"].softmax(-1)  # [num_queries, num_classes+1]
-    tgt_ids = targets["labels"]
-    cost_class = -out_prob[:, tgt_ids]
-    return cost_class
-
-
-def compute_mask_cost(outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Compute mask BCE cost for Hungarian matching using focal loss.
-    """
-    out_mask = outputs["pred_masks"].flatten(1)  # [num_queries, H*W]
-    tgt_mask = targets["masks"].flatten(1)  # [num_targets, H*W]
-    cost_mask = batch_sigmoid_focal_loss(out_mask, tgt_mask)
-    return cost_mask
-
-
-def compute_dice_cost(outputs: Dict[str, torch.Tensor], targets: Dict[str, torch.Tensor]) -> torch.Tensor:
-    """
-    Compute dice cost for Hungarian matching.
-    """
-    out_mask = outputs["pred_masks"].flatten(1)  # [num_queries, H*W]
-    tgt_mask = targets["masks"].flatten(1)  # [num_targets, H*W]
-    cost_dice = batch_dice_loss(out_mask, tgt_mask)
-    return cost_dice
-
-
 class CDMaskFormerCriterion(SingleTaskCriterion):
     """
-    Criterion for CDMaskFormer that combines mask classification and mask prediction losses.
-    This criterion follows the Mask2Former approach with Hungarian matching.
-    
-    Class mapping:
-    - 0: no object (queries that don't match any target)
-    - 1: change class (foreground)
+    This class computes the loss for DETR.
+    The process happens in two steps:
+        1) we compute hungarian assignment between ground truth and outputs
+        2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
-    
-    def __init__(
-        self,
-        num_classes: int = 1,
-        class_weight: float = 2.0,
-        dice_weight: float = 5.0,
-        mask_weight: float = 5.0,
-        no_object_weight: float = 0.1,
-        dec_layers: int = 10,
-    ) -> None:
+
+    def __init__(self, num_classes, class_weight=2, mask_weight=5, dice_weight=5, 
+                 no_object_weight=0.1, dec_layers=10):
+        """Create the criterion.
+        Parameters:
+            num_classes: number of object categories, omitting the special no-object category
+            matcher: module able to compute a matching between targets and proposals
+            weight_dict: dict containing as key the names of the losses and as values their relative weight.
+            eos_coef: relative classification weight applied to the no-object category
+            losses: list of all the losses to be applied. See get_loss for list of available losses.
         """
-        Initialize the CDMaskFormer criterion.
-        
-        Args:
-            num_classes: Number of classes for semantic segmentation (default is 1 for binary change detection)
-            class_weight: Weight for the classification loss component
-            dice_weight: Weight for the dice loss component
-            mask_weight: Weight for the mask/BCE loss component
-            no_object_weight: Weight for the no-object class
-            dec_layers: Number of decoder layers (used for auxiliary losses)
-        """
-        super(CDMaskFormerCriterion, self).__init__()
+        super().__init__()
         self.num_classes = num_classes
         self.class_weight = class_weight
-        self.dice_weight = dice_weight
         self.mask_weight = mask_weight
+        self.dice_weight = dice_weight
         self.no_object_weight = no_object_weight
         self.dec_layers = dec_layers
         
-        # Set up matcher and cost functions
+        # Setup cost functions for matcher
+        cost_class = lambda outputs, targets: -outputs["pred_logits"].softmax(-1)[:, targets["labels"]]
+        
         cost_functions = {
-            "cost_class": (compute_class_cost, self.class_weight),
-            "cost_mask": (compute_mask_cost, self.mask_weight),
-            "cost_dice": (compute_dice_cost, self.dice_weight)
+            "cost_class": (cost_class, class_weight),
+            "cost_mask": (lambda o, t: batch_sigmoid_focal_loss(o["pred_masks"].flatten(1), t["masks"].flatten(1)), mask_weight),
+            "cost_dice": (lambda o, t: batch_dice_loss(o["pred_masks"].flatten(1), t["masks"].flatten(1)), dice_weight)
         }
         
         self.matcher = HungarianMatcher(cost_functions=cost_functions)
         
         # Create weight dict for losses
-        self.weight_dict = {"loss_ce": self.class_weight, "loss_mask": self.mask_weight, "loss_dice": self.dice_weight}
+        self.weight_dict = {"loss_ce": class_weight, "loss_mask": mask_weight, "loss_dice": dice_weight}
         aux_weight_dict = {}
-        for i in range(self.dec_layers - 1):
+        for i in range(dec_layers - 1):
             aux_weight_dict.update({k + f"_{i}": v for k, v in self.weight_dict.items()})
         self.weight_dict.update(aux_weight_dict)
         
         # Create class weights with higher weight for no-object class
-        self.register_buffer(
-            "empty_weight", 
-            torch.ones(self.num_classes + 1)
-        )
-        self.empty_weight[0] = self.no_object_weight
-        
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: List[Dict[str, torch.Tensor]]) -> torch.Tensor:
+        empty_weight = torch.ones(self.num_classes + 1)
+        empty_weight[0] = no_object_weight
+        self.register_buffer('empty_weight', empty_weight)
+
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Union[Dict[str, torch.Tensor], List[Dict[str, torch.Tensor]]]) -> torch.Tensor:
         """
-        Compute the CDMaskFormer loss.
+        Perform forward pass through the criterion.
         
         Args:
-            y_pred: Dictionary containing model outputs with keys 'pred_logits', 'pred_masks', etc.
-            y_true: List of target dictionaries, one per batch element
+            y_pred: Dict with model predictions
+            y_true: Ground truth targets, can be a Dict with 'change_map' or a List of Dicts with instance targets
             
         Returns:
-            Scalar loss tensor
+            Total loss (scalar tensor)
         """
-        # Ensure masks are at the right scale
-        y_pred["pred_masks"] = F.interpolate(
-            y_pred["pred_masks"],
+        # Handle input formats - convert dict input to list of dicts if needed
+        if isinstance(y_true, dict):
+            # Extract the change map
+            if 'change_map' in y_true:
+                change_map = y_true['change_map']
+                
+                # Convert to list of dictionaries with 'labels' and 'masks'
+                formatted_targets = []
+                batch_size = change_map.shape[0]
+                
+                for b in range(batch_size):
+                    batch_mask = change_map[b]
+                    
+                    # Convert semantic segmentation to instance segmentation
+                    if torch.any(batch_mask == 1):
+                        # Create a binary mask for change
+                        binary_mask = (batch_mask == 1).float().unsqueeze(0)
+                        
+                        # Create labels tensor (1 for change class)
+                        labels = torch.tensor([1], dtype=torch.int64, device=batch_mask.device)
+                        
+                        formatted_targets.append({
+                            'labels': labels,
+                            'masks': binary_mask
+                        })
+                    else:
+                        # No change regions
+                        formatted_targets.append({
+                            'labels': torch.tensor([], dtype=torch.int64, device=batch_mask.device),
+                            'masks': torch.zeros((0, batch_mask.shape[0], batch_mask.shape[1]), 
+                                               dtype=torch.float, device=batch_mask.device)
+                        })
+                
+                # Update y_true to use the formatted targets
+                y_true = formatted_targets
+            else:
+                # Handle other dictionary formats if needed
+                batch_size = y_pred['pred_logits'].shape[0]
+                device = y_pred['pred_logits'].device
+                y_true = [{'labels': torch.tensor([], dtype=torch.int64, device=device), 
+                           'masks': torch.zeros((0, 1, 1), dtype=torch.float, device=device)} 
+                         for _ in range(batch_size)]
+        
+        outputs = y_pred.copy()
+        
+        # Upsample masks for processing
+        outputs["pred_masks"] = F.interpolate(
+            outputs["pred_masks"],
             scale_factor=(4, 4),
             mode="bilinear",
             align_corners=False,
         )
         
-        # Also scale masks in auxiliary outputs if present
-        if "aux_outputs" in y_pred:
-            for aux_outputs in y_pred["aux_outputs"]:
+        # Handle auxiliary outputs the same way
+        if "aux_outputs" in outputs:
+            for aux_outputs in outputs["aux_outputs"]:
                 aux_outputs["pred_masks"] = F.interpolate(
                     aux_outputs["pred_masks"],
                     scale_factor=(4, 4),
                     mode="bilinear",
                     align_corners=False,
                 )
-                
-        # Find matches between queries and targets
-        indices = self.matcher(y_pred, y_true)
         
-        # Compute the number of masks for normalization
+        # Compute the losses
+        losses = {}
+        
+        # Get the indices for matching 
+        indices = self.matcher(outputs, y_true)
+        
+        # Calculate number of masks for normalization
         num_masks = sum(len(t["labels"]) for t in y_true)
-        num_masks = torch.as_tensor([num_masks], dtype=torch.float, device=y_pred["pred_logits"].device)
-        num_masks = max(num_masks.item(), 1)
+        num_masks = torch.as_tensor([num_masks], dtype=torch.float, device=outputs["pred_logits"].device)
+        num_masks = max(num_masks.item(), 1)  # Avoid division by zero
         
-        # Compute classification loss
-        loss_ce = self._compute_classification_loss(y_pred, y_true, indices)
+        # Main loss computation
+        losses.update(self._get_losses(outputs, y_true, indices, num_masks))
         
-        # Compute mask losses
-        loss_mask, loss_dice = self._compute_mask_losses(y_pred, y_true, indices, num_masks)
-        
-        # Combine losses
-        losses = {
-            "loss_ce": loss_ce * self.weight_dict["loss_ce"],
-            "loss_mask": loss_mask * self.weight_dict["loss_mask"],
-            "loss_dice": loss_dice * self.weight_dict["loss_dice"]
-        }
-        
-        # Compute auxiliary losses if present
-        if "aux_outputs" in y_pred:
-            for i, aux_outputs in enumerate(y_pred["aux_outputs"]):
+        # Auxiliary loss computation
+        if "aux_outputs" in outputs:
+            for i, aux_outputs in enumerate(outputs["aux_outputs"]):
                 aux_indices = self.matcher(aux_outputs, y_true)
-                aux_loss_ce = self._compute_classification_loss(aux_outputs, y_true, aux_indices)
-                aux_loss_mask, aux_loss_dice = self._compute_mask_losses(aux_outputs, y_true, aux_indices, num_masks)
+                aux_losses = self._get_losses(aux_outputs, y_true, aux_indices, num_masks)
+                losses.update({f"{k}_{i}": v for k, v in aux_losses.items()})
                 
-                losses[f"loss_ce_{i}"] = aux_loss_ce * self.weight_dict[f"loss_ce_{i}"]
-                losses[f"loss_mask_{i}"] = aux_loss_mask * self.weight_dict[f"loss_mask_{i}"]
-                losses[f"loss_dice_{i}"] = aux_loss_dice * self.weight_dict[f"loss_dice_{i}"]
+        # Compute weighted sum of all losses
+        weighted_losses = {k: self.weight_dict[k] * losses[k] for k in losses.keys() if k in self.weight_dict}
+        total_loss = sum(weighted_losses.values())
         
-        # Compute total loss
-        total_loss = sum(losses.values())
-        
-        # Store loss in buffer for tracking
+        # Store for tracking
         self.buffer.append(total_loss.detach().cpu())
         
         return total_loss
     
-    def _compute_classification_loss(self, outputs, targets, indices):
-        """Compute the classification loss."""
-        pred_logits = outputs["pred_logits"]
+    def _get_losses(self, outputs, targets, indices, num_masks):
+        """
+        Compute all the requested losses.
+        """
+        losses = {}
+        
+        # Classification loss
+        loss_ce = self._get_src_classification_loss(outputs, targets, indices)
+        losses["loss_ce"] = loss_ce
+        
+        # Mask losses
+        loss_mask, loss_dice = self._get_mask_losses(outputs, targets, indices, num_masks)
+        losses["loss_mask"] = loss_mask
+        losses["loss_dice"] = loss_dice
+        
+        return losses
+        
+    def _get_src_classification_loss(self, outputs, targets, indices):
+        """Classification loss (NLL) targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]"""
+        assert "pred_logits" in outputs
+        src_logits = outputs["pred_logits"]
+
         idx = self._get_src_permutation_idx(indices)
         target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(pred_logits.shape[:2], 0, 
-                                   dtype=torch.int64, device=pred_logits.device)
+        target_classes = torch.full(src_logits.shape[:2], 0,
+                                    dtype=torch.int64, device=src_logits.device)
         target_classes[idx] = target_classes_o
-        
-        loss_ce = F.cross_entropy(pred_logits.transpose(1, 2), target_classes, self.empty_weight)
+
+        loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         return loss_ce
-    
-    def _compute_mask_losses(self, outputs, targets, indices, num_masks):
-        """Compute the mask focal loss and dice loss."""
+
+    def _get_mask_losses(self, outputs, targets, indices, num_masks):
+        """Compute the losses related to the masks: the focal loss and the dice loss."""
+        assert "pred_masks" in outputs
+
         src_idx = self._get_src_permutation_idx(indices)
         tgt_idx = self._get_tgt_permutation_idx(indices)
         
@@ -285,12 +299,14 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         src_masks = src_masks[src_idx]
         
         masks = [t["masks"] for t in targets]
-        # Use nested_tensor_from_tensor_list to handle potentially different sized masks
-        nested_target = nested_tensor_from_tensor_list(masks)
-        target_masks, valid = nested_target.decompose()
-        target_masks = target_masks.to(src_masks.device)
-        target_masks = target_masks[tgt_idx]
         
+        # Use nested tensor from tensor list to handle different-sized targets
+        target_masks = nested_tensor_from_tensor_list(masks)
+        if isinstance(target_masks, tuple):
+            target_masks = target_masks[0]
+        target_masks = target_masks.to(src_masks)
+        target_masks = target_masks[tgt_idx]
+
         src_masks = src_masks.flatten(1)
         target_masks = target_masks.flatten(1)
         
@@ -298,15 +314,23 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         loss_dice = dice_loss(src_masks, target_masks, num_masks)
         
         return loss_mask, loss_dice
-    
+
     def _get_src_permutation_idx(self, indices):
-        """Get source permutation indices for the loss computation."""
+        """
+        Given a list of tuples (src_idx, tgt_idx) for each batch element, 
+        returns the permutation indices for the source.
+        """
+        # permute predictions following indices
         batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
 
     def _get_tgt_permutation_idx(self, indices):
-        """Get target permutation indices for the loss computation."""
+        """
+        Given a list of tuples (src_idx, tgt_idx) for each batch element, 
+        returns the permutation indices for the target.
+        """
+        # permute targets following indices
         batch_idx = torch.cat([torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
