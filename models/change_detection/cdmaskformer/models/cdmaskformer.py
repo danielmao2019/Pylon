@@ -49,4 +49,6 @@ class CDMaskFormer(nn.Module):
         }
         
         # Forward through CDMask - output format depends on training mode
-        return self.cdmask(features) 
+        output = self.cdmask(features)
+        
+        return output
