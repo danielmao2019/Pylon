@@ -172,28 +172,36 @@ class CDMask(nn.Module):
 
         self.sem_seg_head = MaskFormerHead(self.backbone_feature_shape, num_classes, num_queries, dec_layers)
 
-    def semantic_inference(self, mask_cls: torch.Tensor, mask_pred: torch.Tensor) -> torch.Tensor:
-        mask_cls = F.softmax(mask_cls, dim=-1)[...,1:]
+    def semantic_inference(self, mask_cls, mask_pred):
+        # Using original indexing scheme: class 0 is "no object", class 1 is "change"
+        # Get probabilities for all classes
+        mask_cls = F.softmax(mask_cls, dim=-1)
+        # Extract only the change class (class index 1)
+        mask_cls = mask_cls[..., 1:]
+        # Apply sigmoid to mask predictions
         mask_pred = mask_pred.sigmoid()
+        # Combine class probabilities with mask predictions
         semseg = torch.einsum("bqc,bqhw->bchw", mask_cls, mask_pred).detach()
+        
+        # Normalize masks to [0,1] range for visualization
         b, c, h, w = semseg.shape
         for i in range(b):
             for j in range(c):
                 minval = semseg[i, j].min()
                 maxval = semseg[i, j].max()
-                semseg[i, j] = (semseg[i, j] - minval) / (maxval - minval)
+                semseg[i, j] = (semseg[i, j] - minval) / (maxval - minval + 1e-7)
         return semseg
 
-    def forward(self, inputs: DictType[str, torch.Tensor]) -> Union[DictType[str, torch.Tensor], torch.Tensor]:
-        # Extract features from dictionary input
-        featuresA, featuresB = inputs['featuresA'], inputs['featuresB']
-
-        # Apply TFF modules
+    def forward(self, inputs):
+        if isinstance(inputs, dict):
+            featuresA, featuresB = inputs['featuresA'], inputs['featuresB']
+        else:
+            featuresA, featuresB = inputs
+            
         features = [self.tff1(featuresA[0], featuresB[0]),
-                   self.tff2(featuresA[1], featuresB[1]),
-                   self.tff3(featuresA[2], featuresB[2]),
-                   self.tff4(featuresA[3], featuresB[3])]
-
+                self.tff2(featuresA[1], featuresB[1]),
+                self.tff3(featuresA[2], featuresB[2]),
+                self.tff4(featuresA[3], featuresB[3]),]
         features = {
             'res2': features[0],
             'res3': features[1],
@@ -201,17 +209,23 @@ class CDMask(nn.Module):
             'res5': features[3]
         }
 
-        # Get outputs from mask former head
         outputs = self.sem_seg_head(features)
 
-        # Return based on training mode
         if self.training:
             return outputs
         else:
-            # Process mask predictions at the correct scale (1/4 of input resolution)
-            # The common_stride=4 parameter in the pixel decoder ensures masks are at the right scale
             mask_cls_results = outputs["pred_logits"]
             mask_pred_results = outputs["pred_masks"]
-            # During evaluation, apply semantic inference and return masks
+
+            # Interpolate masks to the original resolution
+            mask_pred_results = F.interpolate(
+                mask_pred_results,
+                scale_factor=(4, 4),
+                mode="bilinear",
+                align_corners=False,
+            )
+            
+            # Generate semantic segmentation masks
             pred_masks = self.semantic_inference(mask_cls_results, mask_pred_results)
+            
             return pred_masks
