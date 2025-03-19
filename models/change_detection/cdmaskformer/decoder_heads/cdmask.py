@@ -209,4 +209,7 @@ class CDMask(nn.Module):
         )
         pred_masks = self.semantic_inference(mask_cls_results, mask_pred_results)
 
-        return [pred_masks, outputs]
+        if self.training:
+            return outputs
+        else:
+            return pred_masks
