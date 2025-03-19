@@ -2,8 +2,8 @@ import torch
 from torch import nn
 from addict import Dict
 
-from rscd.models.decoderheads.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
-from rscd.models.decoderheads.transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
+from ..pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
+from ..transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
 
 from torch.nn import functional as F
 

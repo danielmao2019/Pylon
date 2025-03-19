@@ -1,8 +1,6 @@
 import torch
 from torch import nn
-import sys
-sys.path.append('rscd')
-from utils.build import build_from_cfg
+from ...utils.build import build_from_cfg
 
 class myModel(nn.Module):
     def __init__(self, cfg):
