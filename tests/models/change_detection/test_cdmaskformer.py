@@ -1,25 +1,34 @@
 import torch
 import pytest
 from models.change_detection.cdmaskformer.models.build_model import CDMaskFormer
+from utils.builders.builder import build_from_config
 
 def test_cdmaskformer():
-    # Create model config following the original rschange config
-    cfg = type('Config', (), {
-        'backbone': type('BackboneConfig', (), {
-            'type': 'Base',
-            'name': 'Seaformer'
-        }),
-        'decoderhead': type('DecoderConfig', (), {
-            'type': 'CDMask',
-            'channels': [64, 128, 192, 256],
-            'num_classes': 1,  # num_class - 1 from original config
-            'num_queries': 5,
-            'dec_layers': 14
-        })
-    })
+    # Create model config following the Pylon builder pattern
+    cfg = {
+        'class': models.change_detection.cdmaskformer.models.build_model.CDMaskFormer,
+        'args': {
+            'backbone': {
+                'class': models.change_detection.cdmaskformer.backbones.seaformer.SeaFormer,
+                'args': {
+                    'type': 'Base',
+                    'name': 'Seaformer'
+                }
+            },
+            'decoderhead': {
+                'class': models.change_detection.cdmaskformer.decoder_heads.cdmask.CDMask,
+                'args': {
+                    'channels': [64, 128, 192, 256],
+                    'num_classes': 1,  # num_class - 1 from original config
+                    'num_queries': 5,
+                    'dec_layers': 14
+                }
+            }
+        }
+    }
 
-    # Initialize model
-    model = CDMaskFormer(cfg)
+    # Initialize model using the builder
+    model = build_from_config(cfg)
 
     # Create dummy inputs with batch dimension
     batch_size = 2

@@ -29,19 +29,28 @@ num_class = 2
 ignore_index = 255
 
 ######################### model_config #########################
-model_config = dict(
-    backbone = dict(
-        type = 'Base',
-        name = 'Seaformer'
-    ),
-    decoderhead = dict(
-        type = 'CDMask',
-        channels = [64, 128, 192, 256],
-        num_classes = num_class - 1,
-        num_queries = 5,
-        dec_layers = 14
-    )
-)
+model_config = {
+    'class': models.change_detection.cdmaskformer.models.build_model.CDMaskFormer,
+    'args': {
+        'backbone': {
+            'class': models.change_detection.cdmaskformer.backbones.seaformer.SeaFormer,
+            'args': {
+                'type': 'Base',
+                'name': 'Seaformer'
+            }
+        },
+        'decoderhead': {
+            'class': models.change_detection.cdmaskformer.decoder_heads.cdmask.CDMask,
+            'args': {
+                'channels': [64, 128, 192, 256],
+                'num_classes': num_class - 1,
+                'num_queries': 5,
+                'dec_layers': 14
+            }
+        }
+    }
+}
+
 loss_config = dict(
     type = 'myLoss',
     loss_name = ['Mask2formerLoss'],
