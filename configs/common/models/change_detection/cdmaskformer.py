@@ -35,13 +35,13 @@ ignore_index = 255
 model_config = {
     'class': models.change_detection.cdmaskformer.models.build_model.CDMaskFormer,
     'args': {
-        'backbone': {
+        'backbone_cfg': {
             'class': models.change_detection.cdmaskformer.backbones.base.Base,
             'args': {
                 'name': 'Seaformer'
             },
         },
-        'decoderhead': {
+        'head_cfg': {
             'class': models.change_detection.cdmaskformer.decoder_heads.cdmask.CDMask,
             'args': {
                 'channels': [64, 128, 192, 256],

@@ -5,25 +5,16 @@ from utils.builders import build_from_config
 
 
 class CDMaskFormer(nn.Module):
-    def __init__(self, backbone_cfg, decoderhead_cfg):
+    def __init__(self, backbone_cfg, head_cfg):
         super(CDMaskFormer, self).__init__()
         self.backbone = build_from_config(backbone_cfg)
-        self.decoderhead = build_from_config(decoderhead_cfg)
+        self.head = build_from_config(head_cfg)
     
     def forward(self, inputs: Dict[str, torch.Tensor], gtmask=None):
         x1, x2 = inputs['img_1'], inputs['img_2']
         backbone_outputs = self.backbone(x1, x2)
         if gtmask == None:
-            x_list = self.decoderhead(backbone_outputs)
+            x_list = self.head(backbone_outputs)
         else:
-            x_list = self.decoderhead(backbone_outputs, gtmask)
+            x_list = self.head(backbone_outputs, gtmask)
         return x_list
-
-"""
-对于不满足该范式的模型可在backbone部分进行定义, 并在此处导入
-"""
-
-# model_config
-def build_model(cfg):
-    c = CDMaskFormer(cfg)
-    return c
