@@ -6,8 +6,8 @@ import torch.nn.functional as F
 from torch import nn
 
 from criteria.wrappers import SingleTaskCriterion
-from rscd.losses.loss_util.criterion import SetCriterion
-from rscd.losses.loss_util.matcher import HungarianMatcher
+from criteria.vision_2d.change_detection.set_criterion import SetCriterion
+from utils.matcher import HungarianMatcher
 
 
 class CDMaskFormerCriterion(SingleTaskCriterion):
