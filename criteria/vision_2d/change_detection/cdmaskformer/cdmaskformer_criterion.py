@@ -1,12 +1,13 @@
-import numpy as np
-import itertools
 from typing import Any, Dict, List, Tuple, Union
+import itertools
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
 
 from criteria.wrappers import SingleTaskCriterion
-from criteria.vision_2d.change_detection.set_criterion import SetCriterion
+from criteria.vision_2d.change_detection.cdmaskformer.set_criterion import SetCriterion
+from criteria.vision_2d.change_detection.cdmaskformer.loss_util.point_features import point_sample, get_uncertain_point_coords_with_randomness
 from utils.matcher import HungarianMatcher
 
 
