@@ -1,10 +1,8 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from typing import Dict, List, Tuple, Union
-from criteria.base_criterion import BaseCriterion
+from typing import Dict
+from criteria.base_criterion import SingleTaskCriterion
 from utils.matcher import HungarianMatcher
-from models.change_detection.cdmaskformer.utils.nested_tensor import nested_tensor_from_tensor_list
 
 
 def batch_dice_loss(inputs, targets, eps: float = 1e-8):
@@ -90,7 +88,7 @@ def sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor, num_masks: floa
     return loss.mean(1).sum() / num_masks
 
 
-class CDMaskFormerCriterion(BaseCriterion):
+class CDMaskFormerCriterion(SingleTaskCriterion):
     """
     This class computes the loss for CDMaskFormer.
     The process happens in two steps:
