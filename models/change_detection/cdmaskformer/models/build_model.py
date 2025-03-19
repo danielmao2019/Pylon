@@ -1,13 +1,14 @@
+from typing import Dict
 import torch
 from torch import nn
-from typing import Dict
-from ...utils.build import build_from_cfg
+from utils.builders import build_from_config
+
 
 class CDMaskFormer(nn.Module):
     def __init__(self, cfg):
         super(CDMaskFormer, self).__init__()
-        self.backbone = build_from_cfg(cfg.backbone)
-        self.decoderhead = build_from_cfg(cfg.decoderhead)
+        self.backbone = build_from_config(cfg.backbone)
+        self.decoderhead = build_from_config(cfg.decoderhead)
     
     def forward(self, inputs: Dict[str, torch.Tensor], gtmask=None):
         x1, x2 = inputs['img_1'], inputs['img_2']
