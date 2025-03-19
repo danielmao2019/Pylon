@@ -7,7 +7,7 @@ from torch import nn
 
 from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d.change_detection.cdmaskformer.set_criterion import SetCriterion
-from criteria.vision_2d.change_detection.cdmaskformer.loss_util.point_features import point_sample, get_uncertain_point_coords_with_randomness
+from criteria.vision_2d.change_detection.cdmaskformer.point_features import point_sample, get_uncertain_point_coords_with_randomness
 from utils.matcher import HungarianMatcher
 
 
