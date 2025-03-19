@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+import os
 from data.datasets.pcr_datasets.modelnet import ModelNet40Dataset
 
 def test_dataset_structure():
@@ -84,3 +85,7 @@ def test_dataset_structure():
         if dataset.num_points is not None:
             assert data['src_points'].shape[0] <= dataset.num_points, f"src_points exceeds num_points in sample {idx}"
             assert data['tgt_points'].shape[0] <= dataset.num_points, f"tgt_points exceeds num_points in sample {idx}"
+            
+        # Check file existence
+        category_dir = os.path.join(dataset.root_dir, data['category'], dataset.split)
+        assert os.path.exists(category_dir), f"Category directory {category_dir} does not exist"
