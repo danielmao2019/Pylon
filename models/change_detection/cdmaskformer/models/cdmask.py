@@ -193,10 +193,7 @@ class CDMask(nn.Module):
         return semseg
 
     def forward(self, inputs):
-        if isinstance(inputs, dict):
-            featuresA, featuresB = inputs['featuresA'], inputs['featuresB']
-        else:
-            featuresA, featuresB = inputs
+        featuresA, featuresB = inputs
             
         features = [self.tff1(featuresA[0], featuresB[0]),
                 self.tff2(featuresA[1], featuresB[1]),
