@@ -88,12 +88,12 @@ def batch_sigmoid_focal_loss(inputs, targets, alpha: float = 0.25, gamma: float 
 
 class CDMaskFormerCriterion(SingleTaskCriterion):
     """Criterion for CDMaskFormer model.
-    
+
     This criterion combines:
     1. Cross-entropy loss for classification
     2. Dice loss for mask prediction
     3. Mask loss for pixel-wise prediction
-    
+
     The losses are weighted and combined with Hungarian matching to assign predictions to ground truth.
     """
 
@@ -108,7 +108,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         device: str = "cuda:0"
     ) -> None:
         """Initialize the criterion.
-        
+
         Args:
             class_weight: Weight for classification loss
             dice_weight: Weight for dice loss
@@ -129,7 +129,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Compute the total loss.
-        
+
         Args:
             y_pred: Dictionary containing model predictions with keys:
                 - pred_logits: Classification logits [B, num_queries, num_classes]
@@ -137,7 +137,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
                 - aux_outputs: List of auxiliary outputs from decoder layers
             y_true: Dictionary containing ground truth with keys:
                 - change_map: Binary change map [B, H, W]
-                
+
         Returns:
             Total loss tensor
         """
@@ -184,9 +184,9 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             )
 
         # Compute losses
-        losses = criterion(y_pred, y_true)
+        losses = criterion(y_pred, y_true['change_map'])
         weight_dict = criterion.weight_dict
-                    
+
         loss_ce = 0.0
         loss_dice = 0.0
         loss_mask = 0.0
@@ -202,7 +202,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             else:
                 # remove this loss if not specified in `weight_dict`
                 losses.pop(k)
-        
+
         loss = loss_ce + loss_dice + loss_mask
         assert loss.ndim == 0, f"{loss.shape=}"
         self.buffer.append(loss.detach().cpu())
