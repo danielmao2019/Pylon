@@ -215,7 +215,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         loss = loss_ce + loss_mask + loss_dice
         
         # Save total loss for summarization
-        self.buffer.append(loss.detach().item())
+        self.buffer.append(loss.detach().cpu())
         
         return loss
     
