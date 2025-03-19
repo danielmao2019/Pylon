@@ -3,7 +3,14 @@ import torch
 import numpy as np
 from scipy.spatial import KDTree
 
-from metrics.vision_3d import ChamferDistance
+# Import all individual test modules
+from tests.metrics.vision_3d.test_chamfer_distance import TestChamferDistance
+from tests.metrics.vision_3d.test_rmse import TestRMSE
+from tests.metrics.vision_3d.test_mae import TestMAE
+from tests.metrics.vision_3d.test_inlier_ratio import TestInlierRatio
+from tests.metrics.vision_3d.test_registration_recall import TestRegistrationRecall
+from tests.metrics.vision_3d.test_precision_recall import TestCorrespondencePrecisionRecall
+from tests.metrics.vision_3d.test_point_cloud_confusion_matrix import TestPointCloudConfusionMatrix
 
 
 def compute_chamfer_distance_numpy(transformed, target):
@@ -21,14 +28,7 @@ def compute_chamfer_distance_numpy(transformed, target):
     return np.mean(dist_source_to_target) + np.mean(dist_target_to_source)
 
 
-def compute_chamfer_distance_unidirectional_numpy(source, target):
-    """Original numpy implementation of unidirectional chamfer distance."""
-    kdtree_target = KDTree(target)
-    dist_source_to_target, _ = kdtree_target.query(source)
-    return np.mean(dist_source_to_target)
-
-
-def compute_chamfer_distance_torch(transformed, target, bidirectional=True):
+def compute_chamfer_distance_torch(transformed, target):
     """PyTorch implementation of chamfer distance."""
     # Compute nearest neighbor distances from transformed to target
     transformed_expanded = transformed.unsqueeze(1)  # (N, 1, 3)
@@ -37,17 +37,35 @@ def compute_chamfer_distance_torch(transformed, target, bidirectional=True):
     
     # Find nearest neighbor distances
     min_dist_transformed_to_target = torch.min(dist_matrix, dim=1)[0]  # (N,)
+    min_dist_target_to_transformed = torch.min(dist_matrix, dim=0)[0]  # (M,)
     
-    if bidirectional:
-        min_dist_target_to_transformed = torch.min(dist_matrix, dim=0)[0]  # (M,)
-        return torch.mean(min_dist_transformed_to_target) + torch.mean(min_dist_target_to_transformed)
-    else:
-        return torch.mean(min_dist_transformed_to_target)
+    # The Chamfer Distance is the sum of means
+    return torch.mean(min_dist_transformed_to_target) + torch.mean(min_dist_target_to_transformed)
 
 
-class TestChamferDistance:
-    def test_chamfer_distance_bidirectional(self):
-        """Test bidirectional Chamfer distance implementation."""
+def compute_rmse_numpy(transformed, target):
+    """Original numpy implementation of RMSE."""
+    kdtree = KDTree(target)
+    distances, _ = kdtree.query(transformed)
+    return np.sqrt(np.mean(distances ** 2))
+
+
+def compute_rmse_torch(transformed, target):
+    """PyTorch implementation of RMSE."""
+    # Compute nearest neighbor distances
+    transformed_expanded = transformed.unsqueeze(1)  # (N, 1, 3)
+    target_expanded = target.unsqueeze(0)  # (1, M, 3)
+    dist_matrix = torch.sqrt(((transformed_expanded - target_expanded) ** 2).sum(dim=2))  # (N, M)
+    
+    # Find nearest neighbor distances
+    min_distances = torch.min(dist_matrix, dim=1)[0]  # (N,)
+    
+    # Compute RMSE
+    return torch.sqrt(torch.mean(min_distances ** 2))
+
+
+class TestEquivalence:
+    def test_chamfer_distance(self):
         # Create sample point clouds
         source_np = np.array([
             [0.0, 0.0, 0.0],
@@ -68,16 +86,15 @@ class TestChamferDistance:
         target_torch = torch.tensor(target_np, dtype=torch.float32)
         
         # Compute Chamfer distance using PyTorch implementation
-        torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=True)
+        torch_result = compute_chamfer_distance_torch(source_torch, target_torch).item()
         
         # Compute Chamfer distance using NumPy implementation
         numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
         
         # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+        assert abs(torch_result - numpy_result) < 1e-5, f"PyTorch: {torch_result}, NumPy: {numpy_result}"
     
-    def test_chamfer_distance_unidirectional(self):
-        """Test unidirectional Chamfer distance implementation."""
+    def test_rmse(self):
         # Create sample point clouds
         source_np = np.array([
             [0.0, 0.0, 0.0],
@@ -97,31 +114,11 @@ class TestChamferDistance:
         source_torch = torch.tensor(source_np, dtype=torch.float32)
         target_torch = torch.tensor(target_np, dtype=torch.float32)
         
-        # Compute unidirectional Chamfer distance using PyTorch implementation
-        torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=False)
+        # Compute RMSE using PyTorch implementation
+        torch_result = compute_rmse_torch(source_torch, target_torch).item()
         
-        # Compute unidirectional Chamfer distance using NumPy implementation
-        numpy_result = compute_chamfer_distance_unidirectional_numpy(source_np, target_np)
-        
-        # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
-    
-    def test_with_random_point_clouds(self):
-        """Test with randomly generated point clouds."""
-        # Generate random point clouds of different sizes
-        np.random.seed(42)
-        source_np = np.random.randn(100, 3)
-        target_np = np.random.randn(150, 3)
-        
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Compute Chamfer distance using PyTorch implementation
-        torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=True)
-        
-        # Compute Chamfer distance using NumPy implementation
-        numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
+        # Compute RMSE using NumPy implementation
+        numpy_result = compute_rmse_numpy(source_np, target_np)
         
         # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+        assert abs(torch_result - numpy_result) < 1e-5, f"PyTorch: {torch_result}, NumPy: {numpy_result}" 
