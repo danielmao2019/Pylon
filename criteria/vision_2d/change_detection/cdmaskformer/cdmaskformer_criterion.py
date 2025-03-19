@@ -153,10 +153,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             "mask": (batch_sigmoid_focal_loss, self.mask_weight),
             "dice": (batch_dice_loss, self.dice_weight),
         }
-        matcher = HungarianMatcher(
-            cost_functions=cost_functions,
-            num_points=12544,
-        )
+        matcher = HungarianMatcher(cost_functions)
 
         weight_dict = {"loss_ce": self.class_weight, "loss_mask": self.mask_weight, "loss_dice": self.dice_weight}
         aux_weight_dict = {}
