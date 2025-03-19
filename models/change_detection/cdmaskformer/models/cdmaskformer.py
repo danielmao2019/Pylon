@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Union, List, Tuple
 import torch
 import torch.nn as nn
 from models.change_detection.cdmaskformer.backbones import ResNetBackbone
@@ -33,20 +33,7 @@ class CDMaskFormer(nn.Module):
         img2_features = self.backbone(img2)
         
         # Format features for CDMask
-        features = {
-            'featuresA': [
-                img1_features['res2'],
-                img1_features['res3'],
-                img1_features['res4'],
-                img1_features['res5']
-            ],
-            'featuresB': [
-                img2_features['res2'],
-                img2_features['res3'],
-                img2_features['res4'],
-                img2_features['res5']
-            ]
-        }
+        features = [img1_features, img2_features]
         
         # Forward through CDMask - output format depends on training mode
         output = self.cdmask(features)

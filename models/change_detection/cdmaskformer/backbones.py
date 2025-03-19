@@ -4,7 +4,7 @@ Backbone networks for CDMaskFormer.
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 def get_resnet(name: str, pretrained: bool = False) -> nn.Module:
     """
@@ -57,34 +57,38 @@ class ResNetBackbone(nn.Module):
                 'res5': 2048    # layer4
             }
     
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> Tuple[Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor], 
+                                                                 Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]]:
         """
         Forward pass through the backbone.
         
         Args:
-            x: Input tensor of shape (B, C, H, W).
+            x1: First input tensor of shape (B, C, H, W).
+            x2: Second input tensor of shape (B, C, H, W).
             
         Returns:
-            Dictionary containing the features at different scales.
+            Tuple of (features1, features2), where each features is a tuple of (res2, res3, res4, res5).
         """
-        # Initial layers
-        x = self.resnet.conv1(x)
-        x = self.resnet.bn1(x)
-        x = self.resnet.relu(x)
-        x = self.resnet.maxpool(x)
+        def extract_features(x):
+            # Initial layers
+            x = self.resnet.conv1(x)
+            x = self.resnet.bn1(x)
+            x = self.resnet.relu(x)
+            x = self.resnet.maxpool(x)
+            
+            # ResNet blocks
+            res2 = self.resnet.layer1(x)
+            res3 = self.resnet.layer2(res2)
+            res4 = self.resnet.layer3(res3)
+            res5 = self.resnet.layer4(res4)
+            
+            return (res2, res3, res4, res5)
         
-        # ResNet blocks
-        res2 = self.resnet.layer1(x)
-        res3 = self.resnet.layer2(res2)
-        res4 = self.resnet.layer3(res3)
-        res5 = self.resnet.layer4(res4)
+        # Extract features from both images
+        features1 = extract_features(x1)
+        features2 = extract_features(x2)
         
-        return {
-            'res2': res2,
-            'res3': res3,
-            'res4': res4,
-            'res5': res5
-        }
+        return (features1, features2)
     
     def get_channels(self) -> List[int]:
         """
