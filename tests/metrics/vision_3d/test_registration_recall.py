@@ -71,6 +71,16 @@ def compute_registration_recall_alt_numpy(transforms_estimated, transforms_groun
     }
 
 
+def compute_rotation_error_trace_formula(R_pred, R_true):
+    """Original trace formula used in PyTorch implementation."""
+    R_error = np.matmul(R_true.T, R_pred)
+    rot_trace = np.trace(R_error)
+    rot_trace = min(3.0, max(-1.0, rot_trace))  # Clamp to avoid numerical issues
+    angle_rad = np.arccos((rot_trace - 1) / 2)
+    angle_deg = np.degrees(angle_rad)
+    return angle_deg
+
+
 class TestRegistrationRecall:
     def test_single_transform(self):
         # Create sample transformation matrices
@@ -144,6 +154,50 @@ class TestRegistrationRecall:
         
         assert abs(torch_result["rotation_error_deg"].item() - expected_rotation_error) < 1e-3, \
             f"Expected rotation error of {expected_rotation_error} degrees, got {torch_result['rotation_error_deg'].item()}"
+    
+    @pytest.mark.parametrize("angle_deg", [5.0, 10.0, 30.0, 60.0, 90.0, 180.0])
+    def test_various_rotation_angles(self, angle_deg):
+        """Test rotation error calculation with various angles."""
+        # Create rotation matrix around Z axis
+        angle_rad = np.radians(angle_deg)
+        c, s = np.cos(angle_rad), np.sin(angle_rad)
+        R_z_rotated = np.array([
+            [c, -s, 0],
+            [s, c, 0],
+            [0, 0, 1]
+        ])
+        
+        # Identity rotation matrix
+        R_identity = np.eye(3)
+        
+        # Create full transformation matrices
+        rotated_transform = np.eye(4)
+        rotated_transform[:3, :3] = R_z_rotated
+        
+        identity_transform = np.eye(4)
+        identity_transform[:3, :3] = R_identity
+        
+        # Convert to PyTorch tensors
+        rotated_torch = torch.tensor(rotated_transform, dtype=torch.float32)
+        identity_torch = torch.tensor(identity_transform, dtype=torch.float32)
+        
+        # Compute using PyTorch implementation
+        metric = RegistrationRecall()
+        torch_result = metric._compute_score(rotated_torch, identity_torch)
+        
+        # Compute using trace formula (one formula implementation)
+        trace_result = compute_rotation_error_trace_formula(R_z_rotated, R_identity)
+        
+        # Compute using scipy implementation (alternative implementation)
+        scipy_result = compute_rotation_translation_error_alt_numpy(rotated_transform, identity_transform)["rotation_error_deg"]
+        
+        # The rotation error should match the input angle
+        assert abs(torch_result["rotation_error_deg"].item() - angle_deg) < 1e-3, \
+            f"Expected rotation error of {angle_deg} degrees, got {torch_result['rotation_error_deg'].item()}"
+        
+        # The trace formula and scipy implementations should give similar results
+        assert abs(trace_result - scipy_result) < 1e-3, \
+            f"Trace formula: {trace_result:.4f}°, Scipy: {scipy_result:.4f}°, Diff: {abs(trace_result - scipy_result):.4f}°"
     
     def test_batch_transforms(self):
         # Create sample batched transformation matrices
