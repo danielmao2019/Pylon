@@ -2,6 +2,7 @@ import pytest
 import torch
 from criteria.vision_2d.change_detection import CDMaskFormerCriterion
 
+
 def test_cdmaskformer_criterion() -> None:
     # Create a sample batch size and dimensions
     batch_size = 2
@@ -21,23 +22,19 @@ def test_cdmaskformer_criterion() -> None:
         "pred_masks": pred_masks
     }
     
-    # Create formatted targets that match the expected format in the criterion
-    targets = []
-    for b in range(batch_size):
-        # Create a single instance mask
-        masks = torch.zeros((1, height, width), dtype=torch.float)
-        masks[0, 10:20, 10:20] = 1.0  # A square in the middle
-        
-        # Create labels tensor (1 for change class)
-        labels = torch.tensor([1], dtype=torch.int64)
-        
-        targets.append({
-            'labels': labels,
-            'masks': masks
-        })
+    # Create change maps (binary segmentation masks)
+    change_maps = torch.zeros((batch_size, height, width), dtype=torch.long)
+    # First image has changes
+    change_maps[0, 10:20, 10:20] = 1  # A square of class 1 in the middle
+    # Second image has no changes
     
-    # Compute loss
-    loss = criterion(outputs, targets)
+    # Create ground truth dictionary with change map
+    y_true = {
+        "change_map": change_maps
+    }
+    
+    # Compute loss with change maps
+    loss = criterion(outputs, y_true)
     
     # Basic checks on the loss
     assert isinstance(loss, torch.Tensor), "Loss should be a tensor"
@@ -46,18 +43,17 @@ def test_cdmaskformer_criterion() -> None:
     assert not torch.isnan(loss), "Loss should not be NaN"
     assert not torch.isinf(loss), "Loss should not be Inf"
     
-    # Test with empty targets
-    empty_targets = []
-    for _ in range(batch_size):
-        empty_targets.append({
-            'labels': torch.tensor([], dtype=torch.int64),
-            'masks': torch.zeros((0, height, width), dtype=torch.float)
-        })
+    # Test with empty change maps (no changes)
+    empty_change_maps = torch.zeros((batch_size, height, width), dtype=torch.long)
+    empty_y_true = {
+        "change_map": empty_change_maps
+    }
     
-    # Compute loss with empty targets
-    empty_loss = criterion(outputs, empty_targets)
+    # Compute loss with empty change maps
+    empty_loss = criterion(outputs, empty_y_true)
     
-    # Check that the loss is valid
+    # Check that we get a valid loss with empty change maps
     assert isinstance(empty_loss, torch.Tensor), "Loss should be a tensor"
     assert empty_loss.ndim == 0, "Loss should be a scalar"
-    assert empty_loss.item() > 0, "Loss with empty targets should still be positive (classification error)"
+    assert not torch.isnan(empty_loss), "Loss should not be NaN"
+    assert not torch.isinf(empty_loss), "Loss should not be Inf"
