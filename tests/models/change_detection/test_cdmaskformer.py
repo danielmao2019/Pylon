@@ -1,7 +1,7 @@
 import torch
-import pytest
-from models.change_detection.cdmaskformer.models.build_model import CDMaskFormer
+import models
 from utils.builders.builder import build_from_config
+
 
 def test_cdmaskformer():
     # Create model config following the Pylon builder pattern
@@ -9,11 +9,10 @@ def test_cdmaskformer():
         'class': models.change_detection.cdmaskformer.models.build_model.CDMaskFormer,
         'args': {
             'backbone': {
-                'class': models.change_detection.cdmaskformer.backbones.seaformer.SeaFormer,
+                'class': models.change_detection.cdmaskformer.backbones.base.Base,
                 'args': {
-                    'type': 'Base',
                     'name': 'Seaformer'
-                }
+                },
             },
             'decoderhead': {
                 'class': models.change_detection.cdmaskformer.decoder_heads.cdmask.CDMask,
@@ -22,9 +21,9 @@ def test_cdmaskformer():
                     'num_classes': 1,  # num_class - 1 from original config
                     'num_queries': 5,
                     'dec_layers': 14
-                }
-            }
-        }
+                },
+            },
+        },
     }
 
     # Initialize model using the builder

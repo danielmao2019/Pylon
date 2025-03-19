@@ -1,3 +1,6 @@
+import models
+
+
 net = 'maskcd'
 ######################## base_config #########################
 epoch = 200
@@ -33,11 +36,10 @@ model_config = {
     'class': models.change_detection.cdmaskformer.models.build_model.CDMaskFormer,
     'args': {
         'backbone': {
-            'class': models.change_detection.cdmaskformer.backbones.seaformer.SeaFormer,
+            'class': models.change_detection.cdmaskformer.backbones.base.Base,
             'args': {
-                'type': 'Base',
                 'name': 'Seaformer'
-            }
+            },
         },
         'decoderhead': {
             'class': models.change_detection.cdmaskformer.decoder_heads.cdmask.CDMask,
@@ -46,9 +48,9 @@ model_config = {
                 'num_classes': num_class - 1,
                 'num_queries': 5,
                 'dec_layers': 14
-            }
-        }
-    }
+            },
+        },
+    },
 }
 
 loss_config = dict(
