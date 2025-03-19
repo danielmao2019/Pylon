@@ -131,10 +131,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         """Compute the total loss.
         
         Args:
-            y_pred: Dictionary containing model predictions with keys:
-                - pred_logits: Classification logits [B, num_queries, num_classes]
-                - pred_masks: Mask predictions [B, num_queries, H, W]
-                - aux_outputs: List of auxiliary outputs from decoder layers
+            y_pred: A list containing [pred_masks, outputs] where outputs is a dict with pred_logits and pred_masks
             y_true: Dictionary containing ground truth with keys:
                 - change_map: Binary change map [B, H, W]
                 
@@ -142,9 +139,11 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             Total loss tensor
         """
         # Input validation
-        assert isinstance(y_pred, dict)
+        assert isinstance(y_pred, list) and len(y_pred) == 2
+        pred_masks, outputs = y_pred
+        assert isinstance(outputs, dict)
         assert isinstance(y_true, dict)
-        assert set(y_pred.keys()) == {'pred_logits', 'pred_masks', 'aux_outputs'}
+        assert set(outputs.keys()) == {'pred_logits', 'pred_masks', 'aux_outputs'}
         assert set(y_true.keys()) == {'change_map'}
 
         # Building criterion
@@ -178,15 +177,15 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         )
 
         # Resize predictions to match ground truth
-        y_pred["pred_masks"] = F.interpolate(
-            y_pred["pred_masks"],
+        pred_masks = F.interpolate(
+            pred_masks,
             size=y_true['change_map'].shape[-2:],
             mode="bilinear",
             align_corners=False,
         )
 
         # Resize auxiliary outputs
-        for v in y_pred['aux_outputs']:
+        for v in outputs['aux_outputs']:
             v['pred_masks'] = F.interpolate(
                 v["pred_masks"],
                 size=y_true['change_map'].shape[-2:],
@@ -195,7 +194,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             )
 
         # Compute losses
-        losses = criterion(y_pred, y_true)
+        losses = criterion(outputs, y_true)
         weight_dict = criterion.weight_dict
                     
         loss_ce = 0.0
