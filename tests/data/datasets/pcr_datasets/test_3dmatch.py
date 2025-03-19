@@ -1,29 +1,25 @@
-import os
-import unittest
 import numpy as np
-import torch
+import pytest
 from data.datasets.pcr_datasets.threedmatch import ThreeDMatchDataset
 
-class TestThreeDMatchDataset(unittest.TestCase):
-    """Test cases for ThreeDMatchDataset."""
+def test_dataset_structure():
+    """Test the structure and content of dataset outputs."""
+    # Initialize dataset
+    dataset = ThreeDMatchDataset(
+        root_dir='./data/datasets/soft_links/3dmatch',
+        split='train',
+        num_points=5000,
+        use_mutuals=True,
+        augment=True,
+        rot_mag=45.0,
+        trans_mag=0.5,
+        noise_std=0.01,
+        overlap_threshold=0.3
+    )
     
-    def test_dataset_structure(self):
-        """Test the structure and content of dataset outputs."""
-        # Initialize dataset
-        dataset = ThreeDMatchDataset(
-            root_dir='./data/datasets/soft_links/3dmatch',
-            split='train',
-            num_points=5000,
-            use_mutuals=True,
-            augment=True,
-            rot_mag=45.0,
-            trans_mag=0.5,
-            noise_std=0.01,
-            overlap_threshold=0.3
-        )
-        
-        # Get a data point
-        data = dataset[0]
+    # Test all samples
+    for idx in range(len(dataset)):
+        data = dataset[idx]
         
         # Check if all required keys are present
         required_keys = [
@@ -31,33 +27,30 @@ class TestThreeDMatchDataset(unittest.TestCase):
             'scene_name', 'ref_frame', 'src_frame', 'overlap'
         ]
         for key in required_keys:
-            self.assertIn(key, data)
+            assert key in data, f"Missing key '{key}' in sample {idx}"
             
         # Check data types and shapes
-        self.assertIsInstance(data['ref_points'], np.ndarray)
-        self.assertIsInstance(data['src_points'], np.ndarray)
-        self.assertIsInstance(data['rotation'], np.ndarray)
-        self.assertIsInstance(data['translation'], np.ndarray)
-        self.assertIsInstance(data['scene_name'], str)
-        self.assertIsInstance(data['ref_frame'], str)
-        self.assertIsInstance(data['src_frame'], str)
-        self.assertIsInstance(data['overlap'], float)
+        assert isinstance(data['ref_points'], np.ndarray), f"ref_points is not np.ndarray in sample {idx}"
+        assert isinstance(data['src_points'], np.ndarray), f"src_points is not np.ndarray in sample {idx}"
+        assert isinstance(data['rotation'], np.ndarray), f"rotation is not np.ndarray in sample {idx}"
+        assert isinstance(data['translation'], np.ndarray), f"translation is not np.ndarray in sample {idx}"
+        assert isinstance(data['scene_name'], str), f"scene_name is not str in sample {idx}"
+        assert isinstance(data['ref_frame'], str), f"ref_frame is not str in sample {idx}"
+        assert isinstance(data['src_frame'], str), f"src_frame is not str in sample {idx}"
+        assert isinstance(data['overlap'], float), f"overlap is not float in sample {idx}"
         
         # Check array shapes
-        self.assertEqual(data['ref_points'].shape[1], 3)  # Nx3
-        self.assertEqual(data['src_points'].shape[1], 3)  # Nx3
-        self.assertEqual(data['rotation'].shape, (3, 3))  # 3x3
-        self.assertEqual(data['translation'].shape, (3,))  # 3
+        assert data['ref_points'].shape[1] == 3, f"ref_points shape incorrect in sample {idx}"
+        assert data['src_points'].shape[1] == 3, f"src_points shape incorrect in sample {idx}"
+        assert data['rotation'].shape == (3, 3), f"rotation shape incorrect in sample {idx}"
+        assert data['translation'].shape == (3,), f"translation shape incorrect in sample {idx}"
         
         # Check numeric ranges
-        self.assertTrue(0.0 <= data['overlap'] <= 1.0)  # Overlap should be between 0 and 1
-        self.assertTrue(np.allclose(np.eye(3), data['rotation'] @ data['rotation'].T))  # Rotation matrix should be orthogonal
+        assert 0.0 <= data['overlap'] <= 1.0, f"overlap out of range in sample {idx}"
+        assert np.allclose(np.eye(3), data['rotation'] @ data['rotation'].T), f"rotation matrix not orthogonal in sample {idx}"
         
         # Check data types
-        self.assertEqual(data['ref_points'].dtype, np.float32)
-        self.assertEqual(data['src_points'].dtype, np.float32)
-        self.assertEqual(data['rotation'].dtype, np.float32)
-        self.assertEqual(data['translation'].dtype, np.float32)
-
-if __name__ == '__main__':
-    unittest.main() 
+        assert data['ref_points'].dtype == np.float32, f"ref_points dtype incorrect in sample {idx}"
+        assert data['src_points'].dtype == np.float32, f"src_points dtype incorrect in sample {idx}"
+        assert data['rotation'].dtype == np.float32, f"rotation dtype incorrect in sample {idx}"
+        assert data['translation'].dtype == np.float32, f"translation dtype incorrect in sample {idx}"
