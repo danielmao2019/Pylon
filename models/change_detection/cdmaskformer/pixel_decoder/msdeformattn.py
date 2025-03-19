@@ -4,10 +4,10 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from models.change_detection.cdmaskformer.transformer_decoder.position_encoding import PositionEmbeddingSine
+from models.change_detection.cdmaskformer.transformer_decoder.transformer import _get_clones, _get_activation_fn
+from models.change_detection.cdmaskformer.pixel_decoder.ops.modules import MSDeformAttn
 
-from rscd.models.decoderheads.transformer_decoder.position_encoding import PositionEmbeddingSine
-from rscd.models.decoderheads.transformer_decoder.transformer import _get_clones, _get_activation_fn
-from rscd.models.decoderheads.pixel_decoder.ops.modules import MSDeformAttn
 
 # MSDeformAttn Transformer encoder in deformable detr
 class MSDeformAttnTransformerEncoderLayer(nn.Module):
