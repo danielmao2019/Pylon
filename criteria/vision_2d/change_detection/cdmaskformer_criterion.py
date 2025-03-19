@@ -147,10 +147,13 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         assert set(y_true.keys()) == {'change_map'}
 
         # Building criterion
+        cost_functions = {
+            "class": (batch_sigmoid_ce_loss, self.class_weight),
+            "mask": (batch_sigmoid_focal_loss, self.mask_weight),
+            "dice": (batch_dice_loss, self.dice_weight),
+        }
         matcher = HungarianMatcher(
-            cost_class=self.class_weight,
-            cost_mask=self.mask_weight,
-            cost_dice=self.dice_weight,
+            cost_functions=cost_functions,
             num_points=12544,
         )
 
