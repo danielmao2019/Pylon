@@ -147,19 +147,19 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         empty_weight[0] = no_object_weight
         self.register_buffer('empty_weight', empty_weight)
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: torch.Tensor) -> torch.Tensor:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         """
         Forward pass through CDMaskFormerCriterion.
         
         Args:
             y_pred: Dict with model predictions containing 'pred_logits' and 'pred_masks'
-            y_true: Tensor of shape [B, H, W] containing the change maps
+            y_true: Dict containing 'change_map' key with tensor of shape [B, H, W]
             
         Returns:
             Total loss
         """
         # First convert change maps to instance format
-        targets = self._get_targets(y_true)
+        targets = self._get_targets(y_true['change_map'])
         
         # Then upsample the masks to the appropriate size
         outputs = y_pred.copy()
