@@ -1,30 +1,48 @@
 import numpy as np
 import itertools
 from typing import Any, Dict, List, Tuple, Union
-
-
-
-# Copyright (c) Facebook, Inc. and its affiliates.
-# Modified by Bowen Cheng from https://github.com/facebookresearch/detr/blob/master/models/detr.py
-"""
-MaskFormer criterion.
-"""
 import torch
 import torch.nn.functional as F
 from torch import nn
 
+from criteria.wrappers import SingleTaskCriterion
 from rscd.losses.loss_util.criterion import SetCriterion
 from rscd.losses.loss_util.matcher import HungarianMatcher
 
-class Mask2formerLoss(nn.Module):
-    def __init__(self, class_weight=2.0,
-                 dice_weight=5.0,
-                 mask_weight=5.0,
-                 no_object_weight=0.1,
-                 dec_layers = 10,
-                 num_classes = 1,
-                 device="cuda:0"):
-        super(Mask2formerLoss, self).__init__()
+
+class CDMaskFormerCriterion(SingleTaskCriterion):
+    """Criterion for CDMaskFormer model.
+    
+    This criterion combines:
+    1. Cross-entropy loss for classification
+    2. Dice loss for mask prediction
+    3. Mask loss for pixel-wise prediction
+    
+    The losses are weighted and combined with Hungarian matching to assign predictions to ground truth.
+    """
+
+    def __init__(
+        self,
+        class_weight: float = 2.0,
+        dice_weight: float = 5.0,
+        mask_weight: float = 5.0,
+        no_object_weight: float = 0.1,
+        dec_layers: int = 10,
+        num_classes: int = 1,
+        device: str = "cuda:0"
+    ) -> None:
+        """Initialize the criterion.
+        
+        Args:
+            class_weight: Weight for classification loss
+            dice_weight: Weight for dice loss
+            mask_weight: Weight for mask loss
+            no_object_weight: Weight for no-object class
+            dec_layers: Number of decoder layers
+            num_classes: Number of classes (including background)
+            device: Device to use for computation
+        """
+        super(CDMaskFormerCriterion, self).__init__()
         self.device = device
         self.class_weight = class_weight
         self.dice_weight = dice_weight
@@ -33,8 +51,27 @@ class Mask2formerLoss(nn.Module):
         self.dec_layers = dec_layers
         self.num_classes = num_classes
 
-    def forward(self, preds, target):
-        # building criterion
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """Compute the total loss.
+        
+        Args:
+            y_pred: Dictionary containing model predictions with keys:
+                - pred_logits: Classification logits [B, num_queries, num_classes]
+                - pred_masks: Mask predictions [B, num_queries, H, W]
+                - aux_outputs: List of auxiliary outputs from decoder layers
+            y_true: Dictionary containing ground truth with keys:
+                - change_map: Binary change map [B, H, W]
+                
+        Returns:
+            Total loss tensor
+        """
+        # Input validation
+        assert isinstance(y_pred, dict)
+        assert isinstance(y_true, dict)
+        assert set(y_pred.keys()) == {'pred_logits', 'pred_masks', 'aux_outputs'}
+        assert set(y_true.keys()) == {'change_map'}
+
+        # Building criterion
         matcher = HungarianMatcher(
             cost_class=self.class_weight,
             cost_mask=self.mask_weight,
@@ -61,22 +98,25 @@ class Mask2formerLoss(nn.Module):
             device=torch.device(self.device)
         )
 
-        preds["pred_masks"]= F.interpolate(
-            preds["pred_masks"],
-            scale_factor=(4, 4),
+        # Resize predictions to match ground truth
+        y_pred["pred_masks"] = F.interpolate(
+            y_pred["pred_masks"],
+            size=y_true['change_map'].shape[-2:],
             mode="bilinear",
             align_corners=False,
         )
 
-        for v in preds['aux_outputs']:
+        # Resize auxiliary outputs
+        for v in y_pred['aux_outputs']:
             v['pred_masks'] = F.interpolate(
-            v["pred_masks"],
-            scale_factor=(4, 4),
-            mode="bilinear",
-            align_corners=False,
-        )
+                v["pred_masks"],
+                size=y_true['change_map'].shape[-2:],
+                mode="bilinear",
+                align_corners=False,
+            )
 
-        losses = criterion(preds, target)
+        # Compute losses
+        losses = criterion(y_pred, y_true)
         weight_dict = criterion.weight_dict
                     
         loss_ce = 0.0
@@ -94,5 +134,8 @@ class Mask2formerLoss(nn.Module):
             else:
                 # remove this loss if not specified in `weight_dict`
                 losses.pop(k)
+        
         loss = loss_ce + loss_dice + loss_mask
+        assert loss.ndim == 0, f"{loss.shape=}"
+        self.buffer.append(loss.detach().cpu())
         return loss
