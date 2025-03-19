@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 from typing import Dict
-from criteria.base_criterion import SingleTaskCriterion
+from criteria.wrappers import SingleTaskCriterion
 from utils.matcher import HungarianMatcher
 
 
