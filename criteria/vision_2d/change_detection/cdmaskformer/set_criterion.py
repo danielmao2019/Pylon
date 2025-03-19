@@ -12,8 +12,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__) + os.sep + '../')
 
-from loss_util.point_features import point_sample, get_uncertain_point_coords_with_randomness
-from loss_util.misc import is_dist_avail_and_initialized, nested_tensor_from_tensor_list, get_world_size
+from criteria.vision_2d.change_detection.cdmaskformer.point_features import point_sample, get_uncertain_point_coords_with_randomness
+from criteria.vision_2d.change_detection.cdmaskformer.misc import is_dist_avail_and_initialized, nested_tensor_from_tensor_list, get_world_size
 
 
 def dice_loss(
