@@ -208,28 +208,70 @@ class TestCorrespondencePrecisionRecall:
     def test_threshold_effect(self):
         """Test how the threshold affects the results."""
         # Create correspondence pairs that are slightly farther apart
-        source_points = [
+        source_points_1 = [
             [0.0, 0.0, 0.0],
             [1.0, 0.0, 0.0],
             [0.0, 1.0, 0.0],
             [1.0, 1.0, 0.0]
         ]
-        target_points = [
-            [0.03, 0.03, 0.03],  # Beyond threshold=0.02, within threshold=0.05
-            [1.03, 0.03, 0.03],  # Beyond threshold=0.02, within threshold=0.05
-            [0.03, 1.03, 0.03],  # Beyond threshold=0.02, within threshold=0.05
-            [1.03, 1.03, 0.03]   # Beyond threshold=0.02, within threshold=0.05
+        target_points_1 = [
+            [0.03, 0.03, 0.03],  # Beyond threshold=0.02, within threshold=0.06
+            [1.03, 0.03, 0.03],  # Beyond threshold=0.02, within threshold=0.06
+            [0.03, 1.03, 0.03],  # Beyond threshold=0.02, within threshold=0.06
+            [1.03, 1.03, 0.03]   # Beyond threshold=0.02, within threshold=0.06
         ]
         
-        # Create correspondence tensors
-        y_pred = create_correspondence_tensor(source_points, target_points)
-        y_true = create_correspondence_tensor(source_points, target_points)
+        # Create significantly different points for the ground truth to ensure distances
+        # are larger than the threshold
+        source_points_2 = [
+            [0.1, 0.1, 0.1],     # Distance from source_points_1[0] > 0.02
+            [1.1, 0.1, 0.1],     # Distance from source_points_1[1] > 0.02
+            [0.1, 1.1, 0.1],     # Distance from source_points_1[2] > 0.02
+            [1.1, 1.1, 0.1]      # Distance from source_points_1[3] > 0.02
+        ]
+        target_points_2 = [
+            [0.13, 0.13, 0.13],  # Distance from target_points_1[0] > 0.02
+            [1.13, 0.13, 0.13],  # Distance from target_points_1[1] > 0.02
+            [0.13, 1.13, 0.13],  # Distance from target_points_1[2] > 0.02
+            [1.13, 1.13, 0.13]   # Distance from target_points_1[3] > 0.02
+        ]
         
-        # With threshold=0.02, no matches should be found
+        # Create correspondence tensors - one for predictions, one for ground truth
+        y_pred = create_correspondence_tensor(source_points_1, target_points_1)
+        y_true = create_correspondence_tensor(source_points_2, target_points_2)
+        
+        # Calculate example distances for debugging
+        pred_source = y_pred[:, 0, :]  # (N, 3)
+        pred_target = y_pred[:, 1, :]  # (N, 3)
+        
+        gt_source = y_true[:, 0, :]    # (M, 3)
+        gt_target = y_true[:, 1, :]    # (M, 3)
+        
+        # Calculate example distances
+        print("\nDebugging Distance Information:")
+        
+        # Source point distances
+        dist_0_0 = torch.sqrt(((pred_source[0] - gt_source[0]) ** 2).sum())
+        print(f"Distance between pred_source[0] and gt_source[0]: {dist_0_0.item():.6f}")
+        
+        # Target point distances
+        dist_t_0_0 = torch.sqrt(((pred_target[0] - gt_target[0]) ** 2).sum())
+        print(f"Distance between pred_target[0] and gt_target[0]: {dist_t_0_0.item():.6f}")
+        
+        # Verify that the distances are truly beyond our threshold
+        assert dist_0_0.item() > 0.02, f"Source distance should be > 0.02, got {dist_0_0.item()}"
+        assert dist_t_0_0.item() > 0.02, f"Target distance should be > 0.02, got {dist_t_0_0.item()}"
+        
+        # With threshold=0.02, no matches should be found because both endpoints
+        # need to be within the threshold, and we've verified the distances are > 0.02
         strict_result = compute_correspondence_precision_recall_torch(y_pred, y_true, threshold=0.02)
         
-        # With threshold=0.05, all matches should be found
-        lenient_result = compute_correspondence_precision_recall_torch(y_pred, y_true, threshold=0.05)
+        # Print detailed debug information
+        print(f"Strict threshold=0.02, results: {strict_result}")
+        
+        # With threshold=0.3, all matches should be found because all distances are within 0.3
+        lenient_result = compute_correspondence_precision_recall_torch(y_pred, y_true, threshold=0.3)
+        print(f"Lenient threshold=0.3, results: {lenient_result}")
         
         # Strict threshold: no matches found
         assert abs(strict_result["precision"].item() - 0.0) < 1e-5, f"Expected strict precision 0.0, got {strict_result['precision'].item()}"
