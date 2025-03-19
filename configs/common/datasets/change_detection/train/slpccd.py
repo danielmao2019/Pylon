@@ -7,7 +7,7 @@ config = {
     'train_dataset': {
         'class': data.datasets.SLPCCDDataset,
         'args': {
-            'data_root': "./data/datasets/SLPCCD",
+            'data_root': "./data/datasets/soft_links/SLPCCD",
             'split': "train",
             'num_points': 8192,
             'random_subsample': True,
