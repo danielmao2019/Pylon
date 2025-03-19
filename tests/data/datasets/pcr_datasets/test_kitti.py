@@ -1,30 +1,26 @@
-import os
-import unittest
 import numpy as np
-import torch
+import pytest
 from data.datasets.pcr_datasets.kitti import KITTIDataset
 
-class TestKITTIDataset(unittest.TestCase):
-    """Test cases for KITTIDataset."""
+def test_dataset_structure():
+    """Test the structure and content of dataset outputs."""
+    # Initialize dataset
+    dataset = KITTIDataset(
+        root_dir='./data/datasets/soft_links/KITTI',
+        split='train',
+        num_points=None,
+        use_mutuals=True,
+        augment=True,
+        rot_mag=45.0,
+        trans_mag=0.5,
+        noise_std=0.01,
+        min_overlap=0.3,
+        max_dist=5.0
+    )
     
-    def test_dataset_structure(self):
-        """Test the structure and content of dataset outputs."""
-        # Initialize dataset
-        dataset = KITTIDataset(
-            root_dir='./data/datasets/soft_links/KITTI',
-            split='train',
-            num_points=None,
-            use_mutuals=True,
-            augment=True,
-            rot_mag=45.0,
-            trans_mag=0.5,
-            noise_std=0.01,
-            min_overlap=0.3,
-            max_dist=5.0
-        )
-        
-        # Get a data point
-        data = dataset[0]
+    # Test all samples
+    for idx in range(len(dataset)):
+        data = dataset[idx]
         
         # Check if all required keys are present
         required_keys = [
@@ -32,43 +28,40 @@ class TestKITTIDataset(unittest.TestCase):
             'sequence', 'src_frame', 'tgt_frame', 'distance'
         ]
         for key in required_keys:
-            self.assertIn(key, data)
+            assert key in data, f"Missing key '{key}' in sample {idx}"
             
         # Check data types and shapes
-        self.assertIsInstance(data['src_points'], np.ndarray)
-        self.assertIsInstance(data['tgt_points'], np.ndarray)
-        self.assertIsInstance(data['transform'], np.ndarray)
-        self.assertIsInstance(data['sequence'], str)
-        self.assertIsInstance(data['src_frame'], str)
-        self.assertIsInstance(data['tgt_frame'], str)
-        self.assertIsInstance(data['distance'], float)
+        assert isinstance(data['src_points'], np.ndarray), f"src_points is not np.ndarray in sample {idx}"
+        assert isinstance(data['tgt_points'], np.ndarray), f"tgt_points is not np.ndarray in sample {idx}"
+        assert isinstance(data['transform'], np.ndarray), f"transform is not np.ndarray in sample {idx}"
+        assert isinstance(data['sequence'], str), f"sequence is not str in sample {idx}"
+        assert isinstance(data['src_frame'], str), f"src_frame is not str in sample {idx}"
+        assert isinstance(data['tgt_frame'], str), f"tgt_frame is not str in sample {idx}"
+        assert isinstance(data['distance'], float), f"distance is not float in sample {idx}"
         
         # Check array shapes
-        self.assertEqual(data['src_points'].shape[1], 3)  # Nx3
-        self.assertEqual(data['tgt_points'].shape[1], 3)  # Nx3
-        self.assertEqual(data['transform'].shape, (4, 4))  # 4x4
+        assert data['src_points'].shape[1] == 3, f"src_points shape incorrect in sample {idx}"
+        assert data['tgt_points'].shape[1] == 3, f"tgt_points shape incorrect in sample {idx}"
+        assert data['transform'].shape == (4, 4), f"transform shape incorrect in sample {idx}"
         
         # Check numeric ranges and properties
-        self.assertTrue(data['distance'] >= 0.0)  # Distance should be non-negative
-        self.assertTrue(data['distance'] <= dataset.max_dist)  # Distance should be within max_dist
+        assert data['distance'] >= 0.0, f"distance negative in sample {idx}"
+        assert data['distance'] <= dataset.max_dist, f"distance exceeds max_dist in sample {idx}"
         
         # Check transformation matrix properties
         transform = data['transform']
         rotation = transform[:3, :3]
-        self.assertTrue(np.allclose(np.eye(3), rotation @ rotation.T))  # Rotation matrix should be orthogonal
-        self.assertTrue(np.allclose(1.0, np.linalg.det(rotation)))  # Determinant should be 1
+        assert np.allclose(np.eye(3), rotation @ rotation.T), f"rotation matrix not orthogonal in sample {idx}"
+        assert np.allclose(1.0, np.linalg.det(rotation)), f"rotation matrix determinant not 1 in sample {idx}"
         
         # Check sequence format
-        self.assertTrue(data['sequence'] in dataset.TRAIN_SEQUENCES)
+        assert data['sequence'] in dataset.TRAIN_SEQUENCES, f"sequence not in TRAIN_SEQUENCES in sample {idx}"
         
         # Check frame names format
-        self.assertTrue(data['src_frame'].endswith('.bin'))
-        self.assertTrue(data['tgt_frame'].endswith('.bin'))
+        assert data['src_frame'].endswith('.bin'), f"src_frame not .bin in sample {idx}"
+        assert data['tgt_frame'].endswith('.bin'), f"tgt_frame not .bin in sample {idx}"
         
         # Check data types
-        self.assertEqual(data['src_points'].dtype, np.float32)
-        self.assertEqual(data['tgt_points'].dtype, np.float32)
-        self.assertEqual(data['transform'].dtype, np.float32)
-
-if __name__ == '__main__':
-    unittest.main() 
+        assert data['src_points'].dtype == np.float32, f"src_points dtype incorrect in sample {idx}"
+        assert data['tgt_points'].dtype == np.float32, f"tgt_points dtype incorrect in sample {idx}"
+        assert data['transform'].dtype == np.float32, f"transform dtype incorrect in sample {idx}"
