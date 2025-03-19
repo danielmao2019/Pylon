@@ -21,7 +21,6 @@ from models.change_detection.ftn.model import FTN
 from models.change_detection.srcnet.srcnet_model import SRCNet
 from models.change_detection.bifa.bifa_model import BiFA
 from models.change_detection.cdx_former.cdx_former_model import CDXFormer
-from models.change_detection.cdmaskformer.models.cdmaskformer import CDMaskFormer
 from models.change_detection import csa_cdgan
 from models.change_detection.change_mamba.st_mamba_bcd import STMambaBCD
 from models.change_detection.siamese_kpconv.siamese_kpconv_model import SiameseKPConv
@@ -54,7 +53,6 @@ __all__ = (
     'SRCNet',
     'BiFA',
     'CDXFormer',
-    'CDMaskFormer',
     'csa_cdgan',
     'STMambaBCD',
     'SiameseKPConv',
