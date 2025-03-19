@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from typing import Dict
 from ...utils.build import build_from_cfg
 
 class CDMaskFormer(nn.Module):
@@ -8,7 +9,8 @@ class CDMaskFormer(nn.Module):
         self.backbone = build_from_cfg(cfg.backbone)
         self.decoderhead = build_from_cfg(cfg.decoderhead)
     
-    def forward(self, x1, x2, gtmask=None):
+    def forward(self, inputs: Dict[str, torch.Tensor], gtmask=None):
+        x1, x2 = inputs['img_1'], inputs['img_2']
         backbone_outputs = self.backbone(x1, x2)
         if gtmask == None:
             x_list = self.decoderhead(backbone_outputs)
