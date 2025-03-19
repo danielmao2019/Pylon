@@ -28,12 +28,8 @@ class CDMaskFormer(nn.Module):
         img1 = inputs['img_1']
         img2 = inputs['img_2']
         
-        # Get features from both images
-        img1_features = self.backbone(img1)
-        img2_features = self.backbone(img2)
-        
-        # Format features for CDMask
-        features = [img1_features, img2_features]
+        # Get features from both images at once
+        features = self.backbone(img1, img2)
         
         # Forward through CDMask - output format depends on training mode
         output = self.cdmask(features)
