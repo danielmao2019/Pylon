@@ -71,9 +71,9 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             align_corners=False,
         )
 
-        losses = criterion(y_pred, y_true)
-        weight_dict = criterion.weight_dict
-                    
+        losses = self.criterion(y_pred, y_true)
+        weight_dict = self.criterion.weight_dict
+
         loss_ce = 0.0
         loss_dice = 0.0
         loss_mask = 0.0
