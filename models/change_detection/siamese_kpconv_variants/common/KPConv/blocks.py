@@ -63,37 +63,34 @@ class SimpleBlock(BaseModule):
             self.sampler = None
 
     def forward(self, data, precomputed=None, **kwargs):
-        if not hasattr(data, "block_idx"):
-            setattr(data, "block_idx", 0)
-
         if precomputed:
-            query_data = precomputed[data.block_idx]
+            query_data = precomputed[data['block_idx']]
         else:
             if self.sampler:
-                query_data = self.sampler(data.clone())
+                query_data = self.sampler(data.copy())
             else:
-                query_data = data.clone()
+                query_data = data.copy()
 
         if precomputed:
-            idx_neighboors = query_data.idx_neighboors
-            q_pos = query_data.pos
+            idx_neighboors = query_data['idx_neighboors']
+            q_pos = query_data['pos']
         else:
-            q_pos, q_batch = query_data.pos, query_data.batch
-            idx_neighboors = self.neighbour_finder(data.pos, q_pos, batch_x=data.batch, batch_y=q_batch)
-            query_data.idx_neighboors = idx_neighboors
+            q_pos, q_batch = query_data['pos'], query_data['batch']
+            idx_neighboors = self.neighbour_finder(data['pos'], q_pos, batch_x=data['batch'], batch_y=q_batch)
+            query_data['idx_neighboors'] = idx_neighboors
 
         x = self.kp_conv(
             q_pos,
-            data.pos,
+            data['pos'],
             idx_neighboors,
-            data.x,
+            data['feat'],
         )
         if self.bn:
             x = self.bn(x)
         x = self.activation(x)
 
-        query_data.x = x
-        query_data.block_idx = data.block_idx + 1
+        query_data['feat'] = x
+        query_data['block_idx'] = data['block_idx'] + 1
         return query_data
 
     def extra_repr(self):
@@ -196,24 +193,22 @@ class ResnetBBlock(BaseModule):
         """
         data: x, pos, batch_idx and idx_neighbour when the neighboors of each point in pos have already been computed
         """
-        # Main branch
-        output = data.clone()
-        shortcut_x = data.x
+        output = data.copy()
+        shortcut_x = data['feat']
         if self.has_bottleneck:
-            output.x = self.unary_1(output.x)
+            output['feat'] = self.unary_1(output['feat'])
         output = self.kp_conv(output, precomputed=precomputed)
         if self.has_bottleneck:
-            output.x = self.unary_2(output.x)
+            output['feat'] = self.unary_2(output['feat'])
 
-        # Shortcut
         if self.is_strided:
-            idx_neighboors = output.idx_neighboors
-            shortcut_x = torch.cat([shortcut_x, torch.zeros_like(shortcut_x[:1, :])], axis=0)  # Shadow feature
+            idx_neighboors = output['idx_neighboors']
+            shortcut_x = torch.cat([shortcut_x, torch.zeros_like(shortcut_x[:1, :])], axis=0)
             neighborhood_features = shortcut_x[idx_neighboors]
             shortcut_x = torch.max(neighborhood_features, dim=1, keepdim=False)[0]
 
         shortcut = self.shortcut_op(shortcut_x)
-        output.x += shortcut
+        output['feat'] += shortcut
         return output
 
     @property
