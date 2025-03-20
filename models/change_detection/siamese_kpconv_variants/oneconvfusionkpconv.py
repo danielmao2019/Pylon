@@ -65,51 +65,53 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
         print('upconv : ' + str(sum(p.numel() for p in self.up_modules.parameters() if p.requires_grad)))
         print('downconv : ' + str(sum(p.numel() for p in self.down_modules.parameters() if p.requires_grad)))
 
-    def set_input(self, data):
-        self.batch_idx = data.batch
+    def forward(self, data, *args, **kwargs) -> Any:
+        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
+        # Process input data
+        batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
-            self.pre_computed = data.multiscale
-            self.upsample = data.upsample
+            pre_computed = data.multiscale
+            upsample = data.upsample
         else:
-            self.pre_computed = None
-            self.upsample = None
+            pre_computed = None
+            upsample = None
+
         if getattr(data, "pos_target", None) is not None:
             if isinstance(data, PairMultiScaleBatch):
-                self.pre_computed_target = data.multiscale_target
-                self.upsample_target = data.upsample_target
+                pre_computed_target = data.multiscale_target
+                upsample_target = data.upsample_target
                 del data.multiscale_target
                 del data.upsample_target
             else:
-                self.pre_computed_target = None
-                self.upsample_target = None
+                pre_computed_target = None
+                upsample_target = None
 
-            self.input0, self.input1 = data.to_data()
-            self.batch_idx_target = data.batch_target
-            self.labels = data.y
+            input0, input1 = data.to_data()
+            batch_idx_target = data.batch_target
+            labels = data.y
         else:
-            self.input = data
-            self.labels = None
+            input0 = data
+            input1 = None
+            batch_idx_target = None
+            labels = None
+            pre_computed_target = None
+            upsample_target = None
 
-    def forward(self, *args, **kwargs) -> Any:
-        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
         stack_down = []
 
-        data0 = self.input0
-        data1 = self.input1
-
         #Layer 0 conv + EF
-        data0 = self.down_modules[0](data0, precomputed=self.pre_computed)
-        data1 = self.down_modules[0](data1, precomputed=self.pre_computed_target)
+        data0 = self.down_modules[0](input0, precomputed=pre_computed)
+        data1 = self.down_modules[0](input1, precomputed=pre_computed_target)
         nn_list = knn(data0.pos, data1.pos, 1, data0.batch, data1.batch)
         data1.x = data1.x - data0.x[nn_list[1, :], :]
         stack_down.append(data1)
 
         for i in range(1, len(self.down_modules) - 1):
-            data1 = self.down_modules[i](data1, precomputed=self.pre_computed_target)
+            data1 = self.down_modules[i](data1, precomputed=pre_computed_target)
             stack_down.append(data1)
 
         #1024 : last layer
-        data = self.down_modules[-1](data1, precomputed=self.pre_computed_target)
+        data = self.down_modules[-1](data1, precomputed=pre_computed_target)
 
         innermost = False
         if not isinstance(self.inner_modules[0], Identity):
@@ -120,17 +122,18 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             if i == 0 and innermost:
                 data = self.up_modules[i]((data, stack_down.pop()))
             else:
-                data = self.up_modules[i]((data, stack_down.pop()), precomputed=self.upsample_target)
+                data = self.up_modules[i]((data, stack_down.pop()), precomputed=upsample_target)
+        
         self.last_feature = data.x
         if self._use_category:
-            self.output = self.FC_layer(self.last_feature, self.category)
+            output = self.FC_layer(self.last_feature, self.category)
         else:
-            self.output = self.FC_layer(self.last_feature)
+            output = self.FC_layer(self.last_feature)
 
-        self.data_visual = self.input1
-        self.data_visual.pred = torch.max(self.output, -1)[1]
+        self.data_visual = input1
+        self.data_visual.pred = torch.max(output, -1)[1]
 
-        return self.output
+        return output
 
     def reset_final_layer(self, cuda = True):
         if self._use_category:
