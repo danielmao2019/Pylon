@@ -215,9 +215,6 @@ class SiamEncFusionSkipKPConv(UnwrappedUnetBasedModel):
         else:
             self.output = self.FC_layer(last_feature)
 
-        if self.labels is not None:
-            self.compute_loss()
-
         self.data_visual = self.input1
         self.data_visual.pred = torch.max(self.output, -1)[1]
 
