@@ -60,7 +60,6 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
 
         self.last_feature = None
-        self.visual_names = ["data_visual"]
         print('total : ' + str(sum(p.numel() for p in self.parameters() if p.requires_grad)))
         print('upconv : ' + str(sum(p.numel() for p in self.up_modules.parameters() if p.requires_grad)))
         print('downconv : ' + str(sum(p.numel() for p in self.down_modules.parameters() if p.requires_grad)))
@@ -129,9 +128,6 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             output = self.FC_layer(self.last_feature, self.category)
         else:
             output = self.FC_layer(self.last_feature)
-
-        self.data_visual = input1
-        self.data_visual.pred = torch.max(output, -1)[1]
 
         return output
 
