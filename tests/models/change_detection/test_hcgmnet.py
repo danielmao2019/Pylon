@@ -25,13 +25,13 @@ def test_hcgmnet_forward_pass(mode: str) -> None:
     outputs = model(inputs)
 
     if mode == 'train':
-        assert isinstance(outputs, torch.Tensor)
-        assert outputs.shape == (4, 2, 224, 224)
+        assert isinstance(outputs, dict), f"{type(outputs)=}"
+        assert outputs.keys() == {'intermediate_map', 'change_map'}, f"{outputs.keys()=}"
+        assert outputs['intermediate_map'].shape == (4, 2, 224, 224), f"{outputs['intermediate_map'].shape=}"
+        assert outputs['change_map'].shape == (4, 2, 224, 224), f"{outputs['change_map'].shape=}"
     else:
-        assert isinstance(outputs, dict)
-        assert outputs.keys() == {'intermediate_map', 'change_map'}
-        assert outputs['intermediate_map'].shape == (4, 2, 224, 224)
-        assert outputs['change_map'].shape == (4, 2, 224, 224)
+        assert isinstance(outputs, torch.Tensor), f"{type(outputs)=}"
+        assert outputs.shape == (4, 2, 224, 224), f"{outputs.shape=}"
 
 
 @pytest.mark.parametrize("batch_size,channels,height,width,expected_shape", [
