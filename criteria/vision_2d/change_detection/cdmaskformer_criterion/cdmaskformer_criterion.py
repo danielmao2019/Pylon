@@ -1,24 +1,25 @@
-import numpy as np
-import itertools
 from typing import Any, Dict, List, Tuple, Union
+import itertools
+import numpy as np
 import torch
-import torch.nn.functional as F
 from torch import nn
-
+import torch.nn.functional as F
+from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d.change_detection.cdmaskformer_criterion.criterion import SetCriterion
 from criteria.vision_2d.change_detection.cdmaskformer_criterion.matcher import HungarianMatcher
 
 
-class CDMaskFormerCriterion(nn.Module):
-    def __init__(self, class_weight=2.0,
-                 dice_weight=5.0,
-                 mask_weight=5.0,
-                 no_object_weight=0.1,
-                 dec_layers = 10,
-                 num_classes = 1,
-                 device="cuda:0"):
+class CDMaskFormerCriterion(SingleTaskCriterion):
+    def __init__(
+        self,
+        class_weight=2.0,
+        dice_weight=5.0,
+        mask_weight=5.0,
+        no_object_weight=0.1,
+        dec_layers = 10,
+        num_classes = 1,
+    ):
         super(CDMaskFormerCriterion, self).__init__()
-        self.device = device
         self.class_weight = class_weight
         self.dice_weight = dice_weight
         self.mask_weight = mask_weight
@@ -26,7 +27,7 @@ class CDMaskFormerCriterion(nn.Module):
         self.dec_layers = dec_layers
         self.num_classes = num_classes
 
-    def forward(self, preds, target):
+    def __call__(self, y_pred, y_true):
         # building criterion
         matcher = HungarianMatcher(
             cost_class=self.class_weight,
@@ -54,14 +55,14 @@ class CDMaskFormerCriterion(nn.Module):
             device=torch.device(self.device)
         )
 
-        preds["pred_masks"]= F.interpolate(
-            preds["pred_masks"],
+        y_pred["pred_masks"]= F.interpolate(
+            y_pred["pred_masks"],
             scale_factor=(4, 4),
             mode="bilinear",
             align_corners=False,
         )
 
-        for v in preds['aux_outputs']:
+        for v in y_pred['aux_outputs']:
             v['pred_masks'] = F.interpolate(
             v["pred_masks"],
             scale_factor=(4, 4),
@@ -69,7 +70,7 @@ class CDMaskFormerCriterion(nn.Module):
             align_corners=False,
         )
 
-        losses = criterion(preds, target)
+        losses = criterion(y_pred, y_true)
         weight_dict = criterion.weight_dict
                     
         loss_ce = 0.0
