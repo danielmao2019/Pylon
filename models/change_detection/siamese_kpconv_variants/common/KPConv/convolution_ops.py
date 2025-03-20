@@ -3,7 +3,7 @@
 # Adaption from https://github.com/humanpose1/KPConvTorch/
 
 import torch
-from torch_points3d.core.common_modules.gathering import gather
+from models.change_detection.siamese_kpconv_variants.common.gathering import gather
 
 
 def radius_gaussian(sq_r, sig, eps=1e-9):
