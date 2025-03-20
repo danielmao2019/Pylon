@@ -47,6 +47,7 @@ Install PyTorch and related packages:
 ```bash
 # Install PyTorch with CUDA support
 conda install pytorch==2.0.0 torchvision==0.15.0 torchaudio==2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia -y
+pip install torch-points3d torch-points-kernels
 
 # Install MMEngine and related components
 pip install -U openmim
