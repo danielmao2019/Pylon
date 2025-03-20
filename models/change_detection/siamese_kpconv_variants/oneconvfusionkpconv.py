@@ -125,7 +125,6 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             self.input = data
             self.labels = None
 
-
     def forward(self, *args, **kwargs) -> Any:
         """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
         stack_down = []
