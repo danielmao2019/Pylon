@@ -199,4 +199,3 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
             if cuda:
                 self.FC_layer.cuda()
-
