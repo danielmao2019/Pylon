@@ -81,8 +81,6 @@ class SiamEncFusionSkipKPConv(UnwrappedUnetBasedModel):
             self.FC_layer.add_module("Class", Lin(in_feat, self._num_classes, bias=False))
             self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
 
-        self.visual_names = ["data_visual"]
-
     def _init_from_compact_format(self, opt, model_type, dataset, modules_lib):
         """Create a unetbasedmodel from the compact options format - where the
         same convolution is given for each layer, and arguments are given
@@ -219,8 +217,5 @@ class SiamEncFusionSkipKPConv(UnwrappedUnetBasedModel):
             output = self.FC_layer(last_feature, self.category)
         else:
             output = self.FC_layer(last_feature)
-
-        self.data_visual = input1
-        self.data_visual.pred = torch.max(output, -1)[1]
 
         return output
