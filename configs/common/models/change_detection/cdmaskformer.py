@@ -2,14 +2,14 @@ import models
 
 
 model_cfg = {
-    'class': models.change_detection.CDMaskFormer,
+    'class': models.change_detection.cdmaskformer.CDMaskFormer,
     'args': {
         'backbone_cfg': {
-            'class': models.cdmaskformer.CDMaskFormerBackbone,
+            'class': models.change_detection.cdmaskformer.CDMaskFormerBackbone,
             'args': {},
         },
         'head_cfg': {
-            'class': models.cdmaskformer.CDMaskFormerHead,
+            'class': models.change_detection.cdmaskformer.CDMaskFormerHead,
             'args': {
                 'channels': [64, 128, 192, 256],
                 'num_classes': 1,
