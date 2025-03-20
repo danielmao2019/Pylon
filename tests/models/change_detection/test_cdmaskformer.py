@@ -5,7 +5,21 @@ from models.change_detection.cdmaskformer.build_model import CDMaskFormer
 
 @pytest.mark.parametrize('mode', ['train', 'eval'])
 def test_cdmaskformer(mode):
-    model = CDMaskFormer()
+    model = CDMaskFormer(
+        backbone_cfg={
+            'class': models.change_detection.cdmaskformer.backbone.CDMaskFormerBackbone,
+            'args': {},
+        },
+        head_cfg={
+            'class': models.change_detection.cdmaskformer.head.CDMaskFormerHead,
+            'args': {
+                'channels': [64, 128, 192, 256],
+                'num_classes': 1,
+                'num_queries': 5,
+                'dec_layers': 14,
+            },
+        }
+    )
     if mode == 'train':
         model.train()
     else:
@@ -20,8 +34,8 @@ def test_cdmaskformer(mode):
     if mode == 'train':
         assert isinstance(outputs, dict)
         assert outputs.keys() == {'pred_logits', 'pred_masks'}
-        assert outputs['pred_logits'].shape == (1, 10, 56, 56), f"{outputs['pred_logits'].shape}"
-        assert outputs['pred_masks'].shape == (1, 10, 56, 56), f"{outputs['pred_masks'].shape}"
+        assert outputs['pred_logits'].shape == (1, 5, 56, 56), f"{outputs['pred_logits'].shape}"
+        assert outputs['pred_masks'].shape == (1, 5, 56, 56), f"{outputs['pred_masks'].shape}"
     else:
         assert isinstance(outputs, torch.Tensor)
         assert outputs.shape == (1, 56, 56), f"{outputs.shape}"
