@@ -99,16 +99,8 @@ class TripletKPConv(UnwrappedUnetBasedModel):
 
             self.FC_layer.add_module("Class", Lin(in_feat, self._num_classes, bias=False))
             self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
-        self.loss_names = ["loss_cd"]
-
-        self.lambda_reg = self.get_from_opt(option, ["loss_weights", "lambda_reg"])
-        if self.lambda_reg:
-            self.loss_names += ["loss_reg"]
-
-        self.lambda_internal_losses = self.get_from_opt(option, ["loss_weights", "lambda_internal_losses"])
 
         self.visual_names = ["data_visual"]
-
 
     def _init_from_compact_format(self, opt, model_type, dataset, modules_lib):
         """Create a unetbasedmodel from the compact options format - where the
@@ -164,10 +156,6 @@ class TripletKPConv(UnwrappedUnetBasedModel):
                 self._save_upsample(up_module)
                 self.up_modules.append(up_module)
 
-        self.metric_loss_module, self.miner_module = BaseModel.get_metric_loss_and_miner(
-            getattr(opt, "metric_loss", None), getattr(opt, "miner", None)
-        )
-
     def _get_factory(self, model_name, modules_lib) -> BaseFactoryPSI:
         factory_module_cls = getattr(modules_lib, "{}Factory".format(model_name), None)
         if factory_module_cls is None:
@@ -201,7 +189,6 @@ class TripletKPConv(UnwrappedUnetBasedModel):
         else:
             self.input = data
             self.labels = None
-
 
     def forward(self, *args, **kwargs) -> Any:
         """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
@@ -249,41 +236,7 @@ class TripletKPConv(UnwrappedUnetBasedModel):
         else:
             self.output = self.FC_layer(last_feature)
 
-        if self.labels is not None:
-            self.compute_loss()
-
         self.data_visual = self.input1
         self.data_visual.pred = torch.max(self.output, -1)[1]
 
         return self.output
-
-    def compute_loss(self):
-        if self._weight_classes is not None:
-            self._weight_classes = self._weight_classes.to(self.output.device)
-        self.loss = 0
-
-        # Get regularization on weights
-        if self.lambda_reg:
-            self.loss_reg = self.get_regularization_loss(regularizer_type="l2", lambda_reg=self.lambda_reg)
-            self.loss += self.loss_reg
-
-        # Collect internal losses and set them with self and them to self for later tracking
-        if self.lambda_internal_losses:
-            print('lambda_internal_losses')
-            self.loss += self.collect_internal_losses(lambda_weight=self.lambda_internal_losses)
-
-        # Final cross entrop loss
-        if self._ignore_label is not None:
-            self.loss_seg = F.nll_loss(self.output, self.labels, weight=self._weight_classes, ignore_index=self._ignore_label)
-        else:
-            self.loss_seg = F.nll_loss(self.output, self.labels, weight=self._weight_classes)
-
-        if torch.isnan(self.loss_seg).sum() == 1:
-            print(self.loss_seg)
-        self.loss += self.loss_seg
-
-    def backward(self):
-        """Calculate losses, gradients, and update network weights; called in every training iteration"""
-        # caculate the intermediate results if necessary; here self.output has been computed during function <forward>
-        # calculate loss given the input and intermediate results
-        self.loss.backward()  # calculate gradients of network G w.r.t. loss_G
