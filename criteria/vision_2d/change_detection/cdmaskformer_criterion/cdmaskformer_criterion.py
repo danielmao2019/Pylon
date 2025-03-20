@@ -55,6 +55,10 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         )
 
     def __call__(self, y_pred, y_true):
+        assert isinstance(y_pred, dict)
+        assert y_pred.keys() == {'pred_logits', 'pred_masks', 'aux_outputs'}
+        assert isinstance(y_true, dict)
+        assert y_true.keys() == {'change_map'}
 
         y_pred["pred_masks"]= F.interpolate(
             y_pred["pred_masks"],
@@ -71,7 +75,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             align_corners=False,
         )
 
-        losses = self.criterion(y_pred, y_true)
+        losses = self.criterion(y_pred, y_true['change_map'])
         weight_dict = self.criterion.weight_dict
 
         loss_ce = 0.0
