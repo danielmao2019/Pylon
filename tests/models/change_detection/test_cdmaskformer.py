@@ -1,17 +1,17 @@
 import pytest
 import torch
-from models.change_detection.cdmaskformer.build_model import CDMaskFormer
+from models.change_detection.cdmaskformer import CDMaskFormer, CDMaskFormerBackbone, CDMaskFormerHead
 
 
 @pytest.mark.parametrize('mode', ['train', 'eval'])
 def test_cdmaskformer(mode):
     model = CDMaskFormer(
         backbone_cfg={
-            'class': models.change_detection.cdmaskformer.backbone.CDMaskFormerBackbone,
+            'class': CDMaskFormerBackbone,
             'args': {},
         },
         head_cfg={
-            'class': models.change_detection.cdmaskformer.head.CDMaskFormerHead,
+            'class': CDMaskFormerHead,
             'args': {
                 'channels': [64, 128, 192, 256],
                 'num_classes': 1,
