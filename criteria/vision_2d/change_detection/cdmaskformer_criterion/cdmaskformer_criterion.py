@@ -52,6 +52,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             num_points=12544,
             oversample_ratio=3.0,
             importance_sample_ratio=0.75,
+            device=self.device,
         )
 
         y_pred["pred_masks"]= F.interpolate(

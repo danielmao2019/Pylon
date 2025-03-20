@@ -106,7 +106,7 @@ class SetCriterion(nn.Module):
     """
 
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses,
-                 num_points, oversample_ratio, importance_sample_ratio):
+                 num_points, oversample_ratio, importance_sample_ratio, device):
         """Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -114,6 +114,7 @@ class SetCriterion(nn.Module):
             weight_dict: dict containing as key the names of the losses and as values their relative weight.
             eos_coef: relative classification weight applied to the no-object category
             losses: list of all the losses to be applied. See get_loss for list of available losses.
+            device: device to run the criterion on
         """
         super().__init__()
         self.num_classes = num_classes
@@ -121,10 +122,10 @@ class SetCriterion(nn.Module):
         self.weight_dict = weight_dict
         self.eos_coef = eos_coef
         self.losses = losses
-        empty_weight = torch.ones(self.num_classes + 1)
+        self.device = device
+        empty_weight = torch.ones(self.num_classes + 1).to(device)
         empty_weight[0] = self.eos_coef
         self.register_buffer("empty_weight", empty_weight)        
-
         # pointwise mask loss parameters
         self.num_points = num_points
         self.oversample_ratio = oversample_ratio
@@ -138,8 +139,8 @@ class SetCriterion(nn.Module):
         src_logits = outputs["pred_logits"].float()
 
         idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
-        target_classes = torch.full(src_logits.shape[:2], 0, dtype=torch.int64)
+        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)]).to(self.device)
+        target_classes = torch.full(src_logits.shape[:2], 0, dtype=torch.int64, device=self.device)
         target_classes[idx] = target_classes_o
 
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
@@ -188,7 +189,7 @@ class SetCriterion(nn.Module):
 
     def _get_binary_mask(self, target):
         y, x = target.size()
-        target_onehot = torch.zeros(self.num_classes + 1, y, x)
+        target_onehot = torch.zeros(self.num_classes + 1, y, x).to(self.device)
         target_onehot = target_onehot.scatter(dim=0, index=target.unsqueeze(0), value=1)
         return target_onehot
 
