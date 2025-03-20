@@ -3,11 +3,11 @@ from torch.nn import Sequential, Dropout, Linear
 from torch import nn
 import copy
 
-from models.change_detection.siamese_kpconv_variants.common.base_modules import FastBatchNorm1d, MultiHeadClassifier
-from models.change_detection.siamese_kpconv_variants.common.KPConv import *
-from models.change_detection.siamese_kpconv_variants.common.partial_dense import *
-from models.change_detection.siamese_kpconv_variants.common.unet import UnwrappedUnetBasedModel
-from models.change_detection.siamese_kpconv_variants.common.pair import PairMultiScaleBatch
+from torch_points3d.core.common_modules import FastBatchNorm1d, MultiHeadClassifier
+from torch_points3d.modules.KPConv import SimpleBlock, ResnetBBlock, KPDualBlock, KPConvLayer, KPConvDeformableLayer
+from torch_points3d.core.base_conv.partial_dense import FPModule_PD
+from torch_points3d.models.base_model import BaseModel
+from torch_points3d.models.base_architectures.unet import UnwrappedUnetBasedModel
 from models.change_detection.siamese_kpconv_variants.common.torch_cluster.knn import knn
 
 
