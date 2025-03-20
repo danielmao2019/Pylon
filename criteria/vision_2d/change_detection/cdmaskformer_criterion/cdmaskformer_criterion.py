@@ -83,7 +83,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         loss_mask = 0.0
         for k in list(losses.keys()):
             if k in weight_dict:
-                losses[k] *= criterion.weight_dict[k]
+                losses[k] *= self.criterion.weight_dict[k]
                 if '_ce' in k:
                     loss_ce += losses[k]
                 elif '_dice' in k:
