@@ -1,5 +1,4 @@
 from typing import Any
-import logging
 from omegaconf.dictconfig import DictConfig
 from omegaconf.listconfig import ListConfig
 from torch.nn import Sequential, Dropout, Linear
@@ -21,8 +20,6 @@ from torch_geometric.nn import knn
 
 from torch_points3d.datasets.change_detection.pair import PairBatch, PairMultiScaleBatch
 
-
-log = logging.getLogger(__name__)
 
 class BaseFactoryPSI:
     def __init__(self, module_name_down_1, module_name_down_2, module_name_up, modules_lib):
@@ -58,7 +55,6 @@ class TripletSkipAllKPConv(UnwrappedUnetBasedModel):
                 )
             self._class_to_seg = dataset.class_to_segments
             self._num_categories = len(self._class_to_seg)
-            log.info("Using category information for the predictions with %i categories", self._num_categories)
         else:
             self._num_categories = 0
 
