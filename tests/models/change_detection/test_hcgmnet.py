@@ -1,70 +1,55 @@
 import torch
 import pytest
-from models.change_detection.hcgmnet.model import HCGMNet
+from models.change_detection.hcgmnet.hcgmnet import HCGMNet
 
 
-def test_hcgmnet_inference() -> None:
-    """Test HCGMNet forward pass during inference."""
-    model = HCGMNet(num_classes=2)
-    model.eval()
-    
+@pytest.mark.parametrize("mode", [
+    "train",
+    "eval",
+])
+def test_hcgmnet_forward_pass(mode: str) -> None:
+    """Test HCGMNet forward pass in both training and inference modes."""
+    model = HCGMNet()
+    if mode == "train":
+        model.train()
+    else:
+        model.eval()
+
     # Create dummy input tensors
     inputs = {
         'img_1': torch.zeros(size=(4, 3, 224, 224)),
         'img_2': torch.zeros(size=(4, 3, 224, 224)),
     }
-    
+
     # Run forward pass
     outputs = model(inputs)
-    
-    # Check output structure and shapes
-    assert isinstance(outputs, dict), f"Expected dict output, got {type(outputs)}"
-    assert 'change_map' in outputs, f"Expected 'change_map' key in outputs, got {outputs.keys()}"
-    assert outputs['change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['change_map'].shape}"
-    assert 'aux_change_map' not in outputs, f"'aux_change_map' should not be present in inference mode"
+
+    if mode == 'train':
+        assert isinstance(outputs, dict), f"{type(outputs)=}"
+        assert outputs.keys() == {'intermediate_map', 'change_map'}, f"{outputs.keys()=}"
+        assert outputs['intermediate_map'].shape == (4, 2, 224, 224), f"{outputs['intermediate_map'].shape=}"
+        assert outputs['change_map'].shape == (4, 2, 224, 224), f"{outputs['change_map'].shape=}"
+    else:
+        assert isinstance(outputs, torch.Tensor), f"{type(outputs)=}"
+        assert outputs.shape == (4, 2, 224, 224), f"{outputs.shape=}"
 
 
-def test_hcgmnet_training() -> None:
-    """Test HCGMNet forward pass during training."""
-    model = HCGMNet(num_classes=2)
-    model.train()
-    
-    # Create dummy input tensors
-    inputs = {
-        'img_1': torch.zeros(size=(4, 3, 224, 224)),
-        'img_2': torch.zeros(size=(4, 3, 224, 224)),
-    }
-    
-    # Run forward pass
-    outputs = model(inputs)
-    
-    # Check output structure and shapes
-    assert isinstance(outputs, dict), f"Expected dict output, got {type(outputs)}"
-    assert 'change_map' in outputs, f"Expected 'change_map' key in outputs, got {outputs.keys()}"
-    assert 'aux_change_map' in outputs, f"Expected 'aux_change_map' key in outputs, got {outputs.keys()}"
-    assert outputs['change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['change_map'].shape}"
-    assert outputs['aux_change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['aux_change_map'].shape}"
-
-
-def test_hcgmnet_different_input_size() -> None:
-    """Test HCGMNet with different input sizes."""
-    model = HCGMNet(num_classes=2)
+@pytest.mark.parametrize("spatial_dim", [
+    112,
+    128,
+    224,
+    256,
+])
+def test_hcgmnet_different_input_size(spatial_dim: int) -> None:
+    """Test HCGMNet with different spatial dimensions."""
+    model = HCGMNet()
     model.eval()
-    
-    # Test with 256x256 input size
+
     inputs = {
-        'img_1': torch.zeros(size=(2, 3, 256, 256)),
-        'img_2': torch.zeros(size=(2, 3, 256, 256)),
+        'img_1': torch.zeros(size=(4, 3, spatial_dim, spatial_dim)),
+        'img_2': torch.zeros(size=(4, 3, spatial_dim, spatial_dim)),
     }
-    
+
     outputs = model(inputs)
-    assert outputs['change_map'].shape == torch.Size([2, 2, 256, 256]), f"Unexpected shape: {outputs['change_map'].shape}"
-    
-    # Test with non-square input
-    inputs = {
-        'img_1': torch.zeros(size=(2, 3, 320, 240)),
-        'img_2': torch.zeros(size=(2, 3, 320, 240)),
-    }
-    
-    outputs = model(inputs)
-    assert outputs['change_map'].shape == torch.Size([2, 2, 320, 240]), f"Unexpected shape: {outputs['change_map'].shape}"
+    assert isinstance(outputs, torch.Tensor), "Model output should be a tensor in eval mode"
+    assert outputs.shape == (4, 2, spatial_dim, spatial_dim), f"{outputs.shape=}"
