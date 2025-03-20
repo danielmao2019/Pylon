@@ -18,7 +18,6 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
         # No ponderation if weights for the corresponding number of class are available
         if len(self._weight_classes) != self._num_classes:
             self._weight_classes = None
-        # self._weight_classes = None
         try:
             self._ignore_label = dataset.ignore_label
         except:
