@@ -14,10 +14,6 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
     def __init__(self, option, model_type, dataset, modules):
         # Extract parameters from the dataset
         self._num_classes = dataset.num_classes
-        self._weight_classes = dataset.weight_classes
-        # No ponderation if weights for the corresponding number of class are available
-        if len(self._weight_classes) != self._num_classes:
-            self._weight_classes = None
         try:
             self._ignore_label = dataset.ignore_label
         except:
@@ -72,14 +68,6 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
         print('total : ' + str(sum(p.numel() for p in self.parameters() if p.requires_grad)))
         print('upconv : ' + str(sum(p.numel() for p in self.up_modules.parameters() if p.requires_grad)))
         print('downconv : ' + str(sum(p.numel() for p in self.down_modules.parameters() if p.requires_grad)))
-        print(self._weight_classes)
-
-    def set_class_weight(self,dataset):
-        self._weight_classes = dataset.weight_classes
-        # No ponderation if weights for the corresponding number of class are available
-        if len(self._weight_classes) != self._num_classes:
-            print('number of weights different of the number of classes')
-            self._weight_classes = None
 
     def set_input(self, data):
         self.batch_idx = data.batch
