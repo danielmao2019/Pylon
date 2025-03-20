@@ -7,7 +7,7 @@ from models.change_detection.siamese_kpconv_variants.common.KPConv import *
 from models.change_detection.siamese_kpconv_variants.common.partial_dense import *
 from models.change_detection.siamese_kpconv_variants.common.unet import UnwrappedUnetBasedModel
 from models.change_detection.siamese_kpconv_variants.common.pair import PairMultiScaleBatch
-from torch_geometric.nn import knn
+from models.change_detection.siamese_kpconv_variants.common.torch_cluster.knn import knn
 
 
 class OneConvFusionKPConv(UnwrappedUnetBasedModel):
