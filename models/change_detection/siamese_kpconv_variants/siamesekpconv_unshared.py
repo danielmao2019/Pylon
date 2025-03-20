@@ -142,8 +142,7 @@ class SiameseKPConvUnshared(UnwrappedUnetBasedModel):
             factory_module_cls = BaseFactoryPSI
         return factory_module_cls
 
-    def forward(self, data, *args, **kwargs) -> Any:
-        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
+    def forward(self, data) -> Any:
         # Process input data
         batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
