@@ -63,16 +63,18 @@ class SimpleBlock(BaseModule):
             self.sampler = None
 
     def forward(self, data):
-        multiscale = data.get('multiscale', None)
-        if multiscale:
-            query_data = multiscale[data['block_idx']]
+        if 'block_idx' not in data:
+            data['block_idx'] = 0
+
+        if data.get('multiscale', None):
+            query_data = data['multiscale'][data['block_idx']]
         else:
             if self.sampler:
                 query_data = self.sampler(data.copy())
             else:
                 query_data = data.copy()
 
-        if multiscale:
+        if data.get('multiscale', None):
             idx_neighboors = query_data['idx_neighboors']
             q_pos = query_data['pos']
         else:
@@ -194,6 +196,9 @@ class ResnetBBlock(BaseModule):
         """
         data: x, pos, batch_idx and idx_neighbour when the neighboors of each point in pos have already been computed
         """
+        assert isinstance(data, dict)
+        assert data.keys() >= {'pos', 'feat', 'batch'}
+
         output = data.copy()
         shortcut_x = data['feat']
         if self.has_bottleneck:
@@ -202,9 +207,11 @@ class ResnetBBlock(BaseModule):
         if self.has_bottleneck:
             output['feat'] = self.unary_2(output['feat'])
 
+        assert 'idx_neighboors' in output
+
         if self.is_strided:
             idx_neighboors = output['idx_neighboors']
-            shortcut_x = torch.cat([shortcut_x, torch.zeros_like(shortcut_x[:1, :])], axis=0)
+            shortcut_x = torch.cat([shortcut_x, torch.zeros_like(shortcut_x[:1, :])], axis=0)  # Shadow feature
             neighborhood_features = shortcut_x[idx_neighboors]
             shortcut_x = torch.max(neighborhood_features, dim=1, keepdim=False)[0]
 
