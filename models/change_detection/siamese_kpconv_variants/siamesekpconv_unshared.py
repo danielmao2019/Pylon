@@ -149,8 +149,7 @@ class SiameseKPConvUnshared(UnwrappedUnetBasedModel):
             factory_module_cls = BaseFactoryPSI
         return factory_module_cls
 
-    def set_input(self, data, device):
-        data = data.to(device)
+    def set_input(self, data):
         self.batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
             self.pre_computed = data.multiscale
@@ -170,7 +169,7 @@ class SiameseKPConvUnshared(UnwrappedUnetBasedModel):
 
             self.input0, self.input1 = data.to_data()
             self.batch_idx_target = data.batch_target
-            self.labels = data.y.to(device)
+            self.labels = data.y
         else:
             self.input = data
             self.labels = None
