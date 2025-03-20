@@ -25,13 +25,13 @@ def test_hcgmnet_forward_pass(mode: str) -> None:
     outputs = model(inputs)
 
     if mode == 'train':
-        assert isinstance(output, torch.Tensor)
-        assert output.shape == (4, 2, 224, 224)
+        assert isinstance(outputs, torch.Tensor)
+        assert outputs.shape == (4, 2, 224, 224)
     else:
-        assert isinstance(output, dict)
-        assert output.keys() == {'intermediate_map', 'change_map'}
-        assert output['intermediate_map'].shape == (4, 2, 224, 224)
-        assert output['change_map'].shape == (4, 2, 224, 224)
+        assert isinstance(outputs, dict)
+        assert outputs.keys() == {'intermediate_map', 'change_map'}
+        assert outputs['intermediate_map'].shape == (4, 2, 224, 224)
+        assert outputs['change_map'].shape == (4, 2, 224, 224)
 
 
 @pytest.mark.parametrize("batch_size,channels,height,width,expected_shape", [
@@ -48,7 +48,7 @@ def test_hcgmnet_different_input_size(
     expected_shape: torch.Size
 ) -> None:
     """Test HCGMNet with different input sizes."""
-    model = HCGMNet(num_classes=2)
+    model = HCGMNet()
     model.eval()
 
     inputs = {
