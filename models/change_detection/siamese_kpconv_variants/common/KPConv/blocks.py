@@ -2,14 +2,12 @@ import torch
 import sys
 from torch.nn import Linear as Lin
 
-from .kernels import KPConvLayer, KPConvDeformableLayer
-from torch_points3d.core.common_modules.base_modules import BaseModule, FastBatchNorm1d
-from torch_points3d.core.spatial_ops import RadiusNeighbourFinder
-from torch_points3d.core.data_transform import GridSampling3D
-from torch_points3d.utils.enums import ConvolutionFormat
-from torch_points3d.core.base_conv.message_passing import GlobalBaseModule
-from torch_points3d.core.common_modules.base_modules import Identity
-from torch_points3d.utils.config import is_list
+from models.change_detection.siamese_kpconv_variants.common.KPConv.kernels import KPConvLayer, KPConvDeformableLayer
+from models.change_detection.siamese_kpconv_variants.common.base_modules import BaseModule, FastBatchNorm1d
+from models.change_detection.siamese_kpconv_variants.common.neighbour_finder import RadiusNeighbourFinder
+from models.change_detection.siamese_kpconv_variants.common.grid_transform import GridSampling3D
+from models.change_detection.siamese_kpconv_variants.common.enums import ConvolutionFormat
+from models.change_detection.siamese_kpconv_variants.common.config import is_list
 
 
 class SimpleBlock(BaseModule):
