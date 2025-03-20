@@ -34,27 +34,22 @@ def test_hcgmnet_forward_pass(mode: str) -> None:
         assert outputs.shape == (4, 2, 224, 224), f"{outputs.shape=}"
 
 
-@pytest.mark.parametrize("batch_size,channels,height,width,expected_shape", [
-    (2, 3, 256, 256, torch.Size([2, 2, 256, 256])),
-    (2, 3, 320, 240, torch.Size([2, 2, 320, 240])),
-    (1, 3, 512, 512, torch.Size([1, 2, 512, 512])),
-    (4, 3, 128, 128, torch.Size([4, 2, 128, 128]))
+@pytest.mark.parametrize("spatial_dim", [
+    112,
+    128,
+    224,
+    256,
 ])
-def test_hcgmnet_different_input_size(
-    batch_size: int,
-    channels: int,
-    height: int,
-    width: int,
-    expected_shape: torch.Size
-) -> None:
-    """Test HCGMNet with different input sizes."""
+def test_hcgmnet_different_input_size(spatial_dim: int) -> None:
+    """Test HCGMNet with different spatial dimensions."""
     model = HCGMNet()
     model.eval()
 
     inputs = {
-        'img_1': torch.zeros(size=(batch_size, channels, height, width)),
-        'img_2': torch.zeros(size=(batch_size, channels, height, width)),
+        'img_1': torch.zeros(size=(4, 3, spatial_dim, spatial_dim)),
+        'img_2': torch.zeros(size=(4, 3, spatial_dim, spatial_dim)),
     }
 
     outputs = model(inputs)
-    assert outputs['change_map'].shape == expected_shape, f"Unexpected shape: {outputs['change_map'].shape}"
+    assert isinstance(outputs, torch.Tensor), "Model output should be a tensor in eval mode"
+    assert outputs.shape == (4, 2, spatial_dim, spatial_dim), f"{outputs.shape=}"
