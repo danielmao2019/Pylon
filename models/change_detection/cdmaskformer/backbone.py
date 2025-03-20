@@ -1,9 +1,9 @@
+from typing import List
 import torch 
-import torch.nn as nn
-from models.change_detection.cdmaskformer.backbone.seaformer import SeaFormer_L
+from models.change_detection.cdmaskformer.seaformer import SeaFormer_L
 
 
-class CDMaskFormerBackbone(nn.Module):
+class CDMaskFormerBackbone(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.backbone = SeaFormer_L(pretrained=True)

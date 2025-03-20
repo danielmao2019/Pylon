@@ -3,8 +3,8 @@ from torch import nn
 from torch.nn import functional as F
 from addict import Dict
 
-from models.decoderheads.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
-from models.decoderheads.transformer_decoder.mask2former_transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
+from models.change_detection.cdmaskformer.pixel_decoder.msdeformattn import MSDeformAttnPixelDecoder4ScalesFASeg
+from models.change_detection.cdmaskformer.transformer_decoder.mask2former_transformer_decoder import MultiScaleMaskedTransformerDecoder_OurDH_v5
 
 
 class MaskFormerHead(nn.Module):
