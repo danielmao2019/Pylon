@@ -80,7 +80,6 @@ class SiameseKPConvUnshared(UnwrappedUnetBasedModel):
                 self.FC_layer.add_module("Dropout", Dropout(p=last_mlp_opt.dropout))
 
             self.FC_layer.add_module("Class", Lin(in_feat, self._num_classes, bias=False))
-            self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
 
     def _init_from_compact_format(self, opt, model_type, dataset, modules_lib):
         """Create a unetbasedmodel from the compact options format - where the
