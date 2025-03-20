@@ -64,8 +64,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
         print('upconv : ' + str(sum(p.numel() for p in self.up_modules.parameters() if p.requires_grad)))
         print('downconv : ' + str(sum(p.numel() for p in self.down_modules.parameters() if p.requires_grad)))
 
-    def forward(self, data, *args, **kwargs) -> Any:
-        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
+    def forward(self, data) -> Any:
         # Process input data
         batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
