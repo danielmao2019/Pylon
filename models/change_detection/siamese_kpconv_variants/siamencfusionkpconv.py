@@ -143,40 +143,45 @@ class SiamEncFusionKPConv(UnwrappedUnetBasedModel):
             factory_module_cls = BaseFactoryPSI
         return factory_module_cls
 
-    def set_input(self, data):
-        self.batch_idx = data.batch
+    def forward(self, data, *args, **kwargs) -> Any:
+        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
+        # Process input data
+        batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
-            self.pre_computed = data.multiscale
-            self.upsample = data.upsample
+            pre_computed = data.multiscale
+            upsample = data.upsample
         else:
-            self.pre_computed = None
-            self.upsample = None
+            pre_computed = None
+            upsample = None
+
         if getattr(data, "pos_target", None) is not None:
             if isinstance(data, PairMultiScaleBatch):
-                self.pre_computed_target = data.multiscale_target
-                self.upsample_target = data.upsample_target
+                pre_computed_target = data.multiscale_target
+                upsample_target = data.upsample_target
                 del data.multiscale_target
                 del data.upsample_target
             else:
-                self.pre_computed_target = None
-                self.upsample_target = None
+                pre_computed_target = None
+                upsample_target = None
 
-            self.input0, self.input1 = data.to_data()
-            self.batch_idx_target = data.batch_target
-            self.labels = data.y
+            input0, input1 = data.to_data()
+            batch_idx_target = data.batch_target
+            labels = data.y
         else:
-            self.input = data
-            self.labels = None
+            input0 = data
+            input1 = None
+            batch_idx_target = None
+            labels = None
+            pre_computed_target = None
+            upsample_target = None
 
-    def forward(self, *args, **kwargs) -> Any:
-        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
         stack_down = []
 
-        data0 = self.input0
-        data1 = self.input1
+        data0 = input0
+        data1 = input1
 
-        data0 = self.down_modules_1[0](data0, precomputed=self.pre_computed)
-        data1 = self.down_modules_2[0](data1, precomputed=self.pre_computed_target)
+        data0 = self.down_modules_1[0](data0, precomputed=pre_computed)
+        data1 = self.down_modules_2[0](data1, precomputed=pre_computed_target)
         nn_list = knn(data0.pos, data1.pos, 1, data0.batch, data1.batch)
         diff = data1.clone()
         diff.x = data1.x - data0.x[nn_list[1, :], :]
@@ -184,16 +189,16 @@ class SiamEncFusionKPConv(UnwrappedUnetBasedModel):
         data1.x = torch.cat((data1.x, diff.x), axis=1)
 
         for i in range(1, len(self.down_modules_1) - 1):
-            data0 = self.down_modules_1[i](data0, precomputed=self.pre_computed)
-            data1 = self.down_modules_2[i](data1, precomputed=self.pre_computed_target)
+            data0 = self.down_modules_1[i](data0, precomputed=pre_computed)
+            data1 = self.down_modules_2[i](data1, precomputed=pre_computed_target)
             nn_list = knn(data0.pos, data1.pos, 1, data0.batch, data1.batch)
             diff = data1.clone()
             diff.x = data1.x - data0.x[nn_list[1,:],:]
             stack_down.append(diff)
             data1.x = torch.cat((data1.x, diff.x), axis=1)
         #1024
-        data0 = self.down_modules_1[-1](data0, precomputed=self.pre_computed)
-        data1 = self.down_modules_2[-1](data1, precomputed=self.pre_computed_target)
+        data0 = self.down_modules_1[-1](data0, precomputed=pre_computed)
+        data1 = self.down_modules_2[-1](data1, precomputed=pre_computed_target)
 
         nn_list = knn(data0.pos, data1.pos, 1, data0.batch, data1.batch)
         data = data1.clone()
@@ -208,14 +213,14 @@ class SiamEncFusionKPConv(UnwrappedUnetBasedModel):
             if i == 0 and innermost:
                 data = self.up_modules[i]((data, stack_down.pop()))
             else:
-                data = self.up_modules[i]((data, stack_down.pop()), precomputed=self.upsample_target)
+                data = self.up_modules[i]((data, stack_down.pop()), precomputed=upsample_target)
         last_feature = data.x
         if self._use_category:
-            self.output = self.FC_layer(last_feature, self.category)
+            output = self.FC_layer(last_feature, self.category)
         else:
-            self.output = self.FC_layer(last_feature)
+            output = self.FC_layer(last_feature)
 
-        self.data_visual = self.input1
-        self.data_visual.pred = torch.max(self.output, -1)[1]
+        self.data_visual = input1
+        self.data_visual.pred = torch.max(output, -1)[1]
 
-        return self.output
+        return output
