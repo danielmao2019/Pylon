@@ -62,16 +62,17 @@ class SimpleBlock(BaseModule):
         else:
             self.sampler = None
 
-    def forward(self, data, precomputed=None, **kwargs):
-        if precomputed:
-            query_data = precomputed[data['block_idx']]
+    def forward(self, data):
+        multiscale = data.get('multiscale', None)
+        if multiscale:
+            query_data = multiscale[data['block_idx']]
         else:
             if self.sampler:
                 query_data = self.sampler(data.copy())
             else:
                 query_data = data.copy()
 
-        if precomputed:
+        if multiscale:
             idx_neighboors = query_data['idx_neighboors']
             q_pos = query_data['pos']
         else:
@@ -189,7 +190,7 @@ class ResnetBBlock(BaseModule):
         # Final activation
         self.activation = activation
 
-    def forward(self, data, precomputed=None, **kwargs):
+    def forward(self, data):
         """
         data: x, pos, batch_idx and idx_neighbour when the neighboors of each point in pos have already been computed
         """
@@ -197,7 +198,7 @@ class ResnetBBlock(BaseModule):
         shortcut_x = data['feat']
         if self.has_bottleneck:
             output['feat'] = self.unary_1(output['feat'])
-        output = self.kp_conv(output, precomputed=precomputed)
+        output = self.kp_conv(output)
         if self.has_bottleneck:
             output['feat'] = self.unary_2(output['feat'])
 
@@ -275,7 +276,7 @@ class KPDualBlock(BaseModule):
 
     def forward(self, data, precomputed=None, **kwargs):
         for block in self.blocks:
-            data = block(data, precomputed=precomputed)
+            data = block(data)
         return data
 
     @property
