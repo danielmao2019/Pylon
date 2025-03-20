@@ -106,7 +106,7 @@ class SetCriterion(nn.Module):
     """
 
     def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses,
-                 num_points, oversample_ratio, importance_sample_ratio, device):
+                 num_points, oversample_ratio, importance_sample_ratio):
         """Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -121,8 +121,7 @@ class SetCriterion(nn.Module):
         self.weight_dict = weight_dict
         self.eos_coef = eos_coef
         self.losses = losses
-        self.device = device
-        empty_weight = torch.ones(self.num_classes + 1).to(device)
+        empty_weight = torch.ones(self.num_classes + 1)
         empty_weight[0] = self.eos_coef
         self.register_buffer("empty_weight", empty_weight)        
 
@@ -139,8 +138,8 @@ class SetCriterion(nn.Module):
         src_logits = outputs["pred_logits"].float()
 
         idx = self._get_src_permutation_idx(indices)
-        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)]).to(self.device)
-        target_classes = torch.full(src_logits.shape[:2], 0, dtype=torch.int64, device=src_logits.device)
+        target_classes_o = torch.cat([t["labels"][J] for t, (_, J) in zip(targets, indices)])
+        target_classes = torch.full(src_logits.shape[:2], 0, dtype=torch.int64)
         target_classes[idx] = target_classes_o
 
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
@@ -163,35 +162,6 @@ class SetCriterion(nn.Module):
         target_masks = target_masks.to(src_masks)
         target_masks = target_masks[tgt_idx]
 
-        # ===================================================================================
-        # No need to upsample predictions as we are using normalized coordinates :)
-        # N x 1 x H x W
-
-        # src_masks = src_masks[:, None]
-        # target_masks = target_masks[:, None]
-
-        # with torch.no_grad():
-        #     # sample point_coords
-        #     point_coords = get_uncertain_point_coords_with_randomness(
-        #         src_masks,
-        #         lambda logits: calculate_uncertainty(logits),
-        #         self.num_points,
-        #         self.oversample_ratio,
-        #         self.importance_sample_ratio,
-        #     )
-        #     # get gt labels
-        #     point_labels = point_sample(
-        #         target_masks,
-        #         point_coords,
-        #         align_corners=False,
-        #     ).squeeze(1)
-
-        # point_logits = point_sample(
-        #     src_masks,
-        #     point_coords,
-        #     align_corners=False,
-        # ).squeeze(1)
-        # ===================================================================================
         point_logits = src_masks.flatten(1)
         point_labels = target_masks.flatten(1)       
 
@@ -218,7 +188,7 @@ class SetCriterion(nn.Module):
 
     def _get_binary_mask(self, target):
         y, x = target.size()
-        target_onehot = torch.zeros(self.num_classes + 1, y, x).to(device=self.device)
+        target_onehot = torch.zeros(self.num_classes + 1, y, x)
         target_onehot = target_onehot.scatter(dim=0, index=target.unsqueeze(0), value=1)
         return target_onehot
 
@@ -289,87 +259,3 @@ class SetCriterion(nn.Module):
         _repr_indent = 4
         lines = [head] + [" " * _repr_indent + line for line in body]
         return "\n".join(lines)
-
-
-# class Criterion(object):
-#     def __init__(self, num_classes, alpha=0.5, gamma=2, weight=None, ignore_index=0):
-#         self.num_classes = num_classes
-#         self.alpha = alpha
-#         self.gamma = gamma
-#         self.weight = weight
-#         self.ignore_index = ignore_index
-#         self.smooth = 1e-5
-#         self.ce_fn = nn.CrossEntropyLoss(weight=self.weight, ignore_index=self.ignore_index, reduction='none')
-    
-#     def get_loss(self, outputs, gt_masks):
-#         """This performs the loss computation.
-#         Parameters:
-#              outputs: dict of tensors, see the output specification of the model for the format
-#              gt_masks: [bs, h_net_output, w_net_output]
-#         """
-#         loss_labels = 0.0
-#         loss_masks = 0.0
-#         loss_dices = 0.0
-#         num = gt_masks.shape[0]
-#         pred_logits = [outputs["pred_logits"].float()] # [bs, num_query, num_classes + 1]
-#         pred_masks = [outputs['pred_masks'].float()] # [bs, num_query, h, w]
-#         targets = self._get_targets(gt_masks, pred_logits[0].shape[1], pred_logits[0].device)
-#         for aux_output in outputs['aux_outputs']:            
-#             pred_logits.append(aux_output["pred_logits"].float())
-#             pred_masks.append(aux_output["pred_masks"].float())
-
-#         gt_label = targets['labels'] # [bs, num_query]
-#         gt_mask_list = targets['masks']
-#         for mask_cls, pred_mask in zip(pred_logits, pred_masks):            
-#             loss_labels += F.cross_entropy(mask_cls.transpose(1, 2), gt_label)
-#             # loss_masks += self.focal_loss(pred_result, gt_masks.to(pred_result.device))
-#             loss_dices += self.dice_loss(pred_mask, gt_mask_list)
-
-#         return loss_labels/num, loss_dices/num
-
-#     def binary_dice_loss(self, inputs, targets):      
-#         inputs = inputs.sigmoid()
-#         inputs = inputs.flatten(1)
-#         targets = targets.flatten(1)
-#         numerator = 2 * torch.einsum("nc,mc->nm", inputs, targets)
-#         denominator = inputs.sum(-1)[:, None] + targets.sum(-1)[None, :]
-#         loss = 1 - (numerator + 1) / (denominator + 1)
-#         return loss.mean()
-
-#     def dice_loss(self, predict, targets):    
-#         bs = predict.shape[0]
-#         total_loss = 0
-#         for i in range(bs):
-#             pred_mask = predict[i]
-#             tgt_mask = targets[i].to(predict.device)
-#             dice_loss_value = self.binary_dice_loss(pred_mask, tgt_mask) 
-#             total_loss += dice_loss_value
-#         return total_loss/bs
-
-#     def focal_loss(self, preds, labels):
-#         """
-#         preds: [bs, num_class + 1, h, w]
-#         labels: [bs, h, w]
-#         """
-#         logpt = -self.ce_fn(preds, labels)
-#         pt = torch.exp(logpt)
-#         loss = -((1 - pt) ** self.gamma) * self.alpha * logpt
-#         return loss.mean()
-
-#     def _get_binary_mask(self, target):
-#         y, x = target.size()
-#         target_onehot = torch.zeros(self.num_classes + 1, y, x)
-#         target_onehot = target_onehot.scatter(dim=0, index=target.unsqueeze(0), value=1)
-#         return target_onehot
-
-#     def _get_targets(self, gt_masks, num_query, device):
-#         binary_masks = []
-#         gt_labels = []
-#         for mask in gt_masks:
-        #     mask_onehot = self._get_binary_mask(mask)
-        #     cls_label = torch.unique(mask)
-        #     labels = torch.full((num_query,), 0, dtype=torch.int64, device=gt_masks.device)
-        #     labels[:len(cls_label)] = cls_label           
-        #     binary_masks.append(mask_onehot[cls_label])
-        #     gt_labels.append(labels)
-        # return {"labels": torch.stack(gt_labels).to(device), "masks": binary_masks}
