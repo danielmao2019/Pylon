@@ -3,68 +3,58 @@ import pytest
 from models.change_detection.hcgmnet.model import HCGMNet
 
 
-def test_hcgmnet_inference() -> None:
-    """Test HCGMNet forward pass during inference."""
-    model = HCGMNet(num_classes=2)
-    model.eval()
-    
+@pytest.mark.parametrize("mode", [
+    "eval",
+    "train",
+])
+def test_hcgmnet_forward_pass(mode: str) -> None:
+    """Test HCGMNet forward pass in both training and inference modes."""
+    model = HCGMNet()
+    if mode == "train":
+        model.train()
+    else:
+        model.eval()
+
     # Create dummy input tensors
     inputs = {
         'img_1': torch.zeros(size=(4, 3, 224, 224)),
         'img_2': torch.zeros(size=(4, 3, 224, 224)),
     }
-    
+
     # Run forward pass
     outputs = model(inputs)
-    
-    # Check output structure and shapes
-    assert isinstance(outputs, dict), f"Expected dict output, got {type(outputs)}"
-    assert 'change_map' in outputs, f"Expected 'change_map' key in outputs, got {outputs.keys()}"
-    assert outputs['change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['change_map'].shape}"
-    assert 'aux_change_map' not in outputs, f"'aux_change_map' should not be present in inference mode"
+
+    if mode == 'train':
+        assert isinstance(output, torch.Tensor)
+        assert output.shape == (4, 2, 224, 224)
+    else:
+        assert isinstance(output, dict)
+        assert output.keys() == {'intermediate_map', 'change_map'}
+        assert output['intermediate_map'].shape == (4, 2, 224, 224)
+        assert output['change_map'].shape == (4, 2, 224, 224)
 
 
-def test_hcgmnet_training() -> None:
-    """Test HCGMNet forward pass during training."""
-    model = HCGMNet(num_classes=2)
-    model.train()
-    
-    # Create dummy input tensors
-    inputs = {
-        'img_1': torch.zeros(size=(4, 3, 224, 224)),
-        'img_2': torch.zeros(size=(4, 3, 224, 224)),
-    }
-    
-    # Run forward pass
-    outputs = model(inputs)
-    
-    # Check output structure and shapes
-    assert isinstance(outputs, dict), f"Expected dict output, got {type(outputs)}"
-    assert 'change_map' in outputs, f"Expected 'change_map' key in outputs, got {outputs.keys()}"
-    assert 'aux_change_map' in outputs, f"Expected 'aux_change_map' key in outputs, got {outputs.keys()}"
-    assert outputs['change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['change_map'].shape}"
-    assert outputs['aux_change_map'].shape == torch.Size([4, 2, 224, 224]), f"Unexpected shape: {outputs['aux_change_map'].shape}"
-
-
-def test_hcgmnet_different_input_size() -> None:
+@pytest.mark.parametrize("batch_size,channels,height,width,expected_shape", [
+    (2, 3, 256, 256, torch.Size([2, 2, 256, 256])),
+    (2, 3, 320, 240, torch.Size([2, 2, 320, 240])),
+    (1, 3, 512, 512, torch.Size([1, 2, 512, 512])),
+    (4, 3, 128, 128, torch.Size([4, 2, 128, 128]))
+])
+def test_hcgmnet_different_input_size(
+    batch_size: int,
+    channels: int,
+    height: int,
+    width: int,
+    expected_shape: torch.Size
+) -> None:
     """Test HCGMNet with different input sizes."""
     model = HCGMNet(num_classes=2)
     model.eval()
-    
-    # Test with 256x256 input size
+
     inputs = {
-        'img_1': torch.zeros(size=(2, 3, 256, 256)),
-        'img_2': torch.zeros(size=(2, 3, 256, 256)),
+        'img_1': torch.zeros(size=(batch_size, channels, height, width)),
+        'img_2': torch.zeros(size=(batch_size, channels, height, width)),
     }
-    
+
     outputs = model(inputs)
-    assert outputs['change_map'].shape == torch.Size([2, 2, 256, 256]), f"Unexpected shape: {outputs['change_map'].shape}"
-    
-    # Test with non-square input
-    inputs = {
-        'img_1': torch.zeros(size=(2, 3, 320, 240)),
-        'img_2': torch.zeros(size=(2, 3, 320, 240)),
-    }
-    
-    outputs = model(inputs)
-    assert outputs['change_map'].shape == torch.Size([2, 2, 320, 240]), f"Unexpected shape: {outputs['change_map'].shape}"
+    assert outputs['change_map'].shape == expected_shape, f"Unexpected shape: {outputs['change_map'].shape}"
