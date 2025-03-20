@@ -77,8 +77,8 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
         #Layer 0 conv + EF
         data0 = self.down_modules[0](pc1['pos'], precomputed=pc1['multiscale'])
         data1 = self.down_modules[0](pc2['pos'], precomputed=pc2['multiscale'])
-        nn_list = knn(data0.pos, data1.pos, 1, pc1['batch'], pc2['batch'])
-        data1.x = data1.x - data0.x[nn_list[1, :], :]
+        nn_list = knn(data0['pos'], data1['pos'], 1, pc1['batch'], pc2['batch'])
+        data1['feat'] = data1['feat'] - data0['feat'][nn_list[1, :], :]
         stack_down.append(data1)
 
         for i in range(1, len(self.down_modules) - 1):
@@ -99,7 +99,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             else:
                 data = self.up_modules[i]((data, stack_down.pop()), precomputed=pc2['multiscale'])
         
-        self.last_feature = data.x
+        self.last_feature = data['feat']
         if self._use_category:
             output = self.FC_layer(self.last_feature, self.category)
         else:
