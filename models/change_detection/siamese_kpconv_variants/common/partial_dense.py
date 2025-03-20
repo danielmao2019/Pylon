@@ -103,10 +103,10 @@ class FPModule_PD(BaseModule):
         bn_momentum = kwargs.get("bn_momentum", 0.1)
         self.nn = MLP(up_conv_nn, bn_momentum=bn_momentum, bias=False)
 
-    def forward(self, data, precomputed=None, **kwargs):
-        data, data_skip = data
+    def forward(self, data, data_skip, **kwargs):
         batch_out = data_skip.clone()
         x_skip = data_skip.x
+        precomputed = data.get('multiscale', None)
 
         has_innermost = len(data.x) == data.batch.max() + 1
 
