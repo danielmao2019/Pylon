@@ -274,7 +274,7 @@ class KPDualBlock(BaseModule):
             )
             self.blocks.append(block)
 
-    def forward(self, data, precomputed=None, **kwargs):
+    def forward(self, data):
         for block in self.blocks:
             data = block(data)
         return data
