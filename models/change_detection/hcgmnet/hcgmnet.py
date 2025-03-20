@@ -1,3 +1,4 @@
+from typing import Dict, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -82,20 +83,16 @@ class HCGMNet(nn.Module):
         self.up_layer3 = BasicConv2d(512,512,3,1,1)
         self.up_layer2 = BasicConv2d(256,256,3,1,1)
 
-        # self.decoder = nn.Sequential(BasicConv2d(1408,512,3,1,1),BasicConv2d(512,256,3,1,1),BasicConv2d(256,64,3,1,1),nn.Conv2d(64,1,3,1,1))
-        self.deocde = nn.Sequential(BasicConv2d(1408, 512, 3, 1, 1), BasicConv2d(512, 256, 3, 1, 1),BasicConv2d(256, 64, 3, 1, 1), nn.Conv2d(64, 1, 3, 1, 1))
+        self.deocde = nn.Sequential(BasicConv2d(1408, 512, 3, 1, 1), BasicConv2d(512, 256, 3, 1, 1),BasicConv2d(256, 64, 3, 1, 1), nn.Conv2d(64, 2, 3, 1, 1))
 
-        # self.decoder_final = nn.Sequential(BasicConv2d(1408,512,3,1,1),BasicConv2d(512,256,3,1,1),BasicConv2d(256,64,3,1,1),nn.Conv2d(64,1,3,1,1))
-        self.deocde_final = nn.Sequential(BasicConv2d(1408, 512, 3, 1, 1), BasicConv2d(512, 256, 3, 1, 1),BasicConv2d(256, 64, 3, 1, 1), nn.Conv2d(64, 1, 3, 1, 1))
+        self.deocde_final = nn.Sequential(BasicConv2d(1408, 512, 3, 1, 1), BasicConv2d(512, 256, 3, 1, 1),BasicConv2d(256, 64, 3, 1, 1), nn.Conv2d(64, 2, 3, 1, 1))
 
         self.cgm_2 = ChangeGuideModule(256)
         self.cgm_3 = ChangeGuideModule(512)
         self.cgm_4 = ChangeGuideModule(512)
 
-    # def forward(self, A,B=None):
-    #     if B == None:
-    #         B = A
-    def forward(self,A,B):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[Dict[str, torch.Tensor], torch.Tensor]:
+        A, B = inputs['img_1'], inputs['img_2']
         size = A.size()[2:]
         layer1_pre = self.inc(A)
         layer1_A = self.down1(layer1_pre)
@@ -134,17 +131,6 @@ class HCGMNet(nn.Module):
 
         feature_fuse = torch.cat((layer1,layer2_1,layer3_1,layer4_1),dim=1)
         change_map = self.deocde(feature_fuse)
-        # ---------------注释这两句------------------------
-        # if not self.training:
-        #     feature_fuse = torch.cat((layer1,layer2_1,layer3_1,layer4_1), dim=1)
-        #     feature_fuse = feature_fuse.cpu().detach().numpy()
-        #     for num in range(0, 511):
-        #         display = feature_fuse[0, num, :, :]  # 第几张影像，第几层特征0-511
-        #         plt.figure()
-        #         plt.imshow(display)  # [B, C, H,W]
-        #         plt.savefig('./test_result/feature_fuse-v2/' + 'v2-fuse-' + str(num) + '.png')
-        # change_map = self.decoder(torch.cat((layer1,layer2_1,layer3_1,layer4_1), dim=1))
-        # ---------------注释这两句------------------------
 
         layer2 = self.cgm_2(layer2, change_map)
         layer3 = self.cgm_3(layer3, change_map)
@@ -161,4 +147,10 @@ class HCGMNet(nn.Module):
 
         final_map = F.interpolate(final_map, size, mode='bilinear', align_corners=True)
 
-        return change_map, final_map
+        if self.training:
+            return {
+                'intermediate_map': change_map,
+                'change_map': final_map,
+            }
+        else:
+            return final_map
