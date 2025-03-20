@@ -143,41 +143,43 @@ class TripletKPConv(UnwrappedUnetBasedModel):
             factory_module_cls = BaseFactoryPSI
         return factory_module_cls
 
-    def set_input(self, data):
-        self.batch_idx = data.batch
+    def forward(self, data, *args, **kwargs) -> Any:
+        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
+        # Process input data
+        batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
-            self.pre_computed = data.multiscale
-            self.upsample = data.upsample
+            pre_computed = data.multiscale
+            upsample = data.upsample
         else:
-            self.pre_computed = None
-            self.upsample = None
+            pre_computed = None
+            upsample = None
+
         if getattr(data, "pos_target", None) is not None:
             if isinstance(data, PairMultiScaleBatch):
-                self.pre_computed_target = data.multiscale_target
-                self.upsample_target = data.upsample_target
+                pre_computed_target = data.multiscale_target
+                upsample_target = data.upsample_target
                 del data.multiscale_target
                 del data.upsample_target
             else:
-                self.pre_computed_target = None
-                self.upsample_target = None
+                pre_computed_target = None
+                upsample_target = None
 
-            self.input0, self.input1 = data.to_data()
-            self.batch_idx_target = data.batch_target
-            self.labels = data.y
+            input0, input1 = data.to_data()
+            batch_idx_target = data.batch_target
+            labels = data.y
         else:
-            self.input = data
-            self.labels = None
+            input0 = data
+            input1 = None
+            labels = None
 
-    def forward(self, *args, **kwargs) -> Any:
-        """Run forward pass. This will be called by both functions <optimize_parameters> and <test>."""
         stack_down = []
 
-        data0 = self.input0
-        data1 = self.input1
+        data0 = input0
+        data1 = input1
         datadiff = None
         for i in range(len(self.down_modules_mono) - 1):
-            data0 = self.down_modules_mono[i](data0, precomputed=self.pre_computed)
-            data1 = self.down_modules_mono[i](data1, precomputed=self.pre_computed_target)
+            data0 = self.down_modules_mono[i](data0, precomputed=pre_computed)
+            data1 = self.down_modules_mono[i](data1, precomputed=pre_computed_target)
             nn_list = knn(data0.pos, data1.pos, 1, data0.batch, data1.batch)
             diff = data1.clone()
             diff.x = data1.x - data0.x[nn_list[1,:],:]
@@ -187,11 +189,11 @@ class TripletKPConv(UnwrappedUnetBasedModel):
                 datadiff.x = torch.cat((datadiff.x,diff.x[nn_list[1,:],:]), axis=1)
             else:
                 datadiff = diff.clone()
-            datadiff = self.down_modules_diff[i](datadiff, precomputed=self.pre_computed_target)
+            datadiff = self.down_modules_diff[i](datadiff, precomputed=pre_computed_target)
 
         #1024
-        data0 = self.down_modules_mono[-1](data0, precomputed=self.pre_computed)
-        data1 = self.down_modules_mono[-1](data1, precomputed=self.pre_computed_target)
+        data0 = self.down_modules_mono[-1](data0, precomputed=pre_computed)
+        data1 = self.down_modules_mono[-1](data1, precomputed=pre_computed_target)
         nn_list = knn(data0.pos, data1.pos, 1, data0.batch, data1.batch)
         diff = data1.clone()
         diff.x = data1.x - data0.x[nn_list[1,:],:]
@@ -206,15 +208,16 @@ class TripletKPConv(UnwrappedUnetBasedModel):
             if i == 0 and innermost:
                 datadiff = self.up_modules[i]((datadiff, stack_down.pop()))
             else:
-                datadiff = self.up_modules[i]((datadiff, stack_down.pop()), precomputed=self.upsample_target)
+                datadiff = self.up_modules[i]((datadiff, stack_down.pop()), precomputed=upsample_target)
 
         last_feature = datadiff.x
+
         if self._use_category:
-            self.output = self.FC_layer(last_feature, self.category)
+            output = self.FC_layer(last_feature, self.category)
         else:
-            self.output = self.FC_layer(last_feature)
+            output = self.FC_layer(last_feature)
 
-        self.data_visual = self.input1
-        self.data_visual.pred = torch.max(self.output, -1)[1]
+        data_visual = input1
+        data_visual.pred = torch.max(output, -1)[1]
 
-        return self.output
+        return output
