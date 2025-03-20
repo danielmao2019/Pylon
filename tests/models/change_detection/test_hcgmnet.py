@@ -1,11 +1,11 @@
 import torch
 import pytest
-from models.change_detection.hcgmnet.model import HCGMNet
+from models.change_detection.hcgmnet.hcgmnet import HCGMNet
 
 
 @pytest.mark.parametrize("mode", [
-    "eval",
     "train",
+    "eval",
 ])
 def test_hcgmnet_forward_pass(mode: str) -> None:
     """Test HCGMNet forward pass in both training and inference modes."""
