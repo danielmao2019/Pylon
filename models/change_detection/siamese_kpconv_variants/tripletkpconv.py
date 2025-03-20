@@ -32,10 +32,6 @@ class TripletKPConv(UnwrappedUnetBasedModel):
     def __init__(self, option, model_type, dataset, modules):
         # Extract parameters from the dataset
         self._num_classes = dataset.num_classes
-        try:
-            self._ignore_label = dataset.ignore_label
-        except:
-            self._ignore_label = None
         self._use_category = getattr(option, "use_category", False)
         if self._use_category:
             if not dataset.class_to_segments:
