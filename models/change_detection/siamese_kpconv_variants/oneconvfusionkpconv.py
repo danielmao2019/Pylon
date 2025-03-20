@@ -10,32 +10,32 @@ from models.change_detection.siamese_kpconv_variants.common.torch_cluster.knn im
 
 
 class OneConvFusionKPConv(UnwrappedUnetBasedModel):
-    def __init__(self, option, model_type, dataset, modules):
+    def __init__(self, option, model_type, num_classes, modules):
         # Extract parameters from the dataset
-        self._num_classes = dataset.num_classes
+        self._num_classes = num_classes
 
         # Assemble encoder / decoder
-        UnwrappedUnetBasedModel.__init__(self, option, model_type, dataset, modules)
+        UnwrappedUnetBasedModel.__init__(self, option, model_type, modules)
 
         # Build final MLP
-        self.last_mlp_opt = option.mlp_cls
-        in_feat = self.last_mlp_opt.nn[0]
+        self.last_mlp_opt = option['mlp_cls']
+        in_feat = self.last_mlp_opt['nn'][0]
         self.FC_layer = Sequential()
-        for i in range(1, len(self.last_mlp_opt.nn)):
+        for i in range(1, len(self.last_mlp_opt['nn'])):
             self.FC_layer.add_module(
                 str(i),
                 Sequential(
                     *[
-                        Linear(in_feat, self.last_mlp_opt.nn[i], bias=False),
-                        FastBatchNorm1d(self.last_mlp_opt.nn[i], momentum=self.last_mlp_opt.bn_momentum),
+                        Linear(in_feat, self.last_mlp_opt['nn'][i], bias=False),
+                        FastBatchNorm1d(self.last_mlp_opt['nn'][i], momentum=self.last_mlp_opt['bn_momentum']),
                         torch.nn.LeakyReLU(0.2),
                     ]
                 ),
             )
-            in_feat = self.last_mlp_opt.nn[i]
+            in_feat = self.last_mlp_opt['nn'][i]
 
-        if self.last_mlp_opt.dropout:
-            self.FC_layer.add_module("Dropout", Dropout(p=self.last_mlp_opt.dropout))
+        if self.last_mlp_opt['dropout']:
+            self.FC_layer.add_module("Dropout", Dropout(p=self.last_mlp_opt['dropout']))
 
         self.FC_layer.add_module("Class", Lin(in_feat, self._num_classes, bias=False))
 
