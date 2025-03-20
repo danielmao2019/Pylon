@@ -33,9 +33,9 @@ def test_cdmaskformer(mode):
 
     if mode == 'train':
         assert isinstance(outputs, dict)
-        assert outputs.keys() == {'pred_logits', 'pred_masks'}
+        assert outputs.keys() == {'pred_logits', 'pred_masks', 'aux_outputs'}, f"{outputs.keys()=}"
         assert outputs['pred_logits'].shape == (1, 5, 56, 56), f"{outputs['pred_logits'].shape}"
         assert outputs['pred_masks'].shape == (1, 5, 56, 56), f"{outputs['pred_masks'].shape}"
     else:
         assert isinstance(outputs, torch.Tensor)
-        assert outputs.shape == (1, 56, 56), f"{outputs.shape}"
+        assert outputs.shape == (1, 1, 256, 256), f"{outputs.shape}"
