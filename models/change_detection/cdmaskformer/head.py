@@ -212,4 +212,4 @@ class CDMaskFormerHead(nn.Module):
         if self.training:
             return outputs
         else:
-            return torch.stack([1-pred_masks, pred_masks], dim=1)
+            return torch.cat([1-pred_masks, pred_masks], dim=1)
