@@ -103,7 +103,7 @@ class FPModule_PD(BaseModule):
         bn_momentum = kwargs.get("bn_momentum", 0.1)
         self.nn = MLP(up_conv_nn, bn_momentum=bn_momentum, bias=False)
 
-    def forward(self, data, data_skip, **kwargs):
+    def forward(self, data, data_skip):
         batch_out = data_skip.copy()
         x_skip = data_skip['x']
         precomputed = data.get('multiscale', None)
