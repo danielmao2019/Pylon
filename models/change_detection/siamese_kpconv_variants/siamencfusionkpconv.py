@@ -32,7 +32,6 @@ class SiamEncFusionKPConv(UnwrappedUnetBasedModel):
     def __init__(self, option, model_type, dataset, modules):
         # Extract parameters from the dataset
         self._num_classes = dataset.num_classes
-        self._weight_classes = dataset.weight_classes
         try:
             self._ignore_label = dataset.ignore_label
         except:
