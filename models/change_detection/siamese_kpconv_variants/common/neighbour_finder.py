@@ -1,13 +1,13 @@
 from abc import ABC, abstractmethod
 from typing import List, Union, cast
 import torch
-from torch_geometric.nn import knn, radius
 import torch_points_kernels as tp
 
-from torch_points3d.utils.config import is_list
-from torch_points3d.utils.enums import ConvolutionFormat
-
-from torch_points3d.utils.debugging_vars import DEBUGGING_VARS, DistributionNeighbour
+from models.change_detection.siamese_kpconv_variants.common.torch_cluster.knn import knn
+from models.change_detection.siamese_kpconv_variants.common.torch_cluster.radius import radius
+from models.change_detection.siamese_kpconv_variants.common.config import is_list
+from models.change_detection.siamese_kpconv_variants.common.enums import ConvolutionFormat
+from models.change_detection.siamese_kpconv_variants.common.debugging_vars import DEBUGGING_VARS, DistributionNeighbour
 
 
 class BaseNeighbourFinder(ABC):
