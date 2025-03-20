@@ -197,6 +197,15 @@ class SetCriterion(nn.Module):
         point_logits = src_masks.flatten(1)
         point_labels = target_masks.flatten(1)       
 
+        print("\n[DEBUG] Shape information in loss_masks:")
+        print(f"src_masks shape before flatten: {src_masks.shape}")
+        print(f"target_masks shape before flatten: {target_masks.shape}")
+        print(f"point_logits shape after flatten: {point_logits.shape}")
+        print(f"point_labels shape after flatten: {point_labels.shape}")
+        print(f"num_masks: {num_masks}")
+        print(f"src_masks resolution: {src_masks.shape[-2]}x{src_masks.shape[-1]}")
+        print(f"target_masks resolution: {target_masks.shape[-2]}x{target_masks.shape[-1]}")
+
         losses = {
             "loss_mask": sigmoid_ce_loss(point_logits, point_labels, num_masks), # sigmoid_focal_loss(point_logits, point_labels, num_masks), # 
             "loss_dice": dice_loss(point_logits, point_labels, num_masks)
