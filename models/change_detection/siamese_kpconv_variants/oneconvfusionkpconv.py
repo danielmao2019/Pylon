@@ -1,12 +1,12 @@
-from typing import Any
+from typing import Any, Dict
 from torch.nn import Sequential, Dropout, Linear
 from torch import nn
+import torch
 
 from models.change_detection.siamese_kpconv_variants.common.base_modules import FastBatchNorm1d, MultiHeadClassifier
 from models.change_detection.siamese_kpconv_variants.common.KPConv import *
 from models.change_detection.siamese_kpconv_variants.common.partial_dense import *
 from models.change_detection.siamese_kpconv_variants.common.unet import UnwrappedUnetBasedModel
-from models.change_detection.siamese_kpconv_variants.common.pair import PairMultiScaleBatch
 from models.change_detection.siamese_kpconv_variants.common.torch_cluster.knn import knn
 
 
@@ -63,52 +63,30 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
         print('upconv : ' + str(sum(p.numel() for p in self.up_modules.parameters() if p.requires_grad)))
         print('downconv : ' + str(sum(p.numel() for p in self.down_modules.parameters() if p.requires_grad)))
 
-    def forward(self, data) -> Any:
+    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
+        # Input validation
+        assert set(inputs.keys()) == {'pc_1', 'pc_2'}, "Expected keys: pc_1, pc_2"
+        required_subkeys = {'pos', 'multiscale', 'batch'}
+        assert all(set(pc.keys()) == required_subkeys for pc in inputs.values()), "Missing required subkeys in point clouds"
+
         # Process input data
-        batch_idx = data.batch
-        if isinstance(data, PairMultiScaleBatch):
-            pre_computed = data.multiscale
-            upsample = data.upsample
-        else:
-            pre_computed = None
-            upsample = None
-
-        if getattr(data, "pos_target", None) is not None:
-            if isinstance(data, PairMultiScaleBatch):
-                pre_computed_target = data.multiscale_target
-                upsample_target = data.upsample_target
-                del data.multiscale_target
-                del data.upsample_target
-            else:
-                pre_computed_target = None
-                upsample_target = None
-
-            input0, input1 = data.to_data()
-            batch_idx_target = data.batch_target
-            labels = data.y
-        else:
-            input0 = data
-            input1 = None
-            batch_idx_target = None
-            labels = None
-            pre_computed_target = None
-            upsample_target = None
+        pc1, pc2 = inputs['pc_1'], inputs['pc_2']
 
         stack_down = []
 
         #Layer 0 conv + EF
-        data0 = self.down_modules[0](input0, precomputed=pre_computed)
-        data1 = self.down_modules[0](input1, precomputed=pre_computed_target)
-        nn_list = knn(data0.pos, data1.pos, 1, data0.batch, data1.batch)
+        data0 = self.down_modules[0](pc1['pos'], precomputed=pc1['multiscale'])
+        data1 = self.down_modules[0](pc2['pos'], precomputed=pc2['multiscale'])
+        nn_list = knn(data0.pos, data1.pos, 1, pc1['batch'], pc2['batch'])
         data1.x = data1.x - data0.x[nn_list[1, :], :]
         stack_down.append(data1)
 
         for i in range(1, len(self.down_modules) - 1):
-            data1 = self.down_modules[i](data1, precomputed=pre_computed_target)
+            data1 = self.down_modules[i](data1, precomputed=pc2['multiscale'])
             stack_down.append(data1)
 
         #1024 : last layer
-        data = self.down_modules[-1](data1, precomputed=pre_computed_target)
+        data = self.down_modules[-1](data1, precomputed=pc2['multiscale'])
 
         innermost = False
         if not isinstance(self.inner_modules[0], Identity):
@@ -119,7 +97,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             if i == 0 and innermost:
                 data = self.up_modules[i]((data, stack_down.pop()))
             else:
-                data = self.up_modules[i]((data, stack_down.pop()), precomputed=upsample_target)
+                data = self.up_modules[i]((data, stack_down.pop()), precomputed=pc2['multiscale'])
         
         self.last_feature = data.x
         if self._use_category:
