@@ -26,8 +26,8 @@ def test_cdmaskformer(mode):
         model.eval()
 
     inputs = {
-        'img_1': torch.randn(1, 3, 256, 256),
-        'img_2': torch.randn(1, 3, 256, 256),
+        'img_1': torch.randn(1, 3, 224, 224),
+        'img_2': torch.randn(1, 3, 224, 224),
     }
     outputs = model.forward(inputs)
 
@@ -38,4 +38,4 @@ def test_cdmaskformer(mode):
         assert outputs['pred_masks'].shape == (1, 5, 56, 56), f"{outputs['pred_masks'].shape}"
     else:
         assert isinstance(outputs, torch.Tensor)
-        assert outputs.shape == (1, 1, 256, 256), f"{outputs.shape}"
+        assert outputs.shape == (1, 1, 224, 224), f"{outputs.shape}"
