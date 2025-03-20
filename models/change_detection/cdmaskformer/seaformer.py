@@ -531,7 +531,7 @@ def SeaFormer_B(pretrained=False, **kwargs):
 # download link of the pretrained backbone weight 
 # https://drive.google.com/drive/folders/1BrZU0339JAFpKsQf4kdS0EpeeFgrBvBJ?usp=drive_link
 @register_model
-def SeaFormer_L(pretrained=False, weights='rscd/models/backbones/review_pretrain/SeaFormer_L_cls_79.9.pth.tar', **kwargs):
+def SeaFormer_L(pretrained=False, weights='./models/change_detection/cdmaskformer/SeaFormer_L_cls_79.9.pth.tar', **kwargs):
     model_cfgs = dict(
         cfg1=[
             # k,  t,  c, s
