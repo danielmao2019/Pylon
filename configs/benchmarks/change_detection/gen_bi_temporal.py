@@ -58,8 +58,8 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model'] = {{'class': models.change_detection.TinyCD, 'args': {{}}}}\n"
         config += '\n'
     elif model == "HCGMNet":
-        config += f"from configs.common.models.change_detection.hcgmnet import hcgmnet_config\n"
-        config += f"config['model'] = hcgmnet_config\n"
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.HCGMNet, 'args': {{}}}}\n"
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"

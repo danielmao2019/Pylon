@@ -57,8 +57,8 @@ from configs.common.datasets.change_detection.val.cdd import config as val_datas
 config.update(val_dataset_config)
 
 # model config
-from configs.common.models.change_detection.hcgmnet import hcgmnet_config
-config['model'] = hcgmnet_config
+import models
+config['model'] = {'class': models.change_detection.HCGMNet, 'args': {}}
 
 # criterion config
 import criteria
