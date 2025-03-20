@@ -12,14 +12,14 @@ class MaskFormerHead(nn.Module):
                  num_classes = 1,
                  num_queries = 10,
                  dec_layers = 10
-                 ):        
-        super().__init__()        
+                 ):
+        super().__init__()
         self.num_classes = num_classes
         self.num_queries = num_queries
         self.dec_layers = dec_layers
         self.pixel_decoder = self.pixel_decoder_init(input_shape)
         self.predictor = self.predictor_init()
-        
+
     def pixel_decoder_init(self, input_shape):
         common_stride = 4 # cfg.MODEL.SEM_SEG_HEAD.COMMON_STRIDE
         transformer_dropout = 0 # cfg.MODEL.MASK_FORMER.DROPOUT
@@ -53,8 +53,8 @@ class MaskFormerHead(nn.Module):
         mask_dim = 256 # cfg.MODEL.SEM_SEG_HEAD.MASK_DIM
         enforce_input_project = False
         mask_classification = True
-        predictor = MultiScaleMaskedTransformerDecoder_OurDH_v5(in_channels, 
-                                                        num_classes, 
+        predictor = MultiScaleMaskedTransformerDecoder_OurDH_v5(in_channels,
+                                                        num_classes,
                                                         mask_classification,
                                                         hidden_dim,
                                                         num_queries,
@@ -67,8 +67,8 @@ class MaskFormerHead(nn.Module):
         return predictor
 
     def forward(self, features, mask=None):
-        mask_features, transformer_encoder_features, multi_scale_features, pos_list_2d = self.pixel_decoder.forward_features(features)   
-        predictions = self.predictor(multi_scale_features, mask_features, mask, pos_list_2d)  
+        mask_features, transformer_encoder_features, multi_scale_features, pos_list_2d = self.pixel_decoder.forward_features(features)
+        predictions = self.predictor(multi_scale_features, mask_features, mask, pos_list_2d)
         return predictions
 
 def dsconv_3x3(in_channel, out_channel):
@@ -151,7 +151,7 @@ class TFF(nn.Module):
         x = self.catconv(torch.cat([xA, xB], dim=1))
 
         return x
-    
+
 class CDMaskFormerHead(nn.Module):
     def __init__(self, channels,
                  num_classes = 1,
@@ -173,7 +173,7 @@ class CDMaskFormerHead(nn.Module):
     def semantic_inference(self, mask_cls, mask_pred):
         # mask_cls = F.softmax(mask_cls, dim=-1)
         mask_cls = F.softmax(mask_cls, dim=-1)[...,1:]
-        mask_pred = mask_pred.sigmoid()  
+        mask_pred = mask_pred.sigmoid()
         semseg = torch.einsum("bqc,bqhw->bchw", mask_cls, mask_pred).detach()
         b, c, h, w = semseg.shape
         for i in range(b):
@@ -209,4 +209,7 @@ class CDMaskFormerHead(nn.Module):
         )
         pred_masks = self.semantic_inference(mask_cls_results, mask_pred_results)
 
-        return [pred_masks, outputs]
+        if self.training:
+            return outputs
+        else:
+            return pred_masks
