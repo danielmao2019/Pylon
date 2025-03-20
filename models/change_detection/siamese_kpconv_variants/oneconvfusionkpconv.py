@@ -1,6 +1,5 @@
-from typing import Any, Dict
+from typing import Dict
 from torch.nn import Sequential, Dropout, Linear
-from torch import nn
 import torch
 
 from models.change_detection.siamese_kpconv_variants.common.base_modules import FastBatchNorm1d, MultiHeadClassifier
@@ -47,7 +46,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
                         *[
                             Linear(in_feat, self.last_mlp_opt.nn[i], bias=False),
                             FastBatchNorm1d(self.last_mlp_opt.nn[i], momentum=self.last_mlp_opt.bn_momentum),
-                            LeakyReLU(0.2),
+                            torch.nn.LeakyReLU(0.2),
                         ]
                     ),
                 )
@@ -89,7 +88,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
         data = self.down_modules[-1](data1)
 
         innermost = False
-        if not isinstance(self.inner_modules[0], Identity):
+        if not isinstance(self.inner_modules[0], torch.nn.Identity):
             stack_down.append(data)
             data = self.inner_modules[0](data)
             innermost = True
@@ -126,7 +125,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
                         *[
                             Linear(in_feat, self.last_mlp_opt.nn[i], bias=False),
                             FastBatchNorm1d(self.last_mlp_opt.nn[i], momentum=self.last_mlp_opt.bn_momentum),
-                            LeakyReLU(0.2),
+                            torch.nn.LeakyReLU(0.2),
                         ]
                     ),
                 )
