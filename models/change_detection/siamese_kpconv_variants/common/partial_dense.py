@@ -104,25 +104,25 @@ class FPModule_PD(BaseModule):
         self.nn = MLP(up_conv_nn, bn_momentum=bn_momentum, bias=False)
 
     def forward(self, data, data_skip, **kwargs):
-        batch_out = data_skip.clone()
-        x_skip = data_skip.x
+        batch_out = data_skip.copy()
+        x_skip = data_skip['x']
         precomputed = data.get('multiscale', None)
 
-        has_innermost = len(data.x) == data.batch.max() + 1
+        has_innermost = len(data['x']) == data['batch'].max() + 1
 
         if precomputed and not has_innermost:
-            if not hasattr(data, "up_idx"):
-                setattr(batch_out, "up_idx", 0)
+            if 'up_idx' not in data:
+                batch_out['up_idx'] = 0
             else:
-                setattr(batch_out, "up_idx", data.up_idx)
+                batch_out['up_idx'] = data['up_idx']
 
-            pre_data = precomputed[batch_out.up_idx]
-            batch_out.up_idx = batch_out.up_idx + 1
+            pre_data = precomputed[batch_out['up_idx']]
+            batch_out['up_idx'] = batch_out['up_idx'] + 1
         else:
             pre_data = None
 
         if has_innermost:
-            x = torch.gather(data.x, 0, data_skip.batch.unsqueeze(-1).repeat((1, data.x.shape[-1])))
+            x = torch.gather(data['x'], 0, data_skip['batch'].unsqueeze(-1).repeat((1, data['x'].shape[-1])))
         else:
             x = self.upsample_op(data, data_skip, precomputed=pre_data)
 
@@ -130,7 +130,7 @@ class FPModule_PD(BaseModule):
             x = torch.cat([x, x_skip], dim=1)
 
         if hasattr(self, "nn"):
-            batch_out.x = self.nn(x)
+            batch_out['x'] = self.nn(x)
         else:
-            batch_out.x = x
+            batch_out['x'] = x
         return batch_out
