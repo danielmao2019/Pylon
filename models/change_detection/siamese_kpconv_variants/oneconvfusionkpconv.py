@@ -13,14 +13,13 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
     def __init__(self, option, model_type, dataset, modules):
         # Extract parameters from the dataset
         self._num_classes = dataset.num_classes
-        self._num_categories = 0
 
         # Assemble encoder / decoder
         UnwrappedUnetBasedModel.__init__(self, option, model_type, dataset, modules)
 
         # Build final MLP
         self.last_mlp_opt = option.mlp_cls
-        in_feat = self.last_mlp_opt.nn[0] + self._num_categories
+        in_feat = self.last_mlp_opt.nn[0]
         self.FC_layer = Sequential()
         for i in range(1, len(self.last_mlp_opt.nn)):
             self.FC_layer.add_module(
@@ -99,7 +98,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
                 bn_momentum=self.last_mlp_opt.bn_momentum,
             )
         else:
-            in_feat = self.last_mlp_opt.nn[0] + self._num_categories
+            in_feat = self.last_mlp_opt.nn[0]
             self.FC_layer = Sequential()
             for i in range(1, len(self.last_mlp_opt.nn)):
                 self.FC_layer.add_module(
