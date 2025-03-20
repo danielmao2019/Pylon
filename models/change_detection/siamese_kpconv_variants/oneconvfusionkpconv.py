@@ -82,8 +82,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
             print('number of weights different of the number of classes')
             self._weight_classes = None
 
-    def set_input(self, data, device):
-        data = data.to(device)
+    def set_input(self, data):
         self.batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
             self.pre_computed = data.multiscale
@@ -103,7 +102,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
 
             self.input0, self.input1 = data.to_data()
             self.batch_idx_target = data.batch_target
-            self.labels = data.y.to(device)
+            self.labels = data.y
         else:
             self.input = data
             self.labels = None
