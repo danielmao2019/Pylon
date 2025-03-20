@@ -1,23 +1,13 @@
 from typing import Any
-from omegaconf.dictconfig import DictConfig
-from omegaconf.listconfig import ListConfig
 from torch.nn import Sequential, Dropout, Linear
-import torch.nn.functional as F
 from torch import nn
-from plyfile import PlyData, PlyElement
-import numpy as np
 
-from torch_points3d.core.common_modules import FastBatchNorm1d
-from torch_points3d.modules.KPConv import *
-from torch_points3d.core.base_conv.partial_dense import *
-from torch_points3d.core.common_modules import MultiHeadClassifier
-from torch_points3d.models.base_model import BaseModel
-from torch_points3d.models.base_architectures.unet import UnwrappedUnetBasedModel
-from torch_points3d.datasets.multiscale_data import MultiScaleBatch
-from torch_geometric.data import Data
+from models.change_detection.siamese_kpconv_variants.common.base_modules import FastBatchNorm1d, MultiHeadClassifier
+from models.change_detection.siamese_kpconv_variants.common.KPConv import *
+from models.change_detection.siamese_kpconv_variants.common.partial_dense import *
+from models.change_detection.siamese_kpconv_variants.common.unet import UnwrappedUnetBasedModel
+from models.change_detection.siamese_kpconv_variants.common.pair import PairMultiScaleBatch
 from torch_geometric.nn import knn
-
-from torch_points3d.datasets.change_detection.pair import PairBatch, PairMultiScaleBatch
 
 
 class OneConvFusionKPConv(UnwrappedUnetBasedModel):
