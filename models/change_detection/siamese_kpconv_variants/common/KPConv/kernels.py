@@ -4,7 +4,7 @@ from torch.nn.parameter import Parameter
 from .kernel_utils import kernel_point_optimization_debug, load_kernels
 from .losses import fitting_loss, repulsion_loss, permissive_loss
 from .convolution_ops import *
-from torch_points3d.models.base_model import BaseInternalLossModule
+from models.change_detection.siamese_kpconv_variants.common.base_model import BaseInternalLossModule
 
 
 def add_ones(query_points, x, add_one):
