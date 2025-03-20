@@ -57,7 +57,6 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
                 self.FC_layer.add_module("Dropout", Dropout(p=self.last_mlp_opt.dropout))
 
             self.FC_layer.add_module("Class", Lin(in_feat, self._num_classes, bias=False))
-            self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
 
         self.last_feature = None
         print('total : ' + str(sum(p.numel() for p in self.parameters() if p.requires_grad)))
@@ -158,6 +157,5 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
                 self.FC_layer.add_module("Dropout", Dropout(p=self.last_mlp_opt.dropout))
 
             self.FC_layer.add_module("Class", Lin(in_feat, self._num_classes, bias=False))
-            self.FC_layer.add_module("Softmax", nn.LogSoftmax(-1))
             if cuda:
                 self.FC_layer.cuda()
