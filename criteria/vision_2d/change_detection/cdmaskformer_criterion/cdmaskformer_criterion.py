@@ -42,7 +42,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         weight_dict.update(aux_weight_dict)
 
         losses = ["labels", "masks"]
-        criterion = SetCriterion(
+        self.criterion = SetCriterion(
             num_classes=self.num_classes,
             matcher=matcher,
             weight_dict=weight_dict,
