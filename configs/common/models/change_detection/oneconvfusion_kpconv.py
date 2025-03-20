@@ -1,51 +1,83 @@
 import models
 
 
+bn_momentum = 0.02
+FEAT = 0
+in_feat = 64
+in_grid_size = 1
+
 model_config = {
     'class': models.change_detection.oneconvfusion_kpconv.OneConvFusionKPConv,
     'args': {
-        'in_channels': 1,  # FEAT + 1 from original config
-        'out_channels': 7,  # Number of classes, typically 7 for Urb3DCD
-        'point_influence': 0.05,  # Derived from grid size
-        'down_channels': [64, 128, 256, 512, 1024],  # Following original: in_feat -> 2*in_feat -> 4*in_feat -> 8*in_feat -> 16*in_feat -> 32*in_feat
-        'up_channels': [1024, 512, 256, 128],  # Following original up_conv_nn
-        'bn_momentum': 0.02,  # From original config
-        'dropout': 0.5,  # From original mlp_cls
-        'conv_type': 'dual',  # Using KPDualBlock as in original
-        'block_params': {
-            'n_kernel_points': 25,
-            'block_names': [
-                ["SimpleBlock", "ResnetBBlock"],
-                ["ResnetBBlock", "ResnetBBlock"],
-                ["ResnetBBlock", "ResnetBBlock"],
-                ["ResnetBBlock", "ResnetBBlock"],
-                ["ResnetBBlock", "ResnetBBlock"],
-            ],
-            'has_bottleneck': [
-                [False, True],
-                [True, True],
-                [True, True],
-                [True, True],
-                [True, True]
-            ],
-            'max_num_neighbors': [
-                [25, 25],
-                [25, 30],
-                [30, 38],
-                [38, 38],
-                [38, 38]
-            ],
-            'deformable': [
-                [False, False],
-                [False, False],
-                [False, False],
-                [False, False],
-                [False, False]
-            ],
+        'option': {
+            'conv_type': 'PARTIAL_DENSE',
+            'down_conv': {
+                'class': models.change_detection.siamese_kpconv_variants.common.KPConv.KPDualBlock,
+                'n_kernel_points': 25,
+                'down_conv_nn': [
+                    [[FEAT + 1, in_feat], [in_feat, 2*in_feat]],
+                    [[2*in_feat, 2*in_feat], [2*in_feat, 4*in_feat]],
+                    [[4*in_feat, 4*in_feat], [4*in_feat, 8*in_feat]],
+                    [[8*in_feat, 8*in_feat], [8*in_feat, 16*in_feat]],
+                    [[16*in_feat, 16*in_feat], [16*in_feat, 32*in_feat]],
+                ],
+                'grid_size': [
+                    [in_grid_size, in_grid_size],
+                    [2*in_grid_size, 2*in_grid_size],
+                    [4*in_grid_size, 4*in_grid_size],
+                    [8*in_grid_size, 8*in_grid_size],
+                    [16*in_grid_size, 16*in_grid_size],
+                ],
+                'prev_grid_size': [
+                    [in_grid_size, in_grid_size],
+                    [in_grid_size, 2*in_grid_size],
+                    [2*in_grid_size, 4*in_grid_size],
+                    [4*in_grid_size, 8*in_grid_size],
+                    [8*in_grid_size, 16*in_grid_size],
+                ],
+                'block_names': [
+                    ["SimpleBlock", "ResnetBBlock"],
+                    ["ResnetBBlock", "ResnetBBlock"],
+                    ["ResnetBBlock", "ResnetBBlock"],
+                    ["ResnetBBlock", "ResnetBBlock"],
+                    ["ResnetBBlock", "ResnetBBlock"],
+                ],
+                'has_bottleneck': [
+                    [False, True],
+                    [True, True],
+                    [True, True],
+                    [True, True],
+                    [True, True]
+                ],
+                'deformable': [
+                    [False, False],
+                    [False, False],
+                    [False, False],
+                    [False, False],
+                    [False, False]
+                ],
+                'max_num_neighbors': [[25, 25], [25, 30], [30, 38], [38, 38], [38, 38]],
+            },
+            'up_conv': {
+                'class': models.change_detection.siamese_kpconv_variants.common.FPModule_PD,
+                'up_conv_nn': [
+                    [32*in_feat + 16*in_feat, 8*in_feat],
+                    [8*in_feat + 8*in_feat, 4*in_feat],
+                    [4*in_feat + 4*in_feat, 2*in_feat],
+                    [2*in_feat + 2*in_feat, in_feat],
+                ],
+                'skip': True,
+                'up_k': [1, 1, 1, 1],
+                'bn_momentum': [bn_momentum, bn_momentum, bn_momentum, bn_momentum, bn_momentum],
+            },
+            'mlp_cls': {
+                'nn': [in_feat, in_feat],
+                'dropout': 0.5,
+                'bn_momentum': bn_momentum,
+            },
         },
-        'up_block_params': {
-            'up_k': [1, 1, 1, 1],
-            'skip': True,
-        },
+        'model_type': 'dummy',
+        'num_classes': 7,
+        'modules': models.change_detection.siamese_kpconv_variants.oneconvfusionkpconv,
     },
 }
