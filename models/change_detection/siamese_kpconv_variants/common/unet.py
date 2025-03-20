@@ -4,10 +4,8 @@ from omegaconf.dictconfig import DictConfig
 import logging
 import copy
 
-from torch_points3d.datasets.base_dataset import BaseDataset
-from torch_points3d.models.base_model import BaseModel
-from torch_points3d.core.common_modules.base_modules import Identity
-from torch_points3d.utils.config import is_list
+from models.change_detection.siamese_kpconv_variants.common.base_modules import Identity, BaseModel
+from models.change_detection.siamese_kpconv_variants.common.config import is_list
 
 
 log = logging.getLogger(__name__)
@@ -52,7 +50,7 @@ class UnetBasedModel(BaseModel):
         if upsample_op:
             self._spatial_ops_dict["upsample_op"].append(upsample_op)
 
-    def __init__(self, opt, model_type, dataset: BaseDataset, modules_lib):
+    def __init__(self, opt, model_type, modules_lib):
         """Construct a Unet generator
         Parameters:
             opt - options for the network generation
@@ -72,11 +70,11 @@ class UnetBasedModel(BaseModel):
         self._spatial_ops_dict = {"neighbour_finder": [], "sampler": [], "upsample_op": []}
         # detect which options format has been used to define the model
         if type(opt.down_conv) is ListConfig or "down_conv_nn" not in opt.down_conv:
-            self._init_from_layer_list_format(opt, model_type, dataset, modules_lib)
+            self._init_from_layer_list_format(opt, model_type, modules_lib)
         else:
-            self._init_from_compact_format(opt, model_type, dataset, modules_lib)
+            self._init_from_compact_format(opt, model_type, modules_lib)
 
-    def _init_from_compact_format(self, opt, model_type, dataset, modules_lib):
+    def _init_from_compact_format(self, opt, model_type, modules_lib):
         """Create a unetbasedmodel from the compact options format - where the
         same convolution is given for each layer, and arguments are given
         in lists
@@ -123,7 +121,7 @@ class UnetBasedModel(BaseModel):
         )  # add the outermost layer
         self._save_sampling_and_search(self.model)
 
-    def _init_from_layer_list_format(self, opt, model_type, dataset, modules_lib):
+    def _init_from_layer_list_format(self, opt, model_type, modules_lib):
         """Create a unetbasedmodel from the layer list options format - where
         each layer of the unet is specified separately
         """
@@ -316,7 +314,7 @@ class UnwrappedUnetBasedModel(BaseModel):
         if upsample_op:
             self._spatial_ops_dict["upsample_op"].append(upsample_op)
 
-    def __init__(self, opt, model_type, dataset: BaseDataset, modules_lib):
+    def __init__(self, opt, model_type, modules_lib):
         """Construct a Unet unwrapped generator
 
         The layers will be appended within lists with the following names
@@ -343,10 +341,10 @@ class UnwrappedUnetBasedModel(BaseModel):
         # detect which options format has been used to define the model
         self._spatial_ops_dict = {"neighbour_finder": [], "sampler": [], "upsample_op": []}
 
-        if is_list(opt.down_conv) or "down_conv_nn" not in opt.down_conv:
+        if is_list(opt['down_conv']) or "down_conv_nn" not in opt['down_conv']:
             raise NotImplementedError
         else:
-            self._init_from_compact_format(opt, model_type, dataset, modules_lib)
+            self._init_from_compact_format(opt, model_type, modules_lib)
 
     def _collect_sampling_ids(self, list_data):
         def extract_matching_key(keys, start_token):
@@ -375,46 +373,43 @@ class UnwrappedUnetBasedModel(BaseModel):
                 module_name = self._get_from_kwargs(inner_opt, "module_name")
                 inner_module_cls = getattr(modules_lib, module_name)
                 inners.append(inner_module_cls(**inner_opt))
-
         else:
             module_name = self._get_from_kwargs(args_innermost, "module_name")
             inner_module_cls = getattr(modules_lib, module_name)
             inners.append(inner_module_cls(**args_innermost))
-
         return inners
 
-    def _init_from_compact_format(self, opt, model_type, dataset, modules_lib):
+    def _init_from_compact_format(self, opt, model_type, modules_lib):
         """Create a unetbasedmodel from the compact options format - where the
         same convolution is given for each layer, and arguments are given
         in lists
         """
-
         self.down_modules = nn.ModuleList()
         self.inner_modules = nn.ModuleList()
         self.up_modules = nn.ModuleList()
 
-        self.save_sampling_id = opt.down_conv.get("save_sampling_id")
+        self.save_sampling_id = opt['down_conv'].get("save_sampling_id")
 
         # Factory for creating up and down modules
         factory_module_cls = self._get_factory(model_type, modules_lib)
-        down_conv_cls_name = opt.down_conv.module_name
-        up_conv_cls_name = opt.up_conv.module_name if opt.get("up_conv") is not None else None
+        down_conv_cls_name = opt['down_conv']['module_name']
+        up_conv_cls_name = opt['up_conv']['module_name'] if 'up_conv' in opt else None
         self._factory_module = factory_module_cls(
             down_conv_cls_name, up_conv_cls_name, modules_lib
         )  # Create the factory object
 
-        # Loal module
-        contains_global = hasattr(opt, "innermost") and opt.innermost is not None
+        # Load module
+        contains_global = 'innermost' in opt and opt['innermost'] is not None
         if contains_global:
-            inners = self._create_inner_modules(opt.innermost, modules_lib)
+            inners = self._create_inner_modules(opt['innermost'], modules_lib)
             for inner in inners:
                 self.inner_modules.append(inner)
         else:
             self.inner_modules.append(Identity())
 
         # Down modules
-        for i in range(len(opt.down_conv.down_conv_nn)):
-            args = self._fetch_arguments(opt.down_conv, i, "DOWN")
+        for i in range(len(opt['down_conv']['down_conv_nn'])):
+            args = self._fetch_arguments(opt['down_conv'], i, "DOWN")
             conv_cls = self._get_from_kwargs(args, "conv_cls")
             down_module = conv_cls(**args)
             self._save_sampling_and_search(down_module)
@@ -422,16 +417,13 @@ class UnwrappedUnetBasedModel(BaseModel):
 
         # Up modules
         if up_conv_cls_name:
-            for i in range(len(opt.up_conv.up_conv_nn)):
-                args = self._fetch_arguments(opt.up_conv, i, "UP")
+            for i in range(len(opt['up_conv']['up_conv_nn'])):
+                args = self._fetch_arguments(opt['up_conv'], i, "UP")
                 conv_cls = self._get_from_kwargs(args, "conv_cls")
                 up_module = conv_cls(**args)
                 self._save_upsample(up_module)
                 self.up_modules.append(up_module)
 
-        self.metric_loss_module, self.miner_module = BaseModel.get_metric_loss_and_miner(
-            getattr(opt, "metric_loss", None), getattr(opt, "miner", None)
-        )
 
     def _get_factory(self, model_name, modules_lib) -> BaseFactory:
         factory_module_cls = getattr(modules_lib, "{}Factory".format(model_name), None)
@@ -446,7 +438,7 @@ class UnwrappedUnetBasedModel(BaseModel):
         args = {}
         for o, v in opt.items():
             name = str(o)
-            if is_list(v) and len(getattr(opt, o)) > 0:
+            if is_list(v) and len(v) > 0:
                 if name[-1] == "s" and name not in SPECIAL_NAMES:
                     name = name[:-1]
                 v_index = v[index]
