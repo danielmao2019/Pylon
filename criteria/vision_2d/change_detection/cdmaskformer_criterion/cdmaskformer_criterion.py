@@ -18,6 +18,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         no_object_weight=0.1,
         dec_layers = 10,
         num_classes = 1,
+        device = torch.device("cuda"),
     ):
         super(CDMaskFormerCriterion, self).__init__()
         self.class_weight = class_weight
@@ -27,8 +28,6 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         self.dec_layers = dec_layers
         self.num_classes = num_classes
 
-    def __call__(self, y_pred, y_true):
-        # building criterion
         matcher = HungarianMatcher(
             cost_class=self.class_weight,
             cost_mask=self.mask_weight,
@@ -52,8 +51,10 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             num_points=12544,
             oversample_ratio=3.0,
             importance_sample_ratio=0.75,
-            device=self.device,
+            device=device,
         )
+
+    def __call__(self, y_pred, y_true):
 
         y_pred["pred_masks"]= F.interpolate(
             y_pred["pred_masks"],
