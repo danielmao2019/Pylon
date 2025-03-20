@@ -66,7 +66,7 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
     def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
         # Input validation
         assert set(inputs.keys()) == {'pc_1', 'pc_2'}, "Expected keys: pc_1, pc_2"
-        required_subkeys = {'pos', 'multiscale', 'batch'}
+        required_subkeys = {'pos', 'feat', 'batch', 'multiscale'}
         assert all(set(pc.keys()) == required_subkeys for pc in inputs.values()), "Missing required subkeys in point clouds"
 
         # Process input data
