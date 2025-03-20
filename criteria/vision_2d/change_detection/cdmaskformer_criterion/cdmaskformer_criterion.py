@@ -1,14 +1,6 @@
 import numpy as np
 import itertools
 from typing import Any, Dict, List, Tuple, Union
-
-
-
-# Copyright (c) Facebook, Inc. and its affiliates.
-# Modified by Bowen Cheng from https://github.com/facebookresearch/detr/blob/master/models/detr.py
-"""
-MaskFormer criterion.
-"""
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -17,7 +9,7 @@ from criteria.vision_2d.change_detection.cdmaskformer_criterion.criterion import
 from criteria.vision_2d.change_detection.cdmaskformer_criterion.matcher import HungarianMatcher
 
 
-class Mask2formerLoss(nn.Module):
+class CDMaskFormerCriterion(nn.Module):
     def __init__(self, class_weight=2.0,
                  dice_weight=5.0,
                  mask_weight=5.0,
@@ -25,7 +17,7 @@ class Mask2formerLoss(nn.Module):
                  dec_layers = 10,
                  num_classes = 1,
                  device="cuda:0"):
-        super(Mask2formerLoss, self).__init__()
+        super(CDMaskFormerCriterion, self).__init__()
         self.device = device
         self.class_weight = class_weight
         self.dice_weight = dice_weight
