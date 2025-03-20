@@ -150,7 +150,6 @@ class SiamEncFusionKPConv(UnwrappedUnetBasedModel):
 
     def set_input(self, data, device):
         data = data.to(device)
-        data.x = add_ones(data.pos, data.x, True)
         self.batch_idx = data.batch
         if isinstance(data, PairMultiScaleBatch):
             self.pre_computed = data.multiscale
@@ -159,7 +158,6 @@ class SiamEncFusionKPConv(UnwrappedUnetBasedModel):
             self.pre_computed = None
             self.upsample = None
         if getattr(data, "pos_target", None) is not None:
-            data.x_target = add_ones(data.pos_target, data.x_target, True)
             if isinstance(data, PairMultiScaleBatch):
                 self.pre_computed_target = data.multiscale_target
                 self.upsample_target = data.upsample_target
