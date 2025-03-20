@@ -74,31 +74,32 @@ class OneConvFusionKPConv(UnwrappedUnetBasedModel):
 
         stack_down = []
 
-        #Layer 0 conv + EF
-        data0 = self.down_modules[0](pc1['pos'], precomputed=pc1['multiscale'])
-        data1 = self.down_modules[0](pc2['pos'], precomputed=pc2['multiscale'])
+        # Layer 0 conv + EF
+        data0 = self.down_modules[0](pc1)
+        data1 = self.down_modules[0](pc2)
         nn_list = knn(data0['pos'], data1['pos'], 1, pc1['batch'], pc2['batch'])
         data1['feat'] = data1['feat'] - data0['feat'][nn_list[1, :], :]
         stack_down.append(data1)
 
         for i in range(1, len(self.down_modules) - 1):
-            data1 = self.down_modules[i](data1, precomputed=pc2['multiscale'])
+            data1 = self.down_modules[i](data1)
             stack_down.append(data1)
 
-        #1024 : last layer
-        data = self.down_modules[-1](data1, precomputed=pc2['multiscale'])
+        # 1024 : last layer
+        data = self.down_modules[-1](data1)
 
         innermost = False
         if not isinstance(self.inner_modules[0], Identity):
             stack_down.append(data)
             data = self.inner_modules[0](data)
             innermost = True
+
         for i in range(len(self.up_modules)):
             if i == 0 and innermost:
                 data = self.up_modules[i]((data, stack_down.pop()))
             else:
                 data = self.up_modules[i]((data, stack_down.pop()), precomputed=pc2['multiscale'])
-        
+
         self.last_feature = data['feat']
         if self._use_category:
             output = self.FC_layer(self.last_feature, self.category)
