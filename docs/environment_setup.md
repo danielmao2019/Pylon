@@ -91,7 +91,7 @@ conda install pytest -c conda-forge -y
 
 ```bash
 # Conda packages
-conda install -c conda-forge -y ftfy regex plyfile
+conda install -c conda-forge -y ftfy regex plyfile pyyaml
 
 # Pip packages
 pip install fvcore triton jsbeautifier
