@@ -3,20 +3,24 @@ from torch.nn import Sequential, Dropout, Linear
 import torch
 
 from torch_points3d.core.common_modules import FastBatchNorm1d, MultiHeadClassifier
-from torch_points3d.modules.KPConv import SimpleBlock, ResnetBBlock, KPDualBlock, KPConvLayer, KPConvDeformableLayer
-from torch_points3d.core.base_conv.partial_dense import FPModule_PD
-from torch_points3d.models.base_model import BaseModel
 from torch_points3d.models.base_architectures.unet import UnwrappedUnetBasedModel
 from models.change_detection.siamese_kpconv_variants.common.torch_cluster.knn import knn
 
 
 class OneConvFusionKPConv(UnwrappedUnetBasedModel):
     def __init__(self, option, model_type, num_classes, modules):
+        assert isinstance(option, dict)
+        import yaml
+        # Convert dictionary to YAML format for configuration
+        config = yaml.dump(option, default_flow_style=False)
+        # Load it back as a proper YAML config
+        option = yaml.safe_load(config)
+        
         # Extract parameters from the dataset
         self._num_classes = num_classes
 
         # Assemble encoder / decoder
-        UnwrappedUnetBasedModel.__init__(self, option, model_type, dataset, modules)
+        UnwrappedUnetBasedModel.__init__(self, option, model_type, None, modules)
 
         # Build final MLP
         self.last_mlp_opt = option.mlp_cls
