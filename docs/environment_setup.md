@@ -108,7 +108,8 @@ conda install -c conda-forge -y pytest
 conda install -c conda-forge -y \
     ftfy \
     regex \
-    plyfile
+    plyfile \
+    pyyaml
 
 # Pip packages
 pip install \
