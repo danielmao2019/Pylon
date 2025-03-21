@@ -1,4 +1,5 @@
 import models
+import torch_points3d
 
 
 bn_momentum = 0.02
@@ -7,12 +8,12 @@ in_feat = 64
 in_grid_size = 1
 
 model_config = {
-    'class': models.change_detection.oneconvfusion_kpconv.OneConvFusionKPConv,
+    'class': models.change_detection.siamese_kpconv_variants.OneConvFusionKPConv,
     'args': {
         'option': {
             'conv_type': 'PARTIAL_DENSE',
             'down_conv': {
-                'class': models.change_detection.siamese_kpconv_variants.common.KPConv.KPDualBlock,
+                'class': torch_points3d.modules.KPConv.KPDualBlock,
                 'n_kernel_points': 25,
                 'down_conv_nn': [
                     [[FEAT + 1, in_feat], [in_feat, 2*in_feat]],
@@ -59,7 +60,7 @@ model_config = {
                 'max_num_neighbors': [[25, 25], [25, 30], [30, 38], [38, 38], [38, 38]],
             },
             'up_conv': {
-                'class': models.change_detection.siamese_kpconv_variants.common.FPModule_PD,
+                'class': torch_points3d.core.base_conv.partial_dense.FPModule_PD,
                 'up_conv_nn': [
                     [32*in_feat + 16*in_feat, 8*in_feat],
                     [8*in_feat + 8*in_feat, 4*in_feat],
