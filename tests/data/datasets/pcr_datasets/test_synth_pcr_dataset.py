@@ -6,7 +6,7 @@ from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 
 @pytest.mark.parametrize('dataset_params', [
     {
-        'data_root': 'tests/data/datasets/pcr_datasets/test_data',
+        'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'split': 'train',
         'rot_mag': 45.0,
         'trans_mag': 0.5,
@@ -14,7 +14,7 @@ from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
         'dataset_size': 10
     },
     {
-        'data_root': 'tests/data/datasets/pcr_datasets/test_data',
+        'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'split': 'test',
         'rot_mag': 30.0,
         'trans_mag': 0.3,
