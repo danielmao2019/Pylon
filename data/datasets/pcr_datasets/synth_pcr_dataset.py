@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 import numpy as np
 import torch
 import open3d as o3d
@@ -15,23 +16,22 @@ class SynthPCRDataset(BaseDataset):
     LABEL_NAMES = ['transform']
     SHA1SUM = None
 
-    def __init__(self, 
-                 rot_mag=45.0, 
-                 trans_mag=0.5,
-                 radius=50.0,
-                 dataset_size=128,
-                 fix_samples=False,
-                 **kwargs):
+    def __init__(
+        self, 
+        rot_mag: float = 45.0,
+        trans_mag: float = 0.5,
+        radius: float = 50.0,
+        dataset_size: int = 128,
+        fix_samples: bool = False,
+        **kwargs,
+    ) -> None:
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
         self._radius = radius
         self._dataset_size = dataset_size
         self.fix_samples = fix_samples
         self._grid_sampling = GridSampling3D(size=radius/10.0)
-        # Only pass the base dataset parameters to super().__init__
-        base_params = {k: v for k, v in kwargs.items() 
-                      if k in ['data_root', 'split', 'indices', 'transforms_cfg', 'use_cache', 'device']}
-        super(SynthPCRDataset, self).__init__(**base_params)
+        super(SynthPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self):
         """Initialize dataset annotations"""
