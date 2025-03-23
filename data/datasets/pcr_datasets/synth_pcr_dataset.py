@@ -29,6 +29,7 @@ class SynthPCRDataset(BaseDataset):
         self.trans_mag = trans_mag
         self._radius = radius
         self._dataset_size = dataset_size
+        self.DATASET_SIZE[kwargs['split']] = dataset_size
         self.fix_samples = fix_samples
         self._grid_sampling = GridSampling3D(size=radius/10.0)
         super(SynthPCRDataset, self).__init__(**kwargs)
