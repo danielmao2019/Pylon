@@ -10,16 +10,12 @@ from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
         'split': 'train',
         'rot_mag': 45.0,
         'trans_mag': 0.5,
-        'radius': 50.0,
-        'dataset_size': 10
     },
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'split': 'test',
         'rot_mag': 30.0,
         'trans_mag': 0.3,
-        'radius': 30.0,
-        'dataset_size': 5
     }
 ])
 def test_synth_pcr_dataset(dataset_params):
