@@ -35,20 +35,100 @@ class SynthPCRDataset(BaseDataset):
         super(SynthPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self):
-        """Initialize dataset annotations"""
-        self.annotations = []
+        """Initialize dataset annotations and prepare centers for sampling."""
+        # Get file paths
+        self.file_paths = []
         for file in os.listdir(self.data_root):
             if file.endswith('.ply'):
-                self.annotations.append(os.path.join(self.data_root, file))
-
+                self.file_paths.append(os.path.join(self.data_root, file))
+        
+        # Split into train/test if needed
         if self.split in ['train', 'test']:
             np.random.seed(42)
-            indices = np.random.permutation(len(self.annotations))
-            split_idx = int(0.8 * len(self.annotations))
+            indices = np.random.permutation(len(self.file_paths))
+            split_idx = int(0.8 * len(self.file_paths))
             if self.split == 'train':
-                self.annotations = [self.annotations[i] for i in indices[:split_idx]]
+                self.file_paths = [self.file_paths[i] for i in indices[:split_idx]]
             else:
-                self.annotations = [self.annotations[i] for i in indices[split_idx:]]
+                self.file_paths = [self.file_paths[i] for i in indices[split_idx:]]
+
+        # Prepare all potential centers by grid sampling
+        all_centers = self._prepare_all_centers()
+
+        # Prepare final annotations based on sampling mode
+        if self._dataset_size > 0:
+            if self.fix_samples:
+                self.annotations = self._prepare_fixed_centers(all_centers)
+            else:
+                self.annotations = self._prepare_random_centers(all_centers)
+        else:
+            self.annotations = self._prepare_grid_centers(all_centers)
+
+    def _prepare_all_centers(self):
+        """Prepare all potential centers by grid sampling each point cloud."""
+        centers_list = []
+        for idx, filepath in enumerate(self.file_paths):
+            # Load point cloud
+            pcd = o3d.io.read_point_cloud(filepath)
+            points = torch.from_numpy(np.asarray(pcd.points).astype(np.float32))
+            
+            # Normalize points
+            mean = points.mean(0, keepdim=True)
+            points = points - mean
+
+            # Grid sample to get centers
+            data_dict = {'pos': points}
+            sampled_data = self._grid_sampling(data_dict)
+            
+            centers = {
+                'pos': sampled_data['pos'],
+                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
+                'filepath': filepath
+            }
+            centers_list.append(centers)
+
+        # Convert to single dictionary with concatenated tensors
+        return {
+            'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
+            'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
+            'filepath': [c['filepath'] for c in centers_list]
+        }
+
+    def _prepare_fixed_centers(self, all_centers):
+        """Prepare fixed centers for the entire dataset."""
+        fixed_centers = []
+        indices = torch.randperm(len(all_centers['pos']))[:self._dataset_size]
+        
+        for idx in indices:
+            fixed_centers.append({
+                'pos': all_centers['pos'][idx],
+                'idx': all_centers['idx'][idx],
+                'filepath': all_centers['filepath'][all_centers['idx'][idx]]
+            })
+        return fixed_centers
+
+    def _prepare_random_centers(self, all_centers):
+        """Prepare random centers for the dataset."""
+        random_centers = []
+        for _ in range(self._dataset_size):
+            idx = torch.randint(0, len(all_centers['pos']), (1,)).item()
+            random_centers.append({
+                'pos': all_centers['pos'][idx],
+                'idx': all_centers['idx'][idx],
+                'filepath': all_centers['filepath'][all_centers['idx'][idx]]
+            })
+        return random_centers
+
+    def _prepare_grid_centers(self, all_centers):
+        """Use all grid centers as dataset samples."""
+        grid_centers = []
+        for i in range(len(all_centers['pos'])):
+            grid_centers.append({
+                'pos': all_centers['pos'][i],
+                'idx': all_centers['idx'][i],
+                'filepath': all_centers['filepath'][all_centers['idx'][i]]
+            })
+        return grid_centers
 
     def _load_datapoint(self, idx):
         """Load a datapoint using sampling center and generate synthetic pair.
