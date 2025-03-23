@@ -1,11 +1,9 @@
 import os
-from typing import Optional
 import numpy as np
 import torch
 import open3d as o3d
-from sklearn.neighbors import KDTree
 from data.datasets.base_dataset import BaseDataset
-from utils.torch_points3d import GridSampling3D, CylinderSampling
+from utils.torch_points3d import GridSampling3D
 
 
 class SynthPCRDataset(BaseDataset):
