@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 
+
 @pytest.mark.parametrize('dataset_params', [
     {
         'data_root': 'tests/data/datasets/pcr_datasets/test_data',
