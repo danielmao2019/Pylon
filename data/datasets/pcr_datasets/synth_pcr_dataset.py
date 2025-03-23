@@ -27,20 +27,39 @@ class SynthPCRDataset(BaseDataset):
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(SynthPCRDataset, self).__init__(**kwargs)
 
+    def _prepare_all_centers(self):
+        """Prepare all voxel centers by grid sampling each point cloud."""
+        all_indices = []
+        for filepath in self.file_paths:
+            # Load point cloud
+            pcd = o3d.io.read_point_cloud(filepath)
+            points = torch.from_numpy(np.asarray(pcd.points).astype(np.float32))
+            
+            # Normalize points
+            mean = points.mean(0, keepdim=True)
+            points = points - mean
+
+            # Grid sample to get point indices for each voxel
+            data_dict = {'pos': points}
+            sampled_data = self._grid_sampling(data_dict)
+            all_indices.extend(sampled_data['point_indices'])
+
+        return all_indices
+
     def _init_annotations(self):
-        """Initialize dataset annotations and prepare voxel centers."""
+        """Initialize dataset annotations."""
         # Get file paths
         self.file_paths = []
         for file in os.listdir(self.data_root):
             if file.endswith('.ply'):
                 self.file_paths.append(os.path.join(self.data_root, file))
 
-        # Prepare all voxel centers by grid sampling
-        all_centers = self._prepare_all_centers()
+        # Get all voxel point indices
+        all_indices = self._prepare_all_centers()
 
-        # Split centers into train/val/test
+        # Split indices into train/val/test
         np.random.seed(42)
-        indices = np.random.permutation(len(all_centers['pos']))
+        indices = np.random.permutation(len(all_indices))
         train_idx = int(0.7 * len(indices))
         val_idx = int(0.85 * len(indices))  # 70% + 15%
 
@@ -51,55 +70,28 @@ class SynthPCRDataset(BaseDataset):
         else:  # test
             select_indices = indices[val_idx:]
         
-        # Select centers for current split
-        self.annotations = [{
-            'pos': all_centers['pos'][i],
-            'idx': all_centers['idx'][i],
-            'filepath': all_centers['filepath'][all_centers['idx'][i]]
-        } for i in select_indices]
+        # Store point indices for current split
+        self.annotations = [all_indices[i] for i in select_indices]
         
         # Update dataset size
         self.DATASET_SIZE[self.split] = len(self.annotations)
 
-    def _prepare_all_centers(self):
-        """Prepare all voxel centers by grid sampling each point cloud."""
-        centers_list = []
-        for idx, filepath in enumerate(self.file_paths):
-            # Load point cloud
-            pcd = o3d.io.read_point_cloud(filepath)
-            points = torch.from_numpy(np.asarray(pcd.points).astype(np.float32))
-            
-            # Normalize points
-            mean = points.mean(0, keepdim=True)
-            points = points - mean
-
-            # Grid sample to get voxel centers
-            data_dict = {'pos': points}
-            sampled_data = self._grid_sampling(data_dict)
-            
-            centers = {
-                'pos': sampled_data['pos'],
-                'idx': idx * torch.ones(len(sampled_data['pos']), dtype=torch.long),
-                'filepath': filepath
-            }
-            centers_list.append(centers)
-
-        # Convert to single dictionary with concatenated tensors
-        return {
-            'pos': torch.cat([c['pos'] for c in centers_list], dim=0),
-            'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
-            'filepath': [c['filepath'] for c in centers_list]
-        }
-
     def _load_datapoint(self, idx):
-        """Load a datapoint using voxel center and generate synthetic pair."""
-        # Get annotation for this index
-        annotation = self.annotations[idx]
-        center = annotation['pos']
+        """Load a datapoint using point indices and generate synthetic pair."""
+        # Get point indices for this voxel
+        point_indices = self.annotations[idx]
         
-        # Load and sample source point cloud
-        src_data = self._load_and_sample_pointcloud(annotation['filepath'], center)
+        # Load point cloud
+        pcd = o3d.io.read_point_cloud(self.file_paths[0])  # Assuming single point cloud for now
+        points = np.asarray(pcd.points)
         
+        # Normalize points
+        mean = points.mean(0, keepdim=True)
+        points = points - mean
+        
+        # Get points in this voxel
+        src_points = points[point_indices]
+
         # Generate random transformation
         rot = np.random.uniform(-self.rot_mag, self.rot_mag, 3)
         trans = np.random.uniform(-self.trans_mag, self.trans_mag, 3)
@@ -122,7 +114,6 @@ class SynthPCRDataset(BaseDataset):
         transform[:3, 3] = trans
 
         # Apply transformation to create target point cloud
-        src_points = src_data['pos']
         tgt_points = (R @ src_points.T).T + trans
 
         # Convert to torch tensors with features
@@ -147,45 +138,8 @@ class SynthPCRDataset(BaseDataset):
         
         meta_info = {
             'idx': idx,
-            'center_pos': center,
-            'point_idx': src_data['point_idx'],
-            'filepath': annotation['filepath']
+            'point_indices': point_indices,
+            'filepath': self.file_paths[0]
         }
 
         return inputs, labels, meta_info
-
-    def _load_and_sample_pointcloud(self, filepath, center):
-        """Load point cloud and extract points within the voxel.
-        
-        Args:
-            filepath: Path to point cloud file
-            center: Center position of the voxel
-            
-        Returns:
-            Dictionary containing:
-            - pos: Points within the voxel
-            - point_idx: Indices of sampled points
-        """
-        # Load point cloud
-        pcd = o3d.io.read_point_cloud(filepath)
-        points = np.asarray(pcd.points)
-        
-        # Normalize points
-        mean = points.mean(0, keepdim=True)
-        points = points - mean
-
-        # Convert to torch tensor
-        points = torch.from_numpy(points.astype(np.float32))
-        
-        # Find points within the voxel
-        min_bound = center - self._voxel_size/2
-        max_bound = center + self._voxel_size/2
-        
-        # Create mask for points within voxel bounds
-        mask = torch.all((points >= min_bound) & (points < max_bound), dim=1)
-        point_idx = torch.where(mask)[0]
-        
-        return {
-            'pos': points[mask].numpy(),
-            'point_idx': point_idx
-        }
