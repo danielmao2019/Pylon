@@ -21,16 +21,15 @@ class SynthPCRDataset(BaseDataset):
         rot_mag: float = 45.0,
         trans_mag: float = 0.5,
         radius: float = 50.0,
-        dataset_size: int = 128,
-        fix_samples: bool = False,
+        sampling_mode: str = 'random',
         **kwargs,
     ) -> None:
+        assert sampling_mode in ['fixed', 'random', 'grid'], \
+            f"sampling_mode must be one of ['fixed', 'random', 'grid'], got {sampling_mode}"
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
         self._radius = radius
-        self._dataset_size = dataset_size
-        self.DATASET_SIZE[kwargs['split']] = dataset_size
-        self.fix_samples = fix_samples
+        self._sampling_mode = sampling_mode
         self._grid_sampling = GridSampling3D(size=radius/10.0)
         super(SynthPCRDataset, self).__init__(**kwargs)
 
@@ -56,12 +55,11 @@ class SynthPCRDataset(BaseDataset):
         all_centers = self._prepare_all_centers()
 
         # Prepare final annotations based on sampling mode
-        if self._dataset_size > 0:
-            if self.fix_samples:
-                self.annotations = self._prepare_fixed_centers(all_centers)
-            else:
-                self.annotations = self._prepare_random_centers(all_centers)
-        else:
+        if self._sampling_mode == 'fixed':
+            self.annotations = self._prepare_fixed_centers(all_centers)
+        elif self._sampling_mode == 'random':
+            self.annotations = self._prepare_random_centers(all_centers)
+        else:  # grid mode
             self.annotations = self._prepare_grid_centers(all_centers)
 
     def _prepare_all_centers(self):
@@ -95,40 +93,23 @@ class SynthPCRDataset(BaseDataset):
         }
 
     def _prepare_fixed_centers(self, all_centers):
-        """Prepare fixed centers for the entire dataset."""
+        """Prepare fixed centers using all grid-sampled centers."""
         fixed_centers = []
-        indices = torch.randperm(len(all_centers['pos']))[:self._dataset_size]
-        
-        for idx in indices:
-            fixed_centers.append({
-                'pos': all_centers['pos'][idx],
-                'idx': all_centers['idx'][idx],
-                'filepath': all_centers['filepath'][all_centers['idx'][idx]]
-            })
-        return fixed_centers
-
-    def _prepare_random_centers(self, all_centers):
-        """Prepare random centers for the dataset."""
-        random_centers = []
-        for _ in range(self._dataset_size):
-            idx = torch.randint(0, len(all_centers['pos']), (1,)).item()
-            random_centers.append({
-                'pos': all_centers['pos'][idx],
-                'idx': all_centers['idx'][idx],
-                'filepath': all_centers['filepath'][all_centers['idx'][idx]]
-            })
-        return random_centers
-
-    def _prepare_grid_centers(self, all_centers):
-        """Use all grid centers as dataset samples."""
-        grid_centers = []
         for i in range(len(all_centers['pos'])):
-            grid_centers.append({
+            fixed_centers.append({
                 'pos': all_centers['pos'][i],
                 'idx': all_centers['idx'][i],
                 'filepath': all_centers['filepath'][all_centers['idx'][i]]
             })
-        return grid_centers
+        return fixed_centers
+
+    def _prepare_random_centers(self, all_centers):
+        """Use all grid-sampled centers but will sample randomly during loading."""
+        return self._prepare_fixed_centers(all_centers)
+
+    def _prepare_grid_centers(self, all_centers):
+        """Use all grid-sampled centers."""
+        return self._prepare_fixed_centers(all_centers)
 
     def _load_datapoint(self, idx):
         """Load a datapoint using sampling center and generate synthetic pair.
