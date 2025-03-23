@@ -2,8 +2,8 @@ import os
 import numpy as np
 import torch
 import open3d as o3d
+from sklearn.neighbors import KDTree
 from data.datasets.base_dataset import BaseDataset
-from scipy.spatial import KDTree
 from utils.torch_points3d import CylinderSampling
 
 
@@ -128,7 +128,7 @@ class SynthPCRDataset(BaseDataset):
         points = points - mean
 
         # Create KDTree for sampling
-        kdtree = KDTree(points)
+        kdtree = KDTree(points, leaf_size=40)
         
         # Create cylinder sampler
         cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
