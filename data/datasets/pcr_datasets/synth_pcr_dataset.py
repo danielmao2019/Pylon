@@ -94,13 +94,7 @@ class SynthPCRDataset(BaseDataset):
         }
 
     def _load_datapoint(self, idx):
-        """Load a datapoint using sampling center and generate synthetic pair.
-        
-        Returns:
-            inputs: Dict containing source and target point clouds
-            labels: Dict containing transformation matrix
-            meta_info: Dict containing additional information
-        """
+        """Load a datapoint using voxel center and generate synthetic pair."""
         # Get annotation for this index
         annotation = self.annotations[idx]
         center = annotation['pos']
@@ -163,15 +157,15 @@ class SynthPCRDataset(BaseDataset):
         return inputs, labels, meta_info
 
     def _load_and_sample_pointcloud(self, filepath, center):
-        """Load point cloud and sample points within cylinder.
+        """Load point cloud and extract points within the voxel.
         
         Args:
             filepath: Path to point cloud file
-            center: Center position for cylinder sampling
+            center: Center position of the voxel
             
         Returns:
             Dictionary containing:
-            - pos: Sampled points
+            - pos: Points within the voxel
             - point_idx: Indices of sampled points
         """
         # Load point cloud
@@ -182,17 +176,18 @@ class SynthPCRDataset(BaseDataset):
         mean = points.mean(0, keepdim=True)
         points = points - mean
 
-        # Create KDTree for sampling
-        kdtree = KDTree(points, leaf_size=40)
+        # Convert to torch tensor
+        points = torch.from_numpy(points.astype(np.float32))
         
-        # Create cylinder sampler
-        cylinder_sampler = CylinderSampling(self._voxel_size, center, align_origin=False)
+        # Find points within the voxel
+        min_bound = center - self._voxel_size/2
+        max_bound = center + self._voxel_size/2
         
-        # Sample points
-        data_dict = {'pos': torch.from_numpy(points.astype(np.float32))}
-        sampled_data = cylinder_sampler(kdtree, data_dict)
+        # Create mask for points within voxel bounds
+        mask = torch.all((points >= min_bound) & (points < max_bound), dim=1)
+        point_idx = torch.where(mask)[0]
         
         return {
-            'pos': np.asarray(sampled_data['pos']),
-            'point_idx': sampled_data['point_idx']
+            'pos': points[mask].numpy(),
+            'point_idx': point_idx
         }
