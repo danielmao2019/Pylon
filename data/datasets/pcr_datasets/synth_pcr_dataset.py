@@ -3,6 +3,8 @@ import numpy as np
 import torch
 import open3d as o3d
 from data.datasets.base_dataset import BaseDataset
+from scipy.spatial import KDTree
+from data.datasets.cylinder_sampling import CylinderSampling
 
 
 class SynthPCRDataset(BaseDataset):
@@ -37,15 +39,24 @@ class SynthPCRDataset(BaseDataset):
                 self.annotations = [self.annotations[i] for i in indices[split_idx:]]
 
     def _load_datapoint(self, idx):
-        """Load a single datapoint."""
-        # Load source point cloud
-        src_pcd = o3d.io.read_point_cloud(self.annotations[idx])
-        src_points = np.asarray(src_pcd.points)
-
+        """Load a datapoint using sampling center and generate synthetic pair.
+        
+        Returns:
+            inputs: Dict containing source and target point clouds
+            labels: Dict containing transformation matrix
+            meta_info: Dict containing additional information
+        """
+        # Get annotation for this index
+        annotation = self.annotations[idx]
+        center = annotation['pos']
+        
+        # Load and sample source point cloud
+        src_data = self._load_and_sample_pointcloud(annotation['filepath'], center)
+        
         # Generate random transformation
         rot = np.random.uniform(-self.rot_mag, self.rot_mag, 3)
         trans = np.random.uniform(-self.trans_mag, self.trans_mag, 3)
-
+        
         # Create rotation matrix (using Euler angles)
         Rx = np.array([[1, 0, 0],
                       [0, np.cos(np.radians(rot[0])), -np.sin(np.radians(rot[0]))],
@@ -63,23 +74,70 @@ class SynthPCRDataset(BaseDataset):
         transform[:3, :3] = R
         transform[:3, 3] = trans
 
-        # Apply transformation to get target point cloud
+        # Apply transformation to create target point cloud
+        src_points = src_data['pos']
         tgt_points = (R @ src_points.T).T + trans
 
-        # Convert to torch tensors
-        src_points = torch.from_numpy(src_points.astype(np.float32))
-        tgt_points = torch.from_numpy(tgt_points.astype(np.float32))
+        # Convert to torch tensors with features
+        src_features = torch.ones((src_points.shape[0], 1), dtype=torch.float32)
+        tgt_features = torch.ones((tgt_points.shape[0], 1), dtype=torch.float32)
         transform = torch.from_numpy(transform.astype(np.float32))
 
         inputs = {
-            'src_pc': src_points[None],
-            'tgt_pc': tgt_points[None]
+            'src_pc': {
+                'pos': torch.from_numpy(src_points.astype(np.float32)),
+                'feat': src_features
+            },
+            'tgt_pc': {
+                'pos': torch.from_numpy(tgt_points.astype(np.float32)),
+                'feat': tgt_features
+            }
         }
+        
         labels = {
-            'transform': transform[None]
+            'transform': torch.from_numpy(transform.astype(np.float32))  # Remove batch dimension
         }
+        
         meta_info = {
-            'filename': self.annotations[idx]
+            'idx': idx,
+            'center_pos': center,
+            'point_idx': src_data['point_idx'],
+            'filepath': annotation['filepath']
         }
 
         return inputs, labels, meta_info
+
+    def _load_and_sample_pointcloud(self, filepath, center):
+        """Load point cloud and sample points within cylinder.
+        
+        Args:
+            filepath: Path to point cloud file
+            center: Center position for cylinder sampling
+            
+        Returns:
+            Dictionary containing:
+            - pos: Sampled points
+            - point_idx: Indices of sampled points
+        """
+        # Load point cloud
+        pcd = o3d.io.read_point_cloud(filepath)
+        points = np.asarray(pcd.points)
+        
+        # Normalize points
+        mean = points.mean(0, keepdim=True)
+        points = points - mean
+
+        # Create KDTree for sampling
+        kdtree = KDTree(points)
+        
+        # Create cylinder sampler
+        cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
+        
+        # Sample points
+        data_dict = {'pos': torch.from_numpy(points.astype(np.float32))}
+        sampled_data = cylinder_sampler(kdtree, data_dict)
+        
+        return {
+            'pos': np.asarray(sampled_data['pos']),
+            'point_idx': sampled_data['point_idx']
+        }
