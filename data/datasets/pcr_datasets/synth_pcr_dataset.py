@@ -26,7 +26,7 @@ class SynthPCRDataset(BaseDataset):
         for file in os.listdir(self.data_root):
             if file.endswith('.ply'):
                 self.annotations.append(os.path.join(self.data_root, file))
-        
+
         if self.split in ['train', 'test']:
             np.random.seed(42)
             indices = np.random.permutation(len(self.annotations))
@@ -41,11 +41,11 @@ class SynthPCRDataset(BaseDataset):
         # Load source point cloud
         src_pcd = o3d.io.read_point_cloud(self.annotations[idx])
         src_points = np.asarray(src_pcd.points)
-        
+
         # Generate random transformation
         rot = np.random.uniform(-self.rot_mag, self.rot_mag, 3)
         trans = np.random.uniform(-self.trans_mag, self.trans_mag, 3)
-        
+
         # Create rotation matrix (using Euler angles)
         Rx = np.array([[1, 0, 0],
                       [0, np.cos(np.radians(rot[0])), -np.sin(np.radians(rot[0]))],
