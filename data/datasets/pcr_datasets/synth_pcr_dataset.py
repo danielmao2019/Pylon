@@ -4,7 +4,7 @@ import torch
 import open3d as o3d
 from data.datasets.base_dataset import BaseDataset
 from scipy.spatial import KDTree
-from data.datasets.cylinder_sampling import CylinderSampling
+from utils.torch_points3d import CylinderSampling
 
 
 class SynthPCRDataset(BaseDataset):
