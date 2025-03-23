@@ -4,7 +4,7 @@ import torch
 import open3d as o3d
 from sklearn.neighbors import KDTree
 from data.datasets.base_dataset import BaseDataset
-from utils.torch_points3d import CylinderSampling
+from utils.torch_points3d import GridSampling3D, CylinderSampling
 
 
 class SynthPCRDataset(BaseDataset):
@@ -15,12 +15,23 @@ class SynthPCRDataset(BaseDataset):
     LABEL_NAMES = ['transform']
     SHA1SUM = None
 
-    def __init__(self, rot_mag=45.0, trans_mag=0.5, **kwargs):
-        assert isinstance(rot_mag, float)
-        assert isinstance(trans_mag, float)
+    def __init__(self, 
+                 rot_mag=45.0, 
+                 trans_mag=0.5,
+                 radius=50.0,
+                 dataset_size=128,
+                 fix_samples=False,
+                 **kwargs):
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
-        super(SynthPCRDataset, self).__init__(**kwargs)
+        self._radius = radius
+        self._dataset_size = dataset_size
+        self.fix_samples = fix_samples
+        self._grid_sampling = GridSampling3D(size=radius/10.0)
+        # Only pass the base dataset parameters to super().__init__
+        base_params = {k: v for k, v in kwargs.items() 
+                      if k in ['data_root', 'split', 'indices', 'transforms_cfg', 'use_cache', 'device']}
+        super(SynthPCRDataset, self).__init__(**base_params)
 
     def _init_annotations(self):
         """Initialize dataset annotations"""
