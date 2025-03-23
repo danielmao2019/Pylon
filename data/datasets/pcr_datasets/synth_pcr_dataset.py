@@ -12,15 +12,12 @@ class SynthPCRDataset(BaseDataset):
     LABEL_NAMES = ['transform']
     SHA1SUM = None
 
-    def __init__(self,
-                 data_root,
-                 split='train',
-                 rot_mag=45.0,
-                 trans_mag=0.5,
-                 **kwargs):
+    def __init__(self, rot_mag=45.0, trans_mag=0.5, **kwargs):
+        assert isinstance(rot_mag, float)
+        assert isinstance(trans_mag, float)
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
-        super().__init__(data_root=data_root, split=split, **kwargs)
+        super(SynthPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self):
         """Initialize dataset annotations"""
