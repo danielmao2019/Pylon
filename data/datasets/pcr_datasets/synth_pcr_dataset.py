@@ -10,8 +10,8 @@ from utils.torch_points3d import GridSampling3D, CylinderSampling
 
 class SynthPCRDataset(BaseDataset):
     # Required class attributes from BaseDataset
-    SPLIT_OPTIONS = ['train', 'test']
-    DATASET_SIZE = {'train': None, 'test': None}
+    SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = {'train': None, 'val': None, 'test': None}
     INPUT_NAMES = ['src_pc', 'tgt_pc']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
@@ -20,50 +20,51 @@ class SynthPCRDataset(BaseDataset):
         self, 
         rot_mag: float = 45.0,
         trans_mag: float = 0.5,
-        radius: float = 50.0,
-        sampling_mode: str = 'random',
+        voxel_size: float = 50.0,
         **kwargs,
     ) -> None:
-        assert sampling_mode in ['fixed', 'random', 'grid'], \
-            f"sampling_mode must be one of ['fixed', 'random', 'grid'], got {sampling_mode}"
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
-        self._radius = radius
-        self._sampling_mode = sampling_mode
-        self._grid_sampling = GridSampling3D(size=radius/10.0)
+        self._voxel_size = voxel_size
+        self._grid_sampling = GridSampling3D(size=voxel_size)
         super(SynthPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self):
-        """Initialize dataset annotations and prepare centers for sampling."""
+        """Initialize dataset annotations and prepare voxel centers."""
         # Get file paths
         self.file_paths = []
         for file in os.listdir(self.data_root):
             if file.endswith('.ply'):
                 self.file_paths.append(os.path.join(self.data_root, file))
-        
-        # Split into train/test if needed
-        if self.split in ['train', 'test']:
-            np.random.seed(42)
-            indices = np.random.permutation(len(self.file_paths))
-            split_idx = int(0.8 * len(self.file_paths))
-            if self.split == 'train':
-                self.file_paths = [self.file_paths[i] for i in indices[:split_idx]]
-            else:
-                self.file_paths = [self.file_paths[i] for i in indices[split_idx:]]
 
-        # Prepare all potential centers by grid sampling
+        # Prepare all voxel centers by grid sampling
         all_centers = self._prepare_all_centers()
 
-        # Prepare final annotations based on sampling mode
-        if self._sampling_mode == 'fixed':
-            self.annotations = self._prepare_fixed_centers(all_centers)
-        elif self._sampling_mode == 'random':
-            self.annotations = self._prepare_random_centers(all_centers)
-        else:  # grid mode
-            self.annotations = self._prepare_grid_centers(all_centers)
+        # Split centers into train/val/test
+        np.random.seed(42)
+        indices = np.random.permutation(len(all_centers['pos']))
+        train_idx = int(0.7 * len(indices))
+        val_idx = int(0.85 * len(indices))  # 70% + 15%
+
+        if self.split == 'train':
+            select_indices = indices[:train_idx]
+        elif self.split == 'val':
+            select_indices = indices[train_idx:val_idx]
+        else:  # test
+            select_indices = indices[val_idx:]
+        
+        # Select centers for current split
+        self.annotations = [{
+            'pos': all_centers['pos'][i],
+            'idx': all_centers['idx'][i],
+            'filepath': all_centers['filepath'][all_centers['idx'][i]]
+        } for i in select_indices]
+        
+        # Update dataset size
+        self.DATASET_SIZE[self.split] = len(self.annotations)
 
     def _prepare_all_centers(self):
-        """Prepare all potential centers by grid sampling each point cloud."""
+        """Prepare all voxel centers by grid sampling each point cloud."""
         centers_list = []
         for idx, filepath in enumerate(self.file_paths):
             # Load point cloud
@@ -74,7 +75,7 @@ class SynthPCRDataset(BaseDataset):
             mean = points.mean(0, keepdim=True)
             points = points - mean
 
-            # Grid sample to get centers
+            # Grid sample to get voxel centers
             data_dict = {'pos': points}
             sampled_data = self._grid_sampling(data_dict)
             
@@ -91,25 +92,6 @@ class SynthPCRDataset(BaseDataset):
             'idx': torch.cat([c['idx'] for c in centers_list], dim=0),
             'filepath': [c['filepath'] for c in centers_list]
         }
-
-    def _prepare_fixed_centers(self, all_centers):
-        """Prepare fixed centers using all grid-sampled centers."""
-        fixed_centers = []
-        for i in range(len(all_centers['pos'])):
-            fixed_centers.append({
-                'pos': all_centers['pos'][i],
-                'idx': all_centers['idx'][i],
-                'filepath': all_centers['filepath'][all_centers['idx'][i]]
-            })
-        return fixed_centers
-
-    def _prepare_random_centers(self, all_centers):
-        """Use all grid-sampled centers but will sample randomly during loading."""
-        return self._prepare_fixed_centers(all_centers)
-
-    def _prepare_grid_centers(self, all_centers):
-        """Use all grid-sampled centers."""
-        return self._prepare_fixed_centers(all_centers)
 
     def _load_datapoint(self, idx):
         """Load a datapoint using sampling center and generate synthetic pair.
@@ -204,7 +186,7 @@ class SynthPCRDataset(BaseDataset):
         kdtree = KDTree(points, leaf_size=40)
         
         # Create cylinder sampler
-        cylinder_sampler = CylinderSampling(self._radius, center, align_origin=False)
+        cylinder_sampler = CylinderSampling(self._voxel_size, center, align_origin=False)
         
         # Sample points
         data_dict = {'pos': torch.from_numpy(points.astype(np.float32))}
