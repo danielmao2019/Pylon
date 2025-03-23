@@ -53,9 +53,11 @@ class SynthPCRDataset(BaseDataset):
         for file in os.listdir(self.data_root):
             if file.endswith('.ply'):
                 self.file_paths.append(os.path.join(self.data_root, file))
+        print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
         # Get all voxel point indices
         all_indices = self._prepare_all_centers()
+        print(f"Partitioned {len(self.file_paths)} point clouds into {len(all_indices)} voxels in total.")
 
         # Split indices into train/val/test
         np.random.seed(42)
