@@ -4,6 +4,7 @@ import torch
 import open3d as o3d
 from data.datasets.base_dataset import BaseDataset
 
+
 class SynthPCRDataset(BaseDataset):
     # Required class attributes from BaseDataset
     SPLIT_OPTIONS = ['train', 'test']
