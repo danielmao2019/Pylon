@@ -181,7 +181,7 @@ def test_focal_dice_loss_input_validation(sample_data):
     y_true_invalid[0, 0, 0] = num_classes  # This should be caught by one_hot encoding
     
     # The assertion happens in the one_hot encoding function
-    with pytest.raises(AssertionError, match="Values must be in range"):
+    with pytest.raises(AssertionError, match="Found class indices >= .* in y_true\."):
         criterion(y_pred, y_true_invalid)
 
 
