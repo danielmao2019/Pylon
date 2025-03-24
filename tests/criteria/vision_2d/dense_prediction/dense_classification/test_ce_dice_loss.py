@@ -63,7 +63,6 @@ def test_ce_dice_loss_perfect_predictions(sample_data):
     """
     y_pred, y_true = sample_data
     device = y_pred.device
-    num_classes = y_pred.size(1)
 
     # Create perfect predictions (one-hot encoded with high confidence)
     y_pred_perfect = torch.zeros_like(y_pred)
@@ -86,7 +85,6 @@ def test_ce_dice_loss_with_class_weights(sample_data):
     """
     y_pred, y_true = sample_data
     device = y_pred.device
-    num_classes = y_pred.size(1)
 
     # Create unequal class weights
     class_weights = torch.tensor([0.2, 0.3, 0.5], device=device)
@@ -114,7 +112,6 @@ def test_ce_dice_loss_with_ignore_index(sample_data):
     """
     y_pred, y_true = sample_data
     device = y_pred.device
-    num_classes = y_pred.size(1)
     ignore_value = 255
 
     # Create a version with some ignored pixels
@@ -139,7 +136,6 @@ def test_ce_dice_loss_all_ignored(sample_data):
     """
     y_pred, _ = sample_data
     device = y_pred.device
-    num_classes = y_pred.size(1)
     ignore_value = 255
 
     # Create target with all pixels ignored - ensure it's int64
