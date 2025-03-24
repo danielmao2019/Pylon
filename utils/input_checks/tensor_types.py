@@ -34,6 +34,10 @@ def check_classification(y_pred: Any, y_true: Any, batched: Optional[bool] = Tru
     check_classification_true(obj=y_true, batched=batched)
     if batched:
         assert y_pred.size(0) == y_true.size(0), f"{y_pred.shape=}, {y_true.shape=}"
+    # Check that y_true values don't exceed the number of classes
+    # For classification, class dimension is at index 1 if batched, 0 if not
+    num_classes = y_pred.size(1 if batched else 0)  # Class dimension depends on batched flag
+    assert torch.all(y_true < num_classes), f"Found class indices >= {num_classes} in y_true"
     return y_pred, y_true
 
 # ====================================================================================================
