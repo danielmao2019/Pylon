@@ -240,8 +240,8 @@ class HANet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-        x1 = inputs['x1']
-        x2 = inputs['x2']
+        x1 = inputs['img_1']
+        x2 = inputs['img_2']
         # The first branch
         x1 = self.conv0(self.conv0_0(x1))  # Output of the first scale
         x3 = self.conv2(self.pool1(x1))
