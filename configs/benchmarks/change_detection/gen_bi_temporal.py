@@ -76,6 +76,7 @@ def main(dataset: str, model: str) -> None:
         config += f"config['model'] = {{'class': models.change_detection.HANet, 'args': {{}}}}\n"
         config += '\n'
         config += f"# criterion config\n"
+        config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.FocalDiceLoss\n"
         config += '\n'
     elif model.startswith("Changer"):
