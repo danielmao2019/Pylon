@@ -92,8 +92,8 @@ def test_focal_dice_loss_with_class_weights(sample_data):
     y_pred, y_true = sample_data
     device = y_pred.device
 
-    # Create unequal class weights for 2 classes
-    class_weights = torch.tensor([0.2, 0.8], device=device)
+    # Create unequal class weights for all classes
+    class_weights = torch.tensor([0.2, 0.8, 0.5], device=device)
 
     # Initialize criterion with weights
     criterion = FocalDiceLoss(class_weights=class_weights).to(device)
@@ -142,13 +142,12 @@ def test_focal_dice_loss_all_ignored(sample_data):
     """
     y_pred, _ = sample_data
     device = y_pred.device
-    num_classes = y_pred.size(1)
     ignore_value = 255
 
-    # Create target with all pixels ignored - ensure it's int64
+    # Create target with all pixels ignored
     y_true = torch.full_like(y_pred[:, 0], fill_value=ignore_value, dtype=torch.int64)
 
-    # Initialize criterion
+    # Initialize criterion with ignore_value
     criterion = FocalDiceLoss(ignore_value=ignore_value).to(device)
 
     # Loss computation should raise an error when all pixels are ignored
