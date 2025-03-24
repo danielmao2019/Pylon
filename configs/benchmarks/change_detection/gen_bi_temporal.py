@@ -79,6 +79,18 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion']['class'] = criteria.vision_2d.FocalDiceLoss\n"
         config += '\n'
+        config += f"# transforms config\n"
+        config += f"from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg\n"
+        if dataset == "air_change":
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(first='ResizeMaps', size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(112, 112), resize=(256, 256))\n"
+        elif dataset == "oscd":
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(224, 224), resize=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(first='RandomCrop', size=(224, 224), resize=(256, 256))\n"
+        else:
+            config += f"config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+            config += f"config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))\n"
+        config += '\n'
     elif model.startswith("Changer"):
         config += f"from configs.common.models.change_detection.changer import changer_{model[len('Changer-'):].replace('-', '_').lower()}_cfg as model_cfg\n"
         config += f"config['model'] = model_cfg\n"
