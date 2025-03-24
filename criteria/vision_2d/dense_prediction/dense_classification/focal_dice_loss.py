@@ -32,6 +32,7 @@ class FocalDiceLoss(HybridCriterion):
                 'args': {
                     'gamma': gamma,
                     'class_weights': class_weights,
+                    'ignore_value': ignore_value,
                 },
             },
             {
