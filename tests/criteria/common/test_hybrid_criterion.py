@@ -11,13 +11,13 @@ def dummy_data():
     num_classes = 3
     height = 4
     width = 4
-    
+
     # Create dummy predictions (logits)
-    y_pred = torch.randn(batch_size, num_classes, height, width)
-    
+    y_pred = torch.randn(batch_size, num_classes, height, width, requires_grad=True)
+
     # Create dummy ground truth (class indices)
-    y_true = torch.randint(0, num_classes, (batch_size, height, width))
-    
+    y_true = torch.randint(0, num_classes, (batch_size, height, width), requires_grad=False)
+
     return y_pred, y_true
 
 
@@ -41,12 +41,12 @@ def test_hybrid_criterion_initialization():
             }
         }
     ]
-    
+
     # Test initialization with sum combination
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
     assert criterion.combine == 'sum'
     assert len(criterion.criteria) == 2
-    
+
     # Test initialization with mean combination
     criterion = HybridCriterion(combine='mean', criteria_cfg=criteria_cfg)
     assert criterion.combine == 'mean'
@@ -56,7 +56,7 @@ def test_hybrid_criterion_initialization():
 def test_hybrid_criterion_forward(dummy_data):
     """Test that HybridCriterion can process dummy data and return a loss value."""
     y_pred, y_true = dummy_data
-    
+
     criteria_cfg = [
         {
             'class': SemanticSegmentationCriterion,
@@ -75,14 +75,14 @@ def test_hybrid_criterion_forward(dummy_data):
             }
         }
     ]
-    
+
     # Test forward pass with sum combination
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
     loss = criterion(y_pred=y_pred, y_true=y_true)
     assert isinstance(loss, torch.Tensor)
     assert loss.dim() == 0  # Scalar loss
     assert loss.requires_grad  # Loss should require gradients
-    
+
     # Test forward pass with mean combination
     criterion = HybridCriterion(combine='mean', criteria_cfg=criteria_cfg)
     loss = criterion(y_pred=y_pred, y_true=y_true)
