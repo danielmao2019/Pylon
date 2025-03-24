@@ -97,9 +97,16 @@ class FocalLoss(SingleTaskCriterion):
         # Prepare y_pred and y_true
         y_pred = self._prepare_focal_pred(y_pred)
         y_true = self._prepare_focal_true(y_true)
+
+        # Handle ignore value first
         valid_mask = y_true != self.ignore_value
+        if valid_mask.sum() == 0:
+            raise ValueError("All pixels in target are ignored. Cannot compute loss.")
+
         y_pred = y_pred[valid_mask, :]
         y_true = y_true[valid_mask]
+
+        # Validate after handling ignore values
         check_classification(y_pred, y_true)
 
         # Convert logits to probabilities
