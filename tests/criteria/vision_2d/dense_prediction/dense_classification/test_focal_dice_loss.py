@@ -11,7 +11,7 @@ def sample_data():
     """
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = torch.device("cpu")
-    batch_size, num_classes = 2, 2  # Changed to 2 classes for binary classification
+    batch_size, num_classes = 4, 3  # Changed to 2 classes for binary classification
     height, width = 32, 32
 
     # Create predicted logits with shape (N, C, H, W) and enable gradients
