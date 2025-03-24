@@ -194,9 +194,9 @@ def test_focal_dice_loss_gamma_effect(sample_data):
     device = y_pred.device
 
     # Initialize criteria with different gamma values
-    criterion_gamma1 = FocalDiceLoss(gamma=1.0).to(device)
-    criterion_gamma2 = FocalDiceLoss(gamma=2.0).to(device)
-    criterion_gamma3 = FocalDiceLoss(gamma=3.0).to(device)
+    criterion_gamma1 = FocalDiceLoss(beta=1.0).to(device)
+    criterion_gamma2 = FocalDiceLoss(beta=2.0).to(device)
+    criterion_gamma3 = FocalDiceLoss(beta=3.0).to(device)
 
     # Compute losses
     loss_gamma1 = criterion_gamma1(y_pred, y_true)
