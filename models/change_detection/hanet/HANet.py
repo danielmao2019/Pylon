@@ -161,10 +161,10 @@ class ColAttention(nn.Module):
         return out
 
 
-class HAN(nn.Module):
+class HANet(nn.Module):
     """HANet"""
     def __init__(self, in_ch=3, ou_ch=2):
-        super(HAN, self).__init__()
+        super(HANet, self).__init__()
         torch.nn.Module.dump_patches = True
         n1 = 40  # the initial number of channels of feature map
         filters = [n1, n1 * 2, n1 * 4, n1 * 8, n1 * 16]  # 32, 64, 128, 256, 512
