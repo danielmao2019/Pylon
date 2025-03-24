@@ -78,6 +78,11 @@ def test_focal_loss_input_shapes(input_shape):
     assert y_pred.grad is not None
     assert y_pred.grad.shape == y_pred.shape
 
+    # Test backward pass
+    loss.backward()
+    assert y_pred.grad is not None
+    assert y_pred.grad.shape == y_pred.shape
+
 
 def test_focal_loss_perfect_predictions(sample_data):
     """Test FocalLoss with perfect predictions."""
