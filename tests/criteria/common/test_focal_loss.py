@@ -1,114 +1,167 @@
 import pytest
 import torch
-import numpy as np
 from criteria.common.focal_loss import FocalLoss
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
 
 
-def test_focal_loss_init():
+@pytest.fixture
+def sample_data():
+    """
+    Create sample data for testing.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    batch_size, num_classes = 4, 3
+    height, width = 32, 32
+
+    # Create predicted logits with shape (N, C, H, W) and enable gradients
+    y_pred = torch.randn(batch_size, num_classes, height, width, device=device, requires_grad=True)
+    # Create ground truth with shape (N, H, W) with values in [0, num_classes) and disable gradients
+    y_true = torch.randint(0, num_classes, (batch_size, height, width), device=device, requires_grad=False)
+
+    return y_pred, y_true
+
+
+def test_focal_loss_initialization():
+    """Test initialization of FocalLoss with different parameters."""
     # Test default initialization
     loss_fn = FocalLoss()
-    assert loss_fn.alpha == 1.0
-    assert loss_fn.beta == 2.0
+    assert loss_fn.class_weights is None
+    assert loss_fn.gamma == 0.0
 
     # Test custom initialization
-    loss_fn = FocalLoss(alpha=0.5, beta=3.0)
-    assert loss_fn.alpha == 0.5
-    assert loss_fn.beta == 3.0
+    class_weights = torch.tensor([0.5, 0.5])
+    loss_fn = FocalLoss(class_weights=class_weights, gamma=3.0)
+    assert torch.equal(loss_fn.class_weights, class_weights)
+    assert loss_fn.gamma == 3.0
 
     # Test invalid inputs
     with pytest.raises(AssertionError):
-        FocalLoss(alpha="invalid")
+        FocalLoss(gamma="invalid")
     with pytest.raises(AssertionError):
-        FocalLoss(beta="invalid")
+        FocalLoss(class_weights=torch.randn(2, 2))  # 2D tensor instead of 1D
 
 
-def test_focal_loss_binary_classification():
-    loss_fn = FocalLoss()
-    batch_size = 4
-    num_classes = 2
+@pytest.mark.parametrize("input_shape", [
+    (4, 2),  # 2D input (classification)
+    (4, 2, 8),  # 3D input (single image)
+    (2, 2, 4, 4),  # 4D input (batched images)
+])
+def test_focal_loss_input_shapes(input_shape):
+    """
+    Test FocalLoss with different input shapes.
+    Args:
+        input_shape (tuple): Shape of the input tensor (N, C, ...)
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Create sample predictions and targets
-    y_pred = torch.randn(batch_size, num_classes)  # Random logits
-    y_true = torch.randint(0, num_classes, (batch_size,))  # Random labels
+    # Create predicted logits with the given shape and enable gradients
+    y_pred = torch.randn(*input_shape, device=device, requires_grad=True)
+
+    # Create ground truth with appropriate shape (remove C dimension)
+    y_true_shape = (input_shape[0],) + input_shape[2:]
+    y_true = torch.randint(0, 2, y_true_shape, device=device, requires_grad=False)
+
+    # Initialize criterion
+    criterion = FocalLoss().to(device)
 
     # Compute loss
-    loss = loss_fn._compute_loss(y_pred, y_true)
+    loss = criterion(y_pred, y_true)
 
-    # Check loss properties
+    # Check output type and shape
     assert isinstance(loss, torch.Tensor)
-    assert loss.ndim == 0  # Scalar output
-    assert loss.item() > 0  # Loss should be positive
+    assert loss.ndim == 0  # Scalar loss
+    assert loss.item() > 0
+    assert loss.requires_grad  # Loss should require gradients
+
+    # Test backward pass
+    loss.backward()
+    assert y_pred.grad is not None
+    assert y_pred.grad.shape == y_pred.shape
 
 
-def test_focal_loss_perfect_predictions():
+def test_focal_loss_perfect_predictions(sample_data):
+    """Test FocalLoss with perfect predictions."""
     loss_fn = FocalLoss()
-    batch_size = 4
 
-    # Create perfect predictions
+    # Test binary classification case
     y_pred = torch.tensor([[100.0, -100.0],  # Very confident prediction for class 0
                           [-100.0, 100.0],   # Very confident prediction for class 1
                           [100.0, -100.0],
                           [-100.0, 100.0]])
     y_true = torch.tensor([0, 1, 0, 1])
-
-    loss = loss_fn._compute_loss(y_pred, y_true)
+    loss = loss_fn(y_pred=y_pred, y_true=y_true)
     assert loss.item() < 0.01  # Loss should be very small for perfect predictions
 
-
-def test_focal_loss_semantic_segmentation():
-    loss_fn = FocalLoss()
-    batch_size = 2
-    height = 4
-    width = 4
-    num_classes = 2
-
-    # Test 4D input (semantic segmentation)
-    y_pred = torch.randn(batch_size, num_classes, height, width)
-    y_true = torch.randint(0, num_classes, (batch_size, height, width))
-
-    loss = loss_fn._compute_loss(y_pred, y_true)
-    assert isinstance(loss, torch.Tensor)
-    assert loss.ndim == 0
-    assert loss.item() > 0
+    # Test semantic segmentation case
+    y_pred, y_true = sample_data
+    device = y_pred.device
+    num_classes = y_pred.size(1)
+    y_pred_perfect = torch.zeros_like(y_pred)
+    for b in range(y_true.size(0)):
+        y_pred_perfect[b].scatter_(0, y_true[b].unsqueeze(0), 100.0)
+    loss = loss_fn(y_pred=y_pred_perfect, y_true=y_true)
+    assert loss.item() < 0.1
 
 
-def test_focal_loss_different_alpha_beta():
-    # Test how different alpha and beta values affect the loss
-    batch_size = 4
-    num_classes = 2
+def test_focal_loss_class_weights_effect():
+    """Test how different class weights and gamma values affect the loss."""
     y_pred = torch.tensor([[2.0, -2.0],   # Strong prediction for class 0
                           [-2.0, 2.0],    # Strong prediction for class 1
                           [0.5, -0.5],    # Weak prediction for class 0
                           [-0.5, 0.5]])   # Weak prediction for class 1
     y_true = torch.tensor([1, 1, 0, 0])  # Some correct, some incorrect predictions
 
-    # Compare losses with different alpha values
-    loss1 = FocalLoss(alpha=1.0, beta=2.0)._compute_loss(y_pred, y_true)
-    loss2 = FocalLoss(alpha=0.5, beta=2.0)._compute_loss(y_pred, y_true)
-    assert loss1 != loss2  # Different alpha should give different losses
+    # Test class weights effect
+    loss1 = FocalLoss(class_weights=torch.tensor([1.0, 1.0]), gamma=2.0)(y_pred=y_pred, y_true=y_true)
+    loss2 = FocalLoss(class_weights=torch.tensor([0.5, 0.5]), gamma=2.0)(y_pred=y_pred, y_true=y_true)
+    loss3 = FocalLoss(class_weights=torch.tensor([2.0, 2.0]), gamma=2.0)(y_pred=y_pred, y_true=y_true)
+    assert torch.isclose(loss1, 2 * loss2, rtol=1e-6)  # weights=[1,1] should be 2x weights=[0.5,0.5]
+    assert torch.isclose(loss3, 4 * loss2, rtol=1e-6)  # weights=[2,2] should be 4x weights=[0.5,0.5]
 
-    # Compare losses with different beta values
-    loss3 = FocalLoss(alpha=1.0, beta=3.0)._compute_loss(y_pred, y_true)
-    assert loss1 != loss3  # Different beta should give different losses
+
+def test_focal_loss_gamma_effect():
+    y_pred = torch.tensor([[0.5, -0.5], [-0.5, 0.5]])
+    y_true = torch.tensor([0, 1])
+    loss_2 = FocalLoss(gamma=2.0)(y_pred=y_pred, y_true=y_true)
+    loss_3 = FocalLoss(gamma=3.0)(y_pred=y_pred, y_true=y_true)
+    assert loss_3 < loss_2  # Higher gamma should give lower loss for hard examples
+
+
+def test_focal_loss_matches_semantic_segmentation(sample_data):
+    """Test that FocalLoss matches SemanticSegmentationCriterion with same parameters."""
+    y_pred, y_true = sample_data
+    device = y_pred.device
+
+    # Initialize both criteria with the same parameters
+    focal_criterion = FocalLoss().to(device)
+    semantic_criterion = SemanticSegmentationCriterion().to(device)
+
+    # Test regular case
+    focal_loss = focal_criterion(y_pred=y_pred, y_true=y_true)
+    semantic_loss = semantic_criterion(y_pred=y_pred, y_true=y_true)
+    assert torch.isclose(focal_loss, semantic_loss, rtol=1e-6, atol=1e-6)
 
 
 def test_focal_loss_input_validation():
+    """Test input validation in FocalLoss."""
     loss_fn = FocalLoss()
-
-    # Test invalid number of classes
-    with pytest.raises(AssertionError):
-        y_pred = torch.randn(4, 3)  # 3 classes instead of 2
-        y_true = torch.randint(0, 2, (4,))
-        loss_fn._compute_loss(y_pred, y_true)
 
     # Test mismatched dimensions
     with pytest.raises(Exception):
         y_pred = torch.randn(4, 2)
         y_true = torch.randint(0, 2, (5,))  # Different batch size
-        loss_fn._compute_loss(y_pred, y_true)
+        loss_fn(y_pred=y_pred, y_true=y_true)
 
     # Test invalid target values
     with pytest.raises(Exception):
         y_pred = torch.randn(4, 2)
         y_true = torch.tensor([0, 1, 2, 1])  # Invalid class index 2
-        loss_fn._compute_loss(y_pred, y_true)
+        loss_fn(y_pred=y_pred, y_true=y_true)
+
+    # Test class weights dimension mismatch
+    with pytest.raises(AssertionError):
+        y_pred = torch.randn(4, 2)  # 2 classes
+        y_true = torch.tensor([0, 1, 0, 1])
+        class_weights = torch.tensor([1.0, 1.0, 1.0])  # 3 weights for 2 classes
+        loss_fn = FocalLoss(class_weights=class_weights)
+        loss_fn(y_pred=y_pred, y_true=y_true)
