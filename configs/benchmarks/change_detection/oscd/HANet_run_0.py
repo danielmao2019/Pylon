@@ -61,6 +61,7 @@ import models
 config['model'] = {'class': models.change_detection.HANet, 'args': {}}
 
 # criterion config
+import criteria
 config['criterion']['class'] = criteria.vision_2d.FocalDiceLoss
 
 # seeds
