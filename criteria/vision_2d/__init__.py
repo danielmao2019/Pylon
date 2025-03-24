@@ -13,6 +13,7 @@ from criteria.vision_2d.dense_prediction.dense_classification.iou_loss import Io
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
 from criteria.vision_2d.dense_prediction.dense_classification.ssim_loss import SSIMLoss
 from criteria.vision_2d.dense_prediction.dense_classification.ce_dice_loss import CEDiceLoss
+from criteria.vision_2d.dense_prediction.dense_classification.focal_dice_loss import FocalDiceLoss
 
 # Dense Regression
 from criteria.vision_2d.dense_prediction.dense_regression.depth_estimation import DepthEstimationCriterion
@@ -35,6 +36,7 @@ __all__ = (
     'DiceLoss',
     'SSIMLoss',
     'CEDiceLoss',
+    'FocalDiceLoss',
     # Dense Regression
     'DepthEstimationCriterion',
     'NormalEstimationCriterion',
