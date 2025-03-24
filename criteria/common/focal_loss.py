@@ -13,8 +13,9 @@ class FocalLoss(SingleTaskCriterion):
 
     def __init__(
         self,
-        class_weights: Optional[Union[torch.Tensor, list, tuple, np.ndarray]] = None,
         gamma: float = 0.0,
+        class_weights: Optional[Union[torch.Tensor, list, tuple, np.ndarray]] = None,
+        ignore_value: int = -1,
     ) -> None:
         """
         Initialize Focal Loss.
@@ -23,12 +24,15 @@ class FocalLoss(SingleTaskCriterion):
             class_weights (Optional[Union[torch.Tensor, list, tuple, np.ndarray]]):
                 Weights for each class. If None, all classes are weighted equally.
                 Must be a 1D tensor with length matching the number of classes.
+            ignore_value (int): Value to ignore in loss computation (default: -1)
         """
         super(FocalLoss, self).__init__()
+
+        # Initialize gamma
         assert isinstance(gamma, (int, float)) and gamma >= 0, "gamma must be a non-negative number"
         self.gamma = gamma
 
-        # Convert class_weights to tensor if provided
+        # Initialize class weights
         if class_weights is not None:
             if isinstance(class_weights, (list, tuple)):
                 class_weights = torch.tensor(class_weights)
@@ -39,6 +43,9 @@ class FocalLoss(SingleTaskCriterion):
             self.register_buffer('class_weights', class_weights)
         else:
             self.register_buffer('class_weights', None)
+
+        # Initialize ignore value
+        self.ignore_value = ignore_value
 
     def _prepare_focal_pred(self, y_pred: torch.Tensor) -> torch.Tensor:
         """
@@ -87,19 +94,17 @@ class FocalLoss(SingleTaskCriterion):
         Returns:
             torch.Tensor: Computed loss
         """
-        # First prepare inputs
+        # Prepare y_pred and y_true
         y_pred = self._prepare_focal_pred(y_pred)
         y_true = self._prepare_focal_true(y_true)
-
-        # Then validate inputs
+        valid_mask = y_true != self.ignore_value
+        y_pred = y_pred[valid_mask, :]
+        y_true = y_true[valid_mask]
         check_classification(y_pred, y_true)
 
         # Convert logits to probabilities
         probs = torch.softmax(y_pred, dim=1)
-
-        # Get probabilities of correct classes
-        indices = torch.arange(y_true.size(0), device=y_true.device)
-        probs_correct = probs[indices, y_true]
+        probs_correct = probs[torch.arange(len(y_true), device=y_true.device), y_true]
 
         # Get class weights if available
         if self.class_weights is not None:
@@ -110,8 +115,8 @@ class FocalLoss(SingleTaskCriterion):
         else:
             weights = 1 / y_pred.size(1)
 
-        # Compute focal loss
-        ce_loss = -torch.log(probs_correct + 1e-7)
+        # Compute focal loss with numerical stability
+        ce_loss = -torch.log(probs_correct.clamp(min=1e-7))
         focal_loss_per_class = (1 - probs_correct) ** self.gamma * ce_loss
         focal_loss_unreduced = weights * focal_loss_per_class
         focal_loss = focal_loss_unreduced.mean()
