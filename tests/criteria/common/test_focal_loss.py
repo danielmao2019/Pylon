@@ -94,8 +94,6 @@ def test_focal_loss_perfect_predictions(sample_data):
 
     # Test semantic segmentation case
     y_pred, y_true = sample_data
-    device = y_pred.device
-    num_classes = y_pred.size(1)
     y_pred_perfect = torch.zeros_like(y_pred)
     for b in range(y_true.size(0)):
         y_pred_perfect[b].scatter_(0, y_true[b].unsqueeze(0), 100.0)
@@ -165,3 +163,46 @@ def test_focal_loss_input_validation():
         class_weights = torch.tensor([1.0, 1.0, 1.0])  # 3 weights for 2 classes
         loss_fn = FocalLoss(class_weights=class_weights)
         loss_fn(y_pred=y_pred, y_true=y_true)
+
+
+def test_focal_loss_ignore_value():
+    """Test FocalLoss with ignore_value parameter."""
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Create sample data with shape (N, C, H, W)
+    batch_size, num_classes = 2, 3
+    height, width = 4, 4
+    y_pred = torch.randn(batch_size, num_classes, height, width, device=device, requires_grad=True)
+    y_true = torch.randint(0, num_classes, (batch_size, height, width), device=device, requires_grad=False)
+
+    # Create a mask with some ignored values
+    ignore_mask = torch.zeros_like(y_true, dtype=torch.bool)
+    ignore_mask[0, 1:3, 1:3] = True  # Ignore a 2x2 region in the first image
+    y_true[ignore_mask] = -1  # Set ignored values to -1
+
+    # Initialize criterion with default ignore_value (-1)
+    criterion = FocalLoss().to(device)
+
+    # Compute loss
+    loss = criterion(y_pred=y_pred, y_true=y_true)
+
+    # Test with custom ignore value
+    custom_ignore_value = 255
+    y_true_custom = y_true.clone()
+    y_true_custom[ignore_mask] = custom_ignore_value
+    criterion_custom = FocalLoss(ignore_value=custom_ignore_value).to(device)
+
+    # Compute loss with custom ignore value
+    loss_custom = criterion_custom(y_pred=y_pred, y_true=y_true_custom)
+
+    # Verify that losses are equal (since we're ignoring the same pixels)
+    assert torch.isclose(loss, loss_custom, rtol=1e-6, atol=1e-6)
+
+    # Test that ignored values don't affect the loss
+    y_pred_modified = y_pred.clone()
+    # Broadcast ignore_mask to match y_pred's shape (N, C, H, W)
+    ignore_mask_broadcasted = ignore_mask.unsqueeze(1).expand_as(y_pred)
+    # Fill ignored locations with random noise
+    y_pred_modified[ignore_mask_broadcasted] = torch.randn_like(y_pred_modified[ignore_mask_broadcasted])
+    loss_modified = criterion(y_pred=y_pred_modified, y_true=y_true)
+    assert torch.isclose(loss, loss_modified, rtol=1e-6, atol=1e-6)
