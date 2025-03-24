@@ -71,6 +71,13 @@ def main(dataset: str, model: str) -> None:
     }},
 }}\n"""
         config += '\n'
+    elif model == "HANet":
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.HANet, 'args': {{}}}}\n"
+        config += '\n'
+        config += f"# criterion config\n"
+        config += f"config['criterion']['class'] = criteria.vision_2d.FocalDiceLoss\n"
+        config += '\n'
     elif model.startswith("Changer"):
         config += f"from configs.common.models.change_detection.changer import changer_{model[len('Changer-'):].replace('-', '_').lower()}_cfg as model_cfg\n"
         config += f"config['model'] = model_cfg\n"
@@ -222,7 +229,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
         [
-            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD', 'HCGMNet',
+            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD', 'HCGMNet', 'HANet',
             'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50', 'Changer-s101',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'ChangeNextV1', 'ChangeNextV2', 'ChangeNextV3',
