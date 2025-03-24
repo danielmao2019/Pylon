@@ -97,6 +97,7 @@ class FocalLoss(SingleTaskCriterion):
         # Prepare y_pred and y_true
         y_pred = self._prepare_focal_pred(y_pred)
         y_true = self._prepare_focal_true(y_true)
+        assert y_pred.size(0) == y_true.size(0), f"{y_pred.shape=}, {y_true.shape=}."
 
         # Handle ignore value first
         valid_mask = y_true != self.ignore_value
