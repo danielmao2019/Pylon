@@ -1,9 +1,9 @@
 import os
 import numpy as np
 import torch
-import open3d as o3d
 from data.datasets.base_dataset import BaseDataset
 from utils.torch_points3d import GridSampling3D
+from utils.io import load_point_cloud
 
 
 class SynthPCRDataset(BaseDataset):
@@ -31,9 +31,9 @@ class SynthPCRDataset(BaseDataset):
         """Prepare all voxel centers by grid sampling each point cloud."""
         all_indices = []
         for filepath in self.file_paths:
-            # Load point cloud
-            pcd = o3d.io.read_point_cloud(filepath)
-            points = torch.from_numpy(np.asarray(pcd.points).astype(np.float32))
+            # Load point cloud using our utility
+            points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
+            points = points.float()
             
             # Normalize points
             mean = points.mean(0, keepdim=True)
@@ -83,9 +83,9 @@ class SynthPCRDataset(BaseDataset):
         # Get point indices for this voxel
         point_indices = self.annotations[idx]
         
-        # Load point cloud
-        pcd = o3d.io.read_point_cloud(self.file_paths[0])  # Assuming single point cloud for now
-        points = np.asarray(pcd.points)
+        # Load point cloud using our utility
+        points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
+        points = points.float().numpy()
         
         # Normalize points
         mean = points.mean(0, keepdim=True)
