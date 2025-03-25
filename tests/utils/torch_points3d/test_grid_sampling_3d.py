@@ -2,6 +2,7 @@ import torch
 import pytest
 from utils.torch_points3d.grid_sampling_3d import GridSampling3D
 
+
 def test_grid_sampling_3d_basic():
     # Create sample input data
     points = torch.rand(100, 3)  # 100 random 3D points
@@ -29,6 +30,7 @@ def test_grid_sampling_3d_basic():
     assert 'point_indices' in result_last
     assert isinstance(result_last['point_indices'], torch.Tensor)
     assert result_last['point_indices'].dim() == 1  # Should be 1D tensor
+
 
 def test_grid_sampling_3d_edge_cases():
     # Test with single point
@@ -66,6 +68,7 @@ def test_grid_sampling_3d_invalid_inputs():
     sampler = GridSampling3D(size=0.1)
     with pytest.raises(ValueError):
         result = sampler(data_dict)
+
 
 def test_grid_sampling_3d_point_indices():
     # Create a simple point cloud with known structure
