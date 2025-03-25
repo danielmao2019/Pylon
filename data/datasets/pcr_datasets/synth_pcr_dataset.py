@@ -87,7 +87,7 @@ class SynthPCRDataset(BaseDataset):
     def _load_datapoint(self, idx):
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get point indices for this voxel
-        point_indices = torch.tensor(self.annotations[idx])
+        point_indices = self.annotations[idx]
         assert point_indices.ndim == 1 and point_indices.shape[0] > 0, f"{point_indices.shape=}"
 
         # Load point cloud using our utility

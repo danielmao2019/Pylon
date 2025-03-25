@@ -1,7 +1,5 @@
 from typing import Dict, Any, Optional, Tuple
 import torch
-import numpy as np
-from sklearn.neighbors import KDTree
 
 
 def consecutive_cluster(src: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
