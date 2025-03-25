@@ -3,7 +3,6 @@ import torch
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
-from utils.semantic_segmentation.one_hot_encoding import to_one_hot
 
 
 class DsferNetCriterion(SingleTaskCriterion):
@@ -32,14 +31,8 @@ class DsferNetCriterion(SingleTaskCriterion):
         y_true = y_true['change_map']
         # Compute loss
         ce_loss = self.ce_loss(y_pred[0], y_true)
-        label_4 = to_one_hot(
-            self.pool1(y_true.unsqueeze(1).float()).long().squeeze(1),
-            y_pred[0].size(1), self.ignore_value,
-        )
-        label_5 = to_one_hot(
-            self.pool2(y_true.unsqueeze(1).float()).long().squeeze(1),
-            y_pred[0].size(1), self.ignore_value,
-        )
+        label_4 = self.pool1(y_true.unsqueeze(1).float()).long().squeeze(1)
+        label_5 = self.pool2(y_true.unsqueeze(1).float()).long().squeeze(1)
         consistent_loss1 = self.criterion1(y_pred[1], label_4)
         consistent_loss2 = self.criterion2(y_pred[2], label_5)
         loss = ce_loss + self.lam * 0.5 * (consistent_loss1 + consistent_loss2)
