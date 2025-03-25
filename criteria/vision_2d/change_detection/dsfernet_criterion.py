@@ -23,6 +23,7 @@ class DsferNetCriterion(SingleTaskCriterion):
         y_pred: Tuple[torch.Tensor, ...],
         y_true: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
+        # Input checks
         assert isinstance(y_pred, tuple) and len(y_pred) == 3
         assert all(isinstance(t, torch.Tensor) for t in y_pred)
         assert isinstance(y_true, dict)
