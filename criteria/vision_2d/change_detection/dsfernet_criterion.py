@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict
 import torch
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
@@ -20,12 +20,14 @@ class DsferNetCriterion(SingleTaskCriterion):
     def __call__(
         self,
         y_pred: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        y_true: torch.Tensor,
+        y_true: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
         assert isinstance(y_pred, tuple) and len(y_pred) == 3
         assert all(isinstance(t, torch.Tensor) for t in y_pred)
-        assert isinstance(y_true, torch.Tensor)
-        y_true = to_one_hot(y_true, y_pred[0].size(1), self.ignore_value)
+        assert isinstance(y_true, dict)
+        assert set(y_true.keys()) == {'change_map'}
+        assert isinstance(y_true['change_map'], torch.Tensor)
+        y_true = y_true['change_map']
         # Compute loss
         ce_loss = self.ce_loss(y_pred[0], y_true)
         label_4 = to_one_hot(self.pool1(y_true.unsqueeze(1).float()).long(), y_pred[0].size(1), self.ignore_value)
