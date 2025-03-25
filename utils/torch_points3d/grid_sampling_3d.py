@@ -128,7 +128,11 @@ def group_data(
     else:
         result_dict['change_map'] = None
 
-    result_dict['point_indices'] = cluster
+    # Handle point indices based on the mode
+    if mode == "last":
+        result_dict['point_indices'] = unique_pos_indices
+    else:  # mode == "mean"
+        result_dict['point_indices'] = cluster
 
     return result_dict
 

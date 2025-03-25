@@ -43,12 +43,20 @@ class SynthPCRDataset(BaseDataset):
             data_dict = {'pos': points}
             sampled_data = self._grid_sampling(data_dict)
 
-            # Only keep voxels that contain points
-            valid_indices = [indices for indices in sampled_data['point_indices'] if len(indices) > 0]
-            all_indices.extend(valid_indices)
+            # Get unique clusters and their points
+            cluster_indices = sampled_data['point_indices']  # Shape: (N,) - cluster ID for each point
+            unique_clusters = torch.unique(cluster_indices)
 
-        print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
-        print(f"Partitioned {len(self.file_paths)} point clouds into {len(all_indices)} voxels in total.")
+            # For each cluster, get the indices of points belonging to it
+            for cluster_id in unique_clusters:
+                cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
+                if len(cluster_point_indices) > 0:  # Only add if cluster has points
+                    all_indices.append(cluster_point_indices)
+
+            print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
+            print(f"Partitioned point cloud into {len(unique_clusters)} voxels.")
+
+        print(f"Total number of voxels across all point clouds: {len(all_indices)}")
         return all_indices
 
     def _init_annotations(self):
