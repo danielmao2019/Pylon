@@ -67,7 +67,7 @@ def test_synth_pcr_dataset(dataset_params):
         t = transform[:3, 3]
 
         # Check rotation matrix properties
-        assert torch.allclose(R @ R.T, torch.eye(3), atol=1e-6), \
+        assert torch.allclose(R @ R.T, torch.eye(3, device=R.device), atol=1e-6), \
             "Invalid rotation matrix: not orthogonal"
         assert torch.abs(torch.det(R) - 1.0) < 1e-6, \
             "Invalid rotation matrix: determinant not 1"
