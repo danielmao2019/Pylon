@@ -83,22 +83,22 @@ class SynthPCRDataset(BaseDataset):
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get point indices for this voxel
         point_indices = self.annotations[idx]
-        
+
         # Load point cloud using our utility
         points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
         points = points.float()
-        
+
         # Normalize points
         mean = points.mean(0, keepdim=True)
         points = points - mean
-        
+
         # Get points in this voxel
         src_points = points[point_indices]
 
         # Generate random transformation
         rot = torch.empty(3).uniform_(-self.rot_mag, self.rot_mag)
         trans = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
-        
+
         # Create rotation matrix (using Euler angles)
         Rx = torch.tensor([
             [1, 0, 0],
@@ -135,11 +135,11 @@ class SynthPCRDataset(BaseDataset):
                 'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
             },
         }
-        
+
         labels = {
             'transform': transform,
         }
-        
+
         meta_info = {
             'idx': idx,
             'point_indices': point_indices,
