@@ -30,10 +30,16 @@ class SynthPCRDataset(BaseDataset):
     def _prepare_all_centers(self):
         """Prepare all voxel centers by grid sampling each point cloud."""
         all_indices = []
+        all_filepaths = []  # Track which file each set of indices belongs to
+        # Store point cloud data
+        self.points_data = {}
         for filepath in self.file_paths:
             # Load point cloud using our utility
             points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
             points = points.float()
+
+            # Store points for later use
+            self.points_data[filepath] = points
 
             # Normalize points
             mean = points.mean(0, keepdim=True)
@@ -52,12 +58,13 @@ class SynthPCRDataset(BaseDataset):
                 cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
                 if len(cluster_point_indices) > 0:  # Only add if cluster has points
                     all_indices.append(cluster_point_indices)
+                    all_filepaths.append(filepath)  # Store which file these indices belong to
 
             print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
             print(f"Partitioned point cloud into {len(unique_clusters)} voxels.")
 
         print(f"Total number of voxels across all point clouds: {len(all_indices)}")
-        return all_indices
+        return all_indices, all_filepaths
 
     def _init_annotations(self):
         """Initialize dataset annotations."""
@@ -69,7 +76,7 @@ class SynthPCRDataset(BaseDataset):
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
         # Get all voxel point indices
-        all_indices = self._prepare_all_centers()
+        all_indices, all_filepaths = self._prepare_all_centers()
         print(f"Partitioned {len(self.file_paths)} point clouds into {len(all_indices)} voxels in total.")
 
         # Split indices into train/val/test
@@ -85,21 +92,20 @@ class SynthPCRDataset(BaseDataset):
         else:  # test
             select_indices = indices[val_idx:]
 
-        # Store point indices for current split
-        self.annotations = [all_indices[i] for i in select_indices]
+        # Store point indices and their corresponding filepaths for current split
+        self.annotations = [(all_indices[i], all_filepaths[i]) for i in select_indices]
 
         # Update dataset size
         self.DATASET_SIZE[self.split] = len(self.annotations)
 
     def _load_datapoint(self, idx):
         """Load a datapoint using point indices and generate synthetic pair."""
-        # Get point indices for this voxel
-        point_indices = self.annotations[idx]
+        # Get point indices and filepath for this voxel
+        point_indices, filepath = self.annotations[idx]
         assert point_indices.ndim == 1 and point_indices.shape[0] > 0, f"{point_indices.shape=}"
 
-        # Load point cloud using our utility
-        points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
-        points = points.float()
+        # Get points from stored data for the correct point cloud
+        points = self.points_data[filepath]
 
         # Normalize points
         mean = points.mean(0, keepdim=True)
@@ -161,7 +167,7 @@ class SynthPCRDataset(BaseDataset):
         meta_info = {
             'idx': idx,
             'point_indices': point_indices,
-            'filepath': self.file_paths[0],
+            'filepath': filepath,
         }
 
         return inputs, labels, meta_info
