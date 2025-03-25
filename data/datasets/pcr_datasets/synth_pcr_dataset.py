@@ -110,28 +110,23 @@ class SynthPCRDataset(BaseDataset):
         src_points = points[point_indices, :]
 
         # Generate random transformation
-        rot_mag_rad = np.radians(self.rot_mag)  # Convert to radians once
-        rot = torch.empty(3).uniform_(-rot_mag_rad, rot_mag_rad)  # Generate angles in radians
+        rot_mag_rad = np.radians(self.rot_mag)
+        
+        # Generate a random axis of rotation
+        axis = torch.randn(3)
+        axis = axis / torch.norm(axis)  # Normalize to unit vector
+        
+        # Generate random angle within the specified range
+        angle = torch.empty(1).uniform_(-rot_mag_rad, rot_mag_rad).item()
+        
+        # Create rotation matrix using axis-angle representation (Rodrigues' formula)
+        K = torch.tensor([[0, -axis[2], axis[1]],
+                         [axis[2], 0, -axis[0]],
+                         [-axis[1], axis[0], 0]], dtype=torch.float32)
+        R = torch.eye(3) + torch.sin(angle) * K + (1 - torch.cos(angle)) * (K @ K)
+        
+        # Generate random translation
         trans = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
-
-        # Create rotation matrix (using Euler angles)
-        # No need for deg2rad conversion since rot is already in radians
-        Rx = torch.tensor([
-            [1, 0, 0],
-            [0, torch.cos(rot[0]), -torch.sin(rot[0])],
-            [0, torch.sin(rot[0]), torch.cos(rot[0])]
-        ])
-        Ry = torch.tensor([
-            [torch.cos(rot[1]), 0, torch.sin(rot[1])],
-            [0, 1, 0],
-            [-torch.sin(rot[1]), 0, torch.cos(rot[1])]
-        ])
-        Rz = torch.tensor([
-            [torch.cos(rot[2]), -torch.sin(rot[2]), 0],
-            [torch.sin(rot[2]), torch.cos(rot[2]), 0],
-            [0, 0, 1]
-        ])
-        R = Rx @ Ry @ Rz
 
         # Create 4x4 transformation matrix
         transform = torch.eye(4)
