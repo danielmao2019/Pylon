@@ -2,6 +2,7 @@ from typing import Dict
 import torch
 import torch.nn as nn
 from torch.nn import Softmax
+import math
 
 
 class CAM_Module(nn.Module):
@@ -15,11 +16,17 @@ class CAM_Module(nn.Module):
 
     def forward(self, x):
         m_batchsize, C, height, width = x.size()
-        proj_query = x.view(m_batchsize, C, -1)
-        proj_key = x.view(m_batchsize, C, -1).permute(0, 2, 1)
-        energy = torch.bmm(proj_query, proj_key)
-        energy_new = torch.max(energy, -1, keepdim=True)[0].expand_as(energy) - energy
+        
+        # Project to query and key with scaling
+        scale = 1.0 / math.sqrt(height * width)
+        proj_query = x.view(m_batchsize, C, -1) * math.sqrt(scale)  # Scale before bmm
+        proj_key = x.view(m_batchsize, C, -1).permute(0, 2, 1) * math.sqrt(scale)  # Scale before bmm
+        
+        energy = torch.bmm(proj_query, proj_key)  # Already scaled because inputs are scaled
+        max_energy = torch.max(energy, -1, keepdim=True)[0]
+        energy_new = max_energy.expand_as(energy) - energy
         attention = self.softmax(energy_new)
+        
         proj_value = x.view(m_batchsize, C, -1)
         out = torch.bmm(attention, proj_value)
         out = out.view(m_batchsize, C, height, width)
