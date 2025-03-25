@@ -110,11 +110,12 @@ class SynthPCRDataset(BaseDataset):
         src_points = points[point_indices, :]
 
         # Generate random transformation
-        # Convert to radians first to ensure proper angle limits
-        rot_mag_rad = np.radians(self.rot_mag)
+        rot_mag_rad = np.radians(self.rot_mag)  # Convert to radians once
         rot = torch.empty(3).uniform_(-rot_mag_rad, rot_mag_rad)  # Generate angles in radians
+        trans = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
 
         # Create rotation matrix (using Euler angles)
+        # No need for deg2rad conversion since rot is already in radians
         Rx = torch.tensor([
             [1, 0, 0],
             [0, torch.cos(rot[0]), -torch.sin(rot[0])],
@@ -135,7 +136,7 @@ class SynthPCRDataset(BaseDataset):
         # Create 4x4 transformation matrix
         transform = torch.eye(4)
         transform[:3, :3] = R
-        transform[:3, 3] = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
+        transform[:3, 3] = trans
 
         # Apply transformation to create target point cloud
         tgt_points = (R @ src_points.T).T + transform[:3, 3]
