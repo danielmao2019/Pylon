@@ -111,20 +111,20 @@ class SynthPCRDataset(BaseDataset):
 
         # Generate random transformation
         rot_mag_rad = np.radians(self.rot_mag)
-        
+
         # Generate a random axis of rotation
         axis = torch.randn(3)
         axis = axis / torch.norm(axis)  # Normalize to unit vector
-        
+
         # Generate random angle within the specified range
-        angle = torch.empty(1).uniform_(-rot_mag_rad, rot_mag_rad).item()
-        
+        angle = torch.empty(1).uniform_(-rot_mag_rad, rot_mag_rad)
+
         # Create rotation matrix using axis-angle representation (Rodrigues' formula)
         K = torch.tensor([[0, -axis[2], axis[1]],
                          [axis[2], 0, -axis[0]],
                          [-axis[1], axis[0], 0]], dtype=torch.float32)
         R = torch.eye(3) + torch.sin(angle) * K + (1 - torch.cos(angle)) * (K @ K)
-        
+
         # Generate random translation
         trans = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
 
