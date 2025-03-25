@@ -42,8 +42,13 @@ class SynthPCRDataset(BaseDataset):
             # Grid sample to get point indices for each voxel
             data_dict = {'pos': points}
             sampled_data = self._grid_sampling(data_dict)
-            all_indices.extend(sampled_data['point_indices'])
 
+            # Only keep voxels that contain points
+            valid_indices = [indices for indices in sampled_data['point_indices'] if len(indices) > 0]
+            all_indices.extend(valid_indices)
+
+        print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
+        print(f"Partitioned {len(self.file_paths)} point clouds into {len(all_indices)} voxels in total.")
         return all_indices
 
     def _init_annotations(self):
@@ -83,6 +88,7 @@ class SynthPCRDataset(BaseDataset):
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get point indices for this voxel
         point_indices = torch.tensor(self.annotations[idx])
+        assert point_indices.ndim == 1 and point_indices.shape[0] > 0, f"{point_indices.shape=}"
 
         # Load point cloud using our utility
         points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
@@ -93,7 +99,7 @@ class SynthPCRDataset(BaseDataset):
         points = points - mean
 
         # Get points in this voxel
-        src_points = points[point_indices]
+        src_points = points[point_indices, :]
 
         # Generate random transformation
         rot = torch.empty(3).uniform_(-self.rot_mag, self.rot_mag)
