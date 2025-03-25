@@ -19,7 +19,7 @@ class DsferNetCriterion(SingleTaskCriterion):
 
     def __call__(
         self,
-        y_pred: Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        y_pred: Tuple[torch.Tensor, ...],
         y_true: Dict[str, torch.Tensor],
     ) -> torch.Tensor:
         assert isinstance(y_pred, tuple) and len(y_pred) == 3
