@@ -59,19 +59,19 @@ pip install mmsegmentation==1.2.2
 #### 3.3.1. Scientific and Machine Learning
 
 ```bash
-conda install scipy scikit-learn scikit-image timm einops -c conda-forge -y
+conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
 ```
 
 #### 3.3.2. Computer Vision
 
 ```bash
-conda install opencv pycocotools rasterio imageio -c conda-forge -y
+conda install -c conda-forge -y opencv pycocotools rasterio imageio
 ```
 
 #### 3.3.3. Visualization and Data Analysis
 
 ```bash
-conda install matplotlib dash plotly pandas tqdm -c conda-forge -y
+conda install -c conda-forge -y matplotlib dash plotly pandas tqdm
 ```
 
 #### 3.3.4. System Utilities
@@ -90,7 +90,7 @@ conda install pytest -c conda-forge -y
 
 ```bash
 # Conda packages
-conda install ftfy regex plyfile -c conda-forge -y
+conda install -c conda-forge -y ftfy regex plyfile
 
 # Pip packages
 pip install fvcore triton jsbeautifier

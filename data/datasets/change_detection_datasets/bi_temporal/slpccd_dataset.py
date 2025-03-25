@@ -1,7 +1,5 @@
 from typing import Tuple, Dict, Any, Optional, List
 import os
-import glob
-import random
 import numpy as np
 import torch
 from sklearn.neighbors import KDTree
