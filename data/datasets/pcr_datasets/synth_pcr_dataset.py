@@ -15,7 +15,7 @@ class SynthPCRDataset(BaseDataset):
     SHA1SUM = None
 
     def __init__(
-        self, 
+        self,
         rot_mag: float = 45.0,
         trans_mag: float = 0.5,
         voxel_size: float = 50.0,
@@ -34,7 +34,7 @@ class SynthPCRDataset(BaseDataset):
             # Load point cloud using our utility
             points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
             points = points.float()
-            
+
             # Normalize points
             mean = points.mean(0, keepdims=True)
             points = points - mean
@@ -72,10 +72,10 @@ class SynthPCRDataset(BaseDataset):
             select_indices = indices[train_idx:val_idx]
         else:  # test
             select_indices = indices[val_idx:]
-        
+
         # Store point indices for current split
         self.annotations = [all_indices[i] for i in select_indices]
-        
+
         # Update dataset size
         self.DATASET_SIZE[self.split] = len(self.annotations)
 
@@ -83,22 +83,22 @@ class SynthPCRDataset(BaseDataset):
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get point indices for this voxel
         point_indices = self.annotations[idx]
-        
+
         # Load point cloud using our utility
         points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
         points = points.float()
-        
+
         # Normalize points
         mean = points.mean(0, keepdims=True)
         points = points - mean
-        
+
         # Get points in this voxel
         src_points = points[point_indices].numpy()
 
         # Generate random transformation
         rot = np.random.uniform(-self.rot_mag, self.rot_mag, 3)
         trans = np.random.uniform(-self.trans_mag, self.trans_mag, 3)
-        
+
         # Create rotation matrix (using Euler angles)
         Rx = np.array([[1, 0, 0],
                       [0, np.cos(np.radians(rot[0])), -np.sin(np.radians(rot[0]))],
@@ -134,11 +134,11 @@ class SynthPCRDataset(BaseDataset):
                 'feat': tgt_features
             }
         }
-        
+
         labels = {
             'transform': torch.from_numpy(transform.astype(np.float32))  # Remove batch dimension
         }
-        
+
         meta_info = {
             'idx': idx,
             'point_indices': point_indices,
