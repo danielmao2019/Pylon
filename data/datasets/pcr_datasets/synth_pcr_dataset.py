@@ -110,23 +110,24 @@ class SynthPCRDataset(BaseDataset):
         src_points = points[point_indices, :]
 
         # Generate random transformation
-        rot = torch.empty(3).uniform_(-self.rot_mag, self.rot_mag)
-        trans = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
+        # Convert to radians first to ensure proper angle limits
+        rot_mag_rad = np.radians(self.rot_mag)
+        rot = torch.empty(3).uniform_(-rot_mag_rad, rot_mag_rad)  # Generate angles in radians
 
         # Create rotation matrix (using Euler angles)
         Rx = torch.tensor([
             [1, 0, 0],
-            [0, torch.cos(torch.deg2rad(rot[0])), -torch.sin(torch.deg2rad(rot[0]))],
-            [0, torch.sin(torch.deg2rad(rot[0])), torch.cos(torch.deg2rad(rot[0]))]
+            [0, torch.cos(rot[0]), -torch.sin(rot[0])],
+            [0, torch.sin(rot[0]), torch.cos(rot[0])]
         ])
         Ry = torch.tensor([
-            [torch.cos(torch.deg2rad(rot[1])), 0, torch.sin(torch.deg2rad(rot[1]))],
+            [torch.cos(rot[1]), 0, torch.sin(rot[1])],
             [0, 1, 0],
-            [-torch.sin(torch.deg2rad(rot[1])), 0, torch.cos(torch.deg2rad(rot[1]))]
+            [-torch.sin(rot[1]), 0, torch.cos(rot[1])]
         ])
         Rz = torch.tensor([
-            [torch.cos(torch.deg2rad(rot[2])), -torch.sin(torch.deg2rad(rot[2])), 0],
-            [torch.sin(torch.deg2rad(rot[2])), torch.cos(torch.deg2rad(rot[2])), 0],
+            [torch.cos(rot[2]), -torch.sin(rot[2]), 0],
+            [torch.sin(rot[2]), torch.cos(rot[2]), 0],
             [0, 0, 1]
         ])
         R = Rx @ Ry @ Rz
@@ -134,10 +135,10 @@ class SynthPCRDataset(BaseDataset):
         # Create 4x4 transformation matrix
         transform = torch.eye(4)
         transform[:3, :3] = R
-        transform[:3, 3] = trans
+        transform[:3, 3] = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
 
         # Apply transformation to create target point cloud
-        tgt_points = (R @ src_points.T).T + trans
+        tgt_points = (R @ src_points.T).T + transform[:3, 3]
 
         inputs = {
             'src_pc': {
