@@ -172,7 +172,8 @@ class MyNet(nn.Module):
         self.dec11 = SingleConv3(128, 32)
         self.outc = OutConv(32, n_classes)
 
-    def forward(self, xA, xB):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> None:
+        xA, xB = inputs['img_1'], inputs['img_2']
         # Extract features from both images
         list_t1 = self.base(xA)
         list_t2 = self.base(xB)
