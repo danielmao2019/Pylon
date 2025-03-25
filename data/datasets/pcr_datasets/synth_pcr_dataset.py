@@ -36,7 +36,7 @@ class SynthPCRDataset(BaseDataset):
             points = points.float()
             
             # Normalize points
-            mean = points.mean(0, keepdim=True)
+            mean = points.mean(0, keepdims=True)
             points = points - mean
 
             # Grid sample to get point indices for each voxel
@@ -53,6 +53,7 @@ class SynthPCRDataset(BaseDataset):
         for file in os.listdir(self.data_root):
             if file.endswith('.ply'):
                 self.file_paths.append(os.path.join(self.data_root, file))
+        self.file_paths = self.file_paths[:1]
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
         # Get all voxel point indices
@@ -85,14 +86,14 @@ class SynthPCRDataset(BaseDataset):
         
         # Load point cloud using our utility
         points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
-        points = points.float().numpy()
+        points = points.float()
         
         # Normalize points
-        mean = points.mean(0, keepdim=True)
+        mean = points.mean(0, keepdims=True)
         points = points - mean
         
         # Get points in this voxel
-        src_points = points[point_indices]
+        src_points = points[point_indices].numpy()
 
         # Generate random transformation
         rot = np.random.uniform(-self.rot_mag, self.rot_mag, 3)
