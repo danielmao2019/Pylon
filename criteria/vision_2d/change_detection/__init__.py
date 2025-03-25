@@ -4,6 +4,7 @@ CRITERIA.VISION_2D.CHANGE_DETECTION API
 from criteria.vision_2d.change_detection.symmetric_change_detection_criterion import SymmetricChangeDetectionCriterion
 from criteria.vision_2d.change_detection.snunet_criterion import SNUNetCDCriterion
 from criteria.vision_2d.change_detection.dsifn_criterion import DSIFNCriterion
+from criteria.vision_2d.change_detection.dsfernet_criterion import DsferNetCriterion
 from criteria.vision_2d.change_detection.ftn_criterion import FTNCriterion
 from criteria.vision_2d.change_detection.srcnet_criterion import SRCNetCriterion
 from criteria.vision_2d.change_detection.cdmaskformer_criterion.cdmaskformer_criterion import CDMaskFormerCriterion
@@ -16,6 +17,7 @@ __all__ = (
     'SymmetricChangeDetectionCriterion',
     'SNUNetCDCriterion',
     'DSIFNCriterion',
+    'DsferNetCriterion',
     'FTNCriterion',
     'SRCNetCriterion',
     'CDMaskFormerCriterion',
