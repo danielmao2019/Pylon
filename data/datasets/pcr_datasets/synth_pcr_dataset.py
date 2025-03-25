@@ -83,62 +83,63 @@ class SynthPCRDataset(BaseDataset):
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get point indices for this voxel
         point_indices = self.annotations[idx]
-
+        
         # Load point cloud using our utility
         points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
         points = points.float()
-
+        
         # Normalize points
-        mean = points.mean(0, keepdims=True)
+        mean = points.mean(0, keepdim=True)
         points = points - mean
-
+        
         # Get points in this voxel
-        src_points = points[point_indices].numpy()
+        src_points = points[point_indices]
 
         # Generate random transformation
-        rot = np.random.uniform(-self.rot_mag, self.rot_mag, 3)
-        trans = np.random.uniform(-self.trans_mag, self.trans_mag, 3)
-
+        rot = torch.empty(3).uniform_(-self.rot_mag, self.rot_mag)
+        trans = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
+        
         # Create rotation matrix (using Euler angles)
-        Rx = np.array([[1, 0, 0],
-                      [0, np.cos(np.radians(rot[0])), -np.sin(np.radians(rot[0]))],
-                      [0, np.sin(np.radians(rot[0])), np.cos(np.radians(rot[0]))]])
-        Ry = np.array([[np.cos(np.radians(rot[1])), 0, np.sin(np.radians(rot[1]))],
-                      [0, 1, 0],
-                      [-np.sin(np.radians(rot[1])), 0, np.cos(np.radians(rot[1]))]])
-        Rz = np.array([[np.cos(np.radians(rot[2])), -np.sin(np.radians(rot[2])), 0],
-                      [np.sin(np.radians(rot[2])), np.cos(np.radians(rot[2])), 0],
-                      [0, 0, 1]])
+        Rx = torch.tensor([
+            [1, 0, 0],
+            [0, torch.cos(torch.deg2rad(rot[0])), -torch.sin(torch.deg2rad(rot[0]))],
+            [0, torch.sin(torch.deg2rad(rot[0])), torch.cos(torch.deg2rad(rot[0]))]
+        ])
+        Ry = torch.tensor([
+            [torch.cos(torch.deg2rad(rot[1])), 0, torch.sin(torch.deg2rad(rot[1]))],
+            [0, 1, 0],
+            [-torch.sin(torch.deg2rad(rot[1])), 0, torch.cos(torch.deg2rad(rot[1]))]
+        ])
+        Rz = torch.tensor([
+            [torch.cos(torch.deg2rad(rot[2])), -torch.sin(torch.deg2rad(rot[2])), 0],
+            [torch.sin(torch.deg2rad(rot[2])), torch.cos(torch.deg2rad(rot[2])), 0],
+            [0, 0, 1]
+        ])
         R = Rx @ Ry @ Rz
 
         # Create 4x4 transformation matrix
-        transform = np.eye(4)
+        transform = torch.eye(4)
         transform[:3, :3] = R
         transform[:3, 3] = trans
 
         # Apply transformation to create target point cloud
         tgt_points = (R @ src_points.T).T + trans
 
-        # Convert to torch tensors with features
-        src_features = torch.ones((src_points.shape[0], 1), dtype=torch.float32)
-        tgt_features = torch.ones((tgt_points.shape[0], 1), dtype=torch.float32)
-        transform = torch.from_numpy(transform.astype(np.float32))
-
         inputs = {
             'src_pc': {
-                'pos': torch.from_numpy(src_points.astype(np.float32)),
-                'feat': src_features,
+                'pos': src_points,
+                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32),
             },
             'tgt_pc': {
-                'pos': torch.from_numpy(tgt_points.astype(np.float32)),
-                'feat': tgt_features,
+                'pos': tgt_points,
+                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
             },
         }
-
+        
         labels = {
             'transform': transform,
         }
-
+        
         meta_info = {
             'idx': idx,
             'point_indices': point_indices,
