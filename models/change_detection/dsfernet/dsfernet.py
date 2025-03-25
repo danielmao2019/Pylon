@@ -9,7 +9,7 @@ epsilon = 1e-14
 
 class vgg16_base(nn.Module):
     """VGG16 base model for feature extraction."""
-    
+
     def __init__(self):
         super(vgg16_base, self).__init__()
         feats = list(models.vgg16(pretrained=True).features)[:30]
@@ -26,7 +26,7 @@ class vgg16_base(nn.Module):
 
 class Linear_qkv(nn.Module):
     """Linear layer for query, key, value projections."""
-    
+
     def __init__(self, dim_in, dim_out):
         super(Linear_qkv, self).__init__()
         self.linear_qkv = nn.Linear(dim_in, dim_out, bias=False)
@@ -37,7 +37,7 @@ class Linear_qkv(nn.Module):
 
 class HopfieldRetrieve(nn.Module):
     """Hopfield Network based retrieval mechanism with multi-head attention."""
-    
+
     def __init__(self, beta, dim_in_q, dim_in_k, dim_out_k, num_heads=1, v=None,
                  dim_in_v=0, dim_out_v=0, logits=False, activation=F.relu):
         super(HopfieldRetrieve, self).__init__()
@@ -46,23 +46,23 @@ class HopfieldRetrieve(nn.Module):
         self.activation = activation
         self.linear_q = Linear_qkv(dim_in_q, dim_out_k)
         self.linear_k = Linear_qkv(dim_in_k, dim_out_k)
-        
+
         if v:
             self.linear_v = Linear_qkv(dim_in_v, dim_out_v)
-            
+
         if self.beta % self.num_heads != 0:
             raise ValueError(f'`beta`({self.beta}) should be divisible by `num_heads`({self.num_heads})')
-            
+
         self._norm_fact = (self.beta // self.num_heads) ** -0.5
         self.softmax = F.log_softmax if logits else F.softmax
 
     def forward(self, q, k, v=None):
         q, k = self.linear_q(q), self.linear_k(k)
-        
+
         if self.activation is not None:
             q = self.activation(q)
             k = self.activation(k)
-            
+
         batch, n, dim_q = q.shape
         _, _, dim_k = k.shape
         assert dim_q == dim_k and dim_q % self.num_heads == 0
@@ -72,10 +72,10 @@ class HopfieldRetrieve(nn.Module):
 
         q = q.reshape(batch, n, self.num_heads, dq).transpose(1, 2)  # (batch, nh, n, dq)
         k = k.reshape(batch, n, self.num_heads, dk).transpose(1, 2)  # (batch, nh, n, dk)
-              
+
         E = self._norm_fact * torch.matmul(q, k.transpose(2, 3))  # (batch, nh, n, n)
         E = self.softmax(E, dim=-1)
-        
+
         if v is None:
             dist = torch.matmul(E, k)  # (batch, nh, n, dk)
             return dist.transpose(1, 2).reshape(batch, n, dim_k)
@@ -93,13 +93,13 @@ class HopfieldRetrieve(nn.Module):
 
 class SingleConv(nn.Module):
     """Single convolution block with 1x1 kernel."""
-    
+
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.single_conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True), 
+            nn.ReLU(inplace=True),
         )
 
     def forward(self, x):
@@ -108,13 +108,13 @@ class SingleConv(nn.Module):
 
 class SingleConv3(nn.Module):
     """Single convolution block with 3x3 kernel."""
-    
+
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.single_conv = nn.Sequential(
             nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
             nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True), 
+            nn.ReLU(inplace=True),
         )
 
     def forward(self, x):
@@ -123,7 +123,7 @@ class SingleConv3(nn.Module):
 
 class OutConv(nn.Module):
     """Output convolution layer."""
-    
+
     def __init__(self, in_channels, out_channels):
         super(OutConv, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
@@ -132,21 +132,21 @@ class OutConv(nn.Module):
         return self.conv(x)
 
 
-class MyNet(nn.Module):
+class DsferNet(nn.Module):
     """Main network architecture for change detection."""
-    
+
     def __init__(self, n_classes=2, beta=2.0, dim=512, numhead=1, n_channels=3, bilinear=True):
-        super(MyNet, self).__init__()
+        super(DsferNet, self).__init__()
         self.n_channels = n_channels
         self.bilinear = bilinear
-        
+
         # Base encoder
         self.base = vgg16_base()
-        
+
         # Hopfield layers
         self.hopf4 = HopfieldRetrieve(beta, 512, 512, dim, numhead, True, 512, 512, logits=False, activation=None)
         self.hopf5 = HopfieldRetrieve(beta, 512, 512, dim, numhead, True, 512, 512, logits=False, activation=None)
-        
+
         # Upsampling and activation
         self.UpSample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         self.sig = nn.Sigmoid()
@@ -179,11 +179,11 @@ class MyNet(nn.Module):
         list_t2 = self.base(xB)
         xA1, xA2, xA3, xA4, xA5 = list_t1[0], list_t1[1], list_t1[2], list_t1[3], list_t1[4]
         xB1, xB2, xB3, xB4, xB5 = list_t2[0], list_t2[1], list_t2[2], list_t2[3], list_t2[4]
-        
+
         b1, c1, h1, w1 = xA1.shape
         b4, c4, h4, w4 = xA4.shape
         b5, c5, h5, w5 = xA5.shape
-        
+
         # Process deepest features
         xx = torch.cat((xA5, xB5), dim=1)
         xx = self.dec5(xx)
@@ -193,7 +193,7 @@ class MyNet(nn.Module):
         x5s = x5s.reshape(b5, c5, h5 * w5).transpose(2, 1)
         xA5s = xA5.reshape(b5, c5, h5 * w5).transpose(2, 1)
         xB5s = xB5.reshape(b5, c5, h5 * w5).transpose(2, 1)
-        
+
         x_hpA5 = self.hopf5(x5s, xB5s, xB5s)
         x_hpA5 = x_hpA5.transpose(1, 2).reshape(b5, c5, h5, w5)
         x_hpB5 = self.hopf5(x5s, xA5s, xA5s)
@@ -213,7 +213,7 @@ class MyNet(nn.Module):
         x4s = x4s.reshape(b4, c4, h4 * w4).transpose(2, 1)
         xA4s = xA4.reshape(b4, c4, h4 * w4).transpose(2, 1)
         xB4s = xB4.reshape(b4, c4, h4 * w4).transpose(2, 1)
-        
+
         x_hpA4 = self.hopf4(x4s, xB4s, xB4s)
         x_hpA4 = x_hpA4.transpose(1, 2).reshape(b4, c4, h4, w4)
         x_hpB4 = self.hopf4(x4s, xA4s, xA4s)
@@ -242,6 +242,6 @@ class MyNet(nn.Module):
         xx = self.dec1(xx)
         x = torch.cat((xx, x), dim=1)
         x = self.dec11(x)
-        
+
         logits = self.outc(x)
         return logits, xx4, xx5
