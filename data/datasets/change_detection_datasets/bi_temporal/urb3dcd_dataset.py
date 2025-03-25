@@ -418,14 +418,14 @@ class Urb3DCDDataset(BaseDataset):
         nameInPly = self.VERSION_MAP[self.version]['nameInPly']
 
         # Load first point cloud (only has XYZ coordinates)
-        pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly)
+        pc1 = utils.io.load_point_cloud(files['pc_1_filepath'], nameInPly=nameInPly, name_feat="label_ch")
         assert pc1.size(1) == 4, f"{pc1.shape=}"
         pc1_xyz = pc1[:, :3]
         # Add ones feature
         pc1_features = torch.ones((pc1_xyz.size(0), 1), dtype=pc1_xyz.dtype)  # [N, 1]
 
         # Load second point cloud (XYZ coordinates + label)
-        pc2 = utils.io.load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly)
+        pc2 = utils.io.load_point_cloud(files['pc_2_filepath'], nameInPly=nameInPly, name_feat="label_ch")
         pc2_xyz = pc2[:, :3]
         # Add ones feature
         pc2_features = torch.ones((pc2_xyz.size(0), 1), dtype=pc2_xyz.dtype)  # [N, 1]
