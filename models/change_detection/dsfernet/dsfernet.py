@@ -1,3 +1,4 @@
+from typing import Dict, Tuple, Union
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -172,7 +173,7 @@ class DsferNet(nn.Module):
         self.dec11 = SingleConv3(128, 32)
         self.outc = OutConv(32, n_classes)
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> None:
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
         xA, xB = inputs['img_1'], inputs['img_2']
         # Extract features from both images
         list_t1 = self.base(xA)
