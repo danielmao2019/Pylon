@@ -127,22 +127,22 @@ class SynthPCRDataset(BaseDataset):
         inputs = {
             'src_pc': {
                 'pos': torch.from_numpy(src_points.astype(np.float32)),
-                'feat': src_features
+                'feat': src_features,
             },
             'tgt_pc': {
                 'pos': torch.from_numpy(tgt_points.astype(np.float32)),
-                'feat': tgt_features
-            }
+                'feat': tgt_features,
+            },
         }
 
         labels = {
-            'transform': torch.from_numpy(transform.astype(np.float32))  # Remove batch dimension
+            'transform': transform,
         }
 
         meta_info = {
             'idx': idx,
             'point_indices': point_indices,
-            'filepath': self.file_paths[0]
+            'filepath': self.file_paths[0],
         }
 
         return inputs, labels, meta_info
