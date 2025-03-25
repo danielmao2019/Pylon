@@ -8,10 +8,10 @@ from utils.semantic_segmentation.one_hot_encoding import to_one_hot
 
 class DsferNetCriterion(SingleTaskCriterion):
 
-    def __init__(self, ignore_value: int = 255, lam: float = 0.5) -> None:
+    def __init__(self, ignore_value: int = 255, lam: float = 1.0) -> None:
         super(DsferNetCriterion, self).__init__()
-        self.pool1 = nn.MaxPool2d(8, stride=8)
-        self.pool2 = nn.MaxPool2d(16, stride=16)
+        self.pool1 = torch.nn.MaxPool2d(8, stride=8)
+        self.pool2 = torch.nn.MaxPool2d(16, stride=16)
         self.ce_loss = SemanticSegmentationCriterion(ignore_value=ignore_value)
         self.criterion1 = DiceLoss(ignore_value=ignore_value)
         self.criterion2 = DiceLoss(ignore_value=ignore_value)
