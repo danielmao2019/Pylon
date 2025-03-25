@@ -126,7 +126,15 @@ class SynthPCRDataset(BaseDataset):
         R = torch.eye(3) + torch.sin(angle) * K + (1 - torch.cos(angle)) * (K @ K)
 
         # Generate random translation
-        trans = torch.empty(3).uniform_(-self.trans_mag, self.trans_mag)
+        # Generate random direction (unit vector)
+        trans_dir = torch.randn(3, device=points.device)
+        trans_dir = trans_dir / torch.norm(trans_dir)
+        
+        # Generate random magnitude within limit
+        trans_mag = torch.empty(1, device=points.device).uniform_(0, self.trans_mag)
+        
+        # Compute final translation vector
+        trans = trans_dir * trans_mag
 
         # Create 4x4 transformation matrix
         transform = torch.eye(4)
