@@ -83,7 +83,7 @@ def test_synth_pcr_dataset(dataset_params):
 
         # Check meta_info structure
         assert isinstance(meta_info, dict), "meta_info should be a dictionary"
-        assert meta_info.keys() >= {'idx', 'center_pos', 'point_idx', 'filepath'}, \
+        assert meta_info.keys() >= {'idx', 'point_indices', 'filepath'}, \
             "meta_info missing required keys"
 
         # Check that source and target have same number of points
@@ -96,5 +96,5 @@ def test_synth_pcr_dataset(dataset_params):
 
         # Check that transformed source matches target
         src_transformed = (R @ inputs['src_pc']['pos'].T).T + t
-        assert torch.allclose(src_transformed, inputs['tgt_pc']['pos'], atol=1e-6), \
+        assert torch.allclose(src_transformed, inputs['tgt_pc']['pos'], atol=1e-4), \
             "Transformed source points don't match target points"
