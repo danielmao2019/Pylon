@@ -24,7 +24,8 @@ class HybridCriterion(SingleTaskCriterion):
         assert combine in self.COMBINE_OPTIONS
         self.combine = combine
         assert criteria_cfg is not None and len(criteria_cfg) > 0
-        self.criteria = [build_from_config(cfg) for cfg in criteria_cfg]
+        # Register criteria as submodules using ModuleList
+        self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in criteria_cfg])
     
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         total_loss = 0
