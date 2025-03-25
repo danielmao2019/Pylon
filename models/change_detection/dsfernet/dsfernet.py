@@ -244,4 +244,7 @@ class DsferNet(nn.Module):
         x = self.dec11(x)
 
         logits = self.outc(x)
-        return logits, xx4, xx5
+        if self.training:
+            return logits, xx4, xx5
+        else:
+            return logits
