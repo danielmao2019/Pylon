@@ -36,7 +36,7 @@ class SynthPCRDataset(BaseDataset):
             points = points.float()
 
             # Normalize points
-            mean = points.mean(0, keepdims=True)
+            mean = points.mean(0, keepdim=True)
             points = points - mean
 
             # Grid sample to get point indices for each voxel
@@ -82,7 +82,7 @@ class SynthPCRDataset(BaseDataset):
     def _load_datapoint(self, idx):
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get point indices for this voxel
-        point_indices = self.annotations[idx]
+        point_indices = torch.tensor(self.annotations[idx])
 
         # Load point cloud using our utility
         points = load_point_cloud(self.file_paths[0])[:, :3]  # Only take XYZ coordinates
