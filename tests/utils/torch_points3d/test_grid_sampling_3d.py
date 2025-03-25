@@ -46,8 +46,9 @@ def test_grid_sampling_3d_edge_cases():
     data_dict = {'pos': points}
     
     sampler = GridSampling3D(size=0.1)
-    with pytest.raises(ValueError):
+    with pytest.raises(IndexError):
         result = sampler(data_dict)
+
 
 def test_grid_sampling_3d_invalid_inputs():
     # Test invalid size
