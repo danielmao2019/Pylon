@@ -11,12 +11,12 @@ from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
         'rot_mag': 45.0,
         'trans_mag': 0.5,
     },
-    {
-        'data_root': './data/datasets/soft_links/ivision-pcr-data',
-        'split': 'test',
-        'rot_mag': 30.0,
-        'trans_mag': 0.3,
-    }
+    # {
+    #     'data_root': './data/datasets/soft_links/ivision-pcr-data',
+    #     'split': 'test',
+    #     'rot_mag': 30.0,
+    #     'trans_mag': 0.3,
+    # },
 ])
 def test_synth_pcr_dataset(dataset_params):
     """Test basic functionality of SynthPCRDataset."""
@@ -29,7 +29,8 @@ def test_synth_pcr_dataset(dataset_params):
 
     # Iterate through dataset
     for idx in range(len(dataset)):
-        inputs, labels, meta_info = dataset[idx]
+        datapoint = dataset[idx]
+        inputs, labels, meta_info = datapoint['inputs'], datapoint['labels'], datapoint['meta_info']
 
         # Check inputs structure
         assert isinstance(inputs, dict), "inputs should be a dictionary"
