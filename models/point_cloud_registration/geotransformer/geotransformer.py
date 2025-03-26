@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from IPython import embed
 
 from models.point_cloud_registration.geotransformer.pointcloud_partition import point_to_node_partition
 from models.point_cloud_registration.geotransformer.index_select import index_select
