@@ -150,20 +150,30 @@ def registration_collate_fn_stack_mode(
         'meta_info': {
             'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts]),
             'point_indices': [d['meta_info']['point_indices'] for d in data_dicts],
-            'filepath': [d['meta_info']['filepath'] for d in data_dicts]
-        }
+            'filepath': [d['meta_info']['filepath'] for d in data_dicts],
+            'batch_size': batch_size,
+        },
     }
 
     if precompute_data:
-        # Concatenate points and lengths for multi-scale processing
-        points = torch.cat([src_points, tgt_points], dim=0)
-        lengths = torch.cat([src_lengths, tgt_lengths], dim=0)
-        input_dict = precompute_data_stack_mode(points, lengths, num_stages, voxel_size, search_radius, neighbor_limits)
-        collated_dict.update(input_dict)
-    else:
-        collated_dict['points'] = torch.cat([src_points, tgt_points], dim=0)
-        collated_dict['lengths'] = torch.cat([src_lengths, tgt_lengths], dim=0)
+        # Process source and target point clouds separately
+        src_dict = precompute_data_stack_mode(src_points, src_lengths, num_stages, voxel_size, search_radius, neighbor_limits)
+        tgt_dict = precompute_data_stack_mode(tgt_points, tgt_lengths, num_stages, voxel_size, search_radius, neighbor_limits)
+        
+        # Combine the results maintaining the original structure
+        collated_dict['inputs']['src_pc'].update({
+            'points': src_dict['points'],
+            'lengths': src_dict['lengths'],
+            'neighbors': src_dict['neighbors'],
+            'subsampling': src_dict['subsampling'],
+            'upsampling': src_dict['upsampling'],
+        })
+        collated_dict['inputs']['tgt_pc'].update({
+            'points': tgt_dict['points'],
+            'lengths': tgt_dict['lengths'],
+            'neighbors': tgt_dict['neighbors'],
+            'subsampling': tgt_dict['subsampling'],
+            'upsampling': tgt_dict['upsampling'],
+        })
     
-    collated_dict['batch_size'] = batch_size
-
     return collated_dict
