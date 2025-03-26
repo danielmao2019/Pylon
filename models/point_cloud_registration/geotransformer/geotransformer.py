@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Union, List
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -68,8 +68,8 @@ class GeoTransformer(nn.Module):
         output_dict = {}
 
         # Get source and target point clouds
-        src_pc = inputs['pc_1']
-        tgt_pc = inputs['pc_2']
+        src_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['pc_1']
+        tgt_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['pc_2']
 
         # Get features and points
         feats = torch.cat([src_pc['feat'], tgt_pc['feat']], dim=0).detach()
