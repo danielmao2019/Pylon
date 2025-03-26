@@ -63,26 +63,23 @@ class GeoTransformer(nn.Module):
 
         self.optimal_transport = LearnableLogOptimalTransport(cfg.model.num_sinkhorn_iterations)
 
-    def forward(self, data_dict):
+    def forward(self, data_dict, labels: Dict[str, torch.Tensor]):
         output_dict = {}
 
-        # Downsample point clouds
-        feats = data_dict['features'].detach()
-        transform = data_dict['transform'].detach()
+        # Get source and target point clouds
+        src_pc = data_dict['inputs']['pc_1']
+        tgt_pc = data_dict['inputs']['pc_2']
 
-        ref_length_c = data_dict['lengths'][-1][0].item()
-        ref_length_f = data_dict['lengths'][1][0].item()
-        ref_length = data_dict['lengths'][0][0].item()
-        points_c = data_dict['points'][-1].detach()
-        points_f = data_dict['points'][1].detach()
-        points = data_dict['points'][0].detach()
+        # Get features and points
+        feats = torch.cat([src_pc['feat'], tgt_pc['feat']], dim=0).detach()
+        transform = labels['transform'].detach()
 
-        ref_points_c = points_c[:ref_length_c]
-        src_points_c = points_c[ref_length_c:]
-        ref_points_f = points_f[:ref_length_f]
-        src_points_f = points_f[ref_length_f:]
-        ref_points = points[:ref_length]
-        src_points = points[ref_length:]
+        ref_points_c = tgt_pc['pos'][-1].detach()
+        src_points_c = src_pc['pos'][-1].detach()
+        ref_points_f = tgt_pc['pos'][1].detach()
+        src_points_f = src_pc['pos'][1].detach()
+        ref_points = tgt_pc['pos'][0].detach()
+        src_points = src_pc['pos'][0].detach()
 
         output_dict['ref_points_c'] = ref_points_c
         output_dict['src_points_c'] = src_points_c
