@@ -7,13 +7,13 @@ from models.change_detection.rfl_cdnet.rfl_cdnet import RFL_CDNet
 def test_rfl_cdnet_forward_pass(input_size):
     """Test RFL_CDNet forward pass with different input sizes"""
     # Create model
-    model = RFL_CDNet(in_ch=3, out_ch=2)
+    model = RFL_CDNet(in_ch=3, out_ch=2).cuda()
     model.eval()
 
     # Create dummy inputs
     batch_size = 2
-    xA = torch.randn(batch_size, 3, *input_size)
-    xB = torch.randn(batch_size, 3, *input_size)
+    xA = torch.randn(batch_size, 3, *input_size, device='cuda')
+    xB = torch.randn(batch_size, 3, *input_size, device='cuda')
     inputs = {'xA': xA, 'xB': xB}
 
     # Run forward pass
