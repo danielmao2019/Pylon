@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-from geotransformer.modules.ops import pairwise_distance
+from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
 
 
 class SuperPointMatching(nn.Module):
