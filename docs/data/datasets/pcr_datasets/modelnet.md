@@ -123,4 +123,52 @@ The ModelNet40 dataset has been widely used in point cloud registration research
 
 5. **Normal Vectors**
    - Available in the normal_resampled version
-   - Helpful for geometric feature extraction 
+   - Helpful for geometric feature extraction
+
+## Data Augmentation
+
+The dataset supports various augmentation techniques:
+
+1. **Point Sampling**
+   - Random sampling to fixed number of points
+   - Default: 1024 points per cloud
+
+2. **Random Rotation**
+   - Maximum rotation angle: 45 degrees
+   - Applied to either source or target cloud
+
+3. **Random Translation**
+   - Maximum translation magnitude: 0.5 units
+   - Applied to either source or target cloud
+
+4. **Gaussian Noise**
+   - Standard deviation: 0.01
+   - Applied to point coordinates
+
+5. **Partial Views**
+   - Random cropping with overlap
+   - Default: 70% point retention
+
+## Implementation Details
+
+The dataset is implemented as a PyTorch Dataset class with the following key features:
+
+1. **Data Loading**
+   - Efficient HDF5 file reading
+   - Support for both point clouds and normal vectors
+   - Category filtering capability
+
+2. **Transformation Generation**
+   - Random rotation matrices
+   - Random translation vectors
+   - Proper handling of normal vectors
+
+3. **Data Validation**
+   - Shape and type checking
+   - Orthogonality verification for rotation matrices
+   - Unit vector verification for normal vectors
+
+4. **Memory Efficiency**
+   - Lazy loading of HDF5 files
+   - Efficient point sampling
+   - Optional normal vector loading 
