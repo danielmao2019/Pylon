@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 from data.collators.geotransformer.grid_subsample import grid_subsample
 from data.collators.geotransformer.radius_search import radius_search
