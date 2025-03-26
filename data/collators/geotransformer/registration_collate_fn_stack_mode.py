@@ -162,14 +162,14 @@ def registration_collate_fn_stack_mode(
         
         # Combine the results maintaining the original structure
         collated_dict['inputs']['src_pc'].update({
-            'points': src_dict['points'],
+            'pos': src_dict['points'],
             'lengths': src_dict['lengths'],
             'neighbors': src_dict['neighbors'],
             'subsampling': src_dict['subsampling'],
             'upsampling': src_dict['upsampling'],
         })
         collated_dict['inputs']['tgt_pc'].update({
-            'points': tgt_dict['points'],
+            'pos': tgt_dict['points'],
             'lengths': tgt_dict['lengths'],
             'neighbors': tgt_dict['neighbors'],
             'subsampling': tgt_dict['subsampling'],
