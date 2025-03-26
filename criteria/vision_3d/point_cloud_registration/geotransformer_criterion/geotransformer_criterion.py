@@ -19,11 +19,11 @@ class CoarseMatchingLoss(nn.Module):
         )
         self.positive_overlap = cfg.coarse_loss.positive_overlap
 
-    def forward(self, output_dict):
-        ref_feats = output_dict['ref_feats_c']
-        src_feats = output_dict['src_feats_c']
-        gt_node_corr_indices = output_dict['gt_node_corr_indices']
-        gt_node_corr_overlaps = output_dict['gt_node_corr_overlaps']
+    def forward(self, y_pred: Dict[str, torch.Tensor]) -> torch.Tensor:
+        ref_feats = y_pred['ref_feats_c']
+        src_feats = y_pred['src_feats_c']
+        gt_node_corr_indices = y_pred['gt_node_corr_indices']
+        gt_node_corr_overlaps = y_pred['gt_node_corr_overlaps']
         gt_ref_node_corr_indices = gt_node_corr_indices[:, 0]
         gt_src_node_corr_indices = gt_node_corr_indices[:, 1]
 
@@ -45,13 +45,13 @@ class FineMatchingLoss(nn.Module):
         super(FineMatchingLoss, self).__init__()
         self.positive_radius = cfg.fine_loss.positive_radius
 
-    def forward(self, output_dict, data_dict):
-        ref_node_corr_knn_points = output_dict['ref_node_corr_knn_points']
-        src_node_corr_knn_points = output_dict['src_node_corr_knn_points']
-        ref_node_corr_knn_masks = output_dict['ref_node_corr_knn_masks']
-        src_node_corr_knn_masks = output_dict['src_node_corr_knn_masks']
-        matching_scores = output_dict['matching_scores']
-        transform = data_dict['transform']
+    def forward(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+        ref_node_corr_knn_points = y_pred['ref_node_corr_knn_points']
+        src_node_corr_knn_points = y_pred['src_node_corr_knn_points']
+        ref_node_corr_knn_masks = y_pred['ref_node_corr_knn_masks']
+        src_node_corr_knn_masks = y_pred['src_node_corr_knn_masks']
+        matching_scores = y_pred['matching_scores']
+        transform = y_true['transform']
 
         src_node_corr_knn_points = apply_transform(src_node_corr_knn_points, transform)
         dists = pairwise_distance(ref_node_corr_knn_points, src_node_corr_knn_points)  # (B, N, M)
@@ -79,10 +79,9 @@ class GeoTransformerCriterion(SingleTaskCriterion):
         self.weight_coarse_loss = cfg.loss.weight_coarse_loss
         self.weight_fine_loss = cfg.loss.weight_fine_loss
 
-    def __call__(self, output_dict, data_dict):
-        coarse_loss = self.coarse_loss(output_dict)
-        fine_loss = self.fine_loss(output_dict, data_dict)
-
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+        coarse_loss = self.coarse_loss(y_pred)
+        fine_loss = self.fine_loss(y_pred, y_true)
         loss = self.weight_coarse_loss * coarse_loss + self.weight_fine_loss * fine_loss
         assert loss.ndim == 0
         # log loss
