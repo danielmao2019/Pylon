@@ -191,6 +191,9 @@ class LocalGlobalRegistration(nn.Module):
             )
             estimated_transform = self.procrustes(src_corr_points, ref_corr_points, cur_corr_scores)
 
+        # Add batch dimension to transform
+        estimated_transform = estimated_transform.unsqueeze(0)
+
         return global_ref_corr_points, global_src_corr_points, global_corr_scores, estimated_transform
 
     def forward(

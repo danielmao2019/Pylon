@@ -63,7 +63,7 @@ def weighted_procrustes(
         transform[:, :3, :3] = R
         transform[:, :3, 3] = t
         if squeeze_first:
-            transform = transform.squeeze(0)
+            transform = transform.squeeze(0)  # Remove batch dimension for 2D inputs
         return transform
     else:
         if squeeze_first:

@@ -71,11 +71,6 @@ class GeoTransformer(nn.Module):
         src_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['pc_1']
         tgt_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['pc_2']
 
-        # Get features and points
-        feats = torch.cat([tgt_pc['feat'], src_pc['feat']], dim=0).detach()
-        transform = labels['transform'].detach().squeeze(0)
-        assert transform.shape == (4, 4)
-
         ref_points_c = tgt_pc['pos'][-1].detach()
         src_points_c = src_pc['pos'][-1].detach()
         ref_points_f = tgt_pc['pos'][1].detach()
@@ -103,6 +98,9 @@ class GeoTransformer(nn.Module):
         ref_node_knn_points = index_select(ref_padded_points_f, ref_node_knn_indices, dim=0)
         src_node_knn_points = index_select(src_padded_points_f, src_node_knn_indices, dim=0)
 
+        transform = labels['transform'].detach().squeeze(0)
+        assert transform.shape == (4, 4)
+
         gt_node_corr_indices, gt_node_corr_overlaps = get_node_correspondences(
             ref_points_c,
             src_points_c,
@@ -120,12 +118,16 @@ class GeoTransformer(nn.Module):
         output_dict['gt_node_corr_overlaps'] = gt_node_corr_overlaps
 
         # 2. KPFCNN Encoder
+        feats = torch.cat([tgt_pc['feat'], src_pc['feat']], dim=0).detach()
         feats_list = self.backbone(feats, inputs)
 
         feats_c = feats_list[-1]
         feats_f = feats_list[0]
 
         # 3. Conditional Transformer
+        ref_length_c = ref_points_c.shape[0]
+        src_length_c = src_points_c.shape[0]
+        assert ref_length_c + src_length_c == feats_c.shape[0]
         ref_feats_c = feats_c[:ref_length_c]
         src_feats_c = feats_c[ref_length_c:]
         ref_feats_c, src_feats_c = self.transformer(
@@ -141,6 +143,9 @@ class GeoTransformer(nn.Module):
         output_dict['src_feats_c'] = src_feats_c_norm
 
         # 5. Head for fine level matching
+        ref_length_f = ref_points_f.shape[0]
+        src_length_f = src_points_f.shape[0]
+        assert ref_length_f + src_length_f == feats_f.shape[0]
         ref_feats_f = feats_f[:ref_length_f]
         src_feats_f = feats_f[ref_length_f:]
         output_dict['ref_feats_f'] = ref_feats_f

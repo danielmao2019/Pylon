@@ -88,8 +88,14 @@ class KPConv(nn.Module):
         Returns:
             q_feats (Tensor): (M, C_out)
         """
+        # Validate input shapes
+        assert s_feats.size(0) == s_points.size(0), f"s_feats and s_points must have same first dimension, got {s_feats.size(0)} and {s_points.size(0)}"
+        assert q_points.size(0) == neighbor_indices.size(0), f"q_points and neighbor_indices must have same first dimension, got {q_points.size(0)} and {neighbor_indices.size(0)}"
+
         s_points = torch.cat([s_points, torch.zeros_like(s_points[:1, :]) + self.inf], 0)  # (N, 3) -> (N+1, 3)
+
         neighbors = index_select(s_points, neighbor_indices, dim=0)  # (N+1, 3) -> (M, H, 3)
+
         neighbors = neighbors - q_points.unsqueeze(1)  # (M, H, 3)
 
         # Get Kernel point influences

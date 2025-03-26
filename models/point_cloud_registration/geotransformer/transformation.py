@@ -36,7 +36,7 @@ def apply_transform(points: torch.Tensor, transform: torch.Tensor, normals: Opti
         translation = transform[:3, 3]
         points_shape = points.shape
         points = points.reshape(-1, 3)
-        points = torch.matmul(points, rotation.transpose(-1, -2)) + translation
+        points = torch.matmul(points, rotation.transpose(-1, -2)) + translation.unsqueeze(0)
         points = points.reshape(*points_shape)
         if normals is not None:
             normals = normals.reshape(-1, 3)
