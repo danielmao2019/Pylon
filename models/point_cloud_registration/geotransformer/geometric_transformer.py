@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
 from models.point_cloud_registration.geotransformer.positional_embedding import SinusoidalPositionalEmbedding
-from models.point_cloud_registration.geotransformer.lrpe_transformer import RPEConditionalTransformer
+from models.point_cloud_registration.geotransformer.conditional_transformer import RPEConditionalTransformer
 
 
 class GeometricStructureEmbedding(nn.Module):
