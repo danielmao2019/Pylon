@@ -106,10 +106,10 @@ def registration_collate_fn_stack_mode(
     batch_size = len(data_dicts)
     
     # Extract points and features from the nested structure
-    ref_points_list = []
     src_points_list = []
-    ref_feats_list = []
+    tgt_points_list = []
     src_feats_list = []
+    tgt_feats_list = []
     
     for data_dict in data_dicts:
         # Extract source and target point clouds
@@ -117,27 +117,31 @@ def registration_collate_fn_stack_mode(
         tgt_pc = data_dict['inputs']['tgt_pc']
         
         # Get points and features
-        ref_points_list.append(tgt_pc['pos'])
         src_points_list.append(src_pc['pos'])
-        ref_feats_list.append(tgt_pc['feat'])
+        tgt_points_list.append(tgt_pc['pos'])
         src_feats_list.append(src_pc['feat'])
+        tgt_feats_list.append(tgt_pc['feat'])
 
-    # Concatenate features and points
-    feats = torch.cat(ref_feats_list + src_feats_list, dim=0)
-    points_list = ref_points_list + src_points_list
-    lengths = torch.LongTensor([points.shape[0] for points in points_list])
-    points = torch.cat(points_list, dim=0)
+    # Concatenate features and points separately for source and target
+    src_points = torch.cat(src_points_list, dim=0)
+    tgt_points = torch.cat(tgt_points_list, dim=0)
+    src_feats = torch.cat(src_feats_list, dim=0)
+    tgt_feats = torch.cat(tgt_feats_list, dim=0)
+    
+    # Get lengths for each point cloud
+    src_lengths = torch.LongTensor([points.shape[0] for points in src_points_list])
+    tgt_lengths = torch.LongTensor([points.shape[0] for points in tgt_points_list])
 
     # Create collated dictionary with original structure
     collated_dict = {
         'inputs': {
             'src_pc': {
-                'pos': points[sum(lengths[:batch_size]):],
-                'feat': feats[sum(lengths[:batch_size]):]
+                'pos': src_points,
+                'feat': src_feats
             },
             'tgt_pc': {
-                'pos': points[:sum(lengths[:batch_size])],
-                'feat': feats[:sum(lengths[:batch_size])]
+                'pos': tgt_points,
+                'feat': tgt_feats
             }
         },
         'labels': {
@@ -151,11 +155,14 @@ def registration_collate_fn_stack_mode(
     }
 
     if precompute_data:
+        # Concatenate points and lengths for multi-scale processing
+        points = torch.cat([src_points, tgt_points], dim=0)
+        lengths = torch.cat([src_lengths, tgt_lengths], dim=0)
         input_dict = precompute_data_stack_mode(points, lengths, num_stages, voxel_size, search_radius, neighbor_limits)
         collated_dict.update(input_dict)
     else:
-        collated_dict['points'] = points
-        collated_dict['lengths'] = lengths
+        collated_dict['points'] = torch.cat([src_points, tgt_points], dim=0)
+        collated_dict['lengths'] = torch.cat([src_lengths, tgt_lengths], dim=0)
     
     collated_dict['batch_size'] = batch_size
 
