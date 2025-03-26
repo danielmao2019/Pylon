@@ -1,9 +1,11 @@
+from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 
 from models.point_cloud_registration.geotransformer.transformations import apply_transform
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
 from metrics.single_task_metric import SingleTaskMetric
+from utils.ops import apply_tensor_op
 
 
 class GeoTransformerMetric(SingleTaskMetric):
@@ -62,8 +64,7 @@ class GeoTransformerMetric(SingleTaskMetric):
         c_precision = self.evaluate_coarse(y_pred)
         f_precision = self.evaluate_fine(y_pred, y_true)
         rre, rte, rmse, recall = self.evaluate_registration(y_pred, y_true)
-
-        return {
+        score: Dict[str, torch.Tensor] = {
             'PIR': c_precision,
             'IR': f_precision,
             'RRE': rre,
@@ -71,3 +72,7 @@ class GeoTransformerMetric(SingleTaskMetric):
             'RMSE': rmse,
             'RR': recall,
         }
+        score = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=score)
+        # log score
+        self.buffer.append(score)
+        return score
