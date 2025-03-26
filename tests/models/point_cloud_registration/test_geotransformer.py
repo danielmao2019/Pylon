@@ -2,6 +2,7 @@ import pytest
 import torch
 from utils.builders.builder import build_from_config
 from configs.common.models.point_cloud_registration.geotransformer import model_cfg
+from easydict import EasyDict
 
 
 @pytest.fixture
@@ -10,7 +11,7 @@ def model_config():
     # Convert nested dictionaries to EasyDict
     def to_easydict(d):
         if isinstance(d, dict):
-            return edict({k: to_easydict(v) for k, v in d.items()})
+            return EasyDict({k: to_easydict(v) for k, v in d.items()})
         return d
     
     model_cfg['args']['cfg'] = to_easydict(model_cfg['args']['cfg'])
