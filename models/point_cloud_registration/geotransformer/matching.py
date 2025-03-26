@@ -259,6 +259,13 @@ def get_node_correspondences(
         corr_indices: torch.LongTensor (C, 2)
         corr_overlaps: torch.Tensor (C,)
     """
+    # Input checks
+    assert ref_nodes.ndim == 2 and ref_nodes.shape[1] == 3
+    assert src_nodes.ndim == 2 and src_nodes.shape[1] == 3
+    assert ref_knn_points.ndim == 3 and ref_knn_points.shape[2] == 3
+    assert src_knn_points.ndim == 3 and src_knn_points.shape[2] == 3
+    assert transform.shape == (4, 4)
+
     src_nodes = apply_transform(src_nodes, transform)
     src_knn_points = apply_transform(src_knn_points, transform)
 

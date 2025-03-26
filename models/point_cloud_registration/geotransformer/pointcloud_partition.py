@@ -92,7 +92,7 @@ def point_to_node_partition(
 
     node_knn_indices = sq_dist_mat.topk(k=point_limit, dim=1, largest=False)[1]  # (M, K)
     node_knn_node_indices = index_select(point_to_node, node_knn_indices, dim=0)  # (M, K)
-    node_indices = torch.arange(nodes.shape[0]).cuda().unsqueeze(1).expand(-1, point_limit)  # (M, K)
+    node_indices = torch.arange(nodes.shape[0], device=node_knn_node_indices.device).unsqueeze(1).expand(-1, point_limit)  # (M, K)
     node_knn_masks = torch.eq(node_knn_node_indices, node_indices)  # (M, K)
     node_knn_indices.masked_fill_(~node_knn_masks, points.shape[0])
 
@@ -140,7 +140,7 @@ def point_to_node_partition_bug(
 
     node_knn_indices = sq_dist_mat.topk(k=point_limit, dim=1, largest=False)[1]  # (M, K)
     node_knn_node_indices = index_select(point_to_node, node_knn_indices, dim=0)  # (M, K)
-    node_indices = torch.arange(nodes.shape[0]).cuda().unsqueeze(1).expand(-1, point_limit)  # (M, K)
+    node_indices = torch.arange(nodes.shape[0], device=node_knn_node_indices.device).unsqueeze(1).expand(-1, point_limit)  # (M, K)
     node_knn_masks = torch.eq(node_knn_node_indices, node_indices)  # (M, K)
     node_knn_indices.masked_fill_(~node_knn_masks, points.shape[0])
 

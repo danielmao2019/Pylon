@@ -73,7 +73,8 @@ class GeoTransformer(nn.Module):
 
         # Get features and points
         feats = torch.cat([src_pc['feat'], tgt_pc['feat']], dim=0).detach()
-        transform = labels['transform'].detach()
+        transform = labels['transform'].detach().squeeze(0)
+        assert transform.shape == (4, 4)
 
         ref_points_c = tgt_pc['pos'][-1].detach()
         src_points_c = src_pc['pos'][-1].detach()
