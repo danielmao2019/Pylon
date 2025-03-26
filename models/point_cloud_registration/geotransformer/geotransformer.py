@@ -3,17 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 from IPython import embed
 
-from geotransformer.modules.ops import point_to_node_partition, index_select
-from geotransformer.modules.registration import get_node_correspondences
-from geotransformer.modules.sinkhorn import LearnableLogOptimalTransport
-from geotransformer.modules.geotransformer import (
-    GeometricTransformer,
-    SuperPointMatching,
-    SuperPointTargetGenerator,
-    LocalGlobalRegistration,
-)
-
-from backbone import KPConvFPN
+from models.point_cloud_registration.geotransformer.pointcloud_partition import point_to_node_partition
+from models.point_cloud_registration.geotransformer.index_select import index_select
+from models.point_cloud_registration.geotransformer.matching import get_node_correspondences
+from models.point_cloud_registration.geotransformer.learnable_sinkhorn import LearnableLogOptimalTransport
+from models.point_cloud_registration.geotransformer.geotransformer import GeometricTransformer
+from models.point_cloud_registration.geotransformer.superpoint_matching import SuperPointMatching
+from models.point_cloud_registration.geotransformer.superpoint_target import SuperPointTargetGenerator
+from models.point_cloud_registration.geotransformer.local_global_registration import LocalGlobalRegistration
+from models.point_cloud_registration.geotransformer.backbone import KPConvFPN
 
 
 class GeoTransformer(nn.Module):
