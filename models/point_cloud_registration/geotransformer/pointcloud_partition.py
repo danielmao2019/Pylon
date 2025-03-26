@@ -82,7 +82,7 @@ def point_to_node_partition(
     sq_dist_mat = pairwise_distance(nodes, points)  # (M, N)
 
     point_to_node = sq_dist_mat.min(dim=0)[1]  # (N,)
-    node_masks = torch.zeros(nodes.shape[0], dtype=torch.bool).cuda()  # (M,)
+    node_masks = torch.zeros(nodes.shape[0], dtype=torch.bool, device=sq_dist_mat.device)  # (M,)
     node_masks.index_fill_(0, point_to_node, True)
 
     matching_masks = torch.zeros_like(sq_dist_mat, dtype=torch.bool)  # (M, N)
@@ -98,7 +98,7 @@ def point_to_node_partition(
 
     if return_count:
         unique_indices, unique_counts = torch.unique(point_to_node, return_counts=True)
-        node_sizes = torch.zeros(nodes.shape[0], dtype=torch.long).cuda()  # (M,)
+        node_sizes = torch.zeros(nodes.shape[0], dtype=torch.long, device=point_to_node.device)  # (M,)
         node_sizes.index_put_([unique_indices], unique_counts)
         return point_to_node, node_sizes, node_masks, node_knn_indices, node_knn_masks
     else:
