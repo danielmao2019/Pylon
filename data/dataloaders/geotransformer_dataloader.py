@@ -1,5 +1,7 @@
 from functools import partial
 
+import numpy as np
+
 from data.dataloaders.base_dataloader import BaseDataloader
 from data.collators.geotransformer.registration_collate_fn_stack_mode import registration_collate_fn_stack_mode
 
