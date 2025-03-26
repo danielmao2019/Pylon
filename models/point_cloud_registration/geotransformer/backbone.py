@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
-from IPython import embed
 
-from geotransformer.modules.kpconv import ConvBlock, ResidualBlock, UnaryBlock, LastUnaryBlock, nearest_upsample
+from models.point_cloud_registration.geotransformer.modules import ConvBlock, ResidualBlock, UnaryBlock, LastUnaryBlock
+from models.point_cloud_registration.geotransformer.functional import nearest_upsample
 
 
 class KPConvFPN(nn.Module):
