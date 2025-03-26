@@ -76,26 +76,26 @@ def registration_collate_fn_stack_mode(
 ):
     r"""Collate function for registration in stack mode.
 
-    Points are organized in the following order: [ref_1, ..., ref_B, src_1, ..., src_B].
-    The correspondence indices are within each point cloud without accumulation.
-
     Args:
-        data_dicts (List[Dict])
-        num_stages (int)
-        voxel_size (float)
-        search_radius (float)
-        neighbor_limits (List[int])
-        precompute_data (bool)
+        data_dicts (List[Dict[str, Dict[str, Any]]]): List of datapoints, where each datapoint is a dict with:
+            - inputs: Dict containing 'src_pc', 'tgt_pc', and 'correspondences'
+            - labels: Dict containing 'transform'
+            - meta_info: Dict containing metadata
+        num_stages (int): Number of stages for multi-scale processing
+        voxel_size (float): Initial voxel size for grid subsampling
+        search_radius (float): Initial search radius for neighbor search
+        neighbor_limits (List[int]): List of neighbor limits for each stage
+        precompute_data (bool): Whether to precompute multi-scale data
 
     Returns:
-        collated_dict (Dict)
+        collated_dict (Dict): Collated data dictionary
     """
     # Input checks
     assert isinstance(data_dicts, list), 'data_dicts must be a list'
     assert all(isinstance(data_dict, dict) for data_dict in data_dicts), \
         'data_dicts must be a list of dictionaries'
-    assert all(data_dict.keys() >= {'ref_points', 'src_points', 'ref_feats', 'src_feats'} for data_dict in data_dicts), \
-        'data_dicts must contain the keys ref_points, src_points, ref_feats, src_feats'
+    assert all(data_dict.keys() >= {'inputs', 'labels', 'meta_info'} for data_dict in data_dicts), \
+        'data_dicts must contain the keys inputs, labels, meta_info'
     assert isinstance(num_stages, int), 'num_stages must be an integer'
     assert isinstance(voxel_size, float), 'voxel_size must be a float'
     assert isinstance(search_radius, float), 'search_radius must be a float'
@@ -104,34 +104,59 @@ def registration_collate_fn_stack_mode(
 
     # Main logic
     batch_size = len(data_dicts)
-    # merge data with the same key from different samples into a list
-    collated_dict = {}
+    
+    # Extract points and features from the nested structure
+    ref_points_list = []
+    src_points_list = []
+    ref_feats_list = []
+    src_feats_list = []
+    
     for data_dict in data_dicts:
-        for key, value in data_dict.items():
-            if isinstance(value, np.ndarray):
-                value = torch.from_numpy(value)
-            if key not in collated_dict:
-                collated_dict[key] = []
-            collated_dict[key].append(value)
+        # Extract source and target point clouds
+        src_pc = data_dict['inputs']['src_pc']
+        tgt_pc = data_dict['inputs']['tgt_pc']
+        
+        # Get points and features
+        ref_points_list.append(tgt_pc['pos'])
+        src_points_list.append(src_pc['pos'])
+        ref_feats_list.append(tgt_pc['feat'])
+        src_feats_list.append(src_pc['feat'])
 
-    # handle special keys: [ref_feats, src_feats] -> feats, [ref_points, src_points] -> points, lengths
-    feats = torch.cat(collated_dict.pop('ref_feats') + collated_dict.pop('src_feats'), dim=0)
-    points_list = collated_dict.pop('ref_points') + collated_dict.pop('src_points')
+    # Concatenate features and points
+    feats = torch.cat(ref_feats_list + src_feats_list, dim=0)
+    points_list = ref_points_list + src_points_list
     lengths = torch.LongTensor([points.shape[0] for points in points_list])
     points = torch.cat(points_list, dim=0)
 
-    if batch_size == 1:
-        # remove wrapping brackets if batch_size is 1
-        for key, value in collated_dict.items():
-            collated_dict[key] = value[0]
+    # Create collated dictionary with original structure
+    collated_dict = {
+        'inputs': {
+            'src_pc': {
+                'pos': points[sum(lengths[:batch_size]):],
+                'feat': feats[sum(lengths[:batch_size]):]
+            },
+            'tgt_pc': {
+                'pos': points[:sum(lengths[:batch_size])],
+                'feat': feats[:sum(lengths[:batch_size])]
+            }
+        },
+        'labels': {
+            'transform': torch.stack([d['labels']['transform'] for d in data_dicts])
+        },
+        'meta_info': {
+            'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts]),
+            'point_indices': [d['meta_info']['point_indices'] for d in data_dicts],
+            'filepath': [d['meta_info']['filepath'] for d in data_dicts]
+        }
+    }
 
-    collated_dict['features'] = feats
     if precompute_data:
         input_dict = precompute_data_stack_mode(points, lengths, num_stages, voxel_size, search_radius, neighbor_limits)
         collated_dict.update(input_dict)
     else:
         collated_dict['points'] = points
         collated_dict['lengths'] = lengths
+    
     collated_dict['batch_size'] = batch_size
 
     return collated_dict
