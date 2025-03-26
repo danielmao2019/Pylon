@@ -72,7 +72,7 @@ class GeoTransformer(nn.Module):
         tgt_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['pc_2']
 
         # Get features and points
-        feats = torch.cat([src_pc['feat'], tgt_pc['feat']], dim=0).detach()
+        feats = torch.cat([tgt_pc['feat'], src_pc['feat']], dim=0).detach()
         transform = labels['transform'].detach().squeeze(0)
         assert transform.shape == (4, 4)
 

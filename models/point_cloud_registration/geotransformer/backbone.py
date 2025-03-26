@@ -49,19 +49,19 @@ class KPConvFPN(nn.Module):
         feats_list = []
 
         points_list = [
-            torch.cat([pc_1_pos, pc_2_pos], dim=0).detach()
+            torch.cat([pc_2_pos, pc_1_pos], dim=0).detach()
             for pc_1_pos, pc_2_pos in zip(data_dict['pc_1']['pos'], data_dict['pc_2']['pos'])
         ]
         neighbors_list = [
-            torch.cat([pc_1_neighbors, pc_2_neighbors], dim=0).detach()
+            torch.cat([pc_2_neighbors, pc_1_neighbors], dim=0).detach()
             for pc_1_neighbors, pc_2_neighbors in zip(data_dict['pc_1']['neighbors'], data_dict['pc_2']['neighbors'])
         ]
         subsampling_list = [
-            torch.cat([pc_1_subsampling, pc_2_subsampling], dim=0).detach()
+            torch.cat([pc_2_subsampling, pc_1_subsampling], dim=0).detach()
             for pc_1_subsampling, pc_2_subsampling in zip(data_dict['pc_1']['subsampling'], data_dict['pc_2']['subsampling'])
         ]
         upsampling_list = [
-            torch.cat([pc_1_upsampling, pc_2_upsampling], dim=0).detach()
+            torch.cat([pc_2_upsampling, pc_1_upsampling], dim=0).detach()
             for pc_1_upsampling, pc_2_upsampling in zip(data_dict['pc_1']['upsampling'], data_dict['pc_2']['upsampling'])
         ]
 
