@@ -1,9 +1,9 @@
 import torch.nn as nn
 
-from geotransformer.modules.transformer.lrpe_transformer import LRPETransformerLayer
-from geotransformer.modules.transformer.pe_transformer import PETransformerLayer
-from geotransformer.modules.transformer.rpe_transformer import RPETransformerLayer
-from geotransformer.modules.transformer.vanilla_transformer import TransformerLayer
+from models.point_cloud_registration.geotransformer.lrpe_transformer import LRPETransformerLayer
+from models.point_cloud_registration.geotransformer.pe_transformer import PETransformerLayer
+from models.point_cloud_registration.geotransformer.rpe_transformer import RPETransformerLayer
+from models.point_cloud_registration.geotransformer.vanilla_transformer import TransformerLayer
 
 
 def _check_block_type(block):
