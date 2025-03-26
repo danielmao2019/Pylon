@@ -4,13 +4,14 @@ import torch
 from data.datasets.base_dataset import BaseDataset
 from utils.torch_points3d import GridSampling3D
 from utils.io import load_point_cloud
+from utils.point_cloud_ops import get_correspondences
 
 
 class SynthPCRDataset(BaseDataset):
     # Required class attributes from BaseDataset
     SPLIT_OPTIONS = ['train', 'val', 'test']
     DATASET_SIZE = {'train': None, 'val': None, 'test': None}
-    INPUT_NAMES = ['src_pc', 'tgt_pc']
+    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
 
@@ -19,11 +20,13 @@ class SynthPCRDataset(BaseDataset):
         rot_mag: float = 45.0,
         trans_mag: float = 0.5,
         voxel_size: float = 50.0,
+        matching_radius: float = 0.1,  # Added matching radius parameter
         **kwargs,
     ) -> None:
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
         self._voxel_size = voxel_size
+        self.matching_radius = matching_radius
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(SynthPCRDataset, self).__init__(**kwargs)
 
@@ -149,6 +152,14 @@ class SynthPCRDataset(BaseDataset):
         # Apply transformation to create target point cloud
         tgt_points = (R @ src_points.T).T + transform[:3, 3]
 
+        # Find correspondences between source and target point clouds
+        correspondences = get_correspondences(
+            src_points, 
+            tgt_points, 
+            transform, 
+            self.matching_radius
+        )
+
         inputs = {
             'src_pc': {
                 'pos': src_points,
@@ -158,6 +169,7 @@ class SynthPCRDataset(BaseDataset):
                 'pos': tgt_points,
                 'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
             },
+            'correspondences': correspondences,
         }
 
         labels = {
