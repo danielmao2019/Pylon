@@ -5,9 +5,9 @@ from models.point_cloud_registration.geotransformer.transformations import apply
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
 
 
-class Evaluator(nn.Module):
+class GeoTransformerMetric(nn.Module):
     def __init__(self, cfg):
-        super(Evaluator, self).__init__()
+        super(GeoTransformerMetric, self).__init__()
         self.acceptance_overlap = cfg.eval.acceptance_overlap
         self.acceptance_radius = cfg.eval.acceptance_radius
         self.acceptance_rmse = cfg.eval.rmse_threshold
@@ -57,7 +57,7 @@ class Evaluator(nn.Module):
 
         return rre, rte, rmse, recall
 
-    def forward(self, output_dict, data_dict):
+    def __call__(self, output_dict, data_dict):
         c_precision = self.evaluate_coarse(output_dict)
         f_precision = self.evaluate_fine(output_dict, data_dict)
         rre, rte, rmse, recall = self.evaluate_registration(output_dict, data_dict)

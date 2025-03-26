@@ -70,15 +70,15 @@ class FineMatchingLoss(nn.Module):
         return loss
 
 
-class OverallLoss(nn.Module):
+class GeoTransformerCriterion(nn.Module):
     def __init__(self, cfg):
-        super(OverallLoss, self).__init__()
+        super(GeoTransformerCriterion, self).__init__()
         self.coarse_loss = CoarseMatchingLoss(cfg)
         self.fine_loss = FineMatchingLoss(cfg)
         self.weight_coarse_loss = cfg.loss.weight_coarse_loss
         self.weight_fine_loss = cfg.loss.weight_fine_loss
 
-    def forward(self, output_dict, data_dict):
+    def __call__(self, output_dict, data_dict):
         coarse_loss = self.coarse_loss(output_dict)
         fine_loss = self.fine_loss(output_dict, data_dict)
 
