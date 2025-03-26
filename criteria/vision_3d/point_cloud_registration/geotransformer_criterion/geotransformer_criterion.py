@@ -4,6 +4,7 @@ import torch.nn as nn
 from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.circle_loss import WeightedCircleLoss
 from models.point_cloud_registration.geotransformer.transformations import apply_transform
 from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
+from criteria.single_task_criterion import SingleTaskCriterion
 
 
 class CoarseMatchingLoss(nn.Module):
@@ -70,7 +71,7 @@ class FineMatchingLoss(nn.Module):
         return loss
 
 
-class GeoTransformerCriterion(nn.Module):
+class GeoTransformerCriterion(SingleTaskCriterion):
     def __init__(self, cfg):
         super(GeoTransformerCriterion, self).__init__()
         self.coarse_loss = CoarseMatchingLoss(cfg)
@@ -83,9 +84,7 @@ class GeoTransformerCriterion(nn.Module):
         fine_loss = self.fine_loss(output_dict, data_dict)
 
         loss = self.weight_coarse_loss * coarse_loss + self.weight_fine_loss * fine_loss
-
-        return {
-            'loss': loss,
-            'c_loss': coarse_loss,
-            'f_loss': fine_loss,
-        }
+        assert loss.ndim == 0
+        # log loss
+        self.buffer.append(loss.detach().cpu())
+        return loss
