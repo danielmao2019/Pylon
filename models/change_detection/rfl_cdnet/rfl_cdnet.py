@@ -398,6 +398,6 @@ class RFL_CDNet(nn.Module):
         dsn_f = self.new_score_weighting(concat)
 
         if self.training:
-            return [(dsn_0,), (dsn_1,), (dsn_2,), (dsn_3,), (dsn_e,), (dsn_f,)]
+            return dsn_0, dsn_1, dsn_2, dsn_3, dsn_e, dsn_f
         else:
             return dsn_f
