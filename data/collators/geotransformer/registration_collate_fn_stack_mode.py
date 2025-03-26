@@ -90,6 +90,19 @@ def registration_collate_fn_stack_mode(
     Returns:
         collated_dict (Dict)
     """
+    # Input checks
+    assert isinstance(data_dicts, list), 'data_dicts must be a list'
+    assert all(isinstance(data_dict, dict) for data_dict in data_dicts), \
+        'data_dicts must be a list of dictionaries'
+    assert all(data_dict.keys() >= {'ref_points', 'src_points', 'ref_feats', 'src_feats'} for data_dict in data_dicts), \
+        'data_dicts must contain the keys ref_points, src_points, ref_feats, src_feats'
+    assert isinstance(num_stages, int), 'num_stages must be an integer'
+    assert isinstance(voxel_size, float), 'voxel_size must be a float'
+    assert isinstance(search_radius, float), 'search_radius must be a float'
+    assert isinstance(neighbor_limits, list), 'neighbor_limits must be a list'
+    assert isinstance(precompute_data, bool), 'precompute_data must be a boolean'
+
+    # Main logic
     batch_size = len(data_dicts)
     # merge data with the same key from different samples into a list
     collated_dict = {}
