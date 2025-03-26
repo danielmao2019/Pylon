@@ -1,9 +1,7 @@
 import warnings
-
 import torch
-
-from geotransformer.modules.ops.pairwise_distance import pairwise_distance
-from geotransformer.modules.ops.index_select import index_select
+from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
+from models.point_cloud_registration.geotransformer.index_select import index_select
 
 
 def get_point_to_node_indices(points: torch.Tensor, nodes: torch.Tensor, return_counts: bool = False):
