@@ -396,4 +396,7 @@ class RFL_CDNet(nn.Module):
         concat = torch.cat((concat, dsn_e), 1)
         dsn_f = self.new_score_weighting(concat)
 
-        return [(dsn_0,), (dsn_1,), (dsn_2,), (dsn_3,), (dsn_e,), (dsn_f,)]
+        if self.training:
+            return [(dsn_0,), (dsn_1,), (dsn_2,), (dsn_3,), (dsn_e,), (dsn_f,)]
+        else:
+            return dsn_f
