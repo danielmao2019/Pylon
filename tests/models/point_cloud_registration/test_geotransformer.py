@@ -99,7 +99,7 @@ def test_geotransformer_forward(model_config, dummy_data):
     
     # Run forward pass
     with torch.no_grad():
-        output_dict = model(dummy_data)
+        output_dict = model(dummy_data['inputs'], dummy_data['labels'])
     
     # Validate output structure
     # 1. Check point cloud outputs
