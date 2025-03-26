@@ -1,6 +1,6 @@
+from typing import Dict
 import torch.nn as nn
 import torch
-
 
 class conv_block_nested(nn.Module):
     def __init__(self, in_ch, mid_ch, out_ch, sync_bn):
@@ -230,7 +230,7 @@ class RFL_CDNet(nn.Module):
 
         self.Up2_1_1 = up(filters[2])
         self.Up2_2_1 = up(filters[2])
-        
+
         self.Up3_1_1 = nn.ConvTranspose2d(filters[3], filters[3], 4, stride=4)
 
         self.conv0_3 = conv_block_nested(filters[0] * 4 + filters[1], filters[0], filters[0], sync_bn)
@@ -267,7 +267,7 @@ class RFL_CDNet(nn.Module):
         self.ca2_2 = ChannelAttention(filters[2],ratio=16//4)
         self.sa2_1 = SpatialAttention(kernel_size=3)
         self.sa2_2 = SpatialAttention(kernel_size=3)
-        
+
         self.lstmcell_1 = ConvLSTMCell(input_channels=filters[0] * 4, hidden_channels=2, kernel_size=3)
         self.lstmcell_2 = ConvLSTMCell(input_channels=filters[1] * 3, hidden_channels=2, kernel_size=3)
         self.lstmcell_3 = ConvLSTMCell(input_channels=filters[2] * 2, hidden_channels=2, kernel_size=3)
@@ -276,11 +276,11 @@ class RFL_CDNet(nn.Module):
         self.conv_final1 = nn.Conv2d(filters[1] * 3, out_ch, kernel_size=1)
         self.conv_final2 = nn.Conv2d(filters[2]*2, out_ch, kernel_size=1)
         self.conv_final3 = nn.Conv2d(filters[3]*1, out_ch, kernel_size=1)
-        
+
         # cls head
         self.cls_head = ClsHead(8, maxmode='softmax')
         self.new_score_weighting = nn.Conv2d(10, 2, 1)
-        
+
         on_bilinear = True
         self.Up1 = up(filters[1], scale_factor=2, bilinear=on_bilinear)
         self.Up2 = up(filters[2], scale_factor=4, bilinear=on_bilinear)
@@ -294,7 +294,9 @@ class RFL_CDNet(nn.Module):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
-    def forward(self, xA, xB):
+    def forward(self, inputs: Dict[str, torch.Tensor]):
+        xA = inputs['xA']
+        xB = inputs['xB']
         '''xA'''
         x0_0A = self.conv0_0(xA)
         x1_0A = self.conv1_0(self.pool(x0_0A))
@@ -356,7 +358,7 @@ class RFL_CDNet(nn.Module):
         x2_2 = self.sa2_2(x2_2) * x2_2
         out2 = torch.cat([x2_1, x2_2], 1)
         # the third scale
-        
+
         x3_1 = self.Up3(x3_1)
         out3 = x3_1
         # the fourth scale
@@ -372,7 +374,7 @@ class RFL_CDNet(nn.Module):
         out2 = self.ca2(out2)*out2
         out2 = self.sa2(out2)*out2
         score_2 = self.conv_final2(out2)
-        
+
         out3 = self.ca3(out3)*out3
         out3 = self.sa3(out3)*out3
         out3 = self.conv_final3(out3)
@@ -383,14 +385,14 @@ class RFL_CDNet(nn.Module):
         hs_2, dsn_2 = self.lstmcell_3(out2, hs_3, dsn_3)
         hs_1, dsn_1 = self.lstmcell_2(out1, hs_2, dsn_2)
         hs_0, dsn_0 = self.lstmcell_1(out, hs_1, dsn_1)
-        
+
         concat = torch.cat((dsn_0, dsn_1, dsn_2, dsn_3), 1)
         concat_score = torch.cat([score_0, score_1, score_2, score_3], 1)
         score_final = self.cls_head(concat_score)
         dsn_e = torch.sum(
             concat.view(-1, 4, 2, concat.size(-2), concat.size(-1)) * score_final.view(-1, 4, 2, score_final.size(-2),
                                                                                        score_final.size(-1)), axis=1)
-                                                                                     
+
         concat = torch.cat((concat, dsn_e), 1)
         dsn_f = self.new_score_weighting(concat)
 
