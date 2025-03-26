@@ -295,8 +295,8 @@ class RFL_CDNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, inputs: Dict[str, torch.Tensor]):
-        xA = inputs['xA']
-        xB = inputs['xB']
+        xA = inputs['img_1']
+        xB = inputs['img_2']
         '''xA'''
         x0_0A = self.conv0_0(xA)
         x1_0A = self.conv1_0(self.pool(x0_0A))
