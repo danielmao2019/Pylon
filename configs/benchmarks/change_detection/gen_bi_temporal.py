@@ -45,6 +45,14 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.SNUNetCDCriterion, 'args': {{}}}}\n"
         config += '\n'
+    elif model == "RFL_CDNet":
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.RFL_CDNet, 'args': {{}}}}\n"
+        config += '\n'
+        config += f"# criterion config\n"
+        config += f"import criteria\n"
+        config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{'criterion_cfg': config['criterion'], 'reduction': 'sum'}}}}\n"""
+        config += '\n'
     elif model == "DSIFN":
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.DSIFN, 'args': {{}}}}\n"
@@ -63,13 +71,7 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
-        config += f"""config['criterion'] = {{
-    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
-    'args': {{
-        'criterion_cfg': config['criterion'],
-        'reduction': 'sum',
-    }},
-}}\n"""
+        config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{'criterion_cfg': config['criterion'], 'reduction': 'sum'}}}}\n"""
         config += '\n'
     elif model == "HANet":
         config += f"import models\n"
