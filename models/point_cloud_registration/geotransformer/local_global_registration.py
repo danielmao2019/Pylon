@@ -4,8 +4,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from geotransformer.modules.ops import apply_transform
-from geotransformer.modules.registration import WeightedProcrustes
+from models.point_cloud_registration.geotransformer.transformation import apply_transform
+from models.point_cloud_registration.geotransformer.procrustes import WeightedProcrustes
 
 
 class LocalGlobalRegistration(nn.Module):
