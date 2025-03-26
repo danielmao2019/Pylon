@@ -62,7 +62,7 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
         radius *= 2
 
     return {
-        'points': points_list,
+        'pos': points_list,
         'lengths': lengths_list,
         'neighbors': neighbors_list,
         'subsampling': subsampling_list,
@@ -134,11 +134,11 @@ def registration_collate_fn_stack_mode(
     # Create collated dictionary with original structure
     collated_dict = {
         'inputs': {
-            'src_pc': {
+            'pc_1': {
                 'pos': src_points,
                 'feat': src_feats
             },
-            'tgt_pc': {
+            'pc_2': {
                 'pos': tgt_points,
                 'feat': tgt_feats
             }
@@ -160,15 +160,15 @@ def registration_collate_fn_stack_mode(
         tgt_dict = precompute_data_stack_mode(tgt_points, tgt_lengths, num_stages, voxel_size, search_radius, neighbor_limits)
         
         # Combine the results maintaining the original structure
-        collated_dict['inputs']['src_pc'].update({
-            'pos': src_dict['points'],
+        collated_dict['inputs']['pc_1'].update({
+            'pos': src_dict['pos'],
             'lengths': src_dict['lengths'],
             'neighbors': src_dict['neighbors'],
             'subsampling': src_dict['subsampling'],
             'upsampling': src_dict['upsampling'],
         })
-        collated_dict['inputs']['tgt_pc'].update({
-            'pos': tgt_dict['points'],
+        collated_dict['inputs']['pc_2'].update({
+            'pos': tgt_dict['pos'],
             'lengths': tgt_dict['lengths'],
             'neighbors': tgt_dict['neighbors'],
             'subsampling': tgt_dict['subsampling'],

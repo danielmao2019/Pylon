@@ -1,7 +1,7 @@
 from functools import partial
 
 import numpy as np
-
+import torch
 from data.dataloaders.base_dataloader import BaseDataloader
 from data.collators.geotransformer.registration_collate_fn_stack_mode import registration_collate_fn_stack_mode
 
@@ -21,7 +21,15 @@ def calibrate_neighbors_stack_mode(
         )
 
         # update histogram
-        counts = [np.sum(neighbors.numpy() < neighbors.shape[0], axis=1) for neighbors in data_dict['neighbors']]
+        # Get neighbors from both source and target point clouds
+        src_neighbors = data_dict['inputs']['pc_1']['neighbors']
+        tgt_neighbors = data_dict['inputs']['pc_2']['neighbors']
+        neighbors = [
+            torch.cat([src_neighbor, tgt_neighbor], dim=0)
+            for src_neighbor, tgt_neighbor in zip(src_neighbors, tgt_neighbors)
+        ]
+        # Combine neighbors from both point clouds
+        counts = [np.sum(neighbors.numpy() < neighbors.shape[0], axis=1) for neighbors in neighbors]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighbor_hists += np.vstack(hists)
 
