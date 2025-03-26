@@ -1,9 +1,9 @@
 import numpy as np
 import torch
 import torch.nn as nn
-
-from geotransformer.modules.ops import pairwise_distance
-from geotransformer.modules.transformer import SinusoidalPositionalEmbedding, RPEConditionalTransformer
+from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
+from models.point_cloud_registration.geotransformer.positional_embedding import SinusoidalPositionalEmbedding
+from models.point_cloud_registration.geotransformer.conditional_transformer import RPEConditionalTransformer
 
 
 class GeometricStructureEmbedding(nn.Module):
