@@ -64,12 +64,12 @@ class GeoTransformer(nn.Module):
 
         self.optimal_transport = LearnableLogOptimalTransport(cfg.model.num_sinkhorn_iterations)
 
-    def forward(self, data_dict, labels: Dict[str, torch.Tensor]):
+    def forward(self, inputs: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]):
         output_dict = {}
 
         # Get source and target point clouds
-        src_pc = data_dict['inputs']['pc_1']
-        tgt_pc = data_dict['inputs']['pc_2']
+        src_pc = inputs['pc_1']
+        tgt_pc = inputs['pc_2']
 
         # Get features and points
         feats = torch.cat([src_pc['feat'], tgt_pc['feat']], dim=0).detach()
@@ -119,7 +119,7 @@ class GeoTransformer(nn.Module):
         output_dict['gt_node_corr_overlaps'] = gt_node_corr_overlaps
 
         # 2. KPFCNN Encoder
-        feats_list = self.backbone(feats, data_dict)
+        feats_list = self.backbone(feats, inputs)
 
         feats_c = feats_list[-1]
         feats_f = feats_list[0]
