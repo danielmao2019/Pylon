@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from geotransformer.modules.ops.transformation import apply_transform
-from geotransformer.modules.registration.metrics import isotropic_transform_error
+from models.point_cloud_registration.geotransformer.transformations import apply_transform
+from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
 
 
 class Evaluator(nn.Module):

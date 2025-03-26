@@ -1,9 +1,9 @@
 import torch
 import torch.nn as nn
 
-from geotransformer.modules.loss import WeightedCircleLoss
-from geotransformer.modules.ops.transformation import apply_transform
-from geotransformer.modules.ops.pairwise_distance import pairwise_distance
+from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.circle_loss import WeightedCircleLoss
+from models.point_cloud_registration.geotransformer.transformations import apply_transform
+from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
 
 
 class CoarseMatchingLoss(nn.Module):
