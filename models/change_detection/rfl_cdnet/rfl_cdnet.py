@@ -390,8 +390,9 @@ class RFL_CDNet(nn.Module):
         concat_score = torch.cat([score_0, score_1, score_2, score_3], 1)
         score_final = self.cls_head(concat_score)
         dsn_e = torch.sum(
-            concat.view(-1, 4, 2, concat.size(-2), concat.size(-1)) * score_final.view(-1, 4, 2, score_final.size(-2),
-                                                                                       score_final.size(-1)), axis=1)
+            concat.view(-1, 4, 2, concat.size(-2), concat.size(-1)) * \
+            score_final.view(-1, 4, 2, score_final.size(-2), score_final.size(-1)),
+        axis=1)
 
         concat = torch.cat((concat, dsn_e), 1)
         dsn_f = self.new_score_weighting(concat)
