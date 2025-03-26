@@ -1,11 +1,9 @@
 from typing import Optional
-
 import torch
-
-from geotransformer.modules.ops import index_select, apply_transform, pairwise_distance, get_point_to_node_indices
-
-
-# Extract correspondences
+from models.point_cloud_registration.geotransformer.index_select import index_select
+from models.point_cloud_registration.geotransformer.transformation import apply_transform
+from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
+from models.point_cloud_registration.geotransformer.pointcloud_partition import get_point_to_node_indices
 
 
 @torch.no_grad()
