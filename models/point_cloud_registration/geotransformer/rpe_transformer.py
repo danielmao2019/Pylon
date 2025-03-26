@@ -9,7 +9,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange
-from IPython import embed
 
 from models.point_cloud_registration.geotransformer.factory import build_dropout_layer
 from models.point_cloud_registration.geotransformer.output_layer import AttentionOutput
