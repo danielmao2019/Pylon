@@ -4,6 +4,7 @@ MODELS.CHANGE_DETECTION API
 # Bi-Temporal Models
 from models.change_detection.fc_siam.fully_convolutional_siamese_networks import FullyConvolutionalSiameseNetwork
 from models.change_detection.snunet.snunet import SNUNet_ECAM
+from models.change_detection.rfl_cdnet.rfl_cdnet import RFL_CDNet
 from models.change_detection.dsifn.dsifn_model import DSIFN
 from models.change_detection.tiny_cd.tiny_cd_model import TinyCD
 from models.change_detection.hcgmnet.hcgmnet import HCGMNet
@@ -39,6 +40,7 @@ __all__ = (
     # Bi-Temporal Models
     'FullyConvolutionalSiameseNetwork',
     'SNUNet_ECAM',
+    'RFL_CDNet',
     'DSIFN',
     'TinyCD',
     'HCGMNet',
