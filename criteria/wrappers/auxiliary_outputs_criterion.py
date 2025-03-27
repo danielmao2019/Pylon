@@ -24,8 +24,9 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
         # input checks
         if type(y_pred) == dict:
             y_pred = list(y_pred.values())
-        assert type(y_pred) in [tuple, list], f"{type(y_pred)=}"
-        assert all(type(elem) == torch.Tensor for elem in y_pred)
+        assert isinstance(y_pred, (tuple, list)), f"{type(y_pred)=}"
+        assert all(isinstance(elem, torch.Tensor) for elem in y_pred), \
+            f"{[type(elem) for elem in y_pred]}"
         # compute losses
         losses: torch.Tensor = torch.stack([
             self.criterion(each_y_pred, y_true) for each_y_pred in y_pred

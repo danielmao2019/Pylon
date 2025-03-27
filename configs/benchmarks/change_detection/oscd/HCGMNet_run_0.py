@@ -62,13 +62,7 @@ config['model'] = {'class': models.change_detection.HCGMNet, 'args': {}}
 
 # criterion config
 import criteria
-config['criterion'] = {
-    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
-    'args': {
-        'criterion_cfg': config['criterion'],
-        'reduction': 'sum',
-    },
-}
+config['criterion'] = {'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {'criterion_cfg': config['criterion'], 'reduction': 'sum'}}
 
 # seeds
 config['init_seed'] = 46583111
