@@ -45,6 +45,14 @@ def main(dataset: str, model: str) -> None:
         config += f"import criteria\n"
         config += f"config['criterion'] = {{'class': criteria.vision_2d.change_detection.SNUNetCDCriterion, 'args': {{}}}}\n"
         config += '\n'
+    elif model == "RFL_CDNet":
+        config += f"import models\n"
+        config += f"config['model'] = {{'class': models.change_detection.RFL_CDNet, 'args': {{}}}}\n"
+        config += '\n'
+        config += f"# criterion config\n"
+        config += f"import criteria\n"
+        config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{'criterion_cfg': config['criterion'], 'reduction': 'sum'}}}}\n"""
+        config += '\n'
     elif model == "DSIFN":
         config += f"import models\n"
         config += f"config['model'] = {{'class': models.change_detection.DSIFN, 'args': {{}}}}\n"
@@ -63,13 +71,7 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
-        config += f"""config['criterion'] = {{
-    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
-    'args': {{
-        'criterion_cfg': config['criterion'],
-        'reduction': 'sum',
-    }},
-}}\n"""
+        config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{'criterion_cfg': config['criterion'], 'reduction': 'sum'}}}}\n"""
         config += '\n'
     elif model == "HANet":
         config += f"import models\n"
@@ -262,7 +264,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
         [
-            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'DSIFN', 'TinyCD', 'HCGMNet', 'HANet', 'DsferNet',
+            'FC-EF', 'FC-Siam-conc', 'FC-Siam-diff', 'SNUNet_ECAM', 'RFL_CDNet', 'DSIFN', 'TinyCD', 'HCGMNet', 'HANet', 'DsferNet',
             'Changer-mit-b0', 'Changer-mit-b1', 'Changer-r18', 'Changer-s50', 'Changer-s101',
             'ChangeFormerV1', 'ChangeFormerV2', 'ChangeFormerV3', 'ChangeFormerV4', 'ChangeFormerV5', 'ChangeFormerV6',
             'ChangeNextV1', 'ChangeNextV2', 'ChangeNextV3',
