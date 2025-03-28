@@ -30,6 +30,38 @@ class SynthPCRDataset(BaseDataset):
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(SynthPCRDataset, self).__init__(**kwargs)
 
+    def _init_annotations(self):
+        """Initialize dataset annotations."""
+        # Get file paths
+        self.file_paths = []
+        for file in os.listdir(self.data_root):
+            if file.endswith('.ply'):
+                self.file_paths.append(os.path.join(self.data_root, file))
+        print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
+
+        # Get all voxel point indices
+        all_indices, all_filepaths = self._prepare_all_centers()
+        print(f"Partitioned {len(self.file_paths)} point clouds into {len(all_indices)} voxels in total.")
+
+        # Split indices into train/val/test
+        np.random.seed(42)
+        indices = np.random.permutation(len(all_indices))
+        train_idx = int(0.7 * len(indices))
+        val_idx = int(0.85 * len(indices))  # 70% + 15%
+
+        if self.split == 'train':
+            select_indices = indices[:train_idx]
+        elif self.split == 'val':
+            select_indices = indices[train_idx:val_idx]
+        else:  # test
+            select_indices = indices[val_idx:]
+
+        # Store point indices and their corresponding filepaths for current split
+        self.annotations = [(all_indices[i], all_filepaths[i]) for i in select_indices]
+
+        # Update dataset size
+        self.DATASET_SIZE[self.split] = len(self.annotations)
+
     def _prepare_all_centers(self):
         """Prepare all voxel centers by grid sampling each point cloud."""
         all_indices = []
@@ -69,39 +101,9 @@ class SynthPCRDataset(BaseDataset):
         print(f"Total number of voxels across all point clouds: {len(all_indices)}")
         return all_indices, all_filepaths
 
-    def _init_annotations(self):
-        """Initialize dataset annotations."""
-        # Get file paths
-        self.file_paths = []
-        for file in os.listdir(self.data_root):
-            if file.endswith('.ply'):
-                self.file_paths.append(os.path.join(self.data_root, file))
-        print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
-
-        # Get all voxel point indices
-        all_indices, all_filepaths = self._prepare_all_centers()
-        print(f"Partitioned {len(self.file_paths)} point clouds into {len(all_indices)} voxels in total.")
-
-        # Split indices into train/val/test
-        np.random.seed(42)
-        indices = np.random.permutation(len(all_indices))
-        train_idx = int(0.7 * len(indices))
-        val_idx = int(0.85 * len(indices))  # 70% + 15%
-
-        if self.split == 'train':
-            select_indices = indices[:train_idx]
-        elif self.split == 'val':
-            select_indices = indices[train_idx:val_idx]
-        else:  # test
-            select_indices = indices[val_idx:]
-
-        # Store point indices and their corresponding filepaths for current split
-        self.annotations = [(all_indices[i], all_filepaths[i]) for i in select_indices]
-
-        # Update dataset size
-        self.DATASET_SIZE[self.split] = len(self.annotations)
-
-    def _load_datapoint(self, idx):
+    def _load_datapoint(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get point indices and filepath for this voxel
         point_indices, filepath = self.annotations[idx]
