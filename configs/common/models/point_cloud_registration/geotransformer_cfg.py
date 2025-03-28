@@ -5,13 +5,11 @@ model_cfg = {
     'class': models.point_cloud_registration.geotransformer.geotransformer.GeoTransformer,
     'args': {
         'cfg': {
-            # Model config
             'model': {
                 'ground_truth_matching_radius': 0.05,
                 'num_points_in_patch': 64,
                 'num_sinkhorn_iterations': 100
             },
-            # Backbone config
             'backbone': {
                 'num_stages': 4,
                 'init_voxel_size': 0.025,
@@ -25,8 +23,6 @@ model_cfg = {
                 'init_dim': 64,
                 'output_dim': 256
             },
-            
-            # Transformer config
             'geotransformer': {
                 'input_dim': 1024,
                 'hidden_dim': 256,
@@ -38,16 +34,12 @@ model_cfg = {
                 'angle_k': 3,
                 'reduction_a': 'max'
             },
-            
-            # Coarse matching config
             'coarse_matching': {
                 'num_targets': 128,
                 'overlap_threshold': 0.1,
                 'num_correspondences': 256,
                 'dual_normalization': True
             },
-            
-            # Fine matching config
             'fine_matching': {
                 'topk': 3,
                 'acceptance_radius': 0.1,
@@ -58,7 +50,7 @@ model_cfg = {
                 'correspondence_threshold': 3,
                 'correspondence_limit': None,
                 'num_refinement_steps': 5
-            }
-        }
-    }
+            },
+        },
+    },
 }
