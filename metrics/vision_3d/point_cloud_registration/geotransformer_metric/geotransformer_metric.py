@@ -1,9 +1,9 @@
 from typing import Dict, Tuple
 import torch
 from easydict import EasyDict
-from models.point_cloud_registration.geotransformer.transformations import apply_transform
+from models.point_cloud_registration.geotransformer.transformation import apply_transform
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
-from metrics.single_task_metric import SingleTaskMetric
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.ops import apply_tensor_op
 
 
