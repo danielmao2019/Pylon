@@ -22,8 +22,8 @@ def calibrate_neighbors_stack_mode(
 
         # update histogram
         # Get neighbors from both source and target point clouds
-        src_neighbors = data_dict['inputs']['pc_1']['neighbors']
-        tgt_neighbors = data_dict['inputs']['pc_2']['neighbors']
+        src_neighbors = data_dict['inputs']['src_pc']['neighbors']
+        tgt_neighbors = data_dict['inputs']['tgt_pc']['neighbors']
         neighbors = [
             torch.cat([src_neighbor, tgt_neighbor], dim=0)
             for src_neighbor, tgt_neighbor in zip(src_neighbors, tgt_neighbors)
