@@ -1,5 +1,5 @@
+from typing import List
 from functools import partial
-
 import numpy as np
 import torch
 from data.dataloaders.base_dataloader import BaseDataLoader
@@ -8,7 +8,7 @@ from data.collators.geotransformer.registration_collate_fn_stack_mode import reg
 
 def calibrate_neighbors_stack_mode(
     dataset, collate_fn, num_stages, voxel_size, search_radius, keep_ratio=0.8, sample_threshold=2000
-):
+) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
     hist_n = int(np.ceil(4 / 3 * np.pi * (search_radius / voxel_size + 1) ** 3))
     neighbor_hists = np.zeros((num_stages, hist_n), dtype=np.int32)
@@ -39,7 +39,7 @@ def calibrate_neighbors_stack_mode(
     cum_sum = np.cumsum(neighbor_hists.T, axis=0)
     neighbor_limits = np.sum(cum_sum < (keep_ratio * cum_sum[hist_n - 1, :]), axis=0)
 
-    return neighbor_limits
+    return neighbor_limits.tolist()
 
 
 class GeoTransformerDataloader(BaseDataLoader):
