@@ -174,14 +174,14 @@ def registration_collate_fn_stack_mode(
         tgt_dict = precompute_data_stack_mode(tgt_points, tgt_lengths, num_stages, voxel_size, search_radius, neighbor_limits)
         
         # Combine the results maintaining the original structure
-        collated_dict['inputs']['pc_1'].update({
+        collated_dict['inputs']['src_pc'].update({
             'pos': src_dict['pos'],
             'lengths': src_dict['lengths'],
             'neighbors': src_dict['neighbors'],
             'subsampling': src_dict['subsampling'],
             'upsampling': src_dict['upsampling'],
         })
-        collated_dict['inputs']['pc_2'].update({
+        collated_dict['inputs']['tgt_pc'].update({
             'pos': tgt_dict['pos'],
             'lengths': tgt_dict['lengths'],
             'neighbors': tgt_dict['neighbors'],
