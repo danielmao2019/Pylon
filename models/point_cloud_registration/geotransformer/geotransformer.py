@@ -103,7 +103,7 @@ class GeoTransformer(nn.Module):
         src_node_knn_points = index_select(src_padded_points_f, src_node_knn_indices, dim=0)
 
         transform = inputs['transform'].detach().squeeze(0)
-        assert transform.shape == (4, 4)
+        assert transform.shape == (4, 4), f"{transform.shape=}"
 
         gt_node_corr_indices, gt_node_corr_overlaps = get_node_correspondences(
             ref_points_c,
