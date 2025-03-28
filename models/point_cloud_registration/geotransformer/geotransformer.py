@@ -15,7 +15,9 @@ from models.point_cloud_registration.geotransformer.backbone import KPConvFPN
 
 
 class GeoTransformer(nn.Module):
-    def __init__(self, cfg):
+    def __init__(self, **cfg):
+        from easydict import EasyDict
+        cfg = EasyDict(cfg)
         super(GeoTransformer, self).__init__()
         self.num_points_in_patch = cfg.model.num_points_in_patch
         self.matching_radius = cfg.model.ground_truth_matching_radius
