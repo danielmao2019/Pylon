@@ -34,7 +34,7 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
         (i, j) 
         for i, indices in enumerate(indices_list) 
         for j in indices
-    ], dtype=np.long)
+    ], dtype=np.int64)
     
     return torch.from_numpy(corr_indices)
 
