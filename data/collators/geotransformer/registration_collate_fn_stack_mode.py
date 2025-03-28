@@ -33,6 +33,10 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
             radius,
             neighbor_limits[i],
         )
+        # Validate neighbor tensor shape
+        expected_shape = (cur_points.shape[0], neighbor_limits[i])
+        assert neighbors.shape == expected_shape, \
+            f"Stage {i}: Expected shape {expected_shape} but got {neighbors.shape}"
         neighbors_list.append(neighbors)
 
         if i < num_stages - 1:
@@ -47,6 +51,10 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
                 radius,
                 neighbor_limits[i],
             )
+            # Validate subsampling tensor shape
+            expected_shape = (sub_points.shape[0], neighbor_limits[i])
+            assert subsampling.shape == expected_shape, \
+                f"Stage {i} subsampling: Expected shape {expected_shape} but got {subsampling.shape}"
             subsampling_list.append(subsampling)
 
             upsampling = radius_search(
@@ -57,6 +65,10 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
                 radius * 2,
                 neighbor_limits[i + 1],
             )
+            # Validate upsampling tensor shape
+            expected_shape = (cur_points.shape[0], neighbor_limits[i + 1])
+            assert upsampling.shape == expected_shape, \
+                f"Stage {i} upsampling: Expected shape {expected_shape} but got {upsampling.shape}"
             upsampling_list.append(upsampling)
 
         radius *= 2
