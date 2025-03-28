@@ -1,6 +1,6 @@
+import sys
+sys.path.append('./data/collators/geotransformer')
 import importlib
-
-
 ext_module = importlib.import_module('geotransformer.ext')
 
 

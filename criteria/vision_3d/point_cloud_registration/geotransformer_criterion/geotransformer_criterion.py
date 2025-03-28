@@ -3,9 +3,9 @@ import torch
 import torch.nn as nn
 from easydict import EasyDict
 from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.circle_loss import WeightedCircleLoss
-from models.point_cloud_registration.geotransformer.transformations import apply_transform
+from models.point_cloud_registration.geotransformer.transformation import apply_transform
 from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
-from criteria.single_task_criterion import SingleTaskCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
 class CoarseMatchingLoss(nn.Module):
