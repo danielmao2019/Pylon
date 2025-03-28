@@ -147,11 +147,11 @@ def registration_collate_fn_stack_mode(
     # Create collated dictionary with original structure
     collated_dict = {
         'inputs': {
-            'pc_1': {
+            'src_pc': {
                 'pos': src_points,
                 'feat': src_feats
             },
-            'pc_2': {
+            'tgt_pc': {
                 'pos': tgt_points,
                 'feat': tgt_feats
             },

@@ -66,12 +66,14 @@ class GeoTransformer(nn.Module):
 
         self.optimal_transport = LearnableLogOptimalTransport(cfg.model.num_sinkhorn_iterations)
 
-    def forward(self, inputs: Dict[str, torch.Tensor], labels: Dict[str, torch.Tensor]):
+    def forward(self, inputs: Dict[str, torch.Tensor]):
+        assert isinstance(inputs, dict), f"inputs must be a dictionary. Got {type(inputs)}."
+        assert inputs.keys() >= {'src_pc', 'tgt_pc', 'transform'}
         output_dict = {}
 
         # Get source and target point clouds
-        src_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['pc_1']
-        tgt_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['pc_2']
+        src_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['src_pc']
+        tgt_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['tgt_pc']
 
         ref_points_c = tgt_pc['pos'][-1].detach()
         src_points_c = src_pc['pos'][-1].detach()
