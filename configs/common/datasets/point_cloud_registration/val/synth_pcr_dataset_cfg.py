@@ -6,7 +6,7 @@ config = {
     'val_dataset': {
         'class': data.datasets.SynthPCRDataset,
         'args': {
-            'root_dir': './data/datasets/soft_links/ivision-pcr-data',
+            'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'split': 'val',
             'rot_mag': 45.0,
             'trans_mag': 0.5,
