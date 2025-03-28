@@ -154,10 +154,11 @@ def registration_collate_fn_stack_mode(
             'pc_2': {
                 'pos': tgt_points,
                 'feat': tgt_feats
-            }
+            },
+            'transform': torch.stack([d['labels']['transform'] for d in data_dicts]),
         },
         'labels': {
-            'transform': torch.stack([d['labels']['transform'] for d in data_dicts])
+            'transform': torch.stack([d['labels']['transform'] for d in data_dicts]),
         },
         'meta_info': {
             'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts]),
