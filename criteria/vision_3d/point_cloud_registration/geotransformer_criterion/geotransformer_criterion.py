@@ -1,6 +1,7 @@
+from typing import Dict
 import torch
 import torch.nn as nn
-
+from easydict import EasyDict
 from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.circle_loss import WeightedCircleLoss
 from models.point_cloud_registration.geotransformer.transformations import apply_transform
 from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
@@ -72,7 +73,8 @@ class FineMatchingLoss(nn.Module):
 
 
 class GeoTransformerCriterion(SingleTaskCriterion):
-    def __init__(self, cfg):
+    def __init__(self, **cfg):
+        cfg = EasyDict(cfg)
         super(GeoTransformerCriterion, self).__init__()
         self.coarse_loss = CoarseMatchingLoss(cfg)
         self.fine_loss = FineMatchingLoss(cfg)

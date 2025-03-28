@@ -1,7 +1,6 @@
 from typing import Dict, Tuple
 import torch
-import torch.nn as nn
-
+from easydict import EasyDict
 from models.point_cloud_registration.geotransformer.transformations import apply_transform
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
 from metrics.single_task_metric import SingleTaskMetric
@@ -9,8 +8,9 @@ from utils.ops import apply_tensor_op
 
 
 class GeoTransformerMetric(SingleTaskMetric):
-    def __init__(self, cfg):
+    def __init__(self, **cfg):
         super(GeoTransformerMetric, self).__init__()
+        cfg = EasyDict(cfg)
         self.acceptance_overlap = cfg.eval.acceptance_overlap
         self.acceptance_radius = cfg.eval.acceptance_radius
         self.acceptance_rmse = cfg.eval.rmse_threshold
