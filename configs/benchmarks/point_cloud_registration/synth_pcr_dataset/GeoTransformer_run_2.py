@@ -58,7 +58,7 @@ config.update(val_dataset_config)
 
 # model config
 from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
-config['models'] = model_cfg
+config['model'] = model_cfg
 
 # seeds
 config['init_seed'] = 93370194

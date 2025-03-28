@@ -33,7 +33,7 @@ def main(dataset: str, model: str) -> None:
     config += f"# model config\n"
     if model == 'GeoTransformer':
         config += f"from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg\n"
-        config += f"config['models'] = model_cfg\n"
+        config += f"config['model'] = model_cfg\n"
         config += '\n'
     else:
         raise NotImplementedError

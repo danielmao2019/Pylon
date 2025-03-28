@@ -2,7 +2,7 @@ import models
 
 
 model_cfg = {
-    'class': models.point_cloud_registration.geotransformer.geotransformer.GeoTransformer,
+    'class': models.point_cloud_registration.GeoTransformer,
     'args': {
         'cfg': {
             'model': {
