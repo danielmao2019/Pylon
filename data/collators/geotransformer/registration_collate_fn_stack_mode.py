@@ -1,3 +1,4 @@
+from typing import Dict, Any
 import torch
 from data.collators.geotransformer.grid_subsample import grid_subsample
 from data.collators.geotransformer.radius_search import radius_search
@@ -84,7 +85,7 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
 
 def registration_collate_fn_stack_mode(
     data_dicts, num_stages, voxel_size, search_radius, neighbor_limits, precompute_data=True
-):
+) -> Dict[str, Dict[str, Any]]:
     r"""Collate function for registration in stack mode.
 
     Args:
