@@ -21,6 +21,12 @@ def radius_search(q_points, s_points, q_lengths, s_lengths, radius, neighbor_lim
         neighbors (Tensor): the k nearest neighbors of q_points in s_points (N, k).
             Filled with M if there are less than k neighbors.
     """
+    # Ensure tensors are on CPU
+    q_points = q_points.cpu()
+    s_points = s_points.cpu()
+    q_lengths = q_lengths.cpu()
+    s_lengths = s_lengths.cpu()
+    
     neighbor_indices = ext_module.radius_neighbors(q_points, s_points, q_lengths, s_lengths, radius)
     if neighbor_limit > 0:
         neighbor_indices = neighbor_indices[:, :neighbor_limit]
