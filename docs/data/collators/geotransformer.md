@@ -7,14 +7,24 @@ This document explains how to build and use the GeoTransformer C++ extensions wi
 ```
 geotransformer/
 ├── extensions/          # C++ source files
-│   ├── cpu/
+│   ├── common/         # Common utilities
+│   │   └── torch_helper.h
+│   ├── cpu/           # CPU implementations
 │   │   ├── grid_subsampling/
+│   │   │   ├── grid_subsampling.cpp
+│   │   │   └── grid_subsampling_cpu.cpp
 │   │   └── radius_neighbors/
-│   ├── extra/
-│   │   └── cloud/
-│   └── pybind.cpp
+│   │       ├── radius_neighbors.cpp
+│   │       └── radius_neighbors_cpu.cpp
+│   ├── extra/         # Additional utilities
+│   │   ├── cloud/     # Point cloud operations
+│   │   └── nanoflann/ # KNN search library
+│   └── pybind.cpp     # Python bindings
 ├── geotransformer/     # Python package directory
 │   └── __init__.py
+├── grid_subsample.py   # Python wrapper for grid subsampling
+├── radius_search.py    # Python wrapper for radius search
+├── registration_collate_fn_stack_mode.py  # Main collation function
 └── setup.py            # Build configuration
 ```
 
