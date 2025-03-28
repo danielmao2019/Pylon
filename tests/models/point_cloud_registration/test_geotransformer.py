@@ -1,7 +1,7 @@
 import pytest
 import torch
 from utils.builders.builder import build_from_config
-from configs.common.models.point_cloud_registration.geotransformer import model_cfg
+from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 from easydict import EasyDict
 
 

@@ -11,7 +11,6 @@ model_cfg = {
                 'num_points_in_patch': 64,
                 'num_sinkhorn_iterations': 100
             },
-            
             # Backbone config
             'backbone': {
                 'num_stages': 4,
