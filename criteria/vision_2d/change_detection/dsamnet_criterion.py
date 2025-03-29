@@ -1,3 +1,5 @@
+from typing import Dict, Tuple, Union
+import torch
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
 
