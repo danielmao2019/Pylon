@@ -11,7 +11,7 @@ def test_dsam_net_forward_pass(input_size):
     model.eval()
 
     # Create dummy inputs
-    batch_size = 2
+    batch_size = 4
     image1 = torch.randn(batch_size, 3, *input_size, device='cuda')
     image2 = torch.randn(batch_size, 3, *input_size, device='cuda')
     inputs = {'image1': image1, 'image2': image2}
