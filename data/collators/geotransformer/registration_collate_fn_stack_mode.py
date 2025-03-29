@@ -117,6 +117,7 @@ def registration_collate_fn_stack_mode(
 
     # Main logic
     batch_size = len(data_dicts)
+    device = data_dicts[0]['inputs']['src_pc']['pos'].device
     
     # Extract points and features from the nested structure
     src_points_list = []
@@ -142,8 +143,8 @@ def registration_collate_fn_stack_mode(
     tgt_feats = torch.cat(tgt_feats_list, dim=0)
     
     # Get lengths for each point cloud
-    src_lengths = torch.LongTensor([points.shape[0] for points in src_points_list])
-    tgt_lengths = torch.LongTensor([points.shape[0] for points in tgt_points_list])
+    src_lengths = torch.tensor([points.shape[0] for points in src_points_list], dtype=torch.long, device=device)
+    tgt_lengths = torch.tensor([points.shape[0] for points in tgt_points_list], dtype=torch.long, device=device)
 
     # Create collated dictionary with original structure
     collated_dict = {
@@ -162,7 +163,7 @@ def registration_collate_fn_stack_mode(
             'transform': torch.stack([d['labels']['transform'] for d in data_dicts]),
         },
         'meta_info': {
-            'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts]),
+            'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts], device=device),
             'point_indices': [d['meta_info']['point_indices'] for d in data_dicts],
             'filepath': [d['meta_info']['filepath'] for d in data_dicts],
             'batch_size': batch_size,

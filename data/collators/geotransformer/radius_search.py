@@ -22,17 +22,13 @@ def radius_search(q_points, s_points, q_lengths, s_lengths, radius, neighbor_lim
         neighbors (Tensor): the k nearest neighbors of q_points in s_points (N, k).
             Filled with M if there are less than k neighbors.
     """
-    # Ensure tensors are on CPU
-    q_points = q_points.cpu()
-    s_points = s_points.cpu()
-    q_lengths = q_lengths.cpu()
-    s_lengths = s_lengths.cpu()
-
-    neighbor_indices = ext_module.radius_neighbors(q_points, s_points, q_lengths, s_lengths, radius)
+    device = q_points.device
+    neighbor_indices = ext_module.radius_neighbors(q_points.cpu(), s_points.cpu(), q_lengths.cpu(), s_lengths.cpu(), radius)
+    neighbor_indices = neighbor_indices.to(device)
     assert len(neighbor_indices) == len(q_points)
 
     # Create output tensor with correct shape and pad with invalid indices
-    output = torch.full((q_points.shape[0], neighbor_limit), s_points.shape[0], dtype=neighbor_indices.dtype)
+    output = torch.full((q_points.shape[0], neighbor_limit), s_points.shape[0], dtype=neighbor_indices.dtype, device=device)
 
     # Copy valid neighbors and pad with s_points.shape[0] if needed
     if neighbor_indices.shape[1] > 0:
