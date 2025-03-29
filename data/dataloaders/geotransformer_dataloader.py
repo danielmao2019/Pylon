@@ -29,7 +29,7 @@ def calibrate_neighbors_stack_mode(
             for src_neighbor, tgt_neighbor in zip(src_neighbors, tgt_neighbors)
         ]
         # Combine neighbors from both point clouds
-        counts = [np.sum(neighbors.numpy() < neighbors.shape[0], axis=1) for neighbors in neighbors]
+        counts = [np.sum(neighbors.cpu().numpy() < neighbors.shape[0], axis=1) for neighbors in neighbors]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighbor_hists += np.vstack(hists)
 
