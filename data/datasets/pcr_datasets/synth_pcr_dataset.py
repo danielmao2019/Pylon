@@ -38,7 +38,6 @@ class SynthPCRDataset(BaseDataset):
         for file in os.listdir(self.data_root):
             if file.endswith('.ply'):
                 self.file_paths.append(os.path.join(self.data_root, file))
-        self.file_paths = self.file_paths[:1]
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
         # Get all voxel point indices
