@@ -23,7 +23,11 @@ class DSAMNet(nn.Module):
         if freeze_bn:
             self.freeze_bn()
 
-    def forward(self, input1, input2):
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> Union[
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        torch.Tensor,
+    ]:
+        input1, input2 = inputs['image1'], inputs['image2']
         x_1, f2_1, f3_1, f4_1 = self.backbone(input1)
         x_2, f2_2, f3_2, f4_2 = self.backbone(input2)
 
@@ -33,14 +37,16 @@ class DSAMNet(nn.Module):
         x1 = self.cbam0(x1). transpose(1,3) 
         x2 = self.cbam1(x2). transpose(1,3)  # channel = 64
 
-        dist = F.pairwise_distance(x1, x2, keepdim=True). transpose(1,3)  # channel = 1
+        dist = F.pairwise_distance(x1, x2, keepdim=True).transpose(1, 3)  # channel = 1
         dist = F.interpolate(dist, size=input1.shape[2:], mode='bilinear', align_corners=True)
 
         ds2 = self.ds_lyr2(torch.abs(f2_1 - f2_2))
         ds3 = self.ds_lyr3(torch.abs(f3_1 - f3_2))
 
-        return dist, ds2, ds3
-
+        if self.training:
+            return dist.squeeze(1), ds2, ds3
+        else:
+            return torch.stack([2 - dist, dist], dim=1)
 
     def freeze_bn(self):
         for m in self.modules():
