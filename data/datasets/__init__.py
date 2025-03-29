@@ -38,6 +38,9 @@ from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_
 from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
 from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
 
+# Point Cloud Registration
+from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
+
 
 __all__ = (
     'BaseDataset',
@@ -71,4 +74,6 @@ __all__ = (
     'Bi2SingleTemporal',
     'I3PEDataset',
     'PPSLDataset',
+    # Point Cloud Registration
+    'SynthPCRDataset',
 )
