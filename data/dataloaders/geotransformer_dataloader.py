@@ -24,13 +24,15 @@ def calibrate_neighbors_stack_mode(
         # Get neighbors from both source and target point clouds
         src_neighbors = data_dict['inputs']['src_pc']['neighbors']
         tgt_neighbors = data_dict['inputs']['tgt_pc']['neighbors']
-        neighbors = [
-            torch.cat([src_neighbor, tgt_neighbor], dim=0)
-            for src_neighbor, tgt_neighbor in zip(src_neighbors, tgt_neighbors)
-        ]
-        # Combine neighbors from both point clouds
-        counts = [np.sum(neighbors.cpu().numpy() < neighbors.shape[0], axis=1) for neighbors in neighbors]
-        hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
+
+        # Count neighbors separately for source and target and add them
+        counts = [torch.cat([
+            torch.sum(src_neighbor < src_neighbor.shape[0], axis=1),
+            torch.sum(tgt_neighbor < tgt_neighbor.shape[0], axis=1),
+        ], dim=0) for src_neighbor, tgt_neighbor in zip(src_neighbors, tgt_neighbors)]
+
+        # Create histograms from combined counts
+        hists = [np.bincount(c.cpu().numpy(), minlength=hist_n)[:hist_n] for c in counts]
         neighbor_hists += np.vstack(hists)
 
         if np.min(np.sum(neighbor_hists, axis=1)) > sample_threshold:
@@ -38,8 +40,9 @@ def calibrate_neighbors_stack_mode(
 
     cum_sum = np.cumsum(neighbor_hists.T, axis=0)
     neighbor_limits = np.sum(cum_sum < (keep_ratio * cum_sum[hist_n - 1, :]), axis=0)
-
-    return neighbor_limits.tolist()
+    neighbor_limits = neighbor_limits.tolist()
+    assert all([l > 0 for l in neighbor_limits]), f"{neighbor_limits=}, {cum_sum=}"
+    return neighbor_limits
 
 
 class GeoTransformerDataloader(BaseDataLoader):
