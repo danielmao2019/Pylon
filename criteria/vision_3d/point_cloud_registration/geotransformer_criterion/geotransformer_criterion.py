@@ -31,7 +31,8 @@ class CoarseMatchingLoss(nn.Module):
         feat_dists = torch.sqrt(pairwise_distance(ref_feats, src_feats, normalized=True)).float()
 
         overlaps = torch.zeros_like(feat_dists)
-        overlaps[gt_ref_node_corr_indices, gt_src_node_corr_indices] = gt_node_corr_overlaps.float()
+        assert 0, f"{feat_dists.dtype=}, {overlaps.dtype=}, {gt_node_corr_overlaps.dtype=}"
+        overlaps[gt_ref_node_corr_indices, gt_src_node_corr_indices] = gt_node_corr_overlaps
         pos_masks = torch.gt(overlaps, self.positive_overlap)
         neg_masks = torch.eq(overlaps, 0)
         pos_scales = torch.sqrt(overlaps * pos_masks.float())
