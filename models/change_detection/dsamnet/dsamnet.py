@@ -7,7 +7,17 @@ from .utils import CBAM, DS_layer
 
 
 class DSAMNet(nn.Module):
-    def __init__(self, n_class=2,  ratio = 8, kernel = 7, backbone='resnet18', output_stride=16, f_c=64, freeze_bn=False, in_c=3):
+    def __init__(
+        self,
+        n_class: int = 2,
+        ratio: int = 8,
+        kernel: int = 7,
+        backbone: str = 'resnet18',
+        output_stride: int = 16,
+        f_c: int = 64,
+        freeze_bn: bool = False,
+        in_c: int = 3,
+    ) -> None:
         super(DSAMNet, self).__init__()
         BatchNorm = nn.BatchNorm2d
 
