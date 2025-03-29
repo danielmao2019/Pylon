@@ -10,8 +10,8 @@ def calibrate_neighbors_stack_mode(
     dataset, collate_fn, num_stages, voxel_size, search_radius, keep_ratio=0.8, sample_threshold=2000
 ) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
-    hist_n = int(np.ceil(4 / 3 * np.pi * (search_radius / voxel_size + 1) ** 3))
-    neighbor_hists = np.zeros((num_stages, hist_n), dtype=np.int32)
+    hist_n = int(torch.ceil(4 / 3 * torch.pi * (search_radius / voxel_size + 1) ** 3))
+    neighbor_hists = torch.zeros((num_stages, hist_n), dtype=torch.int64)
     max_neighbor_limits = [hist_n] * num_stages
 
     # Get histogram of neighborhood sizes i in 1 epoch max.
@@ -32,14 +32,15 @@ def calibrate_neighbors_stack_mode(
         ], dim=0) for src_neighbor, tgt_neighbor in zip(src_neighbors, tgt_neighbors)]
 
         # Create histograms from combined counts
-        hists = [np.bincount(c.cpu().numpy(), minlength=hist_n)[:hist_n] for c in counts]
-        neighbor_hists += np.vstack(hists)
+        hists = [torch.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
+        neighbor_hists += torch.stack(hists)
 
-        if np.min(np.sum(neighbor_hists, axis=1)) > sample_threshold:
+        if torch.min(torch.sum(neighbor_hists, dim=1)) > sample_threshold:
             break
 
-    cum_sum = np.cumsum(neighbor_hists.T, axis=0)
-    neighbor_limits = np.sum(cum_sum < (keep_ratio * cum_sum[hist_n - 1, :]), axis=0)
+    # Calculate neighbor limits using PyTorch operations
+    cum_sum = torch.cumsum(neighbor_hists.t(), dim=0)
+    neighbor_limits = torch.sum((cum_sum < (keep_ratio * cum_sum[hist_n - 1, :])).to(torch.int64), dim=0)
     neighbor_limits = neighbor_limits.tolist()
     assert all([l > 0 for l in neighbor_limits]), f"{neighbor_limits=}, {cum_sum=}"
     return neighbor_limits
