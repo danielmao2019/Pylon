@@ -109,8 +109,8 @@ def registration_collate_fn_stack_mode(
     assert all(data_dict.keys() >= {'inputs', 'labels', 'meta_info'} for data_dict in data_dicts), \
         'data_dicts must contain the keys inputs, labels, meta_info'
     assert isinstance(num_stages, int), 'num_stages must be an integer'
-    assert isinstance(voxel_size, float), 'voxel_size must be a float'
-    assert isinstance(search_radius, float), 'search_radius must be a float'
+    assert isinstance(voxel_size, (int, float)), 'voxel_size must be a float'
+    assert isinstance(search_radius, (int, float)), 'search_radius must be a float'
     assert isinstance(neighbor_limits, list), f'neighbor_limits must be a list. Got {type(neighbor_limits)}.'
     assert all(isinstance(limit, int) for limit in neighbor_limits), 'neighbor_limits must be a list of integers'
     assert isinstance(precompute_data, bool), 'precompute_data must be a boolean'
