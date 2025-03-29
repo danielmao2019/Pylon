@@ -19,8 +19,8 @@ config = {
             'batch_size': 1,
             'num_workers': 4,
             'num_stages': 4,
-            'voxel_size': 1.0,
-            'search_radius': 1.0,
+            'voxel_size': 0.1,
+            'search_radius': 0.1,
         },
     },
     'criterion': {
