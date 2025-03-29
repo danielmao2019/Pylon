@@ -38,6 +38,8 @@ class GeoTransformerMetric(SingleTaskMetric):
     @torch.no_grad()
     def evaluate_fine(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         transform = y_true['transform']
+        assert transform.shape == (1, 4, 4), f"{transform.shape=}"
+        transform = transform.squeeze(0)
         ref_corr_points = y_pred['ref_corr_points']
         src_corr_points = y_pred['src_corr_points']
         src_corr_points = apply_transform(src_corr_points, transform)
