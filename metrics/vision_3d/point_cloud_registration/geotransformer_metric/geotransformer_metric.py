@@ -50,7 +50,12 @@ class GeoTransformerMetric(SingleTaskMetric):
     @torch.no_grad()
     def evaluate_registration(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         transform = y_true['transform']
+        assert transform.shape == (1, 4, 4), f"{transform.shape=}"
+        transform = transform.squeeze(0)
+
         est_transform = y_pred['estimated_transform']
+        assert est_transform.shape == (1, 4, 4), f"{est_transform.shape=}"
+
         src_points = y_pred['src_points']
 
         rre, rte = isotropic_transform_error(transform, est_transform)
