@@ -57,7 +57,7 @@ class DSAMNet(nn.Module):
         if self.training:
             return dist.squeeze(1), ds2, ds3
         else:
-            return torch.stack([2 - dist, dist], dim=1)
+            return torch.cat([2 - dist, dist], dim=1)
 
     def freeze_bn(self):
         for m in self.modules():
