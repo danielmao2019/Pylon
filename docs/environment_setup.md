@@ -66,6 +66,7 @@ conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
 
 ```bash
 conda install -c conda-forge -y opencv pycocotools rasterio imageio
+pip install open3d
 ```
 
 #### 3.3.3. Visualization and Data Analysis
@@ -93,5 +94,5 @@ conda install pytest -c conda-forge -y
 conda install -c conda-forge -y ftfy regex plyfile
 
 # Pip packages
-pip install fvcore triton jsbeautifier
+pip install fvcore triton jsbeautifier easydict
 ```

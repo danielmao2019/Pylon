@@ -8,6 +8,7 @@ from metrics.vision_3d.mae import MAE
 from metrics.vision_3d.precision_recall import CorrespondencePrecisionRecall
 from metrics.vision_3d.registration_recall import RegistrationRecall
 from metrics.vision_3d.rmse import RMSE
+from metrics.vision_3d import point_cloud_registration
 
 
 __all__ = (
@@ -18,4 +19,5 @@ __all__ = (
     'CorrespondencePrecisionRecall',
     'RegistrationRecall',
     'RMSE',
+    'point_cloud_registration',
 )
