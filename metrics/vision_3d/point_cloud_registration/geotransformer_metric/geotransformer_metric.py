@@ -55,6 +55,7 @@ class GeoTransformerMetric(SingleTaskMetric):
 
         est_transform = y_pred['estimated_transform']
         assert est_transform.shape == (1, 4, 4), f"{est_transform.shape=}"
+        est_transform = est_transform.squeeze(0)
 
         src_points = y_pred['src_points']
 
