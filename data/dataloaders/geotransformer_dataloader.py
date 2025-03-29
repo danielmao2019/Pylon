@@ -1,6 +1,6 @@
 from typing import List
 from functools import partial
-import numpy as np
+import math
 import torch
 from data.dataloaders.base_dataloader import BaseDataLoader
 from data.collators.geotransformer.registration_collate_fn_stack_mode import registration_collate_fn_stack_mode
@@ -10,7 +10,7 @@ def calibrate_neighbors_stack_mode(
     dataset, collate_fn, num_stages, voxel_size, search_radius, keep_ratio=0.8, sample_threshold=2000
 ) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
-    hist_n = int(torch.ceil(4 / 3 * torch.pi * (search_radius / voxel_size + 1) ** 3))
+    hist_n = math.ceil(4 / 3 * math.pi * (search_radius / voxel_size + 1) ** 3)
     neighbor_hists = torch.zeros((num_stages, hist_n), dtype=torch.int64)
     max_neighbor_limits = [hist_n] * num_stages
 
