@@ -11,7 +11,7 @@ def calibrate_neighbors_stack_mode(
 ) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
     hist_n = math.ceil(4 / 3 * math.pi * (search_radius / voxel_size + 1) ** 3)
-    neighbor_hists = torch.zeros((num_stages, hist_n), dtype=torch.int64)
+    neighbor_hists = torch.zeros((num_stages, hist_n), dtype=torch.int64, device=dataset.device)
     max_neighbor_limits = [hist_n] * num_stages
 
     # Get histogram of neighborhood sizes i in 1 epoch max.
