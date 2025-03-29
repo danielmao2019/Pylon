@@ -38,7 +38,7 @@ class DSAMNet(nn.Module):
         Tuple[torch.Tensor, torch.Tensor, torch.Tensor],
         torch.Tensor,
     ]:
-        input1, input2 = inputs['image1'], inputs['image2']
+        input1, input2 = inputs['img_1'], inputs['img_2']
         x_1, f2_1, f3_1, f4_1 = self.backbone(input1)
         x_2, f2_2, f3_2, f4_2 = self.backbone(input2)
 
