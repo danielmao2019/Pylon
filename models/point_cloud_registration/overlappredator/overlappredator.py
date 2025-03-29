@@ -78,7 +78,6 @@ class OverlapPredator(nn.Module):
         self.gnn = GCN(num_head,gnn_feats_dim, k, config.nets)
         self.proj_gnn = nn.Conv1d(gnn_feats_dim,gnn_feats_dim,kernel_size=1, bias=True)
         self.proj_score = nn.Conv1d(gnn_feats_dim,1,kernel_size=1,bias=True)
-
         
         #####################
         # List Decoder blocks
@@ -131,15 +130,18 @@ class OverlapPredator(nn.Module):
         score = torch.where(torch.isinf(score), torch.zeros_like(score), score)
         return score
 
+    def forward(self, inputs: Dict[str, torch.Tensor]):
+        assert isinstance(inputs, dict)
+        assert inputs.keys() >= {'src_pc', 'tgt_pc'}, f"{inputs.keys()=}"
+        src_pc = inputs['src_pc']
+        tgt_pc = inputs['tgt_pc']
 
-    def forward(self, batch):
         # Get input features
-        x = batch['features'].clone().detach()
-        len_src_c = batch['stack_lengths'][-1][0]
-        len_src_f = batch['stack_lengths'][0][0]
-        pcd_c = batch['points'][-1]
-        pcd_f = batch['points'][0]
-        src_pcd_c, tgt_pcd_c = pcd_c[:len_src_c], pcd_c[len_src_c:]
+        x = torch.cat([src_pc['feat'], tgt_pc['feat']], dim=0).detach()
+        src_points_c = src_pc['pos'][-1]
+        src_points_f = src_pc['pos'][0]
+        tgt_points_c = tgt_pc['pos'][-1]
+        tgt_points_f = tgt_pc['pos'][0]
 
         sigmoid = nn.Sigmoid()
         #################################
@@ -158,9 +160,16 @@ class OverlapPredator(nn.Module):
 
         #################################
         # 3. apply GNN to communicate the features and get overlap score
-        src_feats_c, tgt_feats_c = feats_c[:,:,:len_src_c], feats_c[:,:,len_src_c:]
-        src_feats_c, tgt_feats_c= self.gnn(src_pcd_c.unsqueeze(0).transpose(1,2), tgt_pcd_c.unsqueeze(0).transpose(1,2),src_feats_c, tgt_feats_c)
-        feats_c = torch.cat([src_feats_c, tgt_feats_c], dim=-1)
+        src_length_c = src_points_c.shape[0]
+        tgt_length_c = tgt_points_c.shape[0]
+        assert src_length_c + tgt_length_c == feats_c.shape[0]
+        src_feats_c, tgt_feats_c = feats_c[:,:,:src_length_c], feats_c[:,:,src_length_c:]
+        src_feats_c, tgt_feats_c= self.gnn(
+            src_points_c.unsqueeze(0).transpose(1,2),
+            tgt_points_c.unsqueeze(0).transpose(1,2),
+            src_feats_c,
+            tgt_feats_c,
+        )
 
         feats_c = self.proj_gnn(feats_c)   
         scores_c =  self.proj_score(feats_c)
@@ -171,10 +180,10 @@ class OverlapPredator(nn.Module):
        
         ####################################
         # 4. decoder part
-        src_feats_gnn, tgt_feats_gnn = feats_gnn_norm[:len_src_c], feats_gnn_norm[len_src_c:]
+        src_feats_gnn, tgt_feats_gnn = feats_gnn_norm[:src_length_c], feats_gnn_norm[src_length_c:]
         inner_products = torch.matmul(src_feats_gnn, tgt_feats_gnn.transpose(0,1))
 
-        src_scores_c, tgt_scores_c = scores_c_raw[:len_src_c], scores_c_raw[len_src_c:]
+        src_scores_c, tgt_scores_c = scores_c_raw[:src_length_c], scores_c_raw[src_length_c:]
         
         temperature = torch.exp(self.epsilon) + 0.03
         s1 = torch.matmul(F.softmax(inner_products / temperature ,dim=1) ,tgt_scores_c)
