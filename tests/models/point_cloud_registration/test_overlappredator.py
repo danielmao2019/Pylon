@@ -45,10 +45,10 @@ def dummy_data():
     return data_dict
 
 
-def test_overlappredator_forward(model_config, dummy_data):
+def test_overlappredator_forward(dummy_data):
     """Test the forward pass of the OverlapPredator model."""
     # Initialize model using the builder
-    model = build_from_config(model_config)
+    model = build_from_config(model_cfg)
     model = model.cuda()  # Move model to CUDA
     model.eval()  # Set to evaluation mode
 
@@ -58,7 +58,7 @@ def test_overlappredator_forward(model_config, dummy_data):
 
     # Validate output structure and shapes
     # 1. Check feature outputs
-    assert feats_f.shape[1] == model_config['args']['cfg'].final_feats_dim
+    assert feats_f.shape[1] == model_cfg['args']['final_feats_dim']
     assert feats_f.shape[0] == dummy_data['inputs']['src_pc']['pos'][0].shape[0] + \
                              dummy_data['inputs']['tgt_pc']['pos'][0].shape[0]
 
