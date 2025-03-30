@@ -1,11 +1,9 @@
 from typing import Dict, Any
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import matplotlib.pyplot as plt
-import numpy as np
 from models.point_cloud_registration.overlappredator.utils import square_distance
-from sklearn.metrics import precision_recall_fscore_support
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
