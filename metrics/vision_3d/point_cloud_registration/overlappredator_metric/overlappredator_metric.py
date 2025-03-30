@@ -6,12 +6,16 @@ import matplotlib.pyplot as plt
 import numpy as np
 from lib.utils import square_distance
 from sklearn.metrics import precision_recall_fscore_support
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
-class OverlapPredatorMetric(nn.Module):
+class OverlapPredatorMetric(SingleTaskMetric):
 
-    def __init__(self, configs):
-        super(OverlapPredatorMetric,self).__init__()
+    def __init__(self, **configs):
+        from easydict import EasyDict
+        configs = EasyDict(configs)
+
+        super(OverlapPredatorMetric, self).__init__()
 
         self.pos_margin = configs.pos_margin
         self.neg_margin = configs.neg_margin
