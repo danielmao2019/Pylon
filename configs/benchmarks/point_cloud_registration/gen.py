@@ -61,7 +61,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['synth_pcr_dataset'],
         [
-            'GeoTransformer',
+            'GeoTransformer', 'OverlapPredator',
         ],
     ):
         main(dataset, model)
