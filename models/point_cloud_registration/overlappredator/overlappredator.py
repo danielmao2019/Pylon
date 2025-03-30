@@ -6,7 +6,10 @@ from .gcn import GCN
 
 class OverlapPredator(nn.Module):
 
-    def __init__(self, config):
+    def __init__(self, **config):
+        from easydict import EasyDict
+        config = EasyDict(config)
+
         super(OverlapPredator, self).__init__()
 
         ############
