@@ -61,7 +61,7 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     else:
         return torch.from_numpy(neighbors)
 
-def collate_fn_descriptor(list_data, config, neighborhood_limits):
+def overlappredator_collate_fn(list_data, config, neighborhood_limits):
     batched_points_list = []
     batched_features_list = []
     batched_lengths_list = []
