@@ -14,14 +14,8 @@ class OverlapPredatorMetric(SingleTaskMetric):
     def __init__(self, **configs):
         from easydict import EasyDict
         configs = EasyDict(configs)
-
         super(OverlapPredatorMetric, self).__init__()
-
-        self.pos_margin = configs.pos_margin
-        self.neg_margin = configs.neg_margin
         self.max_points = configs.max_points
-
-        self.safe_radius = configs.safe_radius 
         self.matchability_radius = configs.matchability_radius
         self.pos_radius = configs.pos_radius # just to take care of the numeric precision
 
