@@ -51,9 +51,9 @@ from runners import SupervisedSingleTaskTrainer
 config['runner'] = SupervisedSingleTaskTrainer
 
 # dataset config
-from configs.common.datasets.point_cloud_registration.train.synth_pcr_dataset_cfg import config as train_dataset_config
+from configs.common.datasets.point_cloud_registration.train.geotransformer_data_cfg import config as train_dataset_config
 config.update(train_dataset_config)
-from configs.common.datasets.point_cloud_registration.val.synth_pcr_dataset_cfg import config as val_dataset_config
+from configs.common.datasets.point_cloud_registration.val.geotransformer_data_cfg import config as val_dataset_config
 config.update(val_dataset_config)
 
 # model config
