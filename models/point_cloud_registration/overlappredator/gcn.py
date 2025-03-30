@@ -18,7 +18,7 @@ def get_graph_feature(coords, feats, k=10):
     B, C, N = feats.size()
     dist = square_distance(coords.transpose(1,2), coords.transpose(1,2))
 
-    idx = dist.topk(k=k+1, dim=-1, largest=False, sorted=True)[1]  #[B, N, K+1], here we ignore the smallest element as it's the query itself  
+    idx = dist.topk(k=k+1, dim=-1, largest=False, sorted=True)[1]  #[B, N, K+1], here we ignore the smallest element as it's the query itself
     idx = idx[:,:,1:]  #[B, N, K]
 
     idx = idx.unsqueeze(1).repeat(1,C,1,1) #[B, C, N, K]
@@ -37,10 +37,10 @@ def get_graph_feature(coords, feats, k=10):
 
 class SelfAttention(nn.Module):
     def __init__(self,feature_dim,k=10):
-        super(SelfAttention, self).__init__() 
+        super(SelfAttention, self).__init__()
         self.conv1 = nn.Conv2d(feature_dim*2, feature_dim, kernel_size=1, bias=False)
         self.in1 = nn.InstanceNorm2d(feature_dim)
-        
+
         self.conv2 = nn.Conv2d(feature_dim*2, feature_dim * 2, kernel_size=1, bias=False)
         self.in2 = nn.InstanceNorm2d(feature_dim * 2)
 
@@ -52,7 +52,7 @@ class SelfAttention(nn.Module):
     def forward(self, coords, features):
         """
         Here we take coordinats and features, feature aggregation are guided by coordinates
-        Input: 
+        Input:
             coords:     [B, 3, N]
             feats:      [B, C, N]
         Output:
