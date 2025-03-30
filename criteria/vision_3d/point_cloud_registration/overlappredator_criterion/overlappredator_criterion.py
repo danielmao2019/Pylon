@@ -14,7 +14,7 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
     """
     def __init__(
         self,
-        configs,
+        **configs,
         log_scale=16,
         pos_optimal=0.1,
         neg_optimal=1.4,
@@ -22,7 +22,10 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         w_overlap_loss=1.0,
         w_saliency_loss=1.0,
     ):
-        super(OverlapPredatorCriterion,self).__init__()
+        from easydict import EasyDict
+        configs = EasyDict(configs)
+
+        super(OverlapPredatorCriterion, self).__init__()
         self.log_scale = log_scale
         self.pos_optimal = pos_optimal
         self.neg_optimal = neg_optimal
