@@ -36,5 +36,6 @@ model_cfg = {
         'num_head': 4,
         'nets': ['self', 'cross', 'self'],
         'KP_extent': 2.0,
+        'batch_norm_momentum': 0.02,
     },
 }
