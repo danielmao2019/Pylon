@@ -647,13 +647,13 @@ class ResnetBottleneckBlock(nn.Module):
     def forward(self, features, batch):
 
         if 'strided' in self.block_name:
-            q_pts = batch['points'][self.layer_ind + 1]
-            s_pts = batch['points'][self.layer_ind]
-            neighb_inds = batch['pools'][self.layer_ind]
+            q_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind + 1], batch['tgt_pc']['pos'][self.layer_ind + 1]], dim=0)
+            s_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
+            neighb_inds = torch.cat([batch['src_pc']['neighbors'][self.layer_ind], batch['tgt_pc']['neighbors'][self.layer_ind]], dim=0)
         else:
-            q_pts = batch['points'][self.layer_ind]
-            s_pts = batch['points'][self.layer_ind]
-            neighb_inds = batch['neighbors'][self.layer_ind]
+            q_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
+            s_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
+            neighb_inds = torch.cat([batch['src_pc']['neighbors'][self.layer_ind], batch['tgt_pc']['neighbors'][self.layer_ind]], dim=0)
 
         # First downscaling mlp
         x = self.unary1(features)
