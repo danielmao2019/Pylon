@@ -1,7 +1,7 @@
 from metrics.vision_3d.point_cloud_registration import OverlapPredatorMetric
 
 
-overlappredator_metric_cfg = {
+metric_cfg = {
     'class': OverlapPredatorMetric,
     'args': {
         'max_points': 512,
