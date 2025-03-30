@@ -1,7 +1,3 @@
-import sys
-sys.path.append('./data/collators/geotransformer')
-import importlib
-ext_module = importlib.import_module('geotransformer.ext')
 import torch
 
 
@@ -22,6 +18,11 @@ def radius_search(q_points, s_points, q_lengths, s_lengths, radius, neighbor_lim
         neighbors (Tensor): the k nearest neighbors of q_points in s_points (N, k).
             Filled with M if there are less than k neighbors.
     """
+    import sys
+    sys.path.append('./data/collators/geotransformer')
+    import importlib
+    ext_module = importlib.import_module('geotransformer.ext')
+
     device = q_points.device
     neighbor_indices = ext_module.radius_neighbors(q_points.cpu(), s_points.cpu(), q_lengths.cpu(), s_lengths.cpu(), radius)
     neighbor_indices = neighbor_indices.to(device)
