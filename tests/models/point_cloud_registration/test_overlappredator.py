@@ -30,19 +30,21 @@ def dummy_data():
         # Create neighbors (random indices for demonstration)
         if i < num_stages - 1:  # Not the last layer
             num_neighbors = 16
+            # Create neighbors indices within current layer
             neighbors = torch.randint(0, num_points_at_layer * 2, (num_points_at_layer * 2, num_neighbors))
             
             # Create pooling indices (for next layer)
             next_layer_points = num_points_at_layer // 2
+            # Create indices from current layer to next layer
             pools = torch.randint(0, num_points_at_layer * 2, (next_layer_points * 2, num_neighbors))
             
-            # Create upsampling indices
+            # Create upsampling indices (from next layer back to current)
             upsamples = torch.randint(0, next_layer_points * 2, (num_points_at_layer * 2, 1))
         else:
             # Last layer has no neighbors, pools, or upsamples
-            neighbors = torch.zeros((0, 1), dtype=torch.int64)
-            pools = torch.zeros((0, 1), dtype=torch.int64)
-            upsamples = torch.zeros((0, 1), dtype=torch.int64)
+            neighbors = torch.zeros((num_points_at_layer * 2, 1), dtype=torch.int64)
+            pools = torch.zeros((num_points_at_layer, 1), dtype=torch.int64)
+            upsamples = torch.zeros((num_points_at_layer * 2, 1), dtype=torch.int64)
         
         # Create batch lengths (equal split between src and tgt)
         lengths = torch.tensor([num_points_at_layer, num_points_at_layer])
