@@ -38,7 +38,29 @@ class OverlapPredatorMetric(nn.Module):
         cls_precision, cls_recall, _, _ = precision_recall_fscore_support(gt.cpu().numpy(),predicted_labels, average='binary')
         return cls_precision, cls_recall
 
-    def forward(self, src_pcd, tgt_pcd, src_feats, tgt_feats, correspondence, rot, trans,scores_overlap,scores_saliency):
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any]) -> torch.Tensor:
+        # Input checks
+        assert isinstance(y_pred, dict), f"{type(y_pred)=}"
+        assert y_pred.keys() == {'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
+        assert isinstance(y_true, dict), f"{type(y_true)=}"
+        assert y_true.keys() == {'src_pc', 'tgt_pc', 'correspondence', 'rot', 'trans'}, f"{y_true.keys()=}"
+        src_pcd = y_true['src_pc']
+        tgt_pcd = y_true['tgt_pc']
+        assert isinstance(src_pcd, dict), f"{type(src_pcd)=}"
+        assert src_pcd.keys() == {'pos', 'feat'}, f"{src_pcd.keys()=}"
+        assert isinstance(tgt_pcd, dict), f"{type(tgt_pcd)=}"
+        assert tgt_pcd.keys() == {'pos', 'feat'}, f"{tgt_pcd.keys()=}"
+
+        src_pcd = src_pcd['pos']
+        tgt_pcd = tgt_pcd['pos']
+        src_feats = src_pcd['feat']
+        tgt_feats = tgt_pcd['feat']
+        correspondence = y_true['correspondence']
+        rot = y_true['rot']
+        trans = y_true['trans']
+        scores_overlap = y_pred['scores_overlap']
+        scores_saliency = y_pred['scores_saliency']
+
         src_pcd = (torch.matmul(rot,src_pcd.transpose(0,1))+trans).transpose(0,1)
         stats = dict()
 
