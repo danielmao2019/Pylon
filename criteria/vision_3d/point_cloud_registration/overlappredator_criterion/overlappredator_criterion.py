@@ -13,23 +13,14 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
     """
     We evaluate both contrastive loss and circle loss
     """
-    def __init__(
-        self,
-        **configs,
-        log_scale=16,
-        pos_optimal=0.1,
-        neg_optimal=1.4,
-        w_circle_loss=1.0,
-        w_overlap_loss=1.0,
-        w_saliency_loss=1.0,
-    ):
+    def __init__(self, **configs):
         from easydict import EasyDict
         configs = EasyDict(configs)
 
         super(OverlapPredatorCriterion, self).__init__()
-        self.log_scale = log_scale
-        self.pos_optimal = pos_optimal
-        self.neg_optimal = neg_optimal
+        self.log_scale = configs.log_scale
+        self.pos_optimal = configs.pos_optimal
+        self.neg_optimal = configs.neg_optimal
 
         self.pos_margin = configs.pos_margin
         self.neg_margin = configs.neg_margin
@@ -39,9 +30,9 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         self.matchability_radius = configs.matchability_radius
         self.pos_radius = configs.pos_radius # just to take care of the numeric precision
 
-        self.w_circle_loss = w_circle_loss
-        self.w_overlap_loss = w_overlap_loss
-        self.w_saliency_loss = w_saliency_loss
+        self.w_circle_loss = configs.w_circle_loss
+        self.w_overlap_loss = configs.w_overlap_loss
+        self.w_saliency_loss = configs.w_saliency_loss
 
     def get_circle_loss(self, coords_dist, feats_dist):
         """
