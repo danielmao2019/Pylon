@@ -10,7 +10,7 @@ config = {
             'split': 'train',
             'rot_mag': 45.0,
             'trans_mag': 0.5,
-            'voxel_size': 5.0,
+            'voxel_size': 1.0,
         },
     },
     'train_dataloader': {
