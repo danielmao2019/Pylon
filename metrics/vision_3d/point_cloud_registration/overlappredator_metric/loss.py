@@ -7,12 +7,10 @@ from lib.utils import square_distance
 from sklearn.metrics import precision_recall_fscore_support
 
 
-class MetricLoss(nn.Module):
-    """
-    We evaluate both contrastive loss and circle loss
-    """
+class OverlapPredatorMetric(nn.Module):
+
     def __init__(self, configs):
-        super(MetricLoss,self).__init__()
+        super(OverlapPredatorMetric,self).__init__()
 
         self.pos_margin = configs.pos_margin
         self.neg_margin = configs.neg_margin
@@ -41,24 +39,13 @@ class MetricLoss(nn.Module):
         return cls_precision, cls_recall
 
     def forward(self, src_pcd, tgt_pcd, src_feats, tgt_feats, correspondence, rot, trans,scores_overlap,scores_saliency):
-        """
-        Circle loss for metric learning, here we feed the positive pairs only
-        Input:
-            src_pcd:        [N, 3]  
-            tgt_pcd:        [M, 3]
-            rot:            [3, 3]
-            trans:          [3, 1]
-            src_feats:      [N, C]
-            tgt_feats:      [M, C]
-        """
         src_pcd = (torch.matmul(rot,src_pcd.transpose(0,1))+trans).transpose(0,1)
-        stats=dict()
+        stats = dict()
 
         src_idx = list(set(correspondence[:,0].int().tolist()))
         tgt_idx = list(set(correspondence[:,1].int().tolist()))
 
         #######################
-        # get BCE loss for overlap, here the ground truth label is obtained from correspondence information
         src_gt = torch.zeros(src_pcd.size(0))
         src_gt[src_idx]=1.
         tgt_gt = torch.zeros(tgt_pcd.size(0))
@@ -70,7 +57,6 @@ class MetricLoss(nn.Module):
         stats['overlap_precision'] = cls_precision
 
         #######################
-        # get BCE loss for saliency part, here we only supervise points in the overlap region
         src_feats_sel, src_pcd_sel = src_feats[src_idx], src_pcd[src_idx]
         tgt_feats_sel, tgt_pcd_sel = tgt_feats[tgt_idx], tgt_pcd[tgt_idx]
         scores = torch.matmul(src_feats_sel, tgt_feats_sel.transpose(0,1))
@@ -107,13 +93,8 @@ class MetricLoss(nn.Module):
         coords_dist = torch.sqrt(square_distance(src_pcd[None,:,:], tgt_pcd[None,:,:]).squeeze(0))
         feats_dist = torch.sqrt(square_distance(src_feats[None,:,:], tgt_feats[None,:,:],normalised=True)).squeeze(0)
 
-        ##############################
-        # get FMR and circle loss
-        ##############################
+        #######################
         recall = self.get_recall(coords_dist, feats_dist)
-        circle_loss = self.get_circle_loss(coords_dist, feats_dist)
-
-        stats['circle_loss']= circle_loss
         stats['recall']=recall
 
         return stats
