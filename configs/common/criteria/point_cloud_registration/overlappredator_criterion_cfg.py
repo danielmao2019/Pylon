@@ -1,7 +1,7 @@
 from criteria.vision_3d.point_cloud_registration import OverlapPredatorCriterion
 
 
-overlappredator_criterion_cfg = {
+criterion_cfg = {
     'class': OverlapPredatorCriterion,
     'args': {
         'log_scale': 48,
