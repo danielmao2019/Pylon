@@ -654,6 +654,7 @@ class ResnetBottleneckBlock(nn.Module):
             q_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
             s_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
             neighb_inds = torch.cat([batch['src_pc']['neighbors'][self.layer_ind], batch['tgt_pc']['neighbors'][self.layer_ind]], dim=0)
+        assert len(s_pts) == len(neighb_inds), f"{s_pts.shape=}, {neighb_inds.shape=}"
 
         # First downscaling mlp
         x = self.unary1(features)
