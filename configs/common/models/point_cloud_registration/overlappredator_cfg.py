@@ -35,5 +35,6 @@ model_cfg = {
         'dgcnn_k': 10,
         'num_head': 4,
         'nets': ['self', 'cross', 'self'],
+        'KP_extent': 2.0,
     },
 }
