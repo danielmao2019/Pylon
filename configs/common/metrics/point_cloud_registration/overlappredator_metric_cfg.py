@@ -1,4 +1,4 @@
-from metrics.vision_3d.point_cloud_registration.overlappredator_metric import OverlapPredatorMetric
+from metrics.vision_3d.point_cloud_registration import OverlapPredatorMetric
 
 
 overlappredator_metric_cfg = {
