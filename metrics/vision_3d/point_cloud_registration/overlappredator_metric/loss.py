@@ -1,9 +1,3 @@
-"""
-Loss functions
-
-Author: Shengyu Huang
-Last modified: 30.11.2020
-"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -12,15 +6,13 @@ import numpy as np
 from lib.utils import square_distance
 from sklearn.metrics import precision_recall_fscore_support
 
+
 class MetricLoss(nn.Module):
     """
     We evaluate both contrastive loss and circle loss
     """
-    def __init__(self,configs,log_scale=16, pos_optimal=0.1, neg_optimal=1.4):
+    def __init__(self, configs):
         super(MetricLoss,self).__init__()
-        self.log_scale = log_scale
-        self.pos_optimal = pos_optimal
-        self.neg_optimal = neg_optimal
 
         self.pos_margin = configs.pos_margin
         self.neg_margin = configs.neg_margin
@@ -29,39 +21,6 @@ class MetricLoss(nn.Module):
         self.safe_radius = configs.safe_radius 
         self.matchability_radius = configs.matchability_radius
         self.pos_radius = configs.pos_radius # just to take care of the numeric precision
-    
-    def get_circle_loss(self, coords_dist, feats_dist):
-        """
-        Modified from: https://github.com/XuyangBai/D3Feat.pytorch
-        """
-        pos_mask = coords_dist < self.pos_radius 
-        neg_mask = coords_dist > self.safe_radius 
-
-        ## get anchors that have both positive and negative pairs
-        row_sel = ((pos_mask.sum(-1)>0) * (neg_mask.sum(-1)>0)).detach()
-        col_sel = ((pos_mask.sum(-2)>0) * (neg_mask.sum(-2)>0)).detach()
-
-        # get alpha for both positive and negative pairs
-        pos_weight = feats_dist - 1e5 * (~pos_mask).float() # mask the non-positive 
-        pos_weight = (pos_weight - self.pos_optimal) # mask the uninformative positive
-        pos_weight = torch.max(torch.zeros_like(pos_weight), pos_weight).detach() 
-
-        neg_weight = feats_dist + 1e5 * (~neg_mask).float() # mask the non-negative
-        neg_weight = (self.neg_optimal - neg_weight) # mask the uninformative negative
-        neg_weight = torch.max(torch.zeros_like(neg_weight),neg_weight).detach()
-
-        lse_pos_row = torch.logsumexp(self.log_scale * (feats_dist - self.pos_margin) * pos_weight,dim=-1)
-        lse_pos_col = torch.logsumexp(self.log_scale * (feats_dist - self.pos_margin) * pos_weight,dim=-2)
-
-        lse_neg_row = torch.logsumexp(self.log_scale * (self.neg_margin - feats_dist) * neg_weight,dim=-1)
-        lse_neg_col = torch.logsumexp(self.log_scale * (self.neg_margin - feats_dist) * neg_weight,dim=-2)
-
-        loss_row = F.softplus(lse_pos_row + lse_neg_row)/self.log_scale
-        loss_col = F.softplus(lse_pos_col + lse_neg_col)/self.log_scale
-
-        circle_loss = (loss_row[row_sel].mean() + loss_col[col_sel].mean()) / 2
-
-        return circle_loss
 
     def get_recall(self,coords_dist,feats_dist):
         """
@@ -75,26 +34,11 @@ class MetricLoss(nn.Module):
         recall = n_pred_pos / n_gt_pos
         return recall
 
-    def get_weighted_bce_loss(self, prediction, gt):
-        loss = nn.BCELoss(reduction='none')
-
-        class_loss = loss(prediction, gt) 
-
-        weights = torch.ones_like(gt)
-        w_negative = gt.sum()/gt.size(0) 
-        w_positive = 1 - w_negative  
-        
-        weights[gt >= 0.5] = w_positive
-        weights[gt < 0.5] = w_negative
-        w_class_loss = torch.mean(weights * class_loss)
-
-        #######################################
+    def get_cls_precision_recall(self, prediction, gt):
         # get classification precision and recall
         predicted_labels = prediction.detach().cpu().round().numpy()
         cls_precision, cls_recall, _, _ = precision_recall_fscore_support(gt.cpu().numpy(),predicted_labels, average='binary')
-
-        return w_class_loss, cls_precision, cls_recall
-            
+        return cls_precision, cls_recall
 
     def forward(self, src_pcd, tgt_pcd, src_feats, tgt_feats, correspondence, rot, trans,scores_overlap,scores_saliency):
         """
@@ -121,8 +65,7 @@ class MetricLoss(nn.Module):
         tgt_gt[tgt_idx]=1.
         gt_labels = torch.cat((src_gt, tgt_gt)).to(torch.device('cuda'))
 
-        class_loss, cls_precision, cls_recall = self.get_weighted_bce_loss(scores_overlap, gt_labels)
-        stats['overlap_loss'] = class_loss
+        cls_precision, cls_recall = self.get_cls_precision_recall(scores_overlap, gt_labels)
         stats['overlap_recall'] = cls_recall
         stats['overlap_precision'] = cls_precision
 
@@ -142,8 +85,7 @@ class MetricLoss(nn.Module):
         tgt_saliency_scores = scores_saliency[src_pcd.size(0):][tgt_idx]
         scores_saliency = torch.cat((src_saliency_scores, tgt_saliency_scores))
 
-        class_loss, cls_precision, cls_recall = self.get_weighted_bce_loss(scores_saliency, gt_labels)
-        stats['saliency_loss'] = class_loss
+        cls_precision, cls_recall = self.get_cls_precision_recall(scores_saliency, gt_labels)
         stats['saliency_recall'] = cls_recall
         stats['saliency_precision'] = cls_precision
 
