@@ -121,6 +121,8 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         correspondence = y_true['correspondence']
         rot = y_true['rot']
         trans = y_true['trans']
+        scores_overlap = y_pred['scores_overlap']
+        scores_saliency = y_pred['scores_saliency']
 
         src_pcd = (torch.matmul(rot,src_pcd.transpose(0,1))+trans).transpose(0,1)
         stats = dict()
