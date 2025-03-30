@@ -8,8 +8,47 @@ from easydict import EasyDict
 @pytest.fixture
 def dummy_data():
     """Create dummy data matching the expected structure."""
-    # Create dummy point clouds
-    num_points = 256  # Points per cloud
+    # Create dummy point clouds - using more points to match model requirements
+    num_points = 256  # Points per cloud (increased from 100)
+    num_stages = 4  # Match backbone num_stages
+    num_neighbors = 16  # Number of neighbors per point
+
+    # Create dummy multi-resolution data
+    def create_dummy_multi_res_data(points, feats):
+        pos_list = []
+        lengths_list = []
+        neighbors_list = []
+        subsampling_list = []
+        upsampling_list = []
+
+        for i in range(num_stages):
+            # Points and lengths for each stage
+            num_points_at_stage = num_points // (2**i)
+            pos_list.append(points[:num_points_at_stage])
+            lengths_list.append(torch.tensor([num_points_at_stage]))
+
+            # Create neighbor indices - ensure 2D shape [num_points_at_stage, num_neighbors]
+            neighbors = torch.randint(0, num_points_at_stage, (num_points_at_stage, num_neighbors))
+            neighbors_list.append(neighbors)
+
+            # Create subsampling and upsampling indices
+            if i < num_stages - 1:
+                next_stage_points = num_points_at_stage // 2
+                # For each point in the next stage, create neighbor indices from current stage
+                subsampling = torch.randint(0, num_points_at_stage, (next_stage_points, num_neighbors))
+                # For each point in current stage, store its nearest neighbor in next stage
+                upsampling = torch.randint(0, next_stage_points, (num_points_at_stage, 1))
+                subsampling_list.append(subsampling)
+                upsampling_list.append(upsampling)
+
+        return {
+            'pos': pos_list,
+            'feat': feats,
+            'lengths': lengths_list,
+            'neighbors': neighbors_list,
+            'subsampling': subsampling_list,
+            'upsampling': upsampling_list
+        }
 
     # Create source and target point clouds
     src_points = torch.randn(num_points, 3)
@@ -20,14 +59,15 @@ def dummy_data():
     # Create data dictionary with the expected structure
     data_dict = {
         'inputs': {
-            'src_pc': {
-                'pos': [src_points],  # List of point clouds at different resolutions
-                'feat': src_feats
-            },
-            'tgt_pc': {
-                'pos': [tgt_points],  # List of point clouds at different resolutions
-                'feat': tgt_feats
-            }
+            'pc_1': create_dummy_multi_res_data(src_points, src_feats),
+            'pc_2': create_dummy_multi_res_data(tgt_points, tgt_feats)
+        },
+        'labels': {
+            'transform': torch.eye(4).unsqueeze(0),  # Identity transform
+            'src_points': src_points,
+            'tgt_points': tgt_points,
+            'src_feats': src_feats,
+            'tgt_feats': tgt_feats
         }
     }
 
