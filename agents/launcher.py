@@ -210,7 +210,7 @@ class Launcher(BaseAgent):
             return last_update, progress, table_data, table_style
 
         # Run app
-        app.run_server(debug=True, port=port)
+        app.run(debug=True, port=port)
 
     # ====================================================================================================
     # experiment management
