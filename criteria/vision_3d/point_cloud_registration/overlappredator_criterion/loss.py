@@ -31,25 +31,29 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         self.neg_margin = configs.neg_margin
         self.max_points = configs.max_points
 
-        self.safe_radius = configs.safe_radius 
+        self.safe_radius = configs.safe_radius
         self.matchability_radius = configs.matchability_radius
         self.pos_radius = configs.pos_radius # just to take care of the numeric precision
-    
+
+        self.w_circle_loss = w_circle_loss
+        self.w_overlap_loss = w_overlap_loss
+        self.w_saliency_loss = w_saliency_loss
+
     def get_circle_loss(self, coords_dist, feats_dist):
         """
         Modified from: https://github.com/XuyangBai/D3Feat.pytorch
         """
-        pos_mask = coords_dist < self.pos_radius 
-        neg_mask = coords_dist > self.safe_radius 
+        pos_mask = coords_dist < self.pos_radius
+        neg_mask = coords_dist > self.safe_radius
 
         ## get anchors that have both positive and negative pairs
         row_sel = ((pos_mask.sum(-1)>0) * (neg_mask.sum(-1)>0)).detach()
         col_sel = ((pos_mask.sum(-2)>0) * (neg_mask.sum(-2)>0)).detach()
 
         # get alpha for both positive and negative pairs
-        pos_weight = feats_dist - 1e5 * (~pos_mask).float() # mask the non-positive 
+        pos_weight = feats_dist - 1e5 * (~pos_mask).float() # mask the non-positive
         pos_weight = (pos_weight - self.pos_optimal) # mask the uninformative positive
-        pos_weight = torch.max(torch.zeros_like(pos_weight), pos_weight).detach() 
+        pos_weight = torch.max(torch.zeros_like(pos_weight), pos_weight).detach()
 
         neg_weight = feats_dist + 1e5 * (~neg_mask).float() # mask the non-negative
         neg_weight = (self.neg_optimal - neg_weight) # mask the uninformative negative
@@ -71,12 +75,12 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
     def get_weighted_bce_loss(self, prediction, gt):
         loss = nn.BCELoss(reduction='none')
 
-        class_loss = loss(prediction, gt) 
+        class_loss = loss(prediction, gt)
 
         weights = torch.ones_like(gt)
-        w_negative = gt.sum()/gt.size(0) 
-        w_positive = 1 - w_negative  
-        
+        w_negative = gt.sum()/gt.size(0)
+        w_positive = 1 - w_negative
+
         weights[gt >= 0.5] = w_positive
         weights[gt < 0.5] = w_negative
         w_class_loss = torch.mean(weights * class_loss)
@@ -91,7 +95,7 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         """
         Circle loss for metric learning, here we feed the positive pairs only
         Input:
-            src_pcd:        [N, 3]  
+            src_pcd:        [N, 3]
             tgt_pcd:        [M, 3]
             rot:            [3, 3]
             trans:          [3, 1]
