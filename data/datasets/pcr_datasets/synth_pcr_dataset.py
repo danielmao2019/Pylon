@@ -96,7 +96,6 @@ class SynthPCRDataset(BaseDataset):
                     all_indices.append(cluster_point_indices)
                     all_filepaths.append(filepath)  # Store which file these indices belong to
 
-            print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
             print(f"Partitioned point cloud into {len(unique_clusters)} voxels.")
 
         print(f"Total number of voxels across all point clouds: {len(all_indices)}")
