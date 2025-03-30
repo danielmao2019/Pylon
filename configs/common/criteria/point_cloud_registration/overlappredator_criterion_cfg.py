@@ -1,4 +1,4 @@
-from criteria.vision_3d.point_cloud_registration.overlappredator_criterion import OverlapPredatorCriterion
+from criteria.vision_3d.point_cloud_registration import OverlapPredatorCriterion
 
 
 overlappredator_criterion_cfg = {
