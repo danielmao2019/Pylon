@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-import cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
-import cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
+import data.collators.overlappredator.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
+import data.collators.overlappredator.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 
 
 def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0, random_grid_orient=True):
@@ -60,13 +60,13 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
         return torch.from_numpy(neighbors[:, :max_neighbors])
     else:
         return torch.from_numpy(neighbors)
-    
+
 def collate_fn_descriptor(list_data, config, neighborhood_limits):
     batched_points_list = []
     batched_features_list = []
     batched_lengths_list = []
     assert len(list_data) == 1
-    
+
     for ind, (src_pcd,tgt_pcd,src_feats,tgt_feats,rot,trans,matching_inds, src_pcd_raw, tgt_pcd_raw, sample) in enumerate(list_data):
         batched_points_list.append(src_pcd)
         batched_points_list.append(tgt_pcd)
@@ -74,7 +74,7 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
         batched_features_list.append(tgt_feats)
         batched_lengths_list.append(len(src_pcd))
         batched_lengths_list.append(len(tgt_pcd))
-    
+
     batched_features = torch.from_numpy(np.concatenate(batched_features_list, axis=0))
     batched_points = torch.from_numpy(np.concatenate(batched_points_list, axis=0))
     batched_lengths = torch.from_numpy(np.array(batched_lengths_list)).int()
@@ -140,7 +140,7 @@ def collate_fn_descriptor(list_data, config, neighborhood_limits):
 
             # Subsample indices
             pool_i = batch_neighbors_kpconv(pool_p, batched_points, pool_b, batched_lengths, r, neighborhood_limits[layer])
-            
+
             # Upsample indices (with the radius of the next layer to keep wanted density)
             up_i = batch_neighbors_kpconv(batched_points, pool_p, batched_lengths, pool_b, 2 * r, neighborhood_limits[layer])
 
