@@ -51,10 +51,10 @@ class OverlapPredatorMetric(nn.Module):
         assert isinstance(tgt_pc, dict), f"{type(tgt_pc)=}"
         assert tgt_pc.keys() == {'pos', 'feat'}, f"{tgt_pc.keys()=}"
 
-        src_pcd = src_pcd['pos']
-        tgt_pcd = tgt_pcd['pos']
-        src_feats = src_pcd['feat']
-        tgt_feats = tgt_pcd['feat']
+        src_pcd = src_pc['pos']
+        tgt_pcd = tgt_pc['pos']
+        src_feats = src_pc['feat']
+        tgt_feats = tgt_pc['feat']
         correspondence = y_true['correspondence']
         rot = y_true['rot']
         trans = y_true['trans']
