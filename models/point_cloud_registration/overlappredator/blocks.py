@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 from torch.nn.init import kaiming_uniform_
-from kernels.kernel_points import load_kernels
+from models.point_cloud_registration.overlappredator.kernel_points import load_kernels
 
 
 def gather(x, idx, method=2):
