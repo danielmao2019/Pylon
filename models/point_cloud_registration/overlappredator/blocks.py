@@ -1,18 +1,3 @@
-#
-#
-#      0=================================0
-#      |    Kernel Point Convolutions    |
-#      0=================================0
-#
-#
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#      Define network blocks
-#
-# ----------------------------------------------------------------------------------------------------------------------
-#
-#      Hugues THOMAS - 06/03/2020
-
 import math
 import torch
 import torch.nn as nn
@@ -390,7 +375,7 @@ def block_decider(block_name,
 
     if block_name == 'unary':
         return UnaryBlock(in_dim, out_dim, config.use_batch_norm, config.batch_norm_momentum)
-    
+
     if block_name == 'last_unary':
         return LastUnaryBlock(in_dim, config.final_feats_dim+2, config.use_batch_norm, config.batch_norm_momentum)
 
@@ -575,13 +560,13 @@ class SimpleBlock(nn.Module):
     def forward(self, x, batch):
 
         if 'strided' in self.block_name:
-            q_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind + 1], batch['tgt_pc']['pos'][self.layer_ind + 1]], dim=0)
-            s_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
-            neighb_inds = torch.cat([batch['src_pc']['neighbors'][self.layer_ind], batch['tgt_pc']['neighbors'][self.layer_ind]], dim=0)
+            q_pts = batch['points'][self.layer_ind + 1]
+            s_pts = batch['points'][self.layer_ind]
+            neighb_inds = batch['pools'][self.layer_ind]
         else:
-            q_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
-            s_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
-            neighb_inds = torch.cat([batch['src_pc']['neighbors'][self.layer_ind], batch['tgt_pc']['neighbors'][self.layer_ind]], dim=0)
+            q_pts = batch['points'][self.layer_ind]
+            s_pts = batch['points'][self.layer_ind]
+            neighb_inds = batch['neighbors'][self.layer_ind]
 
         x = self.KPConv(q_pts, s_pts, neighb_inds, x)
         return self.leaky_relu(self.batch_norm(x))
@@ -647,14 +632,13 @@ class ResnetBottleneckBlock(nn.Module):
     def forward(self, features, batch):
 
         if 'strided' in self.block_name:
-            q_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind + 1], batch['tgt_pc']['pos'][self.layer_ind + 1]], dim=0)
-            s_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
-            neighb_inds = torch.cat([batch['src_pc']['neighbors'][self.layer_ind], batch['tgt_pc']['neighbors'][self.layer_ind]], dim=0)
+            q_pts = batch['points'][self.layer_ind + 1]
+            s_pts = batch['points'][self.layer_ind]
+            neighb_inds = batch['pools'][self.layer_ind]
         else:
-            q_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
-            s_pts = torch.cat([batch['src_pc']['pos'][self.layer_ind], batch['tgt_pc']['pos'][self.layer_ind]], dim=0)
-            neighb_inds = torch.cat([batch['src_pc']['neighbors'][self.layer_ind], batch['tgt_pc']['neighbors'][self.layer_ind]], dim=0)
-        assert len(s_pts) == len(neighb_inds), f"{s_pts.shape=}, {neighb_inds.shape=}"
+            q_pts = batch['points'][self.layer_ind]
+            s_pts = batch['points'][self.layer_ind]
+            neighb_inds = batch['neighbors'][self.layer_ind]
 
         # First downscaling mlp
         x = self.unary1(features)
