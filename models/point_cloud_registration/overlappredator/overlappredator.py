@@ -156,7 +156,7 @@ class OverlapPredator(nn.Module):
         for block_i, block_op in enumerate(self.encoder_blocks):
             if block_i in self.encoder_skips:
                 skip_x.append(x)
-            x = block_op(x, batch)
+            x = block_op(x, inputs)
 
         #################################
         # 2. project the bottleneck features
@@ -208,7 +208,7 @@ class OverlapPredator(nn.Module):
         for block_i, block_op in enumerate(self.decoder_blocks):
             if block_i in self.decoder_concats:
                 x = torch.cat([x, skip_x.pop()], dim=1)
-            x = block_op(x, batch)
+            x = block_op(x, inputs)
         feats_f = x[:,:self.final_feats_dim]
         scores_overlap = x[:,self.final_feats_dim]
         scores_saliency = x[:,self.final_feats_dim+1]
