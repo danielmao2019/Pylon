@@ -1,9 +1,3 @@
-import sys
-sys.path.append('./data/collators/geotransformer')
-import importlib
-ext_module = importlib.import_module('geotransformer.ext')
-
-
 def grid_subsample(points, lengths, voxel_size):
     """Grid subsampling in stack mode.
 
@@ -18,6 +12,11 @@ def grid_subsample(points, lengths, voxel_size):
         s_points (Tensor): stacked subsampled points (M, 3)
         s_lengths (Tensor): numbers of subsampled points in the batch. (B,)
     """
+    import sys
+    sys.path.append('./data/collators/geotransformer')
+    import importlib
+    ext_module = importlib.import_module('geotransformer.ext')
+
     device = points.device
     s_points, s_lengths = ext_module.grid_subsampling(points.cpu(), lengths.cpu(), voxel_size)
     return s_points.to(device), s_lengths.to(device)
