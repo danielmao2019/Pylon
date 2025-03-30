@@ -1,28 +1,23 @@
+"""
+Loss functions
+
+Author: Shengyu Huang
+Last modified: 30.11.2020
+"""
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
 import numpy as np
-from models.point_cloud_registration.overlappredator.utils import square_distance
+from lib.utils import square_distance
 from sklearn.metrics import precision_recall_fscore_support
-from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
-
-class OverlapPredatorCriterion(SingleTaskCriterion):
+class MetricLoss(nn.Module):
     """
     We evaluate both contrastive loss and circle loss
     """
-    def __init__(
-        self,
-        configs,
-        log_scale=16,
-        pos_optimal=0.1,
-        neg_optimal=1.4,
-        w_circle_loss=1.0,
-        w_overlap_loss=1.0,
-        w_saliency_loss=1.0,
-    ):
-        super(OverlapPredatorCriterion,self).__init__()
+    def __init__(self,configs,log_scale=16, pos_optimal=0.1, neg_optimal=1.4):
+        super(MetricLoss,self).__init__()
         self.log_scale = log_scale
         self.pos_optimal = pos_optimal
         self.neg_optimal = neg_optimal
@@ -31,29 +26,25 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         self.neg_margin = configs.neg_margin
         self.max_points = configs.max_points
 
-        self.safe_radius = configs.safe_radius
+        self.safe_radius = configs.safe_radius 
         self.matchability_radius = configs.matchability_radius
         self.pos_radius = configs.pos_radius # just to take care of the numeric precision
-
-        self.w_circle_loss = w_circle_loss
-        self.w_overlap_loss = w_overlap_loss
-        self.w_saliency_loss = w_saliency_loss
-
+    
     def get_circle_loss(self, coords_dist, feats_dist):
         """
         Modified from: https://github.com/XuyangBai/D3Feat.pytorch
         """
-        pos_mask = coords_dist < self.pos_radius
-        neg_mask = coords_dist > self.safe_radius
+        pos_mask = coords_dist < self.pos_radius 
+        neg_mask = coords_dist > self.safe_radius 
 
         ## get anchors that have both positive and negative pairs
         row_sel = ((pos_mask.sum(-1)>0) * (neg_mask.sum(-1)>0)).detach()
         col_sel = ((pos_mask.sum(-2)>0) * (neg_mask.sum(-2)>0)).detach()
 
         # get alpha for both positive and negative pairs
-        pos_weight = feats_dist - 1e5 * (~pos_mask).float() # mask the non-positive
+        pos_weight = feats_dist - 1e5 * (~pos_mask).float() # mask the non-positive 
         pos_weight = (pos_weight - self.pos_optimal) # mask the uninformative positive
-        pos_weight = torch.max(torch.zeros_like(pos_weight), pos_weight).detach()
+        pos_weight = torch.max(torch.zeros_like(pos_weight), pos_weight).detach() 
 
         neg_weight = feats_dist + 1e5 * (~neg_mask).float() # mask the non-negative
         neg_weight = (self.neg_optimal - neg_weight) # mask the uninformative negative
@@ -72,15 +63,27 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
 
         return circle_loss
 
+    def get_recall(self,coords_dist,feats_dist):
+        """
+        Get feature match recall, divided by number of true inliers
+        """
+        pos_mask = coords_dist < self.pos_radius
+        n_gt_pos = (pos_mask.sum(-1)>0).float().sum()+1e-12
+        _, sel_idx = torch.min(feats_dist, -1)
+        sel_dist = torch.gather(coords_dist,dim=-1,index=sel_idx[:,None])[pos_mask.sum(-1)>0]
+        n_pred_pos = (sel_dist < self.pos_radius).float().sum()
+        recall = n_pred_pos / n_gt_pos
+        return recall
+
     def get_weighted_bce_loss(self, prediction, gt):
         loss = nn.BCELoss(reduction='none')
 
-        class_loss = loss(prediction, gt)
+        class_loss = loss(prediction, gt) 
 
         weights = torch.ones_like(gt)
-        w_negative = gt.sum()/gt.size(0)
-        w_positive = 1 - w_negative
-
+        w_negative = gt.sum()/gt.size(0) 
+        w_positive = 1 - w_negative  
+        
         weights[gt >= 0.5] = w_positive
         weights[gt < 0.5] = w_negative
         w_class_loss = torch.mean(weights * class_loss)
@@ -88,42 +91,24 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         #######################################
         # get classification precision and recall
         predicted_labels = prediction.detach().cpu().round().numpy()
+        cls_precision, cls_recall, _, _ = precision_recall_fscore_support(gt.cpu().numpy(),predicted_labels, average='binary')
 
-        return w_class_loss
+        return w_class_loss, cls_precision, cls_recall
+            
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any]) -> torch.Tensor:
+    def forward(self, src_pcd, tgt_pcd, src_feats, tgt_feats, correspondence, rot, trans,scores_overlap,scores_saliency):
         """
         Circle loss for metric learning, here we feed the positive pairs only
         Input:
-            src_pcd:        [N, 3]
+            src_pcd:        [N, 3]  
             tgt_pcd:        [M, 3]
             rot:            [3, 3]
             trans:          [3, 1]
             src_feats:      [N, C]
             tgt_feats:      [M, C]
         """
-        # Input checks
-        assert isinstance(y_pred, dict), f"{type(y_pred)=}"
-        assert y_pred.keys() == {'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
-        assert isinstance(y_true, dict), f"{type(y_true)=}"
-        assert y_true.keys() == {'src_pc', 'tgt_pc', 'correspondence', 'rot', 'trans'}, f"{y_true.keys()=}"
-        src_pc = y_true['src_pc']
-        tgt_pc = y_true['tgt_pc']
-        assert isinstance(src_pc, dict), f"{type(src_pc)=}"
-        assert src_pc.keys() == {'pos', 'feat'}, f"{src_pc.keys()=}"
-        assert isinstance(tgt_pc, dict), f"{type(tgt_pc)=}"
-        assert tgt_pc.keys() == {'pos', 'feat'}, f"{tgt_pc.keys()=}"
-
-        src_pcd = src_pc['pos']
-        tgt_pcd = tgt_pc['pos']
-        src_feats = src_pc['feat']
-        tgt_feats = tgt_pc['feat']
-        correspondence = y_true['correspondence']
-        rot = y_true['rot']
-        trans = y_true['trans']
-
         src_pcd = (torch.matmul(rot,src_pcd.transpose(0,1))+trans).transpose(0,1)
-        stats = dict()
+        stats=dict()
 
         src_idx = list(set(correspondence[:,0].int().tolist()))
         tgt_idx = list(set(correspondence[:,1].int().tolist()))
@@ -136,8 +121,10 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         tgt_gt[tgt_idx]=1.
         gt_labels = torch.cat((src_gt, tgt_gt)).to(torch.device('cuda'))
 
-        class_loss = self.get_weighted_bce_loss(scores_overlap, gt_labels)
+        class_loss, cls_precision, cls_recall = self.get_weighted_bce_loss(scores_overlap, gt_labels)
         stats['overlap_loss'] = class_loss
+        stats['overlap_recall'] = cls_recall
+        stats['overlap_precision'] = cls_precision
 
         #######################
         # get BCE loss for saliency part, here we only supervise points in the overlap region
@@ -155,8 +142,10 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         tgt_saliency_scores = scores_saliency[src_pcd.size(0):][tgt_idx]
         scores_saliency = torch.cat((src_saliency_scores, tgt_saliency_scores))
 
-        class_loss = self.get_weighted_bce_loss(scores_saliency, gt_labels)
+        class_loss, cls_precision, cls_recall = self.get_weighted_bce_loss(scores_saliency, gt_labels)
         stats['saliency_loss'] = class_loss
+        stats['saliency_recall'] = cls_recall
+        stats['saliency_precision'] = cls_precision
 
         #######################################
         # filter some of correspondence as we are using different radius for "overlap" and "correspondence"
@@ -179,17 +168,10 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         ##############################
         # get FMR and circle loss
         ##############################
+        recall = self.get_recall(coords_dist, feats_dist)
         circle_loss = self.get_circle_loss(coords_dist, feats_dist)
-        stats['circle_loss']= circle_loss
 
-        assert isinstance(stats, dict), f"{type(stats)=}"
-        assert stats.keys() == {'overlap_loss', 'saliency_loss', 'circle_loss'}, f"{stats.keys()=}"
-        total_loss = (
-            self.w_circle_loss * stats['circle_loss'] +
-            self.w_overlap_loss * stats['overlap_loss'] +
-            self.w_saliency_loss * stats['saliency_loss']
-        )
-        assert total_loss.ndim == 0, f"{total_loss.ndim=}"
-        # log loss
-        self.buffer.append(total_loss.detach().cpu())
-        return total_loss
+        stats['circle_loss']= circle_loss
+        stats['recall']=recall
+
+        return stats
