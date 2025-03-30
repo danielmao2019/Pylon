@@ -59,8 +59,8 @@ def dummy_data():
     # Create data dictionary with the expected structure
     data_dict = {
         'inputs': {
-            'pc_1': create_dummy_multi_res_data(src_points, src_feats),
-            'pc_2': create_dummy_multi_res_data(tgt_points, tgt_feats)
+            'src_pc': create_dummy_multi_res_data(src_points, src_feats),
+            'tgt_pc': create_dummy_multi_res_data(tgt_points, tgt_feats)
         },
         'labels': {
             'transform': torch.eye(4).unsqueeze(0),  # Identity transform
