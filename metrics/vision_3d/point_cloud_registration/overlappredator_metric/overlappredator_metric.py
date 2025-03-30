@@ -1,3 +1,4 @@
+from typing import Dict, Any
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -20,7 +21,7 @@ class OverlapPredatorMetric(nn.Module):
         self.matchability_radius = configs.matchability_radius
         self.pos_radius = configs.pos_radius # just to take care of the numeric precision
 
-    def get_recall(self,coords_dist,feats_dist):
+    def get_recall(self, coords_dist, feats_dist):
         """
         Get feature match recall, divided by number of true inliers
         """
@@ -38,7 +39,7 @@ class OverlapPredatorMetric(nn.Module):
         cls_precision, cls_recall, _, _ = precision_recall_fscore_support(gt.cpu().numpy(),predicted_labels, average='binary')
         return cls_precision, cls_recall
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any]) -> torch.Tensor:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         # Input checks
         assert isinstance(y_pred, dict), f"{type(y_pred)=}"
         assert y_pred.keys() == {'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
@@ -102,7 +103,7 @@ class OverlapPredatorMetric(nn.Module):
         c_dist = torch.norm(src_pcd[correspondence[:,0]] - tgt_pcd[correspondence[:,1]], dim = 1)
         c_select = c_dist < self.pos_radius - 0.001
         correspondence = correspondence[c_select]
-        if(correspondence.size(0) > self.max_points):
+        if (correspondence.size(0) > self.max_points):
             choice = np.random.permutation(correspondence.size(0))[:self.max_points]
             correspondence = correspondence[choice]
         src_idx = correspondence[:,0]
@@ -117,6 +118,6 @@ class OverlapPredatorMetric(nn.Module):
 
         #######################
         recall = self.get_recall(coords_dist, feats_dist)
-        stats['recall']=recall
+        stats['recall'] = recall
 
         return stats
