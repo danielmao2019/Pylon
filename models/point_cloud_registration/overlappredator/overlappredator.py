@@ -139,8 +139,8 @@ class OverlapPredator(nn.Module):
         assert inputs.keys() >= {'src_pc', 'tgt_pc'}, f"{inputs.keys()=}"
         src_pc = inputs['src_pc']
         tgt_pc = inputs['tgt_pc']
-        assert src_pc.keys() >= {'pos', 'feat'}
-        assert tgt_pc.keys() >= {'pos', 'feat'}
+        assert src_pc.keys() == {'pos', 'feat', 'lengths', 'neighbors', 'subsampling', 'upsampling'}, f"{src_pc.keys()=}"
+        assert tgt_pc.keys() == {'pos', 'feat', 'lengths', 'neighbors', 'subsampling', 'upsampling'}, f"{tgt_pc.keys()=}"
 
         # Get input features
         x = torch.cat([src_pc['feat'], tgt_pc['feat']], dim=0).detach()
