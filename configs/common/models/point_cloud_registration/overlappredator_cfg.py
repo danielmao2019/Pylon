@@ -1,4 +1,4 @@
-from models.point_cloud_registration.overlappredator import OverlapPredator
+from models.point_cloud_registration.overlappredator.overlappredator import OverlapPredator
 
 
 model_cfg = {   
