@@ -77,7 +77,7 @@ if __name__ == "__main__":
         ['synth_pcr', 'real_pcr'],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
-            'GeoTransformer',
+            'GeoTransformer', 'OverlapPredator',
         ],
     ):
         main(dataset, model)
