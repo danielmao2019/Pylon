@@ -8,6 +8,7 @@ from data.datasets.base_dataset import BaseDataset
 from utils.builders.builder import build_from_config
 from utils.ops.apply import apply_tensor_op
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
+from data.datasets.base_dataset import BaseDataset
 
 import logging
 # Configure logging
@@ -85,62 +86,52 @@ class DummyPCRDataset:
     """A dummy dataset that mimics the structure of SynthPCRDataset."""
     def __init__(self, num_points=1024, split='train'):
         self.num_points = num_points
-        self.split = split
-        self.annotations = self._init_annotations()
+        super(DummyPCRDataset, self).__init__(**kwargs)
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     def _init_annotations(self):
-        """Initialize dummy annotations."""
-        return [{'source': 'dummy_source', 'target': 'dummy_target'}]
+        """Initialize dataset with dummy data."""
+        # Create a fixed number of dummy samples
+        self.annotations = list(range(10))  # 10 dummy samples
 
-    def _load_datapoint(self, index):
-        """Load a dummy datapoint with random data."""
-        # Generate random points in a cube
-        points = torch.rand(self.num_points, 3)
-        
-        # Generate random features
-        features = torch.rand(self.num_points, 3)
-        
-        # Generate random correspondences (50% of points)
-        num_corr = self.num_points // 2
-        corr_indices = torch.randperm(self.num_points)[:num_corr]
-        corr_indices = torch.stack([corr_indices, corr_indices])  # Perfect correspondences
-        
-        # Generate random transform (small rotation + translation)
-        angle = torch.rand(1) * 0.1  # Small random angle
-        cos_a = torch.cos(angle)
-        sin_a = torch.sin(angle)
-        rotation = torch.tensor([
-            [cos_a, -sin_a, 0],
-            [sin_a, cos_a, 0],
-            [0, 0, 1]
-        ])
-        translation = torch.rand(3) * 0.1  # Small random translation
-        transform = torch.eye(4)
-        transform[:3, :3] = rotation
-        transform[:3, 3] = translation
+    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+        """Generate dummy data with uniformly distributed points."""
+        # Generate random points and features using uniform distribution
+        # Points are generated in a unit cube [-1, 1]^3
+        src_points = 2 * torch.rand(self.num_points, 3, device=self.device) - 1
+        tgt_points = 2 * torch.rand(self.num_points, 3, device=self.device) - 1
+        src_feats = torch.rand(self.num_points, 1, device=self.device)
+        tgt_feats = torch.rand(self.num_points, 1, device=self.device)
 
-        return {
-            'inputs': {
-                'source_points': points,
-                'target_points': points,
-                'source_features': features,
-                'target_features': features,
+        # Generate random correspondences (just random pairs of indices)
+        correspondences = torch.randint(0, self.num_points, (2, self.num_points), device=self.device)
+
+        # Generate random transform (just a random 4x4 matrix)
+        transform = torch.randn(4, 4, device=self.device)
+
+        inputs = {
+            'src_pc': {
+                'pos': src_points,
+                'feat': src_feats,
             },
-            'labels': {
-                'correspondences': corr_indices,
-                'transform': transform
+            'tgt_pc': {
+                'pos': tgt_points,
+                'feat': tgt_feats,
             },
-            'meta_info': {
-                'source': 'dummy_source',
-                'target': 'dummy_target'
-            }
+            'correspondences': correspondences,
         }
 
-    def __len__(self):
-        return len(self.annotations)
+        labels = {
+            'transform': transform,
+        }
 
-    def __getitem__(self, index):
-        return self._load_datapoint(index)
+        meta_info = {
+            'idx': idx,
+            'point_indices': torch.arange(self.num_points, device=self.device),
+            'filepath': f'dummy_{idx}.ply',
+        }
+
+        return inputs, labels, meta_info
 
 
 def test_geotransformer_forward():
