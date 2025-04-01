@@ -68,7 +68,8 @@ class GeoTransformer(nn.Module):
 
     def forward(self, data_dict: Dict[str, torch.Tensor]):
         assert isinstance(data_dict, dict), f"data_dict must be a dictionary. Got {type(data_dict)}."
-        assert data_dict.keys() == {'points', 'lengths', 'neighbors', 'subsampling', 'upsampling', 'features''transform'}
+        assert data_dict.keys() == {'points', 'lengths', 'neighbors', 'subsampling', 'upsampling', 'features', 'transform'}, \
+            f"{data_dict.keys()=}"
         output_dict = {}
 
         # Downsample point clouds
