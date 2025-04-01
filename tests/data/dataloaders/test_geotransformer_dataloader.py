@@ -124,8 +124,8 @@ def log_data_structure(stage: str, batch: Dict[str, Any]):
 
 
 @pytest.mark.parametrize("num_points", [256, 512, 1024, 2048])
-def test_memory_vs_num_points(num_points):
-    """Test memory consumption and data structure as number of points changes."""
+def test_num_points_impact(num_points):
+    """Test how number of points affects memory, data structure, and neighbor limits."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
     
@@ -133,17 +133,17 @@ def test_memory_vs_num_points(num_points):
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
     
-    # Create dataset and dataloader with fixed voxel_size and search_radius
-    voxel_size = 0.025
-    search_radius = 0.0625  # Fixed value independent of voxel_size
+    # Create dataset and dataloader with fixed parameters
     dataset = DummyPCRDataset(num_points=num_points, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
-        voxel_size=voxel_size,
-        search_radius=search_radius,
+        voxel_size=0.025,  # Fixed value
+        search_radius=0.0625,  # Fixed value
         batch_size=1,
-        num_workers=0
+        num_workers=0,
+        keep_ratio=0.8,  # Fixed value
+        sample_threshold=2000  # Fixed value
     )
     
     # Memory after dataset/dataloader creation
@@ -167,8 +167,21 @@ def test_memory_vs_num_points(num_points):
         'reserved': batch_reserved / 1024**2
     }
     
-    log_memory_stats(f"Memory vs Num Points ({num_points} points)", memory_stats)
-    log_data_structure(f"Data Structure for {num_points} points", batch)
+    # Log results
+    logger.info(f"\nNumber of Points Impact Analysis (num_points={num_points}):")
+    logger.info("-" * 50)
+    
+    # Log memory statistics
+    log_memory_stats("Memory Statistics", memory_stats)
+    
+    # Log data structure
+    log_data_structure("Data Structure", batch)
+    
+    # Log neighbor limits analysis
+    logger.info("\nNeighbor Limits Analysis:")
+    logger.info("-" * 50)
+    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
+        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -176,8 +189,8 @@ def test_memory_vs_num_points(num_points):
 
 
 @pytest.mark.parametrize("voxel_size", [0.01, 0.025, 0.05, 0.1])
-def test_memory_vs_voxel_size(voxel_size):
-    """Test memory consumption and data structure as voxel size changes."""
+def test_voxel_size_impact(voxel_size):
+    """Test how voxel size affects memory, data structure, and neighbor limits."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
     
@@ -185,16 +198,16 @@ def test_memory_vs_voxel_size(voxel_size):
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
     
-    # Create dataset and dataloader with fixed search_radius
-    search_radius = 0.0625  # Fixed value independent of voxel_size
+    # Create dataset and dataloader with fixed parameters
     dataset = DummyPCRDataset(num_points=1024, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
         voxel_size=voxel_size,
-        search_radius=search_radius,
+        search_radius=0.0625,  # Fixed value
         batch_size=1,
-        num_workers=0
+        num_workers=0,
+        keep_ratio=0.8  # Fixed value
     )
     
     # Memory after dataset/dataloader creation
@@ -218,8 +231,21 @@ def test_memory_vs_voxel_size(voxel_size):
         'reserved': batch_reserved / 1024**2
     }
     
-    log_memory_stats(f"Memory vs Voxel Size ({voxel_size})", memory_stats)
-    log_data_structure(f"Data Structure for voxel size {voxel_size}", batch)
+    # Log results
+    logger.info(f"\nVoxel Size Impact Analysis (voxel_size={voxel_size}):")
+    logger.info("-" * 50)
+    
+    # Log memory statistics
+    log_memory_stats("Memory Statistics", memory_stats)
+    
+    # Log data structure
+    log_data_structure("Data Structure", batch)
+    
+    # Log neighbor limits analysis
+    logger.info("\nNeighbor Limits Analysis:")
+    logger.info("-" * 50)
+    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
+        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -227,8 +253,8 @@ def test_memory_vs_voxel_size(voxel_size):
 
 
 @pytest.mark.parametrize("search_radius", [0.025, 0.0625, 0.125, 0.25])
-def test_memory_vs_search_radius(search_radius):
-    """Test memory consumption and data structure as search radius changes."""
+def test_search_radius_impact(search_radius):
+    """Test how search radius affects memory, data structure, and neighbor limits."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
     
@@ -236,16 +262,16 @@ def test_memory_vs_search_radius(search_radius):
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
     
-    # Create dataset and dataloader with fixed voxel_size
-    voxel_size = 0.025  # Using smaller voxel size to make search radius impact more visible
+    # Create dataset and dataloader with fixed parameters
     dataset = DummyPCRDataset(num_points=1024, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
-        voxel_size=voxel_size,
+        voxel_size=0.025,  # Fixed value
         search_radius=search_radius,
         batch_size=1,
-        num_workers=0
+        num_workers=0,
+        keep_ratio=0.8  # Fixed value
     )
     
     # Memory after dataset/dataloader creation
@@ -269,8 +295,150 @@ def test_memory_vs_search_radius(search_radius):
         'reserved': batch_reserved / 1024**2
     }
     
-    log_memory_stats(f"Memory vs Search Radius ({search_radius})", memory_stats)
-    log_data_structure(f"Data Structure for search radius {search_radius}", batch)
+    # Log results
+    logger.info(f"\nSearch Radius Impact Analysis (search_radius={search_radius}):")
+    logger.info("-" * 50)
+    
+    # Log memory statistics
+    log_memory_stats("Memory Statistics", memory_stats)
+    
+    # Log data structure
+    log_data_structure("Data Structure", batch)
+    
+    # Log neighbor limits analysis
+    logger.info("\nNeighbor Limits Analysis:")
+    logger.info("-" * 50)
+    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
+        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
+    
+    # Basic assertions
+    assert memory_stats['total'] > 0, "Total memory should be positive"
+    assert memory_stats['per_point'] > 0, "Memory per point should be positive"
+
+
+@pytest.mark.parametrize("keep_ratio", [0.6, 0.8, 0.9])
+def test_keep_ratio_impact(keep_ratio):
+    """Test how keep ratio affects memory, data structure, and neighbor limits."""
+    # Clear CUDA cache
+    torch.cuda.empty_cache()
+    
+    # Initial memory
+    initial_allocated = torch.cuda.memory_allocated()
+    initial_reserved = torch.cuda.memory_reserved()
+    
+    # Create dataset and dataloader with fixed parameters
+    dataset = DummyPCRDataset(num_points=1024, split='train')
+    dataloader = GeoTransformerDataloader(
+        dataset=dataset,
+        num_stages=4,
+        voxel_size=0.025,  # Fixed value
+        search_radius=0.0625,  # Fixed value
+        batch_size=1,
+        num_workers=0,
+        keep_ratio=keep_ratio
+    )
+    
+    # Memory after dataset/dataloader creation
+    setup_allocated = torch.cuda.memory_allocated()
+    setup_reserved = torch.cuda.memory_reserved()
+    
+    # Get one batch
+    batch = next(iter(dataloader))
+    
+    # Memory after batch creation
+    batch_allocated = torch.cuda.memory_allocated()
+    batch_reserved = torch.cuda.memory_reserved()
+    
+    # Calculate memory statistics
+    memory_stats = {
+        'initial': initial_allocated / 1024**2,
+        'setup': (setup_allocated - initial_allocated) / 1024**2,
+        'batch': (batch_allocated - setup_allocated) / 1024**2,
+        'total': (batch_allocated - initial_allocated) / 1024**2,
+        'per_point': (batch_allocated - initial_allocated) / (1024 * 1024**2),
+        'reserved': batch_reserved / 1024**2
+    }
+    
+    # Log results
+    logger.info(f"\nKeep Ratio Impact Analysis (keep_ratio={keep_ratio}):")
+    logger.info("-" * 50)
+    
+    # Log memory statistics
+    log_memory_stats("Memory Statistics", memory_stats)
+    
+    # Log data structure
+    log_data_structure("Data Structure", batch)
+    
+    # Log neighbor limits analysis
+    logger.info("\nNeighbor Limits Analysis:")
+    logger.info("-" * 50)
+    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
+        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
+    
+    # Basic assertions
+    assert memory_stats['total'] > 0, "Total memory should be positive"
+    assert memory_stats['per_point'] > 0, "Memory per point should be positive"
+
+
+@pytest.mark.parametrize("sample_threshold", [1000, 2000, 4000])
+def test_sample_threshold_impact(sample_threshold):
+    """Test how sample_threshold affects memory, data structure, and neighbor limits."""
+    # Clear CUDA cache
+    torch.cuda.empty_cache()
+    
+    # Initial memory
+    initial_allocated = torch.cuda.memory_allocated()
+    initial_reserved = torch.cuda.memory_reserved()
+    
+    # Create dataset and dataloader with fixed parameters
+    dataset = DummyPCRDataset(num_points=1024, split='train')
+    dataloader = GeoTransformerDataloader(
+        dataset=dataset,
+        num_stages=4,
+        voxel_size=0.025,  # Fixed value
+        search_radius=0.0625,  # Fixed value
+        batch_size=1,
+        num_workers=0,
+        keep_ratio=0.8,  # Fixed value
+        sample_threshold=sample_threshold
+    )
+    
+    # Memory after dataset/dataloader creation
+    setup_allocated = torch.cuda.memory_allocated()
+    setup_reserved = torch.cuda.memory_reserved()
+    
+    # Get one batch
+    batch = next(iter(dataloader))
+    
+    # Memory after batch creation
+    batch_allocated = torch.cuda.memory_allocated()
+    batch_reserved = torch.cuda.memory_reserved()
+    
+    # Calculate memory statistics
+    memory_stats = {
+        'initial': initial_allocated / 1024**2,
+        'setup': (setup_allocated - initial_allocated) / 1024**2,
+        'batch': (batch_allocated - setup_allocated) / 1024**2,
+        'total': (batch_allocated - initial_allocated) / 1024**2,
+        'per_point': (batch_allocated - initial_allocated) / (1024 * 1024**2),
+        'reserved': batch_reserved / 1024**2
+    }
+    
+    # Log results
+    logger.info(f"\nSample Threshold Impact Analysis (sample_threshold={sample_threshold}):")
+    logger.info("-" * 50)
+    
+    # Log memory statistics
+    log_memory_stats("Memory Statistics", memory_stats)
+    
+    # Log data structure
+    log_data_structure("Data Structure", batch)
+    
+    # Log neighbor limits analysis
+    logger.info("\nNeighbor Limits Analysis:")
+    logger.info("-" * 50)
+    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
+        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"

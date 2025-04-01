@@ -7,7 +7,7 @@ from data.collators.geotransformer.geotransformer_collate_fn import geotransform
 
 
 def calibrate_neighbors_stack_mode(
-    dataset, collate_fn, num_stages, voxel_size, search_radius, keep_ratio=0.8, sample_threshold=2000
+    dataset, collate_fn, num_stages, voxel_size, search_radius, keep_ratio, sample_threshold,
 ) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
     hist_n = math.ceil(4 / 3 * math.pi * (search_radius / voxel_size + 1) ** 3)
@@ -47,7 +47,7 @@ def calibrate_neighbors_stack_mode(
 
 
 class GeoTransformerDataloader(BaseDataLoader):
-    def __init__(self, dataset, num_stages, voxel_size, search_radius, **kwargs):
+    def __init__(self, dataset, num_stages, voxel_size, search_radius, keep_ratio=0.8, sample_threshold=2000, **kwargs):
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
         neighbor_limits = calibrate_neighbors_stack_mode(
             dataset,
@@ -55,6 +55,8 @@ class GeoTransformerDataloader(BaseDataLoader):
             num_stages,
             voxel_size,
             search_radius,
+            keep_ratio=keep_ratio,
+            sample_threshold=sample_threshold,
         )
         super(GeoTransformerDataloader, self).__init__(
             dataset=dataset,
