@@ -6,11 +6,72 @@ from configs.common.models.point_cloud_registration.geotransformer_cfg import mo
 from easydict import EasyDict
 from utils.ops.apply import apply_tensor_op
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
-from tests.data.dataloaders.test_geotransformer_dataloader import DummyPCRDataset
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
+
+
+class DummyPCRDataset:
+    """A dummy dataset that mimics the structure of SynthPCRDataset."""
+    def __init__(self, num_points=1024, split='train'):
+        self.num_points = num_points
+        self.split = split
+        self.annotations = self._init_annotations()
+
+    def _init_annotations(self):
+        """Initialize dummy annotations."""
+        return [{'source': 'dummy_source', 'target': 'dummy_target'}]
+
+    def _load_datapoint(self, index):
+        """Load a dummy datapoint with random data."""
+        # Generate random points in a cube
+        points = torch.rand(self.num_points, 3)
+        
+        # Generate random features
+        features = torch.rand(self.num_points, 3)
+        
+        # Generate random correspondences (50% of points)
+        num_corr = self.num_points // 2
+        corr_indices = torch.randperm(self.num_points)[:num_corr]
+        corr_indices = torch.stack([corr_indices, corr_indices])  # Perfect correspondences
+        
+        # Generate random transform (small rotation + translation)
+        angle = torch.rand(1) * 0.1  # Small random angle
+        cos_a = torch.cos(angle)
+        sin_a = torch.sin(angle)
+        rotation = torch.tensor([
+            [cos_a, -sin_a, 0],
+            [sin_a, cos_a, 0],
+            [0, 0, 1]
+        ])
+        translation = torch.rand(3) * 0.1  # Small random translation
+        transform = torch.eye(4)
+        transform[:3, :3] = rotation
+        transform[:3, 3] = translation
+
+        return {
+            'inputs': {
+                'source_points': points,
+                'target_points': points,
+                'source_features': features,
+                'target_features': features,
+            },
+            'labels': {
+                'correspondences': corr_indices,
+                'transform': transform
+            },
+            'meta_info': {
+                'source': 'dummy_source',
+                'target': 'dummy_target'
+            }
+        }
+
+    def __len__(self):
+        return len(self.annotations)
+
+    def __getitem__(self, index):
+        return self._load_datapoint(index)
 
 
 def test_geotransformer_forward():
