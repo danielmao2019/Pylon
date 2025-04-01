@@ -1,8 +1,13 @@
 import pytest
 import torch
+import logging
 from utils.builders.builder import build_from_config
 from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 from easydict import EasyDict
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
 
 
 def create_dummy_data_with_points(num_points):
@@ -184,18 +189,21 @@ def test_geotransformer_memory_growth(num_points):
     model_memory = model_allocated - initial_allocated
     data_memory = data_allocated - model_allocated
     forward_memory = final_allocated - data_allocated
+    total_memory = final_allocated - initial_allocated
+    memory_per_point = total_memory / num_points
     
-    # Print memory usage statistics
-    print(f"\n{'='*50}")
-    print(f"Memory usage for {num_points} points:")
-    print(f"{'='*50}")
-    print(f"Initial memory: {initial_allocated / 1024**2:.2f} MB")
-    print(f"Model memory: {model_memory / 1024**2:.2f} MB")
-    print(f"Data memory: {data_memory / 1024**2:.2f} MB")
-    print(f"Forward pass memory: {forward_memory / 1024**2:.2f} MB")
-    print(f"Total memory: {(final_allocated - initial_allocated) / 1024**2:.2f} MB")
-    print(f"Memory per point: {(final_allocated - initial_allocated) / num_points / 1024**2:.2f} MB/point")
-    print(f"{'='*50}")
+    # Log memory usage statistics
+    logger.info("\n" + "="*70)
+    logger.info(f"MEMORY USAGE FOR {num_points} POINTS")
+    logger.info("="*70)
+    logger.info(f"{'Initial memory:':<25} {initial_allocated / 1024**2:>10.2f} MB")
+    logger.info(f"{'Model memory:':<25} {model_memory / 1024**2:>10.2f} MB")
+    logger.info(f"{'Data memory:':<25} {data_memory / 1024**2:>10.2f} MB")
+    logger.info(f"{'Forward pass memory:':<25} {forward_memory / 1024**2:>10.2f} MB")
+    logger.info(f"{'Total memory:':<25} {total_memory / 1024**2:>10.2f} MB")
+    logger.info(f"{'Memory per point:':<25} {memory_per_point / 1024**2:>10.2f} MB/point")
+    logger.info(f"{'Reserved memory:':<25} {final_reserved / 1024**2:>10.2f} MB")
+    logger.info("="*70)
     
     # Verify that memory growth is sub-linear
     # Memory should not grow more than linearly with number of points
