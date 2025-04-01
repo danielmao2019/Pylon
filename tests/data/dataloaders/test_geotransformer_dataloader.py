@@ -86,41 +86,37 @@ def log_data_structure(stage: str, batch: Dict[str, Any]):
     logger.info(f"\n{stage} Data Structure:")
     logger.info("-" * 50)
 
-    # Source point cloud structure
-    logger.info("Source Point Cloud:")
-    for i, pos in enumerate(batch['inputs']['src_pc']['pos']):
-        logger.info(f"  Stage {i} points shape: {pos.shape}")
-    for i, length in enumerate(batch['inputs']['src_pc']['lengths']):
-        logger.info(f"  Stage {i} lengths: {length.tolist()}")
-    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
+    # Points structure for each stage
+    logger.info("Points Structure:")
+    for i, points in enumerate(batch['inputs']['points']):
+        logger.info(f"  Stage {i} points shape: {points.shape}")
+    
+    # Lengths for each stage
+    logger.info("\nLengths Structure:")
+    for i, lengths in enumerate(batch['inputs']['lengths']):
+        logger.info(f"  Stage {i} lengths: {lengths.tolist()}")
+    
+    # Neighbors for each stage
+    logger.info("\nNeighbors Structure:")
+    for i, neighbors in enumerate(batch['inputs']['neighbors']):
         logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
-    if 'subsampling' in batch['inputs']['src_pc']:
-        for i, sub in enumerate(batch['inputs']['src_pc']['subsampling']):
+    
+    # Subsampling for each stage (except last)
+    if 'subsampling' in batch['inputs']:
+        logger.info("\nSubsampling Structure:")
+        for i, sub in enumerate(batch['inputs']['subsampling']):
             logger.info(f"  Stage {i} subsampling shape: {sub.shape}")
-    if 'upsampling' in batch['inputs']['src_pc']:
-        for i, up in enumerate(batch['inputs']['src_pc']['upsampling']):
+    
+    # Upsampling for each stage (except first)
+    if 'upsampling' in batch['inputs']:
+        logger.info("\nUpsampling Structure:")
+        for i, up in enumerate(batch['inputs']['upsampling']):
             logger.info(f"  Stage {i} upsampling shape: {up.shape}")
 
-    # Target point cloud structure (similar to source)
-    logger.info("\nTarget Point Cloud:")
-    for i, pos in enumerate(batch['inputs']['tgt_pc']['pos']):
-        logger.info(f"  Stage {i} points shape: {pos.shape}")
-    for i, length in enumerate(batch['inputs']['tgt_pc']['lengths']):
-        logger.info(f"  Stage {i} lengths: {length.tolist()}")
-    for i, neighbors in enumerate(batch['inputs']['tgt_pc']['neighbors']):
-        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
-    if 'subsampling' in batch['inputs']['tgt_pc']:
-        for i, sub in enumerate(batch['inputs']['tgt_pc']['subsampling']):
-            logger.info(f"  Stage {i} subsampling shape: {sub.shape}")
-    if 'upsampling' in batch['inputs']['tgt_pc']:
-        for i, up in enumerate(batch['inputs']['tgt_pc']['upsampling']):
-            logger.info(f"  Stage {i} upsampling shape: {up.shape}")
-
-    # Other data
+    # Features and transform
     logger.info("\nOther Data:")
+    logger.info(f"  Features shape: {batch['inputs']['features'].shape}")
     logger.info(f"  Transform shape: {batch['inputs']['transform'].shape}")
-    if 'correspondences' in batch['inputs']:
-        logger.info(f"  Correspondences shape: {batch['inputs']['correspondences'].shape}")
 
 
 def log_neighbor_limits(dataloader: GeoTransformerDataloader):
