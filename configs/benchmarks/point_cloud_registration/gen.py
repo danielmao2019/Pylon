@@ -40,6 +40,23 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.metrics.point_cloud_registration.geotransformer_metric_cfg import metric_cfg\n"
         config += f"config['metric'] = metric_cfg\n"
         config += '\n'
+    elif model == 'OverlapPredator':
+        config += f"# data config\n"
+        config += f"from configs.common.datasets.point_cloud_registration.train.overlappredator_data_cfg import data_cfg as train_data_cfg\n" 
+        config += f"config.update(train_data_cfg)\n"
+        config += f"from configs.common.datasets.point_cloud_registration.val.overlappredator_data_cfg import data_cfg as val_data_cfg\n" 
+        config += f"config.update(val_data_cfg)\n"
+        config += '\n'
+        config += f"# model config\n"
+        config += f"from configs.common.models.point_cloud_registration.overlappredator_cfg import model_cfg\n"
+        config += f"config['model'] = model_cfg\n"
+        config += '\n'
+        config += f"from configs.common.criteria.point_cloud_registration.overlappredator_criterion_cfg import criterion_cfg\n"
+        config += f"config['criterion'] = criterion_cfg\n"
+        config += '\n'
+        config += f"from configs.common.metrics.point_cloud_registration.overlappredator_metric_cfg import metric_cfg\n"
+        config += f"config['metric'] = metric_cfg\n"
+        config += '\n'
     else:
         raise NotImplementedError
     # add seeds
