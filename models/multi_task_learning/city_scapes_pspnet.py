@@ -1,7 +1,7 @@
 from typing import Set, Optional
 import torch
 from models.multi_task_learning import MultiTaskBaseModel
-from models.heads.ppm_decoder import PyramidPoolingModule
+from models.multi_task_learning.heads.ppm_decoder import PyramidPoolingModule
 
 
 class CityScapes_PSPNet(MultiTaskBaseModel):
