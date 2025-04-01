@@ -186,11 +186,16 @@ def test_geotransformer_memory_growth(num_points):
     forward_memory = final_allocated - data_allocated
     
     # Print memory usage statistics
-    print(f"\nMemory usage for {num_points} points:")
+    print(f"\n{'='*50}")
+    print(f"Memory usage for {num_points} points:")
+    print(f"{'='*50}")
+    print(f"Initial memory: {initial_allocated / 1024**2:.2f} MB")
     print(f"Model memory: {model_memory / 1024**2:.2f} MB")
     print(f"Data memory: {data_memory / 1024**2:.2f} MB")
     print(f"Forward pass memory: {forward_memory / 1024**2:.2f} MB")
     print(f"Total memory: {(final_allocated - initial_allocated) / 1024**2:.2f} MB")
+    print(f"Memory per point: {(final_allocated - initial_allocated) / num_points / 1024**2:.2f} MB/point")
+    print(f"{'='*50}")
     
     # Verify that memory growth is sub-linear
     # Memory should not grow more than linearly with number of points
