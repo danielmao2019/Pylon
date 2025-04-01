@@ -13,6 +13,10 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(message)s')
+logger = logging.getLogger(__name__)
+
 
 class DummyPCRDataset(BaseDataset):
     """Dummy dataset that mimics SynthPCRDataset's data structure with random data."""
