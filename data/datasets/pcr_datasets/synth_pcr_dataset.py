@@ -10,6 +10,7 @@ from utils.torch_points3d import GridSampling3D
 from utils.io import load_point_cloud
 from utils.point_cloud_ops import get_correspondences
 
+
 def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> list:
     """Process a single point cloud file and return voxel data."""
     # Load point cloud using our utility
