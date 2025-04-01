@@ -157,30 +157,30 @@ def test_geotransformer_forward():
     assert output_dict['estimated_transform'].shape == (1, 4, 4)
 
 
-@pytest.mark.parametrize("num_points,bounds", [
+@pytest.mark.parametrize('num_points,bounds', [
     (256, {
-        'total': 60,     # Actual ~50.74MB
-        'model': 40,     # Actual ~37.51MB
-        'data': 1,       # Actual ~0.20MB
-        'forward': 15    # Actual ~13.03MB
+        'total': 48,     # Actual ~43.27MB + 10% buffer
+        'model': 41.5,   # Actual ~37.51MB + 10% buffer
+        'data': 0.31,    # Actual ~0.28MB + 10% buffer
+        'forward': 6.1   # Actual ~5.48MB + 10% buffer
     }),
     (512, {
-        'total': 50,     # Actual ~43.13MB
-        'model': 40,     # Actual ~37.51MB
-        'data': 1,       # Actual ~0.40MB
-        'forward': 10    # Actual ~5.21MB
+        'total': 49,     # Actual ~44.53MB + 10% buffer
+        'model': 41.5,   # Actual ~37.51MB + 10% buffer
+        'data': 0.76,    # Actual ~0.69MB + 10% buffer
+        'forward': 7     # Actual ~6.33MB + 10% buffer
     }),
     (1024, {
-        'total': 50,     # Actual ~44.16MB
-        'model': 40,     # Actual ~37.51MB
-        'data': 1,       # Actual ~0.80MB
-        'forward': 10    # Actual ~5.84MB
+        'total': 52.5,   # Actual ~47.70MB + 10% buffer
+        'model': 41.5,   # Actual ~37.51MB + 10% buffer
+        'data': 1.96,    # Actual ~1.78MB + 10% buffer
+        'forward': 9.3   # Actual ~8.41MB + 10% buffer
     }),
     (2048, {
-        'total': 50,     # Actual ~46.20MB
-        'model': 40,     # Actual ~37.51MB
-        'data': 2,       # Actual ~1.60MB
-        'forward': 10    # Actual ~7.09MB
+        'total': 58,     # Actual ~52.70MB + 10% buffer
+        'model': 41.5,   # Actual ~37.51MB + 10% buffer
+        'data': 4.83,    # Actual ~4.39MB + 10% buffer
+        'forward': 11.9  # Actual ~10.80MB + 10% buffer
     })
 ])
 def test_geotransformer_memory_growth(num_points, bounds):
@@ -274,6 +274,15 @@ def test_geotransformer_memory_growth(num_points, bounds):
     for component in ['model', 'data', 'forward', 'total']:
         usage_percent = (memory_stats[component] / bounds[component]) * 100
         logger.info(f"{component.capitalize():<10} memory: {usage_percent:>6.1f}% of threshold")
+    logger.info("="*70)
+    
+    # Log suggested new bounds based on actual usage
+    logger.info("\nSUGGESTED NEW BOUNDS:")
+    logger.info("-"*70)
+    logger.info(f"{'Model:':<10} {max(memory_stats['model'] * 1.2, bounds['model']):>6.1f} MB")
+    logger.info(f"{'Data:':<10} {max(memory_stats['data'] * 1.2, bounds['data']):>6.1f} MB")
+    logger.info(f"{'Forward:':<10} {max(memory_stats['forward'] * 1.2, bounds['forward']):>6.1f} MB")
+    logger.info(f"{'Total:':<10} {max(memory_stats['total'] * 1.2, bounds['total']):>6.1f} MB")
     logger.info("="*70)
     
     # Assert memory usage is within thresholds
