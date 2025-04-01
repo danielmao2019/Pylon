@@ -151,9 +151,43 @@ def test_geotransformer_forward():
     assert output_dict['estimated_transform'].shape == (1, 4, 4)
 
 
-@pytest.mark.parametrize("num_points", [256, 512, 1024, 2048])
-def test_geotransformer_memory_growth(num_points):
-    """Test that GPU memory usage grows sub-linearly with number of points."""
+@pytest.mark.parametrize("num_points,bounds", [
+    (256, {
+        'total': 60,     # Actual ~50.74MB
+        'model': 40,     # Actual ~37.51MB
+        'data': 1,       # Actual ~0.20MB
+        'forward': 15    # Actual ~13.03MB
+    }),
+    (512, {
+        'total': 50,     # Actual ~43.13MB
+        'model': 40,     # Actual ~37.51MB
+        'data': 1,       # Actual ~0.40MB
+        'forward': 10    # Actual ~5.21MB
+    }),
+    (1024, {
+        'total': 50,     # Actual ~44.16MB
+        'model': 40,     # Actual ~37.51MB
+        'data': 1,       # Actual ~0.80MB
+        'forward': 10    # Actual ~5.84MB
+    }),
+    (2048, {
+        'total': 50,     # Actual ~46.20MB
+        'model': 40,     # Actual ~37.51MB
+        'data': 2,       # Actual ~1.60MB
+        'forward': 10    # Actual ~7.09MB
+    })
+])
+def test_geotransformer_memory_growth(num_points, bounds):
+    """Test that GPU memory usage stays within expected bounds for different point cloud sizes.
+    
+    Args:
+        num_points: Number of points in the point cloud
+        bounds: Dictionary containing memory thresholds in MB for:
+            - total: Maximum total memory usage
+            - model: Maximum model memory
+            - data: Maximum data memory
+            - forward: Maximum forward pass memory
+    """
     # Clear CUDA cache before test
     torch.cuda.empty_cache()
     
@@ -192,26 +226,44 @@ def test_geotransformer_memory_growth(num_points):
     total_memory = final_allocated - initial_allocated
     memory_per_point = total_memory / num_points
     
-    # Log memory usage statistics
+    # Convert all memory values to MB for logging and comparison
+    memory_stats = {
+        'initial': initial_allocated / 1024**2,
+        'model': model_memory / 1024**2,
+        'data': data_memory / 1024**2,
+        'forward': forward_memory / 1024**2,
+        'total': total_memory / 1024**2,
+        'per_point': memory_per_point / 1024**2,
+        'reserved': final_reserved / 1024**2
+    }
+    
+    # Log memory usage statistics with thresholds
     logger.info("\n" + "="*70)
     logger.info(f"MEMORY USAGE FOR {num_points} POINTS")
     logger.info("="*70)
-    logger.info(f"{'Initial memory:':<25} {initial_allocated / 1024**2:>10.2f} MB")
-    logger.info(f"{'Model memory:':<25} {model_memory / 1024**2:>10.2f} MB")
-    logger.info(f"{'Data memory:':<25} {data_memory / 1024**2:>10.2f} MB")
-    logger.info(f"{'Forward pass memory:':<25} {forward_memory / 1024**2:>10.2f} MB")
-    logger.info(f"{'Total memory:':<25} {total_memory / 1024**2:>10.2f} MB")
-    logger.info(f"{'Memory per point:':<25} {memory_per_point / 1024**2:>10.2f} MB/point")
-    logger.info(f"{'Reserved memory:':<25} {final_reserved / 1024**2:>10.2f} MB")
+    logger.info(f"{'Initial memory:':<25} {memory_stats['initial']:>10.2f} MB")
+    logger.info(f"{'Model memory:':<25} {memory_stats['model']:>10.2f} MB (threshold: {bounds['model']} MB)")
+    logger.info(f"{'Data memory:':<25} {memory_stats['data']:>10.2f} MB (threshold: {bounds['data']} MB)")
+    logger.info(f"{'Forward pass memory:':<25} {memory_stats['forward']:>10.2f} MB (threshold: {bounds['forward']} MB)")
+    logger.info(f"{'Total memory:':<25} {memory_stats['total']:>10.2f} MB (threshold: {bounds['total']} MB)")
+    logger.info(f"{'Memory per point:':<25} {memory_stats['per_point']:>10.2f} MB/point")
+    logger.info(f"{'Reserved memory:':<25} {memory_stats['reserved']:>10.2f} MB")
     logger.info("="*70)
     
-    # Verify that memory growth is sub-linear
-    # Memory should not grow more than linearly with number of points
-    # We allow for some overhead, so we check if memory growth is less than 2x linear
-    if num_points > 256:  # Compare with base case
-        base_memory = (final_allocated - initial_allocated) / 256
-        current_memory = final_allocated - initial_allocated
-        expected_max = base_memory * num_points * 2  # Allow 2x linear growth
-        
-        assert current_memory < expected_max, \
-            f"Memory growth ({current_memory/1024**2:.2f} MB) exceeds expected maximum ({expected_max/1024**2:.2f} MB) for {num_points} points"
+    # Log memory usage percentages relative to thresholds
+    logger.info("\nMEMORY USAGE RELATIVE TO THRESHOLDS:")
+    logger.info("-"*70)
+    for component in ['model', 'data', 'forward', 'total']:
+        usage_percent = (memory_stats[component] / bounds[component]) * 100
+        logger.info(f"{component.capitalize():<10} memory: {usage_percent:>6.1f}% of threshold")
+    logger.info("="*70)
+    
+    # Assert memory usage is within thresholds
+    assert memory_stats['total'] <= bounds['total'], \
+        f"Total memory usage ({memory_stats['total']:.2f} MB) exceeds threshold ({bounds['total']} MB) for {num_points} points"
+    assert memory_stats['model'] <= bounds['model'], \
+        f"Model memory usage ({memory_stats['model']:.2f} MB) exceeds threshold ({bounds['model']} MB) for {num_points} points"
+    assert memory_stats['data'] <= bounds['data'], \
+        f"Data memory usage ({memory_stats['data']:.2f} MB) exceeds threshold ({bounds['data']} MB) for {num_points} points"
+    assert memory_stats['forward'] <= bounds['forward'], \
+        f"Forward pass memory usage ({memory_stats['forward']:.2f} MB) exceeds threshold ({bounds['forward']} MB) for {num_points} points"
