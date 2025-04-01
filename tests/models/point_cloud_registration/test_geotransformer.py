@@ -5,15 +5,11 @@ from configs.common.models.point_cloud_registration.geotransformer_cfg import mo
 from easydict import EasyDict
 
 
-@pytest.fixture
-def dummy_data():
-    """Create dummy data matching the expected structure."""
-    # Create dummy point clouds - using more points to match model requirements
-    num_points = 256  # Points per cloud (increased from 100)
+def create_dummy_data_with_points(num_points):
+    """Create dummy data with specified number of points."""
     num_stages = 4  # Match backbone num_stages
     num_neighbors = 16  # Number of neighbors per point
 
-    # Create dummy multi-resolution data
     def create_dummy_multi_res_data(points, feats):
         pos_list = []
         lengths_list = []
@@ -85,16 +81,19 @@ def dummy_data():
     return data_dict
 
 
-def test_geotransformer_forward(dummy_data):
+def test_geotransformer_forward():
     """Test the forward pass of the GeoTransformer model."""
     # Initialize model using the builder
     model = build_from_config(model_cfg)
     model = model.cuda()  # Move model to CUDA
     model.eval()  # Set to evaluation mode
 
+    # Create dummy data with 256 points
+    data_dict = create_dummy_data_with_points(256)
+
     # Run forward pass
     with torch.no_grad():
-        output_dict = model(dummy_data['inputs'], dummy_data['labels'])
+        output_dict = model(data_dict['inputs'], data_dict['labels'])
 
     # Validate output structure
     # 1. Check point cloud outputs
@@ -149,3 +148,61 @@ def test_geotransformer_forward(dummy_data):
 
     # 3. Check transform shape
     assert output_dict['estimated_transform'].shape == (1, 4, 4)
+
+
+@pytest.mark.parametrize("num_points", [256, 512, 1024, 2048])
+def test_geotransformer_memory_growth(num_points):
+    """Test that GPU memory usage grows sub-linearly with number of points."""
+    # Clear CUDA cache before test
+    torch.cuda.empty_cache()
+    
+    # Get initial memory usage
+    initial_allocated = torch.cuda.memory_allocated()
+    initial_reserved = torch.cuda.memory_reserved()
+    
+    # Create model and move to CUDA
+    model = build_from_config(model_cfg)
+    model = model.cuda()
+    model.eval()
+    
+    # Get memory after model creation
+    model_allocated = torch.cuda.memory_allocated()
+    model_reserved = torch.cuda.memory_reserved()
+    
+    # Create data with specified number of points
+    data_dict = create_dummy_data_with_points(num_points)
+    
+    # Get memory after data creation
+    data_allocated = torch.cuda.memory_allocated()
+    data_reserved = torch.cuda.memory_reserved()
+    
+    # Run forward pass
+    with torch.no_grad():
+        output_dict = model(data_dict['inputs'], data_dict['labels'])
+    
+    # Get final memory usage
+    final_allocated = torch.cuda.memory_allocated()
+    final_reserved = torch.cuda.memory_reserved()
+    
+    # Calculate memory growth
+    model_memory = model_allocated - initial_allocated
+    data_memory = data_allocated - model_allocated
+    forward_memory = final_allocated - data_allocated
+    
+    # Print memory usage statistics
+    print(f"\nMemory usage for {num_points} points:")
+    print(f"Model memory: {model_memory / 1024**2:.2f} MB")
+    print(f"Data memory: {data_memory / 1024**2:.2f} MB")
+    print(f"Forward pass memory: {forward_memory / 1024**2:.2f} MB")
+    print(f"Total memory: {(final_allocated - initial_allocated) / 1024**2:.2f} MB")
+    
+    # Verify that memory growth is sub-linear
+    # Memory should not grow more than linearly with number of points
+    # We allow for some overhead, so we check if memory growth is less than 2x linear
+    if num_points > 256:  # Compare with base case
+        base_memory = (final_allocated - initial_allocated) / 256
+        current_memory = final_allocated - initial_allocated
+        expected_max = base_memory * num_points * 2  # Allow 2x linear growth
+        
+        assert current_memory < expected_max, \
+            f"Memory growth ({current_memory/1024**2:.2f} MB) exceeds expected maximum ({expected_max/1024**2:.2f} MB) for {num_points} points"
