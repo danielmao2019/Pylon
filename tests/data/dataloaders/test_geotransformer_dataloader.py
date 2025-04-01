@@ -123,31 +123,17 @@ def log_data_structure(stage: str, batch: Dict[str, Any]):
         logger.info(f"  Correspondences shape: {batch['inputs']['correspondences'].shape}")
 
 
-def log_neighbor_limits(batch: Dict[str, Any]):
+def log_neighbor_limits(dataloader: GeoTransformerDataloader):
     """Log neighbor limits analysis in a formatted way."""
     logger.info("\nNeighbor Limits Analysis:")
     logger.info("-" * 50)
     
-    # Source point cloud neighbors
-    logger.info("Source Point Cloud:")
-    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
-        logger.info(f"  Stage {i} neighbors: {neighbors.shape[1]} neighbors for {neighbors.shape[0]} points")
+    # Log configured neighbor limits
+    logger.info("Configured Neighbor Limits:")
+    for i, limit in enumerate(dataloader.neighbor_limits):
+        logger.info(f"  Stage {i}: {limit}")
     
-    # Target point cloud neighbors
-    logger.info("\nTarget Point Cloud:")
-    for i, neighbors in enumerate(batch['inputs']['tgt_pc']['neighbors']):
-        logger.info(f"  Stage {i} neighbors: {neighbors.shape[1]} neighbors for {neighbors.shape[0]} points")
-    
-    # Calculate neighbor statistics
-    for i, (src_neighbors, tgt_neighbors) in enumerate(zip(
-        batch['inputs']['src_pc']['neighbors'],
-        batch['inputs']['tgt_pc']['neighbors']
-    )):
-        avg_src = torch.sum(src_neighbors < src_neighbors.shape[0], dim=1).float().mean().item()
-        avg_tgt = torch.sum(tgt_neighbors < tgt_neighbors.shape[0], dim=1).float().mean().item()
-        logger.info(f"\nStage {i} Statistics:")
-        logger.info(f"  Average neighbors (source): {avg_src:.2f}")
-        logger.info(f"  Average neighbors (target): {avg_tgt:.2f}")
+    logger.info(f"  Number of stages: {len(dataloader.neighbor_limits)}")
 
 
 @pytest.mark.parametrize("num_points", [256, 512, 1024, 2048])
@@ -205,7 +191,7 @@ def test_num_points_impact(num_points):
     log_data_structure("Data Structure", batch)
     
     # Log neighbor limits analysis
-    log_neighbor_limits(batch)
+    log_neighbor_limits(dataloader)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -266,7 +252,7 @@ def test_voxel_size_impact(voxel_size):
     log_data_structure("Data Structure", batch)
     
     # Log neighbor limits analysis
-    log_neighbor_limits(batch)
+    log_neighbor_limits(dataloader)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -327,7 +313,7 @@ def test_search_radius_impact(search_radius):
     log_data_structure("Data Structure", batch)
     
     # Log neighbor limits analysis
-    log_neighbor_limits(batch)
+    log_neighbor_limits(dataloader)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -388,7 +374,7 @@ def test_keep_ratio_impact(keep_ratio):
     log_data_structure("Data Structure", batch)
     
     # Log neighbor limits analysis
-    log_neighbor_limits(batch)
+    log_neighbor_limits(dataloader)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -450,7 +436,7 @@ def test_sample_threshold_impact(sample_threshold):
     log_data_structure("Data Structure", batch)
     
     # Log neighbor limits analysis
-    log_neighbor_limits(batch)
+    log_neighbor_limits(dataloader)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
