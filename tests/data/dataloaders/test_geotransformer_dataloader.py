@@ -80,9 +80,51 @@ def log_memory_stats(stage: str, memory_stats: Dict[str, float]):
         logger.info(f"{key:<20}: {value:>10.2f} MB")
 
 
+def log_data_structure(stage: str, batch: Dict[str, Any]):
+    """Log data structure information."""
+    logger.info(f"\n{stage} Data Structure:")
+    logger.info("-" * 50)
+    
+    # Source point cloud structure
+    logger.info("Source Point Cloud:")
+    for i, pos in enumerate(batch['inputs']['src_pc']['pos']):
+        logger.info(f"  Stage {i} points shape: {pos.shape}")
+    for i, length in enumerate(batch['inputs']['src_pc']['lengths']):
+        logger.info(f"  Stage {i} lengths: {length.tolist()}")
+    for i, neighbors in enumerate(batch['inputs']['src_pc']['neighbors']):
+        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
+    if 'subsampling' in batch['inputs']['src_pc']:
+        for i, sub in enumerate(batch['inputs']['src_pc']['subsampling']):
+            logger.info(f"  Stage {i} subsampling shape: {sub.shape}")
+    if 'upsampling' in batch['inputs']['src_pc']:
+        for i, up in enumerate(batch['inputs']['src_pc']['upsampling']):
+            logger.info(f"  Stage {i} upsampling shape: {up.shape}")
+    
+    # Target point cloud structure (similar to source)
+    logger.info("\nTarget Point Cloud:")
+    for i, pos in enumerate(batch['inputs']['tgt_pc']['pos']):
+        logger.info(f"  Stage {i} points shape: {pos.shape}")
+    for i, length in enumerate(batch['inputs']['tgt_pc']['lengths']):
+        logger.info(f"  Stage {i} lengths: {length.tolist()}")
+    for i, neighbors in enumerate(batch['inputs']['tgt_pc']['neighbors']):
+        logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
+    if 'subsampling' in batch['inputs']['tgt_pc']:
+        for i, sub in enumerate(batch['inputs']['tgt_pc']['subsampling']):
+            logger.info(f"  Stage {i} subsampling shape: {sub.shape}")
+    if 'upsampling' in batch['inputs']['tgt_pc']:
+        for i, up in enumerate(batch['inputs']['tgt_pc']['upsampling']):
+            logger.info(f"  Stage {i} upsampling shape: {up.shape}")
+    
+    # Other data
+    logger.info("\nOther Data:")
+    logger.info(f"  Transform shape: {batch['inputs']['transform'].shape}")
+    if 'correspondences' in batch['inputs']:
+        logger.info(f"  Correspondences shape: {batch['inputs']['correspondences'].shape}")
+
+
 @pytest.mark.parametrize("num_points", [256, 512, 1024, 2048])
 def test_memory_vs_num_points(num_points):
-    """Test memory consumption as number of points changes."""
+    """Test memory consumption and data structure as number of points changes."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
     
@@ -123,6 +165,7 @@ def test_memory_vs_num_points(num_points):
     }
     
     log_memory_stats(f"Memory vs Num Points ({num_points} points)", memory_stats)
+    log_data_structure(f"Data Structure for {num_points} points", batch)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -131,7 +174,7 @@ def test_memory_vs_num_points(num_points):
 
 @pytest.mark.parametrize("voxel_size", [0.01, 0.025, 0.05, 0.1])
 def test_memory_vs_voxel_size(voxel_size):
-    """Test memory consumption as voxel size changes."""
+    """Test memory consumption and data structure as voxel size changes."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
     
@@ -172,6 +215,7 @@ def test_memory_vs_voxel_size(voxel_size):
     }
     
     log_memory_stats(f"Memory vs Voxel Size ({voxel_size})", memory_stats)
+    log_data_structure(f"Data Structure for voxel size {voxel_size}", batch)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
@@ -180,7 +224,7 @@ def test_memory_vs_voxel_size(voxel_size):
 
 @pytest.mark.parametrize("search_radius_multiplier", [1.0, 2.0, 3.0, 4.0])
 def test_memory_vs_search_radius(search_radius_multiplier):
-    """Test memory consumption as search radius changes."""
+    """Test memory consumption and data structure as search radius changes."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
     
@@ -222,6 +266,7 @@ def test_memory_vs_search_radius(search_radius_multiplier):
     }
     
     log_memory_stats(f"Memory vs Search Radius (multiplier: {search_radius_multiplier})", memory_stats)
+    log_data_structure(f"Data Structure for search radius {search_radius_multiplier * voxel_size}", batch)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
