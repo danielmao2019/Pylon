@@ -10,6 +10,7 @@ from utils.torch_points3d import GridSampling3D
 from utils.io import load_point_cloud
 from utils.point_cloud_ops import get_correspondences
 
+
 def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> list:
     """Process a single point cloud file and return voxel data."""
     # Load point cloud using our utility
@@ -41,6 +42,12 @@ def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> 
             voxel_data_list.append(voxel_data)
     
     return voxel_data_list
+
+
+def save_voxel_data(args):
+    """Save a single voxel data to cache."""
+    i, voxel_data, cache_dir = args
+    torch.save(voxel_data, os.path.join(cache_dir, f'voxel_{i}.pt'))
 
 
 class SynthPCRDataset(BaseDataset):
@@ -97,9 +104,11 @@ class SynthPCRDataset(BaseDataset):
             # Flatten the results list
             self.annotations = [voxel for sublist in results for voxel in sublist]
 
-            # Save voxels to cache
-            for i, voxel_data in enumerate(self.annotations):
-                torch.save(voxel_data, os.path.join(self.cache_dir, f'voxel_{i}.pt'))
+            # Save voxels to cache in parallel
+            print(f"Saving {len(self.annotations)} voxels to cache...")
+            save_args = [(i, voxel_data, self.cache_dir) for i, voxel_data in enumerate(self.annotations)]
+            with multiprocessing.Pool(num_workers) as pool:
+                pool.map(save_voxel_data, save_args, chunksize=1)
             print(f"Created and cached {len(self.annotations)} voxels")
 
         # Split annotations into train/val/test
