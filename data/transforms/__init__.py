@@ -11,6 +11,7 @@ from data.transforms.flip import Flip
 from data.transforms.rotation import Rotation
 from data.transforms.random_rotation import RandomRotation
 from data.transforms.random_noise import RandomNoise
+from data.transforms import vision_3d
 
 
 __all__ = (
@@ -24,4 +25,5 @@ __all__ = (
     'Rotation',
     'RandomRotation',
     'RandomNoise',
+    'vision_3d',
 )
