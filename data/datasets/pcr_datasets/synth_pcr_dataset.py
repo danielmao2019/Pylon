@@ -3,10 +3,44 @@ import os
 import glob
 import numpy as np
 import torch
+import multiprocessing
+from functools import partial
 from data.datasets.base_dataset import BaseDataset
 from utils.torch_points3d import GridSampling3D
 from utils.io import load_point_cloud
 from utils.point_cloud_ops import get_correspondences
+
+def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> list:
+    """Process a single point cloud file and return voxel data."""
+    # Load point cloud using our utility
+    points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
+    points = points.float()
+
+    # Normalize points
+    mean = points.mean(0, keepdim=True)
+    points = points - mean
+
+    # Grid sample to get point indices for each voxel
+    data_dict = {'pos': points}
+    sampled_data = grid_sampling(data_dict)
+
+    # Get unique clusters and their points
+    cluster_indices = sampled_data['point_indices']  # Shape: (N,) - cluster ID for each point
+    unique_clusters = torch.unique(cluster_indices)
+
+    # For each cluster, create voxel data
+    voxel_data_list = []
+    for cluster_id in unique_clusters:
+        cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
+        if len(cluster_point_indices) > 0:  # Only add if cluster has points
+            voxel_data = {
+                'indices': cluster_point_indices,
+                'points': points[cluster_point_indices],
+                'filepath': filepath
+            }
+            voxel_data_list.append(voxel_data)
+    
+    return voxel_data_list
 
 
 class SynthPCRDataset(BaseDataset):
@@ -47,35 +81,21 @@ class SynthPCRDataset(BaseDataset):
             self.annotations = voxel_files
             print(f"Loaded {len(voxel_files)} cached voxels")
         else:
-            # Process point clouds and create voxels
-            self.annotations = []
-            for filepath in self.file_paths:
-                # Load point cloud using our utility
-                points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
-                points = points.float()
-
-                # Normalize points
-                mean = points.mean(0, keepdim=True)
-                points = points - mean
-
-                # Grid sample to get point indices for each voxel
-                data_dict = {'pos': points}
-                sampled_data = self._grid_sampling(data_dict)
-
-                # Get unique clusters and their points
-                cluster_indices = sampled_data['point_indices']  # Shape: (N,) - cluster ID for each point
-                unique_clusters = torch.unique(cluster_indices)
-
-                # For each cluster, create voxel data
-                for cluster_id in unique_clusters:
-                    cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
-                    if len(cluster_point_indices) > 0:  # Only add if cluster has points
-                        voxel_data = {
-                            'indices': cluster_point_indices,
-                            'points': points[cluster_point_indices],
-                            'filepath': filepath
-                        }
-                        self.annotations.append(voxel_data)
+            # Process point clouds in parallel
+            # Use number of CPU cores minus 1 to leave one core free for system
+            num_workers = max(1, multiprocessing.cpu_count() - 1)
+            print(f"Processing point clouds using {num_workers} workers...")
+            
+            # Create a partial function with the grid_sampling parameter
+            process_func = partial(process_single_point_cloud, grid_sampling=self._grid_sampling)
+            
+            # Use multiprocessing to process files in parallel with chunksize for better performance
+            with multiprocessing.Pool(num_workers) as pool:
+                # Use chunksize=1 for better load balancing with varying file sizes
+                results = pool.map(process_func, self.file_paths, chunksize=1)
+            
+            # Flatten the results list
+            self.annotations = [voxel for sublist in results for voxel in sublist]
 
             # Save voxels to cache
             for i, voxel_data in enumerate(self.annotations):
