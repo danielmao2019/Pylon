@@ -4,6 +4,7 @@ import logging
 from utils.builders.builder import build_from_config
 from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 from easydict import EasyDict
+from utils.ops.apply import apply_tensor_op
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -68,17 +69,8 @@ def create_dummy_data_with_points(num_points):
         'tgt_feats': tgt_feats
     }
 
-    # Move all tensors to CUDA
-    def move_to_cuda(obj):
-        if isinstance(obj, torch.Tensor):
-            return obj.cuda()
-        elif isinstance(obj, dict):
-            return {k: move_to_cuda(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [move_to_cuda(item) for item in obj]
-        return obj
-
-    data_dict = move_to_cuda(data_dict)
+    # Move all tensors to CUDA using apply_tensor_op
+    data_dict = apply_tensor_op(lambda x: x.cuda(), data_dict)
     return data_dict
 
 
