@@ -40,7 +40,7 @@ def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> 
                 'filepath': filepath
             }
             voxel_data_list.append(voxel_data)
-    
+
     return voxel_data_list
 
 
@@ -92,15 +92,15 @@ class SynthPCRDataset(BaseDataset):
             # Use number of CPU cores minus 1 to leave one core free for system
             num_workers = max(1, multiprocessing.cpu_count() - 1)
             print(f"Processing point clouds using {num_workers} workers...")
-            
+
             # Create a partial function with the grid_sampling parameter
             process_func = partial(process_single_point_cloud, grid_sampling=self._grid_sampling)
-            
+
             # Use multiprocessing to process files in parallel with chunksize for better performance
             with multiprocessing.Pool(num_workers) as pool:
                 # Use chunksize=1 for better load balancing with varying file sizes
                 results = pool.map(process_func, self.file_paths, chunksize=1)
-            
+
             # Flatten the results list
             self.annotations = [voxel for sublist in results for voxel in sublist]
 
@@ -136,15 +136,15 @@ class SynthPCRDataset(BaseDataset):
         """Load a datapoint using point indices and generate synthetic pair."""
         # Get voxel data
         voxel_data = self.annotations[idx]
-        
+
         # If annotations are filepaths, load the data
         if isinstance(voxel_data, str):
             voxel_data = torch.load(voxel_data)
-            
+
         src_points = voxel_data['points']
         point_indices = voxel_data['indices']
         filepath = voxel_data['filepath']
-        
+
         assert point_indices.ndim == 1 and point_indices.shape[0] > 0, f"{point_indices.shape=}"
 
         # Generate random transformation
@@ -167,10 +167,10 @@ class SynthPCRDataset(BaseDataset):
         # Generate random direction (unit vector)
         trans_dir = torch.randn(3, device=src_points.device)
         trans_dir = trans_dir / torch.norm(trans_dir)
-        
+
         # Generate random magnitude within limit
         trans_mag = torch.empty(1, device=src_points.device).uniform_(0, self.trans_mag)
-        
+
         # Compute final translation vector
         trans = trans_dir * trans_mag
 
@@ -184,9 +184,9 @@ class SynthPCRDataset(BaseDataset):
 
         # Find correspondences between source and target point clouds
         correspondences = get_correspondences(
-            src_points, 
-            tgt_points, 
-            transform, 
+            src_points,
+            tgt_points,
+            transform,
             self.matching_radius
         )
 
