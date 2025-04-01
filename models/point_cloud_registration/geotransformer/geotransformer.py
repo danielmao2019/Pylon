@@ -66,9 +66,9 @@ class GeoTransformer(nn.Module):
 
         self.optimal_transport = LearnableLogOptimalTransport(cfg.model.num_sinkhorn_iterations)
 
-    def forward(self, inputs: Dict[str, torch.Tensor]):
-        assert isinstance(inputs, dict), f"inputs must be a dictionary. Got {type(inputs)}."
-        assert inputs.keys() == {'pos', 'lengths', 'neighbors', 'subsampling', 'upsampling','transform'}
+    def forward(self, data_dict: Dict[str, torch.Tensor]):
+        assert isinstance(data_dict, dict), f"data_dict must be a dictionary. Got {type(data_dict)}."
+        assert data_dict.keys() == {'pos', 'lengths', 'neighbors', 'subsampling', 'upsampling','transform'}
         output_dict = {}
 
         # Downsample point clouds
@@ -126,7 +126,7 @@ class GeoTransformer(nn.Module):
         output_dict['gt_node_corr_overlaps'] = gt_node_corr_overlaps
 
         # 2. KPFCNN Encoder
-        feats_list = self.backbone(feats, inputs)
+        feats_list = self.backbone(feats, data_dict)
 
         feats_c = feats_list[-1]
         feats_f = feats_list[0]
