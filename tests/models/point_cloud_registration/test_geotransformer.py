@@ -5,65 +5,12 @@ from utils.builders.builder import build_from_config
 from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 from easydict import EasyDict
 from utils.ops.apply import apply_tensor_op
+from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
+from tests.data.dataloaders.test_geotransformer_dataloader import DummyPCRDataset
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
-
-
-def create_dummy_data_with_points(num_points):
-    """Create dummy data with specified number of points."""
-    num_stages = 4  # Match backbone num_stages
-    num_neighbors = 16  # Number of neighbors per point
-
-    # Create base points and features
-    points = torch.randn(num_points, 3)
-    features = torch.randn(num_points, 1)  # Match backbone input_dim
-
-    # Create multi-resolution data
-    points_list = []
-    lengths_list = []
-    neighbors_list = []
-    subsampling_list = []
-    upsampling_list = []
-
-    for i in range(num_stages):
-        # Points and lengths for each stage
-        num_points_at_stage = num_points // (2**i)
-        points_list.append(points[:num_points_at_stage])
-        lengths_list.append(torch.tensor([num_points_at_stage]))
-
-        # Create neighbor indices - ensure 2D shape [num_points_at_stage, num_neighbors]
-        neighbors = torch.randint(0, num_points_at_stage, (num_points_at_stage, num_neighbors))
-        neighbors_list.append(neighbors)
-
-        # Create subsampling and upsampling indices
-        if i < num_stages - 1:
-            next_stage_points = num_points_at_stage // 2
-            # For each point in the next stage, create neighbor indices from current stage
-            subsampling = torch.randint(0, num_points_at_stage, (next_stage_points, num_neighbors))
-            # For each point in current stage, store its nearest neighbor in next stage
-            upsampling = torch.randint(0, next_stage_points, (num_points_at_stage, 1))
-            subsampling_list.append(subsampling)
-            upsampling_list.append(upsampling)
-
-    # Create transform (identity matrix)
-    transform = torch.eye(4)
-
-    # Create data dictionary with the expected structure
-    data_dict = {
-        'points': points_list,
-        'lengths': lengths_list,
-        'neighbors': neighbors_list,
-        'subsampling': subsampling_list,
-        'upsampling': upsampling_list,
-        'features': features,
-        'transform': transform,
-    }
-
-    # Move all tensors to CUDA using apply_tensor_op
-    data_dict = apply_tensor_op(lambda x: x.cuda(), data_dict)
-    return data_dict
 
 
 def test_geotransformer_forward():
@@ -73,12 +20,24 @@ def test_geotransformer_forward():
     model = model.cuda()  # Move model to CUDA
     model.eval()  # Set to evaluation mode
 
-    # Create dummy data with 256 points
-    data_dict = create_dummy_data_with_points(256)
+    # Create dataset and dataloader
+    dataset = DummyPCRDataset(num_points=1024, split='train')
+    dataloader = GeoTransformerDataloader(
+        dataset=dataset,
+        num_stages=4,
+        voxel_size=0.025,  # Fixed value
+        search_radius=0.0625,  # Fixed value
+        batch_size=1,
+        num_workers=0,
+        keep_ratio=0.8  # Fixed value
+    )
+
+    # Get one batch
+    batch = next(iter(dataloader))
 
     # Run forward pass
     with torch.no_grad():
-        output_dict = model(data_dict)
+        output_dict = model(batch['inputs'])
 
     # Validate output structure
     # 1. Check point cloud outputs
