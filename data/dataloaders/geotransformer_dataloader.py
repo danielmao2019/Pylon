@@ -21,18 +21,14 @@ def calibrate_neighbors_stack_mode(
         )
 
         # update histogram
-        # Get neighbors from both source and target point clouds
-        src_neighbors = data_dict['inputs']['src_pc']['neighbors']
-        tgt_neighbors = data_dict['inputs']['tgt_pc']['neighbors']
-
-        # Count neighbors separately for source and target and add them
-        counts = [torch.cat([
-            torch.sum(src_neighbor < src_neighbor.shape[0], axis=1),
-            torch.sum(tgt_neighbor < tgt_neighbor.shape[0], axis=1),
-        ], dim=0) for src_neighbor, tgt_neighbor in zip(src_neighbors, tgt_neighbors)]
-
-        # Create histograms from combined counts
-        hists = [torch.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
+        counts = [
+            torch.sum(neighbors < neighbors.shape[0], dim=1)
+            for neighbors in data_dict['inputs']['neighbors']
+        ]
+        hists = [
+            torch.bincount(c, minlength=hist_n)[:hist_n]
+            for c in counts
+        ]
         neighbor_hists += torch.stack(hists)
 
         if torch.min(torch.sum(neighbor_hists, dim=1)) > sample_threshold:
@@ -41,8 +37,8 @@ def calibrate_neighbors_stack_mode(
     # Calculate neighbor limits using PyTorch operations
     cum_sum = torch.cumsum(neighbor_hists.t(), dim=0)  # (hist_n, num_stages)
     neighbor_limits = torch.sum((cum_sum < (keep_ratio * cum_sum[hist_n - 1, :])).to(torch.int64), dim=0)  # (num_stages,)
+    assert torch.all(neighbor_limits > 0), f"{neighbor_limits=}, {cum_sum=}"
     neighbor_limits = neighbor_limits.tolist()
-    assert all([l > 0 for l in neighbor_limits]), f"{neighbor_limits=}, {cum_sum=}"
     return neighbor_limits
 
 
