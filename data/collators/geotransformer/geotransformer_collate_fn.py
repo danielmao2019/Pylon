@@ -75,7 +75,7 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
         radius *= 2
 
     return {
-        'pos': points_list,
+        'points': points_list,
         'lengths': lengths_list,
         'neighbors': neighbors_list,
         'subsampling': subsampling_list,
@@ -117,6 +117,7 @@ def geotransformer_collate_fn(
 
     # Main logic
     batch_size = len(data_dicts)
+    assert batch_size == 1
     device = data_dicts[0]['inputs']['src_pc']['pos'].device
 
     feats = torch.cat([dd['inputs']['tgt_pc']['feat'] for dd in data_dicts] + [dd['inputs']['src_pc']['feat'] for dd in data_dicts], dim=0)
@@ -126,11 +127,12 @@ def geotransformer_collate_fn(
 
     # Process source and target point clouds separately
     inputs_dict = precompute_data_stack_mode(points, lengths, num_stages, voxel_size, search_radius, neighbor_limits)
-    inputs_dict['transform'] = torch.stack([d['labels']['transform'] for d in data_dicts])
+    inputs_dict['features'] = feats
+    inputs_dict['transform'] = data_dicts[0]['labels']['transform']
     collated_dict = {
         'inputs': inputs_dict,
         'labels': {
-            'transform': inputs_dict['transform'],
+            'transform': data_dicts[0]['labels']['transform'],
         },
         'meta_info': {
             'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts], device=device),
