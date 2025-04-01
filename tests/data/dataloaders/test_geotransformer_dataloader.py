@@ -132,13 +132,15 @@ def test_memory_vs_num_points(num_points):
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
     
-    # Create dataset and dataloader
+    # Create dataset and dataloader with fixed voxel_size and search_radius
+    voxel_size = 0.025
+    search_radius = 0.0625  # Fixed value independent of voxel_size
     dataset = DummyPCRDataset(num_points=num_points, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
-        voxel_size=0.025,
-        search_radius=2.5 * 0.025,
+        voxel_size=voxel_size,
+        search_radius=search_radius,
         batch_size=1,
         num_workers=0
     )
@@ -182,13 +184,14 @@ def test_memory_vs_voxel_size(voxel_size):
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
     
-    # Create dataset and dataloader
+    # Create dataset and dataloader with fixed search_radius
+    search_radius = 0.0625  # Fixed value independent of voxel_size
     dataset = DummyPCRDataset(num_points=1024, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
         voxel_size=voxel_size,
-        search_radius=2.5 * voxel_size,
+        search_radius=search_radius,
         batch_size=1,
         num_workers=0
     )
@@ -222,8 +225,8 @@ def test_memory_vs_voxel_size(voxel_size):
     assert memory_stats['per_point'] > 0, "Memory per point should be positive"
 
 
-@pytest.mark.parametrize("search_radius_multiplier", [1.0, 2.0, 3.0, 4.0])
-def test_memory_vs_search_radius(search_radius_multiplier):
+@pytest.mark.parametrize("search_radius", [0.025, 0.0625, 0.125, 0.25])
+def test_memory_vs_search_radius(search_radius):
     """Test memory consumption and data structure as search radius changes."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
@@ -232,14 +235,14 @@ def test_memory_vs_search_radius(search_radius_multiplier):
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
     
-    # Create dataset and dataloader
+    # Create dataset and dataloader with fixed voxel_size
     voxel_size = 0.025
     dataset = DummyPCRDataset(num_points=1024, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
         voxel_size=voxel_size,
-        search_radius=search_radius_multiplier * voxel_size,
+        search_radius=search_radius,
         batch_size=1,
         num_workers=0
     )
@@ -265,8 +268,8 @@ def test_memory_vs_search_radius(search_radius_multiplier):
         'reserved': batch_reserved / 1024**2
     }
     
-    log_memory_stats(f"Memory vs Search Radius (multiplier: {search_radius_multiplier})", memory_stats)
-    log_data_structure(f"Data Structure for search radius {search_radius_multiplier * voxel_size}", batch)
+    log_memory_stats(f"Memory vs Search Radius ({search_radius})", memory_stats)
+    log_data_structure(f"Data Structure for search radius {search_radius}", batch)
     
     # Basic assertions
     assert memory_stats['total'] > 0, "Total memory should be positive"
