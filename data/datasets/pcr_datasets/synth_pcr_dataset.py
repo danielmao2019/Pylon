@@ -40,7 +40,7 @@ def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> 
                 'filepath': filepath
             }
             voxel_data_list.append(voxel_data)
-    
+
     return voxel_data_list
 
 
