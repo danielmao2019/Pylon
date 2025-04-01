@@ -98,11 +98,11 @@ class GeoTransformer(nn.Module):
         output_dict['src_points'] = src_points
 
         # 1. Generate ground truth node correspondences
-        assert ref_points_f.shape[0] >= self.num_points_in_patch, f"Not enough points for patch size"
+        assert ref_points_f.shape[0] >= self.num_points_in_patch, f"Not enough points for patch size: {ref_points_f.shape=}, {ref_points_c.shape=}, {self.num_points_in_patch=}, {points_f.shape=}, {points_c.shape=}"
         _, ref_node_masks, ref_node_knn_indices, ref_node_knn_masks = point_to_node_partition(
             ref_points_f, ref_points_c, self.num_points_in_patch
         )
-        assert src_points_f.shape[0] >= self.num_points_in_patch, f"Not enough points for patch size"
+        assert src_points_f.shape[0] >= self.num_points_in_patch, f"Not enough points for patch size: {src_points_f.shape=}, {src_points_c.shape=}, {self.num_points_in_patch=}, {points_f.shape=}, {points_c.shape=}"
         _, src_node_masks, src_node_knn_indices, src_node_knn_masks = point_to_node_partition(
             src_points_f, src_points_c, self.num_points_in_patch
         )
