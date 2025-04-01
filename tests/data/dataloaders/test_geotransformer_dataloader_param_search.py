@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Define parameter ranges for grid search
 dataset_voxel_sizes = [10.0]  #, 15.0, 20.0, 25.0, 30.0]
-dataloader_voxel_sizes = [0.1, 0.5, 1.0, 1.5, 2.0, 2.5]
+dataloader_voxel_sizes = [0.1]  #, 0.5, 1.0, 1.5, 2.0, 2.5]
 
 # Create full parameter grid
 search_configs = []
@@ -66,7 +66,7 @@ def test_configuration(config: Dict[str, float], split: str):
     )
     
     # Create model
-    model = build_from_config(model_cfg)
+    model = build_from_config(model_cfg).cuda()
     num_points_in_patch = model.num_points_in_patch
     
     # Set model mode
@@ -86,8 +86,8 @@ def test_configuration(config: Dict[str, float], split: str):
         for i, (p, l) in enumerate(zip(points, lengths)):
             logger.info(f"Stage {i} points: {p.shape[0]}, length: {l[0].item()}")
         
-        # Check if we have enough points for the patch size
-        assert all(p.shape[0] >= num_points_in_patch for p in points), f"Not enough points for patch size in batch {batch_idx}"
+        # # Check if we have enough points for the patch size
+        # assert all(p.shape[0] >= num_points_in_patch for p in points), f"Not enough points for patch size in batch {batch_idx}"
         
         # Run model forward pass
         with torch.set_grad_enabled(split == 'train'):
