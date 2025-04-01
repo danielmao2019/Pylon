@@ -2,6 +2,8 @@
 MODELS.MULTI_TASK_LEARNING API
 """
 from models.multi_task_learning.multi_task_model import MultiTaskBaseModel
+from models.multi_task_learning import backbones
+from models.multi_task_learning import heads
 from models.multi_task_learning.multi_mnist_lenet5 import MultiMNIST_LeNet5
 from models.multi_task_learning.celeb_a_famo import CelebA_FAMO
 from models.multi_task_learning.celeb_a_resnet18 import CelebA_ResNet18
@@ -13,6 +15,8 @@ from models.multi_task_learning.nyud_mt_segnet import NYUD_MT_SegNet
 
 __all__ = (
     'MultiTaskBaseModel',
+    'backbones',
+    'heads',
     'MultiMNIST_LeNet5',
     'CelebA_FAMO',
     'CelebA_ResNet18',

@@ -83,7 +83,7 @@ def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, 
     }
 
 
-def registration_collate_fn_stack_mode(
+def geotransformer_collate_fn(
     data_dicts, num_stages, voxel_size, search_radius, neighbor_limits, precompute_data=True
 ) -> Dict[str, Dict[str, Any]]:
     r"""Collate function for registration in stack mode.

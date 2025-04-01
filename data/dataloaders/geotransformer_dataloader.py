@@ -3,7 +3,7 @@ from functools import partial
 import math
 import torch
 from data.dataloaders.base_dataloader import BaseDataLoader
-from data.collators.geotransformer.registration_collate_fn_stack_mode import registration_collate_fn_stack_mode
+from data.collators.geotransformer.geotransformer_collate_fn import geotransformer_collate_fn
 
 
 def calibrate_neighbors_stack_mode(
@@ -51,7 +51,7 @@ class GeoTransformerDataloader(BaseDataLoader):
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
         neighbor_limits = calibrate_neighbors_stack_mode(
             dataset,
-            registration_collate_fn_stack_mode,
+            geotransformer_collate_fn,
             num_stages,
             voxel_size,
             search_radius,
@@ -59,7 +59,7 @@ class GeoTransformerDataloader(BaseDataLoader):
         super(GeoTransformerDataloader, self).__init__(
             dataset=dataset,
             collate_fn=partial(
-                registration_collate_fn_stack_mode,
+                geotransformer_collate_fn,
                 num_stages=num_stages,
                 voxel_size=voxel_size,
                 search_radius=search_radius,

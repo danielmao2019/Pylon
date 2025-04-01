@@ -1,8 +1,7 @@
 import data
-import metrics
 
 
-config = {
+data_cfg = {
     'val_dataset': {
         'class': data.datasets.SynthPCRDataset,
         'args': {
@@ -10,7 +9,7 @@ config = {
             'split': 'val',
             'rot_mag': 45.0,
             'trans_mag': 0.5,
-            'voxel_size': 5.0,
+            'voxel_size': 1.0,
         },
     },
     'val_dataloader': {
@@ -23,17 +22,5 @@ config = {
             'search_radius': 2.5 * 0.025,
         },
     },
-    'metric': {
-        'class': metrics.vision_3d.point_cloud_registration.GeoTransformerMetric,
-        'args': {
-            'eval': {
-                'acceptance_overlap': 0.0,
-                'acceptance_radius': 0.1,
-                'inlier_ratio_threshold': 0.05,
-                'rmse_threshold': 0.2,
-                'rre_threshold': 15.0,
-                'rte_threshold': 0.3,
-            },
-        },
-    },
+    'metric': None,
 }
