@@ -54,17 +54,13 @@ def create_dummy_data_with_points(num_points):
 
     # Create data dictionary with the expected structure
     data_dict = {
-        'inputs': {
-            'pc_1': create_dummy_multi_res_data(src_points, src_feats),
-            'pc_2': create_dummy_multi_res_data(tgt_points, tgt_feats)
-        },
-        'labels': {
-            'transform': torch.eye(4).unsqueeze(0),  # Identity transform
-            'src_points': src_points,
-            'tgt_points': tgt_points,
-            'src_feats': src_feats,
-            'tgt_feats': tgt_feats
-        }
+        'src_pc': create_dummy_multi_res_data(src_points, src_feats),
+        'tgt_pc': create_dummy_multi_res_data(tgt_points, tgt_feats),
+        'transform': torch.eye(4).unsqueeze(0),  # Identity transform
+        'src_points': src_points,
+        'tgt_points': tgt_points,
+        'src_feats': src_feats,
+        'tgt_feats': tgt_feats
     }
 
     # Move all tensors to CUDA
@@ -93,7 +89,7 @@ def test_geotransformer_forward():
 
     # Run forward pass
     with torch.no_grad():
-        output_dict = model(data_dict['inputs'], data_dict['labels'])
+        output_dict = model(data_dict)
 
     # Validate output structure
     # 1. Check point cloud outputs
@@ -178,7 +174,7 @@ def test_geotransformer_memory_growth(num_points):
     
     # Run forward pass
     with torch.no_grad():
-        output_dict = model(data_dict['inputs'], data_dict['labels'])
+        output_dict = model(data_dict)
     
     # Get final memory usage
     final_allocated = torch.cuda.memory_allocated()
