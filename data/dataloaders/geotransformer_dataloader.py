@@ -39,8 +39,8 @@ def calibrate_neighbors_stack_mode(
             break
 
     # Calculate neighbor limits using PyTorch operations
-    cum_sum = torch.cumsum(neighbor_hists.t(), dim=0)
-    neighbor_limits = torch.sum((cum_sum < (keep_ratio * cum_sum[hist_n - 1, :])).to(torch.int64), dim=0)
+    cum_sum = torch.cumsum(neighbor_hists.t(), dim=0)  # (hist_n, num_stages)
+    neighbor_limits = torch.sum((cum_sum < (keep_ratio * cum_sum[hist_n - 1, :])).to(torch.int64), dim=0)  # (num_stages,)
     neighbor_limits = neighbor_limits.tolist()
     assert all([l > 0 for l in neighbor_limits]), f"{neighbor_limits=}, {cum_sum=}"
     return neighbor_limits
