@@ -34,12 +34,13 @@ class DummyPCRDataset(BaseDataset):
         self.annotations = list(range(10))  # 10 dummy samples
 
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Generate completely random dummy data."""
-        # Generate random points and features
-        src_points = torch.randn(self.num_points, 3, device=self.device)
-        tgt_points = torch.randn(self.num_points, 3, device=self.device)
-        src_feats = torch.randn(self.num_points, 1, device=self.device)
-        tgt_feats = torch.randn(self.num_points, 1, device=self.device)
+        """Generate dummy data with uniformly distributed points."""
+        # Generate random points and features using uniform distribution
+        # Points are generated in a unit cube [-1, 1]^3
+        src_points = 2 * torch.rand(self.num_points, 3, device=self.device) - 1
+        tgt_points = 2 * torch.rand(self.num_points, 3, device=self.device) - 1
+        src_feats = torch.rand(self.num_points, 1, device=self.device)
+        tgt_feats = torch.rand(self.num_points, 1, device=self.device)
         
         # Generate random correspondences (just random pairs of indices)
         correspondences = torch.randint(0, self.num_points, (2, self.num_points), device=self.device)
