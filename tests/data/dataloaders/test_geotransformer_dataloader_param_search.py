@@ -76,7 +76,6 @@ def test_configuration(config: Dict[str, float], split: str):
         model.eval()
     
     # Test all batches
-    success = True
     for batch_idx, batch in enumerate(dataloader):
         # Get points from the batch
         ref_points_f = batch['inputs']['ref_pc']['pos'][0]  # Fine points
@@ -98,7 +97,6 @@ def test_configuration(config: Dict[str, float], split: str):
             src_points_f.shape[0] < num_points_in_patch or 
             src_points_c.shape[0] < num_points_in_patch):
             logger.info("Not enough points for patch size")
-            success = False
             break
         
         # Run model forward pass
