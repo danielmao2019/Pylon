@@ -34,18 +34,18 @@ def test_configuration(config: Dict[str, float], split: str):
     """Test a configuration on a specific split."""
     # Clear CUDA cache
     torch.cuda.empty_cache()
-    
+
     # Fixed parameters
     batch_size = 1
     num_workers = 0
     num_stages = 4
-    
+
     logger.info(f"\nTesting configuration:")
     logger.info(f"Dataset voxel_size: {config['dataset_voxel_size']}")
     logger.info(f"Dataloader voxel_size: {config['dataloader_voxel_size']}")
     logger.info(f"Search radius: {config['search_radius']}")
     logger.info(f"Split: {split}")
-    
+
     # Create dataset
     dataset = SynthPCRDataset(
         data_root='./data/datasets/soft_links/ivision-pcr-data',
@@ -54,7 +54,7 @@ def test_configuration(config: Dict[str, float], split: str):
         trans_mag=0.5,
         voxel_size=config['dataset_voxel_size']
     )
-    
+
     # Create dataloader
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
@@ -64,23 +64,23 @@ def test_configuration(config: Dict[str, float], split: str):
         batch_size=batch_size,
         num_workers=num_workers
     )
-    
+
     # Create model
     model = build_from_config(model_cfg).cuda()
     num_points_in_patch = model.num_points_in_patch
-    
+
     # Set model mode
     if split == 'train':
         model.train()
     else:
         model.eval()
-    
+
     # Test all batches
     for batch_idx, batch in enumerate(dataloader):
         # Get points from the batch
         points = batch['inputs']['points']
         lengths = batch['inputs']['lengths']
-        
+
         # Log point counts
         logger.info(f"\nBatch {batch_idx} point counts:")
         for i, (p, l) in enumerate(zip(points, lengths)):
@@ -89,8 +89,8 @@ def test_configuration(config: Dict[str, float], split: str):
         # Run model forward pass
         with torch.set_grad_enabled(split == 'train'):
             outputs = model(batch['inputs'])
-        
+
         # Log model outputs
         logger.info(f"Model outputs: {outputs.keys()}")
-    
+
     logger.info(f"Configuration works for {split} split!")
