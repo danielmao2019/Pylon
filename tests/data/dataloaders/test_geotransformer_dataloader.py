@@ -237,7 +237,7 @@ def test_memory_vs_search_radius(search_radius):
     initial_reserved = torch.cuda.memory_reserved()
     
     # Create dataset and dataloader with fixed voxel_size
-    voxel_size = 0.1  # Using larger voxel size to amplify search radius impact
+    voxel_size = 0.025  # Using smaller voxel size to make search radius impact more visible
     dataset = DummyPCRDataset(num_points=1024, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
