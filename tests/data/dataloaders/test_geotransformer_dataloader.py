@@ -91,7 +91,7 @@ def test_memory_vs_num_points(num_points):
     initial_reserved = torch.cuda.memory_reserved()
     
     # Create dataset and dataloader
-    dataset = DummyPCRDataset(num_points=num_points)
+    dataset = DummyPCRDataset(num_points=num_points, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
@@ -140,7 +140,7 @@ def test_memory_vs_voxel_size(voxel_size):
     initial_reserved = torch.cuda.memory_reserved()
     
     # Create dataset and dataloader
-    dataset = DummyPCRDataset(num_points=1024)
+    dataset = DummyPCRDataset(num_points=1024, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
@@ -190,7 +190,7 @@ def test_memory_vs_search_radius(search_radius_multiplier):
     
     # Create dataset and dataloader
     voxel_size = 0.025
-    dataset = DummyPCRDataset(num_points=1024)
+    dataset = DummyPCRDataset(num_points=1024, split='train')
     dataloader = GeoTransformerDataloader(
         dataset=dataset,
         num_stages=4,
