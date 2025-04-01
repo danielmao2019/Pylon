@@ -22,18 +22,23 @@ def main(dataset: str, model: str) -> None:
     config += f"from runners import SupervisedSingleTaskTrainer\n"
     config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
     config += '\n'
-    # add dataset config
-    config += f"# dataset config\n"
-    config += f"from configs.common.datasets.point_cloud_registration.train.{dataset}_cfg import config as train_dataset_config\n" 
-    config += f"config.update(train_dataset_config)\n"
-    config += f"from configs.common.datasets.point_cloud_registration.val.{dataset}_cfg import config as val_dataset_config\n" 
-    config += f"config.update(val_dataset_config)\n"
-    config += '\n'
     # add model config
-    config += f"# model config\n"
     if model == 'GeoTransformer':
+        config += f"# data config\n"
+        config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_data_cfg import data_cfg as train_data_cfg\n" 
+        config += f"config.update(train_data_cfg)\n"
+        config += f"from configs.common.datasets.point_cloud_registration.val.geotransformer_data_cfg import data_cfg as val_data_cfg\n" 
+        config += f"config.update(val_data_cfg)\n"
+        config += '\n'
+        config += f"# model config\n"
         config += f"from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg\n"
         config += f"config['model'] = model_cfg\n"
+        config += '\n'
+        config += f"from configs.common.criteria.point_cloud_registration.geotransformer_criterion_cfg import criterion_cfg\n"
+        config += f"config['criterion'] = criterion_cfg\n"
+        config += '\n'
+        config += f"from configs.common.metrics.point_cloud_registration.geotransformer_metric_cfg import metric_cfg\n"
+        config += f"config['metric'] = metric_cfg\n"
         config += '\n'
     else:
         raise NotImplementedError
