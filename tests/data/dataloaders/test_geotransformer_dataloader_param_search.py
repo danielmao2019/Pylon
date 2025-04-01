@@ -78,30 +78,24 @@ def test_configuration(config: Dict[str, float], split: str):
     # Test all batches
     for batch_idx, batch in enumerate(dataloader):
         # Get points from the batch
-        ref_points_f = batch['inputs']['ref_pc']['pos'][0]  # Fine points
-        ref_points_c = batch['inputs']['ref_pc']['pos'][-1]  # Coarse points
-        src_points_f = batch['inputs']['src_pc']['pos'][0]  # Fine points
-        src_points_c = batch['inputs']['src_pc']['pos'][-1]  # Coarse points
+        points = batch['inputs']['points']
+        lengths = batch['inputs']['lengths']
+        features = batch['inputs']['features']
         
         # Log point counts
         logger.info(f"\nBatch {batch_idx} point counts:")
-        logger.info(f"ref_points_f: {ref_points_f.shape[0]}")
-        logger.info(f"ref_points_c: {ref_points_c.shape[0]}")
-        logger.info(f"src_points_f: {src_points_f.shape[0]}")
-        logger.info(f"src_points_c: {src_points_c.shape[0]}")
-        logger.info(f"num_points_in_patch: {num_points_in_patch}")
+        for i, (p, l) in enumerate(zip(points, lengths)):
+            logger.info(f"Stage {i} points: {p.shape[0]}, length: {l[0].item()}")
         
         # Check if we have enough points for the patch size
-        if (ref_points_f.shape[0] < num_points_in_patch or 
-            ref_points_c.shape[0] < num_points_in_patch or
-            src_points_f.shape[0] < num_points_in_patch or 
-            src_points_c.shape[0] < num_points_in_patch):
-            logger.info("Not enough points for patch size")
-            break
+        if any(p.shape[0] < num_points_in_patch for p in points):
+            pytest.fail(f"Not enough points for patch size in batch {batch_idx}")
         
         # Run model forward pass
         with torch.set_grad_enabled(split == 'train'):
-            outputs = model(batch)
+            outputs = model(batch['inputs'])
         
         # Log model outputs
         logger.info(f"Model outputs: {outputs.keys()}")
+    
+    logger.info(f"Configuration works for {split} split!")
