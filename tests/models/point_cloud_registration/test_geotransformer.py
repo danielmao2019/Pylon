@@ -210,8 +210,20 @@ def test_geotransformer_memory_growth(num_points, bounds):
     model_allocated = torch.cuda.memory_allocated()
     model_reserved = torch.cuda.memory_reserved()
     
-    # Create data with specified number of points
-    data_dict = create_dummy_data_with_points(num_points)
+    # Create dataset and dataloader
+    dataset = DummyPCRDataset(num_points=num_points, split='train')
+    dataloader = GeoTransformerDataloader(
+        dataset=dataset,
+        num_stages=4,
+        voxel_size=0.025,  # Fixed value
+        search_radius=0.0625,  # Fixed value
+        batch_size=1,
+        num_workers=0,
+        keep_ratio=0.8  # Fixed value
+    )
+    
+    # Get one batch from dataloader
+    batch = next(iter(dataloader))
     
     # Get memory after data creation
     data_allocated = torch.cuda.memory_allocated()
@@ -219,7 +231,7 @@ def test_geotransformer_memory_growth(num_points, bounds):
     
     # Run forward pass
     with torch.no_grad():
-        output_dict = model(data_dict)
+        output_dict = model(batch['inputs'])
     
     # Get final memory usage
     final_allocated = torch.cuda.memory_allocated()
