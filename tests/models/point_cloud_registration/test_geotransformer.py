@@ -1,13 +1,14 @@
+from typing import Dict, Any, Tuple
 import pytest
-import torch
-import logging
-from utils.builders.builder import build_from_config
-from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 from easydict import EasyDict
-from utils.ops.apply import apply_tensor_op
+import torch
+from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
 from data.datasets.base_dataset import BaseDataset
+from utils.builders.builder import build_from_config
+from utils.ops.apply import apply_tensor_op
 
+import logging
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger(__name__)
