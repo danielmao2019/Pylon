@@ -1,6 +1,7 @@
 import pytest
 import torch
 import logging
+import multiprocessing
 from typing import Dict, Any, Tuple, List
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
@@ -28,6 +29,32 @@ for dataset_voxel_size in dataset_voxel_sizes:
             'search_radius': search_radius
         })
 
+
+def run_batch_test(batch_idx: int, batch: Dict[str, Any], num_points_in_patch: int) -> None:
+    """Helper function to test a single batch."""
+    # Get points and lengths from the batch
+    points = batch['inputs']['points']
+    lengths = batch['inputs']['lengths']
+    
+    # Check points_f (index 1) which is what's used in the model's assertions
+    points_f = points[1]
+    lengths_f = lengths[1]
+    
+    # Get lengths for this stage
+    assert len(lengths_f) == 2
+    ref_length_f = lengths_f[0].item()
+    
+    # Split points into ref and src
+    ref_points_f = points_f[:ref_length_f]
+    src_points_f = points_f[ref_length_f:]
+    
+    # Check if we have enough points for the patch size
+    assert ref_points_f.shape[0] >= num_points_in_patch, \
+        f"Not enough points for patch size in ref_f: got {ref_points_f.shape[0]}, need {num_points_in_patch}"
+    assert src_points_f.shape[0] >= num_points_in_patch, \
+        f"Not enough points for patch size in src_f: got {src_points_f.shape[0]}, need {num_points_in_patch}"
+
+
 @pytest.mark.parametrize("config", search_configs)
 @pytest.mark.parametrize("split", ['train', 'val'])
 def test_configuration(config: Dict[str, float], split: str):
@@ -52,7 +79,8 @@ def test_configuration(config: Dict[str, float], split: str):
         split=split,
         rot_mag=45.0,
         trans_mag=0.5,
-        voxel_size=config['dataset_voxel_size']
+        voxel_size=config['dataset_voxel_size'],
+        min_points=256,
     )
 
     # Create dataloader
@@ -69,35 +97,17 @@ def test_configuration(config: Dict[str, float], split: str):
     num_points_in_patch = model_cfg['args']['model']['num_points_in_patch']
     logger.info(f"Required points per patch: {num_points_in_patch}")
 
-    # Test all batches
-    for batch_idx, batch in enumerate(dataloader):
-        # Get points and lengths from the batch
-        points = batch['inputs']['points']
-        lengths = batch['inputs']['lengths']
-
-        # Log point counts
-        logger.info(f"\nBatch {batch_idx} point counts:")
-        
-        # Check points_f (index 1) which is what's used in the model's assertions
-        points_f = points[1]
-        lengths_f = lengths[1]
-        
-        # Get lengths for this stage
-        assert len(lengths_f) == 2
-        ref_length_f = lengths_f[0].item()
-        
-        # Split points into ref and src
-        ref_points_f = points_f[:ref_length_f]
-        src_points_f = points_f[ref_length_f:]
-        
-        logger.info(f"Points_f (stage 1):")
-        logger.info(f"  Ref points: {ref_points_f.shape[0]}")
-        logger.info(f"  Src points: {src_points_f.shape[0]}")
-        
-        # Check if we have enough points for the patch size
-        assert ref_points_f.shape[0] >= num_points_in_patch, \
-            f"Not enough points for patch size in ref_f: got {ref_points_f.shape[0]}, need {num_points_in_patch}"
-        assert src_points_f.shape[0] >= num_points_in_patch, \
-            f"Not enough points for patch size in src_f: got {src_points_f.shape[0]}, need {num_points_in_patch}"
+    # Create a pool of workers
+    num_cpus = multiprocessing.cpu_count()
+    num_workers = max(1, num_cpus - 1)
+    
+    with multiprocessing.Pool(processes=num_workers) as pool:
+        # Test all batches in parallel
+        for batch_idx, batch in enumerate(dataloader):
+            # Log point counts
+            logger.info(f"\nBatch {batch_idx} point counts:")
+            
+            # Run batch test in parallel
+            pool.apply(run_batch_test, args=(batch_idx, batch, num_points_in_patch))
 
     logger.info(f"Configuration works for {split} split!")
