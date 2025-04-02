@@ -65,32 +65,40 @@ def test_configuration(config: Dict[str, float], split: str):
         num_workers=num_workers
     )
 
-    # Create model
-    model = build_from_config(model_cfg).cuda()
+    # Get num_points_in_patch from model config
+    model = build_from_config(model_cfg)
     num_points_in_patch = model.num_points_in_patch
-
-    # Set model mode
-    if split == 'train':
-        model.train()
-    else:
-        model.eval()
+    logger.info(f"Required points per patch: {num_points_in_patch}")
 
     # Test all batches
     for batch_idx, batch in enumerate(dataloader):
-        # Get points from the batch
+        # Get points and lengths from the batch
         points = batch['inputs']['points']
         lengths = batch['inputs']['lengths']
 
         # Log point counts
         logger.info(f"\nBatch {batch_idx} point counts:")
-        for i, (p, l) in enumerate(zip(points, lengths)):
-            logger.info(f"Stage {i} points: {p.shape[0]}, length: {l[0].item()}")
-
-        # Run model forward pass
-        with torch.set_grad_enabled(split == 'train'):
-            outputs = model(batch['inputs'])
-
-        # Log model outputs
-        logger.info(f"Model outputs: {outputs.keys()}")
+        
+        # Check points_f (index 1) which is what's used in the model's assertions
+        points_f = points[1]
+        lengths_f = lengths[1]
+        
+        # Get lengths for this stage
+        assert len(lengths_f) == 2
+        ref_length_f = lengths_f[0].item()
+        
+        # Split points into ref and src
+        ref_points_f = points_f[:ref_length_f]
+        src_points_f = points_f[ref_length_f:]
+        
+        logger.info(f"Points_f (stage 1):")
+        logger.info(f"  Ref points: {ref_points_f.shape[0]}")
+        logger.info(f"  Src points: {src_points_f.shape[0]}")
+        
+        # Check if we have enough points for the patch size
+        assert ref_points_f.shape[0] >= num_points_in_patch, \
+            f"Not enough points for patch size in ref_f: got {ref_points_f.shape[0]}, need {num_points_in_patch}"
+        assert src_points_f.shape[0] >= num_points_in_patch, \
+            f"Not enough points for patch size in src_f: got {src_points_f.shape[0]}, need {num_points_in_patch}"
 
     logger.info(f"Configuration works for {split} split!")
