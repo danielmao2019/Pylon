@@ -180,6 +180,7 @@ def test_configuration(config: Dict[str, float], split: str):
         trans_mag=0.5,
         voxel_size=config['dataset_voxel_size'],
         min_points=256,
+        device='cpu',
     )
 
     # Create dataloader
