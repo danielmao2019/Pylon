@@ -62,15 +62,15 @@ def process_batch(args: Tuple[int, Dict[str, Any], int]) -> Tuple[Optional[Tuple
     # Check points_f (index 1) which is what's used in the model's assertions
     points_f = points[1]
     lengths_f = lengths[1]
-    
+
     # Get lengths for this stage
     assert len(lengths_f) == 2
     ref_length_f = lengths_f[0].item()
-    
+
     # Split points into ref and src
     ref_points_f = points_f[:ref_length_f]
     src_points_f = points_f[ref_length_f:]
-    
+
     # Check if we have enough points for the patch size
     if ref_points_f.shape[0] < num_points_in_patch or src_points_f.shape[0] < num_points_in_patch:
         return (batch_idx, ref_points_f.shape[0], src_points_f.shape[0]), None
