@@ -66,8 +66,7 @@ def test_configuration(config: Dict[str, float], split: str):
     )
 
     # Get num_points_in_patch from model config
-    model = build_from_config(model_cfg)
-    num_points_in_patch = model.num_points_in_patch
+    num_points_in_patch = model_cfg['args']['model']['num_points_in_patch']
     logger.info(f"Required points per patch: {num_points_in_patch}")
 
     # Test all batches
