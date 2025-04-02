@@ -34,27 +34,27 @@ def run_batch_test(args: Tuple[int, Dict[str, Any], int]) -> Optional[Tuple[int,
     """Helper function to test a single batch.
     Returns None if test passes, or (batch_idx, ref_points, src_points) if test fails."""
     batch_idx, batch, num_points_in_patch = args
-    
+
     # Get points and lengths from the batch
     points = batch['inputs']['points']
     lengths = batch['inputs']['lengths']
-    
+
     # Check points_f (index 1) which is what's used in the model's assertions
     points_f = points[1]
     lengths_f = lengths[1]
-    
+
     # Get lengths for this stage
     assert len(lengths_f) == 2
     ref_length_f = lengths_f[0].item()
-    
+
     # Split points into ref and src
     ref_points_f = points_f[:ref_length_f]
     src_points_f = points_f[ref_length_f:]
-    
+
     # Check if we have enough points for the patch size
     if ref_points_f.shape[0] < num_points_in_patch or src_points_f.shape[0] < num_points_in_patch:
         return (batch_idx, ref_points_f.shape[0], src_points_f.shape[0])
-    
+
     return None
 
 
@@ -103,15 +103,15 @@ def test_configuration(config: Dict[str, float], split: str):
     # Create a pool of workers
     num_cpus = multiprocessing.cpu_count()
     num_workers = max(1, num_cpus - 1)
-    
+
     # Prepare arguments for parallel processing
-    batch_args = [(batch_idx, batch, num_points_in_patch) 
+    batch_args = [(batch_idx, batch, num_points_in_patch)
                   for batch_idx, batch in enumerate(dataloader)]
-    
+
     with multiprocessing.Pool(processes=num_workers) as pool:
         # Run all batch tests in parallel using map
         results = pool.map(run_batch_test, batch_args)
-        
+
         # Filter out None results (successful tests)
         failed_batches = [result for result in results if result is not None]
 
