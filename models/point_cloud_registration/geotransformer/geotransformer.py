@@ -66,21 +66,31 @@ class GeoTransformer(nn.Module):
 
         self.optimal_transport = LearnableLogOptimalTransport(cfg.model.num_sinkhorn_iterations)
 
-    def forward(self, inputs: Dict[str, torch.Tensor]):
-        assert isinstance(inputs, dict), f"inputs must be a dictionary. Got {type(inputs)}."
-        assert inputs.keys() >= {'src_pc', 'tgt_pc', 'transform'}
+    def forward(self, data_dict: Dict[str, torch.Tensor]):
+        assert isinstance(data_dict, dict), f"data_dict must be a dictionary. Got {type(data_dict)}."
+        assert data_dict.keys() == {'points', 'lengths', 'neighbors', 'subsampling', 'upsampling', 'features', 'transform'}, \
+            f"{data_dict.keys()=}"
         output_dict = {}
 
-        # Get source and target point clouds
-        src_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['src_pc']
-        tgt_pc: Dict[str, Union[List[torch.Tensor], torch.Tensor]] = inputs['tgt_pc']
+        # Downsample point clouds
+        feats = data_dict['features'].detach()
+        transform = data_dict['transform'].detach()
 
-        ref_points_c = tgt_pc['pos'][-1].detach()
-        src_points_c = src_pc['pos'][-1].detach()
-        ref_points_f = tgt_pc['pos'][1].detach()
-        src_points_f = src_pc['pos'][1].detach()
-        ref_points = tgt_pc['pos'][0].detach()
-        src_points = src_pc['pos'][0].detach()
+        # Make the following assertion due to batch size of 1
+        assert all(len(l) == 2 for l in data_dict['lengths']), f"lengths must be a list of tensors with two elements. Got {data_dict['lengths']}."
+        ref_length_c = data_dict['lengths'][-1][0].item()
+        ref_length_f = data_dict['lengths'][1][0].item()
+        ref_length = data_dict['lengths'][0][0].item()
+        points_c = data_dict['points'][-1].detach()
+        points_f = data_dict['points'][1].detach()
+        points = data_dict['points'][0].detach()
+
+        ref_points_c = points_c[:ref_length_c]
+        src_points_c = points_c[ref_length_c:]
+        ref_points_f = points_f[:ref_length_f]
+        src_points_f = points_f[ref_length_f:]
+        ref_points = points[:ref_length]
+        src_points = points[ref_length:]
 
         output_dict['ref_points_c'] = ref_points_c
         output_dict['src_points_c'] = src_points_c
@@ -90,9 +100,11 @@ class GeoTransformer(nn.Module):
         output_dict['src_points'] = src_points
 
         # 1. Generate ground truth node correspondences
+        assert ref_points_f.shape[0] >= self.num_points_in_patch, f"Not enough points for patch size: {ref_points_f.shape=}, {ref_points_c.shape=}, {self.num_points_in_patch=}, {points_f.shape=}, {points_c.shape=}"
         _, ref_node_masks, ref_node_knn_indices, ref_node_knn_masks = point_to_node_partition(
             ref_points_f, ref_points_c, self.num_points_in_patch
         )
+        assert src_points_f.shape[0] >= self.num_points_in_patch, f"Not enough points for patch size: {src_points_f.shape=}, {src_points_c.shape=}, {self.num_points_in_patch=}, {points_f.shape=}, {points_c.shape=}"
         _, src_node_masks, src_node_knn_indices, src_node_knn_masks = point_to_node_partition(
             src_points_f, src_points_c, self.num_points_in_patch
         )
@@ -101,9 +113,6 @@ class GeoTransformer(nn.Module):
         src_padded_points_f = torch.cat([src_points_f, torch.zeros_like(src_points_f[:1])], dim=0)
         ref_node_knn_points = index_select(ref_padded_points_f, ref_node_knn_indices, dim=0)
         src_node_knn_points = index_select(src_padded_points_f, src_node_knn_indices, dim=0)
-
-        transform = inputs['transform'].detach().squeeze(0)
-        assert transform.shape == (4, 4), f"{transform.shape=}"
 
         gt_node_corr_indices, gt_node_corr_overlaps = get_node_correspondences(
             ref_points_c,
@@ -122,16 +131,12 @@ class GeoTransformer(nn.Module):
         output_dict['gt_node_corr_overlaps'] = gt_node_corr_overlaps
 
         # 2. KPFCNN Encoder
-        feats = torch.cat([tgt_pc['feat'], src_pc['feat']], dim=0).detach()
-        feats_list = self.backbone(feats, inputs)
+        feats_list = self.backbone(feats, data_dict)
 
         feats_c = feats_list[-1]
         feats_f = feats_list[0]
 
         # 3. Conditional Transformer
-        ref_length_c = ref_points_c.shape[0]
-        src_length_c = src_points_c.shape[0]
-        assert ref_length_c + src_length_c == feats_c.shape[0]
         ref_feats_c = feats_c[:ref_length_c]
         src_feats_c = feats_c[ref_length_c:]
         ref_feats_c, src_feats_c = self.transformer(
@@ -147,9 +152,6 @@ class GeoTransformer(nn.Module):
         output_dict['src_feats_c'] = src_feats_c_norm
 
         # 5. Head for fine level matching
-        ref_length_f = ref_points_f.shape[0]
-        src_length_f = src_points_f.shape[0]
-        assert ref_length_f + src_length_f == feats_f.shape[0]
         ref_feats_f = feats_f[:ref_length_f]
         src_feats_f = feats_f[ref_length_f:]
         output_dict['ref_feats_f'] = ref_feats_f

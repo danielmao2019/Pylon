@@ -48,22 +48,10 @@ class KPConvFPN(nn.Module):
     def forward(self, feats, data_dict):
         feats_list = []
 
-        points_list = [
-            torch.cat([src_pos, tgt_pos], dim=0).detach()
-            for src_pos, tgt_pos in zip(data_dict['src_pc']['pos'], data_dict['tgt_pc']['pos'])
-        ]
-        neighbors_list = [
-            torch.cat([tgt_neighbors, src_neighbors], dim=0).detach()
-            for src_neighbors, tgt_neighbors in zip(data_dict['src_pc']['neighbors'], data_dict['tgt_pc']['neighbors'])
-        ]
-        subsampling_list = [
-            torch.cat([tgt_subsampling, src_subsampling], dim=0).detach()
-            for src_subsampling, tgt_subsampling in zip(data_dict['src_pc']['subsampling'], data_dict['tgt_pc']['subsampling'])
-        ]
-        upsampling_list = [
-            torch.cat([tgt_upsampling, src_upsampling], dim=0).detach()
-            for src_upsampling, tgt_upsampling in zip(data_dict['src_pc']['upsampling'], data_dict['tgt_pc']['upsampling'])
-        ]
+        points_list = data_dict['points']
+        neighbors_list = data_dict['neighbors']
+        subsampling_list = data_dict['subsampling']
+        upsampling_list = data_dict['upsampling']
 
         feats_s1 = feats
         feats_s1 = self.encoder1_1(feats_s1, points_list[0], points_list[0], neighbors_list[0])
