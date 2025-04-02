@@ -3,7 +3,6 @@ import torch
 import logging
 import multiprocessing
 import matplotlib.pyplot as plt
-import seaborn as sns
 import numpy as np
 from typing import Dict, Any, Tuple, List, Optional
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
@@ -100,7 +99,8 @@ def process_batch(args: Tuple[int, Dict[str, Any], int]) -> Tuple[Optional[Tuple
 
 def plot_distributions(stats: Dict[str, List], config: Dict[str, float], split: str):
     """Create distribution plots for various data structures across the entire dataset."""
-    plt.style.use('seaborn')
+    # Set matplotlib style to a clean, modern look
+    plt.style.use('default')
     
     # Create separate plots for each metric
     metrics = {
@@ -125,22 +125,23 @@ def plot_distributions(stats: Dict[str, List], config: Dict[str, float], split: 
             # Extract values for this stage
             stage_values = stats[metric][stage::num_stages]
             
-            # Create histogram
-            plt.hist(stage_values, bins=30)
+            # Create histogram with a clean look
+            plt.hist(stage_values, bins=30, color='skyblue', edgecolor='black', alpha=0.7)
             plt.xlabel(title)
             plt.ylabel('Count')
             plt.title(f'Stage {stage} {title} Distribution')
+            plt.grid(True, linestyle='--', alpha=0.7)
             
             # Add mean and std to the plot
             mean_val = np.mean(stage_values)
             std_val = np.std(stage_values)
-            plt.axvline(mean_val, color='r', linestyle='--', label=f'Mean: {mean_val:.2f}')
-            plt.axvline(mean_val + std_val, color='g', linestyle=':', label=f'Std: {std_val:.2f}')
-            plt.axvline(mean_val - std_val, color='g', linestyle=':')
+            plt.axvline(mean_val, color='red', linestyle='--', label=f'Mean: {mean_val:.2f}')
+            plt.axvline(mean_val + std_val, color='green', linestyle=':', label=f'Std: {std_val:.2f}')
+            plt.axvline(mean_val - std_val, color='green', linestyle=':')
             plt.legend()
         
         plt.tight_layout()
-        plt.savefig(f'{metric}_{split}_voxel{config["dataloader_voxel_size"]}.png')
+        plt.savefig(f'{metric}_{split}_voxel{config["dataloader_voxel_size"]}.png', dpi=300, bbox_inches='tight')
         plt.close()
     
     # Print summary statistics for each stage
