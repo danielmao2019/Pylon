@@ -11,7 +11,7 @@ from utils.io import load_point_cloud
 from utils.point_cloud_ops import get_correspondences
 
 
-def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> list:
+def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min_points: int) -> list:
     """Process a single point cloud file and return voxel data."""
     # Load point cloud using our utility
     points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
@@ -33,7 +33,7 @@ def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> 
     voxel_data_list = []
     for cluster_id in unique_clusters:
         cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
-        if len(cluster_point_indices) > 0:  # Only add if cluster has points
+        if len(cluster_point_indices) >= min_points:  # Only add if cluster has points
             voxel_data = {
                 'indices': cluster_point_indices,
                 'points': points[cluster_point_indices],
@@ -63,12 +63,14 @@ class SynthPCRDataset(BaseDataset):
         rot_mag: float = 45.0,
         trans_mag: float = 0.5,
         voxel_size: float = 50.0,
+        min_points: int = 128,
         matching_radius: float = 0.1,  # Added matching radius parameter
         **kwargs,
     ) -> None:
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
         self._voxel_size = voxel_size
+        self._min_points = min_points
         self.matching_radius = matching_radius
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(SynthPCRDataset, self).__init__(**kwargs)
@@ -94,7 +96,7 @@ class SynthPCRDataset(BaseDataset):
             print(f"Processing point clouds using {num_workers} workers...")
 
             # Create a partial function with the grid_sampling parameter
-            process_func = partial(process_single_point_cloud, grid_sampling=self._grid_sampling)
+            process_func = partial(process_single_point_cloud, grid_sampling=self._grid_sampling, min_points=self._min_points)
 
             # Use multiprocessing to process files in parallel with chunksize for better performance
             with multiprocessing.Pool(num_workers) as pool:
