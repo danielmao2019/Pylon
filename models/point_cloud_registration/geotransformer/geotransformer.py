@@ -76,6 +76,8 @@ class GeoTransformer(nn.Module):
         feats = data_dict['features'].detach()
         transform = data_dict['transform'].detach()
 
+        # Make the following assertion due to batch size of 1
+        assert all(len(l) == 2 for l in data_dict['lengths']), f"lengths must be a list of tensors with two elements. Got {data_dict['lengths']}."
         ref_length_c = data_dict['lengths'][-1][0].item()
         ref_length_f = data_dict['lengths'][1][0].item()
         ref_length = data_dict['lengths'][0][0].item()
