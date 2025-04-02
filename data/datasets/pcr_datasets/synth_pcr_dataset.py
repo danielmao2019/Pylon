@@ -11,7 +11,7 @@ from utils.io import load_point_cloud
 from utils.point_cloud_ops import get_correspondences
 
 
-def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> list:
+def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min_points: int) -> list:
     """Process a single point cloud file and return voxel data."""
     # Load point cloud using our utility
     points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
@@ -33,7 +33,7 @@ def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D) -> 
     voxel_data_list = []
     for cluster_id in unique_clusters:
         cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
-        if len(cluster_point_indices) > 0:  # Only add if cluster has points
+        if len(cluster_point_indices) >= min_points:  # Only add if cluster has points
             voxel_data = {
                 'indices': cluster_point_indices,
                 'points': points[cluster_point_indices],
