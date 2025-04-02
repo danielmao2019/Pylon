@@ -41,9 +41,13 @@ def process_batch(args: Tuple[int, Dict[str, Any], int]) -> Tuple[Optional[Tuple
     neighbors = batch['inputs']['neighbors']
     subsampling = batch['inputs']['subsampling']
     upsampling = batch['inputs']['upsampling']
-    assert len(points) == len(lengths) == len(neighbors) == len(subsampling) == len(upsampling), \
-        f"{len(points)=}, {len(lengths)=}, {len(neighbors)=}, {len(subsampling)=}, {len(upsampling)=}"
+    
+    # Check lengths of arrays - subsampling and upsampling should be one less than others
     num_stages = len(points)
+    assert len(points) == len(lengths) == len(neighbors), \
+        f"{len(points)=}, {len(lengths)=}, {len(neighbors)=}"
+    assert len(subsampling) == len(upsampling) == num_stages - 1, \
+        f"{len(subsampling)=}, {len(upsampling)=}, expected {num_stages - 1}"
 
     # Initialize statistics dictionary with single lists
     stats = {
@@ -82,17 +86,17 @@ def process_batch(args: Tuple[int, Dict[str, Any], int]) -> Tuple[Optional[Tuple
         stats['tgt_lengths'].append(tgt_length)
 
         # Neighbor counts
-        neighbors = batch['inputs']['neighbors'][stage]
-        assert isinstance(neighbors, torch.Tensor)
-        assert neighbors.shape[0] == points[stage].shape[0], f"{neighbors.shape[0]=}, {points[stage].shape[0]=}"
-        stats['neighbor_counts'].append(neighbors.shape[1])
+        neighbors_stage = neighbors[stage]
+        assert isinstance(neighbors_stage, torch.Tensor)
+        assert neighbors_stage.shape[0] == points[stage].shape[0], f"{neighbors_stage.shape[0]=}, {points[stage].shape[0]=}"
+        stats['neighbor_counts'].append(neighbors_stage.shape[1])
 
-        # Subsampling and upsampling ratios
+        # Subsampling and upsampling ratios (only for stages except the last one)
         if stage < num_stages - 1:
-            subsampling = batch['inputs']['subsampling'][stage]
-            upsampling = batch['inputs']['upsampling'][stage]
-            stats['subsampling_shape_0'].append(subsampling.shape[0])
-            stats['upsampling_shape_0'].append(upsampling.shape[0])
+            subsampling_stage = subsampling[stage]
+            upsampling_stage = upsampling[stage]
+            stats['subsampling_shape_0'].append(subsampling_stage.shape[0])
+            stats['upsampling_shape_0'].append(upsampling_stage.shape[0])
 
     return None, stats
 
