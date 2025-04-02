@@ -2,7 +2,7 @@ import pytest
 import torch
 import logging
 import multiprocessing
-from typing import Dict, Any, Tuple, List
+from typing import Dict, Any, Tuple, List, Optional
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 from models.point_cloud_registration.geotransformer.geotransformer import GeoTransformer
@@ -30,8 +30,11 @@ for dataset_voxel_size in dataset_voxel_sizes:
         })
 
 
-def run_batch_test(batch_idx: int, batch: Dict[str, Any], num_points_in_patch: int) -> None:
-    """Helper function to test a single batch."""
+def run_batch_test(args: Tuple[int, Dict[str, Any], int]) -> Optional[Tuple[int, int, int]]:
+    """Helper function to test a single batch.
+    Returns None if test passes, or (batch_idx, ref_points, src_points) if test fails."""
+    batch_idx, batch, num_points_in_patch = args
+    
     # Get points and lengths from the batch
     points = batch['inputs']['points']
     lengths = batch['inputs']['lengths']
@@ -49,10 +52,10 @@ def run_batch_test(batch_idx: int, batch: Dict[str, Any], num_points_in_patch: i
     src_points_f = points_f[ref_length_f:]
     
     # Check if we have enough points for the patch size
-    assert ref_points_f.shape[0] >= num_points_in_patch, \
-        f"Not enough points for patch size in ref_f: got {ref_points_f.shape[0]}, need {num_points_in_patch}"
-    assert src_points_f.shape[0] >= num_points_in_patch, \
-        f"Not enough points for patch size in src_f: got {src_points_f.shape[0]}, need {num_points_in_patch}"
+    if ref_points_f.shape[0] < num_points_in_patch or src_points_f.shape[0] < num_points_in_patch:
+        return (batch_idx, ref_points_f.shape[0], src_points_f.shape[0])
+    
+    return None
 
 
 @pytest.mark.parametrize("config", search_configs)
@@ -101,13 +104,25 @@ def test_configuration(config: Dict[str, float], split: str):
     num_cpus = multiprocessing.cpu_count()
     num_workers = max(1, num_cpus - 1)
     
+    # Prepare arguments for parallel processing
+    batch_args = [(batch_idx, batch, num_points_in_patch) 
+                  for batch_idx, batch in enumerate(dataloader)]
+    
     with multiprocessing.Pool(processes=num_workers) as pool:
-        # Test all batches in parallel
-        for batch_idx, batch in enumerate(dataloader):
-            # Log point counts
-            logger.info(f"\nBatch {batch_idx} point counts:")
-            
-            # Run batch test in parallel
-            pool.apply(run_batch_test, args=(batch_idx, batch, num_points_in_patch))
+        # Run all batch tests in parallel using map
+        results = pool.map(run_batch_test, batch_args)
+        
+        # Filter out None results (successful tests)
+        failed_batches = [result for result in results if result is not None]
 
-    logger.info(f"Configuration works for {split} split!")
+    # Check if any batches failed
+    if failed_batches:
+        logger.error("\nFailed batches:")
+        for batch_idx, ref_points, src_points in failed_batches:
+            if ref_points == -1 and src_points == -1:
+                logger.error(f"Batch {batch_idx}: Invalid lengths array")
+            else:
+                logger.error(f"Batch {batch_idx}: ref_points={ref_points}, src_points={src_points}")
+        assert False, f"Found {len(failed_batches)} batches that failed the point count check"
+    else:
+        logger.info(f"Configuration works for {split} split!")
