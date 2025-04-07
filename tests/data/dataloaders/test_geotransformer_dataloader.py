@@ -132,19 +132,6 @@ def log_neighbor_limits(dataloader: GeoTransformerDataloader):
     logger.info(f"  Number of stages: {len(dataloader.neighbor_limits)}")
 
 
-def log_neighbor_limits(dataloader: GeoTransformerDataloader):
-    """Log neighbor limits analysis in a formatted way."""
-    logger.info("\nNeighbor Limits Analysis:")
-    logger.info("-" * 50)
-
-    # Log configured neighbor limits
-    logger.info("Configured Neighbor Limits:")
-    for i, limit in enumerate(dataloader.neighbor_limits):
-        logger.info(f"  Stage {i}: {limit}")
-
-    logger.info(f"  Number of stages: {len(dataloader.neighbor_limits)}")
-
-
 @pytest.mark.parametrize("num_points", [256, 512, 1024, 2048])
 def test_num_points_impact(num_points):
     """Test how number of points affects memory, data structure, and neighbor limits."""
