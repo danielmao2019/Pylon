@@ -1,17 +1,11 @@
 from typing import Dict, Any, Tuple
 import pytest
-from easydict import EasyDict
 import logging
 import torch
 from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
 from data.datasets.base_dataset import BaseDataset
 from utils.builders.builder import build_from_config
-from utils.ops.apply import apply_tensor_op
-from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
-from data.datasets.base_dataset import BaseDataset
-from utils.builders.builder import build_from_config
-from utils.ops.apply import apply_tensor_op
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(message)s')
@@ -78,8 +72,6 @@ class DummyPCRDataset(BaseDataset):
         }
 
         return inputs, labels, meta_info
-
-
 
 
 def test_geotransformer_forward():
