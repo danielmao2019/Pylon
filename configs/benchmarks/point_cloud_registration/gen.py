@@ -31,7 +31,8 @@ def main(dataset: str, model: str) -> None:
         config += "config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
-        config += f"config['model'] = {{'class': models.point_cloud_registration.classic.{model}, 'args': {{}}}}\n"
+        config += f"from models.point_cloud_registration.classic import {model}\n"
+        config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
         config += '\n'
     elif model == 'GeoTransformer':
         config += f"# data config\n"
