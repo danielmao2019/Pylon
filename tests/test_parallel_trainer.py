@@ -18,13 +18,13 @@ class SimpleTrainer(BaseTrainer):
     """A simplified trainer for testing purposes."""
     
     def _init_optimizer_(self) -> None:
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.01)
+        pass
     
     def _init_scheduler_(self) -> None:
-        self.scheduler = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1)
+        pass
     
     def _set_gradients_(self, dp: dict) -> None:
-        dp['losses'].backward()
+        pass
 
 
 def test_sequential_vs_parallel_validation(test_dir, trainer_cfg):
@@ -34,10 +34,6 @@ def test_sequential_vs_parallel_validation(test_dir, trainer_cfg):
     parallel_dir = os.path.join(test_dir, "parallel_val")
     os.makedirs(sequential_dir, exist_ok=True)
     os.makedirs(parallel_dir, exist_ok=True)
-
-    # Create log files
-    sequential_log = os.path.join(sequential_dir, "train_val_0.log")
-    parallel_log = os.path.join(parallel_dir, "train_val_0.log")
 
     # Create configurations
     sequential_config = {

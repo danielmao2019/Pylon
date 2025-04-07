@@ -36,13 +36,6 @@ class SequentialEvaluator(BaseEvaluator):
         # log time
         self.logger.info(f"Evaluation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
-    def _init_eval_dataloader(self) -> None:
-        """Initialize evaluation dataloader."""
-        if 'eval_dataloader' in self.config:
-            self.eval_dataloader = build_from_config(self.config['eval_dataloader'])
-        else:
-            self.eval_dataloader = None
-
 
 def test_sequential_vs_parallel_evaluation(test_dir, evaluator_cfg):
     """Test that sequential and parallel evaluation produce identical results."""
@@ -51,10 +44,6 @@ def test_sequential_vs_parallel_evaluation(test_dir, evaluator_cfg):
     parallel_dir = os.path.join(test_dir, "parallel_eval")
     os.makedirs(sequential_dir, exist_ok=True)
     os.makedirs(parallel_dir, exist_ok=True)
-
-    # Create log files
-    sequential_log = os.path.join(sequential_dir, "eval_0.log")
-    parallel_log = os.path.join(parallel_dir, "eval_0.log")
 
     # Create configurations
     sequential_config = {
