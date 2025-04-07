@@ -12,6 +12,9 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
     def _init_optimizer_(self) -> None:
         r"""Requires self.model and self.logger.
         """
+        if not self.config.get('optimizer', None):
+            self.logger.warning("No optimizer specified in config, skipping optimizer initialization.")
+            return
         # check dependencies
         for name in ['model', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
@@ -24,6 +27,9 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         self.optimizer = utils.builders.build_from_config(optimizer_config)
 
     def _init_scheduler_(self):
+        if not self.config.get('scheduler', None):
+            self.logger.warning("No scheduler specified in config, skipping scheduler initialization.")
+            return
         # check dependencies
         for name in ['optimizer', 'train_dataloader', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None
