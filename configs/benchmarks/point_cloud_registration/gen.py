@@ -24,6 +24,13 @@ def main(dataset: str, model: str) -> None:
     config += '\n'
     # add model config
     if model == 'ICP':
+        config += f"# data config\n"
+        config += "from configs.common.datasets.point_cloud_registration.train.classic_data_cfg import data_cfg as train_data_cfg\n"
+        config += "config.update(train_data_cfg)\n"
+        config += "from configs.common.datasets.point_cloud_registration.val.classic_data_cfg import data_cfg as val_data_cfg\n"
+        config += "config.update(val_data_cfg)\n"
+        config += '\n'
+        config += f"# model config\n"
         config += f"config['model'] = {{'class': models.point_cloud_registration.classic.ICP, 'args': {{}}}}\n"
         config += '\n'
     elif model == 'GeoTransformer':
