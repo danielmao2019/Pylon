@@ -6,6 +6,7 @@ from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from runners.supervised_multi_task_trainer import SupervisedMultiTaskTrainer
 from runners import gan_trainers
 from runners.multi_val_dataset_trainer import MultiValDatasetTrainer
+from runners.base_evaluator import BaseEvaluator
 
 
 __all__ = (
@@ -14,4 +15,5 @@ __all__ = (
     'SupervisedMultiTaskTrainer',
     'gan_trainers',
     'MultiValDatasetTrainer',
+    'BaseEvaluator',
 )
