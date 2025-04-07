@@ -1,8 +1,3 @@
-import pytest
-import torch
-from data.cache import DatasetCache
-
-
 def test_cache_memory_management(three_item_cache, make_datapoint):
     """Test memory management and eviction."""
     cache = three_item_cache
