@@ -104,7 +104,12 @@ class SynthPCRDataset(BaseDataset):
             print(f"Processing point clouds using {num_workers} workers...")
 
             # Create a partial function with the grid_sampling parameter
-            process_func = partial(process_single_point_cloud, grid_sampling=self._grid_sampling, min_points=self._min_points, max_points=self._max_points)
+            process_func = partial(
+                process_single_point_cloud,
+                grid_sampling=self._grid_sampling,
+                min_points=self._min_points,
+                max_points=self._max_points,
+            )
 
             # Use multiprocessing to process files in parallel with chunksize for better performance
             with multiprocessing.Pool(num_workers) as pool:
