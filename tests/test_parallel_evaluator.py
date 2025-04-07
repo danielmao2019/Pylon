@@ -42,13 +42,11 @@ def test_sequential_vs_parallel_evaluation(test_dir, evaluator_cfg):
     sequential_config = {
         **evaluator_cfg,
         'work_dir': sequential_dir,
-        'eval_dataset': evaluator_cfg['eval_dataloader']['args']['dataset']
     }
 
     parallel_config = {
         **evaluator_cfg,
         'work_dir': parallel_dir,
-        'eval_dataset': evaluator_cfg['eval_dataloader']['args']['dataset']
     }
 
     # Run sequential evaluation

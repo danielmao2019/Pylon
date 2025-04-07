@@ -145,13 +145,13 @@ def evaluator_cfg(dataloader, device):
             'class': SimpleModel,
             'args': {}
         },
+        'eval_dataset': {
+            'class': SimpleDataset,
+            'args': {'size': 100, 'device': device}
+        },
         'eval_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'dataset': {
-                    'class': SimpleDataset,
-                    'args': {'size': 100, 'device': device}
-                },
                 'batch_size': 32,
                 'shuffle': False
             }
