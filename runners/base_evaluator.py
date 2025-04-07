@@ -117,10 +117,10 @@ class BaseEvaluator:
         batch_data['scores'] = self.metric(y_pred=batch_data['outputs'], y_true=batch_data['labels'])
         # Add scores to the metric buffer in a thread-safe way
         self.metric.add_to_buffer(batch_data['scores'])
-        
+
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
-        
+
         return batch_data
 
     def _eval_epoch_(self) -> None:
@@ -130,27 +130,24 @@ class BaseEvaluator:
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
-        
+
         # Process evaluation data in parallel using threads
         # Get the number of CPU cores to use (leave one core free for system processes)
         num_workers = max(1, os.cpu_count() - 1)
         self.logger.info(f"Using {num_workers} threads for parallel evaluation")
-        
+
         # Use ThreadPoolExecutor for parallel processing
         with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
             # Submit all batches to the executor
-            future_to_idx = {executor.submit(self._process_eval_batch, dp): idx 
+            future_to_idx = {executor.submit(self._process_eval_batch, dp): idx
                             for idx, dp in enumerate(self.eval_dataloader)}
-            
+
             # Process results as they complete
             for future in concurrent.futures.as_completed(future_to_idx):
                 idx = future_to_idx[future]
-                try:
-                    _ = future.result()
-                    self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
-                except Exception as e:
-                    self.logger.error(f"Error processing batch {idx}: {e}")
-        
+                _ = future.result()
+                self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
+
         # after validation loop
         self._after_eval_loop_()
         # log time
