@@ -50,15 +50,21 @@ config = {
 from runners import SupervisedSingleTaskTrainer
 config['runner'] = SupervisedSingleTaskTrainer
 
-# dataset config
-from configs.common.datasets.point_cloud_registration.train.synth_pcr_dataset_cfg import config as train_dataset_config
-config.update(train_dataset_config)
-from configs.common.datasets.point_cloud_registration.val.synth_pcr_dataset_cfg import config as val_dataset_config
-config.update(val_dataset_config)
+# data config
+from configs.common.datasets.point_cloud_registration.train.geotransformer_data_cfg import data_cfg as train_data_cfg
+config.update(train_data_cfg)
+from configs.common.datasets.point_cloud_registration.val.geotransformer_data_cfg import data_cfg as val_data_cfg
+config.update(val_data_cfg)
 
 # model config
 from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
 config['model'] = model_cfg
+
+from configs.common.criteria.point_cloud_registration.geotransformer_criterion_cfg import criterion_cfg
+config['criterion'] = criterion_cfg
+
+from configs.common.metrics.point_cloud_registration.geotransformer_metric_cfg import metric_cfg
+config['metric'] = metric_cfg
 
 # seeds
 config['init_seed'] = 60878670
