@@ -53,7 +53,8 @@ class RegistrationRecall(SingleTaskMetric):
         assert y_pred.size(0) == y_true.size(0), \
             f"Batch size mismatch: {y_pred.size(0)} vs {y_true.size(0)}"
         # dtype check
-        assert y_pred.dtype == y_true.dtype == torch.float32
+        assert y_pred.dtype == y_true.dtype == torch.float32, \
+            f"{y_pred.dtype=}, {y_true.dtype=}"
 
         batch_size = y_pred.size(0)
         rotation_errors = []

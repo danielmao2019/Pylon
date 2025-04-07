@@ -48,4 +48,4 @@ class ICP(torch.nn.Module):
             transformations.append(reg_p2p.transformation)
 
         # Convert back to tensor
-        return torch.tensor(np.stack(transformations), device=device)
+        return torch.tensor(np.stack(transformations), dtype=torch.float32, device=device)
