@@ -23,7 +23,7 @@ def main(dataset: str, model: str) -> None:
     config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
     config += '\n'
     # add model config
-    if model == 'ICP':
+    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
         config += f"# data config\n"
         config += "from configs.common.datasets.point_cloud_registration.train.classic_data_cfg import data_cfg as train_data_cfg\n"
         config += "config.update(train_data_cfg)\n"
@@ -31,7 +31,7 @@ def main(dataset: str, model: str) -> None:
         config += "config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
-        config += f"config['model'] = {{'class': models.point_cloud_registration.classic.ICP, 'args': {{}}}}\n"
+        config += f"config['model'] = {{'class': models.point_cloud_registration.classic.{model}, 'args': {{}}}}\n"
         config += '\n'
     elif model == 'GeoTransformer':
         config += f"# data config\n"
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['synth_pcr_dataset'],
         [
-            'ICP',
+            'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
             'GeoTransformer',
         ],
     ):

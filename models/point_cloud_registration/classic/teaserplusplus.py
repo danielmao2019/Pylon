@@ -5,7 +5,7 @@ import numpy as np
 import teaserpp_python
 
 
-class TEASERPlusPlusModule(nn.Module):
+class TeaserPlusPlus(nn.Module):
     def __init__(self):
         super().__init__()
         

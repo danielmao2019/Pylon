@@ -4,7 +4,7 @@ import numpy as np
 import open3d as o3d
 
 
-class ICPModule(nn.Module):
+class ICP(nn.Module):
     def __init__(self, threshold: float = 0.02, max_iterations: int = 50):
         super().__init__()
         self.threshold = threshold

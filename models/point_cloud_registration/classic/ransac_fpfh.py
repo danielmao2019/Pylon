@@ -4,7 +4,7 @@ import numpy as np
 import open3d as o3d
 
 
-class RANSACFPFHModule(nn.Module):
+class RANSAC_FPFH(nn.Module):
     def __init__(self, voxel_size: float = 0.05):
         super().__init__()
         self.voxel_size = voxel_size
