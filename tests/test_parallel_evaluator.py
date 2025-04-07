@@ -1,14 +1,7 @@
 import os
 import sys
-import pytest
-import torch
-import json
 import time
-from typing import Dict, Any
-from utils.logging import Logger
 from runners import BaseEvaluator
-from metrics.base_metric import BaseMetric
-from utils.builders import build_from_config
 
 # Add the project root to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
