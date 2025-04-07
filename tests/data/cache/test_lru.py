@@ -1,5 +1,4 @@
 import pytest
-import torch
 import psutil
 from data.cache import DatasetCache
 

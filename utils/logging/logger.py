@@ -1,6 +1,7 @@
 from typing import Optional
 import logging
 import sys
+import threading
 
 from utils.input_checks import check_write_file
 from utils.io import serialize_tensor
@@ -24,6 +25,7 @@ class Logger:
     # ====================================================================================================
 
     def __init__(self, filepath: Optional[str] = None) -> None:
+        self._buffer_lock = threading.Lock()
         self._init_core_logger_(filepath=filepath)
         if not self.core_logger.handlers:
             self._init_file_handler_()
@@ -55,12 +57,14 @@ class Logger:
     # ====================================================================================================
 
     def update_buffer(self, data: dict) -> None:
-        self.buffer.update(serialize_tensor(data))
+        with self._buffer_lock:
+            self.buffer.update(serialize_tensor(data))
 
     def flush(self, prefix: Optional[str] = "") -> None:
-        string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
-        self.core_logger.info(string)
-        self.buffer = {}
+        with self._buffer_lock:
+            string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+            self.core_logger.info(string)
+            self.buffer = {}
 
     def info(self, string: str) -> None:
         self.core_logger.info(string)

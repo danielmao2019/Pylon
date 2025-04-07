@@ -1,4 +1,3 @@
-import pytest
 import torch
 import threading
 from data.cache import DatasetCache

@@ -35,4 +35,4 @@ if __name__ == "__main__":
                     config[dataset_key]['args']['indices'] = list(range(3 * batch_size))
 
     # Run training
-    config['runner'](config=config).train()
+    config['runner'](config=config).run()
