@@ -80,56 +80,6 @@ class DummyPCRDataset(BaseDataset):
         return inputs, labels, meta_info
 
 
-class DummyPCRDataset:
-    """A dummy dataset that mimics the structure of SynthPCRDataset."""
-    def __init__(self, num_points=1024, split='train'):
-        self.num_points = num_points
-        super(DummyPCRDataset, self).__init__(**kwargs)
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    def _init_annotations(self):
-        """Initialize dataset with dummy data."""
-        # Create a fixed number of dummy samples
-        self.annotations = list(range(10))  # 10 dummy samples
-
-    def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Generate dummy data with uniformly distributed points."""
-        # Generate random points and features using uniform distribution
-        # Points are generated in a unit cube [-1, 1]^3
-        src_points = 2 * torch.rand(self.num_points, 3, device=self.device) - 1
-        tgt_points = 2 * torch.rand(self.num_points, 3, device=self.device) - 1
-        src_feats = torch.rand(self.num_points, 1, device=self.device)
-        tgt_feats = torch.rand(self.num_points, 1, device=self.device)
-
-        # Generate random correspondences (just random pairs of indices)
-        correspondences = torch.randint(0, self.num_points, (2, self.num_points), device=self.device)
-
-        # Generate random transform (just a random 4x4 matrix)
-        transform = torch.randn(4, 4, device=self.device)
-
-        inputs = {
-            'src_pc': {
-                'pos': src_points,
-                'feat': src_feats,
-            },
-            'tgt_pc': {
-                'pos': tgt_points,
-                'feat': tgt_feats,
-            },
-            'correspondences': correspondences,
-        }
-
-        labels = {
-            'transform': transform,
-        }
-
-        meta_info = {
-            'idx': idx,
-            'point_indices': torch.arange(self.num_points, device=self.device),
-            'filepath': f'dummy_{idx}.ply',
-        }
-
-        return inputs, labels, meta_info
 
 
 def test_geotransformer_forward():
