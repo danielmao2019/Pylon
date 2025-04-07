@@ -1,9 +1,7 @@
-import torch
+from typing import Dict
 import math
-from typing import Dict, List, Tuple, Union, Optional
+import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.input_checks import check_write_file
-from utils.io import save_json
 
 
 class RegistrationRecall(SingleTaskMetric):
