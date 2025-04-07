@@ -15,15 +15,30 @@ def add_heading(config: str) -> str:
 
 
 def main(dataset: str, model: str) -> None:
-    with open(f"./configs/benchmarks/point_cloud_registration/template.py", mode='r') as f:
+    template_name = "template_eval.py" if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus'] else "template_train.py"
+    with open(f"./configs/benchmarks/point_cloud_registration/{template_name}", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
-    config += f"from runners import SupervisedSingleTaskTrainer\n"
-    config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
-    config += '\n'
+    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
+        config += f"from runners import BaseEvaluator\n"
+        config += f"config['runner'] = BaseEvaluator\n"
+        config += '\n'
+    else:
+        config += f"from runners import SupervisedSingleTaskTrainer\n"
+        config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
+        config += '\n'
     # add model config
-    if model == 'GeoTransformer':
+    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
+        config += f"# data config\n"
+        config += "from configs.common.datasets.point_cloud_registration.val.classic_data_cfg import data_cfg as eval_data_cfg\n"
+        config += "config.update(eval_data_cfg)\n"
+        config += '\n'
+        config += f"# model config\n"
+        config += f"from models.point_cloud_registration.classic import {model}\n"
+        config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
+        config += '\n'
+    elif model == 'GeoTransformer':
         config += f"# data config\n"
         config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_data_cfg import data_cfg as train_data_cfg\n" 
         config += f"config.update(train_data_cfg)\n"
@@ -61,6 +76,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['synth_pcr_dataset'],
         [
+            'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
             'GeoTransformer',
         ],
     ):
