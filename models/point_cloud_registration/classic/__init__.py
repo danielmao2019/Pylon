@@ -1,13 +1,8 @@
 """
 MODELS.POINT_CLOUD_REGISTRATION.CLASSIC API
 """
-from models.point_cloud_registration.classic.icp import icp
-from models.point_cloud_registration.classic.teaserplusplus import teaserplusplus
-from models.point_cloud_registration.classic.ransac_fpfh import ransac_fpfh
+from .icp import ICPModule
+from .ransac_fpfh import RANSACFPFHModule
+from .teaserplusplus import TEASERPlusPlusModule
 
-
-__all__ = (
-    'icp',
-    'teaserplusplus',
-    'ransac_fpfh',
-)
+__all__ = ['ICPModule', 'RANSACFPFHModule', 'TEASERPlusPlusModule']

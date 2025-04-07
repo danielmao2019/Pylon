@@ -1,29 +1,64 @@
-import open3d as o3d
+import torch
+import torch.nn as nn
 import numpy as np
+import open3d as o3d
 
 
-def ransac_fpfh(source: np.ndarray, target: np.ndarray, voxel_size: float = 0.05) -> np.ndarray:
-    source_o3d = o3d.geometry.PointCloud()
-    source_o3d.points = o3d.utility.Vector3dVector(source)
-    target_o3d = o3d.geometry.PointCloud()
-    target_o3d.points = o3d.utility.Vector3dVector(target)
-    
-    source_down = source_o3d.voxel_down_sample(voxel_size)
-    target_down = target_o3d.voxel_down_sample(voxel_size)
-    
-    source_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size*2, max_nn=30))
-    target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size*2, max_nn=30))
-    
-    fpfh_source = o3d.pipelines.registration.compute_fpfh_feature(
-        source_down, o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size*5, max_nn=100))
-    fpfh_target = o3d.pipelines.registration.compute_fpfh_feature(
-        target_down, o3d.geometry.KDTreeSearchParamHybrid(radius=voxel_size*5, max_nn=100))
-    
-    reg_ransac = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
-        source_down, target_down, fpfh_source, fpfh_target,
-        mutual_filter=True, max_correspondence_distance=voxel_size*1.5,
-        estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
-        ransac_n=4,
-        criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
-    
-    return reg_ransac.transformation
+class RANSACFPFHModule(nn.Module):
+    def __init__(self, voxel_size: float = 0.05):
+        super().__init__()
+        self.voxel_size = voxel_size
+        
+    def forward(self, source: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        """
+        RANSAC-based registration using FPFH features.
+        
+        Args:
+            source: Source point cloud (B, N, 3)
+            target: Target point cloud (B, M, 3)
+            
+        Returns:
+            Transformation matrix (B, 4, 4)
+        """
+        batch_size = source.shape[0]
+        device = source.device
+        
+        # Convert to numpy for Open3D
+        source_np = source.detach().cpu().numpy()
+        target_np = target.detach().cpu().numpy()
+        
+        # Process each batch
+        transformations = []
+        for i in range(batch_size):
+            # Create Open3D point clouds
+            source_o3d = o3d.geometry.PointCloud()
+            source_o3d.points = o3d.utility.Vector3dVector(source_np[i])
+            target_o3d = o3d.geometry.PointCloud()
+            target_o3d.points = o3d.utility.Vector3dVector(target_np[i])
+            
+            # Downsample point clouds
+            source_down = source_o3d.voxel_down_sample(self.voxel_size)
+            target_down = target_o3d.voxel_down_sample(self.voxel_size)
+            
+            # Estimate normals
+            source_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxel_size*2, max_nn=30))
+            target_down.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxel_size*2, max_nn=30))
+            
+            # Compute FPFH features
+            fpfh_source = o3d.pipelines.registration.compute_fpfh_feature(
+                source_down, o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxel_size*5, max_nn=100))
+            fpfh_target = o3d.pipelines.registration.compute_fpfh_feature(
+                target_down, o3d.geometry.KDTreeSearchParamHybrid(radius=self.voxel_size*5, max_nn=100))
+            
+            # RANSAC registration
+            reg_ransac = o3d.pipelines.registration.registration_ransac_based_on_feature_matching(
+                source_down, target_down, fpfh_source, fpfh_target,
+                mutual_filter=True, max_correspondence_distance=self.voxel_size*1.5,
+                estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(),
+                ransac_n=4,
+                criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(100000, 0.999))
+            
+            transformations.append(reg_ransac.transformation)
+        
+        # Convert back to tensor
+        return torch.tensor(np.stack(transformations), device=device)
