@@ -13,6 +13,7 @@ data_cfg = {
             'trans_mag': 0.5,
             'voxel_size': 10.0,
             'min_points': 256,
+            'device': 'cpu',
         },
     },
     'eval_dataloader': {
