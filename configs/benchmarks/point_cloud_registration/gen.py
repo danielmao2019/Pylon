@@ -31,10 +31,8 @@ def main(dataset: str, model: str) -> None:
     # add model config
     if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
         config += f"# data config\n"
-        config += "from configs.common.datasets.point_cloud_registration.train.classic_data_cfg import data_cfg as train_data_cfg\n"
-        config += "config.update(train_data_cfg)\n"
-        config += "from configs.common.datasets.point_cloud_registration.val.classic_data_cfg import data_cfg as val_data_cfg\n"
-        config += "config.update(val_data_cfg)\n"
+        config += "from configs.common.datasets.point_cloud_registration.val.classic_data_cfg import data_cfg as eval_data_cfg\n"
+        config += "config.update(eval_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
         config += f"from models.point_cloud_registration.classic import {model}\n"

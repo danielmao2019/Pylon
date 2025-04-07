@@ -19,10 +19,8 @@ from runners import BaseEvaluator
 config['runner'] = BaseEvaluator
 
 # data config
-from configs.common.datasets.point_cloud_registration.train.classic_data_cfg import data_cfg as train_data_cfg
-config.update(train_data_cfg)
-from configs.common.datasets.point_cloud_registration.val.classic_data_cfg import data_cfg as val_data_cfg
-config.update(val_data_cfg)
+from configs.common.datasets.point_cloud_registration.val.classic_data_cfg import data_cfg as eval_data_cfg
+config.update(eval_data_cfg)
 
 # model config
 from models.point_cloud_registration.classic import RANSAC_FPFH
