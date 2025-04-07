@@ -1,8 +1,8 @@
-import models
+from models.point_cloud_registration.geotransformer.geotransformer import GeoTransformer
 
 
 model_cfg = {
-    'class': models.point_cloud_registration.GeoTransformer,
+    'class': GeoTransformer,
     'args': {
         'model': {
             'ground_truth_matching_radius': 0.05,

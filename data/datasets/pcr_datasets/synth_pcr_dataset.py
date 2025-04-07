@@ -1,11 +1,53 @@
 from typing import Tuple, Dict, Any
 import os
+import glob
 import numpy as np
 import torch
+import multiprocessing
+from functools import partial
 from data.datasets.base_dataset import BaseDataset
 from utils.torch_points3d import GridSampling3D
 from utils.io import load_point_cloud
 from utils.point_cloud_ops import get_correspondences
+
+
+def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min_points: int) -> list:
+    """Process a single point cloud file and return voxel data."""
+    # Load point cloud using our utility
+    points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
+    points = points.float()
+
+    # Normalize points
+    mean = points.mean(0, keepdim=True)
+    points = points - mean
+
+    # Grid sample to get point indices for each voxel
+    data_dict = {'pos': points}
+    sampled_data = grid_sampling(data_dict)
+
+    # Get unique clusters and their points
+    cluster_indices = sampled_data['point_indices']  # Shape: (N,) - cluster ID for each point
+    unique_clusters = torch.unique(cluster_indices)
+
+    # For each cluster, create voxel data
+    voxel_data_list = []
+    for cluster_id in unique_clusters:
+        cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
+        if len(cluster_point_indices) >= min_points:  # Only add if cluster has points
+            voxel_data = {
+                'indices': cluster_point_indices,
+                'points': points[cluster_point_indices],
+                'filepath': filepath
+            }
+            voxel_data_list.append(voxel_data)
+
+    return voxel_data_list
+
+
+def save_voxel_data(args):
+    """Save a single voxel data to cache."""
+    i, voxel_data, cache_dir = args
+    torch.save(voxel_data, os.path.join(cache_dir, f'voxel_{i}.pt'))
 
 
 class SynthPCRDataset(BaseDataset):
@@ -21,12 +63,14 @@ class SynthPCRDataset(BaseDataset):
         rot_mag: float = 45.0,
         trans_mag: float = 0.5,
         voxel_size: float = 50.0,
+        min_points: int = 128,
         matching_radius: float = 0.1,  # Added matching radius parameter
         **kwargs,
     ) -> None:
         self.rot_mag = rot_mag
         self.trans_mag = trans_mag
         self._voxel_size = voxel_size
+        self._min_points = min_points
         self.matching_radius = matching_radius
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(SynthPCRDataset, self).__init__(**kwargs)
@@ -34,19 +78,44 @@ class SynthPCRDataset(BaseDataset):
     def _init_annotations(self):
         """Initialize dataset annotations."""
         # Get file paths
-        self.file_paths = []
-        for file in os.listdir(self.data_root):
-            if file.endswith('.ply'):
-                self.file_paths.append(os.path.join(self.data_root, file))
+        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.ply')))
+        self.cache_dir = os.path.join(os.path.dirname(self.data_root), 'voxel_cache')
+        os.makedirs(self.cache_dir, exist_ok=True)
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
-        # Get all voxel point indices
-        all_indices, all_filepaths = self._prepare_all_centers()
-        print(f"Partitioned {len(self.file_paths)} point clouds into {len(all_indices)} voxels in total.")
+        # Check if cache exists
+        if os.path.exists(os.path.join(self.cache_dir, 'voxel_0.pt')):
+            # Load all voxel files
+            voxel_files = sorted(glob.glob(os.path.join(self.cache_dir, 'voxel_*.pt')))
+            self.annotations = voxel_files
+            print(f"Loaded {len(voxel_files)} cached voxels")
+        else:
+            # Process point clouds in parallel
+            # Use number of CPU cores minus 1 to leave one core free for system
+            num_workers = max(1, multiprocessing.cpu_count() - 1)
+            print(f"Processing point clouds using {num_workers} workers...")
 
-        # Split indices into train/val/test
+            # Create a partial function with the grid_sampling parameter
+            process_func = partial(process_single_point_cloud, grid_sampling=self._grid_sampling, min_points=self._min_points)
+
+            # Use multiprocessing to process files in parallel with chunksize for better performance
+            with multiprocessing.Pool(num_workers) as pool:
+                # Use chunksize=1 for better load balancing with varying file sizes
+                results = pool.map(process_func, self.file_paths, chunksize=1)
+
+            # Flatten the results list
+            self.annotations = [voxel for sublist in results for voxel in sublist]
+
+            # Save voxels to cache in parallel
+            print(f"Saving {len(self.annotations)} voxels to cache...")
+            save_args = [(i, voxel_data, self.cache_dir) for i, voxel_data in enumerate(self.annotations)]
+            with multiprocessing.Pool(num_workers) as pool:
+                pool.map(save_voxel_data, save_args, chunksize=1)
+            print(f"Created and cached {len(self.annotations)} voxels")
+
+        # Split annotations into train/val/test
         np.random.seed(42)
-        indices = np.random.permutation(len(all_indices))
+        indices = np.random.permutation(len(self.annotations))
         train_idx = int(0.7 * len(indices))
         val_idx = int(0.85 * len(indices))  # 70% + 15%
 
@@ -57,68 +126,28 @@ class SynthPCRDataset(BaseDataset):
         else:  # test
             select_indices = indices[val_idx:]
 
-        # Store point indices and their corresponding filepaths for current split
-        self.annotations = [(all_indices[i], all_filepaths[i]) for i in select_indices]
+        # Select annotations for current split
+        self.annotations = [self.annotations[i] for i in select_indices]
 
         # Update dataset size
         self.DATASET_SIZE[self.split] = len(self.annotations)
-
-    def _prepare_all_centers(self):
-        """Prepare all voxel centers by grid sampling each point cloud."""
-        all_indices = []
-        all_filepaths = []  # Track which file each set of indices belongs to
-        # Store point cloud data
-        self.points_data = {}
-        for filepath in self.file_paths:
-            # Load point cloud using our utility
-            points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
-            points = points.float()
-
-            # Store points for later use
-            self.points_data[filepath] = points
-
-            # Normalize points
-            mean = points.mean(0, keepdim=True)
-            points = points - mean
-
-            # Grid sample to get point indices for each voxel
-            data_dict = {'pos': points}
-            sampled_data = self._grid_sampling(data_dict)
-
-            # Get unique clusters and their points
-            cluster_indices = sampled_data['point_indices']  # Shape: (N,) - cluster ID for each point
-            unique_clusters = torch.unique(cluster_indices)
-
-            # For each cluster, get the indices of points belonging to it
-            for cluster_id in unique_clusters:
-                cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
-                if len(cluster_point_indices) > 0:  # Only add if cluster has points
-                    all_indices.append(cluster_point_indices)
-                    all_filepaths.append(filepath)  # Store which file these indices belong to
-
-            print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
-            print(f"Partitioned point cloud into {len(unique_clusters)} voxels.")
-
-        print(f"Total number of voxels across all point clouds: {len(all_indices)}")
-        return all_indices, all_filepaths
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         """Load a datapoint using point indices and generate synthetic pair."""
-        # Get point indices and filepath for this voxel
-        point_indices, filepath = self.annotations[idx]
+        # Get voxel data
+        voxel_data = self.annotations[idx]
+
+        # If annotations are filepaths, load the data
+        if isinstance(voxel_data, str):
+            voxel_data = torch.load(voxel_data)
+
+        src_points = voxel_data['points']
+        point_indices = voxel_data['indices']
+        filepath = voxel_data['filepath']
+
         assert point_indices.ndim == 1 and point_indices.shape[0] > 0, f"{point_indices.shape=}"
-
-        # Get points from stored data for the correct point cloud
-        points = self.points_data[filepath]
-
-        # Normalize points
-        mean = points.mean(0, keepdim=True)
-        points = points - mean
-
-        # Get points in this voxel
-        src_points = points[point_indices, :]
 
         # Generate random transformation
         rot_mag_rad = np.radians(self.rot_mag)
@@ -138,12 +167,12 @@ class SynthPCRDataset(BaseDataset):
 
         # Generate random translation
         # Generate random direction (unit vector)
-        trans_dir = torch.randn(3, device=points.device)
+        trans_dir = torch.randn(3, device=src_points.device)
         trans_dir = trans_dir / torch.norm(trans_dir)
-        
+
         # Generate random magnitude within limit
-        trans_mag = torch.empty(1, device=points.device).uniform_(0, self.trans_mag)
-        
+        trans_mag = torch.empty(1, device=src_points.device).uniform_(0, self.trans_mag)
+
         # Compute final translation vector
         trans = trans_dir * trans_mag
 
@@ -157,9 +186,9 @@ class SynthPCRDataset(BaseDataset):
 
         # Find correspondences between source and target point clouds
         correspondences = get_correspondences(
-            src_points, 
-            tgt_points, 
-            transform, 
+            src_points,
+            tgt_points,
+            transform,
             self.matching_radius
         )
 
