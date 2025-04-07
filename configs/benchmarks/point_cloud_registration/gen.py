@@ -23,7 +23,10 @@ def main(dataset: str, model: str) -> None:
     config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
     config += '\n'
     # add model config
-    if model == 'GeoTransformer':
+    if model == 'ICP':
+        config += f"config['model'] = {{'class': models.point_cloud_registration.classic.ICP, 'args': {{}}}}\n"
+        config += '\n'
+    elif model == 'GeoTransformer':
         config += f"# data config\n"
         config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_data_cfg import data_cfg as train_data_cfg\n" 
         config += f"config.update(train_data_cfg)\n"
@@ -61,6 +64,7 @@ if __name__ == "__main__":
     for dataset, model in itertools.product(
         ['synth_pcr_dataset'],
         [
+            'ICP',
             'GeoTransformer',
         ],
     ):
