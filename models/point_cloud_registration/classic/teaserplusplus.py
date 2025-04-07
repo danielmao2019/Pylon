@@ -41,7 +41,7 @@ class TeaserPlusPlus(torch.nn.Module):
 
             # Create solver and solve
             solver = teaserpp_python.RobustRegistrationSolver(solver_params)
-            solver.solve(source_np[i], target_np[i])
+            solver.solve(source_np[i].T.astype(np.float64), target_np[i].T.astype(np.float64))
 
             # Get solution
             solution = solver.getSolution()
