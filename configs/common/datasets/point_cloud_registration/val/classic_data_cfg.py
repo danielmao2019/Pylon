@@ -1,10 +1,11 @@
 import torch
-import data
+from data.datasets import SynthPCRDataset
+from metrics.vision_3d import RegistrationRecall
 
 
 data_cfg = {
     'val_dataset': {
-        'class': data.datasets.SynthPCRDataset,
+        'class': SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'split': 'val',
@@ -21,5 +22,11 @@ data_cfg = {
             'num_workers': 4,
         },
     },
-    'metric': None,
+    'metric': {
+        'class': RegistrationRecall,
+        'args': {
+            'rot_threshold_deg': 5.0,
+            'trans_threshold_m': 0.3,
+        },
+    },
 }
