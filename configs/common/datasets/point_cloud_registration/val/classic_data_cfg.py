@@ -4,7 +4,7 @@ from metrics.vision_3d import RegistrationRecall
 
 
 data_cfg = {
-    'val_dataset': {
+    'eval_dataset': {
         'class': SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
@@ -15,7 +15,7 @@ data_cfg = {
             'min_points': 256,
         },
     },
-    'val_dataloader': {
+    'eval_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 1,
