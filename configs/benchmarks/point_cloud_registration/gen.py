@@ -15,13 +15,19 @@ def add_heading(config: str) -> str:
 
 
 def main(dataset: str, model: str) -> None:
-    with open(f"./configs/benchmarks/point_cloud_registration/template.py", mode='r') as f:
+    template_name = "template_eval.py" if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus'] else "template_train.py"
+    with open(f"./configs/benchmarks/point_cloud_registration/{template_name}", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
     # add runner
-    config += f"from runners import SupervisedSingleTaskTrainer\n"
-    config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
-    config += '\n'
+    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
+        config += f"from runners import BaseEvaluator\n"
+        config += f"config['runner'] = BaseEvaluator\n"
+        config += '\n'
+    else:
+        config += f"from runners import SupervisedSingleTaskTrainer\n"
+        config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
+        config += '\n'
     # add model config
     if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
         config += f"# data config\n"
