@@ -7,6 +7,38 @@ import json
 import numpy as np
 import torch
 from data.datasets.base_dataset import BaseDataset
+from utils.io import load_point_cloud
+from utils.point_cloud_ops import apply_transform
+
+
+def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch.Tensor) -> List[Dict[str, Any]]:
+    src_points = load_point_cloud(src_path)
+    tgt_points = load_point_cloud(tgt_path)
+    transformed_src_points = apply_transform(src_points, gt_transform)
+    union_points = torch.cat([transformed_src_points, tgt_points], dim=0)
+    union_points = union_points.float()
+    mean = union_points.mean(0, keepdim=True)
+    union_points = union_points - mean
+    sampled_data = grid_sampling({'pos': union_points})
+    cluster_indices = sampled_data['point_indices']
+    unique_clusters = torch.unique(cluster_indices)
+    # TODO: somehow you need to distinguish src and tgt points.
+    datapoints = []
+    for cluster_id in unique_clusters:
+        datapoint = {
+            'src_points' , # note that here inverse transform needs to be applied.
+            'src_indices':
+            'src_path': src_path,
+            'tgt_points':
+            'tgt_indices':
+            'tgt_path': tgt_path,
+        }
+        datapoints.append(datapoint)
+    return datapoints
+
+
+def save_datapoint(args):
+    pass
 
 
 class RealPCRDataset(BaseDataset):
@@ -41,6 +73,7 @@ class RealPCRDataset(BaseDataset):
             )
 
             # Use multiprocessing to process files in parallel with chunksize for better performance
+            # TODO: you might need to adjust the arguments for process_func for multiprocessing
             with multiprocessing.Pool(num_workers) as pool:
                 # Use chunksize=1 for better load balancing with varying file sizes
                 results = pool.map(process_func, self.file_paths, chunksize=1)
@@ -50,6 +83,7 @@ class RealPCRDataset(BaseDataset):
 
             # Save datapoints to cache in parallel
             print(f"Saving {len(self.annotations)} datapoints to cache...")
+            # TODO: same here, you might need to adjust the arguments for save_datapoint for multiprocessing
             save_args = [(i, datapoint, self.cache_dir) for i, datapoint in enumerate(self.annotations)]
             with multiprocessing.Pool(num_workers) as pool:
                 pool.map(save_datapoint, save_args, chunksize=1)
