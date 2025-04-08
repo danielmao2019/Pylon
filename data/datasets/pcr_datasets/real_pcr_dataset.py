@@ -16,26 +16,26 @@ def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch
     src_points = load_point_cloud(src_path)
     tgt_points = load_point_cloud(tgt_path)
     transformed_src_points = apply_transform(src_points, gt_transform)
-    
+
     # Combine source and target points
     union_points = torch.cat([transformed_src_points, tgt_points], dim=0)
     union_points = union_points.float()
-    
+
     # Center the points
     mean = union_points.mean(0, keepdim=True)
     union_points = union_points - mean
-    
+
     # Apply grid sampling to get clusters
     sampled_data = grid_sampling({'pos': union_points})
     cluster_indices = sampled_data['point_indices']
-    
+
     # Create a mask to distinguish source and target points
     # First N points are from source, rest are from target
     src_count = transformed_src_points.shape[0]
     src_mask = torch.zeros(union_points.shape[0], dtype=torch.bool)
     src_mask[:src_count] = True
     tgt_mask = ~src_mask
-    
+
     datapoints = []
     # Process each unique cluster
     for cluster_id in torch.unique(cluster_indices):
@@ -43,7 +43,7 @@ def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch
         cluster_mask = cluster_indices == cluster_id
         src_cluster_mask = cluster_mask & src_mask
         tgt_cluster_mask = cluster_mask & tgt_mask
-        
+
         src_cluster_indices = torch.where(src_cluster_mask)[0]
         tgt_cluster_indices = torch.where(tgt_cluster_mask)[0] - src_count
 
@@ -75,7 +75,7 @@ def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch
 
 def save_datapoint(args):
     """Save a datapoint to disk.
-    
+
     Args:
         args: Tuple containing (index, datapoint, cache_dir)
     """
@@ -87,7 +87,7 @@ def save_datapoint(args):
 
 class RealPCRDataset(BaseDataset):
     """Real Point Cloud Registration Dataset.
-    
+
     This dataset loads real point cloud pairs with ground truth transformations.
     It processes the point clouds by:
     1. Loading source and target point clouds
@@ -107,7 +107,7 @@ class RealPCRDataset(BaseDataset):
 
     def __init__(self, gt_transforms: str, grid_size: float = 0.05, min_points: int = 100, max_points: int = 10000, **kwargs) -> None:
         """Initialize the dataset.
-        
+
         Args:
             gt_transforms: Path to JSON file containing ground truth transformations
             grid_size: Size of grid cells for sampling (default: 0.05)
@@ -156,7 +156,7 @@ class RealPCRDataset(BaseDataset):
                     tgt_path = file_path
                     gt_transform = torch.tensor(transform_data['transform'], dtype=torch.float32)
                     process_args.append((src_path, tgt_path, gt_transform))
-                
+
                 # Process files in parallel
                 results = pool.starmap(process_func, process_args, chunksize=1)
 
