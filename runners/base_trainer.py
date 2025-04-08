@@ -31,6 +31,7 @@ class BaseTrainer(ABC):
         self.config = copy.deepcopy(config)
         assert type(device) == torch.device, f"{type(device)=}"
         self.device = device
+        self.eval_n_jobs = self.config.get('eval_n_jobs', 1)
         self._init_work_dir()
         self._init_tot_epochs()
         torch.autograd.set_detect_anomaly(True)
@@ -181,7 +182,7 @@ class BaseTrainer(ABC):
         if self.work_dir is None:
             return
         # determine where to resume from
-        load_idx: int = None
+        load_idx: Optional[int] = None
         for idx in range(self.tot_epochs):
             if not check_epoch_finished(
                 epoch_dir=os.path.join(self.work_dir, f"epoch_{idx}"),
@@ -257,6 +258,14 @@ class BaseTrainer(ABC):
         if not (self.train_dataloader and self.model):
             self.logger.info("Skipped training epoch.")
             return
+        if os.path.isfile(os.path.join(self.work_dir, f"epoch_{self.cum_epochs}", "checkpoint.pt")):
+            checkpoint = torch.load(os.path.join(self.work_dir, f"epoch_{self.cum_epochs}", "checkpoint.pt"))
+            self.model.load_state_dict(checkpoint['model_state_dict'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+            self.logger.info(f"Found trained checkpoint at {os.path.join(self.work_dir, f'epoch_{self.cum_epochs}', 'checkpoint.pt')}.")
+            self.logger.info(f"Skipping training epoch {self.cum_epochs}.")
+            return
         # init time
         start_time = time.time()
         # do training loop
@@ -314,10 +323,10 @@ class BaseTrainer(ABC):
             batch_data['scores'] = self.metric(y_pred=batch_data['outputs'], y_true=batch_data['labels'])
             # Add scores to the metric buffer in a thread-safe way
             self.metric.add_to_buffer(batch_data['scores'])
-        
+
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
-        
+
         return batch_data
 
     def _val_epoch_(self) -> None:
@@ -329,24 +338,25 @@ class BaseTrainer(ABC):
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
-        
+
         # Process validation data in parallel using threads
         # Get the number of CPU cores to use (leave one core free for system processes)
-        num_workers = max(1, os.cpu_count() - 1)
-        self.logger.info(f"Using {num_workers} threads for parallel validation")
-        
+        self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
+
         # Use ThreadPoolExecutor for parallel processing
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
             # Submit all batches to the executor
-            future_to_idx = {executor.submit(self._process_validation_batch, dp): idx 
-                            for idx, dp in enumerate(self.val_dataloader)}
-            
+            future_to_idx = {
+                executor.submit(self._process_validation_batch, dp): idx
+                for idx, dp in enumerate(self.val_dataloader)
+            }
+
             # Process results as they complete
             for future in concurrent.futures.as_completed(future_to_idx):
                 idx = future_to_idx[future]
                 _ = future.result()
                 self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-        
+
         # after validation loop
         self._after_val_loop_()
         # log time
