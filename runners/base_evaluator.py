@@ -6,10 +6,10 @@ import time
 import json
 import jsbeautifier
 import torch
-import threading
 
 import utils
 from utils.builders import build_from_config
+from utils.parallelism import parallel_process_with_semaphore
 
 
 class BaseEvaluator:
@@ -110,7 +110,7 @@ class BaseEvaluator:
     # iteration-level methods
     # ====================================================================================================
 
-    def _process_eval_batch(self, batch_data):
+    def _process_eval_batch(self, idx, batch_data):
         """Process a single evaluation batch in a thread-safe manner."""
         # Run model inference
         batch_data['outputs'] = self.model(batch_data['inputs'])
@@ -120,6 +120,7 @@ class BaseEvaluator:
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
+        self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
 
         return batch_data
 
@@ -136,27 +137,17 @@ class BaseEvaluator:
         num_workers = max(1, os.cpu_count() - 1)
         self.logger.info(f"Using {num_workers} threads for parallel evaluation")
 
-        # Create a semaphore to limit concurrent processing
-        semaphore = threading.Semaphore(num_workers)
-
-        # Define a function to process a batch with the semaphore
-        def process_batch_with_semaphore(idx, dp):
-            with semaphore:  # This limits concurrent processing to num_workers
-                result = self._process_eval_batch(dp)
-                self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
-                return result
-
-        # Create and start threads for each batch
-        threads = []
-        for idx, dp in enumerate(self.eval_dataloader):
-            t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
-            t.daemon = True
-            t.start()
-            threads.append(t)
-
-        # Wait for all threads to complete
-        for t in threads:
-            t.join()
+        # Create an iterator of arguments for parallel processing
+        # This avoids loading all data into memory at once
+        args_iterator = ((idx, dp) for idx, dp in enumerate(self.eval_dataloader))
+        
+        # Use the utility function for parallel processing
+        parallel_process_with_semaphore(
+            func=self._process_eval_batch,
+            args=args_iterator,
+            n_jobs=num_workers,
+            logger=self.logger
+        )
 
         # after validation loop
         self._after_eval_loop_()

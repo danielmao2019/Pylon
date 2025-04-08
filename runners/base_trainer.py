@@ -7,13 +7,13 @@ import time
 import json
 import jsbeautifier
 import torch
-import threading
 
 import criteria
 import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
+from utils.parallelism import parallel_process_with_semaphore
 
 
 class BaseTrainer(ABC):
@@ -315,7 +315,7 @@ class BaseTrainer(ABC):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
 
-    def _process_validation_batch(self, dp: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def _process_validation_batch(self, idx, dp: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
         """Process a single validation batch in a thread-safe manner."""
         # Run model inference
         with torch.autocast(device_type='cuda', dtype=torch.float16):
@@ -326,6 +326,7 @@ class BaseTrainer(ABC):
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
+        self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
 
         return dp
 
@@ -342,27 +343,17 @@ class BaseTrainer(ABC):
         # Process validation data in parallel using threads
         self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
 
-        # Create a semaphore to limit concurrent processing
-        semaphore = threading.Semaphore(self.eval_n_jobs)
-
-        # Define a function to process a batch with the semaphore
-        def process_batch_with_semaphore(idx, dp):
-            with semaphore:  # This limits concurrent processing to self.eval_n_jobs
-                result = self._process_validation_batch(dp)
-                self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-                return result
-
-        # Create and start threads for each batch
-        threads = []
-        for idx, dp in enumerate(self.val_dataloader):
-            t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
-            t.daemon = True
-            t.start()
-            threads.append(t)
-
-        # Wait for all threads to complete
-        for t in threads:
-            t.join()
+        # Create an iterator of arguments for parallel processing
+        # This avoids loading all data into memory at once
+        args_iterator = ((idx, dp) for idx, dp in enumerate(self.val_dataloader))
+        
+        # Use the utility function for parallel processing
+        parallel_process_with_semaphore(
+            func=self._process_validation_batch,
+            args=args_iterator,
+            n_jobs=self.eval_n_jobs,
+            logger=self.logger
+        )
 
         # after validation loop
         self._after_val_loop_()
