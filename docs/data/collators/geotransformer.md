@@ -1,8 +1,6 @@
-# GeoTransformer C++ Extensions
+# GeoTransformer Research Notes
 
-This document explains how to build and use the GeoTransformer C++ extensions without modifying your conda environment.
-
-## Directory Structure
+## 1. Directory Structure
 
 ```
 geotransformer/
@@ -28,7 +26,11 @@ geotransformer/
 └── setup.py            # Build configuration
 ```
 
-## Building the Extensions
+## 2. Building and Using the Extensions
+
+This section explains how to build and use the GeoTransformer C++ extensions without modifying your conda environment.
+
+### Building the Extensions
 
 1. **Create Package Directory**
    ```bash
@@ -46,7 +48,7 @@ geotransformer/
    Note: You may see a warning about ninja not being found - this is normal and only affects build speed.
    Optional: Install ninja for faster builds with `conda install ninja`
 
-## Using the Extensions
+### Using the Extensions
 
 1. **Add to Python Path**
    ```python
@@ -59,7 +61,7 @@ geotransformer/
    from geotransformer import ext
    ```
 
-## Available Functions
+### Available Functions
 
 The extension provides optimized implementations for:
 - Grid subsampling (`grid_subsampling`)
@@ -67,7 +69,7 @@ The extension provides optimized implementations for:
 
 These functions are used internally by the collation functions for efficient point cloud processing.
 
-## Troubleshooting
+### Troubleshooting
 
 If you encounter the error:
 ```
@@ -77,3 +79,28 @@ Make sure:
 1. The `geotransformer/` directory exists
 2. The directory contains an empty `__init__.py` file
 3. You have write permissions in the directory
+
+## 3. Known Issues and Fixes
+
+### Inf Values in Matching Scores
+
+#### Issue Description
+During training, the model may encounter `inf` values in the matching scores tensor, which leads to NaN values during the backward pass. This issue occurs in the `geotransformer.py` file when computing the matching scores using the dot product of feature vectors:
+
+```python
+matching_scores = torch.einsum('bnd,bmd->bnm', ref_node_corr_knn_feats, src_node_corr_knn_feats)  # (P, K, K)
+```
+
+The problem arises because the feature vectors can have large magnitudes, causing numerical overflow during the dot product computation. This is particularly problematic when the features are not normalized, as their dot product can exceed the maximum representable value in the floating-point format.
+
+#### Solution
+To fix this issue, normalize the feature vectors before computing the dot product:
+
+```python
+# Normalize feature vectors before computing matching scores
+ref_node_corr_knn_feats = F.normalize(ref_node_corr_knn_feats, p=2, dim=-1)
+src_node_corr_knn_feats = F.normalize(src_node_corr_knn_feats, p=2, dim=-1)
+matching_scores = torch.einsum('bnd,bmd->bnm', ref_node_corr_knn_feats, src_node_corr_knn_feats)  # (P, K, K)
+```
+
+This normalization ensures that the feature vectors have unit length, which prevents numerical overflow during the dot product computation. The resulting matching scores will be in the range [-1, 1] before the scaling factor is applied, which is more stable for the Sinkhorn algorithm and prevents the propagation of `inf` values through the network.
