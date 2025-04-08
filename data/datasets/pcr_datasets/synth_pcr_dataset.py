@@ -92,9 +92,9 @@ class SynthPCRDataset(BaseDataset):
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
         # Check if cache exists
-        if os.path.exists(os.path.join(self.cache_dir, 'voxel_0.pt')):
+        voxel_files = sorted(glob.glob(os.path.join(self.cache_dir, 'voxel_*.pt')))
+        if len(voxel_files) > 0:
             # Load all voxel files
-            voxel_files = sorted(glob.glob(os.path.join(self.cache_dir, 'voxel_*.pt')))
             self.annotations = voxel_files
             print(f"Loaded {len(voxel_files)} cached voxels")
         else:
