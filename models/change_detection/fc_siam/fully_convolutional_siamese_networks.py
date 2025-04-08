@@ -1,6 +1,6 @@
 from typing import Dict
 import torch
-from models.backbones import UNetEncoder, UNetDecoder
+from models.multi_task_learning.backbones import UNetEncoder, UNetDecoder
 
 
 class FullyConvolutionalSiameseNetwork(torch.nn.Module):
