@@ -315,7 +315,7 @@ class BaseTrainer(ABC):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
 
-    def _process_validation_batch(self, idx, dp: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def _process_validation_batch(self, idx, dp: Dict[str, Dict[str, Any]]) -> None:
         """Process a single validation batch in a thread-safe manner."""
         # Run model inference
         with torch.autocast(device_type='cuda', dtype=torch.float16):
@@ -327,8 +327,6 @@ class BaseTrainer(ABC):
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
         self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-
-        return dp
 
     def _val_epoch_(self) -> None:
         if not (self.val_dataloader and self.model):

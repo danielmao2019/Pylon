@@ -110,7 +110,7 @@ class BaseEvaluator:
     # iteration-level methods
     # ====================================================================================================
 
-    def _process_eval_batch(self, idx, batch_data):
+    def _process_eval_batch(self, idx, batch_data) -> None:
         """Process a single evaluation batch in a thread-safe manner."""
         # Run model inference
         batch_data['outputs'] = self.model(batch_data['inputs'])
@@ -121,8 +121,6 @@ class BaseEvaluator:
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
         self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
-
-        return batch_data
 
     def _eval_epoch_(self) -> None:
         assert self.eval_dataloader and self.model
