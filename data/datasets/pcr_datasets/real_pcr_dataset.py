@@ -86,24 +86,12 @@ def save_datapoint(args):
 
 
 class RealPCRDataset(BaseDataset):
-    """Real Point Cloud Registration Dataset.
-
-    This dataset loads real point cloud pairs with ground truth transformations.
-    It processes the point clouds by:
-    1. Loading source and target point clouds
-    2. Applying the ground truth transformation to the source point cloud
-    3. Sampling points using grid sampling to create overlapping regions
-    4. Creating datapoints from these overlapping regions
-    """
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
-    DATASET_SIZE = {
-        'train': 0,  # Will be updated after processing
-        'val': 0,    # Will be updated after processing
-        'test': 0,   # Will be updated after processing
-    }
+    DATASET_SIZE = {'train': None, 'val': None, 'test': None}
     INPUT_NAMES = ['src_pc', 'tgt_pc']
     LABEL_NAMES = ['transform']
+    SHA1SUM = None
 
     def __init__(self, gt_transforms: str, grid_size: float = 0.05, min_points: int = 100, max_points: int = 10000, **kwargs) -> None:
         """Initialize the dataset.
