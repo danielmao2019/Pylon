@@ -1,7 +1,7 @@
 from typing import Dict, Optional
 import torch
 import data
-import models
+from models.multi_task_learning.backbones import LeNet5
 
 
 class MultiMNIST_LeNet5(torch.nn.Module):
@@ -10,7 +10,7 @@ class MultiMNIST_LeNet5(torch.nn.Module):
         super(MultiMNIST_LeNet5, self).__init__()
         self.return_shared_rep = return_shared_rep
         # initialize backbone
-        self.backbone = models.backbones.LeNet5()
+        self.backbone = LeNet5()
         # initialize decoders
         self.decoders = torch.nn.ModuleDict({
             task: torch.nn.Sequential(
