@@ -209,7 +209,9 @@ class RealPCRDataset(BaseDataset):
 
         meta_info = {
             'idx': idx,
+            'src_indices': datapoint_cache['src_indices'],
             'src_path': datapoint_cache['src_path'],
+            'tgt_indices': datapoint_cache['tgt_indices'],
             'tgt_path': datapoint_cache['tgt_path'],
         }
 
