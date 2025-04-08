@@ -6,7 +6,7 @@ import time
 import json
 import jsbeautifier
 import torch
-import concurrent.futures
+import threading
 
 import utils
 from utils.builders import build_from_config
@@ -136,17 +136,27 @@ class BaseEvaluator:
         num_workers = max(1, os.cpu_count() - 1)
         self.logger.info(f"Using {num_workers} threads for parallel evaluation")
 
-        # Use ThreadPoolExecutor for parallel processing
-        with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
-            # Submit all batches to the executor
-            future_to_idx = {executor.submit(self._process_eval_batch, dp): idx
-                            for idx, dp in enumerate(self.eval_dataloader)}
+        # Create a semaphore to limit concurrent processing
+        semaphore = threading.Semaphore(num_workers)
 
-            # Process results as they complete
-            for future in concurrent.futures.as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                _ = future.result()
+        # Define a function to process a batch with the semaphore
+        def process_batch_with_semaphore(idx, dp):
+            with semaphore:  # This limits concurrent processing to num_workers
+                result = self._process_eval_batch(dp)
                 self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
+                return result
+
+        # Create and start threads for each batch
+        threads = []
+        for idx, dp in enumerate(self.eval_dataloader):
+            t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
+            t.daemon = True
+            t.start()
+            threads.append(t)
+
+        # Wait for all threads to complete
+        for t in threads:
+            t.join()
 
         # after validation loop
         self._after_eval_loop_()
