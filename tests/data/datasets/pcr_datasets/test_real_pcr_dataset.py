@@ -1,8 +1,5 @@
 import pytest
 import torch
-import numpy as np
-import os
-import json
 from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
 
 
