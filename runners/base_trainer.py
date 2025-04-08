@@ -13,7 +13,7 @@ import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
-from utils.parallelism import parallel_process_with_semaphore
+from utils.parallelism import parallel_execute
 
 
 class BaseTrainer(ABC):
@@ -348,7 +348,7 @@ class BaseTrainer(ABC):
         args_iterator = ((idx, dp) for idx, dp in enumerate(self.val_dataloader))
         
         # Use the utility function for parallel processing
-        parallel_process_with_semaphore(
+        parallel_execute(
             func=self._process_validation_batch,
             args=args_iterator,
             n_jobs=self.eval_n_jobs,

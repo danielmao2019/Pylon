@@ -9,7 +9,7 @@ import torch
 
 import utils
 from utils.builders import build_from_config
-from utils.parallelism import parallel_process_with_semaphore
+from utils.parallelism import parallel_execute
 
 
 class BaseEvaluator:
@@ -142,7 +142,7 @@ class BaseEvaluator:
         args_iterator = ((idx, dp) for idx, dp in enumerate(self.eval_dataloader))
         
         # Use the utility function for parallel processing
-        parallel_process_with_semaphore(
+        parallel_execute(
             func=self._process_eval_batch,
             args=args_iterator,
             n_jobs=num_workers,
