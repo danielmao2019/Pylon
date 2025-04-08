@@ -40,7 +40,7 @@ from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import
 
 # Point Cloud Registration
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
-
+from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
 
 __all__ = (
     'BaseDataset',
@@ -76,4 +76,5 @@ __all__ = (
     'PPSLDataset',
     # Point Cloud Registration
     'SynthPCRDataset',
+    'RealPCRDataset',
 )
