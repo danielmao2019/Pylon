@@ -9,42 +9,116 @@ import torch
 from data.datasets.base_dataset import BaseDataset
 from utils.io import load_point_cloud
 from utils.point_cloud_ops import apply_transform
+from utils.torch_points3d import GridSampling3D
 
 
-def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch.Tensor) -> List[Dict[str, Any]]:
+def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch.Tensor, grid_sampling, min_points, max_points) -> List[Dict[str, Any]]:
     src_points = load_point_cloud(src_path)
     tgt_points = load_point_cloud(tgt_path)
     transformed_src_points = apply_transform(src_points, gt_transform)
+    
+    # Combine source and target points
     union_points = torch.cat([transformed_src_points, tgt_points], dim=0)
     union_points = union_points.float()
+    
+    # Center the points
     mean = union_points.mean(0, keepdim=True)
     union_points = union_points - mean
+    
+    # Apply grid sampling to get clusters
     sampled_data = grid_sampling({'pos': union_points})
     cluster_indices = sampled_data['point_indices']
-    unique_clusters = torch.unique(cluster_indices)
-    # TODO: somehow you need to distinguish src and tgt points.
+    
+    # Create a mask to distinguish source and target points
+    # First N points are from source, rest are from target
+    src_count = transformed_src_points.shape[0]
+    src_mask = torch.zeros(union_points.shape[0], dtype=torch.bool)
+    src_mask[:src_count] = True
+    tgt_mask = ~src_mask
+    
     datapoints = []
-    for cluster_id in unique_clusters:
+    # Process each unique cluster
+    for cluster_id in torch.unique(cluster_indices):
+        # Get points in this cluster
+        cluster_mask = cluster_indices == cluster_id
+        src_cluster_mask = cluster_mask & src_mask
+        tgt_cluster_mask = cluster_mask & tgt_mask
+        
+        src_cluster_indices = torch.where(src_cluster_mask)[0]
+        tgt_cluster_indices = torch.where(tgt_cluster_mask)[0] - src_count
+
+        # Skip if either source or target has too few or too many points
+        if len(src_cluster_indices) < min_points or len(tgt_cluster_indices) < min_points:
+            continue
+
+        if len(src_cluster_indices) > max_points:
+            src_cluster_indices = src_cluster_indices[torch.randperm(len(src_cluster_indices))[:max_points]]
+
+        if len(tgt_cluster_indices) > max_points:
+            tgt_cluster_indices = tgt_cluster_indices[torch.randperm(len(tgt_cluster_indices))[:max_points]]
+
+        src_cluster_points = src_points[src_cluster_indices]
+        tgt_cluster_points = tgt_points[tgt_cluster_indices]
+
         datapoint = {
-            'src_points' , # note that here inverse transform needs to be applied.
-            'src_indices':
+            'src_points': src_cluster_points,
+            'src_indices': src_cluster_indices,
             'src_path': src_path,
-            'tgt_points':
-            'tgt_indices':
+            'tgt_points': tgt_cluster_points,
+            'tgt_indices': tgt_cluster_indices,
             'tgt_path': tgt_path,
+            'transform': gt_transform,
         }
         datapoints.append(datapoint)
     return datapoints
 
 
 def save_datapoint(args):
-    pass
+    """Save a datapoint to disk.
+    
+    Args:
+        args: Tuple containing (index, datapoint, cache_dir)
+    """
+    idx, datapoint, cache_dir = args
+    cache_path = os.path.join(cache_dir, f'datapoint_{idx:06d}.pt')
+    torch.save(datapoint, cache_path)
+    return cache_path
 
 
 class RealPCRDataset(BaseDataset):
+    """Real Point Cloud Registration Dataset.
+    
+    This dataset loads real point cloud pairs with ground truth transformations.
+    It processes the point clouds by:
+    1. Loading source and target point clouds
+    2. Applying the ground truth transformation to the source point cloud
+    3. Sampling points using grid sampling to create overlapping regions
+    4. Creating datapoints from these overlapping regions
+    """
 
-    def __init__(self, gt_transforms: str, **kwargs) -> None:
+    SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = {
+        'train': 0,  # Will be updated after processing
+        'val': 0,    # Will be updated after processing
+        'test': 0,   # Will be updated after processing
+    }
+    INPUT_NAMES = ['src_pc', 'tgt_pc']
+    LABEL_NAMES = ['transform']
+
+    def __init__(self, gt_transforms: str, grid_size: float = 0.05, min_points: int = 100, max_points: int = 10000, **kwargs) -> None:
+        """Initialize the dataset.
+        
+        Args:
+            gt_transforms: Path to JSON file containing ground truth transformations
+            grid_size: Size of grid cells for sampling (default: 0.05)
+            min_points: Minimum number of points in a cluster (default: 100)
+            max_points: Maximum number of points in a cluster (default: 10000)
+            **kwargs: Additional arguments passed to BaseDataset
+        """
         self.gt_transforms = gt_transforms
+        self._grid_sampling = GridSampling3D(size=grid_size, mode='mean')
+        self._min_points = min_points
+        self._max_points = max_points
         super(RealPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self) -> None:
@@ -73,17 +147,24 @@ class RealPCRDataset(BaseDataset):
             )
 
             # Use multiprocessing to process files in parallel with chunksize for better performance
-            # TODO: you might need to adjust the arguments for process_func for multiprocessing
             with multiprocessing.Pool(num_workers) as pool:
-                # Use chunksize=1 for better load balancing with varying file sizes
-                results = pool.map(process_func, self.file_paths, chunksize=1)
+                # Create arguments for each file
+                process_args = []
+                for i, file_path in enumerate(self.file_paths):
+                    transform_data = self.gt_transforms[i]
+                    src_path = os.path.join(self.data_root, transform_data['filepath'])
+                    tgt_path = file_path
+                    gt_transform = torch.tensor(transform_data['transform'], dtype=torch.float32)
+                    process_args.append((src_path, tgt_path, gt_transform))
+                
+                # Process files in parallel
+                results = pool.starmap(process_func, process_args, chunksize=1)
 
             # Flatten the results list
             self.annotations = [datapoint for sublist in results for datapoint in sublist]
 
             # Save datapoints to cache in parallel
             print(f"Saving {len(self.annotations)} datapoints to cache...")
-            # TODO: same here, you might need to adjust the arguments for save_datapoint for multiprocessing
             save_args = [(i, datapoint, self.cache_dir) for i, datapoint in enumerate(self.annotations)]
             with multiprocessing.Pool(num_workers) as pool:
                 pool.map(save_datapoint, save_args, chunksize=1)
