@@ -191,6 +191,12 @@ class GeoTransformer(nn.Module):
         output_dict['src_node_corr_knn_masks'] = src_node_corr_knn_masks
 
         # 8. Optimal transport
+        assert ref_node_corr_knn_feats.size(0) == src_node_corr_knn_feats.size(0), \
+            f"{ref_node_corr_knn_feats.shape=}, {src_node_corr_knn_feats.shape=}"
+        assert ref_node_corr_knn_feats.size(-1) == src_node_corr_knn_feats.size(-1), \
+            f"{ref_node_corr_knn_feats.shape=}, {src_node_corr_knn_feats.shape=}"
+        ref_node_corr_knn_feats = F.normalize(ref_node_corr_knn_feats, p=2, dim=-1)
+        src_node_corr_knn_feats = F.normalize(src_node_corr_knn_feats, p=2, dim=-1)
         matching_scores = torch.einsum('bnd,bmd->bnm', ref_node_corr_knn_feats, src_node_corr_knn_feats)  # (P, K, K)
         matching_scores = matching_scores / feats_f.shape[1] ** 0.5
         matching_scores = self.optimal_transport(matching_scores, ref_node_corr_knn_masks, src_node_corr_knn_masks)
