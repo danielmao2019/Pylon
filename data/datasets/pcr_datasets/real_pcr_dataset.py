@@ -140,6 +140,9 @@ class RealPCRDataset(BaseDataset):
                 # Create arguments for each file
                 process_args = []
                 for i, file_path in enumerate(self.file_paths):
+                    # Skip first file as it is the reference
+                    if i == 0:
+                        continue
                     transform_data = self.gt_transforms[i]
                     src_path = os.path.join(self.data_root, transform_data['filepath'])
                     tgt_path = file_path
