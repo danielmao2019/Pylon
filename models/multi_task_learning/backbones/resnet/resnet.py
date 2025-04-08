@@ -9,7 +9,7 @@ from torchvision.models.resnet import (
 )
 from torchvision.models._utils import _ovewrite_named_param
 
-from models.backbones.resnet.resnet_dilated import ResNetDilated
+from models.multi_task_learning.backbones.resnet.resnet_dilated import ResNetDilated
 
 try:
     # torch 2.x
