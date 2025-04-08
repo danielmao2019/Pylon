@@ -39,7 +39,7 @@ def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min
                 # Use random permutation to randomly sample points
                 perm = torch.randperm(len(cluster_point_indices))
                 cluster_point_indices = cluster_point_indices[perm[:max_points]]
-                
+
             voxel_data = {
                 'indices': cluster_point_indices,
                 'points': points[cluster_point_indices],
@@ -92,9 +92,9 @@ class SynthPCRDataset(BaseDataset):
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
         # Check if cache exists
-        if os.path.exists(os.path.join(self.cache_dir, 'voxel_0.pt')):
+        voxel_files = sorted(glob.glob(os.path.join(self.cache_dir, 'voxel_*.pt')))
+        if len(voxel_files) > 0:
             # Load all voxel files
-            voxel_files = sorted(glob.glob(os.path.join(self.cache_dir, 'voxel_*.pt')))
             self.annotations = voxel_files
             print(f"Loaded {len(voxel_files)} cached voxels")
         else:
