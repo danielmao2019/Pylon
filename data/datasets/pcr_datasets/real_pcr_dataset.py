@@ -93,20 +93,21 @@ class RealPCRDataset(BaseDataset):
     LABEL_NAMES = ['transform']
     SHA1SUM = None
 
-    def __init__(self, gt_transforms: str, grid_size: float = 0.05, min_points: int = 100, max_points: int = 10000, **kwargs) -> None:
+    def __init__(self, gt_transforms: str, voxel_size: float = 10.0, min_points: int = 256, max_points: int = 8192, **kwargs) -> None:
         """Initialize the dataset.
 
         Args:
             gt_transforms: Path to JSON file containing ground truth transformations
-            grid_size: Size of grid cells for sampling (default: 0.05)
-            min_points: Minimum number of points in a cluster (default: 100)
-            max_points: Maximum number of points in a cluster (default: 10000)
+            voxel_size: Size of voxel cells for sampling (default: 10.0)
+            min_points: Minimum number of points in a cluster (default: 256)
+            max_points: Maximum number of points in a cluster (default: 8192)
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.gt_transforms = gt_transforms
-        self._grid_sampling = GridSampling3D(size=grid_size, mode='mean')
+        self._voxel_size = voxel_size
         self._min_points = min_points
         self._max_points = max_points
+        self._grid_sampling = GridSampling3D(size=voxel_size)
         super(RealPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self) -> None:
