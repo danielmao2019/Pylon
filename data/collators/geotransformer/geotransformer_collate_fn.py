@@ -132,7 +132,7 @@ def geotransformer_collate_fn(
     collated_dict = {
         'inputs': inputs_dict,
         'labels': {
-            'transform': data_dicts[0]['labels']['transform'],
+            'transform': torch.stack([d['labels']['transform'] for d in data_dicts], dim=0),
         },
         'meta_info': {
             'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts], device=device),

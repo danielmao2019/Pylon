@@ -11,7 +11,7 @@ from utils.io import load_point_cloud
 from utils.point_cloud_ops import get_correspondences
 
 
-def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min_points: int) -> list:
+def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min_points: int, max_points: int) -> list:
     """Process a single point cloud file and return voxel data."""
     # Load point cloud using our utility
     points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
@@ -34,6 +34,12 @@ def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min
     for cluster_id in unique_clusters:
         cluster_point_indices = torch.where(cluster_indices == cluster_id)[0]
         if len(cluster_point_indices) >= min_points:  # Only add if cluster has points
+            # Random sampling if cluster exceeds max_points
+            if len(cluster_point_indices) > max_points:
+                # Use random permutation to randomly sample points
+                perm = torch.randperm(len(cluster_point_indices))
+                cluster_point_indices = cluster_point_indices[perm[:max_points]]
+                
             voxel_data = {
                 'indices': cluster_point_indices,
                 'points': points[cluster_point_indices],
@@ -63,7 +69,8 @@ class SynthPCRDataset(BaseDataset):
         rot_mag: float = 45.0,
         trans_mag: float = 0.5,
         voxel_size: float = 50.0,
-        min_points: int = 128,
+        min_points: int = 256,
+        max_points: int = 8192,
         matching_radius: float = 0.1,  # Added matching radius parameter
         **kwargs,
     ) -> None:
@@ -71,6 +78,7 @@ class SynthPCRDataset(BaseDataset):
         self.trans_mag = trans_mag
         self._voxel_size = voxel_size
         self._min_points = min_points
+        self._max_points = max_points
         self.matching_radius = matching_radius
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(SynthPCRDataset, self).__init__(**kwargs)
@@ -96,7 +104,12 @@ class SynthPCRDataset(BaseDataset):
             print(f"Processing point clouds using {num_workers} workers...")
 
             # Create a partial function with the grid_sampling parameter
-            process_func = partial(process_single_point_cloud, grid_sampling=self._grid_sampling, min_points=self._min_points)
+            process_func = partial(
+                process_single_point_cloud,
+                grid_sampling=self._grid_sampling,
+                min_points=self._min_points,
+                max_points=self._max_points,
+            )
 
             # Use multiprocessing to process files in parallel with chunksize for better performance
             with multiprocessing.Pool(num_workers) as pool:

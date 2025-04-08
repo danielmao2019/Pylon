@@ -344,11 +344,8 @@ class BaseTrainer(ABC):
             # Process results as they complete
             for future in concurrent.futures.as_completed(future_to_idx):
                 idx = future_to_idx[future]
-                try:
-                    _ = future.result()
-                    self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-                except Exception as e:
-                    self.logger.error(f"Error processing batch {idx}: {e}")
+                _ = future.result()
+                self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
         
         # after validation loop
         self._after_val_loop_()
