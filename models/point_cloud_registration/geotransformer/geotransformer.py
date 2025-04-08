@@ -217,21 +217,3 @@ class GeoTransformer(nn.Module):
             output_dict['estimated_transform'] = estimated_transform
 
         return output_dict
-
-
-def create_model(config):
-    model = GeoTransformer(config)
-    return model
-
-
-def main():
-    from config import make_cfg
-
-    cfg = make_cfg()
-    model = create_model(cfg)
-    print(model.state_dict().keys())
-    print(model)
-
-
-if __name__ == '__main__':
-    main()
