@@ -115,8 +115,6 @@ class BaseEvaluator:
         # Run model inference
         batch_data['outputs'] = self.model(batch_data['inputs'])
         batch_data['scores'] = self.metric(y_pred=batch_data['outputs'], y_true=batch_data['labels'])
-        # Add scores to the metric buffer in a thread-safe way
-        self.metric.add_to_buffer(batch_data['scores'])
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
@@ -138,7 +136,7 @@ class BaseEvaluator:
         # Create an iterator of arguments for parallel processing
         # This avoids loading all data into memory at once
         args_iterator = ((idx, dp) for idx, dp in enumerate(self.eval_dataloader))
-        
+
         # Use the utility function for parallel processing
         parallel_execute(
             func=self._process_eval_batch,

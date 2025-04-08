@@ -38,10 +38,8 @@ def parallel_execute(
             with semaphore: # Calls semaphore.acquire() implicitly
                 if logger:
                     logger.info(f"Processing item {idx}")
-
                 # Process the item
                 item_result = func(*item_args)
-
                 if logger:
                     logger.info(f"Completed item {idx}")
             # semaphore.release() is called implicitly here when exiting 'with' block
@@ -49,20 +47,16 @@ def parallel_execute(
         except Exception as e:
             if logger:
                 logger.error(f"Error processing item {idx}: {str(e)}")
-            # If an error occurs *inside* the 'with semaphore:', release() was still called.
             item_result = e # Store exception as result for errors
         finally:
             # Store the result (None, the function's return, or an Exception)
-            # This is outside the 'with semaphore' but still needed to record the outcome.
             with results_lock:
-                # Ensure the results list is long enough
                 while len(results) <= idx:
                     results.append(None)
                 results[idx] = item_result
-            # The finally block is no longer needed *just* for semaphore release.
 
     # Create and start threads for each item
-    threads = []
+    threads = {}
     idx = 0
 
     # Process items one at a time
@@ -70,11 +64,11 @@ def parallel_execute(
         t = threading.Thread(target=process_item, args=(idx, item_args))
         t.daemon = True
         t.start()
-        threads.append(t)
+        threads[idx] = t # Store thread by item index
         idx += 1
 
     # Wait for all threads to complete
-    for i, t in enumerate(threads):
+    for i, t in threads.items(): # Iterate using items() for index and thread
         t.join(timeout=timeout)
         if t.is_alive() and logger:
             logger.warning(f"Thread for item {i} did not complete within timeout")

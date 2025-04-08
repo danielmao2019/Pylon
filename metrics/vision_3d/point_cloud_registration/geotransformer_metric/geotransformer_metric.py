@@ -82,5 +82,5 @@ class GeoTransformerMetric(SingleTaskMetric):
         }
         score = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=score)
         # log score
-        self.buffer.append(score)
+        self.add_to_buffer(score)
         return score

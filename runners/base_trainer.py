@@ -243,8 +243,6 @@ class BaseTrainer(ABC):
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             dp['outputs'] = self.model(dp['inputs'])
             dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
-            # Add scores to the metric buffer in a thread-safe way
-            self.metric.add_to_buffer(dp['scores'])
         # update logger
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
         # log time
@@ -321,8 +319,6 @@ class BaseTrainer(ABC):
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             dp['outputs'] = self.model(dp['inputs'])
             dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
-            # Add scores to the metric buffer in a thread-safe way
-            self.metric.add_to_buffer(dp['scores'])
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
@@ -344,7 +340,7 @@ class BaseTrainer(ABC):
         # Create an iterator of arguments for parallel processing
         # This avoids loading all data into memory at once
         args_iterator = ((idx, dp) for idx, dp in enumerate(self.val_dataloader))
-        
+
         # Use the utility function for parallel processing
         parallel_execute(
             func=self._process_validation_batch,
