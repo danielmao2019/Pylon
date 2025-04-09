@@ -26,25 +26,25 @@ def random_transform():
         angle = np.random.uniform(0, 2 * np.pi)
         axis = np.random.rand(3).astype(np.float32)
         axis = axis / np.linalg.norm(axis)
-        
+
         K = np.array([
             [0, -axis[2], axis[1]],
             [axis[2], 0, -axis[0]],
             [-axis[1], axis[0], 0]
         ], dtype=np.float32)
         R = np.eye(3, dtype=np.float32) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
-        
+
         # Create a random translation vector
         t = np.random.rand(3).astype(np.float32) * 10
-        
+
         # Create the 4x4 transform matrix
         transform = np.eye(4, dtype=np.float32)
         transform[:3, :3] = R
         transform[:3, 3] = t
-        
+
         if not use_numpy:
             transform = torch.tensor(transform, dtype=torch.float32)
-            
+
         return transform
     return _generate
 
@@ -53,7 +53,7 @@ def original_apply_transform(points, transform):
     """
     Original implementation of apply_transform from display_pcr.py.
     Uses rotation matrix and translation vector approach.
-    
+
     Args:
         points: torch.Tensor of shape (N, 3) - point cloud coordinates
         transform: Union[List[List[Union[int, float]]], numpy.ndarray] - transformation matrix
@@ -87,15 +87,15 @@ def test_apply_transform_output_shape(random_point_cloud, random_transform, tran
     use_numpy = points_type == "numpy"
     points = random_point_cloud(100, use_numpy=use_numpy)
     transform = random_transform(use_numpy=transform_type == "numpy")
-    
+
     if transform_type == "list":
         transform = transform.tolist() if not use_numpy else transform.tolist()
-    
+
     result = apply_transform(points, transform)
-    
+
     # Check shape
     assert result.shape == points.shape, f"Expected shape {points.shape}, got {result.shape}"
-    
+
     # Check type
     if use_numpy:
         assert isinstance(result, np.ndarray), "Expected numpy array output for numpy input"
@@ -110,14 +110,14 @@ def test_apply_transform_equivalence(random_point_cloud, random_transform, trans
     use_numpy = points_type == "numpy"
     points = random_point_cloud(100, use_numpy=use_numpy)
     transform = random_transform(use_numpy=transform_type == "numpy")
-    
+
     if transform_type == "list":
         transform_input = transform.tolist() if not use_numpy else transform.tolist()
     else:
         transform_input = transform
-    
+
     result_new = apply_transform(points, transform_input)
-    
+
     # For comparison with original_apply_transform, convert to torch
     if use_numpy:
         points_torch = torch.tensor(points, dtype=torch.float32)
@@ -137,14 +137,14 @@ def test_apply_transform_identity(random_point_cloud, points_type):
     """Test that applying identity transform returns the original points."""
     use_numpy = points_type == "numpy"
     points = random_point_cloud(100, use_numpy=use_numpy)
-    
+
     if use_numpy:
         identity = np.eye(4, dtype=np.float32)
     else:
         identity = torch.eye(4, dtype=torch.float32)
-    
+
     result = apply_transform(points, identity)
-    
+
     if use_numpy:
         assert np.allclose(result, points, rtol=1e-5, atol=1e-5), \
             "Identity transform should return original points"
@@ -158,12 +158,12 @@ def test_apply_transform_invalid_shape(random_point_cloud, points_type):
     """Test that apply_transform raises appropriate error for invalid transform shape."""
     use_numpy = points_type == "numpy"
     points = random_point_cloud(100, use_numpy=use_numpy)
-    
+
     if use_numpy:
         invalid_transform = np.eye(3, dtype=np.float32)  # 3x3 instead of 4x4
     else:
         invalid_transform = torch.eye(3, dtype=torch.float32)  # 3x3 instead of 4x4
-    
+
     with pytest.raises(AssertionError, match="Transform must be a 4x4 matrix"):
         apply_transform(points, invalid_transform)
 
@@ -173,13 +173,13 @@ def test_apply_transform_invalid_shape(random_point_cloud, points_type):
 def test_apply_transform_edge_cases(random_transform, num_points, points_type):
     """Test apply_transform with edge cases of point cloud sizes."""
     use_numpy = points_type == "numpy"
-    
+
     if use_numpy:
         points = np.random.rand(num_points, 3).astype(np.float32)
     else:
         points = torch.rand(num_points, 3, dtype=torch.float32)
-    
+
     transform = random_transform(use_numpy=use_numpy)
-    
+
     result = apply_transform(points, transform)
     assert result.shape == points.shape, f"Expected shape {points.shape}, got {result.shape}"
