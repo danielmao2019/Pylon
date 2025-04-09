@@ -23,7 +23,7 @@ DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud
 DATASET_GROUPS = {
     '2d_change_detection': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3d_change_detection': ['urb3dcd', 'slpccd'],
-    'point_cloud_registration': ['synth_pcr_dataset', 'real_pcr_dataset']
+    'point_cloud_registration': ['synth_pcr', 'real_pcr'],
 }
 
 # Dataset format specifications by type
