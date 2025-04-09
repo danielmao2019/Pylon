@@ -21,6 +21,26 @@ from utils.logging.screen_logger import ScreenLogger
 from utils.logging import echo_page_break, log_losses, log_scores
 
 
+def _worker_process_validation_batch(args):
+    """Worker function that takes all needed objects as arguments."""
+    idx, dp, model, metric, device = args
+    
+    try:
+        # Use the objects directly, not as globals
+        inputs = dp['inputs'].to(device)
+        labels = dp['labels'].to(device)
+        
+        with torch.no_grad():
+            outputs = model(inputs)
+            # Directly call metric to add to buffer
+            metric(y_pred=outputs, y_true=labels)
+            # No need to return anything
+        return None  # Indicate success
+    except Exception as e:
+        print(f"[Worker {os.getpid()} Item {idx}] Processing FAILED: {e}")
+        return e  # Return exception object to indicate failure
+
+
 class BaseTrainer(ABC):
 
     def __init__(

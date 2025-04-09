@@ -2,6 +2,7 @@ from typing import Callable, List, Any, Tuple, Optional, Iterator, Union
 import logging
 import threading # Add threading back for the helper function
 import torch.multiprocessing as mp
+import torch
 
 
 def parallel_execute(
@@ -10,7 +11,7 @@ def parallel_execute(
     n_jobs: int,
     logger: Optional[logging.Logger] = None,
     timeout: int = 30,
-    parallelization_type: str = 'threading' # Default to threading
+    parallelization_type: str = 'threading', # Default to threading
 ) -> List[Optional[Any]]:
     """
     Execute a function in parallel using either threads or processes.
@@ -101,15 +102,12 @@ def _parallel_execute_multiprocessing(
     ctx = mp.get_context('spawn')
     results = []
     try:
-        args_list = list(args) if isinstance(args, Iterator) else args
-
-        if not args_list:
-             return []
-
         with ctx.Pool(processes=n_jobs) as pool:
-            results = pool.starmap(func, args_list)
+            # Use imap_unordered to process results as they complete
+            for result in pool.imap_unordered(func, args):
+                results.append(result)
             if logger:
-                 logger.info(f"[Multiprocessing] Pool completed {len(results)} tasks.")
+                logger.info(f"[Multiprocessing] Pool completed {len(results)} tasks.")
 
     except Exception as e:
         if logger:
