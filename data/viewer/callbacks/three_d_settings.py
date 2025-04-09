@@ -30,6 +30,7 @@ def update_3d_settings(
         # Get current dataset info
         dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
         is_3d: bool = dataset_info.get('is_3d', False)
+        dataset_type: str = dataset_info.get('type', 'change_detection')
 
         if not is_3d:
             return [
@@ -57,7 +58,10 @@ def update_3d_settings(
 
 
 @callback(
-    outputs=[Output('view-controls', 'style')],
+    outputs=[
+        Output('view-controls', 'style'),
+        Output('pcr-controls', 'style')
+    ],
     inputs=[Input('dataset-info', 'data')],
     group="display"
 )
@@ -65,6 +69,16 @@ def update_view_controls(
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
 ) -> List[Dict[str, str]]:
     """Update the visibility of 3D view controls based on dataset type."""
-    if dataset_info and dataset_info.get('is_3d', False):
-        return [{'display': 'block'}]
-    return [{'display': 'none'}]
+    if dataset_info is None:
+        return [{'display': 'none'}, {'display': 'none'}]
+    
+    is_3d: bool = dataset_info.get('is_3d', False)
+    dataset_type: str = dataset_info.get('type', 'change_detection')
+    
+    if is_3d:
+        if dataset_type == 'point_cloud_registration':
+            return [{'display': 'block'}, {'display': 'block'}]
+        else:
+            return [{'display': 'block'}, {'display': 'none'}]
+    
+    return [{'display': 'none'}, {'display': 'none'}]

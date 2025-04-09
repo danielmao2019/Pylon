@@ -5,6 +5,7 @@ import logging
 from typing import Dict, List, Optional, Union
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
+from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from data.viewer.callbacks.registry import callback, registry
 
 
@@ -18,11 +19,12 @@ logger = logging.getLogger(__name__)
         Input({'type': 'point-cloud-graph', 'index': 0}, 'relayoutData'),
         Input({'type': 'point-cloud-graph', 'index': 1}, 'relayoutData'),
         Input({'type': 'point-cloud-graph', 'index': 2}, 'relayoutData'),
+        Input({'type': 'point-cloud-graph', 'index': 3}, 'relayoutData'),
         State('camera-state', 'data'),
     ],
     group="display"
 )
-def update_camera_state(relayout_data_0, relayout_data_1, relayout_data_2, current_camera_state):
+def update_camera_state(relayout_data_0, relayout_data_1, relayout_data_2, relayout_data_3, current_camera_state):
     """Update the camera state when any point cloud view is manipulated."""
     ctx = callback_context
     if not ctx.triggered:
@@ -64,6 +66,7 @@ def update_camera_state(relayout_data_0, relayout_data_1, relayout_data_2, curre
         Input('datapoint-index-slider', 'value'),
         Input('point-size-slider', 'value'),
         Input('point-opacity-slider', 'value'),
+        Input('radius-slider', 'value'),
         Input('camera-state', 'data')
     ],
     group="display"
@@ -73,6 +76,7 @@ def update_datapoint(
     datapoint_idx: int,
     point_size: float,
     point_opacity: float,
+    radius: float,
     camera_state: Dict
 ) -> List[html.Div]:
     """
@@ -91,16 +95,20 @@ def update_datapoint(
     # Get datapoint from manager through registry
     datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx)
 
-    # Get is_3d from dataset info
+    # Get dataset type and is_3d from dataset info
+    dataset_type: str = dataset_info.get('type', 'change_detection')
     is_3d: bool = dataset_info.get('is_3d', False)
-    logger.info(f"Dataset type: {'3D' if is_3d else '2D'}")
+    logger.info(f"Dataset type: {dataset_type}, 3D: {is_3d}")
 
     # Get class labels if available
     class_labels: Dict[int, str] = dataset_info.get('class_labels', {})
     logger.info(f"Class labels available: {bool(class_labels)}")
 
     # Display the datapoint based on its type
-    if is_3d:
+    if dataset_type == 'point_cloud_registration':
+        logger.info("Creating PCR display")
+        display = display_pcr_datapoint(datapoint, point_size, point_opacity, camera_state, radius)
+    elif is_3d:
         logger.info("Creating 3D display")
         display = display_3d_datapoint(datapoint, point_size, point_opacity, class_labels, camera_state)
     else:
