@@ -1,5 +1,5 @@
 import torch
-from data.datasets import SynthPCRDataset
+from data.datasets import RealPCRDataset
 from metrics.vision_3d import RegistrationRecall
 
 
