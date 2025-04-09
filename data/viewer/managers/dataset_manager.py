@@ -3,7 +3,7 @@
 This module contains the DatasetManager class which handles loading, caching,
 and managing datasets for the viewer.
 """
-from typing import Dict, Any, Optional, List, Tuple
+from typing import Dict, Any, Optional, List, Tuple, Union, Literal
 import threading
 from collections import OrderedDict
 import numpy as np
@@ -16,12 +16,38 @@ from data.viewer.managers.dataset_cache import DatasetCache
 from data.viewer.managers.dataset_loader import DatasetLoader
 from data.viewer.managers.transform_manager import TransformManager
 
-# Mapping of dataset names to whether they are 3D datasets
-THREE_D_DATASETS = {
-    'urb3dcd': True,  # Urb3DCDDataset
-    'slpccd': True,   # SLPCCDDataset
+# Dataset type definitions
+DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
+
+# Dataset groupings
+DATASET_GROUPS = {
+    '2d_change_detection': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
+    '3d_change_detection': ['urb3dcd', 'slpccd'],
+    'point_cloud_registration': ['synth_pcr', 'real_pcr'],
 }
 
+# Dataset format specifications by type
+DATASET_FORMATS = {
+    '2d_change_detection': {
+        'input_format': {
+            'image': ['img_1', 'img_2']
+        },
+        'label_format': ['change_map']
+    },
+    '3d_change_detection': {
+        'input_format': {
+            'point_cloud': ['pc_1', 'pc_2']
+        },
+        'label_format': ['change_map']
+    },
+    'point_cloud_registration': {
+        'input_format': {
+            'point_cloud': ['src_pc', 'tgt_pc'],
+            'optional': ['correspondences']
+        },
+        'label_format': ['transform']
+    }
+}
 
 class DatasetManager:
     """Manages dataset operations including loading, caching, and transformations."""
@@ -48,6 +74,27 @@ class DatasetManager:
         
         # Store configurations for easy access
         self._configs = self.loader.configs
+        
+    def get_dataset_type(self, dataset_name: str) -> DatasetType:
+        """Determine the type of dataset based on its name.
+        
+        Args:
+            dataset_name: Name of the dataset
+            
+        Returns:
+            Dataset type (2d_change_detection, 3d_change_detection, or point_cloud_registration)
+            
+        Raises:
+            ValueError: If the dataset type cannot be determined
+        """
+        base_name = dataset_name.split('/')[-1]
+        
+        for dataset_type, datasets in DATASET_GROUPS.items():
+            if base_name in datasets:
+                return dataset_type
+                
+        # Raise error for unknown dataset types
+        raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
         
     def get_available_datasets(self) -> List[str]:
         """Get list of available datasets.
@@ -77,7 +124,7 @@ class DatasetManager:
         if dataset_name not in self._datasets:
             dataset = self.loader.load_dataset(dataset_name)
             if dataset is None:
-                raise ValueError(f"Failed to load dataset: {dataset_name}")
+                raise ValueError(f"Failed to load dataset: {dataset_name}.")
             self._datasets[dataset_name] = dataset
             
         dataset = self._datasets[dataset_name]
@@ -90,14 +137,20 @@ class DatasetManager:
         # Register transforms
         self.transform_manager.register_transforms_from_config(transforms_cfg)
         
+        # Determine dataset type and format
+        dataset_type = self.get_dataset_type(dataset_name)
+        dataset_format = DATASET_FORMATS[dataset_type]
+        
         # Get dataset info
         info = {
             'name': dataset_name,
+            'type': dataset_type,
             'length': len(dataset),
             'class_labels': getattr(dataset, 'class_labels', {}),
             'transforms': self.transform_manager.get_available_transforms(),
             'cache_stats': self._caches[dataset_name].get_stats(),
-            'is_3d': THREE_D_DATASETS.get(dataset_name, False)
+            'input_format': dataset_format['input_format'],
+            'label_format': dataset_format['label_format']
         }
         
         return info
@@ -119,12 +172,19 @@ class DatasetManager:
             or None if loading fails
         """
         dataset = self._datasets.get(dataset_name)
-        inputs, labels, meta_info = dataset._load_datapoint(index)
-        return {
-            'inputs': inputs,
-            'labels': labels,
-            'meta_info': meta_info
-        }
+        if dataset is None:
+            return None
+            
+        try:
+            inputs, labels, meta_info = dataset._load_datapoint(index)
+            return {
+                'inputs': inputs,
+                'labels': labels,
+                'meta_info': meta_info
+            }
+        except Exception as e:
+            self.logger.error(f"Error loading datapoint {index} from dataset {dataset_name}: {str(e)}")
+            return None
         
     def get_datapoint(self, dataset_name: str, index: int, transform_indices: Optional[List[int]] = None) -> Optional[Dict[str, Dict[str, Any]]]:
         """Get datapoint with optional transforms applied.

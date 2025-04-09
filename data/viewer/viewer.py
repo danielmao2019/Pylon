@@ -89,4 +89,4 @@ class DatasetViewer:
 
     def run(self, debug=False, host="0.0.0.0", port=8050):
         """Run the viewer application."""
-        self.app.run_server(debug=debug, host=host, port=port)
+        self.app.run(debug=debug, host=host, port=port)

@@ -25,8 +25,8 @@ class DatasetInfo:
     name: str = ""
     length: int = 0
     class_labels: Dict[int, str] = None
-    is_3d: bool = False
     transforms: List[Dict[str, Any]] = None
+    type: str = None
 
     def __post_init__(self):
         """Initialize default values for mutable fields."""
@@ -47,9 +47,9 @@ class DatasetInfo:
             return False
         if not isinstance(self.class_labels, dict):
             return False
-        if not isinstance(self.is_3d, bool):
-            return False
         if not isinstance(self.transforms, list):
+            return False
+        if self.type is not None and not isinstance(self.type, str):
             return False
         return True
 
@@ -250,24 +250,27 @@ class ViewerState:
         self._save_to_history()
     
     def update_dataset_info(self, name: str, length: int, class_labels: Dict[int, str], 
-                          is_3d: bool, transforms: List[Dict[str, Any]] = None) -> None:
+                          transforms: List[Dict[str, Any]] = None, dataset_type: str = None) -> None:
         """Update the current dataset information.
         
         Args:
             name: Name of the dataset
             length: Number of datapoints in the dataset
             class_labels: Dictionary mapping class indices to labels
-            is_3d: Whether the dataset contains 3D data
             transforms: List of transform info dictionaries
+            dataset_type: Type of the dataset (2d_change_detection, 3d_change_detection, point_cloud_registration)
         """
         # Create new dataset info
         new_info = DatasetInfo(
             name=name,
             length=length,
             class_labels=class_labels,
-            is_3d=is_3d,
             transforms=transforms or []
         )
+        
+        # Add dataset type to the info
+        if dataset_type:
+            new_info.type = dataset_type
 
         # Validate
         if not new_info.validate():
@@ -288,7 +291,7 @@ class ViewerState:
         self._emit_event(ViewerEvent.DATASET_CHANGED, {
             'name': name,
             'length': length,
-            'is_3d': is_3d
+            'type': dataset_type
         })
     
     def update_index(self, index: int) -> None:
