@@ -11,6 +11,17 @@ data_cfg = {
             'voxel_size': 10.0,
             'min_points': 512,
             'max_points': 8192,
+            'transform': {
+                'class': data.transforms.Compose,
+                'args': {
+                    'transforms': [
+                        (
+                            data.transforms.vision_3d.PCRTranslation,
+                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
+                        ),
+                    ],
+                },
+            },
         },
     },
     'train_dataloader': {

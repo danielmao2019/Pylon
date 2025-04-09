@@ -1,11 +1,11 @@
 import torch
-from data.datasets import RealPCRDataset
+import data
 from metrics.vision_3d import RegistrationRecall
 
 
 data_cfg = {
     'eval_dataset': {
-        'class': RealPCRDataset,
+        'class': data.datasets.RealPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
@@ -14,6 +14,17 @@ data_cfg = {
             'min_points': 256,
             'max_points': 8192,
             'device': 'cpu',
+            'transform': {
+                'class': data.transforms.Compose,
+                'args': {
+                    'transforms': [
+                        (
+                            data.transforms.vision_3d.PCRTranslation,
+                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
+                        ),
+                    ],
+                },
+            },
         },
     },
     'eval_dataloader': {
