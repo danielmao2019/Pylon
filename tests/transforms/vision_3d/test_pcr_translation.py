@@ -8,9 +8,9 @@ from utils.point_cloud_ops import apply_transform
 def create_random_point_cloud(num_points=1000, scale=1000000.0):
     """Create a random point cloud with extreme coordinate values."""
     # Generate random points with extreme values
-    points = np.random.randn(num_points, 3) * scale
+    points = np.random.randn(num_points, 3).astype(np.float32) * scale
     # Add some offset to make coordinates more extreme
-    points += np.array([500000.0, 4800000.0, 100.0])
+    points += np.array([500000.0, 4800000.0, 100.0], dtype=np.float32)
     return torch.tensor(points, dtype=torch.float32)
 
 
@@ -18,25 +18,25 @@ def create_random_transform():
     """Create a random 4x4 transformation matrix."""
     # Create a random rotation matrix
     angle = np.random.rand() * 2 * np.pi
-    axis = np.random.rand(3)
+    axis = np.random.rand(3).astype(np.float32)
     axis = axis / np.linalg.norm(axis)
-
+    
     # Rodrigues rotation formula
     K = np.array([
         [0, -axis[2], axis[1]],
         [axis[2], 0, -axis[0]],
         [-axis[1], axis[0], 0]
-    ])
-    R = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
-
+    ], dtype=np.float32)
+    R = np.eye(3, dtype=np.float32) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
+    
     # Create a random translation vector
-    t = np.random.rand(3) * 1000.0
-
+    t = np.random.rand(3).astype(np.float32) * 1000.0
+    
     # Combine into a 4x4 transformation matrix
-    transform = np.eye(4)
+    transform = np.eye(4, dtype=np.float32)
     transform[:3, :3] = R
     transform[:3, 3] = t
-
+    
     return torch.tensor(transform, dtype=torch.float32)
 
 
@@ -90,7 +90,7 @@ def test_pcr_translation(num_points):
     # 3. Check that the mean of the union of the new point clouds is close to zero
     union_points = torch.cat([new_src_pc['pos'], new_tgt_pc['pos']], dim=0)
     mean = union_points.mean(dim=0)
-    assert torch.allclose(mean, torch.zeros(3), atol=1e-6)
+    assert torch.allclose(mean, torch.zeros(3, dtype=torch.float32), atol=1e-6)
 
     # 4. Check validity of the output transform matrix
     transformed_src = apply_transform(new_src_pc['pos'], new_transform)

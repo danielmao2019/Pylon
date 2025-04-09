@@ -51,7 +51,7 @@ class PCRTranslation(BaseTransform):
         t = transform[:3, 3]
         
         # Calculate the new translation
-        I = torch.eye(3, device=transform.device)
+        I = torch.eye(3, device=transform.device, dtype=transform.dtype)
         new_t = t - (I - R) @ translation
         
         # Create the new transform
