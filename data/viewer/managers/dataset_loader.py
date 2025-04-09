@@ -42,7 +42,7 @@ class DatasetLoader:
         # Mapping of dataset types to their supported datasets
         supported_datasets = {
             'change_detection': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'urb3dcd', 'slpccd'],
-            'point_cloud_registration': ['3dmatch', 'kitti', 'modelnet']  # Add your PCR datasets here
+            'point_cloud_registration': ['synth_pcr', 'real_pcr'],
         }
         
         for dataset_type in self.dataset_types:
@@ -67,13 +67,13 @@ class DatasetLoader:
                     module = importlib.util.module_from_spec(spec)
                     spec.loader.exec_module(module)
                     
-                    if not hasattr(module, 'config'):
+                    if not hasattr(module, 'data_cfg'):
                         self.logger.warning(f"No config found in {config_file}")
                         continue
                         
                     # Add to configs with dataset type prefix
                     config_key = f"{dataset_type}/{dataset_name}"
-                    dataset_configs[config_key] = module.config
+                    dataset_configs[config_key] = module.data_cfg
                     self.logger.info(f"Loaded config for dataset: {config_key}")
                     
                 except Exception as e:

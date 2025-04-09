@@ -80,6 +80,7 @@ def update_view_controls(
     if dataset_info is None:
         return [{'display': 'none'}, {'display': 'none'}]
     
+    assert 'type' in dataset_info, f"{dataset_info.keys()=}"
     dataset_type = dataset_info.get('type')
     if dataset_type is None:
         raise ValueError("Dataset type not available.")
