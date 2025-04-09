@@ -23,11 +23,11 @@ from configs.common.datasets.point_cloud_registration.val.classic_data_cfg impor
 config.update(eval_data_cfg)
 
 # model config
-from models.point_cloud_registration.classic import TeaserPlusPlus
-config['model'] = {'class': TeaserPlusPlus, 'args': {}}
+from models.point_cloud_registration.classic import ICP
+config['model'] = {'class': ICP, 'args': {}}
 
 # seeds
-config['seed'] = 98080696
+config['seed'] = 5351880
 
 # work dir
-config['work_dir'] = "./logs/benchmarks/point_cloud_registration/synth_pcr_dataset/TeaserPlusPlus_run_0"
+config['work_dir'] = "./logs/benchmarks/point_cloud_registration/synth_pcr/ICP_run_0"
