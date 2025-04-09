@@ -37,7 +37,7 @@ class OverlapPredatorMetric(SingleTaskMetric):
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         # Input checks
         assert isinstance(y_pred, dict), f"{type(y_pred)=}"
-        assert y_pred.keys() == {'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
+        assert y_pred.keys() == {'feats_f', 'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
         assert isinstance(y_true, dict), f"{type(y_true)=}"
         assert y_true.keys() == {'src_pc', 'tgt_pc', 'correspondence', 'rot', 'trans'}, f"{y_true.keys()=}"
         src_pc = y_true['src_pc']

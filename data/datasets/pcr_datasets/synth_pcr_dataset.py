@@ -73,7 +73,7 @@ class SynthPCRDataset(BaseDataset):
         voxel_size: float = 50.0,
         min_points: int = 256,
         max_points: int = 8192,
-        matching_radius: float = 0.1,  # Added matching radius parameter
+        matching_radius: float = 0.1,
         **kwargs,
     ) -> None:
         self.rot_mag = rot_mag

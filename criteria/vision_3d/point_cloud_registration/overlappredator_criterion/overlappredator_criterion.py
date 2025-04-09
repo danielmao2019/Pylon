@@ -97,9 +97,9 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         """
         # Input checks
         assert isinstance(y_pred, dict), f"{type(y_pred)=}"
-        assert y_pred.keys() == {'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
+        assert y_pred.keys() == {'feats_f', 'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
         assert isinstance(y_true, dict), f"{type(y_true)=}"
-        assert y_true.keys() == {'src_pc', 'tgt_pc', 'correspondence', 'rot', 'trans'}, f"{y_true.keys()=}"
+        assert y_true.keys() == {'src_pc', 'tgt_pc', 'correspondences', 'rot', 'trans'}, f"{y_true.keys()=}"
         src_pc = y_true['src_pc']
         tgt_pc = y_true['tgt_pc']
         assert isinstance(src_pc, dict), f"{type(src_pc)=}"
@@ -111,7 +111,7 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         tgt_pcd = tgt_pc['pos']
         src_feats = src_pc['feat']
         tgt_feats = tgt_pc['feat']
-        correspondence = y_true['correspondence']
+        correspondences = y_true['correspondences']
         rot = y_true['rot']
         trans = y_true['trans']
         scores_overlap = y_pred['scores_overlap']
@@ -120,8 +120,8 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
         src_pcd = (torch.matmul(rot,src_pcd.transpose(0,1))+trans).transpose(0,1)
         stats = dict()
 
-        src_idx = list(set(correspondence[:,0].int().tolist()))
-        tgt_idx = list(set(correspondence[:,1].int().tolist()))
+        src_idx = list(set(correspondences[:,0].int().tolist()))
+        tgt_idx = list(set(correspondences[:,1].int().tolist()))
 
         #######################
         # get BCE loss for overlap, here the ground truth label is obtained from correspondence information
@@ -155,14 +155,14 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
 
         #######################################
         # filter some of correspondence as we are using different radius for "overlap" and "correspondence"
-        c_dist = torch.norm(src_pcd[correspondence[:,0]] - tgt_pcd[correspondence[:,1]], dim = 1)
+        c_dist = torch.norm(src_pcd[correspondences[:,0]] - tgt_pcd[correspondences[:,1]], dim = 1)
         c_select = c_dist < self.pos_radius - 0.001
-        correspondence = correspondence[c_select]
-        if(correspondence.size(0) > self.max_points):
-            choice = np.random.permutation(correspondence.size(0))[:self.max_points]
-            correspondence = correspondence[choice]
-        src_idx = correspondence[:,0]
-        tgt_idx = correspondence[:,1]
+        correspondences = correspondences[c_select]
+        if(correspondences.size(0) > self.max_points):
+            choice = np.random.permutation(correspondences.size(0))[:self.max_points]
+            correspondences = correspondences[choice]
+        src_idx = correspondences[:,0]
+        tgt_idx = correspondences[:,1]
         src_pcd, tgt_pcd = src_pcd[src_idx], tgt_pcd[tgt_idx]
         src_feats, tgt_feats = src_feats[src_idx], tgt_feats[tgt_idx]
 
