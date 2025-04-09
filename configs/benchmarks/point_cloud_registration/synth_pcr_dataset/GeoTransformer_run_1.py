@@ -8,7 +8,6 @@ config = {
     'runner': None,
     'work_dir': None,
     'epochs': 100,
-    'eval_n_jobs': 4,
     # seeds
     'init_seed': None,
     'train_seeds': None,

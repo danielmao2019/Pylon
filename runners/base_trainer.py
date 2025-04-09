@@ -243,8 +243,6 @@ class BaseTrainer(ABC):
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             dp['outputs'] = self.model(dp['inputs'])
             dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
-            # Add scores to the metric buffer in a thread-safe way
-            self.metric.add_to_buffer(dp['scores'])
         # update logger
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
         # log time
@@ -342,27 +340,33 @@ class BaseTrainer(ABC):
         # Process validation data in parallel using threads
         self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
 
-        # Create a semaphore to limit concurrent processing
-        semaphore = threading.Semaphore(self.eval_n_jobs)
-
-        # Define a function to process a batch with the semaphore
-        def process_batch_with_semaphore(idx, dp):
-            with semaphore:  # This limits concurrent processing to self.eval_n_jobs
-                result = self._process_validation_batch(dp)
+        if self.eval_n_jobs == 1:
+            # Use a simple for loop when only one worker is needed
+            for idx, dp in enumerate(self.val_dataloader):
+                self._process_validation_batch(dp)
                 self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-                return result
+        else:
+            # Create a semaphore to limit concurrent processing
+            semaphore = threading.Semaphore(self.eval_n_jobs)
 
-        # Create and start threads for each batch
-        threads = []
-        for idx, dp in enumerate(self.val_dataloader):
-            t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
-            t.daemon = True
-            t.start()
-            threads.append(t)
+            # Define a function to process a batch with the semaphore
+            def process_batch_with_semaphore(idx, dp):
+                with semaphore:  # This limits concurrent processing to self.eval_n_jobs
+                    result = self._process_validation_batch(dp)
+                    self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
+                    return result
 
-        # Wait for all threads to complete
-        for t in threads:
-            t.join()
+            # Create and start threads for each batch
+            threads = []
+            for idx, dp in enumerate(self.val_dataloader):
+                t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
+                t.daemon = True
+                t.start()
+                threads.append(t)
+
+            # Wait for all threads to complete
+            for t in threads:
+                t.join()
 
         # after validation loop
         self._after_val_loop_()
