@@ -189,10 +189,13 @@ class BaseEvaluator:
     def _after_eval_loop_(self) -> None:
         if self.work_dir is None:
             return
-        # save validation scores to disk
-        self.metric.summarize(output_path=os.path.join(self.work_dir, "evaluation_scores.json"))
-        with open(os.path.join(self.work_dir, "evaluation_scores.json"), mode='r') as f:
-            _ = json.load(f)
+        # initialize test results directory
+        test_root = os.path.join(self.work_dir, "test")
+        os.makedirs(test_root, exist_ok=True)
+        
+        # Aggregate results from all worker processes
+        # The metric's summarize method will handle the aggregation of the buffer
+        self.metric.summarize(output_path=os.path.join(test_root, "evaluation_scores.json"))
 
     # ====================================================================================================
     # ====================================================================================================
@@ -207,4 +210,38 @@ class BaseEvaluator:
     def run(self):
         # initialize run
         self._init_components_()
-        self._eval_epoch_()
+        self._eval_epoch_(0)
+
+# Update the worker function to not use global variables
+def _worker_process_eval_batch(args: tuple) -> Optional[Exception]:
+    """
+    Worker function to process a single evaluation batch.
+    
+    Args:
+        args: Tuple containing (index, data_point, model, metric, device)
+        
+    Returns:
+        None if successful, Exception if an error occurred
+    """
+    try:
+        idx, data_point, model, metric, device = args
+        
+        # Move data to device
+        if isinstance(data_point, (tuple, list)):
+            data = data_point[0].to(device)
+            labels = data_point[1]
+        else:
+            data = data_point.to(device)
+            labels = None
+            
+        # Forward pass
+        with torch.no_grad():
+            outputs = model(data)
+            
+        # Update metric directly using shared buffer
+        metric(y_pred=outputs, y_true=labels)
+        
+        return None
+        
+    except Exception as e:
+        return e
