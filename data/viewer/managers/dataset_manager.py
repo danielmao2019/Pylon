@@ -16,10 +16,17 @@ from data.viewer.managers.dataset_cache import DatasetCache
 from data.viewer.managers.dataset_loader import DatasetLoader
 from data.viewer.managers.transform_manager import TransformManager
 
-# Mapping of dataset types to their characteristics
-DATASET_TYPES = {
+# Mapping of dataset names to whether they are 3D datasets
+THREE_D_DATASETS = {
+    'urb3dcd': True,  # Urb3DCDDataset
+    'slpccd': True,   # SLPCCDDataset
+    'synth_pcr_dataset': True,  # Synthetic PCR dataset
+    'real_pcr_dataset': True,   # Real PCR dataset
+}
+
+# Mapping of dataset types to their format specifications
+DATASET_FORMATS = {
     'change_detection': {
-        'is_3d': False,
         'input_format': {
             'image': ['img_1', 'img_2'],
             'point_cloud': ['pc_1', 'pc_2']
@@ -27,7 +34,6 @@ DATASET_TYPES = {
         'label_format': ['change_map']
     },
     'point_cloud_registration': {
-        'is_3d': True,
         'input_format': {
             'point_cloud': ['src_pc', 'tgt_pc'],
             'optional': ['correspondences']
@@ -35,7 +41,6 @@ DATASET_TYPES = {
         'label_format': ['transform']
     }
 }
-
 
 class DatasetManager:
     """Manages dataset operations including loading, caching, and transformations."""
@@ -106,7 +111,10 @@ class DatasetManager:
         
         # Determine dataset type from name
         dataset_type = dataset_name.split('/')[0] if '/' in dataset_name else 'change_detection'
-        dataset_info = DATASET_TYPES.get(dataset_type, DATASET_TYPES['change_detection'])
+        dataset_format = DATASET_FORMATS.get(dataset_type, DATASET_FORMATS['change_detection'])
+        
+        # Get base dataset name without type prefix
+        base_name = dataset_name.split('/')[-1] if '/' in dataset_name else dataset_name
         
         # Get dataset info
         info = {
@@ -116,9 +124,9 @@ class DatasetManager:
             'class_labels': getattr(dataset, 'class_labels', {}),
             'transforms': self.transform_manager.get_available_transforms(),
             'cache_stats': self._caches[dataset_name].get_stats(),
-            'is_3d': dataset_info['is_3d'],
-            'input_format': dataset_info['input_format'],
-            'label_format': dataset_info['label_format']
+            'is_3d': THREE_D_DATASETS.get(base_name, False),
+            'input_format': dataset_format['input_format'],
+            'label_format': dataset_format['label_format']
         }
         
         return info
