@@ -1,11 +1,17 @@
 """3D settings-related callbacks for the viewer."""
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Literal
 from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.callbacks.registry import callback, registry
 
+
+# Dataset type definitions
+DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
+
+# 3D dataset types
+THREE_D_DATASET_TYPES = ['3d_change_detection', 'point_cloud_registration']
 
 @callback(
     outputs=[
@@ -29,9 +35,16 @@ def update_3d_settings(
     try:
         # Get current dataset info
         dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
-        is_3d: bool = dataset_info.get('is_3d', False)
+        if not dataset_info:
+            return [
+                html.Div("No dataset loaded."),
+                registry.viewer.state.get_state()['3d_settings']
+            ]
+            
+        assert 'type' in dataset_info, f"{dataset_info.keys()=}"
+        dataset_type = dataset_info.get('type')
 
-        if not is_3d:
+        if dataset_type not in THREE_D_DATASET_TYPES:
             return [
                 html.Div("3D settings are only available for 3D datasets."),
                 registry.viewer.state.get_state()['3d_settings']
@@ -57,7 +70,10 @@ def update_3d_settings(
 
 
 @callback(
-    outputs=[Output('view-controls', 'style')],
+    outputs=[
+        Output('view-controls', 'style'),
+        Output('pcr-controls', 'style')
+    ],
     inputs=[Input('dataset-info', 'data')],
     group="display"
 )
@@ -65,6 +81,22 @@ def update_view_controls(
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
 ) -> List[Dict[str, str]]:
     """Update the visibility of 3D view controls based on dataset type."""
-    if dataset_info and dataset_info.get('is_3d', False):
-        return [{'display': 'block'}]
-    return [{'display': 'none'}]
+    if dataset_info is None or not dataset_info:
+        return [{'display': 'none'}, {'display': 'none'}]
+    
+    assert 'type' in dataset_info, f"{dataset_info.keys()=}"
+    dataset_type = dataset_info.get('type')
+    
+    # Default styles
+    view_controls_style = {'display': 'none'}
+    pcr_controls_style = {'display': 'none'}
+    
+    # Show 3D controls for 3D datasets
+    if dataset_type in THREE_D_DATASET_TYPES:
+        view_controls_style = {'display': 'block'}
+        
+        # Show PCR controls only for PCR datasets
+        if dataset_type == 'point_cloud_registration':
+            pcr_controls_style = {'display': 'block'}
+    
+    return [view_controls_style, pcr_controls_style]

@@ -2,7 +2,7 @@
 from dash import dcc, html
 
 
-def create_3d_controls(visible=False, point_size=2, point_opacity=0.8):
+def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, radius=0.05):
     """
     Create 3D visualization controls.
     
@@ -10,6 +10,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8):
         visible: Whether the controls should be visible
         point_size: Initial point size
         point_opacity: Initial point opacity
+        radius: Initial radius for symmetric difference computation
         
     Returns:
         html.Div containing 3D controls
@@ -38,4 +39,17 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8):
             marks={i/10: str(i/10) for i in range(1, 11, 2)},
             step=0.1
         ),
+        
+        # Radius slider for symmetric difference computation
+        html.Div([
+            html.Label("Symmetric Difference Radius", style={'margin-top': '20px'}),
+            dcc.Slider(
+                id='radius-slider',
+                min=0.01,
+                max=0.5,
+                value=radius,
+                marks={i/10: str(i/10) for i in range(1, 6)},
+                step=0.01
+            ),
+        ], id='pcr-controls', style={'display': 'none'}),  # Hidden by default, shown only for PCR datasets
     ], id='view-controls', style=style)
