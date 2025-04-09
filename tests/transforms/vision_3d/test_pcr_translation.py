@@ -75,17 +75,12 @@ def test_pcr_translation(num_points):
     tgt_translation = new_tgt_pc['pos'] - tgt_pc['pos']
     assert torch.allclose(src_translation[0], src_translation[1:], atol=1e-6)
     assert torch.allclose(tgt_translation[0], tgt_translation[1:], atol=1e-6)
-    assert torch.allclose(new_transform[:3, :3], transform[:3, :3], atol=1e-6)
+    assert torch.allclose(new_transform, transform, atol=1e-6)
 
     # 2. Check that the translations are consistent
-    # The translation applied to src_pc and tgt_pc should be similar to the change in the transform's translation
-    # The translation vectors should be similar in magnitude but opposite in direction
-    # because the transform's translation is applied in the opposite direction
-    transform_translation_change = new_transform[:3, 3] - transform[:3, 3]
     src_translation_vector = src_translation[0]
     tgt_translation_vector = tgt_translation[0]
-    assert torch.allclose(src_translation_vector, -transform_translation_change, atol=1e-6)
-    assert torch.allclose(tgt_translation_vector, transform_translation_change, atol=1e-6)
+    assert torch.allclose(src_translation_vector, tgt_translation_vector, atol=1e-6)
 
     # 3. Check that the mean of the union of the new point clouds is close to zero
     union_points = torch.cat([new_src_pc['pos'], new_tgt_pc['pos']], dim=0)

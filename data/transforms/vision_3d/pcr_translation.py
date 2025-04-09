@@ -23,42 +23,24 @@ class PCRTranslation(BaseTransform):
         assert isinstance(transform, torch.Tensor), f"{type(transform)=}"
         assert transform.shape == (4, 4), f"{transform.shape=}"
         assert transform.dtype == torch.float32, f"{transform.dtype=}"
-        
+
         # Extract point positions from source and target point clouds
         src_pos = src_pc['pos']
         tgt_pos = tgt_pc['pos']
-        
+
         # Calculate the mean of the union of both point clouds
         # First, concatenate the points
         union_points = torch.cat([src_pos, tgt_pos], dim=0)
         # Calculate the mean
         translation = union_points.mean(dim=0)
-        
+
         # Create new dictionaries with the same references to non-pos fields
         new_src_pc = src_pc.copy()
         new_tgt_pc = tgt_pc.copy()
-        
+
         # Apply translation to source and target point clouds
         # This creates new tensors, so we don't need to clone
         new_src_pc['pos'] = src_pos - translation
         new_tgt_pc['pos'] = tgt_pos - translation
-        
-        # Adjust the transform to account for the translation
-        # For a rigid transform T = [R|t], we need to adjust the translation part
-        # The new translation is: t_new = t - (I - R) * translation
-        # where I is the identity matrix and R is the rotation part of the transform
-        
-        # Extract rotation and translation from the transform
-        # Assuming transform is a 4x4 matrix with rotation in the top-left 3x3 and translation in the last column
-        R = transform[:3, :3]
-        t = transform[:3, 3]
-        
-        # Calculate the new translation
-        I = torch.eye(3, device=transform.device, dtype=transform.dtype)
-        new_t = t - (I - R) @ translation
-        
-        # Create the new transform
-        new_transform = transform.clone()
-        new_transform[:3, 3] = new_t
-        
-        return new_src_pc, new_tgt_pc, new_transform
+
+        return new_src_pc, new_tgt_pc, transform
