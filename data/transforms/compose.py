@@ -58,7 +58,7 @@ class Compose(BaseTransform):
                     outputs = func(*(datapoint[key_pair[0]][key_pair[1]] for key_pair in input_keys))
             except Exception as e:
                 raise RuntimeError(f"Attempting to apply self.transforms[{i}] on {input_keys}: {e}")
-            assert type(outputs) == list, f"{type(outputs)=}"
+            assert isinstance(outputs, (tuple, list)), f"{type(outputs)=}"
             assert len(outputs) == len(input_keys), f"{len(outputs)=}, {len(input_keys)=}"
             for j, key_pair in enumerate(input_keys):
                 datapoint[key_pair[0]][key_pair[1]] = outputs[j]
