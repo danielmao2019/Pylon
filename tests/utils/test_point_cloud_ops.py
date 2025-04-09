@@ -21,7 +21,7 @@ def random_transform():
     def _generate():
         # Create a random rotation matrix using Rodrigues formula
         angle = np.random.uniform(0, 2 * np.pi)
-        axis = np.random.rand(3)
+        axis = np.random.rand(3).astype(np.float32)
         axis = axis / np.linalg.norm(axis)
         
         K = np.array([
@@ -32,7 +32,7 @@ def random_transform():
         R = np.eye(3, dtype=np.float32) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
         
         # Create a random translation vector
-        t = np.random.rand(3, dtype=np.float32) * 10
+        t = np.random.rand(3).astype(np.float32) * 10
         
         # Create the 4x4 transform matrix
         transform = np.eye(4, dtype=np.float32)
