@@ -109,10 +109,13 @@ class DatasetLoader:
 
         # Adjust data_root path if needed
         dataset_cfg = config.get('train_dataset', {})
+        repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
         if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args']:
             if not os.path.isabs(dataset_cfg['args']['data_root']):
-                repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
                 dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
+        if 'args' in dataset_cfg and 'gt_transforms' in dataset_cfg['args']:
+            if not os.path.isabs(dataset_cfg['args']['gt_transforms']):
+                dataset_cfg['args']['gt_transforms'] = os.path.join(repo_root, dataset_cfg['args']['gt_transforms'])
 
         # Import the dataset builder
         import utils.builders
