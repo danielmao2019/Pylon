@@ -115,8 +115,6 @@ class BaseEvaluator:
         # Run model inference
         batch_data['outputs'] = self.model(batch_data['inputs'])
         batch_data['scores'] = self.metric(y_pred=batch_data['outputs'], y_true=batch_data['labels'])
-        # Add scores to the metric buffer in a thread-safe way
-        self.metric.add_to_buffer(batch_data['scores'])
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
@@ -131,32 +129,38 @@ class BaseEvaluator:
         self.model.eval()
         self.metric.reset_buffer()
 
-        # Process evaluation data in parallel using threads
         # Get the number of CPU cores to use (leave one core free for system processes)
         num_workers = max(1, os.cpu_count() - 1)
         self.logger.info(f"Using {num_workers} threads for parallel evaluation")
 
-        # Create a semaphore to limit concurrent processing
-        semaphore = threading.Semaphore(num_workers)
-
-        # Define a function to process a batch with the semaphore
-        def process_batch_with_semaphore(idx, dp):
-            with semaphore:  # This limits concurrent processing to num_workers
-                result = self._process_eval_batch(dp)
+        if num_workers == 1:
+            # Use a simple for loop when only one worker is needed
+            for idx, dp in enumerate(self.eval_dataloader):
+                self._process_eval_batch(dp)
                 self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
-                return result
+        else:
+            # Process evaluation data in parallel using threads
+            # Create a semaphore to limit concurrent processing
+            semaphore = threading.Semaphore(num_workers)
 
-        # Create and start threads for each batch
-        threads = []
-        for idx, dp in enumerate(self.eval_dataloader):
-            t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
-            t.daemon = True
-            t.start()
-            threads.append(t)
+            # Define a function to process a batch with the semaphore
+            def process_batch_with_semaphore(idx, dp):
+                with semaphore:  # This limits concurrent processing to num_workers
+                    result = self._process_eval_batch(dp)
+                    self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
+                    return result
 
-        # Wait for all threads to complete
-        for t in threads:
-            t.join()
+            # Create and start threads for each batch
+            threads = []
+            for idx, dp in enumerate(self.eval_dataloader):
+                t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
+                t.daemon = True
+                t.start()
+                threads.append(t)
+
+            # Wait for all threads to complete
+            for t in threads:
+                t.join()
 
         # after validation loop
         self._after_eval_loop_()
