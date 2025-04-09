@@ -209,4 +209,8 @@ class OverlapPredator(nn.Module):
         # normalise point-wise features
         feats_f = F.normalize(feats_f, p=2, dim=1)
 
-        return feats_f, scores_overlap, scores_saliency
+        return {
+            'feats_f': feats_f,
+            'scores_overlap': scores_overlap,
+            'scores_saliency': scores_saliency,
+        }

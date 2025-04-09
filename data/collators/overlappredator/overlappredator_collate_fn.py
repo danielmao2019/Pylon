@@ -8,41 +8,59 @@ def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=Non
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
+    device = points.device
+
     if (features is None) and (labels is None):
-        s_points, s_len = cpp_subsampling.subsample_batch(points,
-                                                          batches_len,
+        s_points, s_len = cpp_subsampling.subsample_batch(points.cpu(),
+                                                          batches_len.cpu(),
                                                           sampleDl=sampleDl,
                                                           max_p=max_p,
                                                           verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len)
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device)
+        )
 
     elif (labels is None):
-        s_points, s_len, s_features = cpp_subsampling.subsample_batch(points,
-                                                                      batches_len,
+        s_points, s_len, s_features = cpp_subsampling.subsample_batch(points.cpu(),
+                                                                      batches_len.cpu(),
                                                                       features=features,
                                                                       sampleDl=sampleDl,
                                                                       max_p=max_p,
                                                                       verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len), torch.from_numpy(s_features)
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_features).to(device)
+        )
 
     elif (features is None):
-        s_points, s_len, s_labels = cpp_subsampling.subsample_batch(points,
-                                                                    batches_len,
+        s_points, s_len, s_labels = cpp_subsampling.subsample_batch(points.cpu(),
+                                                                    batches_len.cpu(),
                                                                     classes=labels,
                                                                     sampleDl=sampleDl,
                                                                     max_p=max_p,
                                                                     verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len), torch.from_numpy(s_labels)
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_labels).to(device)
+        )
 
     else:
-        s_points, s_len, s_features, s_labels = cpp_subsampling.subsample_batch(points,
-                                                                              batches_len,
+        s_points, s_len, s_features, s_labels = cpp_subsampling.subsample_batch(points.cpu(),
+                                                                              batches_len.cpu(),
                                                                               features=features,
                                                                               classes=labels,
                                                                               sampleDl=sampleDl,
                                                                               max_p=max_p,
                                                                               verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len), torch.from_numpy(s_features), torch.from_numpy(s_labels)
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_features).to(device),
+            torch.from_numpy(s_labels).to(device)
+        )
 
 def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_neighbors):
     """
@@ -54,12 +72,13 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     :param radius: float32
     :return: neighbors indices
     """
+    device = queries.device
 
-    neighbors = cpp_neighbors.batch_query(queries, supports, q_batches, s_batches, radius=radius)
+    neighbors = cpp_neighbors.batch_query(queries.cpu(), supports.cpu(), q_batches.cpu(), s_batches.cpu(), radius=radius)
     if max_neighbors > 0:
-        return torch.from_numpy(neighbors[:, :max_neighbors])
+        return torch.from_numpy(neighbors[:, :max_neighbors]).to(device)
     else:
-        return torch.from_numpy(neighbors)
+        return torch.from_numpy(neighbors).to(device)
 
 def overlappredator_collate_fn(list_data, config, neighborhood_limits):
     batched_points_list = []
@@ -67,7 +86,19 @@ def overlappredator_collate_fn(list_data, config, neighborhood_limits):
     batched_lengths_list = []
     assert len(list_data) == 1
 
-    for ind, (src_pcd,tgt_pcd,src_feats,tgt_feats,rot,trans,matching_inds, src_pcd_raw, tgt_pcd_raw, sample) in enumerate(list_data):
+    for ind, dp in enumerate(list_data):
+        # unpack
+        src_pcd = dp['inputs']['src_pc']['pos']
+        tgt_pcd = dp['inputs']['tgt_pc']['pos']
+        src_feats = dp['inputs']['src_pc']['feat']
+        tgt_feats = dp['inputs']['tgt_pc']['feat']
+        rot = dp['labels']['transform'][:3, :3]
+        trans = dp['labels']['transform'][:3, 3]
+        matching_inds = dp['inputs']['correspondences']
+        src_pcd_raw = dp['inputs']['src_pc']['pos']
+        tgt_pcd_raw = dp['inputs']['tgt_pc']['pos']
+        sample = None
+
         batched_points_list.append(src_pcd)
         batched_points_list.append(tgt_pcd)
         batched_features_list.append(src_feats)
@@ -75,9 +106,9 @@ def overlappredator_collate_fn(list_data, config, neighborhood_limits):
         batched_lengths_list.append(len(src_pcd))
         batched_lengths_list.append(len(tgt_pcd))
 
-    batched_features = torch.from_numpy(np.concatenate(batched_features_list, axis=0))
-    batched_points = torch.from_numpy(np.concatenate(batched_points_list, axis=0))
-    batched_lengths = torch.from_numpy(np.array(batched_lengths_list)).int()
+    batched_features = torch.cat(batched_features_list, dim=0)
+    batched_points = torch.cat(batched_points_list, dim=0)
+    batched_lengths = torch.tensor(batched_lengths_list, dtype=torch.int64, device=batched_points.device)
 
     # Starting radius of convolutions
     r_normal = config.first_subsampling_dl * config.conv_radius
@@ -170,19 +201,27 @@ def overlappredator_collate_fn(list_data, config, neighborhood_limits):
     ###############
     # Return inputs
     ###############
-    dict_inputs = {
+    inputs = {
         'points': input_points,
         'neighbors': input_neighbors,
         'pools': input_pools,
         'upsamples': input_upsamples,
         'features': batched_features.float(),
         'stack_lengths': input_batches_len,
-        'rot': torch.from_numpy(rot),
-        'trans': torch.from_numpy(trans),
+        'rot': rot,
+        'trans': trans,
         'correspondences': matching_inds,
-        'src_pcd_raw': torch.from_numpy(src_pcd_raw).float(),
-        'tgt_pcd_raw': torch.from_numpy(tgt_pcd_raw).float(),
-        'sample': sample
+        'src_pcd_raw': src_pcd_raw,
+        'tgt_pcd_raw': tgt_pcd_raw,
+        'sample': sample,
     }
+    labels = {
+        'src_pc': src_pcd,
+        'tgt_pc': tgt_pcd,
+        'correspondences': matching_inds,
+        'rot': rot,
+        'trans': trans,
+    }
+    meta_info = {}
 
-    return dict_inputs
+    return {'inputs': inputs, 'labels': labels, 'meta_info': meta_info}
