@@ -40,17 +40,15 @@ class OverlapPredatorMetric(SingleTaskMetric):
         assert y_pred.keys() == {'feats_f', 'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
         assert isinstance(y_true, dict), f"{type(y_true)=}"
         assert y_true.keys() == {'src_pc', 'tgt_pc', 'correspondence', 'rot', 'trans'}, f"{y_true.keys()=}"
-        src_pc = y_true['src_pc']
-        tgt_pc = y_true['tgt_pc']
-        assert isinstance(src_pc, dict), f"{type(src_pc)=}"
-        assert src_pc.keys() == {'pos', 'feat'}, f"{src_pc.keys()=}"
-        assert isinstance(tgt_pc, dict), f"{type(tgt_pc)=}"
-        assert tgt_pc.keys() == {'pos', 'feat'}, f"{tgt_pc.keys()=}"
+        src_pcd = y_true['src_pc']
+        tgt_pcd = y_true['tgt_pc']
+        assert isinstance(src_pcd, torch.Tensor), f"{type(src_pcd)=}"
+        assert isinstance(tgt_pcd, torch.Tensor), f"{type(tgt_pcd)=}"
 
-        src_pcd = src_pc['pos']
-        tgt_pcd = tgt_pc['pos']
-        src_feats = src_pc['feat']
-        tgt_feats = tgt_pc['feat']
+        assert len(y_pred['feats_f']) == len(src_pcd) + len(tgt_pcd), \
+            f"{y_pred['feats_f'].shape=}, {src_pcd.shape=}, {tgt_pcd.shape=}"
+        src_feats = y_pred['feats_f'][:len(src_pcd)]
+        tgt_feats = y_pred['feats_f'][len(src_pcd):]
         correspondence = y_true['correspondence']
         rot = y_true['rot']
         trans = y_true['trans']

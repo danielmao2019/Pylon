@@ -105,7 +105,7 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
     las_file = laspy.read(filename)
 
     # Extract XYZ coordinates
-    points = np.vstack((las_file.x, las_file.y, las_file.z)).T
+    points = np.vstack((las_file.x, las_file.y, las_file.z)).T.astype(np.float32)
 
     # Initialize result dictionary with position
     result = {'pos': points}
