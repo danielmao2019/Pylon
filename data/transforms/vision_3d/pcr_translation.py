@@ -31,11 +31,12 @@ class PCRTranslation(BaseTransform):
         # Calculate the mean
         translation = union_points.mean(dim=0)
         
-        # Create a copy of the point clouds to avoid modifying the originals
+        # Create new dictionaries with the same references to non-pos fields
         new_src_pc = src_pc.copy()
         new_tgt_pc = tgt_pc.copy()
         
         # Apply translation to source and target point clouds
+        # This creates new tensors, so we don't need to clone
         new_src_pc['pos'] = src_pos - translation
         new_tgt_pc['pos'] = tgt_pos - translation
         
