@@ -94,5 +94,5 @@ conda install pytest -c conda-forge -y
 conda install -c conda-forge -y ftfy regex plyfile easydict
 
 # Pip packages
-pip install fvcore triton jsbeautifier
+pip install laspy fvcore triton jsbeautifier
 ```
