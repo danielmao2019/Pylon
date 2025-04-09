@@ -15,14 +15,15 @@ DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud
 
 # Dataset type mapping
 DATASET_TYPE_MAPPING = {
-    'point_cloud_registration': 'point_cloud_registration',
-    'urb3dcd': '3d_change_detection',
-    'slpccd': '3d_change_detection',
     'air_change': '2d_change_detection',
     'cdd': '2d_change_detection',
     'levir_cd': '2d_change_detection',
     'oscd': '2d_change_detection',
-    'sysu_cd': '2d_change_detection'
+    'sysu_cd': '2d_change_detection',
+    'urb3dcd': '3d_change_detection',
+    'slpccd': '3d_change_detection',
+    'synth_pcr': 'point_cloud_registration',
+    'real_pcr': 'point_cloud_registration',
 }
 
 def get_dataset_type(dataset_name: str) -> DatasetType:
