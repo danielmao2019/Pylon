@@ -129,16 +129,16 @@ def geotransformer_collate_fn(
     inputs_dict = precompute_data_stack_mode(points, lengths, num_stages, voxel_size, search_radius, neighbor_limits)
     inputs_dict['features'] = feats
     inputs_dict['transform'] = data_dicts[0]['labels']['transform']
+    meta_info = {
+        key: [d['meta_info'][key] for d in data_dicts]
+        for key in data_dicts[0]['meta_info']
+    }
+    meta_info['batch_size'] = batch_size
     collated_dict = {
         'inputs': inputs_dict,
         'labels': {
             'transform': torch.stack([d['labels']['transform'] for d in data_dicts], dim=0),
         },
-        'meta_info': {
-            'idx': torch.tensor([d['meta_info']['idx'] for d in data_dicts], device=device),
-            'point_indices': [d['meta_info']['point_indices'] for d in data_dicts],
-            'filepath': [d['meta_info']['filepath'] for d in data_dicts],
-            'batch_size': batch_size,
-        },
+        'meta_info': meta_info,
     }
     return collated_dict

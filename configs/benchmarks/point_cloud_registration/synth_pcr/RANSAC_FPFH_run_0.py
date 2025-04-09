@@ -19,7 +19,7 @@ from runners import BaseEvaluator
 config['runner'] = BaseEvaluator
 
 # data config
-from configs.common.datasets.point_cloud_registration.val.classic_data_cfg import data_cfg as eval_data_cfg
+from configs.common.datasets.point_cloud_registration.val.classic_synth_pcr_data_cfg import data_cfg as eval_data_cfg
 config.update(eval_data_cfg)
 
 # model config

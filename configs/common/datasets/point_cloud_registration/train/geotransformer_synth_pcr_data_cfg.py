@@ -10,7 +10,7 @@ data_cfg = {
             'rot_mag': 45.0,
             'trans_mag': 0.5,
             'voxel_size': 10.0,
-            'min_points': 256,
+            'min_points': 512,
             'max_points': 8192,
         },
     },

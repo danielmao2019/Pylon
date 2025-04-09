@@ -2,7 +2,6 @@
 from typing import Dict
 import torch
 import numpy as np
-import teaserpp_python
 
 
 class TeaserPlusPlus(torch.nn.Module):
@@ -19,6 +18,7 @@ class TeaserPlusPlus(torch.nn.Module):
         Returns:
             Transformation matrix (B, 4, 4)
         """
+        import teaserpp_python
         batch_size = inputs['src_pc']['pos'].shape[0]
         device = inputs['src_pc']['pos'].device
 
@@ -45,6 +45,11 @@ class TeaserPlusPlus(torch.nn.Module):
 
             # Get solution
             solution = solver.getSolution()
+            rot = solution.rotation
+            trans = solution.translation
+            solution = np.eye(4)
+            solution[:3, :3] = rot
+            solution[:3, 3] = trans
             transformations.append(solution)
 
         # Convert back to tensor

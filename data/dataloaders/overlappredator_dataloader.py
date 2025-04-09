@@ -14,10 +14,10 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
 
     # Get histogram of neighborhood sizes i in 1 epoch max.
     for i in range(len(dataset)):
-        batched_input = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * 5)
+        batched_dp = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * 5)
 
         # update histogram
-        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).numpy() for neighb_mat in batched_input['neighbors']]
+        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).cpu().numpy() for neighb_mat in batched_dp['inputs']['neighbors']]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighb_hists += np.vstack(hists)
 

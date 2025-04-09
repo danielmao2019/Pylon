@@ -10,11 +10,12 @@ from data.datasets.base_dataset import BaseDataset
 from utils.io import load_point_cloud
 from utils.point_cloud_ops import apply_transform
 from utils.torch_points3d import GridSampling3D
+from utils.point_cloud_ops import get_correspondences
 
 
 def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch.Tensor, grid_sampling, min_points, max_points) -> List[Dict[str, Any]]:
-    src_points = load_point_cloud(src_path)
-    tgt_points = load_point_cloud(tgt_path)
+    src_points = load_point_cloud(src_path)['pos']
+    tgt_points = load_point_cloud(tgt_path)['pos']
     transformed_src_points = apply_transform(src_points, gt_transform)
 
     # Combine source and target points
@@ -93,7 +94,15 @@ class RealPCRDataset(BaseDataset):
     LABEL_NAMES = ['transform']
     SHA1SUM = None
 
-    def __init__(self, gt_transforms: str, voxel_size: float = 10.0, min_points: int = 256, max_points: int = 8192, **kwargs) -> None:
+    def __init__(
+        self,
+        gt_transforms: str,
+        voxel_size: float = 10.0,
+        min_points: int = 256,
+        max_points: int = 8192,
+        matching_radius: float = 0.1,
+        **kwargs,
+    ) -> None:
         """Initialize the dataset.
 
         Args:
@@ -107,6 +116,7 @@ class RealPCRDataset(BaseDataset):
         self._voxel_size = voxel_size
         self._min_points = min_points
         self._max_points = max_points
+        self.matching_radius = matching_radius
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(RealPCRDataset, self).__init__(**kwargs)
 
@@ -192,6 +202,14 @@ class RealPCRDataset(BaseDataset):
         tgt_points = datapoint_cache['tgt_points']
         gt_transform = datapoint_cache['transform']
 
+        # Find correspondences between source and target point clouds
+        correspondences = get_correspondences(
+            src_points,
+            tgt_points,
+            gt_transform,
+            self.matching_radius
+        )
+
         inputs = {
             'src_pc': {
                 'pos': src_points,
@@ -201,6 +219,7 @@ class RealPCRDataset(BaseDataset):
                 'pos': tgt_points,
                 'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
             },
+            'correspondences': correspondences,
         }
 
         labels = {
