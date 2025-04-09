@@ -90,7 +90,7 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
     """Read point cloud data from a LAS/LAZ file.
 
     This function extracts XYZ coordinates and all available attributes from LAS/LAZ files.
-    
+
     Args:
         filename: Path to the LAS/LAZ file
 
@@ -100,16 +100,16 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
         - Additional fields for each available attribute in shape [N, 1]
     """
     assert os.path.isfile(filename), f"File not found: {filename}"
-    
+
     # Read the LAS/LAZ file
     las_file = laspy.read(filename)
-    
+
     # Extract XYZ coordinates
     points = np.vstack((las_file.x, las_file.y, las_file.z)).T
-    
+
     # Initialize result dictionary with position
     result = {'pos': points}
-    
+
     # Add all available attributes
     for field in las_file.point_format.dimension_names:
         if field not in ['x', 'y', 'z']:  # Skip XYZ as they're already in 'pos'
@@ -119,7 +119,7 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
                 if len(attr_value.shape) == 1:
                     attr_value = attr_value.reshape(-1, 1)
                 result[field] = attr_value
-    
+
     return result
 
 
