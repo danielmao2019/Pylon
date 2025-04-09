@@ -15,11 +15,14 @@ class PCRTranslation(BaseTransform):
         assert isinstance(src_pc, dict), f"{type(src_pc)=}"
         assert src_pc.keys() >= {'pos'}, f"{src_pc.keys()=}"
         assert src_pc['pos'].ndim == 2 and src_pc['pos'].shape[1] == 3, f"{src_pc['pos'].shape=}"
+        assert src_pc['pos'].dtype == torch.float32, f"{src_pc['pos'].dtype=}"
         assert isinstance(tgt_pc, dict), f"{type(tgt_pc)=}"
         assert tgt_pc.keys() >= {'pos'}, f"{tgt_pc.keys()=}"
         assert tgt_pc['pos'].ndim == 2 and tgt_pc['pos'].shape[1] == 3, f"{tgt_pc['pos'].shape=}"
+        assert tgt_pc['pos'].dtype == torch.float32, f"{tgt_pc['pos'].dtype=}"
         assert isinstance(transform, torch.Tensor), f"{type(transform)=}"
         assert transform.shape == (4, 4), f"{transform.shape=}"
+        assert transform.dtype == torch.float32, f"{transform.dtype=}"
         
         # Extract point positions from source and target point clouds
         src_pos = src_pc['pos']
