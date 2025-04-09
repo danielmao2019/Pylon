@@ -14,8 +14,10 @@ from utils.point_cloud_ops import get_correspondences
 def process_single_point_cloud(filepath: str, grid_sampling: GridSampling3D, min_points: int, max_points: int) -> list:
     """Process a single point cloud file and return voxel data."""
     # Load point cloud using our utility
-    points = load_point_cloud(filepath)[:, :3]  # Only take XYZ coordinates
-    points = points.float()
+    pc = load_point_cloud(filepath)  # Only take XYZ coordinates
+    assert isinstance(pc, dict)
+    assert pc.keys() >= {'pos'}
+    points = pc['pos'].float()
 
     # Normalize points
     mean = points.mean(0, keepdim=True)
