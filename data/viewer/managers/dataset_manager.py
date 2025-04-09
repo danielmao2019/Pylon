@@ -124,7 +124,7 @@ class DatasetManager:
         if dataset_name not in self._datasets:
             dataset = self.loader.load_dataset(dataset_name)
             if dataset is None:
-                raise ValueError(f"Failed to load dataset: {dataset_name}")
+                raise ValueError(f"Failed to load dataset: {dataset_name}.")
             self._datasets[dataset_name] = dataset
             
         dataset = self._datasets[dataset_name]
