@@ -45,6 +45,7 @@ def random_transform():
 def original_apply_transform(points, transform):
     """
     Original implementation of apply_transform from display_pcr.py.
+    Uses rotation matrix and translation vector approach.
     
     Args:
         points: torch.Tensor of shape (N, 3) - point cloud coordinates

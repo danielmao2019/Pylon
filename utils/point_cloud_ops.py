@@ -43,15 +43,15 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
 def apply_transform(
     points: np.ndarray,
     transform: Union[List[List[Union[int, float]]], np.ndarray, torch.Tensor],
-) -> np.ndarray:
-    """Apply 4x4 transformation matrix to points.
+) -> torch.Tensor:
+    """Apply 4x4 transformation matrix to points using homogeneous coordinates.
 
     Args:
         points (np.ndarray): Points to transform [N, 3]
         transform (Union[List[List[Union[int, float]]], np.ndarray, torch.Tensor]): 4x4 transformation matrix
 
     Returns:
-        np.ndarray: Transformed points [N, 3]
+        torch.Tensor: Transformed points [N, 3] with dtype=torch.float32
     """
     # Convert transform to torch.Tensor if it's not already
     if isinstance(transform, list):
@@ -64,11 +64,15 @@ def apply_transform(
     # Ensure transform is a 4x4 matrix
     assert transform.shape == (4, 4), f"Transform must be a 4x4 matrix, got {transform.shape}"
 
+    # Convert points to torch tensor if it's not already
+    if isinstance(points, np.ndarray):
+        points = torch.tensor(points, dtype=torch.float32)
+    
     # Add homogeneous coordinate
-    points_h = np.hstack([points, np.ones((points.shape[0], 1))])
+    points_h = torch.cat([points, torch.ones((points.shape[0], 1), dtype=torch.float32)], dim=1)
 
     # Apply transformation
-    transformed = (transform @ points_h.T).T
+    transformed = torch.matmul(points_h, transform.t())
 
     # Remove homogeneous coordinate
     return transformed[:, :3]
