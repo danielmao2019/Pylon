@@ -107,20 +107,15 @@ class DatasetLoader:
             self.logger.error(f"No configuration found for dataset: {dataset_name}")
             return None
             
-        try:
-            # Adjust data_root path if needed
-            dataset_cfg = config.get('train_dataset', {})
-            if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args']:
-                if not os.path.isabs(dataset_cfg['args']['data_root']):
-                    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-                    dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
-            
-            # Import the dataset builder
-            import utils.builders
-            dataset = utils.builders.build_from_config(dataset_cfg)
-            self.logger.info(f"Successfully loaded dataset: {dataset_name}")
-            return dataset
-            
-        except Exception as e:
-            self.logger.error(f"Error loading dataset {dataset_name}: {str(e)}")
-            return None 
+        # Adjust data_root path if needed
+        dataset_cfg = config.get('train_dataset', {})
+        if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args']:
+            if not os.path.isabs(dataset_cfg['args']['data_root']):
+                repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
+                dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
+        
+        # Import the dataset builder
+        import utils.builders
+        dataset = utils.builders.build_from_config(dataset_cfg)
+        self.logger.info(f"Successfully loaded dataset: {dataset_name}")
+        return dataset
