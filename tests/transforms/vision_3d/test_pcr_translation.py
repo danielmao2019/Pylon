@@ -20,7 +20,7 @@ def create_random_transform():
     angle = np.random.rand() * 2 * np.pi
     axis = np.random.rand(3).astype(np.float32)
     axis = axis / np.linalg.norm(axis)
-    
+
     # Rodrigues rotation formula
     K = np.array([
         [0, -axis[2], axis[1]],
@@ -28,15 +28,15 @@ def create_random_transform():
         [-axis[1], axis[0], 0]
     ], dtype=np.float32)
     R = np.eye(3, dtype=np.float32) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
-    
+
     # Create a random translation vector
     t = np.random.rand(3).astype(np.float32) * 1000.0
-    
+
     # Combine into a 4x4 transformation matrix
     transform = np.eye(4, dtype=np.float32)
     transform[:3, :3] = R
     transform[:3, 3] = t
-    
+
     return torch.tensor(transform, dtype=torch.float32)
 
 
