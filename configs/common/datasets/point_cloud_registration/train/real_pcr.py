@@ -11,7 +11,7 @@ data_cfg = {
             'voxel_size': 10.0,
             'min_points': 256,
             'max_points': 8192,
-            'transform': {
+            'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [

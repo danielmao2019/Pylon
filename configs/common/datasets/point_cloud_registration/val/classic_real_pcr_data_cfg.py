@@ -14,7 +14,7 @@ data_cfg = {
             'min_points': 256,
             'max_points': 8192,
             'device': 'cpu',
-            'transform': {
+            'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
