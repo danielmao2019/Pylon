@@ -86,7 +86,7 @@ class SynthPCRDataset(BaseDataset):
     def _init_annotations(self):
         """Initialize dataset annotations."""
         # Get file paths
-        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.ply')))
+        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
         self.cache_dir = os.path.join(os.path.dirname(self.data_root), 'voxel_cache')
         os.makedirs(self.cache_dir, exist_ok=True)
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")

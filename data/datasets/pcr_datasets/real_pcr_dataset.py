@@ -111,7 +111,7 @@ class RealPCRDataset(BaseDataset):
         super(RealPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self) -> None:
-        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.ply')))
+        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
         with open(self.gt_transforms, 'r') as f:
             self.gt_transforms: List[Dict[str, Any]] = json.load(f)
         assert len(self.file_paths) == len(self.gt_transforms)
@@ -139,13 +139,9 @@ class RealPCRDataset(BaseDataset):
             with multiprocessing.Pool(num_workers) as pool:
                 # Create arguments for each file
                 process_args = []
-                for i, file_path in enumerate(self.file_paths):
-                    # Skip first file as it is the reference
-                    if i == 0:
-                        continue
-                    transform_data = self.gt_transforms[i]
+                for transform_data in self.gt_transforms[1:]:
                     src_path = os.path.join(self.data_root, transform_data['filepath'])
-                    tgt_path = file_path
+                    tgt_path = self.file_paths[0]
                     gt_transform = torch.tensor(transform_data['transform'], dtype=torch.float32)
                     process_args.append((src_path, tgt_path, gt_transform))
 
