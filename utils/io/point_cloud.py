@@ -1,8 +1,9 @@
-from typing import Optional
+from typing import Optional, Dict
 import os
 import numpy as np
 import torch
 from plyfile import PlyData
+import laspy
 
 
 def _read_from_ply(filename, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> np.ndarray:
@@ -85,6 +86,43 @@ def _read_from_txt(filename: str) -> np.ndarray:
         raise IOError(f"Failed to load point cloud from {filename}: {str(e)}")
 
 
+def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
+    """Read point cloud data from a LAS/LAZ file.
+
+    This function extracts XYZ coordinates and all available attributes from LAS/LAZ files.
+    
+    Args:
+        filename: Path to the LAS/LAZ file
+
+    Returns:
+        A dictionary containing:
+        - 'pos': XYZ coordinates in shape [N, 3]
+        - Additional fields for each available attribute in shape [N, 1]
+    """
+    assert os.path.isfile(filename), f"File not found: {filename}"
+    
+    # Read the LAS/LAZ file
+    las_file = laspy.read(filename)
+    
+    # Extract XYZ coordinates
+    points = np.vstack((las_file.x, las_file.y, las_file.z)).T
+    
+    # Initialize result dictionary with position
+    result = {'pos': points}
+    
+    # Add all available attributes
+    for field in las_file.point_format.dimension_names:
+        if field not in ['x', 'y', 'z']:  # Skip XYZ as they're already in 'pos'
+            attr_value = getattr(las_file, field)
+            if attr_value is not None:
+                # Reshape to [N, 1] if it's a 1D array
+                if len(attr_value.shape) == 1:
+                    attr_value = attr_value.reshape(-1, 1)
+                result[field] = attr_value
+    
+    return result
+
+
 def load_point_cloud(
     pathPC,
     nameInPly: Optional[str] = None,
@@ -109,6 +147,8 @@ def load_point_cloud(
 
     if file_ext == '.ply':
         pc_data = _read_from_ply(pathPC, nameInPly=nameInPly, name_feat=name_feat)
+    elif file_ext in ['.las', '.laz']:
+        pc_data = _read_from_las(pathPC)
     else:
         # Check if this is a segmentation file (_seg.txt) for SLPCCD dataset
         is_seg_file = '_seg' in os.path.basename(pathPC).lower()
