@@ -7,6 +7,7 @@ import time
 import json
 import jsbeautifier
 import torch
+import torch.multiprocessing as mp
 
 import criteria
 import utils
@@ -14,6 +15,26 @@ from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
 from utils.parallelism import parallel_execute
+
+
+def _worker_process_validation_batch(args):
+    """Worker function that takes all needed objects as arguments."""
+    idx, dp, model, metric, device = args
+    
+    try:
+        # Use the objects directly, not as globals
+        inputs = dp['inputs'].to(device)
+        labels = dp['labels'].to(device)
+        
+        with torch.no_grad():
+            outputs = model(inputs)
+            # Directly call metric to add to buffer
+            metric(y_pred=outputs, y_true=labels)
+            # No need to return anything
+        return None  # Indicate success
+    except Exception as e:
+        print(f"[Worker {os.getpid()} Item {idx}] Processing FAILED: {e}")
+        return e  # Return exception object to indicate failure
 
 
 class BaseTrainer(ABC):
@@ -313,17 +334,6 @@ class BaseTrainer(ABC):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
 
-    def _process_validation_batch(self, idx, dp: Dict[str, Dict[str, Any]]) -> None:
-        """Process a single validation batch in a thread-safe manner."""
-        # Run model inference
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
-            dp['outputs'] = self.model(dp['inputs'])
-            dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
-
-        # Update logger with scores
-        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
-        self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-
     def _val_epoch_(self) -> None:
         if not (self.val_dataloader and self.model):
             self.logger.info("Skipped validation epoch.")
@@ -332,26 +342,56 @@ class BaseTrainer(ABC):
         start_time = time.time()
         # do validation loop
         self.model.eval()
+        
+        # Make model shareable
+        self.model.share_memory()
+        
+        # Create a shared buffer using multiprocessing.Manager
+        manager = mp.Manager()
+        shared_buffer = manager.list()
+        
+        # Set the shared buffer for the metric
+        self.metric.set_shared_buffer(shared_buffer)
+        
+        # Reset metric buffer before starting validation
         self.metric.reset_buffer()
 
-        # Process validation data in parallel using threads
-        self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
+        self.logger.info(f"Using {self.eval_n_jobs} processes for parallel validation (multiprocessing)")
 
-        # Create an iterator of arguments for parallel processing
-        # This avoids loading all data into memory at once
-        args_iterator = ((idx, dp) for idx, dp in enumerate(self.val_dataloader))
+        # Create an iterator of args instead of a list
+        args_iter = ((idx, dp, self.model, self.metric, self.device) 
+                    for idx, dp in enumerate(self.val_dataloader))
 
-        # Use the utility function for parallel processing
-        parallel_execute(
-            func=self._process_validation_batch,
-            args=args_iterator,
+        # Use the worker function directly without an initializer
+        results = parallel_execute(
+            func=_worker_process_validation_batch,
+            args=args_iter,
             n_jobs=self.eval_n_jobs,
-            logger=self.logger
+            logger=self.logger,
+            parallelization_type='multiprocessing'
         )
 
-        # after validation loop
-        self._after_val_loop_()
-        # log time
+        # --- Check for errors in results --- 
+        num_success = 0
+        for i, result in enumerate(results):
+            if result is None:
+                num_success += 1
+            elif isinstance(result, Exception):
+                self.logger.error(f"Validation item {i} failed in worker with exception: {result}")
+            else:
+                self.logger.warning(f"Validation item {i} returned unexpected result: {result}")
+
+        if num_success > 0:
+            self.logger.info(f"Successfully processed {num_success} validation items.")
+        else:
+            self.logger.warning("No validation items processed successfully.")
+        # --------------------------------------------------------
+
+        # Note: We don't need to manually aggregate results here since all workers
+        # are updating the same shared buffer. The metric's summarize method
+        # will handle the aggregation when called in _after_val_loop_
+        
+        self._after_val_loop_() # This will call self.metric.summarize() on the aggregated buffer
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
     def _find_best_checkpoint_(self) -> str:

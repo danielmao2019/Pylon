@@ -12,6 +12,7 @@ data_cfg = {
             'voxel_size': 10.0,
             'min_points': 256,
             'max_points': 8192,
+            'device': 'cpu',
         },
     },
     'train_dataloader': {

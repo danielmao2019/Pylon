@@ -72,8 +72,8 @@ class Logger:
     def warning(self, string: str) -> None:
         self.core_logger.warning(string)
 
-    def error(self, string: str) -> None:
-        self.core_logger.error(string)
+    def error(self, string: str, exc_info=False, **kwargs) -> None:
+        self.core_logger.error(string, exc_info=exc_info, **kwargs)
 
     def page_break(self):
         self.core_logger.info("")

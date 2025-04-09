@@ -142,7 +142,8 @@ class BaseEvaluator:
             func=self._process_eval_batch,
             args=args_iterator,
             n_jobs=num_workers,
-            logger=self.logger
+            logger=self.logger,
+            parallelization_type='multiprocessing',
         )
 
         # after validation loop
