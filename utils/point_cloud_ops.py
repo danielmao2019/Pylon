@@ -38,6 +38,7 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
     
     return torch.from_numpy(corr_indices)
 
+
 def apply_transform(points: np.ndarray, transform: np.ndarray) -> np.ndarray:
     """Apply 4x4 transformation matrix to points.
     

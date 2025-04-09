@@ -120,6 +120,25 @@ def display_pcr_datapoint(
             camera_state=camera_state
         ))
 
+    # Compute rotation angle and translation magnitude
+    rotation_matrix = transform[:3, :3]
+    translation_vector = transform[:3, 3]
+    
+    # Compute rotation angle using the trace of the rotation matrix
+    # For a 3x3 rotation matrix R, the angle θ can be computed as:
+    # θ = arccos((tr(R) - 1) / 2)
+    trace = torch.trace(rotation_matrix)
+    rotation_angle = torch.acos((trace - 1) / 2) * 180 / np.pi  # Convert to degrees
+    
+    # Compute translation magnitude
+    translation_magnitude = torch.norm(translation_vector)
+    
+    # Format the transformation matrix as a string
+    transform_str = "Transform Matrix:\n"
+    for i in range(4):
+        row = [f"{transform[i, j]:.4f}" for j in range(4)]
+        transform_str += "  ".join(row) + "\n"
+    
     # Create a grid layout for the four figures
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
@@ -156,8 +175,10 @@ def display_pcr_datapoint(
 
         # Display transform information
         html.Div([
-            html.H4("Transform Matrix:"),
-            html.Pre(format_value(transform))
+            html.H4("Transform Information:"),
+            html.Pre(transform_str),
+            html.P(f"Rotation Angle: {rotation_angle:.2f} degrees"),
+            html.P(f"Translation Magnitude: {translation_magnitude:.4f}")
         ], style={'margin-top': '20px'})
     ])
 
