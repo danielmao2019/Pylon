@@ -3,7 +3,7 @@ import data
 
 data_cfg = {
     'train_dataset': {
-        'class': data.datasets.SynthPCRDataset,
+        'class': data.datasets.RealPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'split': 'train',
