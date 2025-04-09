@@ -96,7 +96,8 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
         name=dataset_info['name'],
         length=dataset_info['length'],
         class_labels=dataset_info['class_labels'],
-        transforms=dataset_info['transforms']
+        transforms=dataset_info['transforms'],
+        dataset_type=dataset_type
     )
 
     # Create slider marks

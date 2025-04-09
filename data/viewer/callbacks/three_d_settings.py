@@ -35,10 +35,14 @@ def update_3d_settings(
     try:
         # Get current dataset info
         dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
+        if not dataset_info:
+            return [
+                html.Div("No dataset loaded."),
+                registry.viewer.state.get_state()['3d_settings']
+            ]
+            
+        assert 'type' in dataset_info, f"{dataset_info.keys()=}"
         dataset_type = dataset_info.get('type')
-        
-        if dataset_type is None:
-            raise ValueError("Dataset type not available.")
 
         if dataset_type not in THREE_D_DATASET_TYPES:
             return [
@@ -77,13 +81,11 @@ def update_view_controls(
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
 ) -> List[Dict[str, str]]:
     """Update the visibility of 3D view controls based on dataset type."""
-    if dataset_info is None:
+    if dataset_info is None or not dataset_info:
         return [{'display': 'none'}, {'display': 'none'}]
     
     assert 'type' in dataset_info, f"{dataset_info.keys()=}"
     dataset_type = dataset_info.get('type')
-    if dataset_type is None:
-        raise ValueError("Dataset type not available.")
     
     # Default styles
     view_controls_style = {'display': 'none'}
