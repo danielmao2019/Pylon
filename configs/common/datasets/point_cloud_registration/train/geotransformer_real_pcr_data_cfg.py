@@ -9,7 +9,7 @@ data_cfg = {
             'split': 'train',
             'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
             'voxel_size': 10.0,
-            'min_points': 256,
+            'min_points': 512,
             'max_points': 8192,
         },
     },

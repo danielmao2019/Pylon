@@ -1,4 +1,4 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 import os
 import numpy as np
 import torch
@@ -105,7 +105,7 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
     las_file = laspy.read(filename)
 
     # Extract XYZ coordinates
-    points = np.vstack((las_file.x, las_file.y, las_file.z)).T
+    points = np.vstack((las_file.x, las_file.y, las_file.z)).T.astype(np.float32)
 
     # Initialize result dictionary with position
     result = {'pos': points}
@@ -115,9 +115,9 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
         if field not in ['x', 'y', 'z']:  # Skip XYZ as they're already in 'pos'
             attr_value = getattr(las_file, field)
             if attr_value is not None:
-                # Reshape to [N, 1] if it's a 1D array
-                if len(attr_value.shape) == 1:
-                    attr_value = attr_value.reshape(-1, 1)
+                attr_value = np.array(attr_value, dtype=np.float32)
+                assert attr_value.shape == (len(points),), f"{attr_value.shape=}"
+                attr_value = attr_value.reshape(-1, 1)
                 result[field] = attr_value
 
     return result
@@ -127,7 +127,7 @@ def load_point_cloud(
     pathPC,
     nameInPly: Optional[str] = None,
     name_feat: Optional[str] = None
-) -> torch.Tensor:
+) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
     """Load a point cloud file.
 
     Args:
@@ -147,8 +147,14 @@ def load_point_cloud(
 
     if file_ext == '.ply':
         pc_data = _read_from_ply(pathPC, nameInPly=nameInPly, name_feat=name_feat)
+        pc_data = torch.from_numpy(pc_data)
     elif file_ext in ['.las', '.laz']:
         pc_data = _read_from_las(pathPC)
+        assert isinstance(pc_data, dict)
+        pc_data = {
+            key: torch.from_numpy(val)
+            for key, val in pc_data.items()
+        }
     else:
         # Check if this is a segmentation file (_seg.txt) for SLPCCD dataset
         is_seg_file = '_seg' in os.path.basename(pathPC).lower()
@@ -158,5 +164,6 @@ def load_point_cloud(
         # and converted to integer values for classification
         if is_seg_file:
             pc_data[:, 3] = pc_data[:, 3].astype(np.int64)
+        pc_data = torch.from_numpy(pc_data)
 
-    return torch.from_numpy(pc_data)
+    return pc_data

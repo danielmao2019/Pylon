@@ -3,13 +3,13 @@ import data
 
 data_cfg = {
     'val_dataset': {
-        'class': data.datasets.SynthPCRDataset,
+        'class': data.datasets.RealPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'split': 'val',
             'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
             'voxel_size': 10.0,
-            'min_points': 256,
+            'min_points': 512,
             'max_points': 8192,
         },
     },

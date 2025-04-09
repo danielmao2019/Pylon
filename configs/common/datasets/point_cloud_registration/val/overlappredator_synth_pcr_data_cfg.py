@@ -2,18 +2,19 @@ import data
 
 
 data_cfg = {
-    'train_dataset': {
+    'val_dataset': {
         'class': data.datasets.SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'split': 'train',
-            'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
+            'split': 'val',
+            'rot_mag': 45.0,
+            'trans_mag': 0.5,
             'voxel_size': 10.0,
-            'min_points': 256,
+            'min_points': 512,
             'max_points': 8192,
         },
     },
-    'train_dataloader': {
+    'val_dataloader': {
         'class': data.dataloaders.OverlapPredatorDataloader,
         'args': {
             'batch_size': 1,
@@ -45,5 +46,5 @@ data_cfg = {
             },
         },
     },
-    'criterion': None,
+    'metric': None,
 }
