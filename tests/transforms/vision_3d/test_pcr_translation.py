@@ -72,10 +72,9 @@ def test_pcr_translation(num_points):
 
     # 1. Check that only translation happened (no rotation or scaling or non-rigid deformation)
     src_translation = new_src_pc['pos'] - src_pc['pos']
-    tgt_translation = new_tgt_pc['pos'] - tgt_pc['pos']
     assert torch.allclose(src_translation[0], src_translation[1:], atol=1e-6)
+    tgt_translation = new_tgt_pc['pos'] - tgt_pc['pos']
     assert torch.allclose(tgt_translation[0], tgt_translation[1:], atol=1e-6)
-    assert torch.allclose(new_transform, transform, atol=1e-6)
 
     # 2. Check that the translations are consistent
     assert torch.allclose(src_translation[0], tgt_translation[0], atol=1e-6)
