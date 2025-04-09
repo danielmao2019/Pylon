@@ -146,7 +146,6 @@ class DatasetManager:
             'class_labels': getattr(dataset, 'class_labels', {}),
             'transforms': self.transform_manager.get_available_transforms(),
             'cache_stats': self._caches[dataset_name].get_stats(),
-            'is_3d': dataset_type in ['3d_change_detection', 'point_cloud_registration'],
             'input_format': dataset_format['input_format'],
             'label_format': dataset_format['label_format']
         }

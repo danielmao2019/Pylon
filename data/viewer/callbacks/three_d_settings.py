@@ -35,10 +35,9 @@ def update_3d_settings(
     try:
         # Get current dataset info
         dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
-        is_3d: bool = dataset_info.get('is_3d', False)
-        dataset_type: str = dataset_info.get('type', 'change_detection')
+        dataset_type: DatasetType = dataset_info.get('type', '2d_change_detection')
 
-        if not is_3d:
+        if dataset_type not in THREE_D_DATASET_TYPES:
             return [
                 html.Div("3D settings are only available for 3D datasets."),
                 registry.viewer.state.get_state()['3d_settings']
@@ -78,15 +77,14 @@ def update_view_controls(
     if dataset_info is None:
         return [{'display': 'none'}, {'display': 'none'}]
     
-    is_3d: bool = dataset_info.get('is_3d', False)
-    dataset_type: str = dataset_info.get('type', 'change_detection')
+    dataset_type: DatasetType = dataset_info.get('type', '2d_change_detection')
     
     # Default styles
     view_controls_style = {'display': 'none'}
     pcr_controls_style = {'display': 'none'}
     
     # Show 3D controls for 3D datasets
-    if is_3d:
+    if dataset_type in THREE_D_DATASET_TYPES:
         view_controls_style = {'display': 'block'}
         
         # Show PCR controls only for PCR datasets

@@ -78,9 +78,6 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
     # Determine dataset type
     dataset_type = get_dataset_type(dataset_name)
     dataset_info['type'] = dataset_type
-    
-    # Set is_3d based on dataset type
-    dataset_info['is_3d'] = dataset_type in ['3d_change_detection', 'point_cloud_registration']
 
     # Update state with dataset info
     logger.info(f"Updating state with dataset info: {dataset_info}")
@@ -88,7 +85,6 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
         name=dataset_info['name'],
         length=dataset_info['length'],
         class_labels=dataset_info['class_labels'],
-        is_3d=dataset_info['is_3d'],
         transforms=dataset_info['transforms']
     )
 

@@ -105,34 +105,25 @@ def update_datapoint(
     # Get datapoint from manager through registry
     datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx)
 
-    # Get dataset type and is_3d from dataset info
-    dataset_type: str = dataset_info.get('type', 'change_detection')
-    is_3d: bool = dataset_info.get('is_3d', False)
-    logger.info(f"Dataset type: {dataset_type}, 3D: {is_3d}")
+    # Get dataset type from dataset info
+    dataset_type: DatasetType = dataset_info.get('type', '2d_change_detection')
+    logger.info(f"Dataset type: {dataset_type}")
 
     # Get class labels if available
     class_labels: Dict[int, str] = dataset_info.get('class_labels', {})
     logger.info(f"Class labels available: {bool(class_labels)}")
-
-    # Determine the appropriate display function based on dataset type
-    if dataset_type == 'point_cloud_registration':
-        display_type = 'point_cloud_registration'
-    elif is_3d:
-        display_type = '3d_change_detection'
-    else:
-        display_type = '2d_change_detection'
         
     # Get the appropriate display function
-    display_func = DISPLAY_FUNCTIONS.get(display_type)
+    display_func = DISPLAY_FUNCTIONS.get(dataset_type)
     if display_func is None:
-        logger.error(f"No display function found for dataset type: {display_type}")
-        return [html.Div(f"Error: Unsupported dataset type: {display_type}")]
+        logger.error(f"No display function found for dataset type: {dataset_type}")
+        return [html.Div(f"Error: Unsupported dataset type: {dataset_type}")]
         
     # Call the display function with appropriate parameters
-    logger.info(f"Creating {display_type} display")
-    if display_type == 'point_cloud_registration':
+    logger.info(f"Creating {dataset_type} display")
+    if dataset_type == 'point_cloud_registration':
         display = display_func(datapoint, point_size, point_opacity, camera_state, radius)
-    elif display_type == '3d_change_detection':
+    elif dataset_type == '3d_change_detection':
         display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state)
     else:  # 2d_change_detection
         display = display_func(datapoint)
