@@ -111,7 +111,7 @@ class RealPCRDataset(BaseDataset):
         super(RealPCRDataset, self).__init__(**kwargs)
 
     def _init_annotations(self) -> None:
-        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.ply')))
+        self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
         with open(self.gt_transforms, 'r') as f:
             self.gt_transforms: List[Dict[str, Any]] = json.load(f)
         assert len(self.file_paths) == len(self.gt_transforms)
