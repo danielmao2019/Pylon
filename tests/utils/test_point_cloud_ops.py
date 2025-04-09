@@ -8,17 +8,20 @@ from utils.point_cloud_ops import apply_transform
 @pytest.fixture
 def random_point_cloud():
     """Fixture to generate a random point cloud."""
-    def _generate(num_points=None):
+    def _generate(num_points=None, use_numpy=False):
         if num_points is None:
             num_points = np.random.randint(100, 1000)
-        return torch.rand(num_points, 3, dtype=torch.float32)
+        if use_numpy:
+            return np.random.rand(num_points, 3).astype(np.float32)
+        else:
+            return torch.rand(num_points, 3, dtype=torch.float32)
     return _generate
 
 
 @pytest.fixture
 def random_transform():
     """Fixture to generate a random 4x4 transformation matrix."""
-    def _generate():
+    def _generate(use_numpy=False):
         # Create a random rotation matrix using Rodrigues formula
         angle = np.random.uniform(0, 2 * np.pi)
         axis = np.random.rand(3).astype(np.float32)
@@ -38,6 +41,10 @@ def random_transform():
         transform = np.eye(4, dtype=np.float32)
         transform[:3, :3] = R
         transform[:3, 3] = t
+        
+        if not use_numpy:
+            transform = torch.tensor(transform, dtype=torch.float32)
+            
         return transform
     return _generate
 
@@ -73,61 +80,106 @@ def original_apply_transform(points, transform):
     return transformed_points
 
 
-@pytest.mark.parametrize("transform_type", ["numpy", "list"])
-def test_apply_transform_output_shape(random_point_cloud, random_transform, transform_type):
-    """Test that apply_transform maintains the correct output shape."""
-    points = random_point_cloud(100)
-    transform = random_transform()
+@pytest.mark.parametrize("transform_type", ["numpy", "list", "torch"])
+@pytest.mark.parametrize("points_type", ["numpy", "torch"])
+def test_apply_transform_output_shape(random_point_cloud, random_transform, transform_type, points_type):
+    """Test that apply_transform maintains the correct output shape and type."""
+    use_numpy = points_type == "numpy"
+    points = random_point_cloud(100, use_numpy=use_numpy)
+    transform = random_transform(use_numpy=transform_type == "numpy")
     
     if transform_type == "list":
-        transform = transform.tolist()
+        transform = transform.tolist() if not use_numpy else transform.tolist()
     
     result = apply_transform(points, transform)
+    
+    # Check shape
     assert result.shape == points.shape, f"Expected shape {points.shape}, got {result.shape}"
+    
+    # Check type
+    if use_numpy:
+        assert isinstance(result, np.ndarray), "Expected numpy array output for numpy input"
+    else:
+        assert isinstance(result, torch.Tensor), "Expected torch tensor output for torch input"
 
 
-@pytest.mark.parametrize("transform_type", ["numpy", "list"])
-def test_apply_transform_equivalence(random_point_cloud, random_transform, transform_type):
+@pytest.mark.parametrize("transform_type", ["numpy", "list", "torch"])
+@pytest.mark.parametrize("points_type", ["numpy", "torch"])
+def test_apply_transform_equivalence(random_point_cloud, random_transform, transform_type, points_type):
     """Test that apply_transform produces equivalent results to the original implementation."""
-    points = random_point_cloud(100)
-    transform = random_transform()
+    use_numpy = points_type == "numpy"
+    points = random_point_cloud(100, use_numpy=use_numpy)
+    transform = random_transform(use_numpy=transform_type == "numpy")
     
     if transform_type == "list":
-        transform_input = transform.tolist()
+        transform_input = transform.tolist() if not use_numpy else transform.tolist()
     else:
         transform_input = transform
     
     result_new = apply_transform(points, transform_input)
-    result_original = original_apply_transform(points, transform)
     
-    assert torch.allclose(result_new, result_original, rtol=1e-5, atol=1e-5), \
-        f"Results differ for {transform_type} transform"
+    # For comparison with original_apply_transform, convert to torch
+    if use_numpy:
+        points_torch = torch.tensor(points, dtype=torch.float32)
+        transform_torch = torch.tensor(transform, dtype=torch.float32) if isinstance(transform, np.ndarray) else transform
+        result_original = original_apply_transform(points_torch, transform_torch)
+        result_new_torch = torch.tensor(result_new, dtype=torch.float32)
+        assert torch.allclose(result_new_torch, result_original, rtol=1e-5, atol=1e-5), \
+            f"Results differ for {points_type} points and {transform_type} transform"
+    else:
+        result_original = original_apply_transform(points, transform)
+        assert torch.allclose(result_new, result_original, rtol=1e-5, atol=1e-5), \
+            f"Results differ for {points_type} points and {transform_type} transform"
 
 
-def test_apply_transform_identity(random_point_cloud):
+@pytest.mark.parametrize("points_type", ["numpy", "torch"])
+def test_apply_transform_identity(random_point_cloud, points_type):
     """Test that applying identity transform returns the original points."""
-    points = random_point_cloud(100)
-    identity = np.eye(4, dtype=np.float32)
+    use_numpy = points_type == "numpy"
+    points = random_point_cloud(100, use_numpy=use_numpy)
+    
+    if use_numpy:
+        identity = np.eye(4, dtype=np.float32)
+    else:
+        identity = torch.eye(4, dtype=torch.float32)
     
     result = apply_transform(points, identity)
-    assert torch.allclose(result, points, rtol=1e-5, atol=1e-5), \
-        "Identity transform should return original points"
+    
+    if use_numpy:
+        assert np.allclose(result, points, rtol=1e-5, atol=1e-5), \
+            "Identity transform should return original points"
+    else:
+        assert torch.allclose(result, points, rtol=1e-5, atol=1e-5), \
+            "Identity transform should return original points"
 
 
-def test_apply_transform_invalid_shape(random_point_cloud):
+@pytest.mark.parametrize("points_type", ["numpy", "torch"])
+def test_apply_transform_invalid_shape(random_point_cloud, points_type):
     """Test that apply_transform raises appropriate error for invalid transform shape."""
-    points = random_point_cloud(100)
-    invalid_transform = np.eye(3, dtype=np.float32)  # 3x3 instead of 4x4
+    use_numpy = points_type == "numpy"
+    points = random_point_cloud(100, use_numpy=use_numpy)
+    
+    if use_numpy:
+        invalid_transform = np.eye(3, dtype=np.float32)  # 3x3 instead of 4x4
+    else:
+        invalid_transform = torch.eye(3, dtype=torch.float32)  # 3x3 instead of 4x4
     
     with pytest.raises(AssertionError, match="Transform must be a 4x4 matrix"):
         apply_transform(points, invalid_transform)
 
 
 @pytest.mark.parametrize("num_points", [0, 1, 1000])
-def test_apply_transform_edge_cases(random_transform, num_points):
+@pytest.mark.parametrize("points_type", ["numpy", "torch"])
+def test_apply_transform_edge_cases(random_transform, num_points, points_type):
     """Test apply_transform with edge cases of point cloud sizes."""
-    points = torch.rand(num_points, 3, dtype=torch.float32)
-    transform = random_transform()
+    use_numpy = points_type == "numpy"
+    
+    if use_numpy:
+        points = np.random.rand(num_points, 3).astype(np.float32)
+    else:
+        points = torch.rand(num_points, 3, dtype=torch.float32)
+    
+    transform = random_transform(use_numpy=use_numpy)
     
     result = apply_transform(points, transform)
     assert result.shape == points.shape, f"Expected shape {points.shape}, got {result.shape}"

@@ -41,41 +41,56 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
 
 
 def apply_transform(
-    points: np.ndarray,
+    points: Union[np.ndarray, torch.Tensor],
     transform: Union[List[List[Union[int, float]]], np.ndarray, torch.Tensor],
-) -> torch.Tensor:
+) -> Union[np.ndarray, torch.Tensor]:
     """Apply 4x4 transformation matrix to points using homogeneous coordinates.
 
     Args:
-        points (np.ndarray): Points to transform [N, 3]
+        points (Union[np.ndarray, torch.Tensor]): Points to transform [N, 3]
         transform (Union[List[List[Union[int, float]]], np.ndarray, torch.Tensor]): 4x4 transformation matrix
 
     Returns:
-        torch.Tensor: Transformed points [N, 3] with dtype=torch.float32
+        Union[np.ndarray, torch.Tensor]: Transformed points [N, 3] with the same type as input points
     """
-    # Convert transform to torch.Tensor if it's not already
+    # Determine if we're working with numpy or torch
+    is_numpy = isinstance(points, np.ndarray)
+    
+    # Convert transform to the appropriate type
     if isinstance(transform, list):
-        transform = torch.tensor(transform, dtype=torch.float32)
+        if is_numpy:
+            transform = np.array(transform, dtype=np.float32)
+        else:
+            transform = torch.tensor(transform, dtype=torch.float32)
     elif isinstance(transform, np.ndarray):
-        transform = torch.tensor(transform, dtype=torch.float32)
+        if not is_numpy:
+            transform = torch.tensor(transform, dtype=torch.float32)
+    elif isinstance(transform, torch.Tensor):
+        if is_numpy:
+            transform = transform.cpu().numpy()
     else:
-        raise ValueError(f"Transform must be a list or numpy array, got {type(transform)}")
+        raise ValueError(f"Transform must be a list, numpy array, or torch tensor, got {type(transform)}")
 
     # Ensure transform is a 4x4 matrix
     assert transform.shape == (4, 4), f"Transform must be a 4x4 matrix, got {transform.shape}"
-
-    # Convert points to torch tensor if it's not already
-    if isinstance(points, np.ndarray):
-        points = torch.tensor(points, dtype=torch.float32)
     
     # Add homogeneous coordinate
-    points_h = torch.cat([points, torch.ones((points.shape[0], 1), dtype=torch.float32)], dim=1)
-
-    # Apply transformation
-    transformed = torch.matmul(points_h, transform.t())
-
-    # Remove homogeneous coordinate
-    return transformed[:, :3]
+    if is_numpy:
+        points_h = np.hstack([points, np.ones((points.shape[0], 1), dtype=np.float32)])
+        
+        # Apply transformation
+        transformed = np.dot(points_h, transform.T)
+        
+        # Remove homogeneous coordinate
+        return transformed[:, :3]
+    else:
+        points_h = torch.cat([points, torch.ones((points.shape[0], 1), dtype=torch.float32)], dim=1)
+        
+        # Apply transformation
+        transformed = torch.matmul(points_h, transform.t())
+        
+        # Remove homogeneous coordinate
+        return transformed[:, :3]
 
 
 def compute_symmetric_difference_indices(
