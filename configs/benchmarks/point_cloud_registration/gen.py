@@ -57,9 +57,9 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
     elif model == 'OverlapPredator':
         config += f"# data config\n"
-        config += f"from configs.common.datasets.point_cloud_registration.train.overlappredator_data_cfg import data_cfg as train_data_cfg\n" 
+        config += f"from configs.common.datasets.point_cloud_registration.train.overlappredator_{dataset}_data_cfg import data_cfg as train_data_cfg\n" 
         config += f"config.update(train_data_cfg)\n"
-        config += f"from configs.common.datasets.point_cloud_registration.val.overlappredator_data_cfg import data_cfg as val_data_cfg\n" 
+        config += f"from configs.common.datasets.point_cloud_registration.val.overlappredator_{dataset}_data_cfg import data_cfg as val_data_cfg\n" 
         config += f"config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"

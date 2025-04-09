@@ -9,7 +9,9 @@ data_cfg = {
             'split': 'val',
             'rot_mag': 45.0,
             'trans_mag': 0.5,
-            'voxel_size': 5.0,
+            'voxel_size': 10.0,
+            'min_points': 256,
+            'max_points': 8192,
         },
     },
     'val_dataloader': {
