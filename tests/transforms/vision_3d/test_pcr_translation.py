@@ -20,7 +20,7 @@ def create_random_transform():
     angle = np.random.rand() * 2 * np.pi
     axis = np.random.rand(3)
     axis = axis / np.linalg.norm(axis)
-    
+
     # Rodrigues rotation formula
     K = np.array([
         [0, -axis[2], axis[1]],
@@ -28,15 +28,15 @@ def create_random_transform():
         [-axis[1], axis[0], 0]
     ])
     R = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.dot(K, K)
-    
+
     # Create a random translation vector
     t = np.random.rand(3) * 1000.0
-    
+
     # Combine into a 4x4 transformation matrix
     transform = np.eye(4)
     transform[:3, :3] = R
     transform[:3, 3] = t
-    
+
     return torch.tensor(transform, dtype=torch.float32)
 
 
@@ -54,29 +54,29 @@ def test_pcr_translation(num_points):
     # Set random seed for reproducibility
     torch.manual_seed(42)
     np.random.seed(42)
-    
+
     # Create a random source point cloud with extreme coordinates
     src_points = create_random_point_cloud(num_points)
     src_pc = create_point_cloud_dict(src_points)
-    
+
     # Create a random transformation matrix
     transform = create_random_transform()
-    
+
     # Apply the transformation to create a target point cloud
     tgt_points = apply_transform(src_points, transform)
     tgt_pc = create_point_cloud_dict(tgt_points)
-    
+
     # Create and apply the PCRTranslation transform
     pcr_translation = PCRTranslation()
     new_src_pc, new_tgt_pc, new_transform = pcr_translation(src_pc, tgt_pc, transform)
-    
+
     # 1. Check that only translation happened (no rotation or scaling or non-rigid deformation)
     src_translation = new_src_pc['pos'] - src_pc['pos']
     tgt_translation = new_tgt_pc['pos'] - tgt_pc['pos']
     assert torch.allclose(src_translation[0], src_translation[1:], atol=1e-6)
     assert torch.allclose(tgt_translation[0], tgt_translation[1:], atol=1e-6)
     assert torch.allclose(new_transform[:3, :3], transform[:3, :3], atol=1e-6)
-    
+
     # 2. Check that the translations are consistent
     # The translation applied to src_pc and tgt_pc should be similar to the change in the transform's translation
     # The translation vectors should be similar in magnitude but opposite in direction
@@ -91,7 +91,7 @@ def test_pcr_translation(num_points):
     union_points = torch.cat([new_src_pc['pos'], new_tgt_pc['pos']], dim=0)
     mean = union_points.mean(dim=0)
     assert torch.allclose(mean, torch.zeros(3), atol=1e-6)
-    
+
     # 4. Check validity of the output transform matrix
     transformed_src = apply_transform(new_src_pc['pos'], new_transform)
     assert torch.allclose(transformed_src, new_tgt_pc['pos'], atol=1e-6)
