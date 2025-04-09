@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from sklearn.neighbors import KDTree
 from data.datasets import BaseDataset
-from utils.torch_points3d import GridSampling3D
+from utils.point_cloud_ops.sampling import GridSampling3D
 import utils
 
 

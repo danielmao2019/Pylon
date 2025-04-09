@@ -6,7 +6,7 @@ import torch
 import multiprocessing
 from functools import partial
 from data.datasets.base_dataset import BaseDataset
-from utils.torch_points3d import GridSampling3D
+from utils.point_cloud_ops.sampling import GridSampling3D
 from utils.point_cloud_ops import get_correspondences, apply_transform
 from utils.io import load_point_cloud
 
