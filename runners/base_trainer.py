@@ -24,11 +24,12 @@ from utils.logging import echo_page_break, log_losses, log_scores
 def _worker_process_validation_batch(args):
     """Worker function that takes all needed objects as arguments."""
     idx, dp, model, metric, device = args
+    dp = apply_tensor_op(func=lambda x: x.to(device), inputs=dp)
     
     try:
         # Use the objects directly, not as globals
-        inputs = dp['inputs'].to(device)
-        labels = dp['labels'].to(device)
+        inputs = dp['inputs']
+        labels = dp['labels']
         
         with torch.no_grad():
             outputs = model(inputs)
