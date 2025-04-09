@@ -43,10 +43,10 @@ class Compose(BaseTransform):
         # input checks
         assert type(datapoint) == dict, f"{type(datapoint)=}"
         assert set(datapoint.keys()) == set(['inputs', 'labels', 'meta_info']), f"{datapoint.keys()=}"
-        
+
         # Create a deep copy of the input datapoint to avoid in-place modification
         datapoint = copy.deepcopy(datapoint)
-        
+
         # apply each component transform
         for i, transform in enumerate(self.transforms):
             func, input_keys = transform
@@ -58,7 +58,7 @@ class Compose(BaseTransform):
                     outputs = func(*(datapoint[key_pair[0]][key_pair[1]] for key_pair in input_keys))
             except Exception as e:
                 raise RuntimeError(f"Attempting to apply self.transforms[{i}] on {input_keys}: {e}")
-            assert type(outputs) == list, f"{type(outputs)=}"
+            assert isinstance(outputs, (tuple, list)), f"{type(outputs)=}"
             assert len(outputs) == len(input_keys), f"{len(outputs)=}, {len(input_keys)=}"
             for j, key_pair in enumerate(input_keys):
                 datapoint[key_pair[0]][key_pair[1]] = outputs[j]
