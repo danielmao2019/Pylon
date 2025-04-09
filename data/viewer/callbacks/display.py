@@ -106,7 +106,10 @@ def update_datapoint(
     datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx)
 
     # Get dataset type from dataset info
-    dataset_type: DatasetType = dataset_info.get('type', '2d_change_detection')
+    dataset_type = dataset_info.get('type')
+    if dataset_type is None:
+        raise ValueError("Dataset type not available")
+        
     logger.info(f"Dataset type: {dataset_type}")
 
     # Get class labels if available

@@ -27,16 +27,26 @@ DATASET_TYPE_MAPPING = {
 }
 
 def get_dataset_type(dataset_name: str) -> DatasetType:
-    """Determine the dataset type from the dataset name."""
+    """Determine the dataset type from the dataset name.
+    
+    Args:
+        dataset_name: Name of the dataset
+        
+    Returns:
+        Dataset type
+        
+    Raises:
+        ValueError: If the dataset type cannot be determined
+    """
     # Extract base name if it contains a path
     base_name = dataset_name.split('/')[-1] if '/' in dataset_name else dataset_name
     
     # Get the dataset type from the mapping
-    dataset_type = DATASET_TYPE_MAPPING.get(base_name, '2d_change_detection')
+    dataset_type = DATASET_TYPE_MAPPING.get(base_name)
     
-    # Special case for PCR datasets that might have a different naming pattern
-    if 'pcr' in base_name.lower():
-        dataset_type = 'point_cloud_registration'
+    # If still no dataset type found, raise an error
+    if dataset_type is None:
+        raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
         
     return dataset_type
 

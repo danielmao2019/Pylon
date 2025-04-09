@@ -83,6 +83,9 @@ class DatasetManager:
             
         Returns:
             Dataset type (2d_change_detection, 3d_change_detection, or point_cloud_registration)
+            
+        Raises:
+            ValueError: If the dataset type cannot be determined
         """
         base_name = dataset_name.split('/')[-1]
         
@@ -90,8 +93,8 @@ class DatasetManager:
             if base_name in datasets:
                 return dataset_type
                 
-        # Default to 2D change detection if unknown
-        return '2d_change_detection'
+        # Raise error for unknown dataset types
+        raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
         
     def get_available_datasets(self) -> List[str]:
         """Get list of available datasets.

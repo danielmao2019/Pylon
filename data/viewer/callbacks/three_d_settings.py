@@ -35,7 +35,10 @@ def update_3d_settings(
     try:
         # Get current dataset info
         dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
-        dataset_type: DatasetType = dataset_info.get('type', '2d_change_detection')
+        dataset_type = dataset_info.get('type')
+        
+        if dataset_type is None:
+            raise ValueError("Dataset type not available.")
 
         if dataset_type not in THREE_D_DATASET_TYPES:
             return [
@@ -77,7 +80,9 @@ def update_view_controls(
     if dataset_info is None:
         return [{'display': 'none'}, {'display': 'none'}]
     
-    dataset_type: DatasetType = dataset_info.get('type', '2d_change_detection')
+    dataset_type = dataset_info.get('type')
+    if dataset_type is None:
+        raise ValueError("Dataset type not available.")
     
     # Default styles
     view_controls_style = {'display': 'none'}
