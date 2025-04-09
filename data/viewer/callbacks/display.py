@@ -2,7 +2,7 @@
 from dash import Input, Output, State, callback_context, html
 from dash.exceptions import PreventUpdate
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Literal
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
@@ -10,6 +10,16 @@ from data.viewer.callbacks.registry import callback, registry
 
 
 logger = logging.getLogger(__name__)
+
+# Dataset type definitions
+DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
+
+# Mapping of dataset types to their display functions
+DISPLAY_FUNCTIONS = {
+    '2d_change_detection': display_2d_datapoint,
+    '3d_change_detection': display_3d_datapoint,
+    'point_cloud_registration': display_pcr_datapoint
+}
 
 @callback(
     outputs=[
@@ -104,15 +114,28 @@ def update_datapoint(
     class_labels: Dict[int, str] = dataset_info.get('class_labels', {})
     logger.info(f"Class labels available: {bool(class_labels)}")
 
-    # Display the datapoint based on its type
+    # Determine the appropriate display function based on dataset type
     if dataset_type == 'point_cloud_registration':
-        logger.info("Creating PCR display")
-        display = display_pcr_datapoint(datapoint, point_size, point_opacity, camera_state, radius)
+        display_type = 'point_cloud_registration'
     elif is_3d:
-        logger.info("Creating 3D display")
-        display = display_3d_datapoint(datapoint, point_size, point_opacity, class_labels, camera_state)
+        display_type = '3d_change_detection'
     else:
-        logger.info("Creating 2D display")
-        display = display_2d_datapoint(datapoint)
+        display_type = '2d_change_detection'
+        
+    # Get the appropriate display function
+    display_func = DISPLAY_FUNCTIONS.get(display_type)
+    if display_func is None:
+        logger.error(f"No display function found for dataset type: {display_type}")
+        return [html.Div(f"Error: Unsupported dataset type: {display_type}")]
+        
+    # Call the display function with appropriate parameters
+    logger.info(f"Creating {display_type} display")
+    if display_type == 'point_cloud_registration':
+        display = display_func(datapoint, point_size, point_opacity, camera_state, radius)
+    elif display_type == '3d_change_detection':
+        display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state)
+    else:  # 2d_change_detection
+        display = display_func(datapoint)
+        
     logger.info("Display created successfully")
     return [display]

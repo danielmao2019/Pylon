@@ -1,11 +1,17 @@
 """3D settings-related callbacks for the viewer."""
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Literal
 from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.callbacks.registry import callback, registry
 
+
+# Dataset type definitions
+DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
+
+# 3D dataset types
+THREE_D_DATASET_TYPES = ['3d_change_detection', 'point_cloud_registration']
 
 @callback(
     outputs=[
@@ -75,10 +81,16 @@ def update_view_controls(
     is_3d: bool = dataset_info.get('is_3d', False)
     dataset_type: str = dataset_info.get('type', 'change_detection')
     
-    if is_3d:
-        if dataset_type == 'point_cloud_registration':
-            return [{'display': 'block'}, {'display': 'block'}]
-        else:
-            return [{'display': 'block'}, {'display': 'none'}]
+    # Default styles
+    view_controls_style = {'display': 'none'}
+    pcr_controls_style = {'display': 'none'}
     
-    return [{'display': 'none'}, {'display': 'none'}]
+    # Show 3D controls for 3D datasets
+    if is_3d:
+        view_controls_style = {'display': 'block'}
+        
+        # Show PCR controls only for PCR datasets
+        if dataset_type == 'point_cloud_registration':
+            pcr_controls_style = {'display': 'block'}
+    
+    return [view_controls_style, pcr_controls_style]

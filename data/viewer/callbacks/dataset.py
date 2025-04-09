@@ -1,5 +1,5 @@
 """Dataset-related callbacks for the viewer."""
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Union, Any, Literal
 from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 import logging
@@ -9,6 +9,35 @@ from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.callbacks.registry import callback, registry
 
 logger = logging.getLogger(__name__)
+
+# Dataset type definitions
+DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
+
+# Dataset type mapping
+DATASET_TYPE_MAPPING = {
+    'point_cloud_registration': 'point_cloud_registration',
+    'urb3dcd': '3d_change_detection',
+    'slpccd': '3d_change_detection',
+    'air_change': '2d_change_detection',
+    'cdd': '2d_change_detection',
+    'levir_cd': '2d_change_detection',
+    'oscd': '2d_change_detection',
+    'sysu_cd': '2d_change_detection'
+}
+
+def get_dataset_type(dataset_name: str) -> DatasetType:
+    """Determine the dataset type from the dataset name."""
+    # Extract base name if it contains a path
+    base_name = dataset_name.split('/')[-1] if '/' in dataset_name else dataset_name
+    
+    # Get the dataset type from the mapping
+    dataset_type = DATASET_TYPE_MAPPING.get(base_name, '2d_change_detection')
+    
+    # Special case for PCR datasets that might have a different naming pattern
+    if 'pcr' in base_name.lower():
+        dataset_type = 'point_cloud_registration'
+        
+    return dataset_type
 
 @callback(
     outputs=[
@@ -45,6 +74,13 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
     # Load dataset using dataset manager
     logger.info(f"Attempting to load dataset: {dataset_name}")
     dataset_info = registry.viewer.dataset_manager.load_dataset(dataset_name)
+    
+    # Determine dataset type
+    dataset_type = get_dataset_type(dataset_name)
+    dataset_info['type'] = dataset_type
+    
+    # Set is_3d based on dataset type
+    dataset_info['is_3d'] = dataset_type in ['3d_change_detection', 'point_cloud_registration']
 
     # Update state with dataset info
     logger.info(f"Updating state with dataset info: {dataset_info}")
