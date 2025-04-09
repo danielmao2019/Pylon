@@ -124,7 +124,8 @@ class RealPCRDataset(BaseDataset):
         self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
         with open(self.gt_transforms, 'r') as f:
             self.gt_transforms: List[Dict[str, Any]] = json.load(f)
-        assert len(self.file_paths) == len(self.gt_transforms)
+        assert len(self.file_paths) == len(self.gt_transforms), \
+            f"{self.file_paths=}, {[gt['filepath'] for gt in self.gt_transforms]=}"
         assert all(isinstance(transform, dict) for transform in self.gt_transforms)
         assert all(transform.keys() == {'filepath', 'transform'} for transform in self.gt_transforms)
         self.cache_dir = os.path.join(os.path.dirname(self.data_root), 'real_pcr_cache')
