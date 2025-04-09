@@ -13,8 +13,8 @@ from utils.torch_points3d import GridSampling3D
 
 
 def process_single_point_cloud(src_path: str, tgt_path: str, gt_transform: torch.Tensor, grid_sampling, min_points, max_points) -> List[Dict[str, Any]]:
-    src_points = load_point_cloud(src_path)
-    tgt_points = load_point_cloud(tgt_path)
+    src_points = load_point_cloud(src_path)['pos']
+    tgt_points = load_point_cloud(tgt_path)['pos']
     transformed_src_points = apply_transform(src_points, gt_transform)
 
     # Combine source and target points
