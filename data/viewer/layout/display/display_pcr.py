@@ -205,7 +205,7 @@ def compute_symmetric_difference_indices(src_pc, tgt_pc, radius):
     # Query the KDTree for all points in src_pc
     distances, _ = tgt_tree.query(src_np, k=1)  # k=1 to find the nearest neighbor
     src_diff_mask = distances > radius
-    src_indices = torch.where(src_diff_mask)[0]
+    src_indices = torch.where(torch.from_numpy(src_diff_mask))[0]
     
     # Build KDTree for source point cloud
     src_tree = cKDTree(src_np)
@@ -213,7 +213,7 @@ def compute_symmetric_difference_indices(src_pc, tgt_pc, radius):
     # Find points in tgt_pc that are not close to any point in src_pc
     distances, _ = src_tree.query(tgt_np, k=1)  # k=1 to find the nearest neighbor
     tgt_diff_mask = distances > radius
-    tgt_indices = torch.where(tgt_diff_mask)[0]
+    tgt_indices = torch.where(torch.from_numpy(tgt_diff_mask))[0]
     
     return src_indices, tgt_indices
 
