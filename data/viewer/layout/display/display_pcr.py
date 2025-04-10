@@ -4,7 +4,8 @@ import numpy as np
 import torch
 from dash import dcc, html
 import plotly.graph_objects as go
-from utils.point_cloud_ops import apply_transform, compute_symmetric_difference_indices
+from utils.point_cloud_ops import apply_transform
+from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 
 
 def display_pcr_datapoint(
@@ -45,7 +46,7 @@ def display_pcr_datapoint(
     src_pc_transformed = apply_transform(src_pc, transform)
 
     # Compute symmetric difference
-    src_indices, tgt_indices = compute_symmetric_difference_indices(src_pc_transformed, tgt_pc, radius)
+    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
 
     # Create the four point cloud views
     figures = []

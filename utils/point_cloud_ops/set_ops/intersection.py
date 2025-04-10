@@ -2,7 +2,7 @@ from typing import Tuple, List
 import torch
 
 
-def point_cloud_intersection(
+def pc_intersection(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
@@ -62,7 +62,7 @@ def compute_pc_iou(
         The overlap ratio, defined as the number of overlapping points divided by the total number of points
     """
     # Get overlapping indices
-    src_overlapping_indices, tgt_overlapping_indices = point_cloud_intersection(
+    src_overlapping_indices, tgt_overlapping_indices = pc_intersection(
         src_points, tgt_points, radius
     )
     

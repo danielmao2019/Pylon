@@ -4,7 +4,7 @@ import torch
 from scipy.spatial import cKDTree
 
 
-def compute_symmetric_difference_indices(
+def pc_symmetric_difference(
     src_pc: torch.Tensor,
     tgt_pc: torch.Tensor,
     radius: float,

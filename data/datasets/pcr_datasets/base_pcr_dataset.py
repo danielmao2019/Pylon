@@ -11,7 +11,7 @@ from utils.point_cloud_ops import get_correspondences, apply_transform
 from utils.io import load_point_cloud
 from data.transforms.vision_3d.select import Select
 from data.transforms.vision_3d.random_select import RandomSelect
-from utils.point_cloud_ops.set_ops.intersection import point_cloud_intersection, compute_pc_iou
+from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
 
 
 def process_point_cloud_pair(
