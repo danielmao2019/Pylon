@@ -13,6 +13,7 @@ data_cfg = {
             'voxel_size': 10.0,
             'min_points': 256,
             'max_points': 8192,
+            'overlap': 0.3,
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {

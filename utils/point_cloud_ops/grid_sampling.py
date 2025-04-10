@@ -76,5 +76,8 @@ def grid_sampling(
 
                 # Add the voxelized point cloud to the result
                 result[pc_idx].append(voxel_pc)
+            else:
+                result[pc_idx].append(None)
 
+    assert all(len(r) == len(result[0]) for r in result)
     return result

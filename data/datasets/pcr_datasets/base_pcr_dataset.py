@@ -31,6 +31,7 @@ def process_point_cloud_pair(
         overlap: Desired overlap ratio between 0 and 1 (default: 1.0 for full overlap)
     """
     # Load source point cloud
+    print(f"Loading source point cloud from {src_path}...")
     src_pc = load_point_cloud(src_path)
     assert isinstance(src_pc, dict)
     assert src_pc.keys() >= {'pos'}
@@ -80,9 +81,12 @@ def process_point_cloud_pair(
     for shifted_tgt_pc in shifted_tgt_pcs:
         # Apply grid sampling to the union of transformed source and target
         src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
+        assert len(src_voxels) == len(tgt_voxels)
 
         # Process each pair of voxels
         for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
+            if (src_voxel is None) or (tgt_voxel is None):
+                continue
             # Skip if either source or target has too few points
             if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
                 continue
@@ -90,8 +94,8 @@ def process_point_cloud_pair(
             # For partial overlap case, check if the overlap ratio is within the desired range
             if overlap < 1.0:
                 overlap_ratio = compute_pc_iou(
-                    src_points=src_voxel['pos'],
-                    tgt_points=tgt_voxel['pos'],
+                    src_points=Select(indices=src_voxel['indices'])(transformed_src_pc),
+                    tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc),
                     radius=voxel_size / 4,
                 )
 
@@ -229,7 +233,8 @@ class BasePCRDataset(BaseDataset):
         else:
             # Process point clouds in parallel
             # Use number of CPU cores minus 1 to leave one core free for system
-            num_workers = max(1, multiprocessing.cpu_count() - 1)
+            # num_workers = max(1, multiprocessing.cpu_count() - 1)
+            num_workers = 1
             print(f"Processing point clouds using {num_workers} workers...")
 
             # Create a partial function with the voxel_size parameter
@@ -241,15 +246,22 @@ class BasePCRDataset(BaseDataset):
                 overlap=self.overlap,
             )
 
-            # Use multiprocessing to process files in parallel with chunksize for better performance
-            with multiprocessing.Pool(num_workers) as pool:
-                # Create arguments for each file pair
-                process_args = []
-                for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
-                    process_args.append((src_path, tgt_path, transform))
+            # # Use multiprocessing to process files in parallel with chunksize for better performance
+            # with multiprocessing.Pool(num_workers) as pool:
+            #     # Create arguments for each file pair
+            #     process_args = []
+            #     for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
+            #         process_args.append((src_path, tgt_path, transform))
 
-                # Process files in parallel
-                results = pool.starmap(process_func, process_args, chunksize=1)
+            #     # Process files in parallel
+            #     results = pool.starmap(process_func, process_args, chunksize=1)
+
+            process_args = []
+            for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
+                process_args.append((src_path, tgt_path, transform))
+
+            # Process files in parallel
+            results = [process_func(*args) for args in process_args]
 
             # Flatten the results list
             self.annotations = [voxel for sublist in results for voxel in sublist]
