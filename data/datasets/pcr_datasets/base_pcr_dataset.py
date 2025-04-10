@@ -170,10 +170,8 @@ class BasePCRDataset(BaseDataset):
         self.overlap = overlap
         self.cache_dirname = cache_dirname
         self._grid_sampling = GridSampling3D(size=voxel_size)
-        super(BasePCRDataset, self).__init__(**kwargs)
-
-        # Initialize file path pairs and transforms
         self._init_file_pairs()
+        super(BasePCRDataset, self).__init__(**kwargs)
 
     def _init_file_pairs(self) -> None:
         """Initialize source and target file path pairs and their transforms.
@@ -247,7 +245,7 @@ class BasePCRDataset(BaseDataset):
             with multiprocessing.Pool(num_workers) as pool:
                 # Create arguments for each file pair
                 process_args = []
-                for src_path, tgt_path, transform in zip(self.src_file_paths, self.tgt_file_paths, self.transforms):
+                for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
                     process_args.append((src_path, tgt_path, transform))
 
                 # Process files in parallel
