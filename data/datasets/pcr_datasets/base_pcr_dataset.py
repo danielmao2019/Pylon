@@ -88,14 +88,10 @@ def process_point_cloud_pair(
                 
             # For partial overlap case, check if the overlap ratio is within the desired range
             if overlap < 1.0:
-                # Find points that are close to each other
-                overlap_threshold = voxel_size / 4  # Points within this distance are considered overlapping
-                
-                # Calculate overlap ratio using the abstracted function
                 overlap_ratio = compute_pc_iou(
-                    src_voxel['pos'],
-                    tgt_voxel['pos'],
-                    overlap_threshold
+                    src_points=src_voxel['pos'],
+                    tgt_points=tgt_voxel['pos'],
+                    radius=voxel_size / 4,
                 )
                 
                 # Skip if overlap ratio is not within the desired range (±10%)
