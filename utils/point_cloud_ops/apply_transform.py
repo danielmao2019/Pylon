@@ -48,7 +48,7 @@ def apply_transform(
         # Remove homogeneous coordinate
         return transformed[:, :3]
     else:
-        points_h = torch.cat([points, torch.ones((points.shape[0], 1), dtype=torch.float32)], dim=1)
+        points_h = torch.cat([points, torch.ones((points.shape[0], 1), dtype=torch.float32, device=points.device)], dim=1)
         
         # Apply transformation
         transformed = torch.matmul(points_h, transform.t())
