@@ -170,7 +170,6 @@ class BasePCRDataset(BaseDataset):
         self.overlap = overlap
         self.cache_dirname = cache_dirname
         self._grid_sampling = GridSampling3D(size=voxel_size)
-        self._init_file_pairs()
         super(BasePCRDataset, self).__init__(**kwargs)
 
     def _init_file_pairs(self) -> None:
@@ -219,6 +218,7 @@ class BasePCRDataset(BaseDataset):
         self.cache_dir = os.path.join(os.path.dirname(self.data_root), self.cache_dirname)
         os.makedirs(self.cache_dir, exist_ok=True)
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
+        self._init_file_pairs()
 
         # Check if cache exists
         voxel_files = sorted(glob.glob(os.path.join(self.cache_dir, 'voxel_*.pt')))
