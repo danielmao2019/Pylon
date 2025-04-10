@@ -150,6 +150,7 @@ class BasePCRDataset(BaseDataset):
         max_points: int = 8192,
         matching_radius: float = 0.1,
         overlap: float = 1.0,
+        cache_dirname: str = None,
         **kwargs,
     ) -> None:
         """Initialize the dataset.
@@ -167,6 +168,7 @@ class BasePCRDataset(BaseDataset):
         self._max_points = max_points
         self.matching_radius = matching_radius
         self.overlap = overlap
+        self.cache_dirname = cache_dirname
         self._grid_sampling = GridSampling3D(size=voxel_size)
         super(BasePCRDataset, self).__init__(**kwargs)
 
@@ -216,7 +218,7 @@ class BasePCRDataset(BaseDataset):
         """Initialize dataset annotations."""
         # Get file paths
         self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
-        self.cache_dir = os.path.join(os.path.dirname(self.data_root), 'voxel_cache')
+        self.cache_dir = os.path.join(os.path.dirname(self.data_root), self.cache_dirname)
         os.makedirs(self.cache_dir, exist_ok=True)
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
 
