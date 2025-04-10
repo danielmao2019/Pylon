@@ -6,6 +6,7 @@ data_cfg = {
         'class': data.datasets.SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
+            'cache_dirname': 'synth_pcr_cache',
             'split': 'train',
             'voxel_size': 10.0,
             'min_points': 256,
