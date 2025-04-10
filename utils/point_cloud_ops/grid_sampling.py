@@ -1,6 +1,7 @@
 from typing import List, Dict
 import torch
 from utils.point_cloud_ops.sampling import GridSampling3D
+from data.transforms.vision_3d.select import Select
 
 
 def grid_sampling(
@@ -70,19 +71,8 @@ def grid_sampling(
                 # Adjust indices to be relative to the original point cloud
                 pc_cluster_indices = pc_cluster_indices - start_indices[pc_idx]
                 
-                # Create a voxelized point cloud
-                voxel_pc = {}
-                
-                # Add position field
-                voxel_pc['pos'] = pc['pos'][pc_cluster_indices]
-                
-                # Add indices field
-                voxel_pc['indices'] = pc_cluster_indices
-                
-                # Add other fields from the original point cloud
-                for key, value in pc.items():
-                    if key != 'pos' and isinstance(value, torch.Tensor) and value.shape[0] == pc['pos'].shape[0]:
-                        voxel_pc[key] = value[pc_cluster_indices]
+                # Use the Select transform to create a voxelized point cloud
+                voxel_pc = Select(pc_cluster_indices)(pc)
                 
                 # Add the voxelized point cloud to the result
                 result[pc_idx].append(voxel_pc)
