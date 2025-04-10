@@ -11,6 +11,7 @@ from utils.point_cloud_ops import get_correspondences, apply_transform
 from utils.io import load_point_cloud
 from data.transforms.vision_3d.select import Select
 from data.transforms.vision_3d.random_select import RandomSelect
+from utils.point_cloud_ops.set_ops.intersection import point_cloud_intersection, compute_pc_iou
 
 
 def process_point_cloud_pair(
@@ -90,30 +91,12 @@ def process_point_cloud_pair(
                 # Find points that are close to each other
                 overlap_threshold = voxel_size / 4  # Points within this distance are considered overlapping
                 
-                # Count source points that are close to any target point
-                src_overlapping = 0
-                for src_point in src_voxel['pos']:
-                    # Find points in the target voxel that are close to this source point
-                    distances = torch.norm(tgt_voxel['pos'] - src_point, dim=1)
-                    close_points = torch.where(distances < overlap_threshold)[0]
-                    if len(close_points) > 0:
-                        src_overlapping += 1
-                
-                # Count target points that are close to any source point
-                tgt_overlapping = 0
-                for tgt_point in tgt_voxel['pos']:
-                    # Find points in the source voxel that are close to this target point
-                    distances = torch.norm(src_voxel['pos'] - tgt_point, dim=1)
-                    close_points = torch.where(distances < overlap_threshold)[0]
-                    if len(close_points) > 0:
-                        tgt_overlapping += 1
-                
-                # Calculate total overlapping points (union of both sets)
-                total_overlapping = src_overlapping + tgt_overlapping
-                total_points = len(src_voxel['indices']) + len(tgt_voxel['indices'])
-                
-                # Calculate overlap ratio
-                overlap_ratio = total_overlapping / total_points if total_points > 0 else 0
+                # Calculate overlap ratio using the abstracted function
+                overlap_ratio = compute_pc_iou(
+                    src_voxel['pos'],
+                    tgt_voxel['pos'],
+                    overlap_threshold
+                )
                 
                 # Skip if overlap ratio is not within the desired range (±10%)
                 if abs(overlap_ratio - overlap) > 0.1:
