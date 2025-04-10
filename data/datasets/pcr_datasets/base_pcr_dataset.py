@@ -48,7 +48,7 @@ def process_point_cloud_pair(
     transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
 
     # Define shifts for partial overlap case
-    voxel_size = grid_sampling.size
+    voxel_size = grid_sampling._grid_size
     shift_amount = voxel_size / 2  # Shift by half the voxel size
 
     # Create a list of target point clouds to process
