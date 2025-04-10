@@ -17,7 +17,7 @@ def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:
         'args': {
             'transforms': [
             (
-                data.transforms.RandomRigidTransform(rot_mag=rot_mag, trans_mag=trans_mag),
+                data.transforms.vision_3d.RandomRigidTransform(rot_mag=rot_mag, trans_mag=trans_mag),
                 [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
             ),
         ],
