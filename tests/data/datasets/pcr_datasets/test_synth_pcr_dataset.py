@@ -27,12 +27,20 @@ def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:
 @pytest.mark.parametrize('dataset_params', [
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
+        'cache_dirname': 'synth_pcr_cache',
         'split': 'train',
+        'voxel_size': 10.0,
+        'min_points': 256,
+        'max_points': 8192,
         'transforms_cfg': transforms_cfg(rot_mag=45.0, trans_mag=0.5),
     },
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
-        'split': 'test',
+        'cache_dirname': 'synth_pcr_cache',
+        'split': 'val',
+        'voxel_size': 10.0,
+        'min_points': 256,
+        'max_points': 8192,
         'transforms_cfg': transforms_cfg(rot_mag=30.0, trans_mag=0.3),
     },
 ])

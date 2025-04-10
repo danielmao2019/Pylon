@@ -6,16 +6,18 @@ from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
 @pytest.mark.parametrize('dataset_params', [
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
-        'split': 'train',
+        'cache_dirname': 'real_pcr_cache',
         'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/transforms.json',
+        'split': 'train',
         'voxel_size': 10.0,
         'min_points': 256,
         'max_points': 8192,
     },
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
-        'split': 'test',
+        'cache_dirname': 'real_pcr_cache',
         'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/transforms.json',
+        'split': 'val',
         'voxel_size': 10.0,
         'min_points': 256,
         'max_points': 8192,
