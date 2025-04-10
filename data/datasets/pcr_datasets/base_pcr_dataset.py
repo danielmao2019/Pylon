@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Dict, Any, List
 import os
 import glob
 import numpy as np
@@ -6,18 +6,17 @@ import torch
 import multiprocessing
 from functools import partial
 from data.datasets.base_dataset import BaseDataset
-from utils.point_cloud_ops.sampling import GridSampling3D
-from utils.point_cloud_ops import get_correspondences, apply_transform
-from utils.io import load_point_cloud
 from data.transforms.vision_3d.select import Select
 from data.transforms.vision_3d.random_select import RandomSelect
+from utils.point_cloud_ops import get_correspondences, apply_transform, grid_sampling
+from utils.io import load_point_cloud
 from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
 from utils.ops import apply_tensor_op
 
 
 def process_point_cloud_pair(
     src_path: str, tgt_path: str, transform: torch.Tensor,
-    grid_sampling: GridSampling3D, min_points: int, max_points: int,
+    voxel_size: float, min_points: int, max_points: int,
     overlap: float = 1.0,
 ) -> List[Dict[str, Any]]:
     """Process a pair of point clouds and return datapoints.
@@ -26,7 +25,7 @@ def process_point_cloud_pair(
         src_path: Path to the source point cloud file
         tgt_path: Path to the target point cloud file
         transform: Transformation from source to target
-        grid_sampling: Grid sampling object for voxelization
+        voxel_size: Size of voxel cells for sampling
         min_points: Minimum number of points in a voxel
         max_points: Maximum number of points in a voxel
         overlap: Desired overlap ratio between 0 and 1 (default: 1.0 for full overlap)
@@ -48,7 +47,6 @@ def process_point_cloud_pair(
     transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
 
     # Define shifts for partial overlap case
-    voxel_size = grid_sampling._grid_size
     shift_amount = voxel_size / 2  # Shift by half the voxel size
 
     # Create a list of target point clouds to process
@@ -81,7 +79,7 @@ def process_point_cloud_pair(
     # Process each target point cloud
     for shifted_tgt_pc in shifted_tgt_pcs:
         # Apply grid sampling to the union of transformed source and target
-        src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], grid_sampling._grid_size)
+        src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
 
         # Process each pair of voxels
         for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
@@ -172,7 +170,6 @@ class BasePCRDataset(BaseDataset):
         self.matching_radius = matching_radius
         self.overlap = overlap
         self.cache_dirname = cache_dirname
-        self._grid_sampling = GridSampling3D(size=voxel_size)
         super(BasePCRDataset, self).__init__(**kwargs)
 
     def _init_file_pairs(self) -> None:
@@ -235,10 +232,10 @@ class BasePCRDataset(BaseDataset):
             num_workers = max(1, multiprocessing.cpu_count() - 1)
             print(f"Processing point clouds using {num_workers} workers...")
 
-            # Create a partial function with the grid_sampling parameter
+            # Create a partial function with the voxel_size parameter
             process_func = partial(
                 self._process_point_cloud_pair,
-                grid_sampling=self._grid_sampling,
+                voxel_size=self._voxel_size,
                 min_points=self._min_points,
                 max_points=self._max_points,
                 overlap=self.overlap,
@@ -268,7 +265,7 @@ class BasePCRDataset(BaseDataset):
         self.annotations = self._split_annotations(self.annotations)
 
     def _process_point_cloud_pair(self, src_path: str, tgt_path: str, transform: torch.Tensor,
-                                 grid_sampling: GridSampling3D, min_points: int, max_points: int,
+                                 voxel_size: float, min_points: int, max_points: int,
                                  overlap: float = 1.0) -> List[Dict[str, Any]]:
         """Process a pair of point clouds and return datapoints.
 
@@ -276,7 +273,7 @@ class BasePCRDataset(BaseDataset):
         """
         return process_point_cloud_pair(
             src_path, tgt_path, transform,
-            grid_sampling, min_points, max_points,
+            voxel_size, min_points, max_points,
             overlap
         )
 
