@@ -215,7 +215,7 @@ class BasePCRDataset(BaseDataset):
         """Initialize dataset annotations."""
         # Get file paths
         self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
-        self.cache_dir = os.path.join(os.path.dirname(self.data_root), self.cache_dirname)
+        self.cache_dir = os.path.join(os.path.dirname(self.data_root), self.cache_dirname+f"_overlap_{self.overlap}")
         os.makedirs(self.cache_dir, exist_ok=True)
         print(f"Found {len(self.file_paths)} point clouds in {self.data_root}.")
         self._init_file_pairs()
