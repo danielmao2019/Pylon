@@ -47,12 +47,12 @@ def process_point_cloud_pair(
     # Define shifts for partial overlap case
     voxel_size = grid_sampling.size
     shift_amount = voxel_size / 2  # Shift by half the voxel size
-    
+
     # Create a list of target point clouds to process
     # For full overlap (overlap >= 1.0), we only use the original target
     # For partial overlap (overlap < 1.0), we use 6 shifted targets
     shifted_tgt_pcs = []
-    
+
     if overlap >= 1.0:
         # For full overlap, only use the original target
         shifted_tgt_pcs.append(tgt_pc)
@@ -63,29 +63,29 @@ def process_point_cloud_pair(
             [0, shift_amount, 0], [0, -shift_amount, 0],
             [0, 0, shift_amount], [0, 0, -shift_amount]
         ]
-        
+
         for shift in shifts:
             # Apply shift to target points
             shifted_tgt_pc = tgt_pc.copy()
             shifted_tgt_pc['pos'][:, 0] += shift[0]
             shifted_tgt_pc['pos'][:, 1] += shift[1]
             shifted_tgt_pc['pos'][:, 2] += shift[2]
-            
+
             # Add shifted target to the list
             shifted_tgt_pcs.append(shifted_tgt_pc)
-    
+
     datapoints = []
     # Process each target point cloud
     for shifted_tgt_pc in shifted_tgt_pcs:
         # Apply grid sampling to the union of transformed source and target
         src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], grid_sampling.size)
-        
+
         # Process each pair of voxels
         for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
             # Skip if either source or target has too few points
             if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
                 continue
-                
+
             # For partial overlap case, check if the overlap ratio is within the desired range
             if overlap < 1.0:
                 overlap_ratio = compute_pc_iou(
@@ -93,11 +93,11 @@ def process_point_cloud_pair(
                     tgt_points=tgt_voxel['pos'],
                     radius=voxel_size / 4,
                 )
-                
+
                 # Skip if overlap ratio is not within the desired range (±10%)
                 if abs(overlap_ratio - overlap) > 0.1:
                     continue
-            
+
             # Apply random sampling if needed
             src_pc_final = Select(src_voxel['indices'])(src_pc)
             if len(src_voxel['indices']) > max_points:
@@ -106,7 +106,7 @@ def process_point_cloud_pair(
             tgt_pc_final = Select(tgt_voxel['indices'])(tgt_pc)
             if len(tgt_voxel['indices']) > max_points:
                 tgt_pc_final = RandomSelect(percentage=max_points / len(tgt_voxel['indices']))(tgt_pc_final)
-            
+
             datapoint = {
                 'src_points': src_pc_final['pos'],
                 'src_indices': src_pc_final['indices'],
@@ -117,7 +117,7 @@ def process_point_cloud_pair(
                 'transform': transform,
             }
             datapoints.append(datapoint)
-    
+
     return datapoints
 
 
