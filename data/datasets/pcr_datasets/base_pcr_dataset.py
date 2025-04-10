@@ -8,6 +8,7 @@ from functools import partial
 from data.datasets.base_dataset import BaseDataset
 from utils.point_cloud_ops.sampling import GridSampling3D
 from utils.point_cloud_ops import get_correspondences, apply_transform
+from utils.point_cloud_ops.grid_sampling import grid_sampling
 from utils.io import load_point_cloud
 
 
@@ -42,189 +43,116 @@ def process_point_cloud_pair(
     # Transform source points to align with target
     transformed_src_points = apply_transform(src_points, transform)
 
-    # If overlap is 1.0, use the original implementation
+    # Create source point cloud with transformed points
+    src_pc_transformed = {'pos': transformed_src_points}
+
+    # Define shifts for partial overlap case
+    voxel_size = grid_sampling.size
+    shift_amount = voxel_size / 2  # Shift by half the voxel size
+    
+    # Create a list of target point clouds to process
+    # For full overlap (overlap >= 1.0), we only use the original target
+    # For partial overlap (overlap < 1.0), we use 6 shifted targets
+    target_pcs = []
+    
     if overlap >= 1.0:
-        # Combine source and target points
-        union_points = torch.cat([transformed_src_points, tgt_points], dim=0)
-
-        # Center the points
-        mean = union_points.mean(0, keepdim=True)
-        union_points = union_points - mean
-
-        # Apply grid sampling to get clusters
-        sampled_data = grid_sampling({'pos': union_points})
-        cluster_indices = sampled_data['point_indices']
-
-        # Create a mask to distinguish source and target points
-        # First N points are from source, rest are from target
-        src_count = transformed_src_points.shape[0]
-        src_mask = torch.zeros(union_points.shape[0], dtype=torch.bool)
-        src_mask[:src_count] = True
-        tgt_mask = ~src_mask
-
-        datapoints = []
-        # Process each unique cluster
-        for cluster_id in torch.unique(cluster_indices):
-            # Get points in this cluster
-            cluster_mask = cluster_indices == cluster_id
-            src_cluster_mask = cluster_mask & src_mask
-            tgt_cluster_mask = cluster_mask & tgt_mask
-
-            src_cluster_indices = torch.where(src_cluster_mask)[0]
-            tgt_cluster_indices = torch.where(tgt_cluster_mask)[0] - src_count
-
-            # Skip if either source or target has too few or too many points
-            if len(src_cluster_indices) < min_points or len(tgt_cluster_indices) < min_points:
-                continue
-
-            if len(src_cluster_indices) > max_points:
-                src_cluster_indices = src_cluster_indices[torch.randperm(len(src_cluster_indices))[:max_points]]
-
-            if len(tgt_cluster_indices) > max_points:
-                tgt_cluster_indices = tgt_cluster_indices[torch.randperm(len(tgt_cluster_indices))[:max_points]]
-
-            # Get the original source points (not transformed)
-            src_cluster_points = src_points[src_cluster_indices]
-            tgt_cluster_points = tgt_points[tgt_cluster_indices]
-
-            datapoint = {
-                'src_points': src_cluster_points,
-                'src_indices': src_cluster_indices,
-                'src_path': src_path,
-                'tgt_points': tgt_cluster_points,
-                'tgt_indices': tgt_cluster_indices,
-                'tgt_path': tgt_path,
-                'transform': transform,
-            }
-            datapoints.append(datapoint)
-
-        return datapoints
+        # For full overlap, only use the original target
+        target_pcs.append({'pos': tgt_points, 'shift': [0, 0, 0]})
     else:
-        # For partial overlap, create shifted voxelizations
-        voxel_size = grid_sampling.size
-        shift_amount = voxel_size / 2  # Shift by half the voxel size
-
-        # Center the points
-        src_mean = transformed_src_points.mean(0, keepdim=True)
-        tgt_mean = tgt_points.mean(0, keepdim=True)
-        transformed_src_points = transformed_src_points - src_mean
-        tgt_points = tgt_points - tgt_mean
-
-        # Apply grid sampling to source points
-        src_sampled_data = grid_sampling({'pos': transformed_src_points})
-        src_cluster_indices = src_sampled_data['point_indices']
-        src_unique_clusters = torch.unique(src_cluster_indices)
-
-        # Create 6 shifted grid samplings for target points (one in each direction)
-        shifted_grids = []
+        # For partial overlap, use 6 shifted targets
         shifts = [
             [shift_amount, 0, 0], [-shift_amount, 0, 0],
             [0, shift_amount, 0], [0, -shift_amount, 0],
             [0, 0, shift_amount], [0, 0, -shift_amount]
         ]
-
+        
         for shift in shifts:
-            # Create a new grid sampling with the shift
-            shifted_grid = GridSampling3D(size=voxel_size)
-            # Apply shift to the points before sampling
-            shifted_points = tgt_points.clone()
-            shifted_points[:, 0] += shift[0]
-            shifted_points[:, 1] += shift[1]
-            shifted_points[:, 2] += shift[2]
-
-            shifted_data = shifted_grid({'pos': shifted_points})
-            shifted_grids.append((shifted_data['point_indices'], shift))
-
-        datapoints = []
-        # For each source voxel, find overlapping target voxels with desired IoU
-        for src_cluster_id in src_unique_clusters:
-            src_cluster_mask = src_cluster_indices == src_cluster_id
-            src_cluster_indices_full = torch.where(src_cluster_mask)[0]
-
-            if len(src_cluster_indices_full) < min_points:
+            # Apply shift to target points
+            shifted_tgt_points = tgt_points.clone()
+            shifted_tgt_points[:, 0] += shift[0]
+            shifted_tgt_points[:, 1] += shift[1]
+            shifted_tgt_points[:, 2] += shift[2]
+            
+            # Add shifted target to the list
+            target_pcs.append({'pos': shifted_tgt_points, 'shift': shift})
+    
+    datapoints = []
+    # Process each target point cloud
+    for target_pc in target_pcs:
+        # Apply grid sampling to the union of transformed source and target
+        mean = torch.cat([src_pc_transformed['pos'], target_pc['pos']], dim=0).mean(0, keepdim=True)
+        src_voxels, tgt_voxels = grid_sampling([src_pc_transformed-mean, target_pc['pos']-mean], grid_sampling.size)
+        
+        # Process each pair of voxels
+        for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
+            # Get indices for source and target voxels
+            src_indices = src_voxel['indices']
+            tgt_indices = tgt_voxel['indices']
+            
+            # Skip if either source or target has too few or too many points
+            if len(src_indices) < min_points or len(tgt_indices) < min_points:
                 continue
-
-            # Get points in this source voxel
-            src_voxel_points = transformed_src_points[src_cluster_indices_full]
-
-            # Check each shifted grid for overlapping voxels
-            for tgt_indices, shift in shifted_grids:
-                # Apply shift to target points
-                shifted_tgt_points = tgt_points.clone()
-                shifted_tgt_points[:, 0] += shift[0]
-                shifted_tgt_points[:, 1] += shift[1]
-                shifted_tgt_points[:, 2] += shift[2]
-
-                # Find which points in our source voxel are in the shifted target grid
-                # We'll use a simple distance-based approach
+                
+            # For partial overlap case, check if the overlap ratio is within the desired range
+            if overlap < 1.0:
+                # Calculate overlap ratio
+                src_points_in_voxel = transformed_src_points[src_indices]
+                tgt_points_in_voxel = target_pc['pos'][tgt_indices]
+                
+                # Find points that are close to each other
                 overlap_threshold = voxel_size / 4  # Points within this distance are considered overlapping
-
-                # For each point in our source voxel, check if there's a point in the shifted target grid within the threshold
-                overlapping_points = []
-                for i, point in enumerate(src_voxel_points):
-                    # Find points in the shifted target grid that are close to this point
-                    distances = torch.norm(shifted_tgt_points - point, dim=1)
+                
+                # Count source points that are close to any target point
+                src_overlapping = 0
+                for src_point in src_points_in_voxel:
+                    # Find points in the target voxel that are close to this source point
+                    distances = torch.norm(tgt_points_in_voxel - src_point, dim=1)
                     close_points = torch.where(distances < overlap_threshold)[0]
                     if len(close_points) > 0:
-                        overlapping_points.append(i)
-
-                # If we have enough overlapping points, create a pair
-                if len(overlapping_points) >= min_points:
-                    # Get the cluster ID in the shifted target grid that contains these overlapping points
-                    overlapping_indices = src_cluster_indices_full[overlapping_points]
-                    overlapping_tgt_indices = tgt_indices[overlapping_indices]
-                    unique_tgt_clusters = torch.unique(overlapping_tgt_indices)
-
-                    # For each overlapping cluster in the shifted target grid
-                    for tgt_cluster_id in unique_tgt_clusters:
-                        # Get points in this target cluster
-                        tgt_cluster_mask = tgt_indices == tgt_cluster_id
-                        tgt_cluster_indices_full = torch.where(tgt_cluster_mask)[0]
-
-                        if len(tgt_cluster_indices_full) < min_points:
-                            continue
-
-                        # Calculate IoU
-                        # Points in the intersection are those that are in both clusters
-                        intersection_points = set(overlapping_points)
-                        intersection_points.intersection_update(set(tgt_cluster_indices_full.tolist()))
-
-                        # Union is all points in both clusters
-                        union_points = set(src_cluster_indices_full.tolist())
-                        union_points.update(tgt_cluster_indices_full.tolist())
-
-                        # Calculate IoU
-                        if len(union_points) > 0:
-                            iou = len(intersection_points) / len(union_points)
-
-                            # Check if IoU is in the desired range (overlap ± 10%)
-                            if abs(iou - overlap) <= 0.1:
-                                # Create a pair of voxels
-                                # Source voxel
-                                src_indices = src_cluster_indices_full
-                                if len(src_indices) > max_points:
-                                    perm = torch.randperm(len(src_indices))
-                                    src_indices = src_indices[perm[:max_points]]
-
-                                # Target voxel
-                                tgt_indices = tgt_cluster_indices_full
-                                if len(tgt_indices) > max_points:
-                                    perm = torch.randperm(len(tgt_indices))
-                                    tgt_indices = tgt_indices[perm[:max_points]]
-
-                                # Create datapoint
-                                datapoint = {
-                                    'src_points': src_points[src_indices],
-                                    'src_indices': src_indices,
-                                    'src_path': src_path,
-                                    'tgt_points': tgt_points[tgt_indices],
-                                    'tgt_indices': tgt_indices,
-                                    'tgt_path': tgt_path,
-                                    'transform': transform,
-                                }
-                                datapoints.append(datapoint)
-
-        return datapoints
+                        src_overlapping += 1
+                
+                # Count target points that are close to any source point
+                tgt_overlapping = 0
+                for tgt_point in tgt_points_in_voxel:
+                    # Find points in the source voxel that are close to this target point
+                    distances = torch.norm(src_points_in_voxel - tgt_point, dim=1)
+                    close_points = torch.where(distances < overlap_threshold)[0]
+                    if len(close_points) > 0:
+                        tgt_overlapping += 1
+                
+                # Calculate total overlapping points (union of both sets)
+                total_overlapping = src_overlapping + tgt_overlapping
+                total_points = len(src_indices) + len(tgt_indices)
+                
+                # Calculate overlap ratio
+                overlap_ratio = total_overlapping / total_points if total_points > 0 else 0
+                
+                # Skip if overlap ratio is not within the desired range (±10%)
+                if abs(overlap_ratio - overlap) > 0.1:
+                    continue
+            
+            if len(src_indices) > max_points:
+                src_indices = src_indices[torch.randperm(len(src_indices))[:max_points]]
+                
+            if len(tgt_indices) > max_points:
+                tgt_indices = tgt_indices[torch.randperm(len(tgt_indices))[:max_points]]
+            
+            # Get the original source points (not transformed)
+            src_cluster_points = src_points[src_indices]
+            tgt_cluster_points = tgt_points[tgt_indices]
+            
+            datapoint = {
+                'src_points': src_cluster_points,
+                'src_indices': src_indices,
+                'src_path': src_path,
+                'tgt_points': tgt_cluster_points,
+                'tgt_indices': tgt_indices,
+                'tgt_path': tgt_path,
+                'transform': transform,
+            }
+            datapoints.append(datapoint)
+    
+    return datapoints
 
 
 def save_datapoint(args):
