@@ -2,7 +2,7 @@ from typing import Dict, Any
 import pytest
 import torch
 import numpy as np
-from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
+import data
 
 
 def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:
@@ -48,7 +48,7 @@ def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:
 def test_synth_pcr_dataset(dataset_params):
     """Test basic functionality of SynthPCRDataset."""
     # Initialize dataset
-    dataset = SynthPCRDataset(**dataset_params)
+    dataset = data.datasets.pcr_datasets.SynthPCRDataset(**dataset_params)
 
     # Basic dataset checks
     assert len(dataset) > 0, "Dataset should not be empty"
