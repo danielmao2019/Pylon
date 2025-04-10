@@ -81,7 +81,7 @@ def process_point_cloud_pair(
     # Process each target point cloud
     for shifted_tgt_pc in shifted_tgt_pcs:
         # Apply grid sampling to the union of transformed source and target
-        src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], grid_sampling.size)
+        src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], grid_sampling._grid_size)
 
         # Process each pair of voxels
         for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
