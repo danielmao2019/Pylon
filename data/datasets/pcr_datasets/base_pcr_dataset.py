@@ -290,20 +290,20 @@ class BasePCRDataset(BaseDataset):
     ]:
         """Load a datapoint using point indices."""
         # Get voxel data
-        voxel_data = self.annotations[idx]
+        annotation = self.annotations[idx]
 
         # If annotations are filepaths, load the data
-        if isinstance(voxel_data, str):
-            voxel_data = torch.load(voxel_data)
+        if isinstance(annotation, str):
+            annotation = torch.load(annotation)
 
         # Extract data from voxel_data
-        src_points = voxel_data['src_points']
-        tgt_points = voxel_data['tgt_points']
-        src_indices = voxel_data['src_indices']
-        tgt_indices = voxel_data['tgt_indices']
-        src_path = voxel_data['src_path']
-        tgt_path = voxel_data['tgt_path']
-        transform = voxel_data['transform']
+        src_points = annotation['src_points']
+        tgt_points = annotation['tgt_points']
+        src_indices = annotation['src_indices']
+        tgt_indices = annotation['tgt_indices']
+        src_path = annotation['src_path']
+        tgt_path = annotation['tgt_path']
+        transform = annotation['transform']
 
         assert src_indices.ndim == 1 and src_indices.shape[0] > 0, f"{src_indices.shape=}"
         assert tgt_indices.ndim == 1 and tgt_indices.shape[0] > 0, f"{tgt_indices.shape=}"
