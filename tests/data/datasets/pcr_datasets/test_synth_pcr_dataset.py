@@ -4,18 +4,36 @@ import numpy as np
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 
 
+def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:
+    """
+    Create a configuration for transforms.
+
+    Returns:
+        Dict[str, Any]: Configuration for transforms.
+    """
+    return {
+        'class': data.transforms.Compose,
+        'args': {
+            'transforms': [
+            (
+                data.transforms.RandomRigidTransform(rot_mag=rot_mag, trans_mag=trans_mag),
+                [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
+            ),
+        ],
+    },
+}
+
+
 @pytest.mark.parametrize('dataset_params', [
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'split': 'train',
-        'rot_mag': 45.0,
-        'trans_mag': 0.5,
+        'transforms_cfg': transforms_cfg(rot_mag=45.0, trans_mag=0.5),
     },
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'split': 'test',
-        'rot_mag': 30.0,
-        'trans_mag': 0.3,
+        'transforms_cfg': transforms_cfg(rot_mag=30.0, trans_mag=0.3),
     },
 ])
 def test_synth_pcr_dataset(dataset_params):
