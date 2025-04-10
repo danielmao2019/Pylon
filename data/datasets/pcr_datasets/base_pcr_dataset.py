@@ -12,6 +12,7 @@ from utils.io import load_point_cloud
 from data.transforms.vision_3d.select import Select
 from data.transforms.vision_3d.random_select import RandomSelect
 from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
+from utils.ops import apply_tensor_op
 
 
 def process_point_cloud_pair(
@@ -34,11 +35,13 @@ def process_point_cloud_pair(
     src_pc = load_point_cloud(src_path)
     assert isinstance(src_pc, dict)
     assert src_pc.keys() >= {'pos'}
+    src_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=src_pc)
 
     # Load target point cloud
     tgt_pc = load_point_cloud(tgt_path)
     assert isinstance(tgt_pc, dict)
     assert tgt_pc.keys() >= {'pos'}
+    tgt_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=tgt_pc)
 
     # Transform source points to align with target
     transformed_src_pc = src_pc.copy()
