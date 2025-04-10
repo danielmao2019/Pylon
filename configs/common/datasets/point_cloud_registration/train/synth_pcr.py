@@ -1,9 +1,9 @@
-from data.datasets import SynthPCRDataset
+import data
 
 
 data_cfg = {
     'train_dataset': {
-        'class': SynthPCRDataset,
+        'class': data.datasets.SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'split': 'train',

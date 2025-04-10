@@ -1,11 +1,11 @@
 import torch
-from data.datasets import SynthPCRDataset
+import data
 from metrics.vision_3d import RegistrationRecall
 
 
 data_cfg = {
     'eval_dataset': {
-        'class': SynthPCRDataset,
+        'class': data.datasets.SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'split': 'val',
