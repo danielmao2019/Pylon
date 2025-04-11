@@ -23,7 +23,7 @@ class RealPCRDataset(BasePCRDataset):
         with open(self.gt_transforms, mode='r') as f:
             self.gt_transforms = json.load(f)
         assert len(self.gt_transforms) == len(self.filepaths)
-        assert [t['filepath'] for t in self.gt_transforms] == self.filepaths
+        assert [t['filepath'] for t in self.gt_transforms] == self.filepaths[1:]
         self.transforms = [
             torch.tensor(t['transform'], dtype=torch.float32, device=self.device)
             for t in self.gt_transforms
