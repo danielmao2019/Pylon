@@ -73,10 +73,10 @@ def save_datapoint(args):
     """Save a single datapoint to cache.
 
     Args:
-        args: Tuple containing (index, datapoint, cache_dir)
+        args: Tuple containing (index, datapoint, scene_dir)
     """
-    i, datapoint, cache_dir = args
-    torch.save(datapoint, os.path.join(cache_dir, f'voxel_{i}.pt'))
+    i, datapoint, scene_dir = args
+    torch.save(datapoint, os.path.join(scene_dir, f'voxel_{i}.pt'))
 
 
 class BasePCRDataset(BaseDataset):
@@ -168,30 +168,39 @@ class BasePCRDataset(BaseDataset):
         self._init_file_pairs()
 
         # Check if cache exists
-        voxel_files = sorted(glob.glob(os.path.join(self.cache_dir, 'voxel_*.pt')))
-        if len(voxel_files) > 0:
-            # Load all voxel files
-            self.annotations = voxel_files
-            print(f"Loaded {len(voxel_files)} cached voxels")
+        scene_dirs = sorted(glob.glob(os.path.join(self.cache_dir, 'scene_pair_*')))
+        if len(scene_dirs) > 0:
+            # Load all voxel files from all scene directories
+            self.annotations = []
+            for scene_dir in scene_dirs:
+                voxel_files = sorted(glob.glob(os.path.join(scene_dir, 'voxel_*.pt')))
+                self.annotations.extend(voxel_files)
+            print(f"Loaded {len(self.annotations)} cached voxels from {len(scene_dirs)} scene pairs")
         else:
             # Process point clouds
             print("Processing point clouds...")
 
             self.annotations = []
-            for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
+            for pair_idx, ((src_path, tgt_path), transform) in enumerate(zip(self.filepath_pairs, self.transforms)):
+                # Create a directory for this scene pair
+                scene_dir = os.path.join(self.cache_dir, f'scene_pair_{pair_idx}')
+                os.makedirs(scene_dir, exist_ok=True)
+                
+                # Check if this scene pair has already been processed
+                existing_voxels = sorted(glob.glob(os.path.join(scene_dir, 'voxel_*.pt')))
+                if len(existing_voxels) > 0:
+                    print(f"Scene pair {pair_idx} already processed, loading {len(existing_voxels)} voxels")
+                    self.annotations.extend(existing_voxels)
+                    continue
+                
+                print(f"Processing scene pair {pair_idx}...")
                 result = self._process_point_cloud_pair(
                     src_path, tgt_path, transform,
                     self._voxel_size, self._min_points, self._max_points,
-                    self.overlap
+                    self.overlap, scene_dir
                 )
                 self.annotations.extend(result)
 
-            # Save voxels to cache in parallel
-            print(f"Saving {len(self.annotations)} voxels to cache...")
-            num_workers = max(1, multiprocessing.cpu_count() - 1)
-            save_args = [(i, voxel_data, self.cache_dir) for i, voxel_data in enumerate(self.annotations)]
-            with multiprocessing.Pool(num_workers) as pool:
-                pool.map(save_datapoint, save_args, chunksize=1)
             print(f"Created and cached {len(self.annotations)} voxels")
 
         # Split annotations into train/val/test
@@ -200,7 +209,7 @@ class BasePCRDataset(BaseDataset):
     def _process_point_cloud_pair(
         self, src_path: str, tgt_path: str, transform: torch.Tensor,
         voxel_size: float, min_points: int, max_points: int,
-        overlap: float = 1.0,
+        overlap: float = 1.0, scene_dir: str = None,
     ) -> List[Dict[str, Any]]:
         """Process a pair of point clouds and return datapoints.
 
@@ -212,6 +221,7 @@ class BasePCRDataset(BaseDataset):
             min_points: Minimum number of points in a voxel
             max_points: Maximum number of points in a voxel
             overlap: Desired overlap ratio between 0 and 1 (default: 1.0 for full overlap)
+            scene_dir: Directory to save datapoints for this scene pair
         """
         # Load source point cloud
         print(f"Loading source point cloud from {src_path}...")
@@ -290,6 +300,16 @@ class BasePCRDataset(BaseDataset):
 
             # Filter out None results and add to datapoints
             valid_datapoints = [r for r in results if r is not None]
+            
+            # Save datapoints incrementally in parallel
+            save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
+            num_workers = max(1, multiprocessing.cpu_count() - 1)
+            print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} in parallel with {num_workers} workers...")
+            with multiprocessing.Pool(num_workers) as pool:
+                # Use imap_unordered for better performance as order doesn't matter
+                list(pool.imap_unordered(save_datapoint, save_args, chunksize=1))
+            print(f"Saved {len(valid_datapoints)} voxels to {scene_dir}")
+            
             datapoints.extend(valid_datapoints)
 
             print(f"Length of datapoints now: {len(datapoints)}")
@@ -299,7 +319,11 @@ class BasePCRDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        """Load a datapoint using point indices."""
+        """Load a datapoint using point indices.
+        
+        The annotations are file paths to cached voxel files, organized by scene pairs.
+        Each scene pair has its own directory (scene_pair_X) with voxel files (voxel_Y.pt).
+        """
         # Get voxel data
         annotation = self.annotations[idx]
 
