@@ -44,6 +44,8 @@ def process_voxel_pair(args):
         # Skip if overlap ratio is not within the desired range (±10%)
         if abs(overlap_ratio - overlap) > 0.1:
             return None
+    else:
+        overlap_ratio = 1.0
 
     # Apply random sampling if needed
     src_pc_final = Select(src_voxel['indices'])(src_pc)
@@ -62,6 +64,7 @@ def process_voxel_pair(args):
         'tgt_indices': tgt_pc_final['indices'],
         'tgt_path': tgt_path,
         'transform': transform,
+        'overlap_ratio': overlap_ratio,
     }
     return datapoint
 
