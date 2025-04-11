@@ -231,7 +231,7 @@ class BasePCRDataset(BaseDataset):
         transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
 
         # Define shifts for partial overlap case
-        shift_amount = voxel_size / 2  # Shift by half the voxel size
+        shift_amount = voxel_size * 0.75
 
         # Create a list of target point clouds to process
         # For full overlap (overlap >= 1.0), we only use the original target
