@@ -171,7 +171,11 @@ class BasePCRDataset(BaseDataset):
         self._init_file_pairs()
 
         # Check if cache exists
-        scene_dirs = sorted(glob.glob(os.path.join(self.cache_dir, 'scene_pair_*')))
+        scene_dirs = [
+            os.path.join(self.cache_dir, f'scene_pair_{idx}')
+            for idx in range(len(self.filepath_pairs))
+            if glob.glob(os.path.join(self.cache_dir, f'scene_pair_{idx}', 'voxel_*.pt'))
+        ]
         if len(scene_dirs) > 0:
             # Load all voxel files from all scene directories
             self.annotations = []
