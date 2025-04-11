@@ -277,13 +277,16 @@ class BasePCRDataset(BaseDataset):
                     src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
                 ))
 
-            # Use multiprocessing to process voxel pairs in parallel
-            num_workers = max(1, multiprocessing.cpu_count() - 1)
-            print(f"Processing {len(process_args)} voxel pairs in parallel with {num_workers} workers...")
-            with multiprocessing.Pool(num_workers) as pool:
-                # Use imap_unordered for better performance as order doesn't matter
-                # and we want results as soon as they're available
-                results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
+            if False:
+                # Use multiprocessing to process voxel pairs in parallel
+                num_workers = max(1, multiprocessing.cpu_count() - 1)
+                print(f"Processing {len(process_args)} voxel pairs in parallel with {num_workers} workers...")
+                with multiprocessing.Pool(num_workers) as pool:
+                    # Use imap_unordered for better performance as order doesn't matter
+                    # and we want results as soon as they're available
+                    results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
+            else:
+                results = [process_voxel_pair(args) for args in process_args]
 
             # Filter out None results and add to datapoints
             valid_datapoints = [r for r in results if r is not None]
