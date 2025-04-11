@@ -18,16 +18,16 @@ from utils.ops import apply_tensor_op
 
 def process_voxel_pair(args):
     """Process a single pair of voxels and return a datapoint if valid.
-    
+
     Args:
-        args: Tuple containing (src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc, 
+        args: Tuple containing (src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
               src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size)
-    
+
     Returns:
         Datapoint dictionary if valid, None otherwise
     """
     src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc, src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size = args
-    
+
     if (src_voxel is None) or (tgt_voxel is None):
         return None
     # Skip if either source or target has too few points
@@ -173,7 +173,7 @@ class BasePCRDataset(BaseDataset):
         else:
             # Process point clouds
             print("Processing point clouds...")
-            
+
             results = []
             for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
                 result = self.process_point_cloud_pair(
@@ -265,7 +265,7 @@ class BasePCRDataset(BaseDataset):
             # Apply grid sampling to the union of transformed source and target
             src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
             assert len(src_voxels) == len(tgt_voxels)
-            
+
             # Prepare arguments for parallel processing
             process_args = []
             for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
@@ -273,18 +273,18 @@ class BasePCRDataset(BaseDataset):
                     src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
                     src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
                 ))
-            
+
             # Use multiprocessing to process voxel pairs in parallel
             num_workers = max(1, multiprocessing.cpu_count() - 1)
             with multiprocessing.Pool(num_workers) as pool:
                 # Use imap_unordered for better performance as order doesn't matter
                 # and we want results as soon as they're available
                 results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
-            
+
             # Filter out None results and add to datapoints
             valid_datapoints = [r for r in results if r is not None]
             datapoints.extend(valid_datapoints)
-            
+
             print(f"Length of datapoints: {len(datapoints)}")
 
         return datapoints
