@@ -66,99 +66,6 @@ def process_voxel_pair(args):
     return datapoint
 
 
-def process_point_cloud_pair(
-    src_path: str, tgt_path: str, transform: torch.Tensor,
-    voxel_size: float, min_points: int, max_points: int,
-    overlap: float = 1.0,
-) -> List[Dict[str, Any]]:
-    """Process a pair of point clouds and return datapoints.
-
-    Args:
-        src_path: Path to the source point cloud file
-        tgt_path: Path to the target point cloud file
-        transform: Transformation from source to target
-        voxel_size: Size of voxel cells for sampling
-        min_points: Minimum number of points in a voxel
-        max_points: Maximum number of points in a voxel
-        overlap: Desired overlap ratio between 0 and 1 (default: 1.0 for full overlap)
-    """
-    # Load source point cloud
-    print(f"Loading source point cloud from {src_path}...")
-    src_pc = load_point_cloud(src_path)
-    assert isinstance(src_pc, dict)
-    assert src_pc.keys() >= {'pos'}
-    src_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=src_pc)
-
-    # Load target point cloud
-    tgt_pc = load_point_cloud(tgt_path)
-    assert isinstance(tgt_pc, dict)
-    assert tgt_pc.keys() >= {'pos'}
-    tgt_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=tgt_pc)
-
-    # Transform source points to align with target
-    transformed_src_pc = copy.deepcopy(src_pc)
-    transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
-
-    # Define shifts for partial overlap case
-    shift_amount = voxel_size / 2  # Shift by half the voxel size
-
-    # Create a list of target point clouds to process
-    # For full overlap (overlap >= 1.0), we only use the original target
-    # For partial overlap (overlap < 1.0), we use 6 shifted targets
-    shifted_tgt_pcs = []
-
-    if overlap >= 1.0:
-        # For full overlap, only use the original target
-        shifted_tgt_pcs.append(tgt_pc)
-    else:
-        # For partial overlap, use 6 shifted targets
-        shifts = [
-            [shift_amount, 0, 0], [-shift_amount, 0, 0],
-            [0, shift_amount, 0], [0, -shift_amount, 0],
-            [0, 0, shift_amount], [0, 0, -shift_amount]
-        ]
-
-        for shift in shifts:
-            # Apply shift to target points
-            shifted_tgt_pc = copy.deepcopy(tgt_pc)
-            shifted_tgt_pc['pos'][:, 0] += shift[0]
-            shifted_tgt_pc['pos'][:, 1] += shift[1]
-            shifted_tgt_pc['pos'][:, 2] += shift[2]
-
-            # Add shifted target to the list
-            shifted_tgt_pcs.append(shifted_tgt_pc)
-
-    datapoints = []
-    # Process each target point cloud
-    for shifted_tgt_pc in shifted_tgt_pcs:
-        # Apply grid sampling to the union of transformed source and target
-        src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
-        assert len(src_voxels) == len(tgt_voxels)
-        
-        # Prepare arguments for parallel processing
-        process_args = []
-        for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
-            process_args.append((
-                src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
-                src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
-            ))
-        
-        # Use multiprocessing to process voxel pairs in parallel
-        num_workers = max(1, multiprocessing.cpu_count() - 1)
-        with multiprocessing.Pool(num_workers) as pool:
-            # Use imap_unordered for better performance as order doesn't matter
-            # and we want results as soon as they're available
-            results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
-        
-        # Filter out None results and add to datapoints
-        valid_datapoints = [r for r in results if r is not None]
-        datapoints.extend(valid_datapoints)
-        
-        print(f"Length of datapoints: {len(datapoints)}")
-
-    return datapoints
-
-
 def save_datapoint(args):
     """Save a single datapoint to cache.
 
@@ -264,32 +171,24 @@ class BasePCRDataset(BaseDataset):
             self.annotations = voxel_files
             print(f"Loaded {len(voxel_files)} cached voxels")
         else:
-            # Process point clouds in parallel
-            # Use number of CPU cores minus 1 to leave one core free for system
-            num_workers = max(1, multiprocessing.cpu_count() - 1)
-            print(f"Processing point clouds using {num_workers} workers...")
-
-            # Create a partial function with the voxel_size parameter
-            process_func = partial(
-                process_point_cloud_pair,
-                voxel_size=self._voxel_size,
-                min_points=self._min_points,
-                max_points=self._max_points,
-                overlap=self.overlap,
-            )
-
-            process_args = []
+            # Process point clouds
+            print("Processing point clouds...")
+            
+            results = []
             for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
-                process_args.append((src_path, tgt_path, transform))
-
-            # Process files in parallel
-            results = [process_func(*args) for args in process_args]
+                result = self.process_point_cloud_pair(
+                    src_path, tgt_path, transform,
+                    self._voxel_size, self._min_points, self._max_points,
+                    self.overlap
+                )
+                results.append(result)
 
             # Flatten the results list
             self.annotations = [voxel for sublist in results for voxel in sublist]
 
             # Save voxels to cache in parallel
             print(f"Saving {len(self.annotations)} voxels to cache...")
+            num_workers = max(1, multiprocessing.cpu_count() - 1)
             save_args = [(i, voxel_data, self.cache_dir) for i, voxel_data in enumerate(self.annotations)]
             with multiprocessing.Pool(num_workers) as pool:
                 pool.map(save_datapoint, save_args, chunksize=1)
@@ -297,6 +196,98 @@ class BasePCRDataset(BaseDataset):
 
         # Split annotations into train/val/test
         self.annotations = self._split_annotations(self.annotations)
+
+    def process_point_cloud_pair(
+        self, src_path: str, tgt_path: str, transform: torch.Tensor,
+        voxel_size: float, min_points: int, max_points: int,
+        overlap: float = 1.0,
+    ) -> List[Dict[str, Any]]:
+        """Process a pair of point clouds and return datapoints.
+
+        Args:
+            src_path: Path to the source point cloud file
+            tgt_path: Path to the target point cloud file
+            transform: Transformation from source to target
+            voxel_size: Size of voxel cells for sampling
+            min_points: Minimum number of points in a voxel
+            max_points: Maximum number of points in a voxel
+            overlap: Desired overlap ratio between 0 and 1 (default: 1.0 for full overlap)
+        """
+        # Load source point cloud
+        print(f"Loading source point cloud from {src_path}...")
+        src_pc = load_point_cloud(src_path)
+        assert isinstance(src_pc, dict)
+        assert src_pc.keys() >= {'pos'}
+        src_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=src_pc)
+
+        # Load target point cloud
+        tgt_pc = load_point_cloud(tgt_path)
+        assert isinstance(tgt_pc, dict)
+        assert tgt_pc.keys() >= {'pos'}
+        tgt_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=tgt_pc)
+
+        # Transform source points to align with target
+        transformed_src_pc = copy.deepcopy(src_pc)
+        transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
+
+        # Define shifts for partial overlap case
+        shift_amount = voxel_size / 2  # Shift by half the voxel size
+
+        # Create a list of target point clouds to process
+        # For full overlap (overlap >= 1.0), we only use the original target
+        # For partial overlap (overlap < 1.0), we use 6 shifted targets
+        shifted_tgt_pcs = []
+
+        if overlap >= 1.0:
+            # For full overlap, only use the original target
+            shifted_tgt_pcs.append(tgt_pc)
+        else:
+            # For partial overlap, use 6 shifted targets
+            shifts = [
+                [shift_amount, 0, 0], [-shift_amount, 0, 0],
+                [0, shift_amount, 0], [0, -shift_amount, 0],
+                [0, 0, shift_amount], [0, 0, -shift_amount]
+            ]
+
+            for shift in shifts:
+                # Apply shift to target points
+                shifted_tgt_pc = copy.deepcopy(tgt_pc)
+                shifted_tgt_pc['pos'][:, 0] += shift[0]
+                shifted_tgt_pc['pos'][:, 1] += shift[1]
+                shifted_tgt_pc['pos'][:, 2] += shift[2]
+
+                # Add shifted target to the list
+                shifted_tgt_pcs.append(shifted_tgt_pc)
+
+        datapoints = []
+        # Process each target point cloud
+        for shifted_tgt_pc in shifted_tgt_pcs:
+            # Apply grid sampling to the union of transformed source and target
+            src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
+            assert len(src_voxels) == len(tgt_voxels)
+            
+            # Prepare arguments for parallel processing
+            process_args = []
+            for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
+                process_args.append((
+                    src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
+                    src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
+                ))
+            
+            # Use multiprocessing to process voxel pairs in parallel
+            num_workers = max(1, multiprocessing.cpu_count() - 1)
+            with multiprocessing.Pool(num_workers) as pool:
+                # Use imap_unordered for better performance as order doesn't matter
+                # and we want results as soon as they're available
+                results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
+            
+            # Filter out None results and add to datapoints
+            valid_datapoints = [r for r in results if r is not None]
+            datapoints.extend(valid_datapoints)
+            
+            print(f"Length of datapoints: {len(datapoints)}")
+
+        return datapoints
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
