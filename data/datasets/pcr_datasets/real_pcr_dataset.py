@@ -8,8 +8,8 @@ from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 class RealPCRDataset(BasePCRDataset):
 
     def __init__(self, gt_transforms: str, **kwargs) -> None:
-        super(RealPCRDataset, self).__init__(**kwargs)
         self.gt_transforms = gt_transforms
+        super(RealPCRDataset, self).__init__(**kwargs)
 
     def _init_file_pairs(self) -> None:
         """Initialize source and target file path pairs and their transforms.
