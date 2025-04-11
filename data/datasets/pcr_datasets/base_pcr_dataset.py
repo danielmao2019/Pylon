@@ -16,6 +16,56 @@ from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
 from utils.ops import apply_tensor_op
 
 
+def process_voxel_pair(args):
+    """Process a single pair of voxels and return a datapoint if valid.
+    
+    Args:
+        args: Tuple containing (src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc, 
+              src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size)
+    
+    Returns:
+        Datapoint dictionary if valid, None otherwise
+    """
+    src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc, src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size = args
+    
+    if (src_voxel is None) or (tgt_voxel is None):
+        return None
+    # Skip if either source or target has too few points
+    if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
+        return None
+
+    # For partial overlap case, check if the overlap ratio is within the desired range
+    if overlap < 1.0:
+        overlap_ratio = compute_pc_iou(
+            src_points=Select(indices=src_voxel['indices'])(transformed_src_pc)['pos'],
+            tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc)['pos'],
+            radius=voxel_size / 4,
+        )
+        # Skip if overlap ratio is not within the desired range (±10%)
+        if abs(overlap_ratio - overlap) > 0.1:
+            return None
+
+    # Apply random sampling if needed
+    src_pc_final = Select(src_voxel['indices'])(src_pc)
+    if len(src_voxel['indices']) > max_points:
+        src_pc_final = RandomSelect(percentage=max_points / len(src_voxel['indices']))(src_pc_final)
+
+    tgt_pc_final = Select(tgt_voxel['indices'])(tgt_pc)
+    if len(tgt_voxel['indices']) > max_points:
+        tgt_pc_final = RandomSelect(percentage=max_points / len(tgt_voxel['indices']))(tgt_pc_final)
+
+    datapoint = {
+        'src_points': src_pc_final['pos'],
+        'src_indices': src_pc_final['indices'],
+        'src_path': src_path,
+        'tgt_points': tgt_pc_final['pos'],
+        'tgt_indices': tgt_pc_final['indices'],
+        'tgt_path': tgt_path,
+        'transform': transform,
+    }
+    return datapoint
+
+
 def process_point_cloud_pair(
     src_path: str, tgt_path: str, transform: torch.Tensor,
     voxel_size: float, min_points: int, max_points: int,
@@ -84,47 +134,26 @@ def process_point_cloud_pair(
         # Apply grid sampling to the union of transformed source and target
         src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
         assert len(src_voxels) == len(tgt_voxels)
-        overlap_ratios = []
-        # Process each pair of voxels
+        
+        # Prepare arguments for parallel processing
+        process_args = []
         for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
-            if (src_voxel is None) or (tgt_voxel is None):
-                continue
-            # Skip if either source or target has too few points
-            if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
-                continue
-
-            # For partial overlap case, check if the overlap ratio is within the desired range
-            if overlap < 1.0:
-                overlap_ratio = compute_pc_iou(
-                    src_points=Select(indices=src_voxel['indices'])(transformed_src_pc)['pos'],
-                    tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc)['pos'],
-                    radius=voxel_size / 4,
-                )
-                overlap_ratios.append(overlap_ratio)
-                # Skip if overlap ratio is not within the desired range (±10%)
-                if abs(overlap_ratio - overlap) > 0.1:
-                    continue
-
-            # Apply random sampling if needed
-            src_pc_final = Select(src_voxel['indices'])(src_pc)
-            if len(src_voxel['indices']) > max_points:
-                src_pc_final = RandomSelect(percentage=max_points / len(src_voxel['indices']))(src_pc_final)
-
-            tgt_pc_final = Select(tgt_voxel['indices'])(tgt_pc)
-            if len(tgt_voxel['indices']) > max_points:
-                tgt_pc_final = RandomSelect(percentage=max_points / len(tgt_voxel['indices']))(tgt_pc_final)
-
-            datapoint = {
-                'src_points': src_pc_final['pos'],
-                'src_indices': src_pc_final['indices'],
-                'src_path': src_path,
-                'tgt_points': tgt_pc_final['pos'],
-                'tgt_indices': tgt_pc_final['indices'],
-                'tgt_path': tgt_path,
-                'transform': transform,
-            }
-            datapoints.append(datapoint)
-        print(f"Overlap ratios: {overlap_ratios}")
+            process_args.append((
+                src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
+                src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
+            ))
+        
+        # Use multiprocessing to process voxel pairs in parallel
+        num_workers = max(1, multiprocessing.cpu_count() - 1)
+        with multiprocessing.Pool(num_workers) as pool:
+            # Use imap_unordered for better performance as order doesn't matter
+            # and we want results as soon as they're available
+            results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
+        
+        # Filter out None results and add to datapoints
+        valid_datapoints = [r for r in results if r is not None]
+        datapoints.extend(valid_datapoints)
+        
         print(f"Length of datapoints: {len(datapoints)}")
 
     return datapoints
@@ -237,28 +266,17 @@ class BasePCRDataset(BaseDataset):
         else:
             # Process point clouds in parallel
             # Use number of CPU cores minus 1 to leave one core free for system
-            # num_workers = max(1, multiprocessing.cpu_count() - 1)
-            num_workers = 1
+            num_workers = max(1, multiprocessing.cpu_count() - 1)
             print(f"Processing point clouds using {num_workers} workers...")
 
             # Create a partial function with the voxel_size parameter
             process_func = partial(
-                self._process_point_cloud_pair,
+                process_point_cloud_pair,
                 voxel_size=self._voxel_size,
                 min_points=self._min_points,
                 max_points=self._max_points,
                 overlap=self.overlap,
             )
-
-            # # Use multiprocessing to process files in parallel with chunksize for better performance
-            # with multiprocessing.Pool(num_workers) as pool:
-            #     # Create arguments for each file pair
-            #     process_args = []
-            #     for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
-            #         process_args.append((src_path, tgt_path, transform))
-
-            #     # Process files in parallel
-            #     results = pool.starmap(process_func, process_args, chunksize=1)
 
             process_args = []
             for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
@@ -274,32 +292,11 @@ class BasePCRDataset(BaseDataset):
             print(f"Saving {len(self.annotations)} voxels to cache...")
             save_args = [(i, voxel_data, self.cache_dir) for i, voxel_data in enumerate(self.annotations)]
             with multiprocessing.Pool(num_workers) as pool:
-                pool.map(self._save_voxel_data, save_args, chunksize=1)
+                pool.map(save_datapoint, save_args, chunksize=1)
             print(f"Created and cached {len(self.annotations)} voxels")
 
         # Split annotations into train/val/test
         self.annotations = self._split_annotations(self.annotations)
-
-    def _process_point_cloud_pair(self, src_path: str, tgt_path: str, transform: torch.Tensor,
-                                 voxel_size: float, min_points: int, max_points: int,
-                                 overlap: float = 1.0) -> List[Dict[str, Any]]:
-        """Process a pair of point clouds and return datapoints.
-
-        This method should be implemented by subclasses to process a pair of point clouds.
-        """
-        return process_point_cloud_pair(
-            src_path, tgt_path, transform,
-            voxel_size, min_points, max_points,
-            overlap
-        )
-
-    def _save_voxel_data(self, args) -> None:
-        """Save a single voxel data to cache.
-
-        Args:
-            args: Tuple containing (index, voxel_data, cache_dir)
-        """
-        save_datapoint(args)
 
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
