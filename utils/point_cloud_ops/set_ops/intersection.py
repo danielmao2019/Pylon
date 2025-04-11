@@ -20,6 +20,10 @@ def pc_intersection(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
+    assert isinstance(src_points, torch.Tensor)
+    assert isinstance(tgt_points, torch.Tensor)
+    assert src_points.ndim == 2 and tgt_points.ndim == 2
+    assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
     # Count source points that are close to any target point
     src_overlapping_indices = []
     for i, src_point in enumerate(src_points):
@@ -61,6 +65,10 @@ def compute_pc_iou(
     Returns:
         The overlap ratio, defined as the number of overlapping points divided by the total number of points
     """
+    assert isinstance(src_points, torch.Tensor)
+    assert isinstance(tgt_points, torch.Tensor)
+    assert src_points.ndim == 2 and tgt_points.ndim == 2
+    assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
     # Get overlapping indices
     src_overlapping_indices, tgt_overlapping_indices = pc_intersection(
         src_points, tgt_points, radius
