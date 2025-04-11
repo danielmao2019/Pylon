@@ -177,17 +177,14 @@ class BasePCRDataset(BaseDataset):
             # Process point clouds
             print("Processing point clouds...")
 
-            results = []
+            self.annotations = []
             for (src_path, tgt_path), transform in zip(self.filepath_pairs, self.transforms):
-                result = self.process_point_cloud_pair(
+                result = self._process_point_cloud_pair(
                     src_path, tgt_path, transform,
                     self._voxel_size, self._min_points, self._max_points,
                     self.overlap
                 )
-                results.append(result)
-
-            # Flatten the results list
-            self.annotations = [voxel for sublist in results for voxel in sublist]
+                self.annotations.extend(result)
 
             # Save voxels to cache in parallel
             print(f"Saving {len(self.annotations)} voxels to cache...")
@@ -200,7 +197,7 @@ class BasePCRDataset(BaseDataset):
         # Split annotations into train/val/test
         self.annotations = self._split_annotations(self.annotations)
 
-    def process_point_cloud_pair(
+    def _process_point_cloud_pair(
         self, src_path: str, tgt_path: str, transform: torch.Tensor,
         voxel_size: float, min_points: int, max_points: int,
         overlap: float = 1.0,
@@ -224,6 +221,7 @@ class BasePCRDataset(BaseDataset):
         src_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=src_pc)
 
         # Load target point cloud
+        print(f"Loading target point cloud from {tgt_path}...")
         tgt_pc = load_point_cloud(tgt_path)
         assert isinstance(tgt_pc, dict)
         assert tgt_pc.keys() >= {'pos'}
@@ -264,8 +262,10 @@ class BasePCRDataset(BaseDataset):
 
         datapoints = []
         # Process each target point cloud
-        for shifted_tgt_pc in shifted_tgt_pcs:
+        for shift_idx, shifted_tgt_pc in enumerate(shifted_tgt_pcs, 1):
+            print(f"Processing shifted target point cloud {shift_idx}...")
             # Apply grid sampling to the union of transformed source and target
+            print(f"Grid sampling...")
             src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
             assert len(src_voxels) == len(tgt_voxels)
 
@@ -279,6 +279,7 @@ class BasePCRDataset(BaseDataset):
 
             # Use multiprocessing to process voxel pairs in parallel
             num_workers = max(1, multiprocessing.cpu_count() - 1)
+            print(f"Processing {len(process_args)} voxel pairs in parallel with {num_workers} workers...")
             with multiprocessing.Pool(num_workers) as pool:
                 # Use imap_unordered for better performance as order doesn't matter
                 # and we want results as soon as they're available
@@ -288,7 +289,7 @@ class BasePCRDataset(BaseDataset):
             valid_datapoints = [r for r in results if r is not None]
             datapoints.extend(valid_datapoints)
 
-            print(f"Length of datapoints: {len(datapoints)}")
+            print(f"Length of datapoints now: {len(datapoints)}")
 
         return datapoints
 
