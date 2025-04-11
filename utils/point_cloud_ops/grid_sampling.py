@@ -41,6 +41,8 @@ def grid_sampling(
     sampled_data = sampler({'pos': points_union})
 
     # Get the cluster indices for each point
+    # The GridSampling3D class returns a dictionary with 'point_indices' key
+    # which contains either unique_pos_indices or cluster
     cluster_indices = sampled_data['point_indices']
 
     # Get unique cluster IDs
