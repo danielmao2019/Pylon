@@ -20,7 +20,7 @@ class RealPCRDataset(BasePCRDataset):
         self.filepath_pairs = [
             (self.filepaths[i], self.filepaths[0]) for i in range(1, len(self.filepaths))
         ]
-        with open(self.gt_transforms, "r") as f:
+        with open(self.gt_transforms, mode='r') as f:
             self.gt_transforms = json.load(f)
         assert len(self.gt_transforms) == len(self.filepaths)
         assert [t['filepath'] for t in self.gt_transforms] == self.filepaths
