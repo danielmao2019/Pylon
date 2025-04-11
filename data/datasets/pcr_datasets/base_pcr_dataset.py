@@ -185,14 +185,14 @@ class BasePCRDataset(BaseDataset):
                 # Create a directory for this scene pair
                 scene_dir = os.path.join(self.cache_dir, f'scene_pair_{pair_idx}')
                 os.makedirs(scene_dir, exist_ok=True)
-                
+
                 # Check if this scene pair has already been processed
                 existing_voxels = sorted(glob.glob(os.path.join(scene_dir, 'voxel_*.pt')))
                 if len(existing_voxels) > 0:
                     print(f"Scene pair {pair_idx} already processed, loading {len(existing_voxels)} voxels")
                     self.annotations.extend(existing_voxels)
                     continue
-                
+
                 print(f"Processing scene pair {pair_idx}...")
                 result = self._process_point_cloud_pair(
                     src_path, tgt_path, transform,
@@ -300,7 +300,7 @@ class BasePCRDataset(BaseDataset):
 
             # Filter out None results and add to datapoints
             valid_datapoints = [r for r in results if r is not None]
-            
+
             # Save datapoints incrementally in parallel
             save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
             num_workers = max(1, multiprocessing.cpu_count() - 1)
@@ -309,7 +309,7 @@ class BasePCRDataset(BaseDataset):
                 # Use imap_unordered for better performance as order doesn't matter
                 list(pool.imap_unordered(save_datapoint, save_args, chunksize=1))
             print(f"Saved {len(valid_datapoints)} voxels to {scene_dir}")
-            
+
             datapoints.extend(valid_datapoints)
 
             print(f"Length of datapoints now: {len(datapoints)}")
@@ -320,7 +320,7 @@ class BasePCRDataset(BaseDataset):
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         """Load a datapoint using point indices.
-        
+
         The annotations are file paths to cached voxel files, organized by scene pairs.
         Each scene pair has its own directory (scene_pair_X) with voxel files (voxel_Y.pt).
         """
