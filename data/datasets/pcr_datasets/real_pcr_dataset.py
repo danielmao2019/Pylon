@@ -1,3 +1,4 @@
+from typing import List, Dict, Any
 import os
 import glob
 import json
@@ -21,9 +22,11 @@ class RealPCRDataset(BasePCRDataset):
             (self.filepaths[i], self.filepaths[0]) for i in range(1, len(self.filepaths))
         ]
         with open(self.gt_transforms, mode='r') as f:
-            self.gt_transforms = json.load(f)
+            self.gt_transforms: List[Dict[str, Any]] = json.load(f)
         assert len(self.gt_transforms) == len(self.filepaths)
-        assert [t['filepath'] for t in self.gt_transforms] == self.filepaths[1:]
+        assert set(os.path.join(self.data_root, t['filepath']) for t in self.gt_transforms) == set(self.filepaths), \
+            f"{set(os.path.join(self.data_root, t['filepath']) for t in self.gt_transforms)=}, {set(self.filepaths)=}"
+        self.gt_transforms = sorted(self.gt_transforms, key=lambda x: x['filepath'])
         self.transforms = [
             torch.tensor(t['transform'], dtype=torch.float32, device=self.device)
             for t in self.gt_transforms
