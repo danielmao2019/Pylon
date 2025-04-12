@@ -37,6 +37,10 @@ def display_pcr_datapoint(
     src_pc = inputs['src_pc']['pos']  # Source point cloud
     tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
 
+    # Extract RGB colors if available
+    src_rgb = inputs['src_pc'].get('rgb')
+    tgt_rgb = inputs['tgt_pc'].get('rgb')
+
     # Extract transform if available
     transform = datapoint['labels'].get('transform')
     if transform is None:
@@ -54,19 +58,23 @@ def display_pcr_datapoint(
     # 1. Source point cloud (original)
     figures.append(create_3d_figure(
         src_pc,
+        colors=src_rgb,
         title="Source Point Cloud",
         point_size=point_size,
         opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        colorscale=None if src_rgb is not None else 'Viridis'
     ))
 
     # 2. Target point cloud
     figures.append(create_3d_figure(
         tgt_pc,
+        colors=tgt_rgb,
         title="Target Point Cloud",
         point_size=point_size,
         opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        colorscale=None if tgt_rgb is not None else 'Viridis'
     ))
 
     # 3. Union of transformed source and target
