@@ -113,9 +113,9 @@ class DatasetLoader:
         if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args']:
             if not os.path.isabs(dataset_cfg['args']['data_root']):
                 dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
-        if 'args' in dataset_cfg and 'gt_transforms' in dataset_cfg['args']:
-            if not os.path.isabs(dataset_cfg['args']['gt_transforms']):
-                dataset_cfg['args']['gt_transforms'] = os.path.join(repo_root, dataset_cfg['args']['gt_transforms'])
+        if 'args' in dataset_cfg and 'gt_transforms_filepath' in dataset_cfg['args']:
+            if not os.path.isabs(dataset_cfg['args']['gt_transforms_filepath']):
+                dataset_cfg['args']['gt_transforms_filepath'] = os.path.join(repo_root, dataset_cfg['args']['gt_transforms_filepath'])
 
         # Import the dataset builder
         import utils.builders
