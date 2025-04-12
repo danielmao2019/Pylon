@@ -6,7 +6,7 @@ data_cfg = {
         'class': data.datasets.RealPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
+            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
             'cache_dirname': 'real_pcr_cache',
             'split': 'train',
             'voxel_size': 10.0,

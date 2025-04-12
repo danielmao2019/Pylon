@@ -7,7 +7,7 @@ from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'cache_dirname': 'real_pcr_cache',
-        'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/transforms.json',
+        'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/transforms.json',
         'split': 'train',
         'voxel_size': 10.0,
         'min_points': 256,
@@ -16,7 +16,7 @@ from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'cache_dirname': 'real_pcr_cache',
-        'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/transforms.json',
+        'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/transforms.json',
         'split': 'val',
         'voxel_size': 10.0,
         'min_points': 256,

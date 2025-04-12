@@ -8,8 +8,8 @@ from data.datasets.pcr_datasets.base_pcr_dataset import BasePCRDataset
 
 class RealPCRDataset(BasePCRDataset):
 
-    def __init__(self, gt_transforms: str, **kwargs) -> None:
-        self.gt_transforms = gt_transforms
+    def __init__(self, gt_transforms_filepath: str, **kwargs) -> None:
+        self.gt_transforms_filepath = gt_transforms_filepath
         super(RealPCRDataset, self).__init__(**kwargs)
 
     def _init_file_pairs(self) -> None:
@@ -21,15 +21,15 @@ class RealPCRDataset(BasePCRDataset):
         self.filepath_pairs = [
             (self.filepaths[i], self.filepaths[0]) for i in range(1, len(self.filepaths))
         ]
-        with open(self.gt_transforms, mode='r') as f:
-            self.gt_transforms: List[Dict[str, Any]] = json.load(f)
-        assert len(self.gt_transforms) == len(self.filepaths)
-        assert set(os.path.join(self.data_root, t['filepath']) for t in self.gt_transforms) == set(self.filepaths), \
-            f"{set(os.path.join(self.data_root, t['filepath']) for t in self.gt_transforms)=}, {set(self.filepaths)=}"
-        self.gt_transforms = sorted(self.gt_transforms, key=lambda x: x['filepath'])
-        self.transforms = [
+        with open(self.gt_transforms_filepath, mode='r') as f:
+            gt_transforms: List[Dict[str, Any]] = json.load(f)
+        assert len(gt_transforms) == len(self.filepaths)
+        assert set(os.path.join(self.data_root, t['filepath']) for t in gt_transforms) == set(self.filepaths), \
+            f"{set(os.path.join(self.data_root, t['filepath']) for t in gt_transforms)=}, {set(self.filepaths)=}"
+        gt_transforms = sorted(gt_transforms, key=lambda x: x['filepath'])
+        gt_transforms = [
             torch.tensor(t['transform'], dtype=torch.float32, device=self.device)
-            for t in self.gt_transforms
+            for t in gt_transforms
         ]
-        assert torch.equal(self.transforms[0], torch.eye(4, dtype=torch.float32, device=self.device))
-        self.transforms = self.transforms[1:]
+        assert torch.equal(gt_transforms[0], torch.eye(4, dtype=torch.float32, device=self.device))
+        self.gt_transforms = gt_transforms[1:]
