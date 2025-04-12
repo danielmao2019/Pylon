@@ -126,7 +126,7 @@ class BasePCRDataset(BaseDataset):
         This method should be overridden by subclasses to set up:
         - self.src_file_paths: List of source file paths
         - self.tgt_file_paths: List of target file paths
-        - self.transforms: List of transforms from source to target
+        - self.gt_transforms: List of transforms from source to target
         """
         raise NotImplementedError("Subclasses must implement _init_file_pairs")
 
@@ -190,7 +190,7 @@ class BasePCRDataset(BaseDataset):
 
             self.annotations = []
             total_pairs = len(self.filepath_pairs)
-            for pair_idx, ((src_path, tgt_path), transform) in enumerate(zip(self.filepath_pairs, self.transforms)):
+            for pair_idx, ((src_path, tgt_path), transform) in enumerate(zip(self.filepath_pairs, self.gt_transforms)):
                 pair_start_time = time.time()
                 # Create a directory for this scene pair
                 scene_dir = os.path.join(self.cache_dir, f'scene_pair_{pair_idx}')
