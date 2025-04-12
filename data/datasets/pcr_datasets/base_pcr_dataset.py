@@ -57,6 +57,7 @@ def process_voxel_pair(args):
     if len(tgt_voxel['indices']) > max_points:
         tgt_pc_final = RandomSelect(percentage=max_points / len(tgt_voxel['indices']))(tgt_pc_final)
 
+    # Create datapoint with position and RGB if available
     datapoint = {
         'src_points': src_pc_final['pos'],
         'src_indices': src_pc_final['indices'],
@@ -67,6 +68,13 @@ def process_voxel_pair(args):
         'transform': transform,
         'overlap_ratio': overlap_ratio,
     }
+    
+    # Add RGB colors if available
+    if 'rgb' in src_pc_final:
+        datapoint['src_rgb'] = src_pc_final['rgb']
+    if 'rgb' in tgt_pc_final:
+        datapoint['tgt_rgb'] = tgt_pc_final['rgb']
+    
     return datapoint
 
 
@@ -384,6 +392,7 @@ class BasePCRDataset(BaseDataset):
             self.matching_radius
         )
 
+        # Initialize inputs with position and feature
         inputs = {
             'src_pc': {
                 'pos': src_points,
@@ -395,6 +404,12 @@ class BasePCRDataset(BaseDataset):
             },
             'correspondences': correspondences,
         }
+        
+        # Add RGB colors if available
+        if 'src_rgb' in annotation:
+            inputs['src_pc']['rgb'] = annotation['src_rgb']
+        if 'tgt_rgb' in annotation:
+            inputs['tgt_pc']['rgb'] = annotation['tgt_rgb']
 
         labels = {
             'transform': transform,
