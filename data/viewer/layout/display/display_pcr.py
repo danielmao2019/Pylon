@@ -71,12 +71,28 @@ def display_pcr_datapoint(
 
     # 3. Union of transformed source and target
     union_pc = torch.cat([src_pc_transformed, tgt_pc], dim=0)
+    
+    # Create colors for union (red for source, blue for target)
+    src_colors = torch.ones((len(src_pc_transformed), 3), device=src_pc_transformed.device)
+    src_colors[:, 0] = 1.0  # Red for source
+    src_colors[:, 1] = 0.0
+    src_colors[:, 2] = 0.0
+
+    tgt_colors = torch.ones((len(tgt_pc), 3), device=tgt_pc.device)
+    tgt_colors[:, 0] = 0.0  # Blue for target
+    tgt_colors[:, 1] = 0.0
+    tgt_colors[:, 2] = 1.0
+
+    union_colors = torch.cat([src_colors, tgt_colors], dim=0)
+    
     figures.append(create_3d_figure(
         union_pc,
+        colors=union_colors,
         title="Union (Transformed Source + Target)",
         point_size=point_size,
         opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        colorscale=None  # Use custom colors
     ))
 
     # 4. Symmetric difference
