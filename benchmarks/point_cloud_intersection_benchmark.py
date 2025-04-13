@@ -274,6 +274,8 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
     plt.yscale('log')
     
     if save_path:
+        # Create directory if it doesn't exist
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         plt.savefig(save_path)
         print(f"Plot saved to {save_path}")
     else:
@@ -300,4 +302,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main() 
+    main()
