@@ -67,13 +67,13 @@ def process_voxel_pair(args):
         'transform': transform,
         'overlap_ratio': overlap_ratio,
     }
-    
+
     # Add RGB colors if available
     if 'rgb' in src_pc_final:
         datapoint['src_rgb'] = src_pc_final['rgb']
     if 'rgb' in tgt_pc_final:
         datapoint['tgt_rgb'] = tgt_pc_final['rgb']
-    
+
     return datapoint
 
 
@@ -169,7 +169,7 @@ class BasePCRDataset(BaseDataset):
     def _init_annotations(self) -> None:
         """Initialize dataset annotations."""
         start_time = time.time()
-        
+
         # Get file paths
         self.file_paths = sorted(glob.glob(os.path.join(self.data_root, '*.las')))
         self.cache_dir = os.path.join(os.path.dirname(self.data_root), self.cache_dirname+f"_overlap_{self.overlap}")
@@ -202,14 +202,14 @@ class BasePCRDataset(BaseDataset):
                 # Create a directory for this scene pair
                 scene_dir = os.path.join(self.cache_dir, f'scene_pair_{pair_idx}')
                 os.makedirs(scene_dir, exist_ok=True)
-                
+
                 # Check if this scene pair has already been processed
                 existing_voxels = sorted(glob.glob(os.path.join(scene_dir, 'voxel_*.pt')))
                 if len(existing_voxels) > 0:
                     print(f"Scene pair {pair_idx}/{total_pairs-1} already processed, loading {len(existing_voxels)} voxels")
                     self.annotations.extend(existing_voxels)
                     continue
-                
+
                 print(f"Processing scene pair {pair_idx}/{total_pairs-1}...")
                 result = self._process_point_cloud_pair(
                     src_path, tgt_path, transform,
@@ -217,7 +217,7 @@ class BasePCRDataset(BaseDataset):
                     self.overlap, scene_dir
                 )
                 self.annotations.extend(result)
-                
+
                 pair_elapsed = time.time() - pair_start_time
                 print(f"Completed scene pair {pair_idx}/{total_pairs-1} in {pair_elapsed:.2f} seconds")
 
@@ -246,7 +246,7 @@ class BasePCRDataset(BaseDataset):
             scene_dir: Directory to save datapoints for this scene pair
         """
         pair_start_time = time.time()
-        
+
         # Load source point cloud
         print(f"Loading source point cloud from {src_path}...")
         src_load_start = time.time()
@@ -304,7 +304,7 @@ class BasePCRDataset(BaseDataset):
         for shift_idx, shifted_tgt_pc in enumerate(shifted_tgt_pcs, 1):
             shift_start_time = time.time()
             print(f"Processing shifted target point cloud {shift_idx}/{total_shifted_pcs}...")
-            
+
             # Apply grid sampling to the union of transformed source and target
             print(f"Grid sampling...")
             grid_start_time = time.time()
@@ -337,7 +337,7 @@ class BasePCRDataset(BaseDataset):
 
             # Filter out None results and add to datapoints
             valid_datapoints = [r for r in results if r is not None]
-            
+
             # Save datapoints incrementally in parallel
             save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
             num_workers = max(1, multiprocessing.cpu_count() - 1)
@@ -347,7 +347,7 @@ class BasePCRDataset(BaseDataset):
                 # Use imap_unordered for better performance as order doesn't matter
                 list(pool.imap_unordered(save_datapoint, save_args, chunksize=1))
             print(f"Saved {len(valid_datapoints)} voxels to {scene_dir} in {time.time() - save_start_time:.2f} seconds")
-            
+
             datapoints.extend(valid_datapoints)
             print(f"Shift {shift_idx}/{total_shifted_pcs} completed in {time.time() - shift_start_time:.2f} seconds")
             print(f"Total datapoints so far: {len(datapoints)}")
@@ -403,7 +403,7 @@ class BasePCRDataset(BaseDataset):
             },
             'correspondences': correspondences,
         }
-        
+
         # Add RGB colors if available
         if 'src_rgb' in annotation:
             inputs['src_pc']['rgb'] = annotation['src_rgb']
