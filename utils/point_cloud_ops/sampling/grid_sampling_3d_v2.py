@@ -13,9 +13,15 @@ def consecutive_cluster(src: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         - inv: Cluster indices converted to consecutive numbers
         - perm: Indices of unique elements in original ordering
     """
-    unique, inv = torch.unique(src, sorted=True, return_inverse=True)
-    perm = torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device)
-    perm = inv.new_empty(unique.size(0)).scatter_(0, inv, perm)
+    # Use return_counts=True to get the counts in one call
+    unique, inv, counts = torch.unique(src, sorted=True, return_inverse=True, return_counts=True)
+    
+    # Create perm tensor directly with the correct size
+    perm = torch.empty(unique.size(0), dtype=inv.dtype, device=inv.device)
+    
+    # Use scatter_ to fill perm in one operation
+    perm.scatter_(0, inv, torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device))
+    
     return inv, perm
 
 
@@ -54,7 +60,7 @@ def grid_cluster(
     grid_coords = torch.floor(pos * inv_size).long()
 
     # Compute grid dimensions
-    grid_size = torch.ceil((end - start) / size).long()
+    grid_size = torch.ceil((end - start) * inv_size).long()  # Also use inv_size here
 
     # Normalize coordinates to be non-negative
     grid_coords = grid_coords - grid_coords.min(dim=0)[0]
@@ -104,13 +110,19 @@ def group_data(
         result_dict['pos'] = pos[unique_pos_indices]
     else:  # mode == "mean"
         num_clusters = cluster.max().item() + 1
+        
+        # Use scatter_add_ for vectorized summation
         summed = torch.zeros((num_clusters, pos.size(1)),
-                          dtype=pos.dtype, device=pos.device)
-        counts = torch.zeros(num_clusters, dtype=torch.float, device=pos.device)
-        for i in range(pos.size(0)):
-            summed[cluster[i]] += pos[i]
-            counts[cluster[i]] += 1
-        result_dict['pos'] = summed / counts.unsqueeze(1)
+                           dtype=pos.dtype, device=pos.device)
+        counts = torch.zeros(num_clusters, dtype=pos.dtype, device=pos.device)
+        
+        # Vectorized operations
+        summed.scatter_add_(0, cluster.unsqueeze(1).expand(-1, pos.size(1)), pos)
+        counts.scatter_add_(0, cluster, torch.ones_like(cluster, dtype=pos.dtype))
+        
+        # Safe division (avoid division by zero)
+        mask = counts > 0
+        result_dict['pos'] = summed / counts.unsqueeze(1).clamp(min=1.0)
 
     # Handle change map (categorical data)
     if 'change_map' in data_dict:
@@ -120,13 +132,17 @@ def group_data(
         else:  # mode == "mean"
             num_clusters = cluster.max().item() + 1
             change_min = change_map.min()
-            one_hot = torch.zeros((change_map.size(0), change_map.max() - change_min + 1),
-                               device=change_map.device)
+            num_classes = change_map.max() - change_min + 1
+            
+            # Use scatter_add_ for one-hot encoding summation
+            one_hot = torch.zeros((change_map.size(0), num_classes),
+                                device=change_map.device, dtype=torch.float)
             one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
-            summed = torch.zeros((num_clusters, one_hot.size(1)),
-                              device=change_map.device)
-            for i in range(change_map.size(0)):
-                summed[cluster[i]] += one_hot[i]
+            
+            summed = torch.zeros((num_clusters, num_classes),
+                               device=change_map.device, dtype=torch.float)
+            summed.scatter_add_(0, cluster.unsqueeze(1).expand(-1, num_classes), one_hot)
+            
             result_dict['change_map'] = summed.argmax(dim=1) + change_min
     else:
         result_dict['change_map'] = None
