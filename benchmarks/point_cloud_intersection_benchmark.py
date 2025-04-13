@@ -3,13 +3,13 @@
 Benchmark script for comparing different point cloud intersection implementations.
 """
 import time
-import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from typing import Tuple, List, Dict, Any, Callable
+from typing import Tuple, List, Dict
 import os
 import sys
 from functools import partial
+from itertools import product
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -70,6 +70,89 @@ def tensor_intersection(
 
     # Move results back to the original device
     return src_overlapping_indices, tgt_overlapping_indices
+
+
+def tensor_intersection_recursive(
+    src_points: torch.Tensor,
+    tgt_points: torch.Tensor,
+    radius: float,
+    device: str = 'cuda',
+    chunk_factor: int = 1
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """
+    Calculate the intersection between two point clouds using a recursive divide-and-conquer approach
+    to handle CUDA out-of-memory issues. This implementation symmetrically divides both source and
+    target point clouds when OOM occurs.
+    
+    Args:
+        src_points: Source point cloud positions, shape (N, 3)
+        tgt_points: Target point cloud positions, shape (M, 3)
+        radius: Distance radius for considering points as overlapping
+        device: Device to run the computation on ('cpu' or 'cuda')
+        chunk_factor: Factor to divide the point clouds by (increases with recursion)
+        
+    Returns:
+        A tuple containing:
+        - Indices of source points that are close to any target point
+        - Indices of target points that are close to any source point
+    """
+    try:
+        # Try to compute the intersection with the current chunk size
+        return tensor_intersection(src_points, tgt_points, radius, device)
+    except torch.cuda.OutOfMemoryError:
+        # If OOM occurs, divide the problem and recursively solve
+        print(f"CUDA OOM with chunk_factor={chunk_factor}, dividing problem symmetrically...")
+        
+        # If we've already divided too much, fall back to CPU
+        if chunk_factor >= 16:
+            print("Chunk factor too large, falling back to CPU")
+            return tensor_intersection(src_points, tgt_points, radius, 'cpu')
+        
+        # Divide both source and target points into chunks
+        num_chunks = 2 * chunk_factor
+        src_chunks = list(torch.chunk(src_points, num_chunks))
+        tgt_chunks = list(torch.chunk(tgt_points, num_chunks))
+        
+        # Initialize result tensors
+        src_overlapping_indices_list = []
+        tgt_overlapping_indices_list = []
+        
+        # Calculate chunk sizes and starting indices
+        src_chunk_sizes = [len(chunk) for chunk in src_chunks]
+        tgt_chunk_sizes = [len(chunk) for chunk in tgt_chunks]
+        
+        src_start_indices = [sum(src_chunk_sizes[:i]) for i in range(len(src_chunks))]
+        tgt_start_indices = [sum(tgt_chunk_sizes[:i]) for i in range(len(tgt_chunks))]
+        
+        # Process each pair of source and target chunks using itertools.product
+        for (i, src_chunk), (j, tgt_chunk) in product(enumerate(src_chunks), enumerate(tgt_chunks)):
+            # Recursively process this pair of chunks with a larger chunk factor
+            src_indices, tgt_indices = tensor_intersection_recursive(
+                src_chunk, tgt_chunk, radius, device, chunk_factor * 2
+            )
+            
+            # Adjust source indices to account for chunking
+            if len(src_indices) > 0:
+                adjusted_src_indices = src_indices + src_start_indices[i]
+                src_overlapping_indices_list.append(adjusted_src_indices)
+            
+            # Adjust target indices to account for chunking
+            if len(tgt_indices) > 0:
+                adjusted_tgt_indices = tgt_indices + tgt_start_indices[j]
+                tgt_overlapping_indices_list.append(adjusted_tgt_indices)
+        
+        # Combine results
+        if src_overlapping_indices_list:
+            src_overlapping_indices = torch.unique(torch.cat(src_overlapping_indices_list))
+        else:
+            src_overlapping_indices = torch.tensor([], dtype=torch.long, device=device)
+        
+        if tgt_overlapping_indices_list:
+            tgt_overlapping_indices = torch.unique(torch.cat(tgt_overlapping_indices_list))
+        else:
+            tgt_overlapping_indices = torch.tensor([], dtype=torch.long, device=device)
+        
+        return src_overlapping_indices, tgt_overlapping_indices
 
 
 def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: float = 0.3,
@@ -188,7 +271,8 @@ def benchmark_implementations(
     # Define implementations using partial
     implementations = {
         'tensor_cpu': partial(tensor_intersection, device='cpu'),
-        'tensor_gpu': partial(tensor_intersection, device='cuda')
+        'tensor_gpu': partial(tensor_intersection, device='cuda'),
+        'tensor_gpu_recursive': partial(tensor_intersection_recursive, device='cuda')
     }
 
     results = {name: [] for name in implementations}
@@ -222,7 +306,7 @@ def benchmark_implementations(
             test_result = impl_func(src_points, tgt_points, radius)
 
             # For GPU implementation, convert results to CPU for verification
-            if impl_name == 'tensor_gpu':
+            if impl_name in ['tensor_gpu', 'tensor_gpu_recursive']:
                 test_result = (test_result[0].cpu(), test_result[1].cpu())
 
             # Verify results
@@ -231,7 +315,7 @@ def benchmark_implementations(
             # Time the implementation
             times = []
             for _ in range(num_runs):
-                if impl_name == 'tensor_gpu':
+                if impl_name in ['tensor_gpu', 'tensor_gpu_recursive']:
                     # Synchronize GPU before timing
                     torch.cuda.synchronize()
                     start_time = time.time()
@@ -288,7 +372,7 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
 def main():
     """Main function to run benchmarks."""
     # Define point cloud sizes to benchmark (10^3 to 10^6)
-    sizes = [int(1e3), int(1e4), 5 * int(1e4)]
+    sizes = [int(1e3), int(1e4), int(1e5)]
 
     # Run benchmarks
     results = benchmark_implementations(sizes)

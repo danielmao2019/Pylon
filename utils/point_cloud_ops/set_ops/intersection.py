@@ -1,6 +1,5 @@
-from typing import Tuple, List
+from typing import Tuple
 import torch
-import numpy as np
 from scipy.spatial import cKDTree
 
 
