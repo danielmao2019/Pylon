@@ -103,11 +103,6 @@ def tensor_intersection_recursive(
         # If OOM occurs, divide the problem and recursively solve
         print(f"CUDA OOM with chunk_factor={chunk_factor}, dividing problem symmetrically...")
         
-        # If we've already divided too much, fall back to CPU
-        if chunk_factor >= 16:
-            print("Chunk factor too large, falling back to CPU")
-            return tensor_intersection(src_points, tgt_points, radius, 'cpu')
-        
         # Divide both source and target points into chunks
         num_chunks = 2 * chunk_factor
         src_chunks = list(torch.chunk(src_points, num_chunks))
@@ -302,38 +297,47 @@ def benchmark_implementations(
 
         # Run benchmarks for tensor implementations
         for impl_name, impl_func in implementations.items():
-            # Run the implementation and verify results
-            test_result = impl_func(src_points, tgt_points, radius)
+            try:
+                # Run the implementation and verify results
+                test_result = impl_func(src_points, tgt_points, radius)
 
-            # For GPU implementation, convert results to CPU for verification
-            if impl_name in ['tensor_gpu', 'tensor_gpu_recursive']:
-                test_result = (test_result[0].cpu(), test_result[1].cpu())
-
-            # Verify results
-            verify_results(reference_result, test_result, impl_name)
-
-            # Time the implementation
-            times = []
-            for _ in range(num_runs):
+                # For GPU implementation, convert results to CPU for verification
                 if impl_name in ['tensor_gpu', 'tensor_gpu_recursive']:
-                    # Synchronize GPU before timing
-                    torch.cuda.synchronize()
-                    start_time = time.time()
-                    impl_func(src_points, tgt_points, radius)
-                    # Synchronize GPU after computation
-                    torch.cuda.synchronize()
-                    end_time = time.time()
-                else:
-                    start_time = time.time()
-                    impl_func(src_points, tgt_points, radius)
-                    end_time = time.time()
+                    test_result = (test_result[0].cpu(), test_result[1].cpu())
 
-                times.append(end_time - start_time)
+                # Verify results
+                verify_results(reference_result, test_result, impl_name)
 
-            # Calculate average time
-            avg_time = sum(times) / len(times)
-            results[impl_name].append(avg_time)
-            print(f"  {impl_name}: {avg_time:.4f} seconds")
+                # Time the implementation
+                times = []
+                for _ in range(num_runs):
+                    if impl_name in ['tensor_gpu', 'tensor_gpu_recursive']:
+                        # Synchronize GPU before timing
+                        torch.cuda.synchronize()
+                        start_time = time.time()
+                        impl_func(src_points, tgt_points, radius)
+                        # Synchronize GPU after computation
+                        torch.cuda.synchronize()
+                        end_time = time.time()
+                    else:
+                        start_time = time.time()
+                        impl_func(src_points, tgt_points, radius)
+                        end_time = time.time()
+
+                    times.append(end_time - start_time)
+
+                # Calculate average time
+                avg_time = sum(times) / len(times)
+                results[impl_name].append(avg_time)
+                print(f"  {impl_name}: {avg_time:.4f} seconds")
+                
+            except torch.cuda.OutOfMemoryError:
+                # Handle OOM error
+                print(f"  {impl_name}: CUDA Out of Memory Error with size {size}")
+                # Add None to indicate OOM for this size
+                results[impl_name].append(None)
+                # Clear CUDA cache to free memory
+                torch.cuda.empty_cache()
 
     return results
 
@@ -350,7 +354,23 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
     plt.figure(figsize=(10, 6))
 
     for impl_name, times in results.items():
-        plt.plot(sizes, times, marker='o', label=impl_name)
+        # Filter out None values (OOM cases)
+        valid_sizes = [size for i, size in enumerate(sizes) if times[i] is not None]
+        valid_times = [time for time in times if time is not None]
+        
+        if valid_sizes:  # Only plot if we have valid data points
+            plt.plot(valid_sizes, valid_times, marker='o', label=impl_name)
+            
+            # Add OOM annotations if any
+            oom_sizes = [size for i, size in enumerate(sizes) if times[i] is None]
+            for oom_size in oom_sizes:
+                plt.annotate('OOM', 
+                            xy=(oom_size, plt.ylim()[1]), 
+                            xytext=(0, 10), 
+                            textcoords='offset points',
+                            ha='center',
+                            va='bottom',
+                            arrowprops=dict(arrowstyle='->', color='red'))
 
     plt.xlabel('Point Cloud Size')
     plt.ylabel('Time (seconds)')
@@ -384,8 +404,11 @@ def main():
     print("\nSummary:")
     for impl_name, times in results.items():
         print(f"{impl_name}:")
-        for size, time in zip(sizes, times):
-            print(f"  Size {size}: {time:.4f} seconds")
+        for i, (size, time) in enumerate(zip(sizes, times)):
+            if time is None:
+                print(f"  Size {size}: OOM (Out of Memory)")
+            else:
+                print(f"  Size {size}: {time:.4f} seconds")
 
 
 if __name__ == "__main__":
