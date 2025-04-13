@@ -275,13 +275,13 @@ def main():
     """Main function to run benchmarks."""
     # Define point cloud sizes to benchmark (10^3 to 10^6)
     sizes = [int(1e3), int(1e4), int(1e5)]
-    
+
     # Run benchmarks
     results = benchmark_implementations(sizes)
-    
+
     # Plot results
     plot_results(sizes, results, save_path='benchmarks/point_cloud_intersection_benchmark.png')
-    
+
     # Print summary
     print("\nSummary:")
     for impl_name, times in results.items():
