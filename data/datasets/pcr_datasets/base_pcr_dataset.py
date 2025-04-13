@@ -9,7 +9,8 @@ import time
 from data.datasets.base_dataset import BaseDataset
 from data.transforms.vision_3d.select import Select
 from data.transforms.vision_3d.random_select import RandomSelect
-from utils.point_cloud_ops import get_correspondences, apply_transform
+from utils.point_cloud_ops.correspondences import get_correspondences
+from utils.point_cloud_ops.apply_transform import apply_transform
 from utils.point_cloud_ops.grid_sampling import grid_sampling
 from utils.io import load_point_cloud
 from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
