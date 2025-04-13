@@ -1,10 +1,10 @@
 import time
 import torch
 import numpy as np
-from typing import Dict, List, Tuple
+from typing import Dict, List
 import matplotlib.pyplot as plt
 from utils.point_cloud_ops.sampling.grid_sampling_3d import GridSampling3D as GridSampling3Dv1
-from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3Dv2
+from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3D as GridSampling3Dv2
 
 
 def create_test_point_cloud(num_points: int, device: torch.device = None) -> Dict[str, torch.Tensor]:
