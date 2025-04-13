@@ -5,7 +5,6 @@ Benchmark script for comparing different point cloud intersection implementation
 import time
 import numpy as np
 import torch
-from scipy.spatial import cKDTree
 import matplotlib.pyplot as plt
 from typing import Tuple, List, Dict, Any
 import os
@@ -14,11 +13,11 @@ import sys
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Import the original implementation
-from utils.point_cloud_ops.set_ops.intersection import pc_intersection as original_pc_intersection
+# Import the KD-tree implementation
+from utils.point_cloud_ops.set_ops.intersection import pc_intersection as kdtree_intersection
 
 
-def tensor_ops_pc_intersection(
+def tensor_intersection(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
@@ -62,111 +61,6 @@ def tensor_ops_pc_intersection(
     return src_overlapping_indices, tgt_overlapping_indices
 
 
-def kdtree_pc_intersection(
-    src_points: torch.Tensor,
-    tgt_points: torch.Tensor,
-    radius: float,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Calculate the intersection between two point clouds using KD-tree.
-    
-    Args:
-        src_points: Source point cloud positions, shape (N, 3)
-        tgt_points: Target point cloud positions, shape (M, 3)
-        radius: Distance radius for considering points as overlapping
-        
-    Returns:
-        A tuple containing:
-        - Indices of source points that are close to any target point
-        - Indices of target points that are close to any source point
-    """
-    assert isinstance(src_points, torch.Tensor)
-    assert isinstance(tgt_points, torch.Tensor)
-    assert src_points.ndim == 2 and tgt_points.ndim == 2
-    assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
-    
-    # Convert to numpy for KD-tree operations
-    src_np = src_points.cpu().numpy()
-    tgt_np = tgt_points.cpu().numpy()
-    
-    # Build KD-tree for target points
-    tgt_tree = cKDTree(tgt_np)
-    
-    # Find source points that are close to any target point
-    # Query with radius returns all points within radius
-    src_overlapping_indices = []
-    for i, src_point in enumerate(src_np):
-        # Find all target points within radius of this source point
-        neighbors = tgt_tree.query_ball_point(src_point, radius)
-        if len(neighbors) > 0:
-            src_overlapping_indices.append(i)
-    
-    # Build KD-tree for source points
-    src_tree = cKDTree(src_np)
-    
-    # Find target points that are close to any source point
-    tgt_overlapping_indices = []
-    for i, tgt_point in enumerate(tgt_np):
-        # Find all source points within radius of this target point
-        neighbors = src_tree.query_ball_point(tgt_point, radius)
-        if len(neighbors) > 0:
-            tgt_overlapping_indices.append(i)
-    
-    # Convert lists to tensors
-    src_overlapping_indices = torch.tensor(src_overlapping_indices, device=src_points.device)
-    tgt_overlapping_indices = torch.tensor(tgt_overlapping_indices, device=tgt_points.device)
-    
-    return src_overlapping_indices, tgt_overlapping_indices
-
-
-def original_loop_pc_intersection(
-    src_points: torch.Tensor,
-    tgt_points: torch.Tensor,
-    radius: float,
-) -> Tuple[torch.Tensor, torch.Tensor]:
-    """
-    Original implementation with for loops and tensor operations.
-    
-    Args:
-        src_points: Source point cloud positions, shape (N, 3)
-        tgt_points: Target point cloud positions, shape (M, 3)
-        radius: Distance radius for considering points as overlapping
-        
-    Returns:
-        A tuple containing:
-        - Indices of source points that are close to any target point
-        - Indices of target points that are close to any source point
-    """
-    assert isinstance(src_points, torch.Tensor)
-    assert isinstance(tgt_points, torch.Tensor)
-    assert src_points.ndim == 2 and tgt_points.ndim == 2
-    assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
-    
-    # Count source points that are close to any target point
-    src_overlapping_indices = []
-    for i, src_point in enumerate(src_points):
-        # Find points in the target point cloud that are close to this source point
-        distances = torch.norm(tgt_points - src_point, dim=1)
-        close_points = torch.where(distances < radius)[0]
-        if len(close_points) > 0:
-            src_overlapping_indices.append(i)
-    
-    # Count target points that are close to any source point
-    tgt_overlapping_indices = []
-    for i, tgt_point in enumerate(tgt_points):
-        # Find points in the source point cloud that are close to this target point
-        distances = torch.norm(src_points - tgt_point, dim=1)
-        close_points = torch.where(distances < radius)[0]
-        if len(close_points) > 0:
-            tgt_overlapping_indices.append(i)
-    
-    # Convert lists to tensors
-    src_overlapping_indices = torch.tensor(src_overlapping_indices, device=src_points.device)
-    tgt_overlapping_indices = torch.tensor(tgt_overlapping_indices, device=tgt_points.device)
-    
-    return src_overlapping_indices, tgt_overlapping_indices
-
-
 def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: float = 0.3, 
                                 radius: float = 0.1, device: str = 'cpu') -> Tuple[torch.Tensor, torch.Tensor]:
     """
@@ -206,6 +100,51 @@ def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: floa
     return src_points, tgt_points
 
 
+def verify_results(reference_result: Tuple[torch.Tensor, torch.Tensor], 
+                  test_result: Tuple[torch.Tensor, torch.Tensor], 
+                  impl_name: str) -> bool:
+    """
+    Verify that two implementations produce the same results.
+    
+    Args:
+        reference_result: Result from the reference implementation
+        test_result: Result from the test implementation
+        impl_name: Name of the test implementation
+        
+    Returns:
+        True if results match, False otherwise
+    """
+    src_ref, tgt_ref = reference_result
+    src_test, tgt_test = test_result
+    
+    # Check if the results have the same length
+    if len(src_ref) != len(src_test) or len(tgt_ref) != len(tgt_test):
+        print(f"❌ {impl_name}: Result length mismatch!")
+        print(f"  Reference: {len(src_ref)} source points, {len(tgt_ref)} target points")
+        print(f"  Test: {len(src_test)} source points, {len(tgt_test)} target points")
+        return False
+    
+    # Check if the results contain the same indices
+    src_ref_sorted = torch.sort(src_ref)[0]
+    src_test_sorted = torch.sort(src_test)[0]
+    tgt_ref_sorted = torch.sort(tgt_ref)[0]
+    tgt_test_sorted = torch.sort(tgt_test)[0]
+    
+    src_match = torch.all(src_ref_sorted == src_test_sorted)
+    tgt_match = torch.all(tgt_ref_sorted == tgt_test_sorted)
+    
+    if not src_match or not tgt_match:
+        print(f"❌ {impl_name}: Result indices don't match!")
+        if not src_match:
+            print(f"  Source indices mismatch: {src_ref_sorted} vs {src_test_sorted}")
+        if not tgt_match:
+            print(f"  Target indices mismatch: {tgt_ref_sorted} vs {tgt_test_sorted}")
+        return False
+    
+    print(f"✅ {impl_name}: Results match the reference implementation")
+    return True
+
+
 def benchmark_implementations(sizes: List[int], radius: float = 0.1, 
                              num_runs: int = 5, device: str = 'cpu') -> Dict[str, List[float]]:
     """
@@ -221,9 +160,8 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
         Dictionary with timing results for each implementation
     """
     implementations = {
-        'Original (Loops)': original_loop_pc_intersection,
-        'KD-Tree': kdtree_pc_intersection,
-        'Tensor Ops': tensor_ops_pc_intersection
+        'kdtree': kdtree_intersection,
+        'tensor': tensor_intersection
     }
     
     results = {name: [] for name in implementations}
@@ -234,8 +172,21 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
         # Generate point clouds
         src_points, tgt_points = generate_random_point_clouds(size, size, radius=radius, device=device)
         
+        # Get reference result from KD-tree implementation
+        reference_result = kdtree_intersection(src_points, tgt_points, radius)
+        
         # Run benchmarks
         for impl_name, impl_func in implementations.items():
+            # Skip verification for the reference implementation
+            if impl_name == 'kdtree':
+                # Just verify the results match
+                verify_results(reference_result, reference_result, impl_name)
+            else:
+                # Run the implementation and verify results
+                test_result = impl_func(src_points, tgt_points, radius)
+                verify_results(reference_result, test_result, impl_name)
+            
+            # Time the implementation
             times = []
             for _ in range(num_runs):
                 start_time = time.time()
