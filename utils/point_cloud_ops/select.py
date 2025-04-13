@@ -1,9 +1,8 @@
 from typing import Any, Dict
 import torch
-from data.transforms.base_transform import BaseTransform
 
 
-class Select(BaseTransform):
+class Select:
     def __init__(self, indices: torch.Tensor) -> None:
         self.indices = indices
 
