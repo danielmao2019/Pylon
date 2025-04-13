@@ -272,7 +272,7 @@ def main():
     results = benchmark_implementations(sizes)
 
     # Plot results
-    plot_results(sizes, results, save_path='benchmarks/point_cloud_intersection_benchmark.png')
+    plot_results(sizes, results, save_path='results/point_cloud_intersection_benchmark.png')
 
     # Print summary
     print("\nSummary:")
