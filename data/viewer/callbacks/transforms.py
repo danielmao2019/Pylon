@@ -48,7 +48,7 @@ def apply_transforms(
     if dataset_type == '3d_change_detection':
         display = display_3d_datapoint(datapoint, class_names=dataset_info['class_labels'])
     elif dataset_type == 'point_cloud_registration':
-        display = display_pcr_datapoint(datapoint, class_names=dataset_info['class_labels'])
+        display = display_pcr_datapoint(datapoint)
     elif dataset_type == '2d_change_detection':
         display = display_2d_datapoint(datapoint, class_names=dataset_info['class_labels'])
     else:
