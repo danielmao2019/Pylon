@@ -24,12 +24,12 @@ def tensor_intersection(
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Calculate the intersection between two point clouds using pure tensor operations.
-    
+
     Args:
         src_points: Source point cloud positions, shape (N, 3)
         tgt_points: Target point cloud positions, shape (M, 3)
         radius: Distance radius for considering points as overlapping
-        
+
     Returns:
         A tuple containing:
         - Indices of source points that are close to any target point
@@ -39,100 +39,100 @@ def tensor_intersection(
     assert isinstance(tgt_points, torch.Tensor)
     assert src_points.ndim == 2 and tgt_points.ndim == 2
     assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
-    
+
     # Reshape for broadcasting: (N, 1, 3) - (1, M, 3) = (N, M, 3)
     src_expanded = src_points.unsqueeze(1)  # Shape: (N, 1, 3)
     tgt_expanded = tgt_points.unsqueeze(0)  # Shape: (1, M, 3)
-    
+
     # Calculate all pairwise distances: (N, M)
     distances = torch.norm(src_expanded - tgt_expanded, dim=2)
-    
+
     # Find points within radius
     within_radius = distances < radius
-    
+
     # Check if any target point is within radius of each source point
     src_overlapping = torch.any(within_radius, dim=1)
     src_overlapping_indices = torch.where(src_overlapping)[0]
-    
+
     # Check if any source point is within radius of each target point
     tgt_overlapping = torch.any(within_radius, dim=0)
     tgt_overlapping_indices = torch.where(tgt_overlapping)[0]
-    
+
     return src_overlapping_indices, tgt_overlapping_indices
 
 
-def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: float = 0.3, 
+def generate_random_point_clouds(num_src: int, num_tgt: int, overlap_ratio: float = 0.3,
                                 radius: float = 0.1, device: str = 'cpu') -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Generate random point clouds with controlled overlap.
-    
+
     Args:
         num_src: Number of points in source point cloud
         num_tgt: Number of points in target point cloud
         overlap_ratio: Approximate ratio of points that should overlap
         radius: Distance radius for considering points as overlapping
         device: Device to place tensors on
-        
+
     Returns:
         Tuple of (src_points, tgt_points)
     """
     # Generate source points in a unit cube
     src_points = torch.rand(num_src, 3, device=device)
-    
+
     # Generate target points with controlled overlap
     num_overlap = int(min(num_src, num_tgt) * overlap_ratio)
-    
+
     # Create overlapping points by adding small random offsets to some source points
     overlap_indices = torch.randperm(num_src)[:num_overlap]
     overlapping_points = src_points[overlap_indices] + torch.randn(num_overlap, 3, device=device) * radius * 0.5
-    
+
     # Create non-overlapping points
     non_overlap_count = num_tgt - num_overlap
     non_overlapping_points = torch.rand(non_overlap_count, 3, device=device)
-    
+
     # Combine overlapping and non-overlapping points
     tgt_points = torch.cat([overlapping_points, non_overlapping_points])
-    
+
     # Shuffle target points
     tgt_indices = torch.randperm(num_tgt)
     tgt_points = tgt_points[tgt_indices]
-    
+
     return src_points, tgt_points
 
 
-def verify_results(reference_result: Tuple[torch.Tensor, torch.Tensor], 
-                  test_result: Tuple[torch.Tensor, torch.Tensor], 
+def verify_results(reference_result: Tuple[torch.Tensor, torch.Tensor],
+                  test_result: Tuple[torch.Tensor, torch.Tensor],
                   impl_name: str) -> bool:
     """
     Verify that two implementations produce the same results.
-    
+
     Args:
         reference_result: Result from the reference implementation
         test_result: Result from the test implementation
         impl_name: Name of the test implementation
-        
+
     Returns:
         True if results match, False otherwise
     """
     src_ref, tgt_ref = reference_result
     src_test, tgt_test = test_result
-    
+
     # Check if the results have the same length
     if len(src_ref) != len(src_test) or len(tgt_ref) != len(tgt_test):
         print(f"❌ {impl_name}: Result length mismatch!")
         print(f"  Reference: {len(src_ref)} source points, {len(tgt_ref)} target points")
         print(f"  Test: {len(src_test)} source points, {len(tgt_test)} target points")
         return False
-    
+
     # Check if the results contain the same indices
     src_ref_sorted = torch.sort(src_ref)[0]
     src_test_sorted = torch.sort(src_test)[0]
     tgt_ref_sorted = torch.sort(tgt_ref)[0]
     tgt_test_sorted = torch.sort(tgt_test)[0]
-    
+
     src_match = torch.all(src_ref_sorted == src_test_sorted)
     tgt_match = torch.all(tgt_ref_sorted == tgt_test_sorted)
-    
+
     if not src_match or not tgt_match:
         print(f"❌ {impl_name}: Result indices don't match!")
         if not src_match:
@@ -140,22 +140,22 @@ def verify_results(reference_result: Tuple[torch.Tensor, torch.Tensor],
         if not tgt_match:
             print(f"  Target indices mismatch: {tgt_ref_sorted} vs {tgt_test_sorted}")
         return False
-    
+
     print(f"✅ {impl_name}: Results match the reference implementation")
     return True
 
 
-def benchmark_implementations(sizes: List[int], radius: float = 0.1, 
+def benchmark_implementations(sizes: List[int], radius: float = 0.1,
                              num_runs: int = 5, device: str = 'cpu') -> Dict[str, List[float]]:
     """
     Benchmark different implementations with varying point cloud sizes.
-    
+
     Args:
         sizes: List of point cloud sizes to benchmark
         radius: Distance radius for considering points as overlapping
         num_runs: Number of runs for each size
         device: Device to run benchmarks on
-        
+
     Returns:
         Dictionary with timing results for each implementation
     """
@@ -163,18 +163,18 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
         'kdtree': kdtree_intersection,
         'tensor': tensor_intersection
     }
-    
+
     results = {name: [] for name in implementations}
-    
+
     for size in sizes:
         print(f"Benchmarking with size {size}...")
-        
+
         # Generate point clouds
         src_points, tgt_points = generate_random_point_clouds(size, size, radius=radius, device=device)
-        
+
         # Get reference result from KD-tree implementation
         reference_result = kdtree_intersection(src_points, tgt_points, radius)
-        
+
         # Run benchmarks
         for impl_name, impl_func in implementations.items():
             # Skip verification for the reference implementation
@@ -185,7 +185,7 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
                 # Run the implementation and verify results
                 test_result = impl_func(src_points, tgt_points, radius)
                 verify_results(reference_result, test_result, impl_name)
-            
+
             # Time the implementation
             times = []
             for _ in range(num_runs):
@@ -193,29 +193,29 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
                 impl_func(src_points, tgt_points, radius)
                 end_time = time.time()
                 times.append(end_time - start_time)
-            
+
             # Calculate average time
             avg_time = sum(times) / len(times)
             results[impl_name].append(avg_time)
             print(f"  {impl_name}: {avg_time:.4f} seconds")
-    
+
     return results
 
 
 def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: str = None):
     """
     Plot benchmark results.
-    
+
     Args:
         sizes: List of point cloud sizes
         results: Dictionary with timing results for each implementation
         save_path: Path to save the plot (if None, display the plot)
     """
     plt.figure(figsize=(10, 6))
-    
+
     for impl_name, times in results.items():
         plt.plot(sizes, times, marker='o', label=impl_name)
-    
+
     plt.xlabel('Point Cloud Size')
     plt.ylabel('Time (seconds)')
     plt.title('Point Cloud Intersection Benchmark')
@@ -223,7 +223,7 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
     plt.grid(True)
     plt.xscale('log')
     plt.yscale('log')
-    
+
     if save_path:
         # Create directory if it doesn't exist
         os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -235,15 +235,15 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
 
 def main():
     """Main function to run benchmarks."""
-    # Define point cloud sizes to benchmark
-    sizes = [100, 500, 1000, 5000, 10000]
-    
+    # Define point cloud sizes to benchmark (10^3 to 10^6)
+    sizes = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
+
     # Run benchmarks
     results = benchmark_implementations(sizes)
-    
+
     # Plot results
     plot_results(sizes, results, save_path='benchmarks/point_cloud_intersection_benchmark.png')
-    
+
     # Print summary
     print("\nSummary:")
     for impl_name, times in results.items():
