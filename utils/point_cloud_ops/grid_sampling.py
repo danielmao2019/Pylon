@@ -52,9 +52,14 @@ def grid_sampling(
     result = [[] for _ in range(len(pcs))]
 
     # Create a tensor to track which point cloud each point belongs to
-    pc_indices = torch.zeros(len(points_union), dtype=torch.long)
+    pc_indices = torch.zeros(len(points_union), dtype=torch.long, device=points_union.device)
     for i, (start, num_points) in enumerate(zip(start_indices, num_points_per_pc)):
         pc_indices[start:start + num_points] = i
+
+    # Pre-compute masks for each point cloud to avoid redundant calculations
+    pc_masks = []
+    for pc_idx in range(len(pcs)):
+        pc_masks.append(pc_indices == pc_idx)
 
     # Process all clusters at once
     for cluster_id in unique_clusters:
@@ -63,8 +68,8 @@ def grid_sampling(
 
         # For each point cloud, find points in this cluster
         for pc_idx in range(len(pcs)):
-            # Get points in this cluster from this point cloud
-            pc_cluster_mask = cluster_mask & (pc_indices == pc_idx)
+            # Get points in this cluster from this point cloud using pre-computed mask
+            pc_cluster_mask = cluster_mask & pc_masks[pc_idx]
 
             # If there are points in this cluster from this point cloud
             if pc_cluster_mask.any():
