@@ -6,9 +6,10 @@ import time
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict, Any, Callable
 import os
 import sys
+from functools import partial
 
 # Add the project root to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -16,11 +17,15 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # Import the KD-tree implementation
 from utils.point_cloud_ops.set_ops.intersection import pc_intersection as kdtree_intersection
 
+# Assert GPU is available
+assert torch.cuda.is_available(), "This benchmark requires a GPU to run"
+
 
 def tensor_intersection(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
+    device: str = 'cpu'
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Calculate the intersection between two point clouds using pure tensor operations.
@@ -29,6 +34,7 @@ def tensor_intersection(
         src_points: Source point cloud positions, shape (N, 3)
         tgt_points: Target point cloud positions, shape (M, 3)
         radius: Distance radius for considering points as overlapping
+        device: Device to run the computation on ('cpu' or 'cuda')
 
     Returns:
         A tuple containing:
@@ -39,6 +45,10 @@ def tensor_intersection(
     assert isinstance(tgt_points, torch.Tensor)
     assert src_points.ndim == 2 and tgt_points.ndim == 2
     assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
+
+    # Move tensors to the specified device
+    src_points = src_points.to(device)
+    tgt_points = tgt_points.to(device)
 
     # Reshape for broadcasting: (N, 1, 3) - (1, M, 3) = (N, M, 3)
     src_expanded = src_points.unsqueeze(1)  # Shape: (N, 1, 3)
@@ -58,6 +68,7 @@ def tensor_intersection(
     tgt_overlapping = torch.any(within_radius, dim=0)
     tgt_overlapping_indices = torch.where(tgt_overlapping)[0]
 
+    # Move results back to the original device
     return src_overlapping_indices, tgt_overlapping_indices
 
 
@@ -145,8 +156,19 @@ def verify_results(reference_result: Tuple[torch.Tensor, torch.Tensor],
     return True
 
 
+def get_gpu_info() -> str:
+    """
+    Get information about the GPU.
+
+    Returns:
+        String with GPU information
+    """
+    device = torch.cuda.get_device_name(0)
+    return f"GPU: {device}"
+
+
 def benchmark_implementations(sizes: List[int], radius: float = 0.1,
-                             num_runs: int = 5, device: str = 'cpu') -> Dict[str, List[float]]:
+                             num_runs: int = 5) -> Dict[str, List[float]]:
     """
     Benchmark different implementations with varying point cloud sizes.
 
@@ -154,14 +176,19 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
         sizes: List of point cloud sizes to benchmark
         radius: Distance radius for considering points as overlapping
         num_runs: Number of runs for each size
-        device: Device to run benchmarks on
 
     Returns:
         Dictionary with timing results for each implementation
     """
+    # Get GPU information
+    gpu_info = get_gpu_info()
+    print(f"Hardware: {gpu_info}")
+
+    # Define implementations using partial
     implementations = {
         'kdtree': kdtree_intersection,
-        'tensor': tensor_intersection
+        'tensor_cpu': partial(tensor_intersection, device='cpu'),
+        'tensor_gpu': partial(tensor_intersection, device='cuda')
     }
 
     results = {name: [] for name in implementations}
@@ -170,28 +197,39 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
         print(f"Benchmarking with size {size}...")
 
         # Generate point clouds
-        src_points, tgt_points = generate_random_point_clouds(size, size, radius=radius, device=device)
+        src_points, tgt_points = generate_random_point_clouds(size, size, radius=radius, device='cpu')
 
         # Get reference result from KD-tree implementation
         reference_result = kdtree_intersection(src_points, tgt_points, radius)
 
         # Run benchmarks
         for impl_name, impl_func in implementations.items():
-            # Skip verification for the reference implementation
-            if impl_name == 'kdtree':
-                # Just verify the results match
-                verify_results(reference_result, reference_result, impl_name)
-            else:
-                # Run the implementation and verify results
-                test_result = impl_func(src_points, tgt_points, radius)
-                verify_results(reference_result, test_result, impl_name)
+            # Run the implementation and verify results
+            test_result = impl_func(src_points, tgt_points, radius)
+
+            # For GPU implementation, convert results to CPU for verification
+            if impl_name == 'tensor_gpu':
+                test_result = (test_result[0].cpu(), test_result[1].cpu())
+
+            # Verify results
+            verify_results(reference_result, test_result, impl_name)
 
             # Time the implementation
             times = []
             for _ in range(num_runs):
-                start_time = time.time()
-                impl_func(src_points, tgt_points, radius)
-                end_time = time.time()
+                if impl_name == 'tensor_gpu':
+                    # Synchronize GPU before timing
+                    torch.cuda.synchronize()
+                    start_time = time.time()
+                    impl_func(src_points, tgt_points, radius)
+                    # Synchronize GPU after computation
+                    torch.cuda.synchronize()
+                    end_time = time.time()
+                else:
+                    start_time = time.time()
+                    impl_func(src_points, tgt_points, radius)
+                    end_time = time.time()
+
                 times.append(end_time - start_time)
 
             # Calculate average time
@@ -236,14 +274,14 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
 def main():
     """Main function to run benchmarks."""
     # Define point cloud sizes to benchmark (10^3 to 10^6)
-    sizes = [1000, 5000, 10000, 50000, 100000, 500000, 1000000]
-
+    sizes = [int(1e3), int(1e4), int(1e5)]
+    
     # Run benchmarks
     results = benchmark_implementations(sizes)
-
+    
     # Plot results
     plot_results(sizes, results, save_path='benchmarks/point_cloud_intersection_benchmark.png')
-
+    
     # Print summary
     print("\nSummary:")
     for impl_name, times in results.items():
