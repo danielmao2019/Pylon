@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional, Tuple
+from typing import Dict, Any, Optional, Tuple, Union, List
 import torch
 
 
@@ -13,8 +13,8 @@ def consecutive_cluster(src: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         - inv: Cluster indices converted to consecutive numbers
         - perm: Indices of unique elements in original ordering
     """
-    # Optimized: Removed sorted=True to avoid unnecessary sorting
-    unique, inv = torch.unique(src, return_inverse=True)
+    # Match original implementation by using sorted=True
+    unique, inv = torch.unique(src, sorted=True, return_inverse=True)
     perm = torch.arange(inv.size(0), dtype=inv.dtype, device=inv.device)
     perm = inv.new_empty(unique.size(0)).scatter_(0, inv, perm)
     return inv, perm
@@ -22,54 +22,44 @@ def consecutive_cluster(src: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
 
 def grid_cluster(
     pos: torch.Tensor,
-    size: torch.Tensor,
-    start: Optional[torch.Tensor] = None,
-    end: Optional[torch.Tensor] = None,
+    size: Union[float, List[float], torch.Tensor],
+    start: Optional[Union[List[float], torch.Tensor]] = None,
+    end: Optional[Union[List[float], torch.Tensor]] = None,
 ) -> torch.Tensor:
-    """Cluster points into voxels using a regular grid.
+    """Compute cluster indices for grid sampling.
 
     Args:
-        pos: D-dimensional position of points (N, D).
-        size: Size of a voxel in each dimension (D,).
-        start: Optional start position of the grid in each dimension (D,).
-            If None, uses minimum point coordinates.
-        end: Optional end position of the grid in each dimension (D,).
-            If None, uses maximum point coordinates.
+        pos: Point positions tensor of shape (N, 3)
+        size: Voxel size(s) for grid sampling
+        start: Optional start position for grid
+        end: Optional end position for grid
 
     Returns:
-        Cluster indices for each point (N,).
+        Cluster indices tensor of shape (N,)
     """
-    # If start/end not provided, compute them from point cloud bounds
-    # Optimized: Compute min and max in a single pass if needed
-    if start is None or end is None:
-        min_vals, max_vals = torch.min(pos, dim=0)[0], torch.max(pos, dim=0)[0]
-        if start is None:
-            start = min_vals
-        if end is None:
-            end = max_vals
+    # Convert size to tensor if needed
+    if not isinstance(size, torch.Tensor):
+        size = torch.tensor(size, device=pos.device)
+    if size.dim() == 0:
+        size = size.repeat(3)
 
-    # Shift points to start at origin and get grid coordinates
-    # Optimized: Combine operations to reduce memory usage
-    pos_shifted = pos - start
+    # Compute grid coordinates
+    if start is not None:
+        if not isinstance(start, torch.Tensor):
+            start = torch.tensor(start, device=pos.device)
+        # Match original implementation by modifying pos directly
+        pos = pos - start
 
-    # Get grid coordinates for each point using floor division
-    grid_coords = torch.floor(pos_shifted / size).long()
+    # Compute grid indices
+    grid_coords = torch.floor(pos / size).long()
 
-    # Compute grid dimensions
-    grid_size = torch.ceil((end - start) / size).long()
+    # Normalize coordinates to start from 0
+    grid_coords = grid_coords - grid_coords.min(dim=0)[0]
 
-    # Normalize coordinates to be non-negative
-    # Optimized: Compute min in a single operation
-    grid_coords_min = grid_coords.min(dim=0)[0]
-    grid_coords = grid_coords - grid_coords_min
+    # Compute unique grid indices
+    grid_indices = grid_coords[:, 0] + grid_coords[:, 1] * grid_coords[:, 2].max() + grid_coords[:, 2] * grid_coords[:, 1].max() * grid_coords[:, 0].max()
 
-    # Compute unique cell index using row-major ordering
-    # This is more robust than Morton encoding for large coordinate ranges
-    strides = torch.tensor([1, grid_size[0], grid_size[0] * grid_size[1]],
-                          device=pos.device, dtype=torch.long)
-    cluster = (grid_coords * strides.view(1, -1)).sum(dim=1)
-
-    return cluster
+    return grid_indices
 
 
 def compute_grid_indices(pos: torch.Tensor, size: float) -> torch.Tensor:
@@ -259,3 +249,70 @@ class GridSampling3Dv2:
         return "{}(grid_size={}, mode={})".format(
             self.__class__.__name__, self._grid_size, self._mode
         )
+
+
+def group_data(
+    cluster: torch.Tensor,
+    data: Dict[str, torch.Tensor],
+    mode: str = "mean",
+    unique_indices: Optional[torch.Tensor] = None,
+) -> Dict[str, torch.Tensor]:
+    """Group data by cluster indices.
+
+    Args:
+        cluster: Cluster indices tensor of shape (N,)
+        data: Dictionary of tensors to group
+        mode: Aggregation mode ("mean" or "last")
+        unique_indices: Optional pre-computed unique cluster indices
+
+    Returns:
+        Dictionary of grouped tensors
+    """
+    # Get unique cluster indices if not provided
+    if unique_indices is None:
+        unique_indices = torch.unique(cluster, sorted=True)
+
+    # Initialize output dictionary
+    out = {}
+
+    # Process each tensor in the data dictionary
+    for key, src in data.items():
+        # Handle categorical data (last dimension is number of categories)
+        if key == "cat" and src.dim() > 1:
+            # For categorical data, use mode aggregation
+            out[key] = scatter(src, cluster, dim=0, reduce="max")
+        else:
+            # For other data, use specified mode
+            out[key] = scatter(src, cluster, dim=0, reduce=mode)
+
+    return out
+
+
+def grid_sampling_3d(
+    pos: torch.Tensor,
+    data: Dict[str, torch.Tensor],
+    size: Union[float, List[float], torch.Tensor],
+    start: Optional[Union[List[float], torch.Tensor]] = None,
+    end: Optional[Union[List[float], torch.Tensor]] = None,
+    mode: str = "mean",
+) -> Dict[str, torch.Tensor]:
+    """Grid sampling in 3D space.
+
+    Args:
+        pos: Point positions tensor of shape (N, 3)
+        data: Dictionary of tensors to sample
+        size: Voxel size (float, list of 3 floats, or tensor of shape (3,))
+        start: Optional start position of the grid
+        end: Optional end position of the grid
+        mode: Aggregation mode ("mean" or "last")
+
+    Returns:
+        Dictionary of sampled tensors
+    """
+    # Compute cluster indices
+    cluster = grid_cluster(pos, size, start, end)
+
+    # Group data by cluster
+    out = group_data(cluster, data, mode)
+
+    return out
