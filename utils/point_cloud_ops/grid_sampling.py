@@ -2,11 +2,50 @@ from typing import List, Dict
 import torch
 from utils.point_cloud_ops.sampling import GridSampling3D
 from data.transforms.vision_3d.select import Select
+from multiprocessing import Pool
+
+
+def process_cluster(args):
+    """
+    Process a single cluster for all point clouds.
+
+    Args:
+        args: Tuple containing (cluster_id, cluster_mask, pcs, start_indices, pc_masks)
+
+    Returns:
+        Tuple of (cluster_id, results) where results is a list of voxelized point clouds
+    """
+    cluster_id, cluster_mask, pcs, start_indices, pc_masks = args
+
+    # Process each point cloud for this cluster
+    results = []
+    for pc_idx in range(len(pcs)):
+        # Get points in this cluster from this point cloud using pre-computed mask
+        pc_cluster_mask = cluster_mask & pc_masks[pc_idx]
+
+        # If there are points in this cluster from this point cloud
+        if pc_cluster_mask.any():
+            # Get the indices of points in this cluster from this point cloud
+            pc_cluster_indices = torch.where(pc_cluster_mask)[0]
+
+            # Adjust indices to be relative to the original point cloud
+            pc_cluster_indices = pc_cluster_indices - start_indices[pc_idx]
+
+            # Use the Select transform to create a voxelized point cloud
+            voxel_pc = Select(pc_cluster_indices)(pcs[pc_idx])
+
+            # Add the voxelized point cloud to the result
+            results.append(voxel_pc)
+        else:
+            results.append(None)
+
+    return cluster_id, results
 
 
 def grid_sampling(
     pcs: List[Dict[str, torch.Tensor]],
     voxel_size: float,
+    num_workers: int = None,  # None will use all available CPU cores
 ) -> List[List[Dict[str, torch.Tensor]]]:
     """
     Grid sampling of point clouds.
@@ -14,6 +53,8 @@ def grid_sampling(
     Args:
         pcs: List of point clouds
         voxel_size: Size of voxel cells for sampling
+        num_workers: Number of worker processes to use for parallel processing.
+                    If None, uses all available CPU cores.
 
     Returns:
         A list of lists of voxelized point clouds, one list per input point cloud.
@@ -61,31 +102,24 @@ def grid_sampling(
     for pc_idx in range(len(pcs)):
         pc_masks.append(pc_indices == pc_idx)
 
-    # Process all clusters at once
-    for cluster_id in unique_clusters:
-        # Get points in this cluster
-        cluster_mask = cluster_indices == cluster_id
+    # Prepare arguments for parallel processing
+    process_args = [
+        (cluster_id.item(), cluster_indices == cluster_id, pcs, start_indices, pc_masks)
+        for cluster_id in unique_clusters
+    ]
 
-        # For each point cloud, find points in this cluster
+    # Process clusters in parallel using imap_unordered
+    with Pool(processes=num_workers) as pool:
+        # Use imap_unordered for maximum speed when order doesn't matter
+        cluster_results = {}
+        for cluster_id, cluster_result in pool.imap_unordered(process_cluster, process_args):
+            cluster_results[cluster_id] = cluster_result
+
+    # Reconstruct the result in the original order
+    for i, cluster_id in enumerate(unique_clusters):
+        cluster_id = cluster_id.item()
         for pc_idx in range(len(pcs)):
-            # Get points in this cluster from this point cloud using pre-computed mask
-            pc_cluster_mask = cluster_mask & pc_masks[pc_idx]
-
-            # If there are points in this cluster from this point cloud
-            if pc_cluster_mask.any():
-                # Get the indices of points in this cluster from this point cloud
-                pc_cluster_indices = torch.where(pc_cluster_mask)[0]
-
-                # Adjust indices to be relative to the original point cloud
-                pc_cluster_indices = pc_cluster_indices - start_indices[pc_idx]
-
-                # Use the Select transform to create a voxelized point cloud
-                voxel_pc = Select(pc_cluster_indices)(pcs[pc_idx])
-
-                # Add the voxelized point cloud to the result
-                result[pc_idx].append(voxel_pc)
-            else:
-                result[pc_idx].append(None)
+            result[pc_idx].append(cluster_results[cluster_id][pc_idx])
 
     assert all(len(r) == len(result[0]) for r in result)
     return result
