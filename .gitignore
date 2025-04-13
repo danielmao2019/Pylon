@@ -1,7 +1,6 @@
 __pycache__
 logs
 data/datasets/soft_links
-data/datasets/test_data*
 project
 
 # Python packaging
@@ -9,3 +8,6 @@ project
 *.egg
 dist/
 build/
+
+# Data
+*.ply
