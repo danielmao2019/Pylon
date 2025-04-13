@@ -51,19 +51,20 @@ def grid_sampling(
     # Initialize result lists
     result = [[] for _ in range(len(pcs))]
 
-    # Process each cluster
+    # Create a tensor to track which point cloud each point belongs to
+    pc_indices = torch.zeros(len(points_union), dtype=torch.long)
+    for i, (start, num_points) in enumerate(zip(start_indices, num_points_per_pc)):
+        pc_indices[start:start + num_points] = i
+
+    # Process all clusters at once
     for cluster_id in unique_clusters:
         # Get points in this cluster
         cluster_mask = cluster_indices == cluster_id
 
-        # Process each point cloud
-        for pc_idx, pc in enumerate(pcs):
-            # Create a mask for points from this point cloud
-            pc_mask = torch.zeros_like(cluster_mask)
-            pc_mask[start_indices[pc_idx]:start_indices[pc_idx] + num_points_per_pc[pc_idx]] = True
-
+        # For each point cloud, find points in this cluster
+        for pc_idx in range(len(pcs)):
             # Get points in this cluster from this point cloud
-            pc_cluster_mask = cluster_mask & pc_mask
+            pc_cluster_mask = cluster_mask & (pc_indices == pc_idx)
 
             # If there are points in this cluster from this point cloud
             if pc_cluster_mask.any():
@@ -74,7 +75,7 @@ def grid_sampling(
                 pc_cluster_indices = pc_cluster_indices - start_indices[pc_idx]
 
                 # Use the Select transform to create a voxelized point cloud
-                voxel_pc = Select(pc_cluster_indices)(pc)
+                voxel_pc = Select(pc_cluster_indices)(pcs[pc_idx])
 
                 # Add the voxelized point cloud to the result
                 result[pc_idx].append(voxel_pc)
