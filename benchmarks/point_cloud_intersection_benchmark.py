@@ -392,7 +392,7 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
 def main():
     """Main function to run benchmarks."""
     # Define point cloud sizes to benchmark (10^3 to 10^6)
-    sizes = [int(1e3), int(1e4), int(1e5)]
+    sizes = [int(1e3), int(1e4), int(1e5), int(1e6)]
 
     # Run benchmarks
     results = benchmark_implementations(sizes)
