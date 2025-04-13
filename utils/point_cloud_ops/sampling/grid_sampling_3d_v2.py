@@ -60,7 +60,7 @@ def grid_cluster(
     grid_coords = torch.floor(pos * inv_size).long()
 
     # Compute grid dimensions
-    grid_size = torch.ceil((end - start) * inv_size).long()  # Also use inv_size here
+    grid_size = torch.ceil((end - start) * inv_size).long()
 
     # Normalize coordinates to be non-negative
     grid_coords = grid_coords - grid_coords.min(dim=0)[0]
