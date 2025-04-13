@@ -304,40 +304,36 @@ class BasePCRDataset(BaseDataset):
         for shift_idx, shifted_tgt_pc in enumerate(shifted_tgt_pcs, 1):
             shift_start_time = time.time()
             print(f"Processing shifted target point cloud {shift_idx}/{total_shifted_pcs}...")
+            num_workers = max(1, multiprocessing.cpu_count() - 1)
 
             # Apply grid sampling to the union of transformed source and target
             print(f"Grid sampling...")
             grid_start_time = time.time()
-            src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size)
+            src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size, num_workers=num_workers)
             assert len(src_voxels) == len(tgt_voxels)
             print(f"Grid sampling completed in {time.time() - grid_start_time:.2f} seconds")
 
-            # Prepare arguments for parallel processing
+            # Process voxel pairs in parallel
+            print(f"Processing {len(process_args)} voxel pairs in parallel with {num_workers} workers...")
+            process_start_time = time.time()
             process_args = []
             for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
                 process_args.append((
                     src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
                     src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
                 ))
-
-            # Use multiprocessing to process voxel pairs in parallel
-            num_workers = max(1, multiprocessing.cpu_count() - 1)
-            print(f"Processing {len(process_args)} voxel pairs in parallel with {num_workers} workers...")
-            process_start_time = time.time()
             with multiprocessing.Pool(num_workers) as pool:
                 # Use imap_unordered for better performance as order doesn't matter
                 # and we want results as soon as they're available
                 results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
-            print(f"Voxel pair processing completed in {time.time() - process_start_time:.2f} seconds")
-
             # Filter out None results and add to datapoints
             valid_datapoints = [r for r in results if r is not None]
+            print(f"Voxel pair processing completed in {time.time() - process_start_time:.2f} seconds")
 
-            # Save datapoints incrementally in parallel
-            save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
-            num_workers = max(1, multiprocessing.cpu_count() - 1)
+            # Save datapoint cache files in parallel
             print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} in parallel with {num_workers} workers...")
             save_start_time = time.time()
+            save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
             with multiprocessing.Pool(num_workers) as pool:
                 # Use imap_unordered for better performance as order doesn't matter
                 list(pool.imap_unordered(save_datapoint, save_args, chunksize=1))
