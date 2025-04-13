@@ -38,15 +38,21 @@ def apply_transforms(
 
     # Get transformed datapoint using dataset manager
     datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx, selected_indices)
-    assert isinstance(datapoint, dict), f"Datapoint must be a dictionary. Got {type(datapoint)}.    "
+    assert isinstance(datapoint, dict), f"Datapoint must be a dictionary. Got {type(datapoint)}."
     assert 'inputs' in datapoint, f"Datapoint missing 'inputs' field. Got {datapoint.keys()}."
     assert isinstance(datapoint['inputs'], dict), f"Datapoint 'inputs' must be a dictionary. Got {type(datapoint['inputs'])}."
 
+    # Get dataset type and determine display function
+    dataset_type = dataset_info['type']
+
     # Display the transformed datapoint
-    if dataset_info['is_3d']:
+    if dataset_type in ['3d_change_detection', 'point_cloud_registration']:
         display = display_3d_datapoint(datapoint, class_names=dataset_info['class_labels'])
+    elif dataset_type == '2d_change_detection':
+        display = display_2d_datapoint(datapoint, class_names=dataset_info['class_labels'])
     else:
-        display = display_2d_datapoint(datapoint)
+        raise ValueError(f"Unsupported dataset type: {dataset_type}")
+
     return [display]
 
 
