@@ -308,14 +308,14 @@ class BasePCRDataset(BaseDataset):
             num_workers = max(1, multiprocessing.cpu_count() - 1)
 
             # Apply grid sampling to the union of transformed source and target
-            print(f"Grid sampling...")
+            print(f"Grid sampling using {num_workers} workers...")
             grid_start_time = time.time()
             src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size, num_workers=num_workers)
             assert len(src_voxels) == len(tgt_voxels)
             print(f"Grid sampling completed in {time.time() - grid_start_time:.2f} seconds")
 
             # Process voxel pairs in parallel
-            print(f"Processing {len(process_args)} voxel pairs in parallel with {num_workers} workers...")
+            print(f"Processing {len(src_voxels)} voxel pairs using {num_workers} workers...")
             process_start_time = time.time()
             process_args = []
             for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
@@ -332,7 +332,7 @@ class BasePCRDataset(BaseDataset):
             print(f"Voxel pair processing completed in {time.time() - process_start_time:.2f} seconds")
 
             # Save datapoint cache files in parallel
-            print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} in parallel with {num_workers} workers...")
+            print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} using {num_workers} workers...")
             save_start_time = time.time()
             save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
             with multiprocessing.Pool(num_workers) as pool:
