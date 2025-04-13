@@ -5,7 +5,7 @@ from scipy.spatial import cKDTree
 from itertools import product
 
 
-def calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -> int:
+def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -> int:
     """
     Calculate the optimal chunk factor based on available CUDA memory and point cloud size.
 
@@ -53,7 +53,7 @@ def calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -
     return 1
 
 
-def tensor_intersection(
+def _tensor_intersection(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
@@ -104,7 +104,7 @@ def tensor_intersection(
     return src_overlapping_indices, tgt_overlapping_indices
 
 
-def tensor_intersection_recursive(
+def _tensor_intersection_recursive(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
@@ -130,13 +130,13 @@ def tensor_intersection_recursive(
     """
     # If chunk_factor is not provided, calculate it based on available memory
     if chunk_factor is None:
-        chunk_factor = calculate_chunk_factor(src_points, tgt_points)
+        chunk_factor = _calculate_chunk_factor(src_points, tgt_points)
         if chunk_factor > 1:
             print(f"Pre-calculated initial chunk factor: {chunk_factor}")
 
     try:
         # Try to compute the intersection with the current chunk size
-        return tensor_intersection(src_points, tgt_points, radius, device)
+        return _tensor_intersection(src_points, tgt_points, radius, device)
     except torch.cuda.OutOfMemoryError:
         # If OOM occurs, divide the problem and recursively solve
         print(f"CUDA OOM with chunk_factor={chunk_factor}, dividing problem symmetrically...")
@@ -160,7 +160,7 @@ def tensor_intersection_recursive(
         # Process each pair of source and target chunks using itertools.product
         for (i, src_chunk), (j, tgt_chunk) in product(enumerate(src_chunks), enumerate(tgt_chunks)):
             # Recursively process this pair of chunks with a larger chunk factor
-            src_indices, tgt_indices = tensor_intersection_recursive(
+            src_indices, tgt_indices = _tensor_intersection_recursive(
                 src_chunk, tgt_chunk, radius, device, chunk_factor * 2
             )
 
@@ -188,7 +188,7 @@ def tensor_intersection_recursive(
         return src_overlapping_indices, tgt_overlapping_indices
 
 
-def kdtree_intersection(
+def _kdtree_intersection(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
@@ -245,9 +245,9 @@ def kdtree_intersection(
     return src_overlapping_indices, tgt_overlapping_indices
 
 
-# Set pc_intersection to use the tensor_intersection_recursive implementation
+# Set pc_intersection to use the _tensor_intersection_recursive implementation
 # since it was the winning method in the benchmark
-pc_intersection = tensor_intersection_recursive
+pc_intersection = _tensor_intersection_recursive
 
 
 def compute_pc_iou(
