@@ -1,8 +1,7 @@
-from typing import List, Union, Tuple
 import numpy as np
 import torch
 from scipy.spatial import cKDTree
-from utils.point_cloud_ops import apply_transform
+from utils.point_cloud_ops.apply_transform import apply_transform
 
 
 def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, transform: torch.Tensor, matching_radius: float) -> torch.Tensor:

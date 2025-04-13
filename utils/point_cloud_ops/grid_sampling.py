@@ -1,8 +1,8 @@
 from typing import List, Dict
 import torch
-from utils.point_cloud_ops.sampling import GridSampling3D
-from data.transforms.vision_3d.select import Select
 from multiprocessing import Pool
+from utils.point_cloud_ops.sampling import GridSampling3D
+from utils.point_cloud_ops.select import Select
 
 
 def process_cluster(args):

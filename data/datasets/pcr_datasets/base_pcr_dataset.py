@@ -15,6 +15,8 @@ from utils.point_cloud_ops.apply_transform import apply_transform
 from utils.point_cloud_ops.grid_sampling import grid_sampling
 from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
 from utils.ops import apply_tensor_op
+from utils.point_cloud_ops.select import Select
+from utils.point_cloud_ops.random_select import RandomSelect
 
 
 def process_voxel_pair(args):
@@ -184,7 +186,7 @@ class BasePCRDataset(BaseDataset):
             for idx in range(len(self.filepath_pairs))
             if glob.glob(os.path.join(self.cache_dir, f'scene_pair_{idx}', 'voxel_*.pt'))
         ]
-        if len(scene_dirs) > 0:
+        if False and len(scene_dirs) > 0:
             # Load all voxel files from all scene directories
             self.annotations = []
             for scene_dir in scene_dirs:

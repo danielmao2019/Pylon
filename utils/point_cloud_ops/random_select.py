@@ -1,7 +1,7 @@
 from typing import Any, Dict
 import torch
 from data.transforms.base_transform import BaseTransform
-from data.transforms.vision_3d.select import Select
+from utils.point_cloud_ops.select import Select
 
 
 class RandomSelect(BaseTransform):
