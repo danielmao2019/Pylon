@@ -72,89 +72,22 @@ def grid_cluster(
     return cluster
 
 
-def group_data(
-    data_dict: Dict[str, torch.Tensor],
-    cluster: Optional[torch.Tensor] = None,
-    unique_pos_indices: Optional[torch.Tensor] = None,
-    mode: str = "last"
-) -> Dict[str, torch.Tensor]:
-    """Group data based on cluster indices.
+def compute_grid_indices(pos: torch.Tensor, size: float) -> torch.Tensor:
+    """Compute grid indices for each point.
 
     Args:
-        data_dict: Dictionary containing tensors to be grouped.
-            Must contain 'pos' and optionally 'change_map'.
-        cluster: Cluster indices for each point (N,).
-            Required for 'mean' mode.
-        unique_pos_indices: Indices to select points for 'last' mode (M,).
-            Required for 'last' mode.
-        mode: Grouping mode, either 'mean' or 'last'.
-            - 'mean': Average points within each cluster
-            - 'last': Select last point from each cluster
+        pos: Point positions (N, 3).
+        size: Size of voxel cells.
 
     Returns:
-        Dictionary containing grouped tensors with same keys as input.
+        Grid indices for each point (N, 3).
     """
-    assert mode in ["mean", "last"]
-    if mode == "mean" and cluster is None:
-        raise ValueError("In mean mode the cluster argument needs to be specified")
-    if mode == "last" and unique_pos_indices is None:
-        raise ValueError("In last mode the unique_pos_indices argument needs to be specified")
-
-    result_dict = {}
-
-    # Handle positions (continuous data)
-    pos = data_dict['pos']
-    if mode == "last":
-        result_dict['pos'] = pos[unique_pos_indices]
-    else:  # mode == "mean"
-        num_clusters = cluster.max().item() + 1
-        summed = torch.zeros((num_clusters, pos.size(1)),
-                          dtype=pos.dtype, device=pos.device)
-        counts = torch.zeros(num_clusters, dtype=torch.float, device=pos.device)
-        
-        # Fix: Handle multi-dimensional tensors correctly with scatter_add_
-        # For each dimension of the pos tensor, we need to scatter separately
-        for i in range(pos.size(1)):
-            summed[:, i].scatter_add_(0, cluster, pos[:, i])
-        
-        counts.scatter_add_(0, cluster, torch.ones_like(cluster, dtype=torch.float))
-        
-        result_dict['pos'] = summed / counts.unsqueeze(1)
-
-    # Handle change map (categorical data)
-    if 'change_map' in data_dict:
-        change_map = data_dict['change_map']
-        if mode == "last":
-            result_dict['change_map'] = change_map[unique_pos_indices]
-        else:  # mode == "mean"
-            num_clusters = cluster.max().item() + 1
-            change_min = change_map.min()
-            
-            # Optimized: Use one_hot with sparse=True for memory efficiency
-            one_hot = torch.zeros((change_map.size(0), change_map.max() - change_min + 1),
-                               device=change_map.device)
-            one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
-            
-            # Fix: Handle multi-dimensional tensors correctly with scatter_add_
-            summed = torch.zeros((num_clusters, one_hot.size(1)),
-                              device=change_map.device)
-            for i in range(one_hot.size(1)):
-                summed[:, i].scatter_add_(0, cluster, one_hot[:, i])
-            
-            result_dict['change_map'] = summed.argmax(dim=1) + change_min
-    else:
-        result_dict['change_map'] = None
-
-    # Handle point indices based on the mode
-    if mode == "last":
-        result_dict['point_indices'] = unique_pos_indices
-    else:  # mode == "mean"
-        result_dict['point_indices'] = cluster
-
-    return result_dict
+    # Compute grid indices using floor division
+    grid_indices = torch.floor(pos / size).long()
+    return grid_indices
 
 
-class GridSampling3D:
+class GridSampling3Dv2:
     """Clusters points into voxels with specified size.
 
     Args:
@@ -222,10 +155,107 @@ class GridSampling3D:
         # Get consecutive cluster indices and permutation
         cluster, unique_pos_indices = consecutive_cluster(cluster)
 
-        # Group all data attributes
-        return group_data(data_dict, cluster, unique_pos_indices, mode=self._mode)
+        # Group all data attributes based on the mode
+        if self._mode == "mean":
+            return self.group_data_mean(data_dict, cluster)
+        else:  # mode == "last"
+            return self.group_data_last(data_dict, unique_pos_indices)
+
+    def group_data_mean(
+        self,
+        data_dict: Dict[str, torch.Tensor],
+        cluster: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """Group data by averaging points within each cluster.
+
+        Args:
+            data_dict: Dictionary containing tensors to be grouped.
+                Must contain 'pos' and optionally 'change_map'.
+            cluster: Cluster indices for each point (N,).
+
+        Returns:
+            Dictionary containing grouped tensors with same keys as input.
+        """
+        result_dict = {}
+
+        # Handle positions (continuous data)
+        pos = data_dict['pos']
+        num_clusters = cluster.max().item() + 1
+        
+        # Initialize tensors for accumulation
+        summed = torch.zeros((num_clusters, pos.size(1)), dtype=pos.dtype, device=pos.device)
+        counts = torch.zeros(num_clusters, dtype=torch.float, device=pos.device)
+        
+        # Accumulate positions for each cluster
+        for i in range(pos.size(1)):
+            summed[:, i].scatter_add_(0, cluster, pos[:, i])
+        
+        # Count points in each cluster
+        counts.scatter_add_(0, cluster, torch.ones_like(cluster, dtype=torch.float))
+        
+        # Compute mean positions
+        result_dict['pos'] = summed / counts.unsqueeze(1)
+
+        # Handle change map (categorical data)
+        if 'change_map' in data_dict:
+            change_map = data_dict['change_map']
+            num_clusters = cluster.max().item() + 1
+            change_min = change_map.min()
+            
+            # Create one-hot encoding
+            one_hot = torch.zeros((change_map.size(0), change_map.max() - change_min + 1),
+                               device=change_map.device)
+            one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
+            
+            # Accumulate one-hot encodings for each cluster
+            summed = torch.zeros((num_clusters, one_hot.size(1)), device=change_map.device)
+            for i in range(one_hot.size(1)):
+                summed[:, i].scatter_add_(0, cluster, one_hot[:, i])
+            
+            # Get the most common category in each cluster
+            result_dict['change_map'] = summed.argmax(dim=1) + change_min
+        else:
+            result_dict['change_map'] = None
+
+        # Handle point indices
+        result_dict['point_indices'] = cluster
+
+        return result_dict
+
+    def group_data_last(
+        self,
+        data_dict: Dict[str, torch.Tensor],
+        unique_pos_indices: torch.Tensor
+    ) -> Dict[str, torch.Tensor]:
+        """Group data by selecting the last point from each cluster.
+
+        Args:
+            data_dict: Dictionary containing tensors to be grouped.
+                Must contain 'pos' and optionally 'change_map'.
+            unique_pos_indices: Indices to select points (M,).
+
+        Returns:
+            Dictionary containing grouped tensors with same keys as input.
+        """
+        result_dict = {}
+
+        # Handle positions (continuous data)
+        pos = data_dict['pos']
+        result_dict['pos'] = pos[unique_pos_indices]
+
+        # Handle change map (categorical data)
+        if 'change_map' in data_dict:
+            change_map = data_dict['change_map']
+            result_dict['change_map'] = change_map[unique_pos_indices]
+        else:
+            result_dict['change_map'] = None
+
+        # Handle point indices
+        result_dict['point_indices'] = unique_pos_indices
+
+        return result_dict
 
     def __repr__(self) -> str:
         return "{}(grid_size={}, mode={})".format(
             self.__class__.__name__, self._grid_size, self._mode
-        ) 
+        )
