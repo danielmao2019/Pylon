@@ -167,8 +167,9 @@ def get_gpu_info() -> str:
     return f"GPU: {device}"
 
 
-def benchmark_implementations(sizes: List[int], radius: float = 0.1,
-                             num_runs: int = 5) -> Dict[str, List[float]]:
+def benchmark_implementations(
+    sizes: List[int], radius: float = 0.1, num_runs: int = 3,
+) -> Dict[str, List[float]]:
     """
     Benchmark different implementations with varying point cloud sizes.
 
@@ -287,7 +288,7 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
 def main():
     """Main function to run benchmarks."""
     # Define point cloud sizes to benchmark (10^3 to 10^6)
-    sizes = [int(1e3), int(1e4), int(1e5)]
+    sizes = [int(1e3), int(1e4), 5 * int(1e4)]
 
     # Run benchmarks
     results = benchmark_implementations(sizes)
