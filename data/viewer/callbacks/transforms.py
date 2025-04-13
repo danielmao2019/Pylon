@@ -2,10 +2,9 @@
 from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State, ALL, html
 from dash.exceptions import PreventUpdate
-import traceback
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
-from data.viewer.states.viewer_state import ViewerEvent
+from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.callbacks.registry import callback, registry
 
@@ -46,8 +45,10 @@ def apply_transforms(
     dataset_type = dataset_info['type']
 
     # Display the transformed datapoint
-    if dataset_type in ['3d_change_detection', 'point_cloud_registration']:
+    if dataset_type == '3d_change_detection':
         display = display_3d_datapoint(datapoint, class_names=dataset_info['class_labels'])
+    elif dataset_type == 'point_cloud_registration':
+        display = display_pcr_datapoint(datapoint, class_names=dataset_info['class_labels'])
     elif dataset_type == '2d_change_detection':
         display = display_2d_datapoint(datapoint, class_names=dataset_info['class_labels'])
     else:
