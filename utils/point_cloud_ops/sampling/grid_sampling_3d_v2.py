@@ -47,8 +47,11 @@ def grid_cluster(
     # Shift points to start at origin and get grid coordinates
     pos = pos - start
 
-    # Get grid coordinates for each point using floor division
-    grid_coords = torch.floor(pos / size).long()
+    # Pre-compute inverse of size for faster computation
+    inv_size = 1.0 / size
+
+    # Get grid coordinates for each point using multiplication instead of division
+    grid_coords = torch.floor(pos * inv_size).long()
 
     # Compute grid dimensions
     grid_size = torch.ceil((end - start) / size).long()

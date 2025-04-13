@@ -221,9 +221,9 @@ def plot_results(results: Dict) -> None:
 
 if __name__ == "__main__":
     try:
-        # Run benchmarks with point cloud sizes from 10^3 to 10^6
+        # Run benchmarks with 10^3 and 10^4 points
         results = benchmark_grid_sampling(
-            point_cloud_sizes=[1000, 10000, 100000, 1000000],  # 10^3 to 10^6
+            point_cloud_sizes=[1000, 10000],  # 10^3 and 10^4
             voxel_sizes=[0.1],
             modes=["mean"],
             num_runs=2
