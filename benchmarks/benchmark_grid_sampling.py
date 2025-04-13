@@ -83,9 +83,9 @@ def compare_results(original_result: Dict[str, torch.Tensor],
 
 
 def benchmark_grid_sampling(
-    point_cloud_sizes: List[int] = [1000, 10000, 100000],
+    point_cloud_sizes: List[int] = [1000, 10000],
     voxel_sizes: List[float] = [0.1, 0.05, 0.01],
-    modes: List[str] = ["mean", "last"],
+    modes: List[str] = ["mean"],
     device: torch.device = None,
     num_runs: int = 5
 ) -> Dict:
@@ -101,8 +101,10 @@ def benchmark_grid_sampling(
     Returns:
         Dictionary containing benchmark results
     """
+    print("Starting benchmark...")  # Debug print
     if device is None:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print(f"Using device: {device}")  # Debug print
 
     results = {
         'original': {},
@@ -111,8 +113,11 @@ def benchmark_grid_sampling(
     }
 
     for size in point_cloud_sizes:
+        print(f"\nTesting point cloud size: {size}")  # Debug print
         for voxel_size in voxel_sizes:
+            print(f"  Testing voxel size: {voxel_size}")  # Debug print
             for mode in modes:
+                print(f"    Testing mode: {mode}")  # Debug print
                 config_key = f"size_{size}_voxel_{voxel_size}_mode_{mode}"
 
                 # Create test point cloud
@@ -182,12 +187,13 @@ def plot_results(results: Dict) -> None:
     x = np.arange(len(sizes))
     width = 0.35
 
-    for i, mode in enumerate(['mean', 'last']):
-        original_times = [results['original'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
-        optimized_times = [results['optimized'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
+    # Only plot for 'mean' mode
+    mode = 'mean'
+    original_times = [results['original'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
+    optimized_times = [results['optimized'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
 
-        ax.bar(x + i * width, original_times, width, label=f'Original ({mode})')
-        ax.bar(x + i * width + width, optimized_times, width, label=f'Optimized ({mode})')
+    ax.bar(x, original_times, width, label=f'Original ({mode})')
+    ax.bar(x + width, optimized_times, width, label=f'Optimized ({mode})')
 
     ax.set_xlabel('Point Cloud Size')
     ax.set_ylabel('Execution Time (s)')
@@ -198,9 +204,8 @@ def plot_results(results: Dict) -> None:
 
     # Plot speedup
     ax = axes[1]
-    for i, mode in enumerate(['mean', 'last']):
-        speedups = [results['speedup'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
-        ax.plot(x + i * width + width / 2, speedups, 'o-', label=f'Speedup ({mode})')
+    speedups = [results['speedup'][f"size_{size}_voxel_0.1_mode_{mode}"] for size in sizes]
+    ax.plot(x + width / 2, speedups, 'o-', label=f'Speedup ({mode})')
 
     ax.set_xlabel('Point Cloud Size')
     ax.set_ylabel('Speedup (x)')
@@ -215,17 +220,22 @@ def plot_results(results: Dict) -> None:
 
 
 if __name__ == "__main__":
-    # Run benchmarks
-    results = benchmark_grid_sampling(
-        point_cloud_sizes=[1000, 10000, 100000],
-        voxel_sizes=[0.1],
-        modes=["mean", "last"],
-        num_runs=3
-    )
+    try:
+        # Run benchmarks with point cloud sizes from 10^3 to 10^6
+        results = benchmark_grid_sampling(
+            point_cloud_sizes=[1000, 10000, 100000, 1000000],  # 10^3 to 10^6
+            voxel_sizes=[0.1],
+            modes=["mean"],
+            num_runs=2
+        )
 
-    # Plot results
-    plot_results(results)
+        print("\nPlotting results...")
+        # Plot results
+        plot_results(results)
 
-    # Print summary
-    print("\nSummary:")
-    print(f"Average speedup: {np.mean(list(results['speedup'].values())):.2f}x")
+        # Print summary
+        print("\nSummary:")
+        print(f"Average speedup: {np.mean(list(results['speedup'].values())):.2f}x")
+    except Exception as e:
+        print(f"\nError occurred: {str(e)}")
+        raise
