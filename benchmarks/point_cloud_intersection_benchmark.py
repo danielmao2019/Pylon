@@ -83,14 +83,14 @@ def tensor_intersection_recursive(
     Calculate the intersection between two point clouds using a recursive divide-and-conquer approach
     to handle CUDA out-of-memory issues. This implementation symmetrically divides both source and
     target point clouds when OOM occurs.
-    
+
     Args:
         src_points: Source point cloud positions, shape (N, 3)
         tgt_points: Target point cloud positions, shape (M, 3)
         radius: Distance radius for considering points as overlapping
         device: Device to run the computation on ('cpu' or 'cuda')
         chunk_factor: Factor to divide the point clouds by (increases with recursion)
-        
+
     Returns:
         A tuple containing:
         - Indices of source points that are close to any target point
@@ -102,51 +102,51 @@ def tensor_intersection_recursive(
     except torch.cuda.OutOfMemoryError:
         # If OOM occurs, divide the problem and recursively solve
         print(f"CUDA OOM with chunk_factor={chunk_factor}, dividing problem symmetrically...")
-        
+
         # Divide both source and target points into chunks
         num_chunks = 2 * chunk_factor
         src_chunks = list(torch.chunk(src_points, num_chunks))
         tgt_chunks = list(torch.chunk(tgt_points, num_chunks))
-        
+
         # Initialize result tensors
         src_overlapping_indices_list = []
         tgt_overlapping_indices_list = []
-        
+
         # Calculate chunk sizes and starting indices
         src_chunk_sizes = [len(chunk) for chunk in src_chunks]
         tgt_chunk_sizes = [len(chunk) for chunk in tgt_chunks]
-        
+
         src_start_indices = [sum(src_chunk_sizes[:i]) for i in range(len(src_chunks))]
         tgt_start_indices = [sum(tgt_chunk_sizes[:i]) for i in range(len(tgt_chunks))]
-        
+
         # Process each pair of source and target chunks using itertools.product
         for (i, src_chunk), (j, tgt_chunk) in product(enumerate(src_chunks), enumerate(tgt_chunks)):
             # Recursively process this pair of chunks with a larger chunk factor
             src_indices, tgt_indices = tensor_intersection_recursive(
                 src_chunk, tgt_chunk, radius, device, chunk_factor * 2
             )
-            
+
             # Adjust source indices to account for chunking
             if len(src_indices) > 0:
                 adjusted_src_indices = src_indices + src_start_indices[i]
                 src_overlapping_indices_list.append(adjusted_src_indices)
-            
+
             # Adjust target indices to account for chunking
             if len(tgt_indices) > 0:
                 adjusted_tgt_indices = tgt_indices + tgt_start_indices[j]
                 tgt_overlapping_indices_list.append(adjusted_tgt_indices)
-        
+
         # Combine results
         if src_overlapping_indices_list:
             src_overlapping_indices = torch.unique(torch.cat(src_overlapping_indices_list))
         else:
             src_overlapping_indices = torch.tensor([], dtype=torch.long, device=device)
-        
+
         if tgt_overlapping_indices_list:
             tgt_overlapping_indices = torch.unique(torch.cat(tgt_overlapping_indices_list))
         else:
             tgt_overlapping_indices = torch.tensor([], dtype=torch.long, device=device)
-        
+
         return src_overlapping_indices, tgt_overlapping_indices
 
 
@@ -330,7 +330,7 @@ def benchmark_implementations(
                 avg_time = sum(times) / len(times)
                 results[impl_name].append(avg_time)
                 print(f"  {impl_name}: {avg_time:.4f} seconds")
-                
+
             except torch.cuda.OutOfMemoryError:
                 # Handle OOM error
                 print(f"  {impl_name}: CUDA Out of Memory Error with size {size}")
@@ -357,16 +357,16 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
         # Filter out None values (OOM cases)
         valid_sizes = [size for i, size in enumerate(sizes) if times[i] is not None]
         valid_times = [time for time in times if time is not None]
-        
+
         if valid_sizes:  # Only plot if we have valid data points
             plt.plot(valid_sizes, valid_times, marker='o', label=impl_name)
-            
+
             # Add OOM annotations if any
             oom_sizes = [size for i, size in enumerate(sizes) if times[i] is None]
             for oom_size in oom_sizes:
-                plt.annotate('OOM', 
-                            xy=(oom_size, plt.ylim()[1]), 
-                            xytext=(0, 10), 
+                plt.annotate('OOM',
+                            xy=(oom_size, plt.ylim()[1]),
+                            xytext=(0, 10),
                             textcoords='offset points',
                             ha='center',
                             va='bottom',
