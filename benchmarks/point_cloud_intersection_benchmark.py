@@ -15,9 +15,9 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import the implementations from intersection.py
 from utils.point_cloud_ops.set_ops.intersection import (
-    kdtree_intersection,
-    tensor_intersection,
-    tensor_intersection_recursive,
+    _kdtree_intersection,
+    _tensor_intersection,
+    _tensor_intersection_recursive,
 )
 
 # Assert GPU is available
@@ -139,9 +139,9 @@ def benchmark_implementations(
 
     # Define implementations using partial
     implementations = {
-        'tensor_cpu': partial(tensor_intersection, device='cpu'),
-        'tensor_gpu': partial(tensor_intersection, device='cuda'),
-        'tensor_gpu_recursive': partial(tensor_intersection_recursive, device='cuda')
+        'tensor_cpu': partial(_tensor_intersection, device='cpu'),
+        'tensor_gpu': partial(_tensor_intersection, device='cuda'),
+        'tensor_gpu_recursive': partial(_tensor_intersection_recursive, device='cuda')
     }
 
     results = {name: [] for name in implementations}
@@ -154,13 +154,13 @@ def benchmark_implementations(
         src_points, tgt_points = generate_random_point_clouds(size, size, radius=radius, device='cpu')
 
         # Get reference result from KD-tree implementation
-        reference_result = kdtree_intersection(src_points, tgt_points, radius)
+        reference_result = _kdtree_intersection(src_points, tgt_points, radius)
 
         # Time the KD-tree implementation
         times = []
         for _ in range(num_runs):
             start_time = time.time()
-            kdtree_intersection(src_points, tgt_points, radius)
+            _kdtree_intersection(src_points, tgt_points, radius)
             end_time = time.time()
             times.append(end_time - start_time)
 
