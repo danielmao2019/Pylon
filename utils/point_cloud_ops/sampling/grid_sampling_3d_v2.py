@@ -112,8 +112,11 @@ def group_data(
                           dtype=pos.dtype, device=pos.device)
         counts = torch.zeros(num_clusters, dtype=torch.float, device=pos.device)
         
-        # Optimized: Use scatter_add_ instead of loops for vectorized accumulation
-        summed.scatter_add_(0, cluster, pos)
+        # Fix: Handle multi-dimensional tensors correctly with scatter_add_
+        # For each dimension of the pos tensor, we need to scatter separately
+        for i in range(pos.size(1)):
+            summed[:, i].scatter_add_(0, cluster, pos[:, i])
+        
         counts.scatter_add_(0, cluster, torch.ones_like(cluster, dtype=torch.float))
         
         result_dict['pos'] = summed / counts.unsqueeze(1)
@@ -132,10 +135,11 @@ def group_data(
                                device=change_map.device)
             one_hot.scatter_(1, (change_map - change_min).unsqueeze(1), 1)
             
-            # Optimized: Use scatter_add_ instead of loops
+            # Fix: Handle multi-dimensional tensors correctly with scatter_add_
             summed = torch.zeros((num_clusters, one_hot.size(1)),
                               device=change_map.device)
-            summed.scatter_add_(0, cluster, one_hot)
+            for i in range(one_hot.size(1)):
+                summed[:, i].scatter_add_(0, cluster, one_hot[:, i])
             
             result_dict['change_map'] = summed.argmax(dim=1) + change_min
     else:
