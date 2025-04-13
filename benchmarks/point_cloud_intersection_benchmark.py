@@ -3,9 +3,10 @@
 Benchmark script for comparing different point cloud intersection implementations.
 """
 import time
+import numpy as np
 import torch
 import matplotlib.pyplot as plt
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Any, Callable
 import os
 import sys
 from functools import partial
@@ -19,6 +20,54 @@ from utils.point_cloud_ops.set_ops.intersection import pc_intersection as kdtree
 
 # Assert GPU is available
 assert torch.cuda.is_available(), "This benchmark requires a GPU to run"
+
+
+def calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -> int:
+    """
+    Calculate the optimal chunk factor based on available CUDA memory and point cloud size.
+
+    Args:
+        src_points: Source point cloud positions, shape (N, 3)
+        tgt_points: Target point cloud positions, shape (M, 3)
+
+    Returns:
+        Chunk factor to use for recursive implementation
+    """
+    # Get available CUDA memory in bytes
+    available_memory = torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_allocated()
+
+    # Estimate memory needed for the full computation
+    # Each point is 3 floats (12 bytes), and we need to compute N*M distances
+    src_size = src_points.shape[0]
+    tgt_size = tgt_points.shape[0]
+
+    # Memory for source and target points
+    points_memory = (src_size + tgt_size) * 3 * 4  # 4 bytes per float
+
+    # Memory for distance matrix (N*M floats)
+    distance_memory = src_size * tgt_size * 4
+
+    # Memory for boolean matrix (N*M booleans, 1 byte each)
+    boolean_memory = src_size * tgt_size
+
+    # Total estimated memory needed
+    total_memory_needed = points_memory + distance_memory + boolean_memory
+
+    # If we need more memory than available, calculate chunk factor
+    if total_memory_needed > available_memory:
+        # Calculate how many times we need to divide the problem
+        # We want to use at most 80% of available memory
+        memory_ratio = total_memory_needed / (available_memory * 0.8)
+
+        # Since we divide both dimensions, the chunk factor grows quadratically
+        # with the number of divisions needed
+        chunk_factor = int(np.ceil(np.sqrt(memory_ratio)))
+
+        # Ensure chunk factor is at least 1
+        return max(1, chunk_factor)
+
+    # If we have enough memory, no need to chunk
+    return 1
 
 
 def tensor_intersection(
@@ -77,7 +126,7 @@ def tensor_intersection_recursive(
     tgt_points: torch.Tensor,
     radius: float,
     device: str = 'cuda',
-    chunk_factor: int = 1
+    chunk_factor: int = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Calculate the intersection between two point clouds using a recursive divide-and-conquer approach
@@ -96,6 +145,12 @@ def tensor_intersection_recursive(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
+    # If chunk_factor is not provided, calculate it based on available memory
+    if chunk_factor is None:
+        chunk_factor = calculate_chunk_factor(src_points, tgt_points)
+        if chunk_factor > 1:
+            print(f"Pre-calculated initial chunk factor: {chunk_factor}")
+
     try:
         # Try to compute the intersection with the current chunk size
         return tensor_intersection(src_points, tgt_points, radius, device)
@@ -392,7 +447,7 @@ def plot_results(sizes: List[int], results: Dict[str, List[float]], save_path: s
 def main():
     """Main function to run benchmarks."""
     # Define point cloud sizes to benchmark (10^3 to 10^6)
-    sizes = [int(1e3), int(1e4), int(1e5), int(1e6)]
+    sizes = [int(1e3), int(1e4), int(1e5)]
 
     # Run benchmarks
     results = benchmark_implementations(sizes)
