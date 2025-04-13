@@ -3,8 +3,8 @@ import torch
 import numpy as np
 from typing import Dict, List, Tuple
 import matplotlib.pyplot as plt
-from utils.point_cloud_ops.sampling.grid_sampling_3d import GridSampling3D as OriginalGridSampling3D
-from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3D as OptimizedGridSampling3D
+from utils.point_cloud_ops.sampling.grid_sampling_3d import GridSampling3D as GridSampling3Dv1
+from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3Dv2
 
 
 def create_test_point_cloud(num_points: int, device: torch.device = None) -> Dict[str, torch.Tensor]:
@@ -148,8 +148,8 @@ def benchmark_grid_sampling(
                 point_cloud = create_test_point_cloud(size, device)
                 
                 # Initialize samplers
-                original_sampler = OriginalGridSampling3D(size=voxel_size, mode=mode, device=device)
-                optimized_sampler = OptimizedGridSampling3D(size=voxel_size, mode=mode, device=device)
+                original_sampler = GridSampling3Dv1(size=voxel_size, mode=mode, device=device)
+                optimized_sampler = GridSampling3Dv2(size=voxel_size, mode=mode, device=device)
                 
                 # Run benchmarks
                 original_times = []
