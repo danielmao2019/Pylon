@@ -186,12 +186,12 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
 
     # Define implementations using partial
     implementations = {
-        'kdtree': kdtree_intersection,
         'tensor_cpu': partial(tensor_intersection, device='cpu'),
         'tensor_gpu': partial(tensor_intersection, device='cuda')
     }
 
     results = {name: [] for name in implementations}
+    results['kdtree'] = []  # Add KD-tree separately
 
     for size in sizes:
         print(f"Benchmarking with size {size}...")
@@ -202,7 +202,20 @@ def benchmark_implementations(sizes: List[int], radius: float = 0.1,
         # Get reference result from KD-tree implementation
         reference_result = kdtree_intersection(src_points, tgt_points, radius)
 
-        # Run benchmarks
+        # Time the KD-tree implementation
+        times = []
+        for _ in range(num_runs):
+            start_time = time.time()
+            kdtree_intersection(src_points, tgt_points, radius)
+            end_time = time.time()
+            times.append(end_time - start_time)
+
+        # Calculate average time for KD-tree
+        avg_time = sum(times) / len(times)
+        results['kdtree'].append(avg_time)
+        print(f"  kdtree: {avg_time:.4f} seconds")
+
+        # Run benchmarks for tensor implementations
         for impl_name, impl_func in implementations.items():
             # Run the implementation and verify results
             test_result = impl_func(src_points, tgt_points, radius)
