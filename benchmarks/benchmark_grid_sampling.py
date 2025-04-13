@@ -186,6 +186,11 @@ def benchmark_grid_sampling(
                     'detailed_results': detailed_results
                 }
                 
+                # Add assertions to check for equivalence
+                assert all_match, f"Results for {config_key} are not equivalent!"
+                for key, match in detailed_results.items():
+                    assert match, f"Key '{key}' in {config_key} does not match between implementations!"
+                
                 print(f"Config: {config_key}")
                 print(f"  Original: {original_avg_time:.6f} s")
                 print(f"  Optimized: {optimized_avg_time:.6f} s")
