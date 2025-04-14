@@ -110,10 +110,10 @@ def grid_sampling(
 
     # Process clusters in parallel using imap_unordered
     with Pool(processes=num_workers) as pool:
-        # Use imap_unordered for maximum speed when order doesn't matter
-        cluster_results = {}
-        for cluster_id, cluster_result in pool.imap_unordered(process_cluster, process_args):
-            cluster_results[cluster_id] = cluster_result
+        cluster_results = {
+            cluster_id: cluster_result
+            for cluster_id, cluster_result in pool.imap_unordered(process_cluster, process_args)
+        }
 
     # Reconstruct the result in the original order
     for i, cluster_id in enumerate(unique_clusters):
