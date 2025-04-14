@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 import torch
 import numpy as np
 from scipy.spatial import cKDTree
@@ -16,6 +16,11 @@ def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) 
     Returns:
         Chunk factor to use for recursive implementation
     """
+    assert src_points.device == tgt_points.device
+
+    if src_points.device.type == 'cpu':
+        return 1
+
     # Get available CUDA memory in bytes
     available_memory = torch.cuda.get_device_properties(0).total_memory - torch.cuda.memory_allocated()
 
@@ -57,7 +62,6 @@ def _tensor_intersection(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
-    device: str = 'cpu'
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Calculate the intersection between two point clouds using pure tensor operations.
@@ -66,7 +70,6 @@ def _tensor_intersection(
         src_points: Source point cloud positions, shape (N, 3)
         tgt_points: Target point cloud positions, shape (M, 3)
         radius: Distance radius for considering points as overlapping
-        device: Device to run the computation on ('cpu' or 'cuda')
 
     Returns:
         A tuple containing:
@@ -77,10 +80,7 @@ def _tensor_intersection(
     assert isinstance(tgt_points, torch.Tensor)
     assert src_points.ndim == 2 and tgt_points.ndim == 2
     assert src_points.shape[1] == 3 and tgt_points.shape[1] == 3
-
-    # Move tensors to the specified device
-    src_points = src_points.to(device)
-    tgt_points = tgt_points.to(device)
+    assert src_points.device == tgt_points.device
 
     # Reshape for broadcasting: (N, 1, 3) - (1, M, 3) = (N, M, 3)
     src_expanded = src_points.unsqueeze(1)  # Shape: (N, 1, 3)
@@ -100,7 +100,6 @@ def _tensor_intersection(
     tgt_overlapping = torch.any(within_radius, dim=0)
     tgt_overlapping_indices = torch.where(tgt_overlapping)[0]
 
-    # Move results back to the original device
     return src_overlapping_indices, tgt_overlapping_indices
 
 
@@ -108,8 +107,7 @@ def _tensor_intersection_recursive(
     src_points: torch.Tensor,
     tgt_points: torch.Tensor,
     radius: float,
-    device: str = 'cuda',
-    chunk_factor: int = None
+    chunk_factor: Optional[int] = None
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Calculate the intersection between two point clouds using a recursive divide-and-conquer approach
@@ -120,7 +118,6 @@ def _tensor_intersection_recursive(
         src_points: Source point cloud positions, shape (N, 3)
         tgt_points: Target point cloud positions, shape (M, 3)
         radius: Distance radius for considering points as overlapping
-        device: Device to run the computation on ('cpu' or 'cuda')
         chunk_factor: Factor to divide the point clouds by (increases with recursion)
 
     Returns:
@@ -128,6 +125,8 @@ def _tensor_intersection_recursive(
         - Indices of source points that are close to any target point
         - Indices of target points that are close to any source point
     """
+    assert src_points.device == tgt_points.device
+
     # If chunk_factor is not provided, calculate it based on available memory
     if chunk_factor is None:
         chunk_factor = _calculate_chunk_factor(src_points, tgt_points)
@@ -136,7 +135,7 @@ def _tensor_intersection_recursive(
 
     try:
         # Try to compute the intersection with the current chunk size
-        return _tensor_intersection(src_points, tgt_points, radius, device)
+        return _tensor_intersection(src_points, tgt_points, radius)
     except torch.cuda.OutOfMemoryError:
         # If OOM occurs, divide the problem and recursively solve
         print(f"CUDA OOM with chunk_factor={chunk_factor}, dividing problem symmetrically...")
@@ -161,7 +160,7 @@ def _tensor_intersection_recursive(
         for (i, src_chunk), (j, tgt_chunk) in product(enumerate(src_chunks), enumerate(tgt_chunks)):
             # Recursively process this pair of chunks with a larger chunk factor
             src_indices, tgt_indices = _tensor_intersection_recursive(
-                src_chunk, tgt_chunk, radius, device, chunk_factor * 2
+                src_chunk, tgt_chunk, radius, chunk_factor * 2
             )
 
             # Adjust source indices to account for chunking
@@ -178,12 +177,12 @@ def _tensor_intersection_recursive(
         if src_overlapping_indices_list:
             src_overlapping_indices = torch.unique(torch.cat(src_overlapping_indices_list))
         else:
-            src_overlapping_indices = torch.tensor([], dtype=torch.long, device=device)
+            src_overlapping_indices = torch.tensor([], dtype=torch.long, device=src_points.device)
 
         if tgt_overlapping_indices_list:
             tgt_overlapping_indices = torch.unique(torch.cat(tgt_overlapping_indices_list))
         else:
-            tgt_overlapping_indices = torch.tensor([], dtype=torch.long, device=device)
+            tgt_overlapping_indices = torch.tensor([], dtype=torch.long, device=tgt_points.device)
 
         return src_overlapping_indices, tgt_overlapping_indices
 
