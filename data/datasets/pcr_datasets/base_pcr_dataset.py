@@ -324,8 +324,6 @@ class BasePCRDataset(BaseDataset):
                     src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
                 ))
             with multiprocessing.Pool(num_workers) as pool:
-                # Use imap_unordered for better performance as order doesn't matter
-                # and we want results as soon as they're available
                 results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
             # Filter out None results and add to datapoints
             valid_datapoints = [r for r in results if r is not None]
@@ -336,7 +334,6 @@ class BasePCRDataset(BaseDataset):
             save_start_time = time.time()
             save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
             with multiprocessing.Pool(num_workers) as pool:
-                # Use imap_unordered for better performance as order doesn't matter
                 list(pool.imap_unordered(save_datapoint, save_args, chunksize=1))
             print(f"Saved {len(valid_datapoints)} voxels to {scene_dir} in {time.time() - save_start_time:.2f} seconds")
 
