@@ -44,7 +44,6 @@ def process_voxel_pair(args):
             tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc)['pos'],
             radius=voxel_size / 4,
         )
-        print(f"Overlap ratio: {overlap_ratio}, desired overlap: {overlap}")
         # Skip if overlap ratio is not within the desired range (±10%)
         if abs(overlap_ratio - overlap) > 0.1:
             return None
