@@ -19,7 +19,8 @@ from runners import BaseEvaluator
 config['runner'] = BaseEvaluator
 
 # data config
-from configs.common.datasets.point_cloud_registration.val.classic_synth_pcr_data_cfg import data_cfg as eval_data_cfg
+from configs.common.datasets.point_cloud_registration.val.classic_real_pcr_data_cfg import data_cfg as eval_data_cfg
+eval_data_cfg['args']['overlap'] = 1.0
 config.update(eval_data_cfg)
 
 # model config
@@ -27,7 +28,7 @@ from models.point_cloud_registration.classic import RANSAC_FPFH
 config['model'] = {'class': RANSAC_FPFH, 'args': {}}
 
 # seeds
-config['seed'] = 5351880
+config['seed'] = 37448185
 
 # work dir
-config['work_dir'] = "./logs/benchmarks/point_cloud_registration/synth_pcr/RANSAC_FPFH_run_0"
+config['work_dir'] = "./logs/benchmarks/point_cloud_registration/real_pcr/overlap_1.0/RANSAC_FPFH_run_0"
