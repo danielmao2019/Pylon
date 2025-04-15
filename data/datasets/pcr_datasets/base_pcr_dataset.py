@@ -43,6 +43,7 @@ def process_voxel_pair(args):
             tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc)['pos'],
             radius=voxel_size / 4,
         )
+        print(f"Overlap ratio: {overlap_ratio}, desired overlap: {overlap}")
         # Skip if overlap ratio is not within the desired range (±10%)
         if abs(overlap_ratio - overlap) > 0.1:
             return None
@@ -185,7 +186,7 @@ class BasePCRDataset(BaseDataset):
             for idx in range(len(self.filepath_pairs))
             if glob.glob(os.path.join(self.cache_dir, f'scene_pair_{idx}', 'voxel_*.pt'))
         ]
-        if len(scene_dirs) > 0:
+        if False and len(scene_dirs) > 0:
             # Load all voxel files from all scene directories
             self.annotations = []
             for scene_dir in scene_dirs:
@@ -255,7 +256,7 @@ class BasePCRDataset(BaseDataset):
         src_pc = load_point_cloud(src_path)
         assert isinstance(src_pc, dict)
         assert src_pc.keys() >= {'pos'}
-        src_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=src_pc)
+        src_pc = apply_tensor_op(func=lambda x: x.to(self.device), inputs=src_pc)
         print(f"Source point cloud loaded in {time.time() - src_load_start:.2f} seconds")
 
         # Load target point cloud
@@ -264,8 +265,11 @@ class BasePCRDataset(BaseDataset):
         tgt_pc = load_point_cloud(tgt_path)
         assert isinstance(tgt_pc, dict)
         assert tgt_pc.keys() >= {'pos'}
-        tgt_pc = apply_tensor_op(func=lambda x: x.to(transform.device), inputs=tgt_pc)
+        tgt_pc = apply_tensor_op(func=lambda x: x.to(self.device), inputs=tgt_pc)
         print(f"Target point cloud loaded in {time.time() - tgt_load_start:.2f} seconds")
+
+        # Move transform to device
+        transform = transform.to(self.device)
 
         # Transform source points to align with target
         transformed_src_pc = copy.deepcopy(src_pc)
