@@ -80,7 +80,7 @@ def main(dataset: str, overlap: float, model: str) -> None:
     else:
         raise NotImplementedError
     # add seeds
-    relpath = os.path.join("benchmarks", "point_cloud_registration", dataset)
+    relpath = os.path.join("benchmarks", "point_cloud_registration", dataset, f"overlap_{overlap}")
     seeded_configs: List[str] = utils.automation.configs.generate_seeds(
         template_config=config, base_seed=relpath,
     )
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     import itertools
     for dataset, overlap, model in itertools.product(
         ['real_pcr'],
-        [1.0, 0.5]
+        [1.0, 0.5],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
             'GeoTransformer', 'OverlapPredator',
