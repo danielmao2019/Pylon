@@ -80,14 +80,14 @@ def process_voxel_pair(args):
     return datapoint
 
 
-def save_datapoint(args):
+def save_datapoint(datapoint, file_path):
     """Save a single datapoint to cache.
 
     Args:
-        args: Tuple containing (index, datapoint, scene_dir)
+        datapoint: The datapoint to save
+        file_path: Path where to save the datapoint
     """
-    i, datapoint, scene_dir = args
-    torch.save(datapoint, os.path.join(scene_dir, f'voxel_{i}.pt'))
+    torch.save(datapoint, file_path)
 
 
 class BasePCRDataset(BaseDataset):
@@ -432,16 +432,14 @@ class BasePCRDataset(BaseDataset):
         save_start_time = time.time()
 
         # Create file paths for each datapoint
-        file_paths = []
-        for i, datapoint in enumerate(valid_datapoints):
-            file_path = os.path.join(scene_dir, f'voxel_{i}.pt')
-            file_paths.append(file_path)
+        file_paths = [os.path.join(scene_dir, f'voxel_{i}.pt') for i in range(len(valid_datapoints))]
 
         # Save datapoints in parallel
-        save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
+        save_args = [(datapoint, file_path) for datapoint, file_path in zip(valid_datapoints, file_paths)]
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Submit all tasks
-            future_to_args = {executor.submit(save_datapoint, args): args for args in save_args}
+            future_to_args = {executor.submit(save_datapoint, datapoint, file_path): (datapoint, file_path) 
+                             for datapoint, file_path in save_args}
 
             # Process results as they complete - this will raise any exceptions
             for future in as_completed(future_to_args):
