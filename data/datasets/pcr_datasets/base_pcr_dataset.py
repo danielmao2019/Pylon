@@ -102,24 +102,24 @@ class BasePCRDataset(BaseDataset):
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
-    
+
     # Define base directions for shifts
     SHIFT_DIRECTIONS = [
         # Principal axes
         [1, 0, 0], [-1, 0, 0],
         [0, 1, 0], [0, -1, 0],
         [0, 0, 1], [0, 0, -1],
-        
+
         # Diagonal planes
         [1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0],
         [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
         [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1],
-        
+
         # 3D diagonals
         [1, 1, 1], [-1, 1, 1], [1, -1, 1], [-1, -1, 1],
         [1, 1, -1], [-1, 1, -1], [1, -1, -1], [-1, -1, -1]
     ]
-    
+
     # Define magnitudes for shifts
     SHIFT_MAGNITUDES = [1.0, 0.75, 0.5, 0.25]
 
@@ -150,28 +150,28 @@ class BasePCRDataset(BaseDataset):
         self.overlap = overlap
         self.cache_dirname = cache_dirname
         super(BasePCRDataset, self).__init__(**kwargs)
-        
+
     @property
     def shifts(self):
         """Generate a list of shifts based on directions and magnitudes.
-        
+
         Returns:
             List of shift vectors
         """
         import itertools
-        
+
         # Calculate shift amount based on voxel size and overlap
         shift_amount = self._voxel_size * (1 - self.overlap)
-        
+
         shifts = []
         for direction, magnitude in itertools.product(self.SHIFT_DIRECTIONS, self.SHIFT_MAGNITUDES):
             # Calculate the magnitude of the direction vector
             dir_magnitude = sum(x*x for x in direction) ** 0.5
-            
+
             # Normalize and apply magnitude and shift_amount in one step
             shift = [d / dir_magnitude * magnitude * shift_amount for d in direction]
             shifts.append(shift)
-            
+
         return shifts
 
     def _init_file_pairs(self) -> None:
@@ -314,12 +314,12 @@ class BasePCRDataset(BaseDataset):
         transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
 
         datapoints = []
-        
+
         # Process target point clouds based on overlap setting
         if self.overlap >= 1.0:
             # For full overlap, only use the original target
             print("Using full overlap (overlap >= 1.0), processing only the original target...")
-            
+
             # Process the original target
             valid_datapoints = self._process_target_point_cloud(
                 transformed_src_pc=transformed_src_pc,
@@ -331,25 +331,25 @@ class BasePCRDataset(BaseDataset):
                 transform=transform,
                 scene_dir=scene_dir
             )
-            
+
             datapoints.extend(valid_datapoints)
             print(f"Total datapoints: {len(datapoints)}")
-            
+
         else:
             # For partial overlap, use only the shifted targets
             print(f"Using partial overlap (overlap = {self.overlap}), processing {len(self.shifts)} shifted targets...")
-            
+
             # Process each shifted target
             for shift_idx, shift in enumerate(self.shifts, 1):
                 shift_start_time = time.time()
                 print(f"Processing shifted target {shift_idx}/{len(self.shifts)}...")
-                
+
                 # Apply shift to target points
                 shifted_tgt_pc = copy.deepcopy(tgt_pc)
                 shifted_tgt_pc['pos'][:, 0] += shift[0]
                 shifted_tgt_pc['pos'][:, 1] += shift[1]
                 shifted_tgt_pc['pos'][:, 2] += shift[2]
-                
+
                 # Process the shifted target
                 valid_datapoints = self._process_target_point_cloud(
                     transformed_src_pc=transformed_src_pc,
@@ -361,7 +361,7 @@ class BasePCRDataset(BaseDataset):
                     transform=transform,
                     scene_dir=scene_dir
                 )
-                
+
                 datapoints.extend(valid_datapoints)
                 print(f"Shifted target {shift_idx}/{len(self.shifts)} completed in {time.time() - shift_start_time:.2f} seconds")
                 print(f"Total datapoints so far: {len(datapoints)}")
@@ -369,13 +369,13 @@ class BasePCRDataset(BaseDataset):
         total_elapsed = time.time() - pair_start_time
         print(f"Scene pair processing completed in {total_elapsed:.2f} seconds with {len(datapoints)} total datapoints")
         return datapoints
-        
+
     def _process_target_point_cloud(
-        self, transformed_src_pc, target_pc, src_pc, tgt_pc, 
+        self, transformed_src_pc, target_pc, src_pc, tgt_pc,
         src_path, tgt_path, transform, scene_dir
     ):
         """Process a single target point cloud and return valid datapoints.
-        
+
         Args:
             transformed_src_pc: Transformed source point cloud
             target_pc: Target point cloud to process
@@ -385,19 +385,19 @@ class BasePCRDataset(BaseDataset):
             tgt_path: Path to the target point cloud file
             transform: Transformation from source to target
             scene_dir: Directory to save datapoints
-            
+
         Returns:
             List of valid datapoints
         """
         num_workers = max(1, multiprocessing.cpu_count() - 1)
-        
+
         # Apply grid sampling to the union of transformed source and target
         print(f"Grid sampling using {num_workers} workers...")
         grid_start_time = time.time()
         src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, target_pc], self._voxel_size, num_workers=num_workers)
         assert len(src_voxels) == len(tgt_voxels)
         print(f"Grid sampling completed in {time.time() - grid_start_time:.2f} seconds")
-        
+
         # Process voxel pairs in parallel
         print(f"Processing {len(src_voxels)} voxel pairs using {num_workers} workers...")
         process_start_time = time.time()
@@ -407,39 +407,39 @@ class BasePCRDataset(BaseDataset):
                 src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
                 src_path, tgt_path, transform, self._min_points, self._max_points, self.overlap, self._voxel_size
             ))
-        
+
         # Use ProcessPoolExecutor instead of Pool
         valid_datapoints = []
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             # Submit all tasks
             future_to_args = {executor.submit(process_voxel_pair, args): args for args in process_args}
-            
+
             # Process results as they complete
             for future in as_completed(future_to_args):
                 # This will raise any exceptions that occurred in the worker process
                 result = future.result()
                 if result is not None:
                     valid_datapoints.append(result)
-        
+
         print(f"Voxel pair processing completed in {time.time() - process_start_time:.2f} seconds")
-        
+
         # Save datapoint cache files in parallel
         print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} using {num_workers} workers...")
         save_start_time = time.time()
         save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
-        
+
         # Use ProcessPoolExecutor for saving datapoints
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Submit all tasks
             future_to_args = {executor.submit(save_datapoint, args): args for args in save_args}
-            
+
             # Process results as they complete - this will raise any exceptions
             for future in as_completed(future_to_args):
                 # This will raise any exceptions that occurred in the worker process
                 future.result()
-        
+
         print(f"Saved {len(valid_datapoints)} voxels to {scene_dir} in {time.time() - save_start_time:.2f} seconds")
-        
+
         return valid_datapoints
 
     def _load_datapoint(self, idx: int) -> Tuple[
