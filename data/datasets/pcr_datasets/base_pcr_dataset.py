@@ -16,6 +16,7 @@ from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
 from utils.point_cloud_ops.select import Select
 from utils.point_cloud_ops.random_select import RandomSelect
 from utils.ops import apply_tensor_op
+import itertools
 
 
 def process_voxel_pair(args):
@@ -101,6 +102,26 @@ class BasePCRDataset(BaseDataset):
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
+    
+    # Define base directions for shifts
+    SHIFT_DIRECTIONS = [
+        # Principal axes
+        [1, 0, 0], [-1, 0, 0],
+        [0, 1, 0], [0, -1, 0],
+        [0, 0, 1], [0, 0, -1],
+        
+        # Diagonal planes
+        [1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0],
+        [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
+        [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1],
+        
+        # 3D diagonals
+        [1, 1, 1], [-1, 1, 1], [1, -1, 1], [-1, -1, 1],
+        [1, 1, -1], [-1, 1, -1], [1, -1, -1], [-1, -1, -1]
+    ]
+    
+    # Define magnitudes for shifts
+    SHIFT_MAGNITUDES = [1.0, 0.75, 0.5, 0.25]
 
     def __init__(
         self,
@@ -216,8 +237,7 @@ class BasePCRDataset(BaseDataset):
                 print(f"Processing scene pair {pair_idx}/{total_pairs-1}...")
                 result = self._process_point_cloud_pair(
                     src_path, tgt_path, transform,
-                    self._voxel_size, self._min_points, self._max_points,
-                    self.overlap, scene_dir
+                    scene_dir
                 )
                 self.annotations.extend(result)
 
@@ -231,10 +251,32 @@ class BasePCRDataset(BaseDataset):
         self.annotations = self._split_annotations(self.annotations)
         print(f"Dataset initialization completed in {time.time() - start_time:.2f} seconds")
 
+    @classmethod
+    def generate_shifts(cls, shift_amount):
+        """Generate a list of shifts based on directions and magnitudes.
+        
+        Args:
+            shift_amount: Base amount to shift by
+            
+        Returns:
+            List of shift vectors
+        """
+        import itertools
+        
+        shifts = []
+        for direction, magnitude in itertools.product(cls.SHIFT_DIRECTIONS, cls.SHIFT_MAGNITUDES):
+            # Calculate the magnitude of the direction vector
+            dir_magnitude = sum(x*x for x in direction) ** 0.5
+            
+            # Normalize and apply magnitude and shift_amount in one step
+            shift = [d / dir_magnitude * magnitude * shift_amount for d in direction]
+            shifts.append(shift)
+            
+        return shifts
+
     def _process_point_cloud_pair(
         self, src_path: str, tgt_path: str, transform: torch.Tensor,
-        voxel_size: float, min_points: int, max_points: int,
-        overlap: float = 1.0, scene_dir: str = None,
+        scene_dir: str = None,
     ) -> List[Dict[str, Any]]:
         """Process a pair of point clouds and return datapoints.
 
@@ -242,10 +284,6 @@ class BasePCRDataset(BaseDataset):
             src_path: Path to the source point cloud file
             tgt_path: Path to the target point cloud file
             transform: Transformation from source to target
-            voxel_size: Size of voxel cells for sampling
-            min_points: Minimum number of points in a voxel
-            max_points: Maximum number of points in a voxel
-            overlap: Desired overlap ratio between 0 and 1 (default: 1.0 for full overlap)
             scene_dir: Directory to save datapoints for this scene pair
         """
         pair_start_time = time.time()
@@ -276,23 +314,20 @@ class BasePCRDataset(BaseDataset):
         transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
 
         # Define shifts for partial overlap case
-        shift_amount = voxel_size * (1 - overlap)
+        shift_amount = self._voxel_size * (1 - self.overlap)
 
         # Create a list of target point clouds to process
         # For full overlap (overlap >= 1.0), we only use the original target
-        # For partial overlap (overlap < 1.0), we use 6 shifted targets
+        # For partial overlap (overlap < 1.0), we use multiple shifted targets
         shifted_tgt_pcs = []
 
-        if overlap >= 1.0:
+        if self.overlap >= 1.0:
             # For full overlap, only use the original target
             shifted_tgt_pcs.append(tgt_pc)
         else:
-            # For partial overlap, use 6 shifted targets
-            shifts = [
-                [shift_amount, 0, 0], [-shift_amount, 0, 0],
-                [0, shift_amount, 0], [0, -shift_amount, 0],
-                [0, 0, shift_amount], [0, 0, -shift_amount]
-            ]
+            # For partial overlap, use multiple shifted targets
+            # Generate shifts using the class method
+            shifts = self.generate_shifts(shift_amount)
 
             for shift in shifts:
                 # Apply shift to target points
@@ -315,7 +350,7 @@ class BasePCRDataset(BaseDataset):
             # Apply grid sampling to the union of transformed source and target
             print(f"Grid sampling using {num_workers} workers...")
             grid_start_time = time.time()
-            src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], voxel_size, num_workers=num_workers)
+            src_voxels, tgt_voxels = grid_sampling([transformed_src_pc, shifted_tgt_pc], self._voxel_size, num_workers=num_workers)
             assert len(src_voxels) == len(tgt_voxels)
             print(f"Grid sampling completed in {time.time() - grid_start_time:.2f} seconds")
 
@@ -326,7 +361,7 @@ class BasePCRDataset(BaseDataset):
             for src_voxel, tgt_voxel in zip(src_voxels, tgt_voxels):
                 process_args.append((
                     src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
-                    src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
+                    src_path, tgt_path, transform, self._min_points, self._max_points, self.overlap, self._voxel_size
                 ))
             
             # Use ProcessPoolExecutor instead of Pool
