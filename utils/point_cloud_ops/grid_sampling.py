@@ -111,7 +111,7 @@ def grid_sampling(
 
     # Process clusters in parallel using ProcessPoolExecutor
     cluster_results = {}
-    with ProcessPoolExecutor(processes=num_workers) as executor:
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
         # Submit all tasks
         future_to_args = {executor.submit(process_cluster, args): args for args in process_args}
         
