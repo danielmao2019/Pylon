@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import multiprocessing
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from data.datasets.base_dataset import BaseDataset
 from utils.io import load_point_cloud
 from utils.point_cloud_ops.correspondences import get_correspondences
@@ -331,7 +331,7 @@ class BasePCRDataset(BaseDataset):
             
             # Use ProcessPoolExecutor instead of Pool
             valid_datapoints = []
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
                 # Submit all tasks
                 future_to_args = {executor.submit(process_voxel_pair, args): args for args in process_args}
                 

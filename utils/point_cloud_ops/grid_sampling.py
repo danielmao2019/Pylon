@@ -1,7 +1,6 @@
 from typing import List, Dict
 import torch
-from multiprocessing import Pool
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3D
 from utils.point_cloud_ops.select import Select
 
@@ -111,7 +110,7 @@ def grid_sampling(
 
     # Process clusters in parallel using ProcessPoolExecutor
     cluster_results = {}
-    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Submit all tasks
         future_to_args = {executor.submit(process_cluster, args): args for args in process_args}
         
