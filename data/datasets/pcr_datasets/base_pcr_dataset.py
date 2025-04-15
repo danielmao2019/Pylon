@@ -80,16 +80,6 @@ def process_voxel_pair(args):
     return datapoint
 
 
-def save_datapoint(datapoint, file_path):
-    """Save a single datapoint to cache.
-
-    Args:
-        datapoint: The datapoint to save
-        file_path: Path where to save the datapoint
-    """
-    torch.save(datapoint, file_path)
-
-
 class BasePCRDataset(BaseDataset):
     """Base class for point cloud registration datasets.
 
@@ -438,7 +428,7 @@ class BasePCRDataset(BaseDataset):
         save_args = [(datapoint, file_path) for datapoint, file_path in zip(valid_datapoints, file_paths)]
         with ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Submit all tasks
-            future_to_args = {executor.submit(save_datapoint, datapoint, file_path): (datapoint, file_path)
+            future_to_args = {executor.submit(torch.save, datapoint, file_path): (datapoint, file_path)
                              for datapoint, file_path in save_args}
 
             # Process results as they complete - this will raise any exceptions
