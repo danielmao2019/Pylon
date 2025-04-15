@@ -150,6 +150,29 @@ class BasePCRDataset(BaseDataset):
         self.overlap = overlap
         self.cache_dirname = cache_dirname
         super(BasePCRDataset, self).__init__(**kwargs)
+        
+    @property
+    def shifts(self):
+        """Generate a list of shifts based on directions and magnitudes.
+        
+        Returns:
+            List of shift vectors
+        """
+        import itertools
+        
+        # Calculate shift amount based on voxel size and overlap
+        shift_amount = self._voxel_size * (1 - self.overlap)
+        
+        shifts = []
+        for direction, magnitude in itertools.product(self.SHIFT_DIRECTIONS, self.SHIFT_MAGNITUDES):
+            # Calculate the magnitude of the direction vector
+            dir_magnitude = sum(x*x for x in direction) ** 0.5
+            
+            # Normalize and apply magnitude and shift_amount in one step
+            shift = [d / dir_magnitude * magnitude * shift_amount for d in direction]
+            shifts.append(shift)
+            
+        return shifts
 
     def _init_file_pairs(self) -> None:
         """Initialize source and target file path pairs and their transforms.
@@ -251,29 +274,6 @@ class BasePCRDataset(BaseDataset):
         self.annotations = self._split_annotations(self.annotations)
         print(f"Dataset initialization completed in {time.time() - start_time:.2f} seconds")
 
-    @classmethod
-    def generate_shifts(cls, shift_amount):
-        """Generate a list of shifts based on directions and magnitudes.
-        
-        Args:
-            shift_amount: Base amount to shift by
-            
-        Returns:
-            List of shift vectors
-        """
-        import itertools
-        
-        shifts = []
-        for direction, magnitude in itertools.product(cls.SHIFT_DIRECTIONS, cls.SHIFT_MAGNITUDES):
-            # Calculate the magnitude of the direction vector
-            dir_magnitude = sum(x*x for x in direction) ** 0.5
-            
-            # Normalize and apply magnitude and shift_amount in one step
-            shift = [d / dir_magnitude * magnitude * shift_amount for d in direction]
-            shifts.append(shift)
-            
-        return shifts
-
     def _process_point_cloud_pair(
         self, src_path: str, tgt_path: str, transform: torch.Tensor,
         scene_dir: str = None,
@@ -313,9 +313,6 @@ class BasePCRDataset(BaseDataset):
         transformed_src_pc = copy.deepcopy(src_pc)
         transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
 
-        # Define shifts for partial overlap case
-        shift_amount = self._voxel_size * (1 - self.overlap)
-
         # Create a list of target point clouds to process
         # For full overlap (overlap >= 1.0), we only use the original target
         # For partial overlap (overlap < 1.0), we use multiple shifted targets
@@ -326,10 +323,8 @@ class BasePCRDataset(BaseDataset):
             shifted_tgt_pcs.append(tgt_pc)
         else:
             # For partial overlap, use multiple shifted targets
-            # Generate shifts using the class method
-            shifts = self.generate_shifts(shift_amount)
-
-            for shift in shifts:
+            # Use the shifts property to get the list of shifts
+            for shift in self.shifts:
                 # Apply shift to target points
                 shifted_tgt_pc = copy.deepcopy(tgt_pc)
                 shifted_tgt_pc['pos'][:, 0] += shift[0]
