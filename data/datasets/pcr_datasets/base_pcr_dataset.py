@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import multiprocessing
 import time
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from data.datasets.base_dataset import BaseDataset
 from utils.io import load_point_cloud
 from utils.point_cloud_ops.correspondences import get_correspondences
@@ -426,7 +426,7 @@ class BasePCRDataset(BaseDataset):
 
         # Save datapoints in parallel
         save_args = [(datapoint, file_path) for datapoint, file_path in zip(valid_datapoints, file_paths)]
-        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
             # Submit all tasks
             future_to_args = {executor.submit(torch.save, datapoint, file_path): (datapoint, file_path)
                              for datapoint, file_path in save_args}
