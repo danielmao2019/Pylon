@@ -32,7 +32,7 @@ def main(dataset: str, overlap: float, model: str) -> None:
     if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
         config += f"# data config\n"
         config += f"from configs.common.datasets.point_cloud_registration.val.classic_{dataset}_data_cfg import data_cfg as eval_data_cfg\n"
-        config += f"eval_data_cfg['args']['overlap'] = {overlap}\n"
+        config += f"eval_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(eval_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
@@ -42,10 +42,10 @@ def main(dataset: str, overlap: float, model: str) -> None:
     elif model == 'GeoTransformer':
         config += f"# data config\n"
         config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_{dataset}_data_cfg import data_cfg as train_data_cfg\n" 
-        config += f"train_data_cfg['args']['overlap'] = {overlap}\n"
+        config += f"train_data_cfg['train_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(train_data_cfg)\n"
         config += f"from configs.common.datasets.point_cloud_registration.val.geotransformer_{dataset}_data_cfg import data_cfg as val_data_cfg\n" 
-        config += f"val_data_cfg['args']['overlap'] = {overlap}\n"
+        config += f"val_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
@@ -61,10 +61,10 @@ def main(dataset: str, overlap: float, model: str) -> None:
     elif model == 'OverlapPredator':
         config += f"# data config\n"
         config += f"from configs.common.datasets.point_cloud_registration.train.overlappredator_{dataset}_data_cfg import data_cfg as train_data_cfg\n" 
-        config += f"train_data_cfg['args']['overlap'] = {overlap}\n"
+        config += f"train_data_cfg['train_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(train_data_cfg)\n"
         config += f"from configs.common.datasets.point_cloud_registration.val.overlappredator_{dataset}_data_cfg import data_cfg as val_data_cfg\n" 
-        config += f"val_data_cfg['args']['overlap'] = {overlap}\n"
+        config += f"val_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"

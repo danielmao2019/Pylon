@@ -20,7 +20,7 @@ config['runner'] = BaseEvaluator
 
 # data config
 from configs.common.datasets.point_cloud_registration.val.classic_real_pcr_data_cfg import data_cfg as eval_data_cfg
-eval_data_cfg['args']['overlap'] = 0.5
+eval_data_cfg['eval_dataset']['args']['overlap'] = 0.5
 config.update(eval_data_cfg)
 
 # model config
