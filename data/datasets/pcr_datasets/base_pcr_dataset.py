@@ -120,7 +120,7 @@ class BasePCRDataset(BaseDataset):
     ]
 
     # Define magnitudes for shifts
-    SHIFT_MAGNITUDES = [1.0, 0.75, 0.5, 0.25]
+    SHIFT_MAGNITUDES = [0.75, 1.0, 1.25]
 
     def __init__(
         self,
