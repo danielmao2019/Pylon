@@ -13,7 +13,6 @@ data_cfg = {
             'min_points': 256,
             'max_points': 8192,
             'overlap': None,
-            'device': 'cpu',
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {

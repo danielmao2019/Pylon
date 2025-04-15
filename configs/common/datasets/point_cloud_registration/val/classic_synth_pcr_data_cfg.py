@@ -25,7 +25,6 @@ data_cfg = {
                     ],
                 },
             },
-            'device': 'cpu',
         },
     },
     'eval_dataloader': {
