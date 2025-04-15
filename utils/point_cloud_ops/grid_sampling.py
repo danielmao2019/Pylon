@@ -1,6 +1,7 @@
 from typing import List, Dict
 import torch
 from multiprocessing import Pool
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3D
 from utils.point_cloud_ops.select import Select
 
@@ -108,12 +109,17 @@ def grid_sampling(
         for cluster_id in unique_clusters
     ]
 
-    # Process clusters in parallel using imap_unordered
-    with Pool(processes=num_workers) as pool:
-        cluster_results = {
-            cluster_id: cluster_result
-            for cluster_id, cluster_result in pool.imap_unordered(process_cluster, process_args)
-        }
+    # Process clusters in parallel using ProcessPoolExecutor
+    cluster_results = {}
+    with ProcessPoolExecutor(processes=num_workers) as executor:
+        # Submit all tasks
+        future_to_args = {executor.submit(process_cluster, args): args for args in process_args}
+        
+        # Process results as they complete
+        for future in as_completed(future_to_args):
+            # This will raise any exceptions that occurred in the worker process
+            cluster_id, cluster_result = future.result()
+            cluster_results[cluster_id] = cluster_result
 
     # Reconstruct the result in the original order
     for i, cluster_id in enumerate(unique_clusters):

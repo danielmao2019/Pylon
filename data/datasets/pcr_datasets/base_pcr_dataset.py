@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import multiprocessing
 import time
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from data.datasets.base_dataset import BaseDataset
 from utils.io import load_point_cloud
 from utils.point_cloud_ops.correspondences import get_correspondences
@@ -323,18 +324,37 @@ class BasePCRDataset(BaseDataset):
                     src_voxel, tgt_voxel, transformed_src_pc, src_pc, tgt_pc,
                     src_path, tgt_path, transform, min_points, max_points, overlap, voxel_size
                 ))
-            with multiprocessing.Pool(num_workers) as pool:
-                results = list(pool.imap_unordered(process_voxel_pair, process_args, chunksize=1))
-            # Filter out None results and add to datapoints
-            valid_datapoints = [r for r in results if r is not None]
+            
+            # Use ProcessPoolExecutor instead of Pool
+            valid_datapoints = []
+            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                # Submit all tasks
+                future_to_args = {executor.submit(process_voxel_pair, args): args for args in process_args}
+                
+                # Process results as they complete
+                for future in as_completed(future_to_args):
+                    # This will raise any exceptions that occurred in the worker process
+                    result = future.result()
+                    if result is not None:
+                        valid_datapoints.append(result)
+            
             print(f"Voxel pair processing completed in {time.time() - process_start_time:.2f} seconds")
 
             # Save datapoint cache files in parallel
             print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} using {num_workers} workers...")
             save_start_time = time.time()
             save_args = [(i, datapoint, scene_dir) for i, datapoint in enumerate(valid_datapoints)]
-            with multiprocessing.Pool(num_workers) as pool:
-                list(pool.imap_unordered(save_datapoint, save_args, chunksize=1))
+            
+            # Use ProcessPoolExecutor for saving datapoints
+            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                # Submit all tasks
+                future_to_args = {executor.submit(save_datapoint, args): args for args in save_args}
+                
+                # Process results as they complete - this will raise any exceptions
+                for future in as_completed(future_to_args):
+                    # This will raise any exceptions that occurred in the worker process
+                    future.result()
+            
             print(f"Saved {len(valid_datapoints)} voxels to {scene_dir} in {time.time() - save_start_time:.2f} seconds")
 
             datapoints.extend(valid_datapoints)
