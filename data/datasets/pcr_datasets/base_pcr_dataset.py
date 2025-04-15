@@ -185,7 +185,7 @@ class BasePCRDataset(BaseDataset):
             for idx in range(len(self.filepath_pairs))
             if glob.glob(os.path.join(self.cache_dir, f'scene_pair_{idx}', 'voxel_*.pt'))
         ]
-        if False and len(scene_dirs) > 0:
+        if len(scene_dirs) > 0:
             # Load all voxel files from all scene directories
             self.annotations = []
             for scene_dir in scene_dirs:
