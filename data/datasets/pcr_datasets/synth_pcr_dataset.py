@@ -13,4 +13,4 @@ class SynthPCRDataset(BasePCRDataset):
         """
         self.filepaths = sorted(glob.glob(os.path.join(self.data_root, "*.las")))
         self.filepath_pairs = list(zip(self.filepaths, self.filepaths))
-        self.gt_transforms = [torch.eye(4, dtype=torch.float32, device=self.device) for _ in self.filepaths]
+        self.gt_transforms = [torch.eye(4, dtype=torch.float32) for _ in self.filepaths]

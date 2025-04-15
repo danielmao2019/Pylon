@@ -28,8 +28,8 @@ class RealPCRDataset(BasePCRDataset):
             f"{set(os.path.join(self.data_root, t['filepath']) for t in gt_transforms)=}, {set(self.filepaths)=}"
         gt_transforms = sorted(gt_transforms, key=lambda x: x['filepath'])
         gt_transforms = [
-            torch.tensor(t['transform'], dtype=torch.float32, device=self.device)
+            torch.tensor(t['transform'], dtype=torch.float32)
             for t in gt_transforms
         ]
-        assert torch.equal(gt_transforms[0], torch.eye(4, dtype=torch.float32, device=self.device))
+        assert torch.equal(gt_transforms[0], torch.eye(4, dtype=torch.float32))
         self.gt_transforms = gt_transforms[1:]
