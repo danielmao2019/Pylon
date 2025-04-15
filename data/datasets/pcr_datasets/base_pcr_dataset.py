@@ -308,6 +308,7 @@ class BasePCRDataset(BaseDataset):
         transformed_src_pc['pos'] = apply_transform(src_pc['pos'], transform)
 
         datapoint_file_paths = []
+        enumeration_start = 0
 
         # Process target point clouds based on overlap setting
         if self.overlap >= 1.0:
@@ -323,7 +324,8 @@ class BasePCRDataset(BaseDataset):
                 src_path=src_path,
                 tgt_path=tgt_path,
                 transform=transform,
-                scene_dir=scene_dir
+                scene_dir=scene_dir,
+                enumeration_start=enumeration_start
             )
 
             datapoint_file_paths.extend(file_paths)
@@ -344,7 +346,7 @@ class BasePCRDataset(BaseDataset):
                 shifted_tgt_pc['pos'][:, 1] += shift[1]
                 shifted_tgt_pc['pos'][:, 2] += shift[2]
 
-                # Process the shifted target
+                # Process the shifted target with updated enumeration_start
                 file_paths = self._process_target_point_cloud(
                     transformed_src_pc=transformed_src_pc,
                     target_pc=shifted_tgt_pc,
@@ -353,10 +355,13 @@ class BasePCRDataset(BaseDataset):
                     src_path=src_path,
                     tgt_path=tgt_path,
                     transform=transform,
-                    scene_dir=scene_dir
+                    scene_dir=scene_dir,
+                    enumeration_start=enumeration_start
                 )
 
                 datapoint_file_paths.extend(file_paths)
+                # Update enumeration_start for the next shift
+                enumeration_start += len(file_paths)
                 print(f"Shifted target {shift_idx}/{len(self.shifts)} completed in {time.time() - shift_start_time:.2f} seconds")
                 print(f"Total datapoint files so far: {len(datapoint_file_paths)}")
 
@@ -366,7 +371,7 @@ class BasePCRDataset(BaseDataset):
 
     def _process_target_point_cloud(
         self, transformed_src_pc, target_pc, src_pc, tgt_pc,
-        src_path, tgt_path, transform, scene_dir
+        src_path, tgt_path, transform, scene_dir, enumeration_start=0
     ) -> List[str]:
         """Process a single target point cloud and return file paths to saved datapoints.
 
@@ -379,6 +384,7 @@ class BasePCRDataset(BaseDataset):
             tgt_path: Path to the target point cloud file
             transform: Transformation from source to target
             scene_dir: Directory to save datapoints
+            enumeration_start: Starting index for file enumeration to avoid overwriting
 
         Returns:
             List of file paths to saved datapoints
@@ -421,8 +427,8 @@ class BasePCRDataset(BaseDataset):
         print(f"Saving {len(valid_datapoints)} voxels to {scene_dir} using {num_workers} workers...")
         save_start_time = time.time()
 
-        # Create file paths for each datapoint
-        file_paths = [os.path.join(scene_dir, f'voxel_{i}.pt') for i in range(len(valid_datapoints))]
+        # Create file paths for each datapoint with enumeration_start offset
+        file_paths = [os.path.join(scene_dir, f'voxel_{i + enumeration_start}.pt') for i in range(len(valid_datapoints))]
 
         # Save datapoints in parallel
         save_args = [(datapoint, file_path) for datapoint, file_path in zip(valid_datapoints, file_paths)]
