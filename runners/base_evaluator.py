@@ -136,6 +136,7 @@ class BaseEvaluator:
         self.metric.reset_buffer()
 
         if self.eval_n_jobs == 1:
+            self.logger.info("Evaluating sequentially...")
             # Use a simple for loop when only one worker is needed
             for idx, dp in enumerate(self.eval_dataloader):
                 self._process_eval_batch(dp, idx, len(self.eval_dataloader))
