@@ -8,12 +8,13 @@ data_cfg = {
         'class': data.datasets.RealPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
+            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
+            'cache_dirname': 'real_pcr_cache',
             'split': 'val',
             'voxel_size': 10.0,
             'min_points': 256,
             'max_points': 8192,
-            'device': 'cpu',
+            'overlap': 0.5,
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
