@@ -44,7 +44,7 @@ def process_voxel_pair(args):
             radius=1.0,
         )
         # Skip if overlap ratio is not within the desired range (±10%)
-        if abs(overlap_ratio - overlap) > 0.1:
+        if abs(overlap_ratio - overlap) > 0.05:
             return None
     else:
         overlap_ratio = 1.0
