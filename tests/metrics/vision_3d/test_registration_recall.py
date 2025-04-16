@@ -103,7 +103,7 @@ def test_single_transform():
 
     # Compute registration recall metrics using PyTorch implementation
     metric = RegistrationRecall()
-    torch_result = metric._compute_score(estimated_torch, ground_truth_torch)
+    torch_result = metric(estimated_torch, ground_truth_torch)
 
     # Compute registration recall metrics using alternative NumPy implementation
     numpy_result = compute_rotation_translation_error_alt_numpy(estimated_np, ground_truth_np)
@@ -147,7 +147,7 @@ def test_known_rotation_error():
 
     # Compute using PyTorch implementation
     metric = RegistrationRecall()
-    torch_result = metric._compute_score(rotated_torch, identity_torch)
+    torch_result = metric(rotated_torch, identity_torch)
 
     # The rotation error should be 30 degrees
     expected_rotation_error = 30.0
@@ -184,7 +184,7 @@ def test_various_rotation_angles(angle_deg):
 
     # Compute using PyTorch implementation
     metric = RegistrationRecall()
-    torch_result = metric._compute_score(rotated_torch, identity_torch)
+    torch_result = metric(rotated_torch, identity_torch)
 
     # Compute using trace formula (one formula implementation)
     trace_result = compute_rotation_error_trace_formula(R_z_rotated, R_identity)
