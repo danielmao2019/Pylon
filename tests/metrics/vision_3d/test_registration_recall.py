@@ -79,204 +79,313 @@ def compute_rotation_error_trace_formula(R_pred, R_true):
     return angle_deg
 
 
-def test_single_transform():
-    # Create sample transformation matrices
-    estimated_np = np.array([
-        [0.9397, -0.3420, 0.0000, 0.1000],
-        [0.3420, 0.9397, 0.0000, 0.2000],
-        [0.0000, 0.0000, 1.0000, 0.3000],
-        [0.0000, 0.0000, 0.0000, 1.0000]
-    ])  # This is a rotation of 20 degrees around z-axis
+# ===== PART 1: TESTS WITH KNOWN ROTATION/TRANSLATION VALUES =====
 
-    ground_truth_np = np.array([
-        [1.0000, 0.0000, 0.0000, 0.0800],
-        [0.0000, 1.0000, 0.0000, 0.1900],
-        [0.0000, 0.0000, 1.0000, 0.2800],
-        [0.0000, 0.0000, 0.0000, 1.0000]
-    ])  # Identity rotation
-
-    # Convert to PyTorch tensors
-    estimated_torch = torch.tensor(estimated_np, dtype=torch.float32)
-    ground_truth_torch = torch.tensor(ground_truth_np, dtype=torch.float32)
-
-    # Compute registration recall metrics using PyTorch implementation
-    metric = RegistrationRecall()
-    torch_result = metric(estimated_torch, ground_truth_torch)
-
-    # Compute registration recall metrics using alternative NumPy implementation
-    numpy_result = compute_rotation_translation_error_alt_numpy(estimated_np, ground_truth_np)
-
-    # We use larger tolerance here because the two methods calculate rotation angles differently,
-    # but they should be close for small angles
-    assert abs(torch_result["rotation_error_deg"].item() - numpy_result["rotation_error_deg"]) < 1e-3, \
-        f"PyTorch rotation error: {torch_result['rotation_error_deg'].item()}, NumPy rotation error: {numpy_result['rotation_error_deg']}"
-
-    # Translation errors should match exactly
-    assert abs(torch_result["translation_error_m"].item() - numpy_result["translation_error_m"]) < 1e-5, \
-        f"PyTorch translation error: {torch_result['translation_error_m'].item()}, NumPy translation error: {numpy_result['translation_error_m']}"
-
-
-def test_known_rotation_error():
-    """Test with known rotation angles to verify correctness"""
-    # Define rotations with known angles
-
-    # Identity matrix (no rotation)
-    R_identity = np.eye(3)
-
-    # 30-degree rotation around Z axis
-    theta = np.radians(30)
-    c, s = np.cos(theta), np.sin(theta)
-    R_z_30deg = np.array([
-        [c, -s, 0],
-        [s, c, 0],
-        [0, 0, 1]
-    ])
-
-    # Create full transformation matrices
-    identity_transform = np.eye(4)
-    identity_transform[:3, :3] = R_identity
-
-    rotated_transform = np.eye(4)
-    rotated_transform[:3, :3] = R_z_30deg
-
-    # Convert to PyTorch tensors
-    identity_torch = torch.tensor(identity_transform, dtype=torch.float32)
-    rotated_torch = torch.tensor(rotated_transform, dtype=torch.float32)
-
-    # Compute using PyTorch implementation
-    metric = RegistrationRecall()
-    torch_result = metric(rotated_torch, identity_torch)
-
-    # The rotation error should be 30 degrees
-    expected_rotation_error = 30.0
-
-    assert abs(torch_result["rotation_error_deg"].item() - expected_rotation_error) < 1e-3, \
-        f"Expected rotation error of {expected_rotation_error} degrees, got {torch_result['rotation_error_deg'].item()}"
-
-
-@pytest.mark.parametrize("angle_deg", [5.0, 10.0, 30.0, 60.0, 90.0, 180.0])
-def test_various_rotation_angles(angle_deg):
-    """Test rotation error calculation with various angles."""
-    # Create rotation matrix around Z axis
+def create_rotation_matrix(angle_deg, axis='z'):
+    """Create a rotation matrix for a given angle in degrees and axis."""
     angle_rad = np.radians(angle_deg)
     c, s = np.cos(angle_rad), np.sin(angle_rad)
-    R_z_rotated = np.array([
-        [c, -s, 0],
-        [s, c, 0],
-        [0, 0, 1]
-    ])
+    
+    if axis.lower() == 'x':
+        return np.array([
+            [1, 0, 0],
+            [0, c, -s],
+            [0, s, c]
+        ])
+    elif axis.lower() == 'y':
+        return np.array([
+            [c, 0, s],
+            [0, 1, 0],
+            [-s, 0, c]
+        ])
+    elif axis.lower() == 'z':
+        return np.array([
+            [c, -s, 0],
+            [s, c, 0],
+            [0, 0, 1]
+        ])
+    else:
+        raise ValueError(f"Unknown axis: {axis}")
 
+
+def create_transform_matrix(rotation_matrix, translation_vector):
+    """Create a 4x4 transformation matrix from rotation and translation."""
+    transform = np.eye(4)
+    transform[:3, :3] = rotation_matrix
+    transform[:3, 3] = translation_vector
+    return transform
+
+
+@pytest.mark.parametrize("angle_deg,axis", [
+    (30, 'z'),
+    (45, 'x'),
+    (60, 'y'),
+    (90, 'z'),
+    (180, 'x')
+])
+def test_known_rotation_angles(angle_deg, axis):
+    """Test with known rotation angles to verify correctness."""
+    # Create rotation matrix with known angle
+    R_rotated = create_rotation_matrix(angle_deg, axis)
+    
     # Identity rotation matrix
     R_identity = np.eye(3)
-
+    
     # Create full transformation matrices
-    rotated_transform = np.eye(4)
-    rotated_transform[:3, :3] = R_z_rotated
-
-    identity_transform = np.eye(4)
-    identity_transform[:3, :3] = R_identity
-
+    rotated_transform = create_transform_matrix(R_rotated, np.zeros(3))
+    identity_transform = create_transform_matrix(R_identity, np.zeros(3))
+    
     # Convert to PyTorch tensors
     rotated_torch = torch.tensor(rotated_transform, dtype=torch.float32)
     identity_torch = torch.tensor(identity_transform, dtype=torch.float32)
-
-    # Compute using PyTorch implementation
-    metric = RegistrationRecall()
-    torch_result = metric(rotated_torch, identity_torch)
-
-    # Compute using trace formula (one formula implementation)
-    trace_result = compute_rotation_error_trace_formula(R_z_rotated, R_identity)
-
-    # Compute using scipy implementation (alternative implementation)
-    scipy_result = compute_rotation_translation_error_alt_numpy(rotated_transform, identity_transform)["rotation_error_deg"]
-
+    
+    # Create RegistrationRecall instance
+    registration_recall = RegistrationRecall()
+    
+    # Compute using the metric class
+    metric_result = registration_recall(rotated_torch, identity_torch)
+    
     # The rotation error should match the input angle
-    assert abs(torch_result["rotation_error_deg"].item() - angle_deg) < 1e-3, \
-        f"Expected rotation error of {angle_deg} degrees, got {torch_result['rotation_error_deg'].item()}"
+    assert abs(metric_result["rotation_error_deg"].item() - angle_deg) < 1e-3, \
+        f"Expected rotation error of {angle_deg} degrees, got {metric_result['rotation_error_deg'].item()}"
+    
+    # Translation error should be zero
+    assert abs(metric_result["translation_error_m"].item() - 0.0) < 1e-5, \
+        f"Expected translation error of 0.0, got {metric_result['translation_error_m'].item()}"
 
-    # The trace formula and scipy implementations should give similar results
-    assert abs(trace_result - scipy_result) < 1e-3, \
-        f"Trace formula: {trace_result:.4f}°, Scipy: {scipy_result:.4f}°, Diff: {abs(trace_result - scipy_result):.4f}°"
 
-
-def test_batch_transforms():
-    # Create sample batched transformation matrices
-    estimated_np = np.array([
-        # First transform - 20 degree rotation around z-axis
-        [
-            [0.9397, -0.3420, 0.0000, 0.1000],
-            [0.3420, 0.9397, 0.0000, 0.2000],
-            [0.0000, 0.0000, 1.0000, 0.3000],
-            [0.0000, 0.0000, 0.0000, 1.0000]
-        ],
-        # Second transform - 10 degree rotation around z-axis
-        [
-            [0.9848, -0.1736, 0.0000, 0.5000],
-            [0.1736, 0.9848, 0.0000, 0.6000],
-            [0.0000, 0.0000, 1.0000, 0.7000],
-            [0.0000, 0.0000, 0.0000, 1.0000]
-        ],
-        # Third transform - 90 degree rotation around x-axis (very different)
-        [
-            [1.0000, 0.0000, 0.0000, 2.0000],
-            [0.0000, 0.0000, -1.0000, 2.0000],
-            [0.0000, 1.0000, 0.0000, 2.0000],
-            [0.0000, 0.0000, 0.0000, 1.0000]
-        ]
-    ])
-
-    ground_truth_np = np.array([
-        # First transform - identity
-        [
-            [1.0000, 0.0000, 0.0000, 0.0800],
-            [0.0000, 1.0000, 0.0000, 0.1900],
-            [0.0000, 0.0000, 1.0000, 0.2800],
-            [0.0000, 0.0000, 0.0000, 1.0000]
-        ],
-        # Second transform - 5 degree rotation around z-axis
-        [
-            [0.9962, -0.0872, 0.0000, 0.5200],
-            [0.0872, 0.9962, 0.0000, 0.6200],
-            [0.0000, 0.0000, 1.0000, 0.7200],
-            [0.0000, 0.0000, 0.0000, 1.0000]
-        ],
-        # Third transform - identity
-        [
-            [1.0000, 0.0000, 0.0000, 0.0000],
-            [0.0000, 1.0000, 0.0000, 0.0000],
-            [0.0000, 0.0000, 1.0000, 0.0000],
-            [0.0000, 0.0000, 0.0000, 1.0000]
-        ]
-    ])
-
-    # Expected rotation errors: 20 degrees, 5 degrees, 90 degrees
-    expected_rotation_errors = np.array([20.0, 5.0, 90.0])
-
+@pytest.mark.parametrize("translation_vector", [
+    [0.1, 0.0, 0.0],
+    [0.0, 0.2, 0.0],
+    [0.0, 0.0, 0.3],
+    [0.1, 0.2, 0.3]
+])
+def test_known_translation_vectors(translation_vector):
+    """Test with known translation vectors to verify correctness."""
+    # Create identity rotation matrix
+    R_identity = np.eye(3)
+    
+    # Create full transformation matrices
+    translated_transform = create_transform_matrix(R_identity, translation_vector)
+    identity_transform = create_transform_matrix(R_identity, np.zeros(3))
+    
     # Convert to PyTorch tensors
-    estimated_torch = torch.tensor(estimated_np, dtype=torch.float32)
-    ground_truth_torch = torch.tensor(ground_truth_np, dtype=torch.float32)
+    translated_torch = torch.tensor(translated_transform, dtype=torch.float32)
+    identity_torch = torch.tensor(identity_transform, dtype=torch.float32)
+    
+    # Create RegistrationRecall instance
+    registration_recall = RegistrationRecall()
+    
+    # Compute using the metric class
+    metric_result = registration_recall(translated_torch, identity_torch)
+    
+    # The rotation error should be zero
+    assert abs(metric_result["rotation_error_deg"].item() - 0.0) < 1e-5, \
+        f"Expected rotation error of 0.0 degrees, got {metric_result['rotation_error_deg'].item()}"
+    
+    # Translation error should match the L2 norm of the translation vector
+    expected_translation_error = np.linalg.norm(translation_vector)
+    assert abs(metric_result["translation_error_m"].item() - expected_translation_error) < 1e-5, \
+        f"Expected translation error of {expected_translation_error}, got {metric_result['translation_error_m'].item()}"
 
+
+@pytest.mark.parametrize("angle_deg,translation_vector", [
+    (30, [0.1, 0.0, 0.0]),
+    (45, [0.0, 0.2, 0.0]),
+    (60, [0.0, 0.0, 0.3]),
+    (90, [0.1, 0.2, 0.3])
+])
+def test_known_rotation_and_translation(angle_deg, translation_vector):
+    """Test with known rotation angles and translation vectors."""
+    # Create rotation matrix with known angle around z-axis
+    R_rotated = create_rotation_matrix(angle_deg, 'z')
+    
+    # Identity rotation matrix
+    R_identity = np.eye(3)
+    
+    # Create full transformation matrices
+    transformed = create_transform_matrix(R_rotated, translation_vector)
+    identity_transform = create_transform_matrix(R_identity, np.zeros(3))
+    
+    # Convert to PyTorch tensors
+    transformed_torch = torch.tensor(transformed, dtype=torch.float32)
+    identity_torch = torch.tensor(identity_transform, dtype=torch.float32)
+    
+    # Create RegistrationRecall instance
+    registration_recall = RegistrationRecall()
+    
+    # Compute using the metric class
+    metric_result = registration_recall(transformed_torch, identity_torch)
+    
+    # The rotation error should match the input angle
+    assert abs(metric_result["rotation_error_deg"].item() - angle_deg) < 1e-3, \
+        f"Expected rotation error of {angle_deg} degrees, got {metric_result['rotation_error_deg'].item()}"
+    
+    # Translation error should match the L2 norm of the translation vector
+    expected_translation_error = np.linalg.norm(translation_vector)
+    assert abs(metric_result["translation_error_m"].item() - expected_translation_error) < 1e-5, \
+        f"Expected translation error of {expected_translation_error}, got {metric_result['translation_error_m'].item()}"
+
+
+@pytest.mark.parametrize("rot_threshold_deg,trans_threshold_m,angle_deg,translation_vector,expected_recall", [
+    (5.0, 0.3, 3.0, [0.1, 0.0, 0.0], 1.0),    # Within both thresholds
+    (5.0, 0.3, 10.0, [0.1, 0.0, 0.0], 0.0),   # Rotation exceeds threshold
+    (5.0, 0.3, 3.0, [0.5, 0.0, 0.0], 0.0),    # Translation exceeds threshold
+    (10.0, 0.5, 8.0, [0.4, 0.0, 0.0], 1.0),   # Within both thresholds
+    (10.0, 0.5, 12.0, [0.6, 0.0, 0.0], 0.0)   # Both exceed thresholds
+])
+def test_registration_recall_with_known_values(rot_threshold_deg, trans_threshold_m, 
+                                              angle_deg, translation_vector, expected_recall):
+    """Test registration recall with known values and thresholds."""
+    # Create rotation matrix with known angle around z-axis
+    R_rotated = create_rotation_matrix(angle_deg, 'z')
+    
+    # Identity rotation matrix
+    R_identity = np.eye(3)
+    
+    # Create full transformation matrices
+    transformed = create_transform_matrix(R_rotated, translation_vector)
+    identity_transform = create_transform_matrix(R_identity, np.zeros(3))
+    
+    # Convert to PyTorch tensors
+    transformed_torch = torch.tensor(transformed, dtype=torch.float32)
+    identity_torch = torch.tensor(identity_transform, dtype=torch.float32)
+    
+    # Create RegistrationRecall instance with specified thresholds
+    registration_recall = RegistrationRecall(rot_threshold_deg=rot_threshold_deg, 
+                                            trans_threshold_m=trans_threshold_m)
+    
+    # Compute registration recall using the metric class
+    metric_result = registration_recall._compute_score(transformed_torch, identity_torch)
+    
+    # Check that the registration recall matches the expected value
+    assert abs(metric_result["registration_recall"].item() - expected_recall) < 1e-5, \
+        f"Expected registration recall of {expected_recall}, got {metric_result['registration_recall'].item()}"
+
+
+# ===== PART 2: TESTS WITH RANDOM TRANSFORMS =====
+
+def generate_random_transform():
+    """Generate a random 4x4 transformation matrix."""
+    # Generate random rotation (using axis-angle representation)
+    angle = np.random.uniform(0, 180)  # Random angle between 0 and 180 degrees
+    axis = np.random.rand(3)
+    axis = axis / np.linalg.norm(axis)  # Normalize to get a unit vector
+    
+    # Convert to rotation matrix
+    rot = Rotation.from_rotvec(angle * axis * np.pi / 180)
+    R = rot.as_matrix()
+    
+    # Generate random translation
+    t = np.random.rand(3) * 0.5  # Random translation between 0 and 0.5 meters
+    
+    # Create transformation matrix
+    transform = np.eye(4)
+    transform[:3, :3] = R
+    transform[:3, 3] = t
+    
+    return transform
+
+
+def test_single_random_transform():
+    """Test with a single random transform."""
+    # Generate random transforms
+    estimated_transform = generate_random_transform()
+    ground_truth_transform = generate_random_transform()
+    
+    # Convert to PyTorch tensors
+    estimated_torch = torch.tensor(estimated_transform, dtype=torch.float32)
+    ground_truth_torch = torch.tensor(ground_truth_transform, dtype=torch.float32)
+    
+    # Create RegistrationRecall instance
+    registration_recall = RegistrationRecall()
+    
+    # Compute using the metric class
+    metric_result = registration_recall(estimated_torch, ground_truth_torch)
+    
+    # Compute using alternative NumPy implementation
+    numpy_result = compute_rotation_translation_error_alt_numpy(estimated_transform, ground_truth_transform)
+    
+    # Check that the results are approximately equal
+    # We use larger tolerance here because the two methods calculate rotation angles differently
+    assert abs(metric_result["rotation_error_deg"].item() - numpy_result["rotation_error_deg"]) < 1e-2, \
+        f"Metric rotation error: {metric_result['rotation_error_deg'].item()}, NumPy rotation error: {numpy_result['rotation_error_deg']}"
+    
+    # Translation errors should match more closely
+    assert abs(metric_result["translation_error_m"].item() - numpy_result["translation_error_m"]) < 1e-5, \
+        f"Metric translation error: {metric_result['translation_error_m'].item()}, NumPy translation error: {numpy_result['translation_error_m']}"
+
+
+def test_batch_random_transforms():
+    """Test with a batch of random transforms."""
+    # Generate random transforms
+    batch_size = 5
+    estimated_transforms = [generate_random_transform() for _ in range(batch_size)]
+    ground_truth_transforms = [generate_random_transform() for _ in range(batch_size)]
+    
+    # Convert to PyTorch tensors
+    estimated_torch = torch.tensor(estimated_transforms, dtype=torch.float32)
+    ground_truth_torch = torch.tensor(ground_truth_transforms, dtype=torch.float32)
+    
     # Set thresholds
-    rot_threshold_deg = 15.0  # This should make only the first transform fail the rotation check
-    trans_threshold_m = 0.5  # This should make only the third transform fail the translation check
-
-    # Compute registration recall metrics using PyTorch implementation
-    metric = RegistrationRecall(rot_threshold_deg=rot_threshold_deg, trans_threshold_m=trans_threshold_m)
-    torch_result = metric._compute_score(estimated_torch, ground_truth_torch)
-
-    # Compute metrics for each transform using alternative NumPy implementation
-    numpy_recalls = compute_registration_recall_alt_numpy(
-        estimated_np, ground_truth_np,
+    rot_threshold_deg = 15.0
+    trans_threshold_m = 0.5
+    
+    # Create RegistrationRecall instance
+    registration_recall = RegistrationRecall(rot_threshold_deg=rot_threshold_deg, 
+                                            trans_threshold_m=trans_threshold_m)
+    
+    # Compute registration recall using the metric class
+    metric_result = registration_recall._compute_score(estimated_torch, ground_truth_torch)
+    
+    # Compute using alternative NumPy implementation
+    numpy_result = compute_registration_recall_alt_numpy(
+        estimated_transforms, ground_truth_transforms,
         rot_threshold_deg=rot_threshold_deg, trans_threshold_m=trans_threshold_m
     )
+    
+    # Check that the results are approximately equal
+    assert abs(metric_result["registration_recall"].item() - numpy_result["registration_recall"]) < 1e-5, \
+        f"Metric registration recall: {metric_result['registration_recall'].item()}, NumPy registration recall: {numpy_result['registration_recall']}"
+    
+    assert abs(metric_result["avg_rotation_error_deg"].item() - numpy_result["avg_rotation_error_deg"]) < 1e-2, \
+        f"Metric avg rotation error: {metric_result['avg_rotation_error_deg'].item()}, NumPy avg rotation error: {numpy_result['avg_rotation_error_deg']}"
+    
+    assert abs(metric_result["avg_translation_error_m"].item() - numpy_result["avg_translation_error_m"]) < 1e-5, \
+        f"Metric avg translation error: {metric_result['avg_translation_error_m'].item()}, NumPy avg translation error: {numpy_result['avg_translation_error_m']}"
 
-    # Expected recall: only the second transform should be successful (1/3 = 0.333...)
-    expected_recall = 1.0 / 3.0
 
-    # Check that the registration recall is approximately equal
-    assert abs(torch_result["registration_recall"].item() - expected_recall) < 1e-5, \
-        f"Expected recall {expected_recall}, got {torch_result['registration_recall'].item()}"
-
-    # The alternative numpy implementation should give the same recall since it's using same thresholds
-    assert abs(numpy_recalls["registration_recall"] - expected_recall) < 1e-5, \
-        f"Expected NumPy recall {expected_recall}, got {numpy_recalls['registration_recall']}"
+def test_registration_recall_edge_cases():
+    """Test registration recall with edge cases."""
+    # Test with identity transforms (perfect match)
+    identity_transform = np.eye(4)
+    identity_torch = torch.tensor(identity_transform, dtype=torch.float32)
+    
+    # Create RegistrationRecall instance
+    registration_recall = RegistrationRecall()
+    
+    # Compute using the metric class
+    metric_result = registration_recall(identity_torch, identity_torch)
+    
+    # Check that the results are as expected
+    assert abs(metric_result["rotation_error_deg"].item() - 0.0) < 1e-5, \
+        f"Expected rotation error of 0.0 degrees, got {metric_result['rotation_error_deg'].item()}"
+    
+    assert abs(metric_result["translation_error_m"].item() - 0.0) < 1e-5, \
+        f"Expected translation error of 0.0, got {metric_result['translation_error_m'].item()}"
+    
+    # Test with empty batch
+    empty_torch = torch.zeros((0, 4, 4), dtype=torch.float32)
+    
+    # Compute using the metric class
+    metric_result = registration_recall._compute_score(empty_torch, empty_torch)
+    
+    # Check that the results are as expected
+    assert abs(metric_result["registration_recall"].item() - 0.0) < 1e-5, \
+        f"Expected registration recall of 0.0, got {metric_result['registration_recall'].item()}"
+    
+    assert abs(metric_result["avg_rotation_error_deg"].item() - 0.0) < 1e-5, \
+        f"Expected avg rotation error of 0.0 degrees, got {metric_result['avg_rotation_error_deg'].item()}"
+    
+    assert abs(metric_result["avg_translation_error_m"].item() - 0.0) < 1e-5, \
+        f"Expected avg translation error of 0.0, got {metric_result['avg_translation_error_m'].item()}"
