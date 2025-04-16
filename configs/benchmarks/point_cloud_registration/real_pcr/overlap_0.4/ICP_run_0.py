@@ -20,17 +20,15 @@ config['runner'] = BaseEvaluator
 
 # data config
 from configs.common.datasets.point_cloud_registration.val.classic_real_pcr_data_cfg import data_cfg as eval_data_cfg
-eval_data_cfg['eval_dataset']['args']['overlap'] = 0.5
+eval_data_cfg['eval_dataset']['args']['overlap'] = 0.4
 config.update(eval_data_cfg)
 
 # model config
-from models.point_cloud_registration.classic import TeaserPlusPlus
-config['model'] = {'class': TeaserPlusPlus, 'args': {}}
-
-config['eval_n_jobs'] = 1
+from models.point_cloud_registration.classic import ICP
+config['model'] = {'class': ICP, 'args': {}}
 
 # seeds
-config['seed'] = 93889110
+config['seed'] = 16481661
 
 # work dir
-config['work_dir'] = "./logs/benchmarks/point_cloud_registration/real_pcr/overlap_0.5/TeaserPlusPlus_run_0"
+config['work_dir'] = "./logs/benchmarks/point_cloud_registration/real_pcr/overlap_0.4/ICP_run_0"

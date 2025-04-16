@@ -39,6 +39,9 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += f"from models.point_cloud_registration.classic import {model}\n"
         config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
         config += '\n'
+        if model == 'TeaserPlusPlus':
+            config += f"config['eval_n_jobs'] = 1\n"
+            config += '\n'
     elif model == 'GeoTransformer':
         config += f"# data config\n"
         config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_{dataset}_data_cfg import data_cfg as train_data_cfg\n"
@@ -97,7 +100,7 @@ if __name__ == "__main__":
     import itertools
     for dataset, overlap, model in itertools.product(
         ['real_pcr'],
-        [1.0, 0.5],
+        [1.0, 0.5, 0.4],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
             'GeoTransformer', 'OverlapPredator',

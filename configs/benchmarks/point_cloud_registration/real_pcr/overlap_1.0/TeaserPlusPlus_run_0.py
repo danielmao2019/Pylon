@@ -27,6 +27,8 @@ config.update(eval_data_cfg)
 from models.point_cloud_registration.classic import TeaserPlusPlus
 config['model'] = {'class': TeaserPlusPlus, 'args': {}}
 
+config['eval_n_jobs'] = 1
+
 # seeds
 config['seed'] = 37448185
 
