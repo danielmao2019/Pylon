@@ -27,6 +27,7 @@ class BaseEvaluator:
         self.config = copy.deepcopy(config)
         assert type(device) == torch.device, f"{type(device)=}"
         self.device = device
+        self.eval_n_jobs = self.config.get('eval_n_jobs', 1)
         self._init_work_dir()
         torch.autograd.set_detect_anomaly(True)
 
@@ -134,17 +135,16 @@ class BaseEvaluator:
         self.model.eval()
         self.metric.reset_buffer()
 
-        # Get the number of CPU cores to use (leave one core free for system processes)
-        num_workers = max(1, os.cpu_count() - 1)
-        self.logger.info(f"Using {num_workers} threads for parallel evaluation")
+        # Get the number of CPU cores to use from config
+        self.logger.info(f"Using {self.eval_n_jobs} threads for parallel evaluation")
 
-        if num_workers == 1:
+        if self.eval_n_jobs == 1:
             # Use a simple for loop when only one worker is needed
             for idx, dp in enumerate(self.eval_dataloader):
                 self._process_eval_batch(dp, idx, len(self.eval_dataloader))
         else:
             # Use ThreadPoolExecutor for parallel processing
-            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
                 # Submit all tasks
                 future_to_args = {executor.submit(self._process_eval_batch, dp, idx, len(self.eval_dataloader)): (idx, dp) 
                                  for idx, dp in enumerate(self.eval_dataloader)}
