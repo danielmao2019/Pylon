@@ -312,7 +312,7 @@ class BasePCRDataset(BaseDataset):
         enumeration_start = 0
 
         # Process target point clouds based on overlap setting
-        if self.overlap >= 1.0:
+        if self.overlap == 1.0:
             # For full overlap, only use the original target
             print("Using full overlap (overlap >= 1.0), processing only the original target...")
 
