@@ -3,12 +3,11 @@ from abc import ABC, abstractmethod
 import copy
 import os
 import glob
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import json
 import jsbeautifier
 import torch
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 import criteria
 import utils
 from utils.builders import build_from_config
