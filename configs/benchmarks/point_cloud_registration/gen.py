@@ -48,7 +48,7 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += f"train_data_cfg['train_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(train_data_cfg)\n"
         config += f"from configs.common.datasets.point_cloud_registration.val.geotransformer_{dataset}_data_cfg import data_cfg as val_data_cfg\n"
-        config += f"val_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
+        config += f"val_data_cfg['val_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
@@ -67,7 +67,7 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += f"train_data_cfg['train_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(train_data_cfg)\n"
         config += f"from configs.common.datasets.point_cloud_registration.val.overlappredator_{dataset}_data_cfg import data_cfg as val_data_cfg\n"
-        config += f"val_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
+        config += f"val_data_cfg['val_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"

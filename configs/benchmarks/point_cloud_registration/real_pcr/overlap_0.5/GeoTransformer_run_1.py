@@ -55,7 +55,7 @@ from configs.common.datasets.point_cloud_registration.train.geotransformer_real_
 train_data_cfg['train_dataset']['args']['overlap'] = 0.5
 config.update(train_data_cfg)
 from configs.common.datasets.point_cloud_registration.val.geotransformer_real_pcr_data_cfg import data_cfg as val_data_cfg
-val_data_cfg['eval_dataset']['args']['overlap'] = 0.5
+val_data_cfg['val_dataset']['args']['overlap'] = 0.5
 config.update(val_data_cfg)
 
 # model config
