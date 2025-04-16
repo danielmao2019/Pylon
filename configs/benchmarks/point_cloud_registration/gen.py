@@ -99,7 +99,7 @@ def main(dataset: str, overlap: float, model: str) -> None:
 if __name__ == "__main__":
     import itertools
     for dataset, overlap, model in itertools.product(
-        ['real_pcr'],
+        ['synth_pcr', 'real_pcr'],
         [1.0, 0.5, 0.4],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
