@@ -41,7 +41,7 @@ def process_voxel_pair(args):
         overlap_ratio = compute_pc_iou(
             src_points=Select(indices=src_voxel['indices'])(transformed_src_pc)['pos'],
             tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc)['pos'],
-            radius=voxel_size / 4,
+            radius=1.0,
         )
         # Skip if overlap ratio is not within the desired range (±10%)
         if abs(overlap_ratio - overlap) > 0.1:
