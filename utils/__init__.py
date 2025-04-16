@@ -9,7 +9,7 @@ from utils import io
 from utils import logging
 from utils import models
 from utils import ops
-from utils import torch_points3d
+from utils import point_cloud_ops
 
 from utils import determinism
 from utils import gradients
@@ -27,7 +27,7 @@ __all__ = (
     'logging',
     'models',
     'ops',
-    'torch_points3d',
+    'point_cloud_ops',
 
     'determinism',
     'gradients',

@@ -5,7 +5,7 @@ import random
 import numpy as np
 import torch
 from sklearn.neighbors import KDTree
-from utils.torch_points3d import GridSampling3D, CylinderSampling
+from utils.point_cloud_ops.sampling import GridSampling3D, CylinderSampling
 from data.datasets import BaseDataset
 import utils
 
@@ -13,7 +13,7 @@ import utils
 class Urb3DCDDataset(BaseDataset):
     __doc__ = r"""
     URB3DCD dataset for 3D point cloud change detection with multiple change types.
-    
+
     For detailed documentation, see: docs/datasets/change_detection/bi_temporal/urb3dcd.md
     """
 
@@ -314,19 +314,19 @@ class Urb3DCDDataset(BaseDataset):
             'pc_1': data['pc_1'],
             'pc_2': data['pc_2']
         }
-        
+
         # Create labels dictionary
         labels = {
             'change_map': data['change_map']
         }
-        
+
         # Create meta_info dictionary
         meta_info = {
             'idx': idx,
             'pc_1_filepath': data['pc_1_filepath'],
             'pc_2_filepath': data['pc_2_filepath']
         }
-        
+
         return inputs, labels, meta_info
 
     def _load_datapoint_patched(self, idx: int, max_attempts: int = 10) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:

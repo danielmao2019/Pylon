@@ -122,7 +122,8 @@ class BaseEvaluator:
         return batch_data
 
     def _eval_epoch_(self) -> None:
-        assert self.eval_dataloader and self.model
+        assert self.eval_dataloader is not None, f"{self.eval_dataloader=}"
+        assert self.model is not None, f"{self.model=}"
         # init time
         start_time = time.time()
         # do validation loop

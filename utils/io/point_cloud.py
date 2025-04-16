@@ -97,6 +97,7 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
     Returns:
         A dictionary containing:
         - 'pos': XYZ coordinates in shape [N, 3]
+        - 'rgb': RGB colors in shape [N, 3] if available
         - Additional fields for each available attribute in shape [N, 1]
     """
     assert os.path.isfile(filename), f"File not found: {filename}"
@@ -110,9 +111,18 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
     # Initialize result dictionary with position
     result = {'pos': points}
 
+    # Extract RGB colors if available
+    if all(field in las_file.point_format.dimension_names for field in ['red', 'green', 'blue']):
+        # Normalize RGB values to [0, 1] range
+        red = las_file.red / np.max(las_file.red)
+        green = las_file.green / np.max(las_file.green)
+        blue = las_file.blue / np.max(las_file.blue)
+        rgb = np.vstack((red, green, blue)).T.astype(np.float32)
+        result['rgb'] = rgb
+
     # Add all available attributes
     for field in las_file.point_format.dimension_names:
-        if field not in ['x', 'y', 'z']:  # Skip XYZ as they're already in 'pos'
+        if field not in ['x', 'y', 'z', 'red', 'green', 'blue']:  # Skip XYZ and RGB as they're already handled
             attr_value = getattr(las_file, field)
             if attr_value is not None:
                 attr_value = np.array(attr_value, dtype=np.float32)

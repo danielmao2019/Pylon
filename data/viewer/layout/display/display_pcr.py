@@ -4,7 +4,8 @@ import numpy as np
 import torch
 from dash import dcc, html
 import plotly.graph_objects as go
-from utils.point_cloud_ops import apply_transform, compute_symmetric_difference_indices
+from utils.point_cloud_ops import apply_transform
+from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 
 
 def display_pcr_datapoint(
@@ -36,6 +37,10 @@ def display_pcr_datapoint(
     src_pc = inputs['src_pc']['pos']  # Source point cloud
     tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
 
+    # Extract RGB colors if available
+    src_rgb = inputs['src_pc'].get('rgb')
+    tgt_rgb = inputs['tgt_pc'].get('rgb')
+
     # Extract transform if available
     transform = datapoint['labels'].get('transform')
     if transform is None:
@@ -45,7 +50,7 @@ def display_pcr_datapoint(
     src_pc_transformed = apply_transform(src_pc, transform)
 
     # Compute symmetric difference
-    src_indices, tgt_indices = compute_symmetric_difference_indices(src_pc_transformed, tgt_pc, radius)
+    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
 
     # Create the four point cloud views
     figures = []
@@ -53,29 +58,49 @@ def display_pcr_datapoint(
     # 1. Source point cloud (original)
     figures.append(create_3d_figure(
         src_pc,
+        colors=src_rgb,
         title="Source Point Cloud",
         point_size=point_size,
         opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        colorscale=None if src_rgb is not None else 'Viridis'
     ))
 
     # 2. Target point cloud
     figures.append(create_3d_figure(
         tgt_pc,
+        colors=tgt_rgb,
         title="Target Point Cloud",
         point_size=point_size,
         opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        colorscale=None if tgt_rgb is not None else 'Viridis'
     ))
 
     # 3. Union of transformed source and target
     union_pc = torch.cat([src_pc_transformed, tgt_pc], dim=0)
+    
+    # Create colors for union (red for source, blue for target)
+    src_colors = torch.ones((len(src_pc_transformed), 3), device=src_pc_transformed.device)
+    src_colors[:, 0] = 1.0  # Red for source
+    src_colors[:, 1] = 0.0
+    src_colors[:, 2] = 0.0
+
+    tgt_colors = torch.ones((len(tgt_pc), 3), device=tgt_pc.device)
+    tgt_colors[:, 0] = 0.0  # Blue for target
+    tgt_colors[:, 1] = 0.0
+    tgt_colors[:, 2] = 1.0
+
+    union_colors = torch.cat([src_colors, tgt_colors], dim=0)
+    
     figures.append(create_3d_figure(
         union_pc,
+        colors=union_colors,
         title="Union (Transformed Source + Target)",
         point_size=point_size,
         opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        colorscale=None  # Use custom colors
     ))
 
     # 4. Symmetric difference
