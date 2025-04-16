@@ -35,6 +35,30 @@ def process_voxel_pair(args):
     # Skip if either source or target has too few points
     if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
         return None
+        
+    # Check for flat ground surfaces by analyzing z-coordinate distribution
+    def check_flat_surface(pc, indices):
+        # Get z coordinates
+        z_coords = pc['pos'][indices, 2]
+        
+        # Create histogram with bin size of 1.0 using PyTorch
+        z_min = z_coords.min().item()
+        z_max = z_coords.max().item()
+        num_bins = int((z_max - z_min) / 1.0) + 1
+        
+        if num_bins <= 1:
+            return True  # If all points are in the same bin, it's a flat surface
+            
+        # Use torch.histc for efficient histogram calculation
+        hist = torch.histc(z_coords, bins=num_bins, min=z_min, max=z_max)
+        
+        # Check if any bin contains more than 80% of the points
+        max_bin_percentage = hist.max() / len(indices)
+        return max_bin_percentage > 0.8
+    
+    # Skip if either source or target is a flat surface
+    if check_flat_surface(src_pc, src_voxel['indices']) or check_flat_surface(tgt_pc, tgt_voxel['indices']):
+        return None
 
     # For partial overlap case, check if the overlap ratio is within the desired range
     if overlap < 1.0:
