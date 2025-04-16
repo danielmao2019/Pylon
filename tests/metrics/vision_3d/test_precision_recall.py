@@ -31,56 +31,6 @@ def compute_precision_recall_numpy(predicted_matches, ground_truth_matches):
     }
 
 
-def compute_correspondence_precision_recall_torch(y_pred, y_true, threshold=0.02):
-    """PyTorch implementation of correspondence precision and recall."""
-    # Extract source and target points from correspondences
-    pred_source = y_pred[:, 0, :]  # (N, 3)
-    pred_target = y_pred[:, 1, :]  # (N, 3)
-    
-    gt_source = y_true[:, 0, :]    # (M, 3)
-    gt_target = y_true[:, 1, :]    # (M, 3)
-    
-    # Check matches for source points
-    # Expand dimensions for broadcasting
-    pred_source_expanded = pred_source.unsqueeze(1)  # (N, 1, 3)
-    gt_source_expanded = gt_source.unsqueeze(0)     # (1, M, 3)
-    
-    # Compute distances between all pairs of source points
-    source_distances = torch.sqrt(((pred_source_expanded - gt_source_expanded) ** 2).sum(dim=2))  # (N, M)
-    
-    # Identify valid source matches (below threshold)
-    source_matches = source_distances < threshold  # (N, M) boolean tensor
-    
-    # Check matches for target points
-    pred_target_expanded = pred_target.unsqueeze(1)  # (N, 1, 3)
-    gt_target_expanded = gt_target.unsqueeze(0)     # (1, M, 3)
-    
-    # Compute distances between all pairs of target points
-    target_distances = torch.sqrt(((pred_target_expanded - gt_target_expanded) ** 2).sum(dim=2))  # (N, M)
-    
-    # Identify valid target matches (below threshold)
-    target_matches = target_distances < threshold  # (N, M) boolean tensor
-    
-    # A correspondence is valid if both endpoints match
-    valid_correspondences = source_matches & target_matches  # (N, M) boolean tensor
-    
-    # Count true positives (valid matches)
-    tp = valid_correspondences.float().sum()
-    
-    # Compute precision and recall
-    precision = tp / y_pred.size(0) if y_pred.size(0) > 0 else torch.tensor(0.0)
-    recall = tp / y_true.size(0) if y_true.size(0) > 0 else torch.tensor(0.0)
-    
-    # Compute F1 score
-    f1_score = 2 * precision * recall / (precision + recall) if precision + recall > 0 else torch.tensor(0.0)
-    
-    return {
-        "precision": precision,
-        "recall": recall,
-        "f1_score": f1_score
-    }
-
-
 def create_correspondence_tensor(source_points, target_points):
     """Utility function to create correspondence tensors."""
     assert len(source_points) == len(target_points)
@@ -111,13 +61,16 @@ def test_perfect_match():
     y_pred = create_correspondence_tensor(source_points, target_points)
     y_true = create_correspondence_tensor(source_points, target_points)
     
-    # Compute precision, recall, and F1 score using PyTorch implementation
-    torch_result = compute_correspondence_precision_recall_torch(y_pred, y_true, threshold=0.02)
+    # Create CorrespondencePrecisionRecall instance
+    precision_recall = CorrespondencePrecisionRecall(threshold=0.02)
+    
+    # Compute precision, recall, and F1 score using the metric class
+    metric_result = precision_recall(y_pred, y_true)
     
     # For perfect match, precision, recall, and F1 score should all be 1.0
-    assert abs(torch_result["precision"].item() - 1.0) < 1e-5, f"Expected precision 1.0, got {torch_result['precision'].item()}"
-    assert abs(torch_result["recall"].item() - 1.0) < 1e-5, f"Expected recall 1.0, got {torch_result['recall'].item()}"
-    assert abs(torch_result["f1_score"].item() - 1.0) < 1e-5, f"Expected F1 score 1.0, got {torch_result['f1_score'].item()}"
+    assert abs(metric_result["precision"].item() - 1.0) < 1e-5, f"Expected precision 1.0, got {metric_result['precision'].item()}"
+    assert abs(metric_result["recall"].item() - 1.0) < 1e-5, f"Expected recall 1.0, got {metric_result['recall'].item()}"
+    assert abs(metric_result["f1_score"].item() - 1.0) < 1e-5, f"Expected F1 score 1.0, got {metric_result['f1_score'].item()}"
 
 
 def test_partial_match():
@@ -154,8 +107,11 @@ def test_partial_match():
     y_pred = create_correspondence_tensor(pred_source_points, pred_target_points)
     y_true = create_correspondence_tensor(gt_source_points, gt_target_points)
     
-    # Compute precision, recall, and F1 score using PyTorch implementation
-    torch_result = compute_correspondence_precision_recall_torch(y_pred, y_true, threshold=0.02)
+    # Create CorrespondencePrecisionRecall instance
+    precision_recall = CorrespondencePrecisionRecall(threshold=0.02)
+    
+    # Compute precision, recall, and F1 score using the metric class
+    metric_result = precision_recall(y_pred, y_true)
     
     # Expected values for precision, recall based on the test data:
     # - 3 out of 4 predictions match ground truth → precision = 0.75
@@ -165,12 +121,12 @@ def test_partial_match():
     expected_recall = 0.75
     expected_f1 = 0.75
     
-    assert abs(torch_result["precision"].item() - expected_precision) < 1e-5, \
-        f"Expected precision {expected_precision}, got {torch_result['precision'].item()}"
-    assert abs(torch_result["recall"].item() - expected_recall) < 1e-5, \
-        f"Expected recall {expected_recall}, got {torch_result['recall'].item()}"
-    assert abs(torch_result["f1_score"].item() - expected_f1) < 1e-5, \
-        f"Expected F1 score {expected_f1}, got {torch_result['f1_score'].item()}"
+    assert abs(metric_result["precision"].item() - expected_precision) < 1e-5, \
+        f"Expected precision {expected_precision}, got {metric_result['precision'].item()}"
+    assert abs(metric_result["recall"].item() - expected_recall) < 1e-5, \
+        f"Expected recall {expected_recall}, got {metric_result['recall'].item()}"
+    assert abs(metric_result["f1_score"].item() - expected_f1) < 1e-5, \
+        f"Expected F1 score {expected_f1}, got {metric_result['f1_score'].item()}"
 
 
 def test_no_match():
@@ -198,13 +154,16 @@ def test_no_match():
     y_pred = create_correspondence_tensor(pred_source_points, pred_target_points)
     y_true = create_correspondence_tensor(gt_source_points, gt_target_points)
     
-    # Compute precision, recall, and F1 score using PyTorch implementation
-    torch_result = compute_correspondence_precision_recall_torch(y_pred, y_true, threshold=0.02)
+    # Create CorrespondencePrecisionRecall instance
+    precision_recall = CorrespondencePrecisionRecall(threshold=0.02)
+    
+    # Compute precision, recall, and F1 score using the metric class
+    metric_result = precision_recall(y_pred, y_true)
     
     # For no match, precision, recall, and F1 score should all be 0.0
-    assert abs(torch_result["precision"].item() - 0.0) < 1e-5, f"Expected precision 0.0, got {torch_result['precision'].item()}"
-    assert abs(torch_result["recall"].item() - 0.0) < 1e-5, f"Expected recall 0.0, got {torch_result['recall'].item()}"
-    assert abs(torch_result["f1_score"].item() - 0.0) < 1e-5, f"Expected F1 score 0.0, got {torch_result['f1_score'].item()}"
+    assert abs(metric_result["precision"].item() - 0.0) < 1e-5, f"Expected precision 0.0, got {metric_result['precision'].item()}"
+    assert abs(metric_result["recall"].item() - 0.0) < 1e-5, f"Expected recall 0.0, got {metric_result['recall'].item()}"
+    assert abs(metric_result["f1_score"].item() - 0.0) < 1e-5, f"Expected F1 score 0.0, got {metric_result['f1_score'].item()}"
 
 
 def test_threshold_effect():
@@ -250,14 +209,18 @@ def test_threshold_effect():
     ]
     
     for threshold, expected in zip(thresholds, expected_results):
-        result = compute_correspondence_precision_recall_torch(y_pred, y_true, threshold)
+        # Create CorrespondencePrecisionRecall instance with current threshold
+        precision_recall = CorrespondencePrecisionRecall(threshold=threshold)
         
-        assert abs(result["precision"].item() - expected["precision"]) < 1e-5, \
-            f"Threshold {threshold}: Expected precision {expected['precision']}, got {result['precision'].item()}"
-        assert abs(result["recall"].item() - expected["recall"]) < 1e-5, \
-            f"Threshold {threshold}: Expected recall {expected['recall']}, got {result['recall'].item()}"
-        assert abs(result["f1_score"].item() - expected["f1_score"]) < 1e-5, \
-            f"Threshold {threshold}: Expected F1 score {expected['f1_score']}, got {result['f1_score'].item()}"
+        # Compute precision, recall, and F1 score using the metric class
+        metric_result = precision_recall(y_pred, y_true)
+        
+        assert abs(metric_result["precision"].item() - expected["precision"]) < 1e-5, \
+            f"Threshold {threshold}: Expected precision {expected['precision']}, got {metric_result['precision'].item()}"
+        assert abs(metric_result["recall"].item() - expected["recall"]) < 1e-5, \
+            f"Threshold {threshold}: Expected recall {expected['recall']}, got {metric_result['recall'].item()}"
+        assert abs(metric_result["f1_score"].item() - expected["f1_score"]) < 1e-5, \
+            f"Threshold {threshold}: Expected F1 score {expected['f1_score']}, got {metric_result['f1_score'].item()}"
 
 
 def test_edge_cases():
@@ -266,12 +229,16 @@ def test_edge_cases():
     empty_pred = torch.zeros((0, 2, 3), dtype=torch.float32)
     empty_true = torch.zeros((0, 2, 3), dtype=torch.float32)
     
-    result = compute_correspondence_precision_recall_torch(empty_pred, empty_true)
+    # Create CorrespondencePrecisionRecall instance
+    precision_recall = CorrespondencePrecisionRecall(threshold=0.02)
+    
+    # Compute precision, recall, and F1 score using the metric class
+    metric_result = precision_recall(empty_pred, empty_true)
     
     # For empty correspondences, precision, recall, and F1 score should all be 0.0
-    assert abs(result["precision"].item() - 0.0) < 1e-5, f"Expected precision 0.0, got {result['precision'].item()}"
-    assert abs(result["recall"].item() - 0.0) < 1e-5, f"Expected recall 0.0, got {result['recall'].item()}"
-    assert abs(result["f1_score"].item() - 0.0) < 1e-5, f"Expected F1 score 0.0, got {result['f1_score'].item()}"
+    assert abs(metric_result["precision"].item() - 0.0) < 1e-5, f"Expected precision 0.0, got {metric_result['precision'].item()}"
+    assert abs(metric_result["recall"].item() - 0.0) < 1e-5, f"Expected recall 0.0, got {metric_result['recall'].item()}"
+    assert abs(metric_result["f1_score"].item() - 0.0) < 1e-5, f"Expected F1 score 0.0, got {metric_result['f1_score'].item()}"
     
     # Test with empty ground truth but non-empty predictions
     non_empty_pred = create_correspondence_tensor(
@@ -279,9 +246,134 @@ def test_edge_cases():
         [[0.01, 0.01, 0.01], [1.01, 0.01, 0.01]]
     )
     
-    result = compute_correspondence_precision_recall_torch(non_empty_pred, empty_true)
+    # Compute precision, recall, and F1 score using the metric class
+    metric_result = precision_recall(non_empty_pred, empty_true)
     
     # When ground truth is empty but predictions are not, precision should be 0.0
-    assert abs(result["precision"].item() - 0.0) < 1e-5, f"Expected precision 0.0, got {result['precision'].item()}"
-    assert abs(result["recall"].item() - 0.0) < 1e-5, f"Expected recall 0.0, got {result['recall'].item()}"
-    assert abs(result["f1_score"].item() - 0.0) < 1e-5, f"Expected F1 score 0.0, got {result['f1_score'].item()}"
+    assert abs(metric_result["precision"].item() - 0.0) < 1e-5, f"Expected precision 0.0, got {metric_result['precision'].item()}"
+    assert abs(metric_result["recall"].item() - 0.0) < 1e-5, f"Expected recall 0.0, got {metric_result['recall'].item()}"
+    assert abs(metric_result["f1_score"].item() - 0.0) < 1e-5, f"Expected F1 score 0.0, got {metric_result['f1_score'].item()}"
+
+
+def test_precision_recall_batch():
+    """Test precision and recall with batched inputs."""
+    # Create batch of correspondences
+    batch_size = 3
+    
+    # Create predicted correspondence pairs for each batch
+    pred_source_points_batch = [
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0]
+        ],
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0]
+        ],
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0]
+        ]
+    ]
+    
+    pred_target_points_batch = [
+        [
+            [0.01, 0.01, 0.01],  # Matches ground truth
+            [1.01, 0.01, 0.01],  # Matches ground truth
+            [0.01, 1.01, 0.01],  # Matches ground truth
+            [1.5, 1.5, 0.01]     # Does not match any ground truth
+        ],
+        [
+            [0.01, 0.01, 0.01],  # Matches ground truth
+            [1.01, 0.01, 0.01],  # Matches ground truth
+            [0.01, 1.01, 0.01],  # Matches ground truth
+            [1.01, 1.01, 0.01]   # Matches ground truth (perfect match)
+        ],
+        [
+            [5.0, 5.0, 5.0],     # No match
+            [6.0, 6.0, 6.0],     # No match
+            [7.0, 7.0, 7.0],     # No match
+            [8.0, 8.0, 8.0]      # No match
+        ]
+    ]
+    
+    # Create ground truth correspondence pairs for each batch
+    gt_source_points_batch = [
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.5, 0.5, 0.0]      # Does not match any prediction
+        ],
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0]      # Matches prediction
+        ],
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [1.0, 1.0, 0.0]      # No match with predictions
+        ]
+    ]
+    
+    gt_target_points_batch = [
+        [
+            [0.01, 0.01, 0.01],
+            [1.01, 0.01, 0.01],
+            [0.01, 1.01, 0.01],
+            [0.51, 0.51, 0.01]
+        ],
+        [
+            [0.01, 0.01, 0.01],
+            [1.01, 0.01, 0.01],
+            [0.01, 1.01, 0.01],
+            [1.01, 1.01, 0.01]
+        ],
+        [
+            [0.01, 0.01, 0.01],
+            [1.01, 0.01, 0.01],
+            [0.01, 1.01, 0.01],
+            [1.01, 1.01, 0.01]
+        ]
+    ]
+    
+    # Create correspondence tensors for each batch
+    y_pred_batch = []
+    y_true_batch = []
+    
+    for i in range(batch_size):
+        y_pred_batch.append(create_correspondence_tensor(pred_source_points_batch[i], pred_target_points_batch[i]))
+        y_true_batch.append(create_correspondence_tensor(gt_source_points_batch[i], gt_target_points_batch[i]))
+    
+    # Create CorrespondencePrecisionRecall instance
+    precision_recall = CorrespondencePrecisionRecall(threshold=0.02)
+    
+    # Compute precision, recall, and F1 score for each batch
+    batch_results = []
+    for i in range(batch_size):
+        batch_results.append(precision_recall(y_pred_batch[i], y_true_batch[i]))
+    
+    # Expected results for each batch
+    expected_results = [
+        {"precision": 0.75, "recall": 0.75, "f1_score": 0.75},  # Partial match
+        {"precision": 1.0, "recall": 1.0, "f1_score": 1.0},     # Perfect match
+        {"precision": 0.0, "recall": 0.0, "f1_score": 0.0}      # No match
+    ]
+    
+    # Check that the results match expected values
+    for i in range(batch_size):
+        assert abs(batch_results[i]["precision"].item() - expected_results[i]["precision"]) < 1e-5, \
+            f"Batch {i}: Expected precision {expected_results[i]['precision']}, got {batch_results[i]['precision'].item()}"
+        assert abs(batch_results[i]["recall"].item() - expected_results[i]["recall"]) < 1e-5, \
+            f"Batch {i}: Expected recall {expected_results[i]['recall']}, got {batch_results[i]['recall'].item()}"
+        assert abs(batch_results[i]["f1_score"].item() - expected_results[i]["f1_score"]) < 1e-5, \
+            f"Batch {i}: Expected F1 score {expected_results[i]['f1_score']}, got {batch_results[i]['f1_score'].item()}"
