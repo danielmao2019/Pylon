@@ -114,17 +114,19 @@ class BaseEvaluator:
     def _process_eval_batch(self, batch_data, idx=None, total=None):
         """Process a single evaluation batch in a thread-safe manner."""
         # Run model inference
-        batch_data['outputs'] = self.model(batch_data['inputs'])
+        try:
+            batch_data['outputs'] = self.model(batch_data['inputs'])
+        except Exception as e:
+            self.logger.error(f"Error processing batch {idx}: {e}")
+            return
         batch_data['scores'] = self.metric(y_pred=batch_data['outputs'], y_true=batch_data['labels'])
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
-        
+
         # Log progress if idx and total are provided
         if idx is not None and total is not None:
             self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{total}].")
-
-        return batch_data
 
     def _eval_epoch_(self) -> None:
         assert self.eval_dataloader is not None, f"{self.eval_dataloader=}"
@@ -146,9 +148,9 @@ class BaseEvaluator:
             # Use ThreadPoolExecutor for parallel processing
             with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
                 # Submit all tasks
-                future_to_args = {executor.submit(self._process_eval_batch, dp, idx, len(self.eval_dataloader)): (idx, dp) 
+                future_to_args = {executor.submit(self._process_eval_batch, dp, idx, len(self.eval_dataloader)): (idx, dp)
                                  for idx, dp in enumerate(self.eval_dataloader)}
-                
+
                 # Process results as they complete
                 for future in as_completed(future_to_args):
                     # This will raise any exceptions that occurred in the worker thread
