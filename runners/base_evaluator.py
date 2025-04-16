@@ -135,14 +135,13 @@ class BaseEvaluator:
         self.model.eval()
         self.metric.reset_buffer()
 
-        # Get the number of CPU cores to use from config
-        self.logger.info(f"Using {self.eval_n_jobs} threads for parallel evaluation")
-
         if self.eval_n_jobs == 1:
             # Use a simple for loop when only one worker is needed
             for idx, dp in enumerate(self.eval_dataloader):
                 self._process_eval_batch(dp, idx, len(self.eval_dataloader))
         else:
+            self.logger.info(f"Using {self.eval_n_jobs} threads for parallel evaluation")
+
             # Use ThreadPoolExecutor for parallel processing
             with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
                 # Submit all tasks
