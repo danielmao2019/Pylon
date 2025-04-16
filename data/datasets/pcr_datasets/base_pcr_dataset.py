@@ -16,7 +16,6 @@ from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
 from utils.point_cloud_ops.select import Select
 from utils.point_cloud_ops.random_select import RandomSelect
 from utils.ops import apply_tensor_op
-import itertools
 
 
 def process_voxel_pair(args):
