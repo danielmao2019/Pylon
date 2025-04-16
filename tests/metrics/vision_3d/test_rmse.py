@@ -58,14 +58,17 @@ def test_rmse():
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
     
-    # Compute RMSE using PyTorch implementation
-    torch_result, _ = compute_rmse_torch(source_torch, target_torch)
+    # Create RMSE instance
+    rmse_metric = RMSE()
     
-    # Compute RMSE using NumPy implementation
+    # Compute RMSE using the metric class
+    metric_result = rmse_metric(source_torch, target_torch)
+    
+    # Compute RMSE using NumPy implementation for verification
     numpy_result = compute_rmse_numpy(source_np, target_np)
     
     # Check that the results are approximately equal
-    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
 
 
 def test_compute_with_correspondences():
@@ -89,20 +92,23 @@ def test_compute_with_correspondences():
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
     
-    # Compute RMSE with correspondences using PyTorch implementation
-    torch_rmse, torch_indices = compute_rmse_torch(source_torch, target_torch)
+    # Create RMSE instance
+    rmse_metric = RMSE()
+    
+    # Compute RMSE with correspondences using the metric class
+    metric_rmse, metric_indices = rmse_metric.get_correspondences(source_torch, target_torch)
     
     # Convert PyTorch tensor to numpy array for comparison
-    torch_indices_np = torch_indices.cpu().numpy()
+    metric_indices_np = metric_indices.cpu().numpy()
     
-    # Compute RMSE with correspondences using NumPy implementation
+    # Compute RMSE with correspondences using NumPy implementation for verification
     numpy_rmse, numpy_indices = compute_rmse_with_correspondences_numpy(source_np, target_np)
     
     # Check that the RMSE values are approximately equal
-    assert abs(torch_rmse.item() - numpy_rmse) < 1e-5, f"PyTorch RMSE: {torch_rmse.item()}, NumPy RMSE: {numpy_rmse}"
+    assert abs(metric_rmse.item() - numpy_rmse) < 1e-5, f"Metric RMSE: {metric_rmse.item()}, NumPy RMSE: {numpy_rmse}"
     
     # Check that the correspondences match
-    assert np.array_equal(torch_indices_np, numpy_indices), f"PyTorch indices: {torch_indices_np}, NumPy indices: {numpy_indices}"
+    assert np.array_equal(metric_indices_np, numpy_indices), f"Metric indices: {metric_indices_np}, NumPy indices: {numpy_indices}"
 
 
 def test_with_random_point_clouds():
@@ -116,14 +122,17 @@ def test_with_random_point_clouds():
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
     
-    # Compute RMSE using PyTorch implementation
-    torch_result, _ = compute_rmse_torch(source_torch, target_torch)
+    # Create RMSE instance
+    rmse_metric = RMSE()
     
-    # Compute RMSE using NumPy implementation
+    # Compute RMSE using the metric class
+    metric_result = rmse_metric(source_torch, target_torch)
+    
+    # Compute RMSE using NumPy implementation for verification
     numpy_result = compute_rmse_numpy(source_np, target_np)
     
     # Check that the results are approximately equal
-    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
 
 
 def test_known_distance():
@@ -145,8 +154,45 @@ def test_known_distance():
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
     
-    # Compute RMSE using PyTorch implementation
-    torch_result, _ = compute_rmse_torch(source_torch, target_torch)
+    # Create RMSE instance
+    rmse_metric = RMSE()
+    
+    # Compute RMSE using the metric class
+    metric_result = rmse_metric(source_torch, target_torch)
     
     # Check that the result is approximately equal to expected
-    assert abs(torch_result.item() - expected_rmse) < 1e-3, f"PyTorch: {torch_result.item()}, Expected: {expected_rmse}"
+    assert abs(metric_result.item() - expected_rmse) < 1e-3, f"Metric: {metric_result.item()}, Expected: {expected_rmse}"
+
+
+def test_rmse_batch():
+    """Test RMSE with batched inputs."""
+    # Create batch of point clouds
+    batch_size = 3
+    source_points = 100
+    target_points = 150
+    
+    # Generate random point clouds
+    np.random.seed(42)
+    source_np = np.random.randn(batch_size, source_points, 3)
+    target_np = np.random.randn(batch_size, target_points, 3)
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Create RMSE instance
+    rmse_metric = RMSE()
+    
+    # Compute RMSE for the batch
+    batch_result = rmse_metric(source_torch, target_torch)
+    
+    # Verify the shape of the result
+    assert batch_result.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {batch_result.shape}"
+    
+    # Compute RMSE for each item in the batch using NumPy
+    numpy_results = [compute_rmse_numpy(source_np[i], target_np[i]) for i in range(batch_size)]
+    
+    # Check that the results are approximately equal
+    for i in range(batch_size):
+        assert abs(batch_result[i].item() - numpy_results[i]) < 1e-5, \
+            f"Batch {i}: Metric: {batch_result[i].item()}, NumPy: {numpy_results[i]}"
