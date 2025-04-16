@@ -64,137 +64,139 @@ def identify_inliers_torch(transformed, target, threshold=0.02):
     return inlier_mask, inlier_indices
 
 
-class TestInlierRatio:
-    def test_inlier_ratio(self):
-        """Test inlier ratio calculation."""
-        # Create sample point clouds with known inliers
-        source_np = np.array([
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0]
-        ])
-        target_np = np.array([
-            [0.01, 0.01, 0.01],  # Within threshold
-            [1.03, 0.01, 0.01],  # Outside threshold
-            [0.01, 1.01, 0.01],  # Within threshold
-            [1.01, 1.01, 0.01],  # Within threshold
-            [0.5, 0.5, 0.5]      # Far from any source point
-        ])
-        
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Set threshold
-        threshold = 0.02
-        
+def test_inlier_ratio():
+    """Test inlier ratio calculation."""
+    # Create sample point clouds with known inliers
+    source_np = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0]
+    ])
+    target_np = np.array([
+        [0.01, 0.01, 0.01],  # Within threshold
+        [1.03, 0.01, 0.01],  # Outside threshold
+        [0.01, 1.01, 0.01],  # Within threshold
+        [1.01, 1.01, 0.01],  # Within threshold
+        [0.5, 0.5, 0.5]      # Far from any source point
+    ])
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Set threshold
+    threshold = 0.02
+    
+    # Compute inlier ratio using PyTorch implementation
+    torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
+    
+    # Compute inlier ratio using NumPy implementation
+    numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
+    
+    # Check that the results are approximately equal
+    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+
+
+def test_get_inliers():
+    """Test identifying inliers."""
+    # Create sample point clouds with known inliers
+    source_np = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0]
+    ])
+    target_np = np.array([
+        [0.01, 0.01, 0.01],  # Within threshold
+        [1.03, 0.01, 0.01],  # Outside threshold
+        [0.01, 1.01, 0.01],  # Within threshold
+        [1.01, 1.01, 0.01],  # Within threshold
+        [0.5, 0.5, 0.5]      # Far from any source point
+    ])
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Set threshold
+    threshold = 0.02
+    
+    # Get inliers using PyTorch implementation
+    torch_mask, torch_indices = identify_inliers_torch(source_torch, target_torch, threshold)
+    
+    # Convert PyTorch mask to numpy for comparison
+    torch_mask_np = torch_mask.cpu().numpy()
+    
+    # Get inliers using NumPy implementation
+    numpy_mask, numpy_indices = identify_inliers_numpy(source_np, target_np, threshold)
+    
+    # Check that the masks are equal
+    assert np.array_equal(torch_mask_np, numpy_mask), f"PyTorch mask: {torch_mask_np}, NumPy mask: {numpy_mask}"
+    
+    # Check that the indices match
+    assert sorted(torch_indices) == sorted(numpy_indices), f"PyTorch indices: {torch_indices}, NumPy indices: {numpy_indices}"
+
+
+def test_with_random_point_clouds():
+    """Test with randomly generated point clouds."""
+    # Generate random point clouds
+    np.random.seed(42)
+    source_np = np.random.randn(100, 3)
+    target_np = np.random.randn(150, 3)
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Set threshold
+    threshold = 0.5  # Larger threshold for random points
+    
+    # Compute inlier ratio using PyTorch implementation
+    torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
+    
+    # Compute inlier ratio using NumPy implementation
+    numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
+    
+    # Check that the results are approximately equal
+    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+
+
+def test_various_thresholds():
+    """Test with various threshold values."""
+    # Create sample point clouds
+    source_np = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0]
+    ])
+    target_np = np.array([
+        [0.02, 0.02, 0.02],  # Distance: ~0.0346
+        [1.05, 0.05, 0.05],  # Distance: ~0.0866
+        [0.05, 1.05, 0.05],  # Distance: ~0.0866
+        [1.05, 1.05, 0.05],  # Distance: ~0.0866
+    ])
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Test different thresholds
+    thresholds = [0.03, 0.05, 0.1]
+    expected_ratios = [0.0, 0.25, 1.0]  # Expected results for each threshold
+    
+    for threshold, expected in zip(thresholds, expected_ratios):
         # Compute inlier ratio using PyTorch implementation
         torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
         
         # Compute inlier ratio using NumPy implementation
         numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
         
-        # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
-    
-    def test_get_inliers(self):
-        """Test identifying inliers."""
-        # Create sample point clouds with known inliers
-        source_np = np.array([
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0]
-        ])
-        target_np = np.array([
-            [0.01, 0.01, 0.01],  # Within threshold
-            [1.03, 0.01, 0.01],  # Outside threshold
-            [0.01, 1.01, 0.01],  # Within threshold
-            [1.01, 1.01, 0.01],  # Within threshold
-            [0.5, 0.5, 0.5]      # Far from any source point
-        ])
+        # Check that the results match expected value
+        assert abs(torch_result.item() - expected) < 1e-5, \
+            f"Threshold {threshold}: PyTorch: {torch_result.item()}, Expected: {expected}"
         
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Set threshold
-        threshold = 0.02
-        
-        # Get inliers using PyTorch implementation
-        torch_mask, torch_indices = identify_inliers_torch(source_torch, target_torch, threshold)
-        
-        # Convert PyTorch mask to numpy for comparison
-        torch_mask_np = torch_mask.cpu().numpy()
-        
-        # Get inliers using NumPy implementation
-        numpy_mask, numpy_indices = identify_inliers_numpy(source_np, target_np, threshold)
-        
-        # Check that the masks are equal
-        assert np.array_equal(torch_mask_np, numpy_mask), f"PyTorch mask: {torch_mask_np}, NumPy mask: {numpy_mask}"
-        
-        # Check that the indices match
-        assert sorted(torch_indices) == sorted(numpy_indices), f"PyTorch indices: {torch_indices}, NumPy indices: {numpy_indices}"
-    
-    def test_with_random_point_clouds(self):
-        """Test with randomly generated point clouds."""
-        # Generate random point clouds
-        np.random.seed(42)
-        source_np = np.random.randn(100, 3)
-        target_np = np.random.randn(150, 3)
-        
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Set threshold
-        threshold = 0.5  # Larger threshold for random points
-        
-        # Compute inlier ratio using PyTorch implementation
-        torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
-        
-        # Compute inlier ratio using NumPy implementation
-        numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
-        
-        # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
-        
-    def test_various_thresholds(self):
-        """Test with various threshold values."""
-        # Create sample point clouds
-        source_np = np.array([
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0]
-        ])
-        target_np = np.array([
-            [0.02, 0.02, 0.02],  # Distance: ~0.0346
-            [1.05, 0.05, 0.05],  # Distance: ~0.0866
-            [0.05, 1.05, 0.05],  # Distance: ~0.0866
-            [1.05, 1.05, 0.05],  # Distance: ~0.0866
-        ])
-        
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Test different thresholds
-        thresholds = [0.03, 0.05, 0.1]
-        expected_ratios = [0.0, 0.25, 1.0]  # Expected results for each threshold
-        
-        for threshold, expected in zip(thresholds, expected_ratios):
-            # Compute inlier ratio using PyTorch implementation
-            torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
-            
-            # Compute inlier ratio using NumPy implementation
-            numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
-            
-            # Check that the results match expected value
-            assert abs(torch_result.item() - expected) < 1e-5, \
-                f"Threshold {threshold}: PyTorch: {torch_result.item()}, Expected: {expected}"
-            
-            # Check that PyTorch and NumPy implementations match
-            assert abs(torch_result.item() - numpy_result) < 1e-5, \
-                f"Threshold {threshold}: PyTorch: {torch_result.item()}, NumPy: {numpy_result}" 
+        # Check that PyTorch and NumPy implementations match
+        assert abs(torch_result.item() - numpy_result) < 1e-5, \
+            f"Threshold {threshold}: PyTorch: {torch_result.item()}, NumPy: {numpy_result}"

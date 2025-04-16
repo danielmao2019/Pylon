@@ -45,83 +45,84 @@ def compute_chamfer_distance_torch(transformed, target, bidirectional=True):
         return torch.mean(min_dist_transformed_to_target)
 
 
-class TestChamferDistance:
-    def test_chamfer_distance_bidirectional(self):
-        """Test bidirectional Chamfer distance implementation."""
-        # Create sample point clouds
-        source_np = np.array([
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0]
-        ])
-        target_np = np.array([
-            [0.1, 0.1, 0.1],
-            [1.1, 0.1, 0.1],
-            [0.1, 1.1, 0.1],
-            [1.1, 1.1, 0.1],
-            [0.5, 0.5, 0.5]  # Additional point
-        ])
-        
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Compute Chamfer distance using PyTorch implementation
-        torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=True)
-        
-        # Compute Chamfer distance using NumPy implementation
-        numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
-        
-        # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+def test_chamfer_distance_bidirectional():
+    """Test bidirectional Chamfer distance implementation."""
+    # Create sample point clouds
+    source_np = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0]
+    ])
+    target_np = np.array([
+        [0.1, 0.1, 0.1],
+        [1.1, 0.1, 0.1],
+        [0.1, 1.1, 0.1],
+        [1.1, 1.1, 0.1],
+        [0.5, 0.5, 0.5]  # Additional point
+    ])
     
-    def test_chamfer_distance_unidirectional(self):
-        """Test unidirectional Chamfer distance implementation."""
-        # Create sample point clouds
-        source_np = np.array([
-            [0.0, 0.0, 0.0],
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [1.0, 1.0, 0.0]
-        ])
-        target_np = np.array([
-            [0.1, 0.1, 0.1],
-            [1.1, 0.1, 0.1],
-            [0.1, 1.1, 0.1],
-            [1.1, 1.1, 0.1],
-            [0.5, 0.5, 0.5]  # Additional point
-        ])
-        
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Compute unidirectional Chamfer distance using PyTorch implementation
-        torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=False)
-        
-        # Compute unidirectional Chamfer distance using NumPy implementation
-        numpy_result = compute_chamfer_distance_unidirectional_numpy(source_np, target_np)
-        
-        # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
     
-    def test_with_random_point_clouds(self):
-        """Test with randomly generated point clouds."""
-        # Generate random point clouds of different sizes
-        np.random.seed(42)
-        source_np = np.random.randn(100, 3)
-        target_np = np.random.randn(150, 3)
-        
-        # Convert to PyTorch tensors
-        source_torch = torch.tensor(source_np, dtype=torch.float32)
-        target_torch = torch.tensor(target_np, dtype=torch.float32)
-        
-        # Compute Chamfer distance using PyTorch implementation
-        torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=True)
-        
-        # Compute Chamfer distance using NumPy implementation
-        numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
-        
-        # Check that the results are approximately equal
-        assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    # Compute Chamfer distance using PyTorch implementation
+    torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=True)
+    
+    # Compute Chamfer distance using NumPy implementation
+    numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
+    
+    # Check that the results are approximately equal
+    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+
+
+def test_chamfer_distance_unidirectional():
+    """Test unidirectional Chamfer distance implementation."""
+    # Create sample point clouds
+    source_np = np.array([
+        [0.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [1.0, 1.0, 0.0]
+    ])
+    target_np = np.array([
+        [0.1, 0.1, 0.1],
+        [1.1, 0.1, 0.1],
+        [0.1, 1.1, 0.1],
+        [1.1, 1.1, 0.1],
+        [0.5, 0.5, 0.5]  # Additional point
+    ])
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Compute unidirectional Chamfer distance using PyTorch implementation
+    torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=False)
+    
+    # Compute unidirectional Chamfer distance using NumPy implementation
+    numpy_result = compute_chamfer_distance_unidirectional_numpy(source_np, target_np)
+    
+    # Check that the results are approximately equal
+    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+
+
+def test_with_random_point_clouds():
+    """Test with randomly generated point clouds."""
+    # Generate random point clouds of different sizes
+    np.random.seed(42)
+    source_np = np.random.randn(100, 3)
+    target_np = np.random.randn(150, 3)
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Compute Chamfer distance using PyTorch implementation
+    torch_result = compute_chamfer_distance_torch(source_torch, target_torch, bidirectional=True)
+    
+    # Compute Chamfer distance using NumPy implementation
+    numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
+    
+    # Check that the results are approximately equal
+    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
