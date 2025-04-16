@@ -233,6 +233,8 @@ class BasePCRDataset(BaseDataset):
             self.annotations = []
             total_pairs = len(self.filepath_pairs)
             for pair_idx, ((src_path, tgt_path), transform) in enumerate(zip(self.filepath_pairs, self.gt_transforms)):
+                if src_path == '/home/daniel/repos/Pylon/./data/datasets/soft_links/ivision-pcr-data/Week-03-Wed-Oct-09-2024.las':
+                    continue
                 pair_start_time = time.time()
                 # Create a directory for this scene pair
                 scene_dir = os.path.join(self.cache_dir, f'scene_pair_{pair_idx}')
