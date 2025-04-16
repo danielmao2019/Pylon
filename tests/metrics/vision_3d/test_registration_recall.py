@@ -2,8 +2,6 @@ import pytest
 import torch
 import numpy as np
 from scipy.spatial.transform import Rotation
-
-
 from metrics.vision_3d import RegistrationRecall
 
 
