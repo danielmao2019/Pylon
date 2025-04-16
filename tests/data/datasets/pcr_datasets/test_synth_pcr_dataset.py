@@ -1,27 +1,54 @@
+from typing import Dict, Any
 import pytest
 import torch
 import numpy as np
-from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
+import data
+
+
+def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:
+    """
+    Create a configuration for transforms.
+
+    Returns:
+        Dict[str, Any]: Configuration for transforms.
+    """
+    return {
+        'class': data.transforms.Compose,
+        'args': {
+            'transforms': [
+            (
+                data.transforms.vision_3d.RandomRigidTransform(rot_mag=rot_mag, trans_mag=trans_mag),
+                [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
+            ),
+        ],
+    },
+}
 
 
 @pytest.mark.parametrize('dataset_params', [
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
+        'cache_dirname': 'synth_pcr_cache',
         'split': 'train',
-        'rot_mag': 45.0,
-        'trans_mag': 0.5,
+        'voxel_size': 10.0,
+        'min_points': 256,
+        'max_points': 8192,
+        'transforms_cfg': transforms_cfg(rot_mag=45.0, trans_mag=0.5),
     },
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
-        'split': 'test',
-        'rot_mag': 30.0,
-        'trans_mag': 0.3,
+        'cache_dirname': 'synth_pcr_cache',
+        'split': 'val',
+        'voxel_size': 10.0,
+        'min_points': 256,
+        'max_points': 8192,
+        'transforms_cfg': transforms_cfg(rot_mag=30.0, trans_mag=0.3),
     },
 ])
 def test_synth_pcr_dataset(dataset_params):
     """Test basic functionality of SynthPCRDataset."""
     # Initialize dataset
-    dataset = SynthPCRDataset(**dataset_params)
+    dataset = data.datasets.SynthPCRDataset(**dataset_params)
 
     # Basic dataset checks
     assert len(dataset) > 0, "Dataset should not be empty"
