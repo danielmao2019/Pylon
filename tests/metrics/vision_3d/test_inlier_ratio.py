@@ -88,14 +88,17 @@ def test_inlier_ratio():
     # Set threshold
     threshold = 0.02
     
-    # Compute inlier ratio using PyTorch implementation
-    torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
+    # Create InlierRatio instance
+    inlier_ratio = InlierRatio(threshold=threshold)
     
-    # Compute inlier ratio using NumPy implementation
+    # Compute inlier ratio using the metric class
+    metric_result = inlier_ratio(source_torch, target_torch)
+    
+    # Compute inlier ratio using NumPy implementation for verification
     numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
     
     # Check that the results are approximately equal
-    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
 
 
 def test_get_inliers():
@@ -122,20 +125,23 @@ def test_get_inliers():
     # Set threshold
     threshold = 0.02
     
-    # Get inliers using PyTorch implementation
-    torch_mask, torch_indices = identify_inliers_torch(source_torch, target_torch, threshold)
+    # Create InlierRatio instance
+    inlier_ratio = InlierRatio(threshold=threshold)
+    
+    # Get inliers using the metric class
+    metric_mask, metric_indices = inlier_ratio.get_inliers(source_torch, target_torch)
     
     # Convert PyTorch mask to numpy for comparison
-    torch_mask_np = torch_mask.cpu().numpy()
+    metric_mask_np = metric_mask.cpu().numpy()
     
-    # Get inliers using NumPy implementation
+    # Get inliers using NumPy implementation for verification
     numpy_mask, numpy_indices = identify_inliers_numpy(source_np, target_np, threshold)
     
     # Check that the masks are equal
-    assert np.array_equal(torch_mask_np, numpy_mask), f"PyTorch mask: {torch_mask_np}, NumPy mask: {numpy_mask}"
+    assert np.array_equal(metric_mask_np, numpy_mask), f"Metric mask: {metric_mask_np}, NumPy mask: {numpy_mask}"
     
     # Check that the indices match
-    assert sorted(torch_indices) == sorted(numpy_indices), f"PyTorch indices: {torch_indices}, NumPy indices: {numpy_indices}"
+    assert sorted(metric_indices) == sorted(numpy_indices), f"Metric indices: {metric_indices}, NumPy indices: {numpy_indices}"
 
 
 def test_with_random_point_clouds():
@@ -152,14 +158,17 @@ def test_with_random_point_clouds():
     # Set threshold
     threshold = 0.5  # Larger threshold for random points
     
-    # Compute inlier ratio using PyTorch implementation
-    torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
+    # Create InlierRatio instance
+    inlier_ratio = InlierRatio(threshold=threshold)
     
-    # Compute inlier ratio using NumPy implementation
+    # Compute inlier ratio using the metric class
+    metric_result = inlier_ratio(source_torch, target_torch)
+    
+    # Compute inlier ratio using NumPy implementation for verification
     numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
     
     # Check that the results are approximately equal
-    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
 
 
 def test_various_thresholds():
@@ -187,16 +196,56 @@ def test_various_thresholds():
     expected_ratios = [0.0, 0.25, 1.0]  # Expected results for each threshold
     
     for threshold, expected in zip(thresholds, expected_ratios):
-        # Compute inlier ratio using PyTorch implementation
-        torch_result = compute_inlier_ratio_torch(source_torch, target_torch, threshold)
+        # Create InlierRatio instance with current threshold
+        inlier_ratio = InlierRatio(threshold=threshold)
         
-        # Compute inlier ratio using NumPy implementation
+        # Compute inlier ratio using the metric class
+        metric_result = inlier_ratio(source_torch, target_torch)
+        
+        # Compute inlier ratio using NumPy implementation for verification
         numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
         
         # Check that the results match expected value
-        assert abs(torch_result.item() - expected) < 1e-5, \
-            f"Threshold {threshold}: PyTorch: {torch_result.item()}, Expected: {expected}"
+        assert abs(metric_result.item() - expected) < 1e-5, \
+            f"Threshold {threshold}: Metric: {metric_result.item()}, Expected: {expected}"
         
-        # Check that PyTorch and NumPy implementations match
-        assert abs(torch_result.item() - numpy_result) < 1e-5, \
-            f"Threshold {threshold}: PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+        # Check that Metric and NumPy implementations match
+        assert abs(metric_result.item() - numpy_result) < 1e-5, \
+            f"Threshold {threshold}: Metric: {metric_result.item()}, NumPy: {numpy_result}"
+
+
+def test_inlier_ratio_batch():
+    """Test inlier ratio with batched inputs."""
+    # Create batch of point clouds
+    batch_size = 3
+    source_points = 100
+    target_points = 150
+    
+    # Generate random point clouds
+    np.random.seed(42)
+    source_np = np.random.randn(batch_size, source_points, 3)
+    target_np = np.random.randn(batch_size, target_points, 3)
+    
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+    
+    # Set threshold
+    threshold = 0.5  # Larger threshold for random points
+    
+    # Create InlierRatio instance
+    inlier_ratio = InlierRatio(threshold=threshold)
+    
+    # Compute inlier ratio for the batch
+    batch_result = inlier_ratio(source_torch, target_torch)
+    
+    # Verify the shape of the result
+    assert batch_result.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {batch_result.shape}"
+    
+    # Compute inlier ratio for each item in the batch using NumPy
+    numpy_results = [compute_inlier_ratio_numpy(source_np[i], target_np[i], threshold) for i in range(batch_size)]
+    
+    # Check that the results are approximately equal
+    for i in range(batch_size):
+        assert abs(batch_result[i].item() - numpy_results[i]) < 1e-5, \
+            f"Batch {i}: Metric: {batch_result[i].item()}, NumPy: {numpy_results[i]}"
