@@ -498,6 +498,45 @@ class BasePCRDataset(BaseDataset):
         assert src_indices.ndim == 1 and src_indices.shape[0] > 0, f"{src_indices.shape=}"
         assert tgt_indices.ndim == 1 and tgt_indices.shape[0] > 0, f"{tgt_indices.shape=}"
 
+        # Apply random subsampling if needed
+        if len(src_indices) > self._max_points:
+            # Create a dictionary with the source point cloud data
+            src_pc_dict = {
+                'pos': src_points,
+                'indices': src_indices
+            }
+            # Add RGB if available
+            if 'src_rgb' in annotation:
+                src_pc_dict['rgb'] = annotation['src_rgb']
+            
+            # Apply random subsampling
+            src_pc_dict = RandomSelect(percentage=self._max_points / len(src_indices))(src_pc_dict)
+            src_points = src_pc_dict['pos']
+            src_indices = src_pc_dict['indices']
+            
+            # Update RGB if it was subsampled
+            if 'rgb' in src_pc_dict:
+                annotation['src_rgb'] = src_pc_dict['rgb']
+
+        if len(tgt_indices) > self._max_points:
+            # Create a dictionary with the target point cloud data
+            tgt_pc_dict = {
+                'pos': tgt_points,
+                'indices': tgt_indices
+            }
+            # Add RGB if available
+            if 'tgt_rgb' in annotation:
+                tgt_pc_dict['rgb'] = annotation['tgt_rgb']
+            
+            # Apply random subsampling
+            tgt_pc_dict = RandomSelect(percentage=self._max_points / len(tgt_indices))(tgt_pc_dict)
+            tgt_points = tgt_pc_dict['pos']
+            tgt_indices = tgt_pc_dict['indices']
+            
+            # Update RGB if it was subsampled
+            if 'rgb' in tgt_pc_dict:
+                annotation['tgt_rgb'] = tgt_pc_dict['rgb']
+
         # Find correspondences between source and target point clouds
         correspondences = get_correspondences(
             src_points,
