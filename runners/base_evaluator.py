@@ -6,7 +6,7 @@ import time
 import json
 import jsbeautifier
 import torch
-import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import utils
 from utils.builders import build_from_config
@@ -110,7 +110,7 @@ class BaseEvaluator:
     # iteration-level methods
     # ====================================================================================================
 
-    def _process_eval_batch(self, batch_data):
+    def _process_eval_batch(self, batch_data, idx=None, total=None):
         """Process a single evaluation batch in a thread-safe manner."""
         # Run model inference
         batch_data['outputs'] = self.model(batch_data['inputs'])
@@ -118,6 +118,10 @@ class BaseEvaluator:
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
+        
+        # Log progress if idx and total are provided
+        if idx is not None and total is not None:
+            self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{total}].")
 
         return batch_data
 
@@ -137,31 +141,18 @@ class BaseEvaluator:
         if num_workers == 1:
             # Use a simple for loop when only one worker is needed
             for idx, dp in enumerate(self.eval_dataloader):
-                self._process_eval_batch(dp)
-                self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
+                self._process_eval_batch(dp, idx, len(self.eval_dataloader))
         else:
-            # Process evaluation data in parallel using threads
-            # Create a semaphore to limit concurrent processing
-            semaphore = threading.Semaphore(num_workers)
-
-            # Define a function to process a batch with the semaphore
-            def process_batch_with_semaphore(idx, dp):
-                with semaphore:  # This limits concurrent processing to num_workers
-                    result = self._process_eval_batch(dp)
-                    self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
-                    return result
-
-            # Create and start threads for each batch
-            threads = []
-            for idx, dp in enumerate(self.eval_dataloader):
-                t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
-                t.daemon = True
-                t.start()
-                threads.append(t)
-
-            # Wait for all threads to complete
-            for t in threads:
-                t.join()
+            # Use ThreadPoolExecutor for parallel processing
+            with ThreadPoolExecutor(max_workers=num_workers) as executor:
+                # Submit all tasks
+                future_to_args = {executor.submit(self._process_eval_batch, dp, idx, len(self.eval_dataloader)): (idx, dp) 
+                                 for idx, dp in enumerate(self.eval_dataloader)}
+                
+                # Process results as they complete
+                for future in as_completed(future_to_args):
+                    # This will raise any exceptions that occurred in the worker thread
+                    future.result()
 
         # after validation loop
         self._after_eval_loop_()
