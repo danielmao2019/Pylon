@@ -114,11 +114,7 @@ class BaseEvaluator:
     def _process_eval_batch(self, batch_data, idx=None, total=None):
         """Process a single evaluation batch in a thread-safe manner."""
         # Run model inference
-        try:
-            batch_data['outputs'] = self.model(batch_data['inputs'])
-        except Exception as e:
-            self.logger.error(f"Error processing batch {idx}: {e}")
-            return
+        batch_data['outputs'] = self.model(batch_data['inputs'])
         batch_data['scores'] = self.metric(y_pred=batch_data['outputs'], y_true=batch_data['labels'])
 
         # Update logger with scores
