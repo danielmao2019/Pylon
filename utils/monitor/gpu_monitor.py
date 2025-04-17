@@ -1,6 +1,7 @@
 import subprocess
 import time
 import torch
+import os
 
 
 def monitor_gpu_usage(device_index=None):
@@ -31,11 +32,21 @@ def monitor_gpu_usage(device_index=None):
     memory_reserved = torch.cuda.memory_reserved(device_index) / (1024 * 1024)  # Convert to MB
     memory_total = torch.cuda.get_device_properties(device_index).total_memory / (1024 * 1024)  # Convert to MB
 
+    # Get the actual physical GPU index from CUDA_VISIBLE_DEVICES
+    cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
+    if cuda_visible_devices:
+        # Parse the CUDA_VISIBLE_DEVICES string
+        visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
+        # Map the logical device index to the physical device index
+        physical_device_index = visible_devices[device_index]
+    else:
+        physical_device_index = device_index
+
     # Get GPU utilization using nvidia-smi
     try:
-        # Query GPU utilization
+        # Query GPU utilization using the physical device index
         util_cmd = ['nvidia-smi', '--query-gpu=index,utilization.gpu,memory.used,memory.total',
-                    '--format=csv,noheader,nounits', f'--id={device_index}']
+                    '--format=csv,noheader,nounits', f'--id={physical_device_index}']
         util_output = subprocess.check_output(util_cmd).decode().strip()
         gpu_util, mem_used, mem_total = map(int, util_output.split(', ')[1:])
 
@@ -43,7 +54,8 @@ def monitor_gpu_usage(device_index=None):
         memory_util = (mem_used / mem_total) * 100 if mem_total > 0 else 0
 
         return {
-            'index': device_index,
+            'index': device_index,  # Logical index (as seen by PyTorch)
+            'physical_index': physical_device_index,  # Physical index (actual GPU)
             'name': gpu_name,
             'memory_used': mem_used,
             'memory_total': mem_total,
@@ -55,7 +67,8 @@ def monitor_gpu_usage(device_index=None):
     except Exception as e:
         # Fallback to PyTorch-only metrics if nvidia-smi fails
         return {
-            'index': device_index,
+            'index': device_index,  # Logical index (as seen by PyTorch)
+            'physical_index': physical_device_index,  # Physical index (actual GPU)
             'name': gpu_name,
             'memory_used': memory_allocated,
             'memory_total': memory_total,
@@ -118,6 +131,7 @@ class GPUMonitor:
 
         return {
             'index': current['index'],
+            'physical_index': current['physical_index'],
             'name': current['name'],
             'current_memory': current['memory_used'],
             'min_memory': self.min_memory,
@@ -134,6 +148,7 @@ class GPUMonitor:
 
         logger.update_buffer({
             f"gpu_{stats['index']}_name": stats['name'],
+            f"gpu_{stats['index']}_physical_index": stats['physical_index'],
             f"gpu_{stats['index']}_current_memory_mb": round(stats['current_memory'], 2),
             f"gpu_{stats['index']}_min_memory_mb": round(stats['min_memory'], 2),
             f"gpu_{stats['index']}_max_memory_mb": round(stats['max_memory'], 2),
