@@ -81,12 +81,12 @@ class ScreenLogger(BaseLogger):
     def _create_table(self) -> Table:
         """Create a table based on the current layout."""
         table = Table()
+        table.add_column("Iteration", justify="left", style="cyan")
+
         if self.layout == "train":
-            table.add_column("Iteration", justify="left", style="cyan")
             table.add_column("Learning Rate", justify="right", style="green")
             table.add_column("Losses", justify="right", style="red")
         else:  # eval layout
-            table.add_column("Iteration", justify="left", style="cyan")
             table.add_column("Scores", justify="right", style="red")
 
         table.add_column("Time (s)", justify="right", style="yellow")
@@ -111,7 +111,7 @@ class ScreenLogger(BaseLogger):
                 table.add_row(
                     data.get("iteration_info", "-"),
                     self._format_value(data.get("learning_rate")),
-                    self._format_value(data.get("loss")),
+                    self._format_value(data.get("losses")),
                     self._format_value(data.get("iteration_time")),
                     self._format_value(peak_memory),
                     self._format_value(gpu_util)
@@ -119,7 +119,7 @@ class ScreenLogger(BaseLogger):
             else:  # eval layout
                 table.add_row(
                     data.get("iteration_info", "-"),
-                    self._format_value(data.get("loss")),
+                    self._format_value(data.get("scores")),
                     self._format_value(data.get("iteration_time")),
                     self._format_value(peak_memory),
                     self._format_value(gpu_util)
