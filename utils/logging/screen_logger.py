@@ -1,5 +1,4 @@
 from typing import Any, Optional
-import os
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
@@ -9,7 +8,7 @@ from utils.logging.base_logger import BaseLogger
 class ScreenLogger(BaseLogger):
     """
     A logger that displays the last N iterations in a structured format on the screen.
-    If rich is available, it uses rich for display. Otherwise, it falls back to a text-based display.
+    Uses rich for a live-updating display of training metrics.
     """
     def __init__(self, max_iterations: int = 10, filepath: Optional[str] = None):
         """
@@ -24,7 +23,6 @@ class ScreenLogger(BaseLogger):
         self.history = []
         self.console = Console()
         self.live = None
-        self.live_started = False
         self.display_started = False
 
     def flush(self, prefix: Optional[str] = None) -> None:
@@ -67,17 +65,12 @@ class ScreenLogger(BaseLogger):
         # Start the live display with an empty string
         self.live = Live("", refresh_per_second=4, auto_refresh=True)
         self.live.start()
-        self.live_started = True
         
         # Update with the first table immediately
-        self._display_rich()
+        self._display()
 
     def _display(self) -> None:
         """Display the current buffer and history."""
-        self._display_rich()
-
-    def _display_rich(self) -> None:
-        """Display using rich library."""
         # Create a table for the training progress
         table = Table(title="Training Progress")
         table.add_column("Iteration", justify="left", style="cyan")
@@ -104,29 +97,11 @@ class ScreenLogger(BaseLogger):
             )
 
         # Update the live display
-        if self.live is not None and self.live_started:
+        if self.live is not None:
             self.live.update(table)
         else:
             # Fallback if live display is not available
             self.console.print(table)
-
-    def _display_text(self) -> None:
-        """Display using text-based format."""
-        # Clear the screen for text-based display
-        os.system('cls' if os.name == 'nt' else 'clear')
-
-        # Print the current iteration
-        print("Current Iteration:")
-        for key, value in self.buffer.items():
-            print(f"  {key}: {value}")
-
-        # Print the history
-        print("\nHistory:")
-        for data in self.history:
-            print(f"{data.get('iteration_info', 'Iteration')}:")
-            for key, value in data.items():
-                if key != 'iteration_info':  # Skip iteration_info as it's already printed
-                    print(f"  {key}: {value}")
 
     def _format_value(self, value: Any) -> str:
         """Format a value for display."""
@@ -185,5 +160,5 @@ class ScreenLogger(BaseLogger):
 
     def __del__(self):
         """Clean up the live display when the logger is destroyed."""
-        if self.live is not None and self.live_started:
+        if self.live is not None:
             self.live.stop()
