@@ -13,7 +13,7 @@ import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
-from utils.monitor.gpu_status import GPUMonitor
+from utils.monitor.gpu_monitor import GPUMonitor
 
 
 class BaseTrainer(ABC):
