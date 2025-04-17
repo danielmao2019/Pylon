@@ -3,7 +3,7 @@ import torch
 import time
 from optimizers import BaseOptimizer
 from utils.builders import build_from_config
-from utils.logging import Logger
+from utils.logging.logger import TextLogger
 
 
 class MTLOptimizer(BaseOptimizer):
@@ -15,7 +15,7 @@ class MTLOptimizer(BaseOptimizer):
         optimizer_config: dict,
         losses: Dict[str, torch.Tensor],
         shared_rep: Union[torch.Tensor, Tuple[torch.Tensor, ...]],
-        logger: Optional[Logger] = None,
+        logger: Optional[TextLogger] = None,
         **kwargs,
     ):
         r"""
@@ -23,12 +23,12 @@ class MTLOptimizer(BaseOptimizer):
             optimizer_config (dict): a config dict for building the core optimizer.
             losses (Dict[str, torch.Tensor]): a dummy loss dictionary for initialization purpose.
             shared_rep (Union[torch.Tensor, Tuple[torch.Tensor, ...]]): a dummy shared representation for initialization purpose.
-            logger (utils.logging.Logger).
+            logger (utils.logging.logger.TextLogger).
             kwargs (dict): other unused arguments. e.g., wrt_rep and per_layer for gradient balancing methods.
         """
         super(MTLOptimizer, self).__init__()
         self.optimizer = build_from_config(config=optimizer_config)
-        self.logger = logger if logger is not None else Logger()
+        self.logger = logger if logger is not None else TextLogger()
         self._init_shared_params_mask_(loss_dict=losses, shared_rep=shared_rep)
         self._init_shared_params_shapes_()
         self.num_tasks: int = len(losses)

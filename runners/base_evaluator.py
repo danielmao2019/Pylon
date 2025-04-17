@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import utils
 from utils.builders import build_from_config
 from utils.monitor.gpu_monitor import GPUMonitor
+from utils.logging.text_logger import TextLogger
 
 
 class BaseEvaluator:
@@ -51,9 +52,6 @@ class BaseEvaluator:
             self.work_dir = None
 
     def _init_logger(self) -> None:
-        if self.work_dir is None:
-            self.logger = utils.logging.Logger(filepath=None)
-            return
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "eval*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -63,9 +61,11 @@ class BaseEvaluator:
         os.system(f"git status >> {git_log}")
         utils.logging.echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
+
         # evaluation log
-        self.logger = utils.logging.Logger(
-            filepath=os.path.join(self.work_dir, f"eval_{session_idx}.log"),
+        log_filepath = os.path.join(self.work_dir, f"eval_{session_idx}.log")
+        self.logger = TextLogger(
+            filepath=log_filepath
         )
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:

@@ -7,11 +7,11 @@ import subprocess
 import dash
 from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
-import utils
+from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import get_session_progress, has_stuck, has_failed, parse_config
 from utils.monitor.gpu_status import get_server_status, get_all_p, find_running
-from agents import BaseAgent
+from utils.logging.text_logger import TextLogger
 
 
 class Launcher(BaseAgent):
@@ -42,7 +42,10 @@ class Launcher(BaseAgent):
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
-        self.logger = utils.logging.Logger(filepath=log_path)
+        # Initialize logger
+        work_dir = get_work_dir(config_files[0]) if config_files else ""
+        log_path = os.path.join(work_dir, "launcher.log")
+        self.logger = TextLogger(filepath=log_path)
         self._init_status()
 
     def _init_status(self) -> None:

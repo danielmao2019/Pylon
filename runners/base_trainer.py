@@ -14,7 +14,8 @@ from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
 from utils.monitor.gpu_monitor import GPUMonitor
-from utils.monitor.screen_logger import ScreenLogger
+from utils.logging.text_logger import TextLogger
+from utils.logging.screen_logger import ScreenLogger
 
 
 class BaseTrainer(ABC):
@@ -63,10 +64,6 @@ class BaseTrainer(ABC):
         self.tot_epochs = tot_epochs
 
     def _init_logger(self) -> None:
-        if self.work_dir is None:
-            self.logger = utils.logging.Logger(filepath=None)
-            return
-
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -85,7 +82,7 @@ class BaseTrainer(ABC):
             self.logger = ScreenLogger(max_iterations=10, filepath=log_filepath)
         except Exception as e:
             print(f"Failed to initialize screen logger: {e}. Falling back to traditional logger.")
-            self.logger = utils.logging.Logger(filepath=log_filepath)
+            self.logger = TextLogger(filepath=log_filepath)
 
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
