@@ -33,6 +33,18 @@ class ScreenLogger(BaseLogger):
         self.display_started = False
         self.layout = layout
 
+    def train(self) -> None:
+        """Switch to training mode and reset history."""
+        self.layout = "train"
+        self.history = []
+        self.flush("Starting training epoch")
+
+    def eval(self) -> None:
+        """Switch to evaluation mode and reset history."""
+        self.layout = "eval"
+        self.history = []
+        self.flush("Starting validation epoch")
+
     def flush(self, prefix: str) -> None:
         """
         Flush the buffer to the screen and optionally to the log file.
@@ -103,9 +115,8 @@ class ScreenLogger(BaseLogger):
         # Add rows for each iteration in history
         for data in self.history:
             # Extract GPU stats from the buffer
-            gpu_index = data.get("gpu_0_physical_index", 0)
-            peak_memory = data.get(f"gpu_{gpu_index}_max_memory_mb", "-")
-            gpu_util = data.get(f"gpu_{gpu_index}_current_util_percent", "-")
+            peak_memory = data.get("max_memory_mb", "-")
+            gpu_util = data.get("current_util_percent", "-")
 
             if self.layout == "train":
                 table.add_row(

@@ -314,13 +314,8 @@ class BaseTrainer(ABC):
         self.model.train()
         self.criterion.reset_buffer()
         self.optimizer.reset_buffer()
-        
-        # Set layout to train mode if using ScreenLogger
-        if isinstance(self.logger, ScreenLogger):
-            self.logger.layout = "train"
-            self.logger.history = []
-            self.logger.flush("Starting training epoch")
-            
+        self.logger.train()
+
         for idx, dp in enumerate(self.train_dataloader):
             self._train_step(dp=dp)
             self.logger.flush(prefix=f"Training [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.train_dataloader)}].")
@@ -373,12 +368,7 @@ class BaseTrainer(ABC):
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
-        
-        # Set layout to eval mode if using ScreenLogger
-        if isinstance(self.logger, ScreenLogger):
-            self.logger.layout = "eval"
-            self.logger.history = []
-            self.logger.flush("Starting validation epoch")
+        self.logger.eval()
 
         if self.eval_n_jobs == 1:
             self.logger.info("Running validation sequentially...")

@@ -143,16 +143,16 @@ class GPUMonitor:
 
         # Update the buffer with GPU stats for both traditional and screen loggers
         logger.update_buffer({
-            f"gpu_{stats['index']}_name": stats['name'],
-            f"gpu_{stats['index']}_physical_index": stats['physical_index'],
-            f"gpu_{stats['index']}_current_memory_mb": round(stats['current_memory'], 2),
-            f"gpu_{stats['index']}_min_memory_mb": round(stats['min_memory'], 2),
-            f"gpu_{stats['index']}_max_memory_mb": round(stats['max_memory'], 2),
+            "name": stats['name'],
+            "physical_index": stats['physical_index'],
+            "current_memory_mb": round(stats['current_memory'], 2),
+            "min_memory_mb": round(stats['min_memory'], 2),
+            "max_memory_mb": round(stats['max_memory'], 2),
         })
 
         if stats['current_util'] is not None:
             logger.update_buffer({
-                f"gpu_{stats['index']}_current_util_percent": round(stats['current_util'], 2),
-                f"gpu_{stats['index']}_min_util_percent": round(stats['min_util'], 2) if stats['min_util'] is not None else None,
-                f"gpu_{stats['index']}_max_util_percent": round(stats['max_util'], 2),
+                "current_util_percent": round(stats['current_util'], 2),
+                "min_util_percent": round(stats['min_util'], 2) if stats['min_util'] is not None else None,
+                "max_util_percent": round(stats['max_util'], 2),
             })
