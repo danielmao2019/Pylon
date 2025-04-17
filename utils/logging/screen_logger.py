@@ -25,21 +25,7 @@ class ScreenLogger(BaseLogger):
         self.console = Console()
         self.live = None
         self.live_started = False
-
-        # Create an initial table to display
-        initial_table = Table(title="Training Progress")
-        initial_table.add_column("Iteration", justify="left", style="cyan")
-        initial_table.add_column("Learning Rate", justify="right", style="green")
-        initial_table.add_column("Loss", justify="right", style="red")
-        initial_table.add_column("Time (s)", justify="right", style="yellow")
-        initial_table.add_column("Peak Memory (MB)", justify="right", style="blue")
-        initial_table.add_column("GPU Util (%)", justify="right", style="magenta")
-        initial_table.add_row("Waiting for data...", "-", "-", "-", "-", "-")
-
-        # Start the live display
-        self.live = Live(initial_table, refresh_per_second=4, auto_refresh=True)
-        self.live.start()
-        self.live_started = True
+        self.display_started = False
 
     def flush(self, prefix: Optional[str] = None) -> None:
         """
@@ -55,6 +41,11 @@ class ScreenLogger(BaseLogger):
             self.history.append(self.buffer.copy())
             if len(self.history) > self.max_iterations:
                 self.history.pop(0)
+            
+            # Start the display if this is the first iteration
+            if not self.display_started and self.history:
+                self._start_display()
+                self.display_started = True
 
         # Display the data
         self._display()
@@ -70,11 +61,20 @@ class ScreenLogger(BaseLogger):
 
         # Clear the buffer
         self.buffer = {}
+        
+    def _start_display(self):
+        """Start the live display when the first iteration begins."""
+        # Start the live display with an empty string
+        self.live = Live("", refresh_per_second=4, auto_refresh=True)
+        self.live.start()
+        self.live_started = True
+        
+        # Update with the first table immediately
+        self._display_rich()
 
     def _display(self) -> None:
         """Display the current buffer and history."""
         self._display_rich()
-
 
     def _display_rich(self) -> None:
         """Display using rich library."""
