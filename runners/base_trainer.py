@@ -38,12 +38,6 @@ class BaseTrainer(ABC):
         self._init_tot_epochs()
         torch.autograd.set_detect_anomaly(True)
 
-        # Initialize GPU monitor
-        if torch.cuda.is_available():
-            self.gpu_monitor = GPUMonitor()
-        else:
-            self.gpu_monitor = None
-
     # ====================================================================================================
     # ====================================================================================================
 
@@ -87,6 +81,12 @@ class BaseTrainer(ABC):
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
             f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
+
+        # Initialize GPU monitor
+        if torch.cuda.is_available():
+            self.gpu_monitor = GPUMonitor()
+        else:
+            self.gpu_monitor = None
 
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
