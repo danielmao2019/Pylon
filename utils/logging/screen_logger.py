@@ -43,6 +43,8 @@ class ScreenLogger(BaseLogger):
         """
         # Add current iteration to history
         if self.buffer:
+            # Store the prefix as iteration info
+            self.buffer['iteration_info'] = prefix if prefix else "Iteration"
             self.history.append(self.buffer.copy())
             if len(self.history) > self.max_iterations:
                 self.history.pop(0)
@@ -73,36 +75,38 @@ class ScreenLogger(BaseLogger):
         """Display using rich library."""
         # Create a table for the training progress
         table = Table(title="Training Progress")
-        table.add_column("Iteration", justify="right", style="cyan")
+        table.add_column("Iteration", justify="left", style="cyan")
         table.add_column("Learning Rate", justify="right", style="green")
         table.add_column("Loss", justify="right", style="red")
         table.add_column("Time (s)", justify="right", style="yellow")
-        table.add_column("Memory Used (MB)", justify="right", style="blue")
-        table.add_column("Memory Total (MB)", justify="right", style="blue")
-        table.add_column("Memory Util (%)", justify="right", style="blue")
+        table.add_column("Peak Memory (MB)", justify="right", style="blue")
         table.add_column("GPU Util (%)", justify="right", style="magenta")
 
         # Add rows for each iteration in history
-        for i, data in enumerate(self.history):
+        for data in self.history:
+            # Extract GPU stats from the buffer
+            gpu_index = data.get("gpu_0_physical_index", 0)
+            peak_memory = data.get(f"gpu_{gpu_index}_max_memory_mb", "-")
+            gpu_util = data.get(f"gpu_{gpu_index}_current_util_percent", "-")
+
             table.add_row(
-                str(i + 1),
+                data.get("iteration_info", "-"),
                 self._format_value(data.get("learning_rate")),
                 self._format_value(data.get("loss")),
                 self._format_value(data.get("iteration_time")),
-                self._format_value(data.get("gpu_0_current_memory_mb")),
-                self._format_value(data.get("memory_total")),
-                self._format_value(data.get("memory_util")),
-                self._format_value(data.get("gpu_util"))
+                self._format_value(peak_memory),
+                self._format_value(gpu_util)
             )
 
-        # Display the table
-        self.console.clear()
+        # Display the table without clearing the screen
+        print("\n")  # Add a newline before the table
         self.console.print(table)
+        print("\n")  # Add a newline after the table
 
     def _display_text(self) -> None:
         """Display using text-based format."""
-        # Clear the screen
-        os.system('cls' if os.name == 'nt' else 'clear')
+        # Don't clear the screen, just print a separator
+        print("\n" + "=" * 80 + "\n")
 
         # Print the current iteration
         print("Current Iteration:")
@@ -111,10 +115,11 @@ class ScreenLogger(BaseLogger):
 
         # Print the history
         print("\nHistory:")
-        for i, data in enumerate(self.history):
-            print(f"Iteration {i + 1}:")
+        for data in self.history:
+            print(f"{data.get('iteration_info', 'Iteration')}:")
             for key, value in data.items():
-                print(f"  {key}: {value}")
+                if key != 'iteration_info':  # Skip iteration_info as it's already printed
+                    print(f"  {key}: {value}")
 
     def _format_value(self, value: Any) -> str:
         """Format a value for display."""
