@@ -14,6 +14,7 @@ from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
 from utils.monitor.gpu_monitor import GPUMonitor
+from utils.monitor.screen_logger import ScreenLogger
 
 
 class BaseTrainer(ABC):
@@ -65,6 +66,7 @@ class BaseTrainer(ABC):
         if self.work_dir is None:
             self.logger = utils.logging.Logger(filepath=None)
             return
+
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -74,10 +76,17 @@ class BaseTrainer(ABC):
         os.system(f"git status >> {git_log}")
         utils.logging.echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
+
         # training log
-        self.logger = utils.logging.Logger(
-            filepath=os.path.join(self.work_dir, f"train_val_{session_idx}.log"),
-        )
+        log_filepath = os.path.join(self.work_dir, f"train_val_{session_idx}.log")
+
+        # Try to initialize screen logger, fall back to traditional logger if it fails
+        try:
+            self.logger = ScreenLogger(max_iterations=10, filepath=log_filepath)
+        except Exception as e:
+            print(f"Failed to initialize screen logger: {e}. Falling back to traditional logger.")
+            self.logger = utils.logging.Logger(filepath=log_filepath)
+
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
             f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
@@ -246,6 +255,7 @@ class BaseTrainer(ABC):
         # Log GPU stats if available
         if self.gpu_monitor is not None:
             self.gpu_monitor.update()
+            # Pass the logger to log_stats
             self.gpu_monitor.log_stats(self.logger)
 
         # log time
@@ -275,6 +285,7 @@ class BaseTrainer(ABC):
         # Log GPU stats if available
         if self.gpu_monitor is not None:
             self.gpu_monitor.update()
+            # Pass the logger to log_stats
             self.gpu_monitor.log_stats(self.logger)
 
         # Log time
