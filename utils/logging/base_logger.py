@@ -1,8 +1,7 @@
 from typing import Dict, Any, Optional
+from abc import ABC, abstractmethod
 import os
 import threading
-from abc import ABC, abstractmethod
-
 from utils.input_checks import check_write_file
 from utils.io import serialize_tensor
 
