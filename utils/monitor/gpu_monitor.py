@@ -132,9 +132,16 @@ class GPUMonitor:
         }
 
     def log_stats(self, logger):
-        """Log current GPU stats to the provided logger."""
+        """
+        Log current GPU stats to the provided logger.
+
+        Args:
+            logger: The logger to log to (can be traditional logger or screen logger)
+        """
+        # Update the logger with GPU stats
         stats = self.get_stats()
 
+        # Update the buffer with GPU stats for both traditional and screen loggers
         logger.update_buffer({
             f"gpu_{stats['index']}_name": stats['name'],
             f"gpu_{stats['index']}_physical_index": stats['physical_index'],
