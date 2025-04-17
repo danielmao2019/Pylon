@@ -11,7 +11,7 @@ data_cfg = {
             'split': 'val',
             'voxel_size': 10.0,
             'min_points': 512,
-            'max_points': 8192,
+            'max_points': 4096,
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {

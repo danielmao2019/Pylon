@@ -39,7 +39,7 @@ config = {
         'class': torch.optim.lr_scheduler.StepLR,
         'args': {
             'optimizer': None,
-            'step_size': 1,
+            'step_size': 1000,
             'gamma': 0.95,
         },
     },

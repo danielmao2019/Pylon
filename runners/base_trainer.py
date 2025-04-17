@@ -3,12 +3,11 @@ from abc import ABC, abstractmethod
 import copy
 import os
 import glob
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import json
 import jsbeautifier
 import torch
-import threading
-
 import criteria
 import utils
 from utils.builders import build_from_config
@@ -313,7 +312,7 @@ class BaseTrainer(ABC):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
 
-    def _process_validation_batch(self, dp: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def _process_validation_batch(self, dp: Dict[str, Dict[str, Any]], idx: int = None, total: int = None) -> Dict[str, Dict[str, Any]]:
         """Process a single validation batch in a thread-safe manner."""
         # Run model inference
         with torch.autocast(device_type='cuda', dtype=torch.float16):
@@ -324,6 +323,10 @@ class BaseTrainer(ABC):
 
         # Update logger with scores
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
+        
+        # Log progress if idx and total are provided
+        if idx is not None and total is not None:
+            self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{total}].")
 
         return dp
 
@@ -337,36 +340,24 @@ class BaseTrainer(ABC):
         self.model.eval()
         self.metric.reset_buffer()
 
-        # Process validation data in parallel using threads
+        # Process validation data in parallel using ThreadPoolExecutor
         self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
 
         if self.eval_n_jobs == 1:
             # Use a simple for loop when only one worker is needed
             for idx, dp in enumerate(self.val_dataloader):
-                self._process_validation_batch(dp)
-                self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
+                self._process_validation_batch(dp, idx, len(self.val_dataloader))
         else:
-            # Create a semaphore to limit concurrent processing
-            semaphore = threading.Semaphore(self.eval_n_jobs)
-
-            # Define a function to process a batch with the semaphore
-            def process_batch_with_semaphore(idx, dp):
-                with semaphore:  # This limits concurrent processing to self.eval_n_jobs
-                    result = self._process_validation_batch(dp)
-                    self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
-                    return result
-
-            # Create and start threads for each batch
-            threads = []
-            for idx, dp in enumerate(self.val_dataloader):
-                t = threading.Thread(target=process_batch_with_semaphore, args=(idx, dp))
-                t.daemon = True
-                t.start()
-                threads.append(t)
-
-            # Wait for all threads to complete
-            for t in threads:
-                t.join()
+            # Use ThreadPoolExecutor for parallel processing
+            with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
+                # Submit all tasks
+                future_to_args = {executor.submit(self._process_validation_batch, dp, idx, len(self.val_dataloader)): (idx, dp) 
+                                 for idx, dp in enumerate(self.val_dataloader)}
+                
+                # Process results as they complete
+                for future in as_completed(future_to_args):
+                    # This will raise any exceptions that occurred in the worker thread
+                    future.result()
 
         # after validation loop
         self._after_val_loop_()
