@@ -42,9 +42,6 @@ class Launcher(BaseAgent):
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
-        # Initialize logger
-        work_dir = get_work_dir(config_files[0]) if config_files else ""
-        log_path = os.path.join(work_dir, "launcher.log")
         self.logger = TextLogger(filepath=log_path)
         self._init_status()
 
