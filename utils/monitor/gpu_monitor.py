@@ -6,13 +6,16 @@ import os
 
 def monitor_gpu_usage():
     """
-    Monitor GPU usage for the specified device or all devices.
+    Monitor GPU usage for the specified device using both nvidia-smi and PyTorch.
 
     Returns:
         dict: Dictionary containing GPU usage information including:
-            - index: GPU index
+            - index: GPU index (as seen by PyTorch)
+            - physical_index: Physical GPU index (actual GPU)
             - name: GPU architecture name
-            - memory_used: Current memory usage in MB (from nvidia-smi if available)
+            - memory_allocated: Memory allocated by PyTorch in MB
+            - memory_reserved: Memory reserved by PyTorch in MB
+            - memory_used: Memory used according to nvidia-smi in MB
             - memory_total: Total memory in MB
             - memory_util: Memory utilization percentage
             - gpu_util: GPU utilization percentage
@@ -33,38 +36,35 @@ def monitor_gpu_usage():
     # Get GPU name
     gpu_name = torch.cuda.get_device_name(device_index)
 
-    # Initialize result with basic information
+    # Get PyTorch memory stats
+    memory_allocated = torch.cuda.memory_allocated(device_index) / (1024 * 1024)  # Convert to MB
+    memory_reserved = torch.cuda.memory_reserved(device_index) / (1024 * 1024)  # Convert to MB
+    memory_total_pytorch = torch.cuda.get_device_properties(device_index).total_memory / (1024 * 1024)  # Convert to MB
+
+    # Get nvidia-smi stats
+    util_cmd = ['nvidia-smi', '--query-gpu=utilization.gpu,memory.used,memory.total',
+                '--format=csv,noheader,nounits', f'--id={physical_device_index}']
+    util_output = subprocess.check_output(util_cmd).decode().strip()
+    gpu_util, memory_used_nvidia, memory_total_nvidia = map(int, util_output.split(', '))
+
+    # Assert that memory total is the same from both sources
+    assert abs(memory_total_pytorch - memory_total_nvidia) < 1, f"Memory total mismatch: PyTorch={memory_total_pytorch}, nvidia-smi={memory_total_nvidia}"
+    
+    # Assert that memory used from nvidia-smi is close to memory reserved from PyTorch
+    assert abs(memory_used_nvidia - memory_reserved) < 10, f"Memory used/reserved mismatch: nvidia-smi={memory_used_nvidia}, PyTorch={memory_reserved}"
+
+    # Initialize result with all information
     result = {
         'index': device_index,  # Logical index (as seen by PyTorch)
         'physical_index': physical_device_index,  # Physical index (actual GPU)
         'name': gpu_name,
+        'memory_allocated': memory_allocated,
+        'memory_reserved': memory_reserved,
+        'memory_used': memory_used_nvidia,
+        'memory_total': memory_total_nvidia,
+        'memory_util': (memory_used_nvidia / memory_total_nvidia) * 100 if memory_total_nvidia > 0 else 0,
+        'gpu_util': gpu_util
     }
-
-    # Try to get metrics from nvidia-smi
-    try:
-        # Query GPU utilization using the physical device index
-        util_cmd = ['nvidia-smi', '--query-gpu=index,utilization.gpu,memory.used,memory.total',
-                    '--format=csv,noheader,nounits', f'--id={physical_device_index}']
-        util_output = subprocess.check_output(util_cmd).decode().strip()
-        gpu_util, mem_used, mem_total = map(int, util_output.split(', ')[1:])
-
-        # Update the result with nvidia-smi data
-        result.update({
-            'memory_used': mem_used,
-            'memory_total': mem_total,
-            'memory_util': (mem_used / mem_total) * 100 if mem_total > 0 else 0,
-            'gpu_util': gpu_util
-        })
-    except Exception:
-        memory_allocated = torch.cuda.memory_allocated(device_index) / (1024 * 1024)  # Convert to MB
-        memory_reserved = torch.cuda.memory_reserved(device_index) / (1024 * 1024)  # Convert to MB
-        memory_total = torch.cuda.get_device_properties(device_index).total_memory / (1024 * 1024)  # Convert to MB
-        result.update({
-            'memory_allocated': memory_allocated,
-            'memory_reserved': memory_reserved,
-            'memory_total': memory_total,
-            'memory_util': (memory_reserved / memory_total) * 100 if memory_total > 0 else 0,
-        })
 
     return result
 
@@ -74,6 +74,7 @@ class GPUMonitor:
     Class to track GPU usage over time, recording min/max values.
     """
     def __init__(self):
+        """Initialize the GPU monitor."""
         self.start_time = None
         self.min_memory = float('inf')
         self.max_memory = 0
