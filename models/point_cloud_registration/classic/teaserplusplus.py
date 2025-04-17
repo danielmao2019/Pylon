@@ -55,30 +55,26 @@ class TeaserPlusPlus(torch.nn.Module):
 
         return np.array(fpfh.data).T
 
-    def _find_correspondences(self, feats0: np.ndarray, feats1: np.ndarray, mutual_filter: bool = True) -> Tuple[np.ndarray, np.ndarray]:
+    def _find_correspondences(self, feats0: np.ndarray, feats1: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Find correspondences between two sets of features using nearest neighbor search.
 
         Args:
             feats0: Features of first point cloud (N, 33)
             feats1: Features of second point cloud (M, 33)
-            mutual_filter: Whether to apply mutual filter
 
         Returns:
             Tuple of (indices in first cloud, indices in second cloud)
         """
         # Find nearest neighbors from feats0 to feats1
         feat1tree = cKDTree(feats1)
-        nns01 = feat1tree.query(feats0, k=1, n_jobs=-1)[1]
+        nns01 = feat1tree.query(feats0, k=1)[1]
         corres01_idx0 = np.arange(len(nns01))
         corres01_idx1 = nns01
 
-        if not mutual_filter:
-            return corres01_idx0, corres01_idx1
-
         # Find nearest neighbors from feats1 to feats0
         feat0tree = cKDTree(feats0)
-        nns10 = feat0tree.query(feats1, k=1, n_jobs=-1)[1]
+        nns10 = feat0tree.query(feats1, k=1)[1]
         corres10_idx1 = np.arange(len(nns10))
         corres10_idx0 = nns10
 
