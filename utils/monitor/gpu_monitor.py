@@ -15,7 +15,7 @@ def monitor_gpu_usage(device_index=None):
         dict: Dictionary containing GPU usage information including:
             - index: GPU index
             - name: GPU architecture name
-            - memory_used: Current memory usage in MB
+            - memory_used: Current memory usage in MB (from nvidia-smi if available)
             - memory_total: Total memory in MB
             - memory_util: Memory utilization percentage
             - gpu_util: GPU utilization percentage
@@ -23,14 +23,6 @@ def monitor_gpu_usage(device_index=None):
     # Get current device if not specified
     if device_index is None:
         device_index = torch.cuda.current_device()
-
-    # Get GPU name
-    gpu_name = torch.cuda.get_device_name(device_index)
-
-    # Get memory info
-    memory_allocated = torch.cuda.memory_allocated(device_index) / (1024 * 1024)  # Convert to MB
-    memory_reserved = torch.cuda.memory_reserved(device_index) / (1024 * 1024)  # Convert to MB
-    memory_total = torch.cuda.get_device_properties(device_index).total_memory / (1024 * 1024)  # Convert to MB
 
     # Get the actual physical GPU index from CUDA_VISIBLE_DEVICES
     cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
@@ -42,20 +34,28 @@ def monitor_gpu_usage(device_index=None):
     else:
         physical_device_index = device_index
 
-    # Prepare the common dictionary with PyTorch metrics
+    # Get GPU name
+    gpu_name = torch.cuda.get_device_name(device_index)
+
+    # Get PyTorch memory info
+    memory_allocated = torch.cuda.memory_allocated(device_index) / (1024 * 1024)  # Convert to MB
+    memory_reserved = torch.cuda.memory_reserved(device_index) / (1024 * 1024)  # Convert to MB
+    memory_total = torch.cuda.get_device_properties(device_index).total_memory / (1024 * 1024)  # Convert to MB
+
+    # Initialize result with basic information
     result = {
         'index': device_index,  # Logical index (as seen by PyTorch)
         'physical_index': physical_device_index,  # Physical index (actual GPU)
         'name': gpu_name,
-        'memory_used': memory_allocated,
+        'memory_used': None,  # Will be set if nvidia-smi succeeds
         'memory_total': memory_total,
-        'memory_util': (memory_allocated / memory_total) * 100 if memory_total > 0 else 0,
-        'gpu_util': None,  # Will be updated if nvidia-smi succeeds
+        'memory_util': None,  # Will be set if nvidia-smi succeeds
+        'gpu_util': None,  # Will be set if nvidia-smi succeeds
         'torch_memory_allocated': memory_allocated,
         'torch_memory_reserved': memory_reserved
     }
 
-    # Try to get additional metrics from nvidia-smi
+    # Try to get metrics from nvidia-smi
     try:
         # Query GPU utilization using the physical device index
         util_cmd = ['nvidia-smi', '--query-gpu=index,utilization.gpu,memory.used,memory.total',
@@ -71,7 +71,8 @@ def monitor_gpu_usage(device_index=None):
             'gpu_util': gpu_util
         })
     except Exception:
-        # If nvidia-smi fails, we already have the PyTorch metrics in the result
+        # If nvidia-smi fails, we don't have memory_used, memory_util, or gpu_util
+        # We already have the PyTorch memory metrics in the result
         pass
 
     return result
