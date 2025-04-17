@@ -35,13 +35,18 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += f"eval_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(eval_data_cfg)\n"
         config += '\n'
-        config += f"# model config\n"
-        config += f"from models.point_cloud_registration.classic import {model}\n"
-        config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
-        config += '\n'
+        if model == 'TeaserPlusPlus':
+            config += f"# model config\n"
+            config += f"from configs.common.models.point_cloud_registration.teaserplusplus_cfg import model_cfg\n"
+            config += f"config['model'] = model_cfg\n"
+            config += '\n'
+        else:
+            config += f"# model config\n"
+            config += f"from models.point_cloud_registration.classic import {model}\n"
+            config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
+            config += '\n'
         if model == 'TeaserPlusPlus':
             config += f"config['eval_n_jobs'] = 1\n"
-            config += f"config['model']['args']['correspondences'] = 'fpfh'\n"
             config += '\n'
     elif model == 'GeoTransformer':
         config += f"# data config\n"

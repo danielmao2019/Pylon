@@ -24,11 +24,10 @@ eval_data_cfg['eval_dataset']['args']['overlap'] = 0.5
 config.update(eval_data_cfg)
 
 # model config
-from models.point_cloud_registration.classic import TeaserPlusPlus
-config['model'] = {'class': TeaserPlusPlus, 'args': {}}
+from configs.common.models.point_cloud_registration.teaserplusplus_cfg import model_cfg
+config['model'] = model_cfg
 
 config['eval_n_jobs'] = 1
-config['model']['args']['correspondences'] = 'fpfh'
 
 # seeds
 config['seed'] = 93889110
