@@ -1,18 +1,8 @@
+from typing import Any, Optional
 import os
-import time
-import sys
-from typing import Dict, Any, Optional, List
-
-# Try to import rich for screen-based display
-try:
-    from rich.console import Console
-    from rich.table import Table
-    from rich.live import Live
-    from rich.panel import Panel
-    RICH_AVAILABLE = True
-except ImportError:
-    RICH_AVAILABLE = False
-
+from rich.console import Console
+from rich.table import Table
+from rich.live import Live
 from utils.logging.base_logger import BaseLogger
 
 
@@ -32,10 +22,24 @@ class ScreenLogger(BaseLogger):
         super(ScreenLogger, self).__init__(filepath=filepath)
         self.max_iterations = max_iterations
         self.history = []
-        self.console = Console() if RICH_AVAILABLE else None
+        self.console = Console()
         self.live = None
-        if RICH_AVAILABLE:
-            self.live = Live("", refresh_per_second=4, auto_refresh=False)
+        self.live_started = False
+
+        # Create an initial table to display
+        initial_table = Table(title="Training Progress")
+        initial_table.add_column("Iteration", justify="left", style="cyan")
+        initial_table.add_column("Learning Rate", justify="right", style="green")
+        initial_table.add_column("Loss", justify="right", style="red")
+        initial_table.add_column("Time (s)", justify="right", style="yellow")
+        initial_table.add_column("Peak Memory (MB)", justify="right", style="blue")
+        initial_table.add_column("GPU Util (%)", justify="right", style="magenta")
+        initial_table.add_row("Waiting for data...", "-", "-", "-", "-", "-")
+
+        # Start the live display
+        self.live = Live(initial_table, refresh_per_second=4, auto_refresh=True)
+        self.live.start()
+        self.live_started = True
 
     def flush(self, prefix: Optional[str] = None) -> None:
         """
@@ -69,10 +73,8 @@ class ScreenLogger(BaseLogger):
 
     def _display(self) -> None:
         """Display the current buffer and history."""
-        if RICH_AVAILABLE:
-            self._display_rich()
-        else:
-            self._display_text()
+        self._display_rich()
+
 
     def _display_rich(self) -> None:
         """Display using rich library."""
@@ -102,9 +104,8 @@ class ScreenLogger(BaseLogger):
             )
 
         # Update the live display
-        if self.live is not None:
+        if self.live is not None and self.live_started:
             self.live.update(table)
-            self.live.refresh()
         else:
             # Fallback if live display is not available
             self.console.print(table)
@@ -146,10 +147,7 @@ class ScreenLogger(BaseLogger):
             with open(self.filepath, 'a') as f:
                 f.write(f"INFO: {message}\n")
 
-        if RICH_AVAILABLE:
-            self.console.print(f"[green]INFO:[/green] {message}")
-        else:
-            print(f"INFO: {message}")
+        self.console.print(f"[green]INFO:[/green] {message}")
 
     def warning(self, message: str) -> None:
         """
@@ -162,10 +160,7 @@ class ScreenLogger(BaseLogger):
             with open(self.filepath, 'a') as f:
                 f.write(f"WARNING: {message}\n")
 
-        if RICH_AVAILABLE:
-            self.console.print(f"[yellow]WARNING:[/yellow] {message}")
-        else:
-            print(f"WARNING: {message}")
+        self.console.print(f"[yellow]WARNING:[/yellow] {message}")
 
     def error(self, message: str) -> None:
         """
@@ -178,10 +173,7 @@ class ScreenLogger(BaseLogger):
             with open(self.filepath, 'a') as f:
                 f.write(f"ERROR: {message}\n")
 
-        if RICH_AVAILABLE:
-            self.console.print(f"[red]ERROR:[/red] {message}")
-        else:
-            print(f"ERROR: {message}")
+        self.console.print(f"[red]ERROR:[/red] {message}")
 
     def page_break(self) -> None:
         """Add a page break to the log."""
@@ -189,12 +181,9 @@ class ScreenLogger(BaseLogger):
             with open(self.filepath, 'a') as f:
                 f.write("\n" + "=" * 80 + "\n\n")
 
-        if RICH_AVAILABLE:
-            self.console.print("\n" + "=" * 80 + "\n")
-        else:
-            print("\n" + "=" * 80 + "\n")
+        self.console.print("\n" + "=" * 80 + "\n")
 
     def __del__(self):
         """Clean up the live display when the logger is destroyed."""
-        if self.live is not None:
+        if self.live is not None and self.live_started:
             self.live.stop()
