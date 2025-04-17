@@ -41,6 +41,7 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += '\n'
         if model == 'TeaserPlusPlus':
             config += f"config['eval_n_jobs'] = 1\n"
+            config += f"config['model']['args']['correspondences'] = 'fpfh'\n"
             config += '\n'
     elif model == 'GeoTransformer':
         config += f"# data config\n"
