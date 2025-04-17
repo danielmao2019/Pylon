@@ -8,19 +8,26 @@ from scipy.spatial import cKDTree
 
 class TeaserPlusPlus(torch.nn.Module):
 
-    def __init__(self, voxel_size: float = 0.05, correspondences: Optional[str] = None):
+    def __init__(
+        self,
+        correspondences: Optional[str] = None,
+        voxel_size: float = 0.05,
+    ) -> None:
         """
         Initialize TeaserPlusPlus model.
 
         Args:
-            voxel_size: Voxel size for downsampling and FPFH feature extraction
             correspondences: Method to establish correspondences. Options:
                 - None: Use all points (default behavior)
                 - 'fpfh': Use FPFH features to establish correspondences
+            voxel_size: Voxel size for downsampling and FPFH feature extraction
         """
-        super().__init__()
-        self.voxel_size = voxel_size
+        super(TeaserPlusPlus, self).__init__()
+        if correspondences is not None:
+            assert correspondences in ['fpfh'], f"{correspondences=}"
         self.correspondences = correspondences
+        assert isinstance(voxel_size, (float, int)) and voxel_size > 0, f"{voxel_size=}"
+        self.voxel_size = voxel_size
 
     def _extract_fpfh(self, points: np.ndarray) -> np.ndarray:
         """
