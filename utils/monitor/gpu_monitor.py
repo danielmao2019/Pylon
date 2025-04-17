@@ -4,12 +4,9 @@ import torch
 import os
 
 
-def monitor_gpu_usage(device_index=None):
+def monitor_gpu_usage():
     """
     Monitor GPU usage for the specified device or all devices.
-
-    Args:
-        device_index (int, optional): Specific GPU index to monitor. If None, monitors all GPUs.
 
     Returns:
         dict: Dictionary containing GPU usage information including:
@@ -20,9 +17,8 @@ def monitor_gpu_usage(device_index=None):
             - memory_util: Memory utilization percentage
             - gpu_util: GPU utilization percentage
     """
-    # Get current device if not specified
-    if device_index is None:
-        device_index = torch.cuda.current_device()
+    # Get the current device index
+    device_index = torch.cuda.current_device()
 
     # Get the actual physical GPU index from CUDA_VISIBLE_DEVICES
     cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
@@ -82,8 +78,7 @@ class GPUMonitor:
     """
     Class to track GPU usage over time, recording min/max values.
     """
-    def __init__(self, device_index=None):
-        self.device_index = device_index
+    def __init__(self):
         self.start_time = None
         self.min_memory = float('inf')
         self.max_memory = 0
@@ -103,7 +98,7 @@ class GPUMonitor:
 
     def _update(self):
         """Update current GPU stats."""
-        stats = monitor_gpu_usage(self.device_index)
+        stats = monitor_gpu_usage()
         self.samples.append(stats)
 
         # Update min/max memory
