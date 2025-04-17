@@ -33,6 +33,9 @@ class ScreenLogger(BaseLogger):
         self.max_iterations = max_iterations
         self.history = []
         self.console = Console() if RICH_AVAILABLE else None
+        self.live = None
+        if RICH_AVAILABLE:
+            self.live = Live("", refresh_per_second=4, auto_refresh=False)
 
     def flush(self, prefix: Optional[str] = None) -> None:
         """
@@ -98,15 +101,18 @@ class ScreenLogger(BaseLogger):
                 self._format_value(gpu_util)
             )
 
-        # Display the table without clearing the screen
-        print("\n")  # Add a newline before the table
-        self.console.print(table)
-        print("\n")  # Add a newline after the table
+        # Update the live display
+        if self.live is not None:
+            self.live.update(table)
+            self.live.refresh()
+        else:
+            # Fallback if live display is not available
+            self.console.print(table)
 
     def _display_text(self) -> None:
         """Display using text-based format."""
-        # Don't clear the screen, just print a separator
-        print("\n" + "=" * 80 + "\n")
+        # Clear the screen for text-based display
+        os.system('cls' if os.name == 'nt' else 'clear')
 
         # Print the current iteration
         print("Current Iteration:")
@@ -187,3 +193,8 @@ class ScreenLogger(BaseLogger):
             self.console.print("\n" + "=" * 80 + "\n")
         else:
             print("\n" + "=" * 80 + "\n")
+
+    def __del__(self):
+        """Clean up the live display when the logger is destroyed."""
+        if self.live is not None:
+            self.live.stop()
