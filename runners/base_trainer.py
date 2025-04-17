@@ -38,7 +38,7 @@ class BaseTrainer(ABC):
 
         # Initialize GPU monitor
         if torch.cuda.is_available():
-            self.gpu_monitor = GPUMonitor(device_index=torch.cuda.current_device())
+            self.gpu_monitor = GPUMonitor()
         else:
             self.gpu_monitor = None
 
