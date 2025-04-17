@@ -53,6 +53,7 @@ config['runner'] = SupervisedSingleTaskTrainer
 # data config
 from configs.common.datasets.point_cloud_registration.train.geotransformer_real_pcr_data_cfg import data_cfg as train_data_cfg
 train_data_cfg['train_dataset']['args']['overlap'] = 0.4
+train_data_cfg['train_dataset']['args']['indices'] = list(range(7000))
 config.update(train_data_cfg)
 from configs.common.datasets.point_cloud_registration.val.geotransformer_real_pcr_data_cfg import data_cfg as val_data_cfg
 val_data_cfg['val_dataset']['args']['overlap'] = 0.4

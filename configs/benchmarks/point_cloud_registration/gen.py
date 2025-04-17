@@ -52,7 +52,7 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += f"# data config\n"
         config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_{dataset}_data_cfg import data_cfg as train_data_cfg\n"
         config += f"train_data_cfg['train_dataset']['args']['overlap'] = {overlap}\n"
-        if overlap == 0.4:
+        if dataset == 'real_pcr' and overlap == 0.4:
             config += f"train_data_cfg['train_dataset']['args']['indices'] = list(range(7000))\n"
         config += f"config.update(train_data_cfg)\n"
         config += f"from configs.common.datasets.point_cloud_registration.val.geotransformer_{dataset}_data_cfg import data_cfg as val_data_cfg\n"
