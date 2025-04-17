@@ -29,7 +29,7 @@ class TextLogger(BaseLogger):
     # ====================================================================================================
 
     def __init__(self, filepath: Optional[str] = None) -> None:
-        super().__init__(filepath=filepath)
+        super(TextLogger, self).__init__(filepath=filepath)
         self._init_core_logger_()
         if not self.core_logger.handlers:
             self._init_file_handler_()
