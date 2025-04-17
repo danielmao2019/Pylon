@@ -63,6 +63,7 @@ def monitor_gpu_usage():
             'memory_allocated': memory_allocated,
             'memory_reserved': memory_reserved,
             'memory_total': memory_total,
+            'memory_util': (memory_reserved / memory_total) * 100 if memory_total > 0 else 0,
         })
 
     return result
