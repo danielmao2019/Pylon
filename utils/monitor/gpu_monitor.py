@@ -42,7 +42,20 @@ def monitor_gpu_usage(device_index=None):
     else:
         physical_device_index = device_index
 
-    # Get GPU utilization using nvidia-smi
+    # Prepare the common dictionary with PyTorch metrics
+    result = {
+        'index': device_index,  # Logical index (as seen by PyTorch)
+        'physical_index': physical_device_index,  # Physical index (actual GPU)
+        'name': gpu_name,
+        'memory_used': memory_allocated,
+        'memory_total': memory_total,
+        'memory_util': (memory_allocated / memory_total) * 100 if memory_total > 0 else 0,
+        'gpu_util': None,  # Will be updated if nvidia-smi succeeds
+        'torch_memory_allocated': memory_allocated,
+        'torch_memory_reserved': memory_reserved
+    }
+
+    # Try to get additional metrics from nvidia-smi
     try:
         # Query GPU utilization using the physical device index
         util_cmd = ['nvidia-smi', '--query-gpu=index,utilization.gpu,memory.used,memory.total',
@@ -50,33 +63,18 @@ def monitor_gpu_usage(device_index=None):
         util_output = subprocess.check_output(util_cmd).decode().strip()
         gpu_util, mem_used, mem_total = map(int, util_output.split(', ')[1:])
 
-        # Calculate memory utilization percentage
-        memory_util = (mem_used / mem_total) * 100 if mem_total > 0 else 0
-
-        return {
-            'index': device_index,  # Logical index (as seen by PyTorch)
-            'physical_index': physical_device_index,  # Physical index (actual GPU)
-            'name': gpu_name,
+        # Update the result with nvidia-smi data
+        result.update({
             'memory_used': mem_used,
             'memory_total': mem_total,
-            'memory_util': memory_util,
-            'gpu_util': gpu_util,
-            'torch_memory_allocated': memory_allocated,
-            'torch_memory_reserved': memory_reserved
-        }
-    except Exception as e:
-        # Fallback to PyTorch-only metrics if nvidia-smi fails
-        return {
-            'index': device_index,  # Logical index (as seen by PyTorch)
-            'physical_index': physical_device_index,  # Physical index (actual GPU)
-            'name': gpu_name,
-            'memory_used': memory_allocated,
-            'memory_total': memory_total,
-            'memory_util': (memory_allocated / memory_total) * 100 if memory_total > 0 else 0,
-            'gpu_util': None,  # Not available through PyTorch
-            'torch_memory_allocated': memory_allocated,
-            'torch_memory_reserved': memory_reserved
-        }
+            'memory_util': (mem_used / mem_total) * 100 if mem_total > 0 else 0,
+            'gpu_util': gpu_util
+        })
+    except Exception:
+        # If nvidia-smi fails, we already have the PyTorch metrics in the result
+        pass
+
+    return result
 
 
 class GPUMonitor:
