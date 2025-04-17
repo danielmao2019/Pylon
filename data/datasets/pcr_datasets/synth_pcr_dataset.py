@@ -8,7 +8,7 @@ class SynthPCRDataset(BasePCRDataset):
 
     def _init_file_pairs(self) -> None:
         """Initialize source and target file path pairs and their transforms.
-        
+
         For synthetic PCR, we use the same file paths for both source and target.
         """
         self.filepaths = sorted(glob.glob(os.path.join(self.data_root, "*.las")))

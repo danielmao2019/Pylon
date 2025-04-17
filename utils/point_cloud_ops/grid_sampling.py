@@ -113,7 +113,7 @@ def grid_sampling(
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
         # Submit all tasks
         future_to_args = {executor.submit(process_cluster, args): args for args in process_args}
-        
+
         # Process results as they complete
         for future in as_completed(future_to_args):
             # This will raise any exceptions that occurred in the worker process

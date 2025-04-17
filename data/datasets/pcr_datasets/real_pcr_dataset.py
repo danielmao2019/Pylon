@@ -14,7 +14,7 @@ class RealPCRDataset(BasePCRDataset):
 
     def _init_file_pairs(self) -> None:
         """Initialize source and target file path pairs and their transforms.
-        
+
         For real PCR, we load the pairs and transforms from a JSON file.
         """
         self.filepaths = sorted(glob.glob(os.path.join(self.data_root, "*.las")))

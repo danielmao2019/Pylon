@@ -41,7 +41,7 @@ config = {
         'class': torch.optim.lr_scheduler.StepLR,
         'args': {
             'optimizer': None,
-            'step_size': 1,
+            'step_size': 1000,
             'gamma': 0.95,
         },
     },
@@ -55,7 +55,7 @@ from configs.common.datasets.point_cloud_registration.train.overlappredator_real
 train_data_cfg['train_dataset']['args']['overlap'] = 0.5
 config.update(train_data_cfg)
 from configs.common.datasets.point_cloud_registration.val.overlappredator_real_pcr_data_cfg import data_cfg as val_data_cfg
-val_data_cfg['eval_dataset']['args']['overlap'] = 0.5
+val_data_cfg['val_dataset']['args']['overlap'] = 0.5
 config.update(val_data_cfg)
 
 # model config

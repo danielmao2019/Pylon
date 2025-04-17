@@ -35,17 +35,26 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += f"eval_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(eval_data_cfg)\n"
         config += '\n'
-        config += f"# model config\n"
-        config += f"from models.point_cloud_registration.classic import {model}\n"
-        config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
-        config += '\n'
+        if model == 'TeaserPlusPlus':
+            config += f"# model config\n"
+            config += f"from configs.common.models.point_cloud_registration.teaserplusplus_cfg import model_cfg\n"
+            config += f"config['model'] = model_cfg\n"
+            config += '\n'
+        else:
+            config += f"# model config\n"
+            config += f"from models.point_cloud_registration.classic import {model}\n"
+            config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
+            config += '\n'
+        if model == 'TeaserPlusPlus':
+            config += f"config['eval_n_jobs'] = 1\n"
+            config += '\n'
     elif model == 'GeoTransformer':
         config += f"# data config\n"
-        config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_{dataset}_data_cfg import data_cfg as train_data_cfg\n" 
+        config += f"from configs.common.datasets.point_cloud_registration.train.geotransformer_{dataset}_data_cfg import data_cfg as train_data_cfg\n"
         config += f"train_data_cfg['train_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(train_data_cfg)\n"
-        config += f"from configs.common.datasets.point_cloud_registration.val.geotransformer_{dataset}_data_cfg import data_cfg as val_data_cfg\n" 
-        config += f"val_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
+        config += f"from configs.common.datasets.point_cloud_registration.val.geotransformer_{dataset}_data_cfg import data_cfg as val_data_cfg\n"
+        config += f"val_data_cfg['val_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
@@ -60,11 +69,11 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += '\n'
     elif model == 'OverlapPredator':
         config += f"# data config\n"
-        config += f"from configs.common.datasets.point_cloud_registration.train.overlappredator_{dataset}_data_cfg import data_cfg as train_data_cfg\n" 
+        config += f"from configs.common.datasets.point_cloud_registration.train.overlappredator_{dataset}_data_cfg import data_cfg as train_data_cfg\n"
         config += f"train_data_cfg['train_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(train_data_cfg)\n"
-        config += f"from configs.common.datasets.point_cloud_registration.val.overlappredator_{dataset}_data_cfg import data_cfg as val_data_cfg\n" 
-        config += f"val_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
+        config += f"from configs.common.datasets.point_cloud_registration.val.overlappredator_{dataset}_data_cfg import data_cfg as val_data_cfg\n"
+        config += f"val_data_cfg['val_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(val_data_cfg)\n"
         config += '\n'
         config += f"# model config\n"
@@ -96,8 +105,8 @@ def main(dataset: str, overlap: float, model: str) -> None:
 if __name__ == "__main__":
     import itertools
     for dataset, overlap, model in itertools.product(
-        ['real_pcr'],
-        [1.0, 0.5],
+        ['synth_pcr', 'real_pcr'],
+        [1.0, 0.5, 0.4],
         [
             'ICP', 'RANSAC_FPFH', 'TeaserPlusPlus',
             'GeoTransformer', 'OverlapPredator',

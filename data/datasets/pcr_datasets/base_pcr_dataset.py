@@ -16,7 +16,6 @@ from utils.point_cloud_ops.set_ops.intersection import compute_pc_iou
 from utils.point_cloud_ops.select import Select
 from utils.point_cloud_ops.random_select import RandomSelect
 from utils.ops import apply_tensor_op
-import itertools
 
 
 def process_voxel_pair(args):
@@ -36,16 +35,40 @@ def process_voxel_pair(args):
     # Skip if either source or target has too few points
     if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
         return None
+        
+    # Check for flat ground surfaces by analyzing z-coordinate distribution
+    def check_flat_surface(pc, indices):
+        # Get z coordinates
+        z_coords = pc['pos'][indices, 2]
+        
+        # Create histogram with bin size of 1.0 using PyTorch
+        z_min = z_coords.min().item()
+        z_max = z_coords.max().item()
+        num_bins = int((z_max - z_min) / 1.0) + 1
+        
+        if num_bins <= 1:
+            return True  # If all points are in the same bin, it's a flat surface
+            
+        # Use torch.histc for efficient histogram calculation
+        hist = torch.histc(z_coords, bins=num_bins, min=z_min, max=z_max)
+        
+        # Check if any bin contains more than 80% of the points
+        max_bin_percentage = hist.max() / len(indices)
+        return max_bin_percentage > 0.8
+    
+    # Skip if either source or target is a flat surface
+    if check_flat_surface(src_pc, src_voxel['indices']) or check_flat_surface(tgt_pc, tgt_voxel['indices']):
+        return None
 
     # For partial overlap case, check if the overlap ratio is within the desired range
     if overlap < 1.0:
         overlap_ratio = compute_pc_iou(
             src_points=Select(indices=src_voxel['indices'])(transformed_src_pc)['pos'],
             tgt_points=Select(indices=tgt_voxel['indices'])(tgt_pc)['pos'],
-            radius=voxel_size / 4,
+            radius=1.0,
         )
         # Skip if overlap ratio is not within the desired range (±10%)
-        if abs(overlap_ratio - overlap) > 0.1:
+        if abs(overlap_ratio - overlap) > 0.05:
             return None
     else:
         overlap_ratio = 1.0
@@ -234,6 +257,8 @@ class BasePCRDataset(BaseDataset):
             self.annotations = []
             total_pairs = len(self.filepath_pairs)
             for pair_idx, ((src_path, tgt_path), transform) in enumerate(zip(self.filepath_pairs, self.gt_transforms)):
+                if 'Week-03-Wed-Oct-09-2024.las' in src_path:
+                    continue
                 pair_start_time = time.time()
                 # Create a directory for this scene pair
                 scene_dir = os.path.join(self.cache_dir, f'scene_pair_{pair_idx}')
@@ -311,7 +336,7 @@ class BasePCRDataset(BaseDataset):
         enumeration_start = 0
 
         # Process target point clouds based on overlap setting
-        if self.overlap >= 1.0:
+        if self.overlap == 1.0:
             # For full overlap, only use the original target
             print("Using full overlap (overlap >= 1.0), processing only the original target...")
 
@@ -472,6 +497,45 @@ class BasePCRDataset(BaseDataset):
 
         assert src_indices.ndim == 1 and src_indices.shape[0] > 0, f"{src_indices.shape=}"
         assert tgt_indices.ndim == 1 and tgt_indices.shape[0] > 0, f"{tgt_indices.shape=}"
+
+        # Apply random subsampling if needed
+        if len(src_indices) > self._max_points:
+            # Create a dictionary with the source point cloud data
+            src_pc_dict = {
+                'pos': src_points,
+                'indices': src_indices
+            }
+            # Add RGB if available
+            if 'src_rgb' in annotation:
+                src_pc_dict['rgb'] = annotation['src_rgb']
+            
+            # Apply random subsampling
+            src_pc_dict = RandomSelect(percentage=self._max_points / len(src_indices))(src_pc_dict)
+            src_points = src_pc_dict['pos']
+            src_indices = src_pc_dict['indices']
+            
+            # Update RGB if it was subsampled
+            if 'rgb' in src_pc_dict:
+                annotation['src_rgb'] = src_pc_dict['rgb']
+
+        if len(tgt_indices) > self._max_points:
+            # Create a dictionary with the target point cloud data
+            tgt_pc_dict = {
+                'pos': tgt_points,
+                'indices': tgt_indices
+            }
+            # Add RGB if available
+            if 'tgt_rgb' in annotation:
+                tgt_pc_dict['rgb'] = annotation['tgt_rgb']
+            
+            # Apply random subsampling
+            tgt_pc_dict = RandomSelect(percentage=self._max_points / len(tgt_indices))(tgt_pc_dict)
+            tgt_points = tgt_pc_dict['pos']
+            tgt_indices = tgt_pc_dict['indices']
+            
+            # Update RGB if it was subsampled
+            if 'rgb' in tgt_pc_dict:
+                annotation['tgt_rgb'] = tgt_pc_dict['rgb']
 
         # Find correspondences between source and target point clouds
         correspondences = get_correspondences(

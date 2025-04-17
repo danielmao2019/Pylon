@@ -6,7 +6,7 @@ model_cfg = {
     'args': {
         'model': {
             'ground_truth_matching_radius': 0.05,
-            'num_points_in_patch': 64,
+            'num_points_in_patch': 32,
             'num_sinkhorn_iterations': 100
         },
         'backbone': {
