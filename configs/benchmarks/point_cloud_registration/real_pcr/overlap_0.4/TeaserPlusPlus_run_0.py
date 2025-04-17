@@ -28,6 +28,7 @@ from models.point_cloud_registration.classic import TeaserPlusPlus
 config['model'] = {'class': TeaserPlusPlus, 'args': {}}
 
 config['eval_n_jobs'] = 1
+config['model']['args']['correspondences'] = 'fpfh'
 
 # seeds
 config['seed'] = 16481661
