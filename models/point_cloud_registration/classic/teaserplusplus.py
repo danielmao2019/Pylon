@@ -10,6 +10,8 @@ class TeaserPlusPlus(torch.nn.Module):
 
     def __init__(
         self,
+        estimate_rotation: bool = True,
+        estimate_scaling: bool = True,
         correspondences: Optional[str] = None,
         voxel_size: float = 0.05,
     ) -> None:
@@ -17,12 +19,16 @@ class TeaserPlusPlus(torch.nn.Module):
         Initialize TeaserPlusPlus model.
 
         Args:
+            estimate_rotation: Whether to estimate rotation
+            estimate_scaling: Whether to estimate scaling
             correspondences: Method to establish correspondences. Options:
                 - None: Use all points (default behavior)
                 - 'fpfh': Use FPFH features to establish correspondences
             voxel_size: Voxel size for downsampling and FPFH feature extraction
         """
         super(TeaserPlusPlus, self).__init__()
+        self.estimate_rotation = estimate_rotation
+        self.estimate_scaling = estimate_scaling
         if correspondences is not None:
             assert correspondences in ['fpfh'], f"{correspondences=}"
         self.correspondences = correspondences
@@ -130,11 +136,12 @@ class TeaserPlusPlus(torch.nn.Module):
             solver_params = teaserpp_python.RobustRegistrationSolver.Params()
             solver_params.cbar2 = 1
             solver_params.noise_bound = 0.01
-            solver_params.estimate_scaling = False
-            solver_params.rotation_estimation_algorithm = teaserpp_python.RobustRegistrationSolver.ROTATION_ESTIMATION_ALGORITHM.GNC_TLS
-            solver_params.rotation_gnc_factor = 1.4
-            solver_params.rotation_max_iterations = 100
-            solver_params.rotation_cost_threshold = 1e-12
+            if self.estimate_rotation:
+                solver_params.rotation_estimation_algorithm = teaserpp_python.RobustRegistrationSolver.ROTATION_ESTIMATION_ALGORITHM.GNC_TLS
+                solver_params.rotation_gnc_factor = 1.4
+                solver_params.rotation_max_iterations = 100
+                solver_params.rotation_cost_threshold = 1e-12
+            solver_params.estimate_scaling = self.estimate_scaling
 
             # Create solver and solve
             solver = teaserpp_python.RobustRegistrationSolver(solver_params)
@@ -142,7 +149,7 @@ class TeaserPlusPlus(torch.nn.Module):
 
             # Get solution
             solution = solver.getSolution()
-            rot = solution.rotation
+            rot = solution.rotation if self.estimate_rotation else np.eye(3)
             trans = solution.translation
             solution = np.eye(4)
             solution[:3, :3] = rot
