@@ -115,8 +115,8 @@ class ScreenLogger(BaseLogger):
         # Add rows for each iteration in history
         for data in self.history:
             # Extract GPU stats from the buffer
-            peak_memory = data.get("max_memory_mb", "-")
-            gpu_util = data.get("current_util_percent", "-")
+            peak_memory = data.get("max_memory", "-")
+            gpu_util = data.get("gpu_util", "-")
 
             if self.layout == "train":
                 table.add_row(
