@@ -72,7 +72,7 @@ pip install open3d
 #### 3.3.3. Visualization and Data Analysis
 
 ```bash
-conda install -c conda-forge -y matplotlib dash plotly pandas tqdm
+conda install -c conda-forge -y matplotlib dash plotly pandas
 ```
 
 #### 3.3.4. System Utilities
@@ -84,7 +84,8 @@ conda install psutil -c conda-forge -y
 #### 3.3.5. Development and Testing
 
 ```bash
-conda install pytest -c conda-forge -y
+conda install -c conda-forge -y pytest tqdm
+pip install rich
 ```
 
 #### 3.3.6. Text and File Processing

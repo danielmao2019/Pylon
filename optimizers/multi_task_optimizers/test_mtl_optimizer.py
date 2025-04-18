@@ -2,7 +2,7 @@ from typing import Dict
 import pytest
 from .mtl_optimizer import MTLOptimizer
 import torch
-from utils.logging import Logger
+from utils.logging.text_logger import TextLogger
 
 
 LABEL_NAMES = ['a', 'b', 'c']
@@ -54,7 +54,7 @@ def test_mtl_optimizer(wrt_rep: bool) -> None:
     outputs = model(inputs)
     losses = {name: criterion(outputs[name], labels[name]) for name in LABEL_NAMES}
     shared_rep = outputs['shared_rep']
-    logger = Logger(filepath=None)
+    logger = TextLogger(filepath=None)
     optimizer = MTLOptimizer(
         optimizer_config=core_optimizer_config, losses=losses, shared_rep=shared_rep, logger=logger,
     )
