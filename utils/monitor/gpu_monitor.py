@@ -106,12 +106,11 @@ class GPUMonitor:
         if stats['memory_used'] > self.max_memory:
             self.max_memory = stats['memory_used']
 
-        # Update min/max utilization if available
-        if stats['gpu_util'] is not None:
-            if stats['gpu_util'] < self.min_util:
-                self.min_util = stats['gpu_util']
-            if stats['gpu_util'] > self.max_util:
-                self.max_util = stats['gpu_util']
+        # Update min/max utilization
+        if stats['gpu_util'] < self.min_util:
+            self.min_util = stats['gpu_util']
+        if stats['gpu_util'] > self.max_util:
+            self.max_util = stats['gpu_util']
 
     def update(self):
         """Update current GPU stats."""
@@ -146,17 +145,4 @@ class GPUMonitor:
         stats = self.get_stats()
 
         # Update the buffer with GPU stats for both traditional and screen loggers
-        logger.update_buffer({
-            "name": stats['name'],
-            "physical_index": stats['physical_index'],
-            "current_memory_mb": round(stats['current_memory'], 2),
-            "min_memory_mb": round(stats['min_memory'], 2),
-            "max_memory_mb": round(stats['max_memory'], 2),
-        })
-
-        if stats['current_util'] is not None:
-            logger.update_buffer({
-                "current_util_percent": round(stats['current_util'], 2),
-                "min_util_percent": round(stats['min_util'], 2) if stats['min_util'] is not None else None,
-                "max_util_percent": round(stats['max_util'], 2),
-            })
+        logger.update_buffer(stats)
