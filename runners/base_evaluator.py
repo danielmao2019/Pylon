@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import copy
 import os
 import glob
@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import utils
 from utils.builders import build_from_config
+from utils.monitor.gpu_monitor import GPUMonitor
+from utils.logging.text_logger import TextLogger
 
 
 class BaseEvaluator:
@@ -44,9 +46,6 @@ class BaseEvaluator:
             self.work_dir = None
 
     def _init_logger(self) -> None:
-        if self.work_dir is None:
-            self.logger = utils.logging.Logger(filepath=None)
-            return
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "eval*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -56,13 +55,21 @@ class BaseEvaluator:
         os.system(f"git status >> {git_log}")
         utils.logging.echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
+
         # evaluation log
-        self.logger = utils.logging.Logger(
-            filepath=os.path.join(self.work_dir, f"eval_{session_idx}.log"),
+        log_filepath = os.path.join(self.work_dir, f"eval_{session_idx}.log")
+        self.logger = TextLogger(
+            filepath=log_filepath
         )
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
             f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
+
+        # Initialize GPU monitor
+        if torch.cuda.is_available():
+            self.gpu_monitor = GPUMonitor()
+        else:
+            self.gpu_monitor = None
 
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
@@ -111,18 +118,37 @@ class BaseEvaluator:
     # iteration-level methods
     # ====================================================================================================
 
-    def _process_eval_batch(self, batch_data, idx=None, total=None):
-        """Process a single evaluation batch in a thread-safe manner."""
+    def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None):
+        """
+        Args:
+            dp (Dict[str, Dict[str, Any]]): a dictionary containing the batch data.
+            flush_prefix (Optional[str]): the prefix to flush the logger with.
+        """
+        # init time
+        start_time = time.time()
+
+        # Start GPU monitoring if available
+        if self.gpu_monitor is not None:
+            self.gpu_monitor.start()
+
         # Run model inference
-        batch_data['outputs'] = self.model(batch_data['inputs'])
-        batch_data['scores'] = self.metric(y_pred=batch_data['outputs'], y_true=batch_data['labels'])
+        dp['outputs'] = self.model(dp['inputs'])
+        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
 
-        # Update logger with scores
-        self.logger.update_buffer(utils.logging.log_scores(scores=batch_data['scores']))
+        # Log scores
+        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
 
-        # Log progress if idx and total are provided
-        if idx is not None and total is not None:
-            self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{total}].")
+        # Log GPU stats if available
+        if self.gpu_monitor is not None:
+            self.gpu_monitor.update()
+            self.gpu_monitor.log_stats(self.logger)
+
+        # Log time
+        self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+
+        # Log progress if flush_prefix is provided
+        if flush_prefix is not None:
+            self.logger.flush(prefix=flush_prefix)
 
     def _eval_epoch_(self) -> None:
         assert self.eval_dataloader is not None, f"{self.eval_dataloader=}"
@@ -132,24 +158,20 @@ class BaseEvaluator:
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
+        self.logger.eval()
 
         if self.eval_n_jobs == 1:
-            self.logger.info("Evaluating sequentially...")
-            # Use a simple for loop when only one worker is needed
+            self.logger.info("Running evaluation sequentially...")
             for idx, dp in enumerate(self.eval_dataloader):
-                self._process_eval_batch(dp, idx, len(self.eval_dataloader))
+                self._eval_step(dp, flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
         else:
             self.logger.info(f"Using {self.eval_n_jobs} threads for parallel evaluation")
-
-            # Use ThreadPoolExecutor for parallel processing
             with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
-                # Submit all tasks
-                future_to_args = {executor.submit(self._process_eval_batch, dp, idx, len(self.eval_dataloader)): (idx, dp)
-                                 for idx, dp in enumerate(self.eval_dataloader)}
-
-                # Process results as they complete
+                future_to_args = {executor.submit(
+                    self._eval_step, dp,
+                    flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
+                ): (idx, dp) for idx, dp in enumerate(self.eval_dataloader)}
                 for future in as_completed(future_to_args):
-                    # This will raise any exceptions that occurred in the worker thread
                     future.result()
 
         # after validation loop
