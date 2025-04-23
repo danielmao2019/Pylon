@@ -1,4 +1,3 @@
-import pytest
 import torch
 import numpy as np
 from scipy.spatial import KDTree
@@ -10,13 +9,13 @@ def compute_chamfer_distance_numpy(transformed, target):
     """Original numpy implementation of chamfer distance."""
     kdtree_source = KDTree(transformed)
     kdtree_target = KDTree(target)
-    
+
     # Distance from transformed to target
     dist_source_to_target, _ = kdtree_target.query(transformed)
-    
+
     # Distance from target to transformed
     dist_target_to_source, _ = kdtree_source.query(target)
-    
+
     # The Chamfer Distance is the sum of means
     return np.mean(dist_source_to_target) + np.mean(dist_target_to_source)
 
@@ -44,20 +43,20 @@ def test_chamfer_distance_bidirectional():
         [1.1, 1.1, 0.1],
         [0.5, 0.5, 0.5]  # Additional point
     ])
-    
+
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
-    
+
     # Create ChamferDistance instance
     chamfer_distance = ChamferDistance(bidirectional=True)
-    
+
     # Compute Chamfer distance using the metric class
     metric_result = chamfer_distance(source_torch, target_torch)
-    
+
     # Compute Chamfer distance using NumPy implementation for verification
     numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
-    
+
     # Check that the results are approximately equal
     assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
 
@@ -78,20 +77,20 @@ def test_chamfer_distance_unidirectional():
         [1.1, 1.1, 0.1],
         [0.5, 0.5, 0.5]  # Additional point
     ])
-    
+
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
-    
+
     # Create ChamferDistance instance with unidirectional=True
     chamfer_distance = ChamferDistance(bidirectional=False)
-    
+
     # Compute unidirectional Chamfer distance using the metric class
     metric_result = chamfer_distance(source_torch, target_torch)
-    
+
     # Compute unidirectional Chamfer distance using NumPy implementation for verification
     numpy_result = compute_chamfer_distance_unidirectional_numpy(source_np, target_np)
-    
+
     # Check that the results are approximately equal
     assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
 
@@ -102,20 +101,20 @@ def test_with_random_point_clouds():
     np.random.seed(42)
     source_np = np.random.randn(100, 3)
     target_np = np.random.randn(150, 3)
-    
+
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
-    
+
     # Create ChamferDistance instance
     chamfer_distance = ChamferDistance(bidirectional=True)
-    
+
     # Compute Chamfer distance using the metric class
     metric_result = chamfer_distance(source_torch, target_torch)
-    
+
     # Compute Chamfer distance using NumPy implementation for verification
     numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
-    
+
     # Check that the results are approximately equal
     assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
 
@@ -126,28 +125,28 @@ def test_chamfer_distance_batch():
     batch_size = 3
     source_points = 100
     target_points = 150
-    
+
     # Generate random point clouds
     np.random.seed(42)
     source_np = np.random.randn(batch_size, source_points, 3)
     target_np = np.random.randn(batch_size, target_points, 3)
-    
+
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
-    
+
     # Create ChamferDistance instance
     chamfer_distance = ChamferDistance(bidirectional=True)
-    
+
     # Compute Chamfer distance for the batch
     batch_result = chamfer_distance(source_torch, target_torch)
-    
+
     # Verify the shape of the result
     assert batch_result.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {batch_result.shape}"
-    
+
     # Compute Chamfer distance for each item in the batch using NumPy
     numpy_results = [compute_chamfer_distance_numpy(source_np[i], target_np[i]) for i in range(batch_size)]
-    
+
     # Check that the results are approximately equal
     for i in range(batch_size):
         assert abs(batch_result[i].item() - numpy_results[i]) < 1e-5, \
