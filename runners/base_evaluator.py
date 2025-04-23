@@ -158,6 +158,7 @@ class BaseEvaluator:
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
+        self.logger.eval()
 
         if self.eval_n_jobs == 1:
             self.logger.info("Running evaluation sequentially...")
