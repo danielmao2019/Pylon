@@ -96,51 +96,17 @@ def test_inlier_ratio():
 
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'inlier_ratio'}, f"{metric_result.keys()=}"
+    assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, f"{metric_result.keys()=}"
     assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
-
-
-def test_get_inliers():
-    """Test identifying inliers."""
-    # Create sample point clouds with known inliers
-    source_np = np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [1.0, 1.0, 0.0]
-    ])
-    target_np = np.array([
-        [0.01, 0.01, 0.01],  # Within threshold
-        [1.03, 0.01, 0.01],  # Outside threshold
-        [0.01, 1.01, 0.01],  # Within threshold
-        [1.01, 1.01, 0.01],  # Within threshold
-        [0.5, 0.5, 0.5]      # Far from any source point
-    ])
-
-    # Convert to PyTorch tensors
-    source_torch = torch.tensor(source_np, dtype=torch.float32)
-    target_torch = torch.tensor(target_np, dtype=torch.float32)
-
-    # Set threshold
-    threshold = 0.02
-
-    # Create InlierRatio instance
-    inlier_ratio = InlierRatio(threshold=threshold)
-
-    # Get inliers using the metric class
-    metric_mask, metric_indices = inlier_ratio.get_inliers(source_torch, target_torch)
-
-    # Convert PyTorch mask to numpy for comparison
-    metric_mask_np = metric_mask.cpu().numpy()
 
     # Get inliers using NumPy implementation for verification
     numpy_mask, numpy_indices = identify_inliers_numpy(source_np, target_np, threshold)
 
     # Check that the masks are equal
-    assert np.array_equal(metric_mask_np, numpy_mask), f"Metric mask: {metric_mask_np}, NumPy mask: {numpy_mask}"
+    assert torch.all(metric_result['inlier_mask'] == torch.tensor(numpy_mask)), f"Metric mask: {metric_result['inlier_mask']}, NumPy mask: {numpy_mask}"
 
     # Check that the indices match
-    assert sorted(metric_indices) == sorted(numpy_indices), f"Metric indices: {metric_indices}, NumPy indices: {numpy_indices}"
+    assert sorted(metric_result['inlier_indices']) == sorted(numpy_indices), f"Metric indices: {metric_result['inlier_indices']}, NumPy indices: {numpy_indices}"
 
 
 def test_with_random_point_clouds():
@@ -168,8 +134,17 @@ def test_with_random_point_clouds():
 
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'inlier_ratio'}, f"{metric_result.keys()=}"
+    assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, f"{metric_result.keys()=}"
     assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
+
+    # Get inliers using NumPy implementation for verification
+    numpy_mask, numpy_indices = identify_inliers_numpy(source_np, target_np, threshold)
+
+    # Check that the masks are equal
+    assert torch.all(metric_result['inlier_mask'] == torch.tensor(numpy_mask)), f"Metric mask: {metric_result['inlier_mask']}, NumPy mask: {numpy_mask}"
+
+    # Check that the indices match
+    assert sorted(metric_result['inlier_indices']) == sorted(numpy_indices), f"Metric indices: {metric_result['inlier_indices']}, NumPy indices: {numpy_indices}"
 
 
 def test_various_thresholds():
@@ -207,7 +182,7 @@ def test_various_thresholds():
         numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
 
         assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-        assert metric_result.keys() == {'inlier_ratio'}, f"{metric_result.keys()=}"
+        assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, f"{metric_result.keys()=}"
 
         # Check that the results match expected value
         assert abs(metric_result['inlier_ratio'].item() - expected) < 1e-5, \
@@ -216,6 +191,15 @@ def test_various_thresholds():
         # Check that Metric and NumPy implementations match
         assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, \
             f"Threshold {threshold}: Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
+
+        # Get inliers using NumPy implementation for verification
+        numpy_mask, numpy_indices = identify_inliers_numpy(source_np, target_np, threshold)
+
+        # Check that the masks are equal
+        assert torch.all(metric_result['inlier_mask'] == torch.tensor(numpy_mask)), f"Metric mask: {metric_result['inlier_mask']}, NumPy mask: {numpy_mask}"
+
+        # Check that the indices match
+        assert sorted(metric_result['inlier_indices']) == sorted(numpy_indices), f"Metric indices: {metric_result['inlier_indices']}, NumPy indices: {numpy_indices}"
 
 
 def test_inlier_ratio_batch():
@@ -243,15 +227,21 @@ def test_inlier_ratio_batch():
     # Compute inlier ratio for the batch
     batch_result = inlier_ratio(source_torch, target_torch)
 
-    # Verify the shape of the result
-    assert batch_result.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {batch_result.shape}"
-
     # Compute inlier ratio for each item in the batch using NumPy
     numpy_results = [compute_inlier_ratio_numpy(source_np[i], target_np[i], threshold) for i in range(batch_size)]
 
     # Check that the results are approximately equal
     for i in range(batch_size):
         assert isinstance(batch_result[i], dict), f"{type(batch_result[i])=}"
-        assert batch_result[i].keys() == {'inlier_ratio'}, f"{batch_result[i].keys()=}"
+        assert batch_result[i].keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, f"{batch_result[i].keys()=}"
         assert abs(batch_result[i]['inlier_ratio'].item() - numpy_results[i]) < 1e-5, \
             f"Batch {i}: Metric: {batch_result[i]['inlier_ratio'].item()}, NumPy: {numpy_results[i]}"
+
+        # Get inliers using NumPy implementation for verification
+        numpy_mask, numpy_indices = identify_inliers_numpy(source_np[i], target_np[i], threshold)
+
+        # Check that the masks are equal
+        assert torch.all(batch_result[i]['inlier_mask'] == torch.tensor(numpy_mask)), f"Metric mask: {batch_result[i]['inlier_mask']}, NumPy mask: {numpy_mask}"
+
+        # Check that the indices match
+        assert sorted(batch_result[i]['inlier_indices']) == sorted(numpy_indices), f"Metric indices: {batch_result[i]['inlier_indices']}, NumPy indices: {numpy_indices}"
