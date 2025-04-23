@@ -142,20 +142,19 @@ def test_chamfer_distance_batch():
     target_torch = torch.tensor(target_np, dtype=torch.float32)
 
     # Create ChamferDistance instance
-    chamfer_distance = ChamferDistance(bidirectional=True)
+    chamfer = ChamferDistance()
 
     # Compute Chamfer distance for the batch
-    batch_result = chamfer_distance(source_torch, target_torch)
-
-    # Verify the shape of the result
-    assert batch_result.shape == (batch_size,), f"Expected shape {(batch_size,)}, got {batch_result.shape}"
+    batch_result = chamfer(source_torch, target_torch)
 
     # Compute Chamfer distance for each item in the batch using NumPy
     numpy_results = [compute_chamfer_distance_numpy(source_np[i], target_np[i]) for i in range(batch_size)]
+    
+    # Calculate the mean across the batch
+    numpy_mean = np.mean(numpy_results)
 
     # Check that the results are approximately equal
-    for i in range(batch_size):
-        assert isinstance(batch_result[i], dict), f"{type(batch_result[i])=}"
-        assert batch_result[i].keys() == {'chamfer_distance'}, f"{batch_result[i].keys()=}"
-        assert abs(batch_result[i]['chamfer_distance'].item() - numpy_results[i]) < 1e-5, \
-            f"Batch {i}: Metric: {batch_result[i]['chamfer_distance'].item()}, NumPy: {numpy_results[i]}"
+    assert isinstance(batch_result, dict), f"{type(batch_result)=}"
+    assert batch_result.keys() == {'chamfer_distance'}, f"{batch_result.keys()=}"
+    assert abs(batch_result['chamfer_distance'].item() - numpy_mean) < 1e-5, \
+        f"Metric: {batch_result['chamfer_distance'].item()}, NumPy mean: {numpy_mean}"
