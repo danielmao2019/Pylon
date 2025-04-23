@@ -68,7 +68,9 @@ def test_rmse():
     numpy_result = compute_rmse_numpy(source_np, target_np)
 
     # Check that the results are approximately equal
-    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'rmse'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['rmse'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['rmse'].item()}, NumPy: {numpy_result}"
 
 
 def test_compute_with_correspondences():
@@ -132,7 +134,9 @@ def test_with_random_point_clouds():
     numpy_result = compute_rmse_numpy(source_np, target_np)
 
     # Check that the results are approximately equal
-    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'rmse'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['rmse'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['rmse'].item()}, NumPy: {numpy_result}"
 
 
 def test_known_distance():
@@ -161,7 +165,9 @@ def test_known_distance():
     metric_result = rmse_metric(source_torch, target_torch)
 
     # Check that the result is approximately equal to expected
-    assert abs(metric_result.item() - expected_rmse) < 1e-3, f"Metric: {metric_result.item()}, Expected: {expected_rmse}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'rmse'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['rmse'].item() - expected_rmse) < 1e-3, f"Metric: {metric_result['rmse'].item()}, Expected: {expected_rmse}"
 
 
 def test_rmse_batch():
@@ -194,5 +200,7 @@ def test_rmse_batch():
 
     # Check that the results are approximately equal
     for i in range(batch_size):
-        assert abs(batch_result[i].item() - numpy_results[i]) < 1e-5, \
-            f"Batch {i}: Metric: {batch_result[i].item()}, NumPy: {numpy_results[i]}"
+        assert isinstance(batch_result[i], dict), f"{type(batch_result[i])=}"
+        assert batch_result[i].keys() == {'rmse'}, f"{batch_result[i].keys()=}"
+        assert abs(batch_result[i]['rmse'].item() - numpy_results[i]) < 1e-5, \
+            f"Batch {i}: Metric: {batch_result[i]['rmse'].item()}, NumPy: {numpy_results[i]}"
