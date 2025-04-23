@@ -13,6 +13,9 @@ import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
+from utils.monitor.gpu_monitor import GPUMonitor
+from utils.logging.text_logger import TextLogger
+from utils.logging.screen_logger import ScreenLogger
 
 
 class BaseTrainer(ABC):
@@ -55,9 +58,6 @@ class BaseTrainer(ABC):
         self.tot_epochs = tot_epochs
 
     def _init_logger(self) -> None:
-        if self.work_dir is None:
-            self.logger = utils.logging.Logger(filepath=None)
-            return
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -67,13 +67,26 @@ class BaseTrainer(ABC):
         os.system(f"git status >> {git_log}")
         utils.logging.echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
+
         # training log
-        self.logger = utils.logging.Logger(
-            filepath=os.path.join(self.work_dir, f"train_val_{session_idx}.log"),
-        )
+        log_filepath = os.path.join(self.work_dir, f"train_val_{session_idx}.log")
+
+        # Try to initialize screen logger, fall back to traditional logger if it fails
+        try:
+            self.logger = ScreenLogger(max_iterations=10, filepath=log_filepath, layout="train")
+        except Exception as e:
+            print(f"Failed to initialize screen logger: {e}. Falling back to traditional logger.")
+            self.logger = TextLogger(filepath=log_filepath)
+
         # config log
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
             f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
+
+        # Initialize GPU monitor
+        if torch.cuda.is_available():
+            self.gpu_monitor = GPUMonitor()
+        else:
+            self.gpu_monitor = None
 
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
@@ -210,42 +223,74 @@ class BaseTrainer(ABC):
     def _set_gradients_(self, dp: Dict[str, Dict[str, Any]]) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._set_gradients_ not implemented .")
 
-    def _train_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
+    def _train_step(self, dp: Dict[str, Dict[str, Any]]) -> None:
         r"""
         Args:
             dp (Dict[str, Dict[str, Any]]): a dictionary containing inputs, labels, and meta info.
         """
         # init time
         start_time = time.time()
+
+        # Start GPU monitoring if available
+        if self.gpu_monitor is not None:
+            self.gpu_monitor.start()
+
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             dp['outputs'] = self.model(dp['inputs'])
             dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
+
         # update logger
         self.logger.update_buffer({"learning_rate": self.scheduler.get_last_lr()})
         self.logger.update_buffer(utils.logging.log_losses(losses=dp['losses']))
+
         # update states
         self._set_gradients_(dp)
         self.optimizer.step()
         self.scheduler.step()
+
+        # Log GPU stats if available
+        if self.gpu_monitor is not None:
+            self.gpu_monitor.update()
+            # Pass the logger to log_stats
+            self.gpu_monitor.log_stats(self.logger)
+
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
 
-    def _eval_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
+    def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None) -> None:
         r"""
         Args:
             dp (Dict[str, Dict[str, Any]]): a dictionary containing inputs, labels, and meta info.
+            flush_prefix (Optional[str]): the prefix to use for the flush.
         """
         # init time
         start_time = time.time()
+
+        # Start GPU monitoring if available
+        if self.gpu_monitor is not None:
+            self.gpu_monitor.start()
+
         # do computation
         with torch.autocast(device_type='cuda', dtype=torch.float16):
             dp['outputs'] = self.model(dp['inputs'])
             dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
-        # update logger
+
+        # Log scores
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
-        # log time
+
+        # Log GPU stats if available
+        if self.gpu_monitor is not None:
+            self.gpu_monitor.update()
+            # Pass the logger to log_stats
+            self.gpu_monitor.log_stats(self.logger)
+
+        # Log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
+
+        # Log progress if flush_prefix is provided
+        if flush_prefix is not None:
+            self.logger.flush(prefix=flush_prefix)
 
     # ====================================================================================================
     # training and validation epochs
@@ -269,8 +314,10 @@ class BaseTrainer(ABC):
         self.model.train()
         self.criterion.reset_buffer()
         self.optimizer.reset_buffer()
+        self.logger.train()
+
         for idx, dp in enumerate(self.train_dataloader):
-            self._train_step_(dp=dp)
+            self._train_step(dp=dp)
             self.logger.flush(prefix=f"Training [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.train_dataloader)}].")
         # after training loop
         self._after_train_loop_()
@@ -312,24 +359,6 @@ class BaseTrainer(ABC):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
 
-    def _process_validation_batch(self, dp: Dict[str, Dict[str, Any]], idx: int = None, total: int = None) -> Dict[str, Dict[str, Any]]:
-        """Process a single validation batch in a thread-safe manner."""
-        # Run model inference
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
-            dp['outputs'] = self.model(dp['inputs'])
-            dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
-            # Add scores to the metric buffer in a thread-safe way
-            self.metric.add_to_buffer(dp['scores'])
-
-        # Update logger with scores
-        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
-        
-        # Log progress if idx and total are provided
-        if idx is not None and total is not None:
-            self.logger.flush(prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{total}].")
-
-        return dp
-
     def _val_epoch_(self) -> None:
         if not (self.val_dataloader and self.model):
             self.logger.info("Skipped validation epoch.")
@@ -339,24 +368,20 @@ class BaseTrainer(ABC):
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
-
-        # Process validation data in parallel using ThreadPoolExecutor
-        self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
+        self.logger.eval()
 
         if self.eval_n_jobs == 1:
-            # Use a simple for loop when only one worker is needed
+            self.logger.info("Running validation sequentially...")
             for idx, dp in enumerate(self.val_dataloader):
-                self._process_validation_batch(dp, idx, len(self.val_dataloader))
+                self._eval_step(dp, flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
         else:
-            # Use ThreadPoolExecutor for parallel processing
+            self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
             with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
-                # Submit all tasks
-                future_to_args = {executor.submit(self._process_validation_batch, dp, idx, len(self.val_dataloader)): (idx, dp) 
-                                 for idx, dp in enumerate(self.val_dataloader)}
-                
-                # Process results as they complete
+                future_to_args = {executor.submit(
+                    self._eval_step, dp,
+                    flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].",
+                ): (idx, dp) for idx, dp in enumerate(self.val_dataloader)}
                 for future in as_completed(future_to_args):
-                    # This will raise any exceptions that occurred in the worker thread
                     future.result()
 
         # after validation loop
@@ -434,8 +459,7 @@ class BaseTrainer(ABC):
         self.model.eval()
         self.metric.reset_buffer()
         for idx, dp in enumerate(self.test_dataloader):
-            self._eval_step_(dp=dp)
-            self.logger.flush(prefix=f"Test epoch [Iteration {idx}/{len(self.test_dataloader)}].")
+            self._eval_step(dp=dp, flush_prefix=f"Test epoch [Iteration {idx}/{len(self.test_dataloader)}].")
         # after test loop
         self._after_test_loop_(best_checkpoint=best_checkpoint)
         # log time

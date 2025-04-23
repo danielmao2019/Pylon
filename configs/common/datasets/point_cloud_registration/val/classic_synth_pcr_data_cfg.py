@@ -11,7 +11,7 @@ data_cfg = {
             'cache_dirname': 'synth_pcr_cache',
             'split': 'val',
             'voxel_size': 10.0,
-            'min_points': 256,
+            'min_points': 512,
             'max_points': 8192,
             'overlap': 0.4,
             'transforms_cfg': {
