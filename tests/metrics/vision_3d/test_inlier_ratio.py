@@ -95,7 +95,9 @@ def test_inlier_ratio():
     numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
 
     # Check that the results are approximately equal
-    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'inlier_ratio'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
 
 
 def test_get_inliers():
@@ -165,7 +167,9 @@ def test_with_random_point_clouds():
     numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
 
     # Check that the results are approximately equal
-    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'inlier_ratio'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
 
 
 def test_various_thresholds():
@@ -202,13 +206,16 @@ def test_various_thresholds():
         # Compute inlier ratio using NumPy implementation for verification
         numpy_result = compute_inlier_ratio_numpy(source_np, target_np, threshold)
 
+        assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+        assert metric_result.keys() == {'inlier_ratio'}, f"{metric_result.keys()=}"
+
         # Check that the results match expected value
-        assert abs(metric_result.item() - expected) < 1e-5, \
-            f"Threshold {threshold}: Metric: {metric_result.item()}, Expected: {expected}"
+        assert abs(metric_result['inlier_ratio'].item() - expected) < 1e-5, \
+            f"Threshold {threshold}: Metric: {metric_result['inlier_ratio'].item()}, Expected: {expected}"
 
         # Check that Metric and NumPy implementations match
-        assert abs(metric_result.item() - numpy_result) < 1e-5, \
-            f"Threshold {threshold}: Metric: {metric_result.item()}, NumPy: {numpy_result}"
+        assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, \
+            f"Threshold {threshold}: Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
 
 
 def test_inlier_ratio_batch():
@@ -244,5 +251,7 @@ def test_inlier_ratio_batch():
 
     # Check that the results are approximately equal
     for i in range(batch_size):
-        assert abs(batch_result[i].item() - numpy_results[i]) < 1e-5, \
-            f"Batch {i}: Metric: {batch_result[i].item()}, NumPy: {numpy_results[i]}"
+        assert isinstance(batch_result[i], dict), f"{type(batch_result[i])=}"
+        assert batch_result[i].keys() == {'inlier_ratio'}, f"{batch_result[i].keys()=}"
+        assert abs(batch_result[i]['inlier_ratio'].item() - numpy_results[i]) < 1e-5, \
+            f"Batch {i}: Metric: {batch_result[i]['inlier_ratio'].item()}, NumPy: {numpy_results[i]}"
