@@ -98,7 +98,7 @@ def test_compute_with_correspondences():
     rmse_metric = RMSE()
 
     # Compute RMSE with correspondences using the metric class
-    metric_rmse, metric_indices = rmse_metric.get_correspondences(source_torch, target_torch)
+    metric_rmse, metric_indices = rmse_metric.compute_with_correspondences(source_torch, target_torch)
 
     # Convert PyTorch tensor to numpy array for comparison
     metric_indices_np = metric_indices.cpu().numpy()
