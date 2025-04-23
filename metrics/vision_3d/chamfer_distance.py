@@ -1,8 +1,6 @@
 import torch
-from typing import Dict, Union, Optional
+from typing import Dict
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.input_checks import check_write_file
-from utils.io import save_json
 
 
 class ChamferDistance(SingleTaskMetric):
@@ -55,4 +53,4 @@ class ChamferDistance(SingleTaskMetric):
         else:
             chamfer_dist = torch.mean(min_dist_pred_to_true)
             
-        return {"chamfer_distance": chamfer_dist} 
+        return {"chamfer_distance": chamfer_dist}

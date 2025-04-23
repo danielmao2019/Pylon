@@ -1,8 +1,6 @@
 import torch
-from typing import Dict, Tuple, Union, Optional
+from typing import Dict, Tuple
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.input_checks import check_write_file
-from utils.io import save_json
 
 
 class RMSE(SingleTaskMetric):
@@ -72,4 +70,4 @@ class RMSE(SingleTaskMetric):
         # Compute RMSE
         rmse = torch.sqrt(torch.mean(min_distances ** 2))
         
-        return rmse, indices 
+        return rmse, indices

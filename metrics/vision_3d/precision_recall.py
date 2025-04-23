@@ -1,9 +1,6 @@
 import torch
-import torch.nn.functional as F
-from typing import Dict, Tuple, List, Union, Optional
+from typing import Dict
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.input_checks import check_write_file
-from utils.io import save_json
 
 
 class CorrespondencePrecisionRecall(SingleTaskMetric):
@@ -121,4 +118,4 @@ class CorrespondencePrecisionRecall(SingleTaskMetric):
             recall = result["recall"]
             result["f1_score"] = 2 * precision * recall / (precision + recall) if precision + recall > 0 else torch.tensor(0.0)
             
-        return result 
+        return result

@@ -1,8 +1,6 @@
 import torch
-from typing import Dict, Union, Optional
+from typing import Dict
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.input_checks import check_write_file
-from utils.io import save_json
 
 
 class MAE(SingleTaskMetric):
@@ -48,4 +46,4 @@ class MAE(SingleTaskMetric):
         # Compute mean absolute error
         mae = torch.mean(min_distances)
         
-        return {"mae": mae} 
+        return {"mae": mae}

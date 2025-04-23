@@ -1,8 +1,6 @@
 import torch
-from typing import Dict, Tuple, List, Union, Optional
+from typing import Dict, Tuple, List
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.input_checks import check_write_file
-from utils.io import save_json
 
 
 class InlierRatio(SingleTaskMetric):
@@ -81,4 +79,4 @@ class InlierRatio(SingleTaskMetric):
         if isinstance(inlier_indices, int):
             inlier_indices = [inlier_indices]
             
-        return inlier_mask, inlier_indices 
+        return inlier_mask, inlier_indices
