@@ -5,9 +5,13 @@ import threading
 
 from utils.input_checks import check_write_file
 from utils.io import serialize_tensor
+from utils.logging.base_logger import BaseLogger
 
 
-class Logger:
+class TextLogger(BaseLogger):
+    """
+    A text-based logger that writes to both a file and the console.
+    """
 
     formatter = logging.Formatter(
         fmt=f"[%(levelname)s] %(asctime)s - %(message)s",
@@ -25,18 +29,16 @@ class Logger:
     # ====================================================================================================
 
     def __init__(self, filepath: Optional[str] = None) -> None:
-        self._buffer_lock = threading.Lock()
-        self._init_core_logger_(filepath=filepath)
+        super(TextLogger, self).__init__(filepath=filepath)
+        self._init_core_logger_()
         if not self.core_logger.handlers:
             self._init_file_handler_()
             self._init_stream_handler_()
 
-    def _init_core_logger_(self, filepath: Optional[str]) -> None:
-        self.filepath = check_write_file(filepath) if filepath is not None else None
+    def _init_core_logger_(self) -> None:
         self.core_logger = logging.getLogger(name=self.filepath)
         self.core_logger.setLevel(level=logging.INFO)
         self.core_logger.propagate = True
-        self.buffer = {}
 
     def _init_file_handler_(self) -> None:
         if self.filepath is None:
