@@ -58,7 +58,9 @@ def test_chamfer_distance_bidirectional():
     numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
 
     # Check that the results are approximately equal
-    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'chamfer_distance'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
 
 
 def test_chamfer_distance_unidirectional():
@@ -92,7 +94,9 @@ def test_chamfer_distance_unidirectional():
     numpy_result = compute_chamfer_distance_unidirectional_numpy(source_np, target_np)
 
     # Check that the results are approximately equal
-    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'chamfer_distance'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
 
 
 def test_with_random_point_clouds():
@@ -116,7 +120,9 @@ def test_with_random_point_clouds():
     numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
 
     # Check that the results are approximately equal
-    assert abs(metric_result.item() - numpy_result) < 1e-5, f"Metric: {metric_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'chamfer_distance'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
 
 
 def test_chamfer_distance_batch():
@@ -149,5 +155,7 @@ def test_chamfer_distance_batch():
 
     # Check that the results are approximately equal
     for i in range(batch_size):
-        assert abs(batch_result[i].item() - numpy_results[i]) < 1e-5, \
-            f"Batch {i}: Metric: {batch_result[i].item()}, NumPy: {numpy_results[i]}"
+        assert isinstance(batch_result[i], dict), f"{type(batch_result[i])=}"
+        assert batch_result[i].keys() == {'chamfer_distance'}, f"{batch_result[i].keys()=}"
+        assert abs(batch_result[i]['chamfer_distance'].item() - numpy_results[i]) < 1e-5, \
+            f"Batch {i}: Metric: {batch_result[i]['chamfer_distance'].item()}, NumPy: {numpy_results[i]}"
