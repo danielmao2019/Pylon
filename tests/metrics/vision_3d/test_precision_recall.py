@@ -1,5 +1,6 @@
 import torch
 from metrics.vision_3d import CorrespondencePrecisionRecall
+import numpy as np
 
 
 def compute_precision_recall_numpy(predicted_matches, ground_truth_matches):
@@ -163,60 +164,48 @@ def test_no_match():
 
 
 def test_threshold_effect():
-    """Test how the threshold affects the results."""
-    # Create correspondence pairs that are slightly farther apart
-    source_points_1 = [
+    """Test the effect of different thresholds on precision and recall."""
+    # Create sample point clouds
+    source_np = np.array([
         [0.0, 0.0, 0.0],
         [1.0, 0.0, 0.0],
         [0.0, 1.0, 0.0],
         [1.0, 1.0, 0.0]
-    ]
-    target_points_1 = [
-        [0.03, 0.03, 0.03],  # Beyond threshold=0.02, within threshold=0.06
-        [1.03, 0.03, 0.03],  # Beyond threshold=0.02, within threshold=0.06
-        [0.03, 1.03, 0.03],  # Beyond threshold=0.02, within threshold=0.06
-        [1.03, 1.03, 0.03]   # Beyond threshold=0.02, within threshold=0.06
-    ]
+    ])
+    target_np = np.array([
+        [0.01, 0.01, 0.01],  # Within threshold 0.05
+        [1.03, 0.01, 0.01],  # Outside threshold 0.05
+        [0.01, 1.01, 0.01],  # Within threshold 0.05
+        [1.01, 1.01, 0.01],  # Within threshold 0.05
+        [0.5, 0.5, 0.5]      # Far from any source point
+    ])
 
-    # Create significantly different points for the ground truth to ensure distances
-    # are larger than the threshold
-    source_points_2 = [
-        [0.1, 0.1, 0.1],     # Distance from source_points_1[0] > 0.02
-        [1.1, 0.1, 0.1],     # Distance from source_points_1[1] > 0.02
-        [0.1, 1.1, 0.1],     # Distance from source_points_1[2] > 0.02
-        [1.1, 1.1, 0.1]      # Distance from source_points_1[3] > 0.02
-    ]
-    target_points_2 = [
-        [0.13, 0.13, 0.13],  # Distance from target_points_1[0] > 0.02
-        [1.13, 0.13, 0.13],  # Distance from target_points_1[1] > 0.02
-        [0.13, 1.13, 0.13],  # Distance from target_points_1[2] > 0.02
-        [1.13, 1.13, 0.13]   # Distance from target_points_1[3] > 0.02
-    ]
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
 
-    # Create correspondence tensors - one for predictions, one for ground truth
-    y_pred = create_correspondence_tensor(source_points_1, target_points_1)
-    y_true = create_correspondence_tensor(source_points_2, target_points_2)
-
-    # Test with different thresholds
-    thresholds = [0.02, 0.06]
+    # Test different thresholds
+    thresholds = [0.02, 0.05, 0.1]
     expected_results = [
-        {"precision": 0.0, "recall": 0.0, "f1_score": 0.0},  # For threshold=0.02
-        {"precision": 1.0, "recall": 1.0, "f1_score": 1.0}   # For threshold=0.06
+        {"precision": 0.75, "recall": 0.75},  # 3 out of 4 points within 0.02
+        {"precision": 1.0, "recall": 1.0},    # All 4 points within 0.05
+        {"precision": 1.0, "recall": 1.0}     # All 4 points within 0.1
     ]
 
     for threshold, expected in zip(thresholds, expected_results):
-        # Create CorrespondencePrecisionRecall instance with current threshold
+        # Create PrecisionRecall instance with current threshold
         precision_recall = CorrespondencePrecisionRecall(threshold=threshold)
 
-        # Compute precision, recall, and F1 score using the metric class
-        metric_result = precision_recall(y_pred, y_true)
+        # Compute precision and recall using the metric class
+        metric_result = precision_recall(source_torch, target_torch)
 
-        assert abs(metric_result["precision"].item() - expected["precision"]) < 1e-5, \
+        # Check that the results match expected values
+        assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+        assert metric_result.keys() == {'precision', 'recall'}, f"{metric_result.keys()=}"
+        assert abs(metric_result['precision'].item() - expected['precision']) < 1e-5, \
             f"Threshold {threshold}: Expected precision {expected['precision']}, got {metric_result['precision'].item()}"
-        assert abs(metric_result["recall"].item() - expected["recall"]) < 1e-5, \
+        assert abs(metric_result['recall'].item() - expected['recall']) < 1e-5, \
             f"Threshold {threshold}: Expected recall {expected['recall']}, got {metric_result['recall'].item()}"
-        assert abs(metric_result["f1_score"].item() - expected["f1_score"]) < 1e-5, \
-            f"Threshold {threshold}: Expected F1 score {expected['f1_score']}, got {metric_result['f1_score'].item()}"
 
 
 def test_edge_cases():
