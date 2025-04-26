@@ -37,6 +37,8 @@ class PointCloudMetric(SingleTaskMetric):
         # Input validation
         assert y_pred.dim() == 2 and y_pred.size(1) == 3, f"Expected y_pred shape (N, 3), got {y_pred.shape}"
         assert y_true.dim() == 2 and y_true.size(1) == 3, f"Expected y_true shape (M, 3), got {y_true.shape}"
+        assert not y_pred.isnan().any(), "y_pred contains NaN values"
+        assert not y_true.isnan().any(), "y_true contains NaN values"
 
         # Get dimensions
         N, _ = y_pred.shape

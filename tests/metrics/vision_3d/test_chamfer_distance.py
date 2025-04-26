@@ -127,7 +127,7 @@ def test_with_known_distance():
      torch.tensor([[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]], dtype=torch.float32), 
      torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32), 
      None, 
-     ValueError),
+     AssertionError),
 ])
 def test_edge_cases(case_name, source, target, expected_distance, raises_error):
     """Test Chamfer distance with edge cases."""
