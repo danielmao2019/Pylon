@@ -17,7 +17,7 @@ def compute_chamfer_distance_numpy(source, target):
     target_to_source_dist, _ = target_tree.query(source)
     
     # Compute Chamfer distance as sum of squared distances in both directions
-    chamfer_distance = np.mean(source_to_target_dist ** 2) + np.mean(target_to_source_dist ** 2)
+    chamfer_distance = np.mean(source_to_target_dist) + np.mean(target_to_source_dist)
     return chamfer_distance
 
 
@@ -74,7 +74,7 @@ def test_with_known_distance():
     source_np = np.random.randn(num_points, 3)
 
     # Create target point cloud with known distance
-    target_np = source_np + np.random.randn(num_points, 3) * 0.5
+    target_np = source_np + 0.5
 
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
