@@ -14,12 +14,6 @@ class MAE(PointCloudMetric):
 
     DIRECTION = -1  # Lower is better
 
-    def __init__(self) -> None:
-        """
-        Initialize the MAE metric.
-        """
-        super(MAE, self).__init__()
-
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """
         Compute the Mean Absolute Error between two point clouds.
