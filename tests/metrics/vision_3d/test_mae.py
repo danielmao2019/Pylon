@@ -1,13 +1,16 @@
+import pytest
 import torch
 import numpy as np
 from scipy.spatial import KDTree
+
+from metrics.vision_3d import MAE
 
 
 def compute_mae_numpy(transformed, target):
     """Original numpy implementation of MAE."""
     kdtree = KDTree(target)
     distances, _ = kdtree.query(transformed)
-    return np.mean(np.abs(distances))
+    return np.mean(distances)
 
 
 def compute_mae_torch(transformed, target):
@@ -34,25 +37,30 @@ def test_mae():
         [1.0, 1.0, 0.0]
     ])
     target_np = np.array([
-        [0.1, 0.1, 0.1],
-        [1.1, 0.1, 0.1],
-        [0.1, 1.1, 0.1],
-        [1.1, 1.1, 0.1],
-        [0.5, 0.5, 0.5]  # Additional point
+        [0.01, 0.01, 0.01],
+        [1.01, 0.01, 0.01],
+        [0.01, 1.01, 0.01],
+        [1.01, 1.01, 0.01],
+        [0.5, 0.5, 0.5]
     ])
 
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
 
-    # Compute MAE using PyTorch implementation
-    torch_result = compute_mae_torch(source_torch, target_torch)
+    # Create MAE instance
+    mae = MAE()
 
-    # Compute MAE using NumPy implementation
+    # Compute MAE using the metric class
+    metric_result = mae(source_torch, target_torch)
+
+    # Compute MAE using NumPy implementation for verification
     numpy_result = compute_mae_numpy(source_np, target_np)
 
     # Check that the results are approximately equal
-    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'mae'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
 
 
 def test_with_random_point_clouds():
@@ -66,13 +74,18 @@ def test_with_random_point_clouds():
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
 
-    # Compute MAE using PyTorch implementation
-    torch_result = compute_mae_torch(source_torch, target_torch)
+    # Create MAE instance
+    mae = MAE()
 
-    # Compute MAE using NumPy implementation
+    # Compute MAE using the metric class
+    metric_result = mae(source_torch, target_torch)
+
+    # Compute MAE using NumPy implementation for verification
     numpy_result = compute_mae_numpy(source_np, target_np)
 
     # Check that the results are approximately equal
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'mae'}, f"{metric_result.keys()=}"
     assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
 
 
