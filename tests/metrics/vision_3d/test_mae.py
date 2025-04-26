@@ -11,13 +11,13 @@ from metrics.vision_3d import MAE
 def compute_mae_numpy(source, target):
     """Alternative numpy implementation of MAE using KDTree."""
     # Build KD-trees for both point clouds
-    source_tree = KDTree(source)
+    kdtree = KDTree(target)
 
     # Find nearest neighbors from source to target
-    source_to_target_dist, _ = source_tree.query(target)
+    distances, _ = kdtree.query(source)
 
     # Compute MAE as average of both directions
-    mae = np.mean(source_to_target_dist)
+    mae = np.mean(distances)
     return mae
 
 
