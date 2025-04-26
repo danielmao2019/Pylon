@@ -70,29 +70,35 @@ def test_with_random_point_clouds():
 def test_with_known_distance():
     """Test Chamfer distance with synthetic inputs having known ground truth scores."""
     # Create a source point cloud with well-separated points
-    num_points = 100
-    source_np = np.random.randn(num_points, 3)
-
-    # Create target point cloud with known distance
-    target_np = source_np + 0.5
-
+    # Use a grid-like pattern to ensure points are well-separated
+    x = np.linspace(-1, 1, 5)
+    y = np.linspace(-1, 1, 5)
+    z = np.linspace(-1, 1, 5)
+    xx, yy, zz = np.meshgrid(x, y, z, indexing='ij')
+    source_np = np.stack([xx.flatten(), yy.flatten(), zz.flatten()], axis=1)
+    
+    # Apply a known translation that preserves correspondence
+    # Since points are well-separated, a small translation won't change nearest neighbors
+    translation = np.array([0.2, 0.2, 0.2])
+    target_np = source_np + translation
+    
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
-
+    
     # Create ChamferDistance instance
     chamfer = ChamferDistance()
-
+    
     # Compute Chamfer distance using the metric class
     metric_result = chamfer(source_torch, target_torch)
-
-    # Compute expected distance (approximately 0.5^2 = 0.25 for each point)
-    expected_distance = 0.25
-
+    
+    # Expected distance is the translation magnitude
+    expected_distance = np.linalg.norm(translation)
+    
     # Check that the results are approximately equal to the expected distance
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
     assert metric_result.keys() == {'chamfer_distance'}, f"Expected keys {{'chamfer_distance'}}, got {metric_result.keys()}"
-    assert abs(metric_result['chamfer_distance'].item() - expected_distance) < 0.1, \
+    assert abs(metric_result['chamfer_distance'].item() - expected_distance) < 1e-3, \
         f"Metric: {metric_result['chamfer_distance'].item()}, Expected: {expected_distance}"
 
 
