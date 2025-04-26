@@ -32,7 +32,7 @@ class SingleTaskMetric(BaseMetric):
         score: Dict[str, torch.Tensor] = self._compute_score(y_pred=y_pred, y_true=y_true)
         assert type(score) == dict, f"{type(score)=}"
         assert all([isinstance(k, str) for k in score.keys()])
-        assert all([isinstance(v, (list, torch.Tensor)) for v in score.values()])  # either batched tensor or list
+        assert all([isinstance(v, torch.Tensor) for v in score.values()])
         score = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=score)
         # log score
         self.buffer.append(score)
