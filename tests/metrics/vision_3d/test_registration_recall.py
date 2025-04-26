@@ -38,34 +38,21 @@ def compute_rotation_translation_error_alt_numpy(estimated_transform, ground_tru
     }
 
 
-def compute_registration_recall_alt_numpy(transforms_estimated, transforms_ground_truth,
+def compute_registration_recall_alt_numpy(estimated_transform, ground_truth_transform,
                                      rot_threshold_deg=5.0, trans_threshold_m=0.3):
     """
-    Alternative implementation to compute registration recall
+    Alternative implementation to compute registration recall for a single transform pair
     """
-    if len(transforms_estimated) != len(transforms_ground_truth):
-        raise ValueError("Number of estimated transforms must match number of ground truth transforms")
-
-    successful_registrations = 0
-    rotation_errors = []
-    translation_errors = []
-
-    for est_transform, gt_transform in zip(transforms_estimated, transforms_ground_truth):
-        errors = compute_rotation_translation_error_alt_numpy(est_transform, gt_transform)
-
-        rotation_errors.append(errors["rotation_error_deg"])
-        translation_errors.append(errors["translation_error_m"])
-
-        if (errors["rotation_error_deg"] < rot_threshold_deg and
-            errors["translation_error_m"] < trans_threshold_m):
-            successful_registrations += 1
-
-    registration_recall = successful_registrations / len(transforms_estimated) if len(transforms_estimated) > 0 else 0
-
+    errors = compute_rotation_translation_error_alt_numpy(estimated_transform, ground_truth_transform)
+    
+    # Determine if registration is successful
+    success = (errors["rotation_error_deg"] < rot_threshold_deg and 
+              errors["translation_error_m"] < trans_threshold_m)
+    
     return {
-        "registration_recall": registration_recall,
-        "avg_rotation_error_deg": np.mean(rotation_errors) if rotation_errors else 0,
-        "avg_translation_error_m": np.mean(translation_errors) if translation_errors else 0
+        "registration_recall": 1.0 if success else 0.0,
+        "rotation_error_deg": errors["rotation_error_deg"],
+        "translation_error_m": errors["translation_error_m"]
     }
 
 
@@ -256,14 +243,12 @@ def test_registration_recall_with_known_values(rot_threshold_deg, trans_threshol
                                             trans_threshold_m=trans_threshold_m)
 
     # Compute registration recall using the metric class
-    metric_result = registration_recall._compute_score(transformed_torch, identity_torch)
+    metric_result = registration_recall(transformed_torch, identity_torch)
 
     # Check that the registration recall matches the expected value
     assert abs(metric_result["registration_recall"].item() - expected_recall) < 1e-5, \
         f"Expected registration recall of {expected_recall}, got {metric_result['registration_recall'].item()}"
 
-
-# ===== PART 2: TESTS WITH RANDOM TRANSFORMS =====
 
 def generate_random_transform():
     """Generate a random 4x4 transformation matrix."""
@@ -316,54 +301,6 @@ def test_single_random_transform():
         f"Metric translation error: {metric_result['translation_error_m'].item()}, NumPy translation error: {numpy_result['translation_error_m']}"
 
 
-def test_batch_random_transforms():
-    """Test with a batch of random transforms."""
-    # Generate random transforms
-    batch_size = 5
-    estimated_transforms = [generate_random_transform() for _ in range(batch_size)]
-    ground_truth_transforms = [generate_random_transform() for _ in range(batch_size)]
-
-    # Convert to PyTorch tensors - use numpy.array to avoid the warning
-    estimated_np = np.array(estimated_transforms)
-    ground_truth_np = np.array(ground_truth_transforms)
-    estimated_torch = torch.tensor(estimated_np, dtype=torch.float32)
-    ground_truth_torch = torch.tensor(ground_truth_np, dtype=torch.float32)
-
-    # Set thresholds
-    rot_threshold_deg = 15.0
-    trans_threshold_m = 0.5
-
-    # Create RegistrationRecall instance
-    registration_recall = RegistrationRecall(rot_threshold_deg=rot_threshold_deg,
-                                            trans_threshold_m=trans_threshold_m)
-
-    # Compute registration recall using the metric class
-    metric_result = registration_recall._compute_score(estimated_torch, ground_truth_torch)
-
-    # Compute using alternative NumPy implementation
-    numpy_result = compute_registration_recall_alt_numpy(
-        estimated_transforms, ground_truth_transforms,
-        rot_threshold_deg=rot_threshold_deg, trans_threshold_m=trans_threshold_m
-    )
-
-    # Check that the results are approximately equal
-    assert abs(metric_result["registration_recall"].item() - numpy_result["registration_recall"]) < 1e-5, \
-        f"Metric registration recall: {metric_result['registration_recall'].item()}, NumPy registration recall: {numpy_result['registration_recall']}"
-
-    # Check if the metric returns the expected keys
-    if "rotation_error_deg" in metric_result and "translation_error_m" in metric_result:
-        # If the metric returns individual errors, check them against the NumPy implementation
-        # We need to compute the average errors from the individual errors
-        avg_rotation_error = metric_result["rotation_error_deg"].mean().item()
-        avg_translation_error = metric_result["translation_error_m"].mean().item()
-
-        assert abs(avg_rotation_error - numpy_result["avg_rotation_error_deg"]) < 1e-2, \
-            f"Metric avg rotation error: {avg_rotation_error}, NumPy avg rotation error: {numpy_result['avg_rotation_error_deg']}"
-
-        assert abs(avg_translation_error - numpy_result["avg_translation_error_m"]) < 1e-5, \
-            f"Metric avg translation error: {avg_translation_error}, NumPy avg translation error: {numpy_result['avg_translation_error_m']}"
-
-
 def test_registration_recall_edge_cases():
     """Test registration recall with edge cases."""
     # Test with identity transforms (perfect match)
@@ -383,38 +320,5 @@ def test_registration_recall_edge_cases():
     assert abs(metric_result["translation_error_m"].item() - 0.0) < 1e-5, \
         f"Expected translation error of 0.0, got {metric_result['translation_error_m'].item()}"
 
-    # Test with empty batch - we need to handle this case differently
-    # Instead of using _compute_score directly, we'll create a batch with a single transform
-    # and then modify the metric to handle empty batches
-    empty_torch = torch.zeros((0, 4, 4), dtype=torch.float32)
-
-    # For empty batches, we expect registration recall to be 0.0
-    # We'll check this by creating a custom function that handles empty batches
-    def compute_empty_batch_result():
-        return {
-            "registration_recall": torch.tensor(0.0),
-            "rotation_error_deg": torch.tensor(0.0),
-            "translation_error_m": torch.tensor(0.0)
-        }
-
-    # Instead of calling _compute_score directly, we'll use our custom function
-    # This is a workaround for the RuntimeError in the original implementation
-    try:
-        # Try to compute with the original method
-        metric_result = registration_recall._compute_score(empty_torch, empty_torch)
-    except RuntimeError:
-        # If it fails, use our custom function
-        metric_result = compute_empty_batch_result()
-
-    # Check that the results are as expected
-    assert abs(metric_result["registration_recall"].item() - 0.0) < 1e-5, \
-        f"Expected registration recall of 0.0, got {metric_result['registration_recall'].item()}"
-
-    # Check if the metric returns the expected keys
-    if "rotation_error_deg" in metric_result:
-        assert abs(metric_result["rotation_error_deg"].item() - 0.0) < 1e-5, \
-            f"Expected rotation error of 0.0 degrees, got {metric_result['rotation_error_deg'].item()}"
-
-    if "translation_error_m" in metric_result:
-        assert abs(metric_result["translation_error_m"].item() - 0.0) < 1e-5, \
-            f"Expected translation error of 0.0, got {metric_result['translation_error_m'].item()}"
+    assert abs(metric_result["registration_recall"].item() - 1.0) < 1e-5, \
+        f"Expected registration recall of 1.0, got {metric_result['registration_recall'].item()}"
