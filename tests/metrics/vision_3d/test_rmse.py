@@ -195,7 +195,7 @@ def test_rmse_batch():
 
     # Compute RMSE for each item in the batch using NumPy
     numpy_results = [compute_rmse_numpy(source_np[i], target_np[i]) for i in range(batch_size)]
-    
+
     # Calculate the mean across the batch
     numpy_mean = np.mean(numpy_results)
 

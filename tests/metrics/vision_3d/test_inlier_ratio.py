@@ -229,7 +229,7 @@ def test_inlier_ratio_batch():
 
     # Compute inlier ratio for each item in the batch using NumPy
     numpy_results = [compute_inlier_ratio_numpy(source_np[i], target_np[i], threshold) for i in range(batch_size)]
-    
+
     # Calculate the mean across the batch
     numpy_mean = np.mean(numpy_results)
 

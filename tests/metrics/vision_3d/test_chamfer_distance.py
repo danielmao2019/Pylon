@@ -149,7 +149,7 @@ def test_chamfer_distance_batch():
 
     # Compute Chamfer distance for each item in the batch using NumPy
     numpy_results = [compute_chamfer_distance_numpy(source_np[i], target_np[i]) for i in range(batch_size)]
-    
+
     # Calculate the mean across the batch
     numpy_mean = np.mean(numpy_results)
 
