@@ -20,19 +20,23 @@ def compute_inlier_ratio_numpy(source, target, threshold):
     }
 
 
-@pytest.mark.parametrize("case_name,source,target,threshold,expected_ratio", [
+@pytest.mark.parametrize("case_name,source,target,threshold,expected_ratio,expected_mask,expected_indices", [
     ("half_inliers", 
      torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]], dtype=torch.float32),
      torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 2.0, 0.0], [3.0, 3.0, 0.0]], dtype=torch.float32),
      0.1,
-     0.5),
+     0.5,
+     torch.tensor([True, True, False, False], dtype=torch.bool),
+     torch.tensor([0, 1], dtype=torch.long)),
     ("quarter_inliers", 
      torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]], dtype=torch.float32),
      torch.tensor([[0.0, 0.0, 0.0], [2.0, 2.0, 0.0], [3.0, 3.0, 0.0], [4.0, 4.0, 0.0]], dtype=torch.float32),
      0.1,
-     0.25),
+     0.25,
+     torch.tensor([True, False, False, False], dtype=torch.bool),
+     torch.tensor([0], dtype=torch.long)),
 ])
-def test_basic_functionality(case_name, source, target, threshold, expected_ratio):
+def test_basic_functionality(case_name, source, target, threshold, expected_ratio, expected_mask, expected_indices):
     """Test basic inlier ratio calculation with simple examples."""
     inlier_ratio = InlierRatio(threshold=threshold)
     result = inlier_ratio(source, target)
@@ -40,6 +44,10 @@ def test_basic_functionality(case_name, source, target, threshold, expected_rati
         f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {result.keys()}"
     assert abs(result['inlier_ratio'].item() - expected_ratio) < 1e-5, \
         f"Case '{case_name}': Expected {expected_ratio}, got {result['inlier_ratio'].item()}"
+    assert torch.all(result['inlier_mask'] == expected_mask), \
+        f"Case '{case_name}': Inlier mask doesn't match expected"
+    assert torch.all(result['inlier_indices'] == expected_indices), \
+        f"Case '{case_name}': Inlier indices don't match expected"
 
 
 def test_with_random_point_clouds():
@@ -93,8 +101,11 @@ def test_with_known_ratio():
     target_ratio = np.random.uniform(0.3, 0.7)
     num_inliers = int(num_points * target_ratio)
     
-    # Create target points
+    # Create target points and ground truth inlier mask/indices
     target_np = np.zeros_like(source_np)
+    inlier_mask = np.zeros(num_points, dtype=bool)
+    inlier_indices = np.arange(num_inliers)  # First num_inliers points are inliers
+    inlier_mask[:num_inliers] = True
     
     # For inliers: apply translation with magnitude < min(threshold, min_dist/2)
     max_translation = min(threshold, min_dist/2)
@@ -122,6 +133,8 @@ def test_with_known_ratio():
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
+    expected_mask = torch.tensor(inlier_mask, dtype=torch.bool)
+    expected_indices = torch.tensor(inlier_indices, dtype=torch.long)
     
     # Create InlierRatio instance with the same threshold
     inlier_ratio = InlierRatio(threshold=threshold)
@@ -138,10 +151,11 @@ def test_with_known_ratio():
     assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 1e-5, \
         f"Metric: {metric_result['inlier_ratio'].item()}, Expected: {target_ratio}"
     
-    # Verify that the inlier mask matches our expectations
-    inlier_mask = metric_result['inlier_mask']
-    assert torch.all(inlier_mask[:num_inliers]), "All points marked as inliers should be inliers"
-    assert not torch.any(inlier_mask[num_inliers:]), "All points marked as outliers should be outliers"
+    # Verify that the inlier mask and indices match our expectations
+    assert torch.equal(metric_result['inlier_mask'], expected_mask), \
+        f"{metric_result['inlier_mask']=}, {expected_mask=}"
+    assert torch.equal(metric_result['inlier_indices'], expected_indices), \
+        f"{metric_result['inlier_indices']=}, {expected_indices=}"
 
 
 @pytest.mark.parametrize("case_name,source,target,expected_ratio,raises_error", [
