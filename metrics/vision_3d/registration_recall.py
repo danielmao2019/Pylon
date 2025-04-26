@@ -35,72 +35,48 @@ class RegistrationRecall(SingleTaskMetric):
         Compute registration error metrics.
 
         Args:
-            y_pred: Predicted transformation matrix, shape (4, 4) or (B, 4, 4) for batch
-            y_true: Ground truth transformation matrix, shape (4, 4) or (B, 4, 4) for batch
+            y_pred: Predicted transformation matrix, shape (4, 4)
+            y_true: Ground truth transformation matrix, shape (4, 4)
 
         Returns:
             Dict[str, torch.Tensor]: Dictionary containing rotation error, translation error, and registration success
         """
         # shape check
-        if y_pred.ndim == 2:
-            y_pred = y_pred.unsqueeze(0)  # (1, 4, 4)
-        assert y_pred.ndim == 3 and y_pred.shape[1:] == (4, 4), \
-            f"Expected y_pred shape (B, 4, 4), got {y_pred.shape}"
-        if y_true.ndim == 2:
-            y_true = y_true.unsqueeze(0)  # (1, 4, 4)
-        assert y_true.ndim == 3 and y_true.shape[1:] == (4, 4), \
-            f"Expected y_true shape (B, 4, 4), got {y_true.shape}"
-        assert y_pred.size(0) == y_true.size(0), \
-            f"Batch size mismatch: {y_pred.size(0)} vs {y_true.size(0)}"
+        assert y_pred.ndim == 2 and y_pred.shape == (4, 4), \
+            f"Expected y_pred shape (4, 4), got {y_pred.shape}"
+        assert y_true.ndim == 2 and y_true.shape == (4, 4), \
+            f"Expected y_true shape (4, 4), got {y_true.shape}"
         # dtype check
         assert y_pred.dtype == y_true.dtype == torch.float32, \
             f"{y_pred.dtype=}, {y_true.dtype=}"
 
-        batch_size = y_pred.size(0)
-        rotation_errors = []
-        translation_errors = []
-        registration_successes = []
+        # Extract rotation matrices (3x3) and translation vectors (3x1)
+        R_pred = y_pred[:3, :3]  # (3, 3)
+        t_pred = y_pred[:3, 3]   # (3,)
 
-        for i in range(batch_size):
-            # Extract rotation matrices (3x3) and translation vectors (3x1)
-            R_pred = y_pred[i, :3, :3]  # (3, 3)
-            t_pred = y_pred[i, :3, 3]   # (3,)
+        R_true = y_true[:3, :3]  # (3, 3)
+        t_true = y_true[:3, 3]   # (3,)
 
-            R_true = y_true[i, :3, :3]  # (3, 3)
-            t_true = y_true[i, :3, 3]   # (3,)
+        # Compute relative rotation error
+        R_error = torch.matmul(R_true.transpose(0, 1), R_pred)  # R_true^T * R_pred
 
-            # Compute relative rotation error
-            R_error = torch.matmul(R_true.transpose(0, 1), R_pred)  # R_true^T * R_pred
+        # Convert to rotation angle in degrees
+        # The formula is: angle = arccos((trace(R_error) - 1) / 2)
+        rot_trace = R_error.trace()
+        rot_trace = torch.clamp(rot_trace, min=-1.0, max=3.0)  # Clamp to avoid numerical issues
+        angle_rad = torch.acos((rot_trace - 1) / 2)
+        angle_deg = angle_rad * 180 / math.pi
 
-            # Convert to rotation angle in degrees
-            # The formula is: angle = arccos((trace(R_error) - 1) / 2)
-            rot_trace = R_error.trace()
-            rot_trace = torch.clamp(rot_trace, min=-1.0, max=3.0)  # Clamp to avoid numerical issues
-            angle_rad = torch.acos((rot_trace - 1) / 2)
-            angle_deg = angle_rad * 180 / math.pi
+        # Compute translation error (Euclidean distance)
+        trans_error = torch.norm(t_pred - t_true)
 
-            # Compute translation error (Euclidean distance)
-            trans_error = torch.norm(t_pred - t_true)
-
-            # Determine if registration is successful
-            success = (angle_deg < self.rot_threshold_deg) & (trans_error < self.trans_threshold_m)
-
-            rotation_errors.append(angle_deg)
-            translation_errors.append(trans_error)
-            registration_successes.append(success.float())
-
-        # Convert lists to tensors
-        rotation_errors = torch.stack(rotation_errors)
-        translation_errors = torch.stack(translation_errors)
-        registration_successes = torch.stack(registration_successes)
-
-        # Computing registration recall (percentage of successful registrations)
-        recall = torch.mean(registration_successes)
+        # Determine if registration is successful
+        success = (angle_deg < self.rot_threshold_deg) & (trans_error < self.trans_threshold_m)
 
         return {
-            "rotation_error_deg": torch.mean(rotation_errors),
-            "translation_error_m": torch.mean(translation_errors),
-            "registration_recall": recall
+            "rotation_error_deg": angle_deg,
+            "translation_error_m": trans_error,
+            "registration_recall": success.float()
         }
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:

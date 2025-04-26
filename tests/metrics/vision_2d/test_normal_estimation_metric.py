@@ -1,5 +1,5 @@
 import pytest
-from .normal_estimation_metric import NormalEstimationMetric
+from metrics.vision_2d.normal_estimation_metric import NormalEstimationMetric
 import torch
 
 
