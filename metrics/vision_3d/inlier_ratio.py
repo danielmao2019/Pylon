@@ -40,17 +40,17 @@ class InlierRatio(PointCloudMetric):
         """
         # Validate and prepare inputs
         y_pred, y_true, N, M = self._validate_and_prepare_inputs(y_pred, y_true)
-        
+
         # Compute distance matrix and find nearest neighbors
         dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(y_pred, y_true)
-        
+
         # Count inliers (points within threshold)
         inlier_mask = (min_distances <= self.threshold)  # (N,)
         inlier_ratio = torch.mean(inlier_mask.float())
-        
+
         # Get indices of inlier points
         inlier_indices = torch.where(inlier_mask)[0]
-        
+
         return {
             "inlier_ratio": inlier_ratio,
             "inlier_mask": inlier_mask,

@@ -33,11 +33,11 @@ class MAE(PointCloudMetric):
         """
         # Validate and prepare inputs
         y_pred, y_true, N, M = self._validate_and_prepare_inputs(y_pred, y_true)
-        
+
         # Compute distance matrix and find nearest neighbors
-        _, min_distances, _ = self._compute_distance_matrix(y_pred, y_true)
-        
+        dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(y_pred, y_true)
+
         # Compute mean absolute error
         mae = torch.mean(min_distances)
-        
+
         return {"mae": mae}
