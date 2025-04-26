@@ -3,14 +3,21 @@ import torch
 import numpy as np
 from scipy.spatial import KDTree
 from metrics.vision_3d import InlierRatio
+from scipy.spatial.distance import pdist
 
 
 def compute_inlier_ratio_numpy(source, target, threshold):
     """Original numpy implementation of inlier ratio."""
     kdtree = KDTree(target)
     distances, _ = kdtree.query(source)
-    inliers = distances <= threshold
-    return np.mean(inliers)
+    inlier_mask = distances <= threshold
+    inlier_ratio = np.mean(inlier_mask)
+    inlier_indices = np.where(inlier_mask)[0]
+    return {
+        'inlier_ratio': inlier_ratio,
+        'inlier_mask': inlier_mask,
+        'inlier_indices': inlier_indices
+    }
 
 
 @pytest.mark.parametrize("case_name,source,target,threshold,expected_ratio", [
@@ -59,8 +66,12 @@ def test_with_random_point_clouds():
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
     assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
         f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {metric_result.keys()}"
-    assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, \
-        f"Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
+    assert abs(metric_result['inlier_ratio'].item() - numpy_result['inlier_ratio']) < 1e-5, \
+        f"Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result['inlier_ratio']}"
+    assert torch.all(metric_result['inlier_mask'] == torch.tensor(numpy_result['inlier_mask'])), \
+        "Inlier masks don't match"
+    assert torch.all(metric_result['inlier_indices'] == torch.tensor(numpy_result['inlier_indices'])), \
+        "Inlier indices don't match"
 
 
 def test_with_known_ratio():
@@ -72,13 +83,11 @@ def test_with_known_ratio():
     num_points = 100
     threshold = 0.5  # Distance threshold for inliers
     
-    # Create source points in a simple grid pattern
-    # This ensures they are well-separated and easy to track
-    x = np.linspace(0, 1, int(np.ceil(np.sqrt(num_points))))
-    y = np.linspace(0, 1, int(np.ceil(np.sqrt(num_points))))
-    xx, yy = np.meshgrid(x, y)
-    source_np = np.stack([xx.flatten(), yy.flatten(), np.zeros_like(xx.flatten())], axis=1)
-    source_np = source_np[:num_points]  # Take only the needed number of points
+    # Randomly sample source points from normal distribution
+    source_np = np.random.randn(num_points, 3)
+    
+    # Find minimum distance between any pair of points
+    min_dist = np.min(pdist(source_np))
     
     # Randomly sample a target inlier ratio
     target_ratio = np.random.uniform(0.3, 0.7)
@@ -87,15 +96,28 @@ def test_with_known_ratio():
     # Create target points
     target_np = np.zeros_like(source_np)
     
-    # For inliers: place target points directly above source points
-    # This ensures they are the nearest neighbors and within threshold
-    target_np[:num_inliers] = source_np[:num_inliers].copy()
-    target_np[:num_inliers, 2] = threshold * 0.5  # Move up by half the threshold
+    # For inliers: apply translation with magnitude < min(threshold, min_dist/2)
+    max_translation = min(threshold, min_dist/2)
+    # Generate random directions
+    directions = np.random.randn(num_inliers, 3)
+    directions = directions / np.linalg.norm(directions, axis=1, keepdims=True)
+    # Generate random distances
+    distances = np.random.uniform(0, max_translation * 0.99, num_inliers)  # 99% to be safe
+    # Apply translations
+    target_np[:num_inliers] = source_np[:num_inliers] + directions * distances[:, np.newaxis]
     
-    # For outliers: place target points far away in z-direction
-    # This ensures they are not the nearest neighbors
-    target_np[num_inliers:] = source_np[num_inliers:].copy()
-    target_np[num_inliers:, 2] = threshold * 2.0  # Move up by twice the threshold
+    # For outliers: place points outside the source point cloud bounds plus threshold
+    source_min = source_np.min(axis=0) - threshold
+    source_max = source_np.max(axis=0) + threshold
+    # Generate random points outside the bounds
+    for i in range(num_inliers, num_points):
+        while True:
+            # Sample a random point
+            point = np.random.randn(3)
+            # Check if it's outside the bounds
+            if (np.any(point < source_min) or np.any(point > source_max)):
+                target_np[i] = point
+                break
     
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
