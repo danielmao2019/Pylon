@@ -3,6 +3,7 @@ import math
 import numpy as np
 import torch
 from scipy.spatial import KDTree
+from scipy.spatial.distance import pdist
 
 from metrics.vision_3d import MAE
 
@@ -41,24 +42,42 @@ def test_basic_functionality(case_name, source, target, expected_mae):
 
 def test_with_random_point_clouds():
     """Test MAE with randomly generated point clouds."""
-    # Generate random point clouds
+    # Set random seed for reproducibility
     np.random.seed(42)
-    source_np = np.random.randn(100, 3)
-    target_np = np.random.randn(150, 3)
-
+    
+    # Parameters
+    num_points = 100
+    
+    # Randomly sample source points from normal distribution
+    source_np = np.random.randn(num_points, 3)
+    
+    # Find minimum distance between any pair of points
+    min_dist = np.min(pdist(source_np))
+    max_translation = min_dist / 2
+    
+    # Generate random directions for translation
+    directions = np.random.randn(num_points, 3)
+    directions = directions / np.linalg.norm(directions, axis=1, keepdims=True)
+    
+    # Generate random distances for translation (less than max_translation)
+    distances = np.random.uniform(0, max_translation * 0.99, num_points)  # 99% to be safe
+    
+    # Apply translations to create target point cloud
+    target_np = source_np + directions * distances[:, np.newaxis]
+    
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
-
+    
     # Create MAE instance
     mae = MAE()
-
+    
     # Compute MAE using the metric class
     metric_result = mae(source_torch, target_torch)
-
+    
     # Compute MAE using NumPy implementation for verification
     numpy_result = compute_mae_numpy(source_np, target_np)
-
+    
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
     assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
