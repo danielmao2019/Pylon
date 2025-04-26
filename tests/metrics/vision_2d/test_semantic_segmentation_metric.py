@@ -1,6 +1,6 @@
 import pytest
-from .semantic_segmentation_metric import SemanticSegmentationMetric
 from typing import Dict
+from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
 import torch
 
 
