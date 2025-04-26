@@ -250,6 +250,8 @@ def test_registration_recall_with_known_values(rot_threshold_deg, trans_threshol
         f"Expected registration recall of {expected_recall}, got {metric_result['registration_recall'].item()}"
 
 
+# ===== PART 2: TESTS WITH RANDOM TRANSFORMS =====
+
 def generate_random_transform():
     """Generate a random 4x4 transformation matrix."""
     # Generate random rotation (using axis-angle representation)
