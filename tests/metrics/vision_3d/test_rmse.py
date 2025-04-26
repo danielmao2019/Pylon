@@ -21,36 +21,6 @@ def compute_rmse_with_correspondences_numpy(transformed, target):
     return rmse, correspondences
 
 
-def compute_rmse_torch(transformed, target):
-    """PyTorch implementation of RMSE."""
-    # Compute nearest neighbor distances
-    transformed_expanded = transformed.unsqueeze(1)  # (N, 1, 3)
-    target_expanded = target.unsqueeze(0)  # (1, M, 3)
-    dist_matrix = torch.sqrt(((transformed_expanded - target_expanded) ** 2).sum(dim=2))  # (N, M)
-
-    # Find nearest neighbor distances
-    min_distances = torch.min(dist_matrix, dim=1)[0]  # (N,)
-
-    # Compute RMSE
-    return torch.sqrt(torch.mean(min_distances ** 2))
-
-
-def compute_rmse_with_correspondences_torch(transformed, target):
-    """PyTorch implementation of RMSE with correspondences."""
-    # Compute nearest neighbor distances
-    transformed_expanded = transformed.unsqueeze(1)  # (N, 1, 3)
-    target_expanded = target.unsqueeze(0)  # (1, M, 3)
-    dist_matrix = torch.sqrt(((transformed_expanded - target_expanded) ** 2).sum(dim=2))  # (N, M)
-
-    # Find nearest neighbor distances and indices
-    min_distances, correspondences = torch.min(dist_matrix, dim=1)  # (N,)
-
-    # Compute RMSE
-    rmse = torch.sqrt(torch.mean(min_distances ** 2))
-
-    return rmse, correspondences
-
-
 def test_rmse():
     """Test RMSE calculation."""
     # Create sample point clouds
