@@ -29,7 +29,8 @@ def test_basic_functionality(case_name, source, target, threshold, expected_rati
     """Test basic inlier ratio calculation with simple examples."""
     inlier_ratio = InlierRatio(threshold=threshold)
     result = inlier_ratio(source, target)
-    assert result.keys() == {'inlier_ratio'}, f"Expected keys {{'inlier_ratio'}}, got {result.keys()}"
+    assert result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
+        f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {result.keys()}"
     assert abs(result['inlier_ratio'].item() - expected_ratio) < 1e-5, \
         f"Case '{case_name}': Expected {expected_ratio}, got {result['inlier_ratio'].item()}"
 
@@ -56,7 +57,8 @@ def test_with_random_point_clouds():
 
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'inlier_ratio'}, f"Expected keys {{'inlier_ratio'}}, got {metric_result.keys()}"
+    assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
+        f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {metric_result.keys()}"
     assert abs(metric_result['inlier_ratio'].item() - numpy_result) < 1e-5, \
         f"Metric: {metric_result['inlier_ratio'].item()}, NumPy: {numpy_result}"
 
@@ -92,7 +94,8 @@ def test_with_known_ratio():
 
     # Check that the results are approximately equal to the target ratio
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'inlier_ratio'}, f"Expected keys {{'inlier_ratio'}}, got {metric_result.keys()}"
+    assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
+        f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {metric_result.keys()}"
     assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 0.1, \
         f"Metric: {metric_result['inlier_ratio'].item()}, Expected: {target_ratio}"
 
@@ -133,6 +136,7 @@ def test_edge_cases(case_name, source, target, expected_ratio, raises_error):
             inlier_ratio(source, target)
     else:
         result = inlier_ratio(source, target)
-        assert result.keys() == {'inlier_ratio'}, f"Expected keys {{'inlier_ratio'}}, got {result.keys()}"
+        assert result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
+            f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {result.keys()}"
         assert abs(result['inlier_ratio'].item() - expected_ratio) < 1e-5, \
             f"Case '{case_name}': Expected {expected_ratio}, got {result['inlier_ratio'].item()}"
