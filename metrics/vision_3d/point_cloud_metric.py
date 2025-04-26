@@ -11,12 +11,6 @@ class PointCloudMetric(SingleTaskMetric):
     such as computing distance matrices and validating inputs.
     """
 
-    def __init__(self) -> None:
-        """
-        Initialize the point cloud metric.
-        """
-        super(PointCloudMetric, self).__init__()
-
     def _validate_and_prepare_inputs(
         self, y_pred: torch.Tensor, y_true: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, int, int]:
