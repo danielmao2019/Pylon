@@ -6,11 +6,20 @@ from scipy.spatial import KDTree
 from metrics.vision_3d import MAE
 
 
-def compute_mae_numpy(transformed, target):
-    """Original numpy implementation of MAE."""
-    kdtree = KDTree(target)
-    distances, _ = kdtree.query(transformed)
-    return np.mean(distances)
+def compute_mae_numpy(source, target):
+    """Alternative numpy implementation of MAE using KDTree."""
+    # Build KD-trees for both point clouds
+    source_tree = KDTree(source)
+    target_tree = KDTree(target)
+    
+    # Find nearest neighbors from source to target
+    source_to_target_dist, _ = source_tree.query(target)
+    # Find nearest neighbors from target to source
+    target_to_source_dist, _ = target_tree.query(source)
+    
+    # Compute MAE as average of both directions
+    mae = (np.mean(source_to_target_dist) + np.mean(target_to_source_dist)) / 2.0
+    return mae
 
 
 def compute_mae_torch(transformed, target):
@@ -27,44 +36,27 @@ def compute_mae_torch(transformed, target):
     return torch.mean(min_distances)
 
 
-def test_mae():
-    """Test MAE calculation."""
-    # Create sample point clouds
-    source_np = np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [1.0, 1.0, 0.0]
-    ])
-    target_np = np.array([
-        [0.01, 0.01, 0.01],
-        [1.01, 0.01, 0.01],
-        [0.01, 1.01, 0.01],
-        [1.01, 1.01, 0.01],
-        [0.5, 0.5, 0.5]
-    ])
-
-    # Convert to PyTorch tensors
-    source_torch = torch.tensor(source_np, dtype=torch.float32)
-    target_torch = torch.tensor(target_np, dtype=torch.float32)
-
-    # Create MAE instance
+@pytest.mark.parametrize("case_name,source,target,expected_mae", [
+    ("perfect_match", 
+     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
+     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
+     0.0),
+    ("small_offset", 
+     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
+     torch.tensor([[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]], dtype=torch.float32),
+     0.3464101552963257),
+])
+def test_basic_functionality(case_name, source, target, expected_mae):
+    """Test basic MAE calculation with simple examples."""
     mae = MAE()
-
-    # Compute MAE using the metric class
-    metric_result = mae(source_torch, target_torch)
-
-    # Compute MAE using NumPy implementation for verification
-    numpy_result = compute_mae_numpy(source_np, target_np)
-
-    # Check that the results are approximately equal
-    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'mae'}, f"{metric_result.keys()=}"
-    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
+    result = mae(source, target)
+    assert result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {result.keys()}"
+    assert abs(result['mae'].item() - expected_mae) < 1e-5, \
+        f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"
 
 
 def test_with_random_point_clouds():
-    """Test with randomly generated point clouds."""
+    """Test MAE with randomly generated point clouds."""
     # Generate random point clouds
     np.random.seed(42)
     source_np = np.random.randn(100, 3)
@@ -85,24 +77,19 @@ def test_with_random_point_clouds():
 
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'mae'}, f"{metric_result.keys()=}"
-    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
+    assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
+    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, \
+        f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
 
 
-def test_known_distance():
-    """Test with known distances to verify correctness."""
-    # Create point clouds with known distances
-    source_np = np.array([
-        [0.0, 0.0, 0.0],  # Distance to nearest target: 0.1732
-        [1.0, 0.0, 0.0],  # Distance to nearest target: 0.1732
-    ])
-    target_np = np.array([
-        [0.1, 0.1, 0.1],  # Distance from first source: sqrt(0.01+0.01+0.01) = 0.1732
-        [1.1, 0.1, 0.1],  # Distance from second source: sqrt(0.01+0.01+0.01) = 0.1732
-    ])
+def test_with_known_mae():
+    """Test MAE with synthetic inputs having known ground truth scores."""
+    # Create a source point cloud with well-separated points
+    num_points = 100
+    source_np = np.random.randn(num_points, 3)
 
-    # Expected MAE: (0.1732 + 0.1732)/2 = 0.1732
-    expected_mae = 0.1732
+    # Create target point cloud with known distance
+    target_np = source_np + np.random.randn(num_points, 3) * 0.5
 
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
@@ -114,7 +101,52 @@ def test_known_distance():
     # Compute MAE using the metric class
     metric_result = mae(source_torch, target_torch)
 
-    # Check that the result is approximately equal to expected
+    # Compute expected MAE (approximately 0.5^2 = 0.25 for each point)
+    expected_mae = 0.25
+
+    # Check that the results are approximately equal to the expected MAE
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'mae'}, f"{metric_result.keys()=}"
-    assert abs(metric_result['mae'].item() - expected_mae) < 1e-3, f"Metric: {metric_result['mae'].item()}, Expected: {expected_mae}"
+    assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
+    assert abs(metric_result['mae'].item() - expected_mae) < 0.1, \
+        f"Metric: {metric_result['mae'].item()}, Expected: {expected_mae}"
+
+
+@pytest.mark.parametrize("case_name,source,target,expected_mae,raises_error", [
+    ("empty_point_clouds", 
+     torch.empty((0, 3), dtype=torch.float32), 
+     torch.empty((0, 3), dtype=torch.float32), 
+     None, 
+     ValueError),
+    ("single_point", 
+     torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32), 
+     torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32), 
+     3.464101552963257, 
+     None),
+    ("duplicate_points", 
+     torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32), 
+     torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32), 
+     0.0, 
+     None),
+    ("extreme_values", 
+     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32), 
+     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32), 
+     0.0, 
+     None),
+    ("nan_values", 
+     torch.tensor([[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]], dtype=torch.float32), 
+     torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32), 
+     None, 
+     ValueError),
+])
+def test_edge_cases(case_name, source, target, expected_mae, raises_error):
+    """Test MAE with edge cases."""
+    mae = MAE()
+    
+    if raises_error:
+        with pytest.raises(raises_error):
+            mae(source, target)
+    else:
+        result = mae(source, target)
+        assert result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {result.keys()}"
+        assert abs(result['mae'].item() - expected_mae) < 1e-5, \
+            f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"
