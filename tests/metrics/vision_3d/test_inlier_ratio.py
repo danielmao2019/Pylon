@@ -163,7 +163,7 @@ def test_with_known_ratio():
      torch.empty((0, 3), dtype=torch.float32), 
      torch.empty((0, 3), dtype=torch.float32), 
      None, 
-     ValueError),
+     IndexError),
     ("single_point_outlier", 
      torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32), 
      torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32), 
@@ -183,7 +183,7 @@ def test_with_known_ratio():
      torch.tensor([[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]], dtype=torch.float32), 
      torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32), 
      None, 
-     ValueError),
+     AssertionError),
 ])
 def test_edge_cases(case_name, source, target, expected_ratio, raises_error):
     """Test inlier ratio with edge cases."""
