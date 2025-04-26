@@ -72,42 +72,30 @@ def test_with_known_ratio():
     num_points = 100
     threshold = 0.5  # Distance threshold for inliers
     
-    # Create source points with guaranteed minimum separation
-    # Use a grid-based approach to ensure points are well-separated
-    grid_size = int(np.ceil(np.cbrt(num_points)))
-    x = np.linspace(-1, 1, grid_size)
-    y = np.linspace(-1, 1, grid_size)
-    z = np.linspace(-1, 1, grid_size)
-    xx, yy, zz = np.meshgrid(x, y, z)
-    source_np = np.stack([xx.flatten(), yy.flatten(), zz.flatten()], axis=1)
+    # Create source points in a simple grid pattern
+    # This ensures they are well-separated and easy to track
+    x = np.linspace(0, 1, int(np.ceil(np.sqrt(num_points))))
+    y = np.linspace(0, 1, int(np.ceil(np.sqrt(num_points))))
+    xx, yy = np.meshgrid(x, y)
+    source_np = np.stack([xx.flatten(), yy.flatten(), np.zeros_like(xx.flatten())], axis=1)
     source_np = source_np[:num_points]  # Take only the needed number of points
     
     # Randomly sample a target inlier ratio
     target_ratio = np.random.uniform(0.3, 0.7)
     num_inliers = int(num_points * target_ratio)
     
-    # Create target point cloud
+    # Create target points
     target_np = np.zeros_like(source_np)
     
-    # For inliers: add noise in a controlled way to ensure distance < threshold
-    for i in range(num_inliers):
-        # Generate random direction
-        direction = np.random.randn(3)
-        direction = direction / np.linalg.norm(direction)
-        # Generate random distance less than threshold
-        distance = np.random.uniform(0, threshold * 0.9)  # 90% of threshold to be safe
-        # Add the noise
-        target_np[i] = source_np[i] + direction * distance
+    # For inliers: place target points directly above source points
+    # This ensures they are the nearest neighbors and within threshold
+    target_np[:num_inliers] = source_np[:num_inliers].copy()
+    target_np[:num_inliers, 2] = threshold * 0.5  # Move up by half the threshold
     
-    # For outliers: add noise in a controlled way to ensure distance > threshold
-    for i in range(num_inliers, num_points):
-        # Generate random direction
-        direction = np.random.randn(3)
-        direction = direction / np.linalg.norm(direction)
-        # Generate random distance greater than threshold
-        distance = np.random.uniform(threshold * 1.1, threshold * 2.0)  # 110% to 200% of threshold
-        # Add the noise
-        target_np[i] = source_np[i] + direction * distance
+    # For outliers: place target points far away in z-direction
+    # This ensures they are not the nearest neighbors
+    target_np[num_inliers:] = source_np[num_inliers:].copy()
+    target_np[num_inliers:, 2] = threshold * 2.0  # Move up by twice the threshold
     
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
@@ -124,7 +112,7 @@ def test_with_known_ratio():
     assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
         f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {metric_result.keys()}"
     
-    # The result should be very close to the target ratio since we carefully controlled the distances
+    # The result should be exactly equal to the target ratio
     assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 1e-5, \
         f"Metric: {metric_result['inlier_ratio'].item()}, Expected: {target_ratio}"
     
