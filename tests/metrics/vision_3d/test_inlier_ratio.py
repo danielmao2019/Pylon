@@ -88,14 +88,14 @@ def test_with_known_ratio():
     np.random.seed(42)
     
     # Parameters
-    num_points = 100
-    threshold = 0.5  # Distance threshold for inliers
+    num_points = 1000
     
     # Randomly sample source points from normal distribution
     source_np = np.random.randn(num_points, 3)
     
     # Find minimum distance between any pair of points
     min_dist = np.min(pdist(source_np))
+    threshold = min_dist / 2
     
     # Randomly sample a target inlier ratio
     target_ratio = np.random.uniform(0.3, 0.7)
@@ -107,8 +107,8 @@ def test_with_known_ratio():
     inlier_indices = np.arange(num_inliers)  # First num_inliers points are inliers
     inlier_mask[:num_inliers] = True
     
-    # For inliers: apply translation with magnitude < min(threshold, min_dist/2)
-    max_translation = min(threshold, min_dist/2)
+    # For inliers: apply translation with magnitude < min_dist / 2
+    max_translation = min_dist / 2
     # Generate random directions
     directions = np.random.randn(num_inliers, 3)
     directions = directions / np.linalg.norm(directions, axis=1, keepdims=True)
@@ -148,7 +148,7 @@ def test_with_known_ratio():
         f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {metric_result.keys()}"
     
     # The result should be exactly equal to the target ratio
-    assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 1e-5, \
+    assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 1/num_points, \
         f"Metric: {metric_result['inlier_ratio'].item()}, Expected: {target_ratio}"
     
     # Verify that the inlier mask and indices match our expectations
