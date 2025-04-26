@@ -71,8 +71,6 @@ def test_with_known_ratio():
     # Parameters
     num_points = 100
     threshold = 0.5  # Distance threshold for inliers
-    noise_scale_inlier = threshold * 0.8  # Noise for inliers (80% of threshold)
-    noise_scale_outlier = threshold * 2.0  # Noise for outliers (200% of threshold)
     
     # Create source points with guaranteed minimum separation
     # Use a grid-based approach to ensure points are well-separated
@@ -91,13 +89,25 @@ def test_with_known_ratio():
     # Create target point cloud
     target_np = np.zeros_like(source_np)
     
-    # First num_inliers points are inliers (close to source)
-    # Add noise that's guaranteed to be less than threshold
-    target_np[:num_inliers] = source_np[:num_inliers] + np.random.randn(num_inliers, 3) * noise_scale_inlier
+    # For inliers: add noise in a controlled way to ensure distance < threshold
+    for i in range(num_inliers):
+        # Generate random direction
+        direction = np.random.randn(3)
+        direction = direction / np.linalg.norm(direction)
+        # Generate random distance less than threshold
+        distance = np.random.uniform(0, threshold * 0.9)  # 90% of threshold to be safe
+        # Add the noise
+        target_np[i] = source_np[i] + direction * distance
     
-    # Remaining points are outliers (far from source)
-    # Add noise that's guaranteed to be greater than threshold
-    target_np[num_inliers:] = source_np[num_inliers:] + np.random.randn(num_points - num_inliers, 3) * noise_scale_outlier
+    # For outliers: add noise in a controlled way to ensure distance > threshold
+    for i in range(num_inliers, num_points):
+        # Generate random direction
+        direction = np.random.randn(3)
+        direction = direction / np.linalg.norm(direction)
+        # Generate random distance greater than threshold
+        distance = np.random.uniform(threshold * 1.1, threshold * 2.0)  # 110% to 200% of threshold
+        # Add the noise
+        target_np[i] = source_np[i] + direction * distance
     
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
@@ -114,7 +124,7 @@ def test_with_known_ratio():
     assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
         f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {metric_result.keys()}"
     
-    # The result should be very close to the target ratio since we carefully controlled the noise
+    # The result should be very close to the target ratio since we carefully controlled the distances
     assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 1e-5, \
         f"Metric: {metric_result['inlier_ratio'].item()}, Expected: {target_ratio}"
     
