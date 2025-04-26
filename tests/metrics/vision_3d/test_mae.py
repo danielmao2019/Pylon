@@ -42,6 +42,33 @@ def test_basic_functionality(case_name, source, target, expected_mae):
 
 def test_with_random_point_clouds():
     """Test MAE with randomly generated point clouds."""
+    # Generate random point clouds
+    np.random.seed(42)
+    source_np = np.random.randn(100, 3)
+    target_np = np.random.randn(150, 3)
+
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+
+    # Create MAE instance
+    mae = MAE()
+
+    # Compute MAE using the metric class
+    metric_result = mae(source_torch, target_torch)
+
+    # Compute MAE using NumPy implementation for verification
+    numpy_result = compute_mae_numpy(source_np, target_np)
+
+    # Check that the results are approximately equal
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
+    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, \
+        f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
+
+
+def test_with_known_mae():
+    """Test MAE with synthetic inputs having known ground truth scores."""
     # Set random seed for reproducibility
     np.random.seed(42)
     
@@ -75,42 +102,13 @@ def test_with_random_point_clouds():
     # Compute MAE using the metric class
     metric_result = mae(source_torch, target_torch)
     
-    # Compute MAE using NumPy implementation for verification
-    numpy_result = compute_mae_numpy(source_np, target_np)
+    # Compute expected MAE (average of translation distances)
+    expected_mae = np.mean(distances)
     
-    # Check that the results are approximately equal
-    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
-    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, \
-        f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
-
-
-def test_with_known_mae():
-    """Test MAE with synthetic inputs having known ground truth scores."""
-    # Create a source point cloud with well-separated points
-    num_points = 100
-    source_np = np.random.randn(num_points, 3)
-
-    # Create target point cloud with known distance
-    target_np = source_np + np.random.randn(num_points, 3) * 0.5
-
-    # Convert to PyTorch tensors
-    source_torch = torch.tensor(source_np, dtype=torch.float32)
-    target_torch = torch.tensor(target_np, dtype=torch.float32)
-
-    # Create MAE instance
-    mae = MAE()
-
-    # Compute MAE using the metric class
-    metric_result = mae(source_torch, target_torch)
-
-    # Compute expected MAE (approximately 0.5^2 = 0.25 for each point)
-    expected_mae = 0.25
-
     # Check that the results are approximately equal to the expected MAE
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
     assert metric_result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {metric_result.keys()}"
-    assert abs(metric_result['mae'].item() - expected_mae) < 0.1, \
+    assert abs(metric_result['mae'].item() - expected_mae) < 1e-5, \
         f"Metric: {metric_result['mae'].item()}, Expected: {expected_mae}"
 
 
