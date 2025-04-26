@@ -143,9 +143,15 @@ def test_known_distance():
         [2.5, 2.5, 5.0]
     ])
     
-    # Apply a translation that's small enough to not cause points to cross paths
-    translation = np.array([1.0, 1.0, 1.0])
-    translation_magnitude = np.linalg.norm(translation)
+    # Randomly sample a translation magnitude
+    translation_magnitude = np.random.uniform(0.5, 2.0)
+    
+    # Generate a random translation direction and normalize it
+    translation_direction = np.random.randn(3)
+    translation_direction = translation_direction / np.linalg.norm(translation_direction)
+    
+    # Apply the translation
+    translation = translation_direction * translation_magnitude
     
     # Create target point cloud by applying translation to source
     target_np = source_np + translation
