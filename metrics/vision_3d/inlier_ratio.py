@@ -41,11 +41,8 @@ class InlierRatio(PointCloudMetric):
         # Validate and prepare inputs
         y_pred, y_true, N, M = self._validate_and_prepare_inputs(y_pred, y_true)
         
-        # Compute distance matrix
-        dist_matrix = self._compute_distance_matrix(y_pred, y_true)
-        
-        # Find nearest neighbor distances
-        min_dist = torch.min(dist_matrix, dim=1)[0]  # (N,)
+        # Compute distance matrix and find nearest neighbors
+        _, min_dist, _ = self._compute_distance_matrix(y_pred, y_true)
         
         # Count inliers (points within threshold)
         inlier_mask = (min_dist <= self.threshold)  # (N,)
