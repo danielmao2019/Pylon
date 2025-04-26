@@ -86,7 +86,7 @@ def test_with_random_point_clouds():
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
     assert metric_result.keys() == {'mae'}, f"{metric_result.keys()=}"
-    assert abs(torch_result.item() - numpy_result) < 1e-5, f"PyTorch: {torch_result.item()}, NumPy: {numpy_result}"
+    assert abs(metric_result['mae'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['mae'].item()}, NumPy: {numpy_result}"
 
 
 def test_known_distance():
@@ -108,8 +108,13 @@ def test_known_distance():
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
 
-    # Compute MAE using PyTorch implementation
-    torch_result = compute_mae_torch(source_torch, target_torch)
+    # Create MAE instance
+    mae = MAE()
+
+    # Compute MAE using the metric class
+    metric_result = mae(source_torch, target_torch)
 
     # Check that the result is approximately equal to expected
-    assert abs(torch_result.item() - expected_mae) < 1e-3, f"PyTorch: {torch_result.item()}, Expected: {expected_mae}"
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'mae'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['mae'].item() - expected_mae) < 1e-3, f"Metric: {metric_result['mae'].item()}, Expected: {expected_mae}"
