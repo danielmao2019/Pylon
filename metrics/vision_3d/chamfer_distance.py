@@ -39,13 +39,13 @@ class ChamferDistance(PointCloudMetric):
         y_pred, y_true, N, M = self._validate_and_prepare_inputs(y_pred, y_true)
         
         # Compute distance matrix and find nearest neighbors
-        dist_matrix, min_dist_pred_to_true, _ = self._compute_distance_matrix(y_pred, y_true)
+        dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(y_pred, y_true)
         
         if self.bidirectional:
             # Compute distances from y_true to y_pred
-            _, min_dist_true_to_pred, _ = self._compute_distance_matrix(y_true, y_pred)
-            chamfer_dist = torch.mean(min_dist_pred_to_true) + torch.mean(min_dist_true_to_pred)
+            _, min_distances_reverse, _ = self._compute_distance_matrix(y_true, y_pred)
+            chamfer_dist = torch.mean(min_distances) + torch.mean(min_distances_reverse)
         else:
-            chamfer_dist = torch.mean(min_dist_pred_to_true)
+            chamfer_dist = torch.mean(min_distances)
         
         return {"chamfer_distance": chamfer_dist}
