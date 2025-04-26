@@ -65,39 +65,63 @@ def test_with_random_point_clouds():
 
 def test_with_known_ratio():
     """Test inlier ratio with synthetic inputs having known ground truth scores."""
-    # Create a source point cloud with well-separated points
+    # Set random seed for reproducibility
+    np.random.seed(42)
+    
+    # Parameters
     num_points = 100
-    source_np = np.random.randn(num_points, 3)
-
+    threshold = 0.5  # Distance threshold for inliers
+    noise_scale_inlier = threshold * 0.8  # Noise for inliers (80% of threshold)
+    noise_scale_outlier = threshold * 2.0  # Noise for outliers (200% of threshold)
+    
+    # Create source points with guaranteed minimum separation
+    # Use a grid-based approach to ensure points are well-separated
+    grid_size = int(np.ceil(np.cbrt(num_points)))
+    x = np.linspace(-1, 1, grid_size)
+    y = np.linspace(-1, 1, grid_size)
+    z = np.linspace(-1, 1, grid_size)
+    xx, yy, zz = np.meshgrid(x, y, z)
+    source_np = np.stack([xx.flatten(), yy.flatten(), zz.flatten()], axis=1)
+    source_np = source_np[:num_points]  # Take only the needed number of points
+    
     # Randomly sample a target inlier ratio
     target_ratio = np.random.uniform(0.3, 0.7)
-
-    # Create target point cloud with known inlier ratio
-    target_np = np.zeros_like(source_np)
     num_inliers = int(num_points * target_ratio)
     
+    # Create target point cloud
+    target_np = np.zeros_like(source_np)
+    
     # First num_inliers points are inliers (close to source)
-    target_np[:num_inliers] = source_np[:num_inliers] + np.random.randn(num_inliers, 3) * 0.1
+    # Add noise that's guaranteed to be less than threshold
+    target_np[:num_inliers] = source_np[:num_inliers] + np.random.randn(num_inliers, 3) * noise_scale_inlier
     
     # Remaining points are outliers (far from source)
-    target_np[num_inliers:] = source_np[num_inliers:] + np.random.randn(num_points - num_inliers, 3) * 10.0
-
+    # Add noise that's guaranteed to be greater than threshold
+    target_np[num_inliers:] = source_np[num_inliers:] + np.random.randn(num_points - num_inliers, 3) * noise_scale_outlier
+    
     # Convert to PyTorch tensors
     source_torch = torch.tensor(source_np, dtype=torch.float32)
     target_torch = torch.tensor(target_np, dtype=torch.float32)
-
-    # Create InlierRatio instance
-    inlier_ratio = InlierRatio(threshold=0.5)
-
+    
+    # Create InlierRatio instance with the same threshold
+    inlier_ratio = InlierRatio(threshold=threshold)
+    
     # Compute inlier ratio using the metric class
     metric_result = inlier_ratio(source_torch, target_torch)
-
-    # Check that the results are approximately equal to the target ratio
+    
+    # Verify the result
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
     assert metric_result.keys() == {'inlier_ratio', 'inlier_mask', 'inlier_indices'}, \
         f"Expected keys {{'inlier_ratio', 'inlier_mask', 'inlier_indices'}}, got {metric_result.keys()}"
-    assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 0.1, \
+    
+    # The result should be very close to the target ratio since we carefully controlled the noise
+    assert abs(metric_result['inlier_ratio'].item() - target_ratio) < 1e-5, \
         f"Metric: {metric_result['inlier_ratio'].item()}, Expected: {target_ratio}"
+    
+    # Verify that the inlier mask matches our expectations
+    inlier_mask = metric_result['inlier_mask']
+    assert torch.all(inlier_mask[:num_inliers]), "All points marked as inliers should be inliers"
+    assert not torch.any(inlier_mask[num_inliers:]), "All points marked as outliers should be outliers"
 
 
 @pytest.mark.parametrize("case_name,source,target,expected_ratio,raises_error", [
