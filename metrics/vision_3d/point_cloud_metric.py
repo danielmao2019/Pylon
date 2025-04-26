@@ -67,20 +67,3 @@ class PointCloudMetric(SingleTaskMetric):
         min_distances, nearest_indices = torch.min(dist_matrix, dim=1)  # (N,), (N,)
 
         return dist_matrix, min_distances, nearest_indices
-
-    def _remove_batch_dimension_if_needed(
-        self, result: Dict[str, torch.Tensor], is_batched: bool
-    ) -> Dict[str, torch.Tensor]:
-        """
-        Remove batch dimension from results if inputs were unbatched.
-
-        Args:
-            result: Dictionary of results
-            is_batched: Whether inputs were batched
-
-        Returns:
-            Dictionary with batch dimension removed if inputs were unbatched
-        """
-        if not is_batched:
-            return {k: v.squeeze(0) for k, v in result.items()}
-        return result
