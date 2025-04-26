@@ -46,16 +46,19 @@ class PointCloudMetric(SingleTaskMetric):
     
     def _compute_distance_matrix(
         self, y_pred: torch.Tensor, y_true: torch.Tensor
-    ) -> torch.Tensor:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """
-        Compute the distance matrix between two point clouds.
+        Compute the distance matrix between two point clouds and find nearest neighbors.
         
         Args:
             y_pred: Predicted (transformed) point cloud, shape (N, 3)
             y_true: Target point cloud, shape (M, 3)
             
         Returns:
-            Distance matrix of shape (N, M)
+            Tuple containing:
+                - dist_matrix: Distance matrix of shape (N, M)
+                - min_distances: Minimum distances from each point in y_pred to y_true, shape (N,)
+                - nearest_indices: Indices of nearest neighbors in y_true for each point in y_pred, shape (N,)
         """
         # Reshape for computation
         y_pred_expanded = y_pred.unsqueeze(1)  # (N, 1, 3)
@@ -64,7 +67,10 @@ class PointCloudMetric(SingleTaskMetric):
         # Compute distance matrix
         dist_matrix = torch.sqrt(((y_pred_expanded - y_true_expanded) ** 2).sum(dim=2))  # (N, M)
         
-        return dist_matrix
+        # Find nearest neighbors
+        min_distances, nearest_indices = torch.min(dist_matrix, dim=1)  # (N,), (N,)
+        
+        return dist_matrix, min_distances, nearest_indices
     
     def _remove_batch_dimension_if_needed(
         self, result: Dict[str, torch.Tensor], is_batched: bool
