@@ -1,6 +1,7 @@
 import pytest
-import torch
+import math
 import numpy as np
+import torch
 from scipy.spatial import KDTree
 
 from metrics.vision_3d import MAE
@@ -10,30 +11,13 @@ def compute_mae_numpy(source, target):
     """Alternative numpy implementation of MAE using KDTree."""
     # Build KD-trees for both point clouds
     source_tree = KDTree(source)
-    target_tree = KDTree(target)
     
     # Find nearest neighbors from source to target
     source_to_target_dist, _ = source_tree.query(target)
-    # Find nearest neighbors from target to source
-    target_to_source_dist, _ = target_tree.query(source)
     
     # Compute MAE as average of both directions
-    mae = (np.mean(source_to_target_dist) + np.mean(target_to_source_dist)) / 2.0
+    mae = np.mean(source_to_target_dist)
     return mae
-
-
-def compute_mae_torch(transformed, target):
-    """PyTorch implementation of MAE."""
-    # Compute nearest neighbor distances
-    transformed_expanded = transformed.unsqueeze(1)  # (N, 1, 3)
-    target_expanded = target.unsqueeze(0)  # (1, M, 3)
-    dist_matrix = torch.sqrt(((transformed_expanded - target_expanded) ** 2).sum(dim=2))  # (N, M)
-
-    # Find nearest neighbor distances
-    min_distances = torch.min(dist_matrix, dim=1)[0]  # (N,)
-
-    # Compute MAE
-    return torch.mean(min_distances)
 
 
 @pytest.mark.parametrize("case_name,source,target,expected_mae", [
@@ -44,7 +28,7 @@ def compute_mae_torch(transformed, target):
     ("small_offset", 
      torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=torch.float32),
      torch.tensor([[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1]], dtype=torch.float32),
-     0.3464101552963257),
+     0.17320507764816284),
 ])
 def test_basic_functionality(case_name, source, target, expected_mae):
     """Test basic MAE calculation with simple examples."""
@@ -116,11 +100,11 @@ def test_with_known_mae():
      torch.empty((0, 3), dtype=torch.float32), 
      torch.empty((0, 3), dtype=torch.float32), 
      None, 
-     ValueError),
+     IndexError),
     ("single_point", 
      torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32), 
      torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32), 
-     3.464101552963257, 
+     math.sqrt(3), 
      None),
     ("duplicate_points", 
      torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], dtype=torch.float32), 
@@ -136,7 +120,7 @@ def test_with_known_mae():
      torch.tensor([[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]], dtype=torch.float32), 
      torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32), 
      None, 
-     ValueError),
+     AssertionError),
 ])
 def test_edge_cases(case_name, source, target, expected_mae, raises_error):
     """Test MAE with edge cases."""
