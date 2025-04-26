@@ -92,8 +92,8 @@ def test_with_known_distance():
     # Compute Chamfer distance using the metric class
     metric_result = chamfer(source_torch, target_torch)
     
-    # Expected distance is the translation magnitude
-    expected_distance = np.linalg.norm(translation)
+    # Expected distance is twice the translation magnitude (bidirectional)
+    expected_distance = 2 * np.linalg.norm(translation)
     
     # Check that the results are approximately equal to the expected distance
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
