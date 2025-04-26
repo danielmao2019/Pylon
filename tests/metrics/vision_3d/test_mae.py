@@ -88,6 +88,7 @@ def test_with_known_mae():
     
     # Generate random distances for translation (less than max_translation)
     distances = np.random.uniform(0, max_translation * 0.99, num_points)  # 99% to be safe
+    expected_mae = np.mean(distances)
     
     # Apply translations to create target point cloud
     target_np = source_np + directions * distances[:, np.newaxis]
@@ -101,9 +102,6 @@ def test_with_known_mae():
     
     # Compute MAE using the metric class
     metric_result = mae(source_torch, target_torch)
-    
-    # Compute expected MAE (average of translation distances)
-    expected_mae = np.mean(distances)
     
     # Check that the results are approximately equal to the expected MAE
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
