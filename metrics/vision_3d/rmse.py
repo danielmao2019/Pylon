@@ -29,13 +29,13 @@ class RMSE(PointCloudMetric):
         """
         # Validate and prepare inputs
         y_pred, y_true, N, M = self._validate_and_prepare_inputs(y_pred, y_true)
-        
+
         # Compute distance matrix and find nearest neighbors
         dist_matrix, min_distances, nearest_indices = self._compute_distance_matrix(y_pred, y_true)
-        
+
         # Compute RMSE
         rmse = torch.sqrt(torch.mean(min_distances ** 2))
-            
+
         return {
             "rmse": rmse,
             "correspondences": nearest_indices

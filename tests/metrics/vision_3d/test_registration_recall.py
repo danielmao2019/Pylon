@@ -44,11 +44,11 @@ def compute_registration_recall_alt_numpy(estimated_transform, ground_truth_tran
     Alternative implementation to compute registration recall for a single transform pair
     """
     errors = compute_rotation_translation_error_alt_numpy(estimated_transform, ground_truth_transform)
-    
+
     # Determine if registration is successful
-    success = (errors["rotation_error_deg"] < rot_threshold_deg and 
+    success = (errors["rotation_error_deg"] < rot_threshold_deg and
               errors["translation_error_m"] < trans_threshold_m)
-    
+
     return {
         "registration_recall": 1.0 if success else 0.0,
         "rotation_error_deg": errors["rotation_error_deg"],
@@ -321,33 +321,33 @@ def test_multiple_random_transforms():
     # Process each transform pair individually
     metric_results = []
     numpy_results = []
-    
+
     for est_transform, gt_transform in zip(estimated_transforms, ground_truth_transforms):
         # Convert to PyTorch tensors
         est_torch = torch.tensor(est_transform, dtype=torch.float32)
         gt_torch = torch.tensor(gt_transform, dtype=torch.float32)
-        
+
         # Compute using the metric class
         metric_result = registration_recall(est_torch, gt_torch)
         metric_results.append(metric_result)
-        
+
         # Compute using alternative NumPy implementation
         numpy_result = compute_registration_recall_alt_numpy(
             est_transform, gt_transform,
             rot_threshold_deg=rot_threshold_deg, trans_threshold_m=trans_threshold_m
         )
         numpy_results.append(numpy_result)
-    
+
     # Check that the results are approximately equal for each transform pair
     for i, (metric_result, numpy_result) in enumerate(zip(metric_results, numpy_results)):
         # Check rotation error
         assert abs(metric_result["rotation_error_deg"].item() - numpy_result["rotation_error_deg"]) < 1e-2, \
             f"Transform {i}: Metric rotation error: {metric_result['rotation_error_deg'].item()}, NumPy rotation error: {numpy_result['rotation_error_deg']}"
-        
+
         # Check translation error
         assert abs(metric_result["translation_error_m"].item() - numpy_result["translation_error_m"]) < 1e-5, \
             f"Transform {i}: Metric translation error: {metric_result['translation_error_m'].item()}, NumPy translation error: {numpy_result['translation_error_m']}"
-        
+
         # Check registration recall
         assert abs(metric_result["registration_recall"].item() - numpy_result["registration_recall"]) < 1e-5, \
             f"Transform {i}: Metric registration recall: {metric_result['registration_recall'].item()}, NumPy registration recall: {numpy_result['registration_recall']}"
