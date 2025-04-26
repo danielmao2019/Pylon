@@ -1,3 +1,4 @@
+import pytest
 import torch
 import numpy as np
 from scipy.spatial import KDTree
@@ -5,103 +6,36 @@ from scipy.spatial import KDTree
 from metrics.vision_3d import ChamferDistance
 
 
-def compute_chamfer_distance_numpy(transformed, target):
-    """Original numpy implementation of chamfer distance."""
-    kdtree_source = KDTree(transformed)
-    kdtree_target = KDTree(target)
-
-    # Distance from transformed to target
-    dist_source_to_target, _ = kdtree_target.query(transformed)
-
-    # Distance from target to transformed
-    dist_target_to_source, _ = kdtree_source.query(target)
-
-    # The Chamfer Distance is the sum of means
-    return np.mean(dist_source_to_target) + np.mean(dist_target_to_source)
+def compute_chamfer_distance_numpy(source, target):
+    """Original numpy implementation of Chamfer distance."""
+    kdtree = KDTree(target)
+    distances_source_to_target, _ = kdtree.query(source)
+    kdtree = KDTree(source)
+    distances_target_to_source, _ = kdtree.query(target)
+    return np.mean(distances_source_to_target) + np.mean(distances_target_to_source)
 
 
-def compute_chamfer_distance_unidirectional_numpy(source, target):
-    """Original numpy implementation of unidirectional chamfer distance."""
-    kdtree_target = KDTree(target)
-    dist_source_to_target, _ = kdtree_target.query(source)
-    return np.mean(dist_source_to_target)
-
-
-def test_chamfer_distance_bidirectional():
-    """Test bidirectional Chamfer distance implementation."""
-    # Create sample point clouds
-    source_np = np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [1.0, 1.0, 0.0]
-    ])
-    target_np = np.array([
-        [0.1, 0.1, 0.1],
-        [1.1, 0.1, 0.1],
-        [0.1, 1.1, 0.1],
-        [1.1, 1.1, 0.1],
-        [0.5, 0.5, 0.5]  # Additional point
-    ])
-
-    # Convert to PyTorch tensors
-    source_torch = torch.tensor(source_np, dtype=torch.float32)
-    target_torch = torch.tensor(target_np, dtype=torch.float32)
-
-    # Create ChamferDistance instance
-    chamfer_distance = ChamferDistance(bidirectional=True)
-
-    # Compute Chamfer distance using the metric class
-    metric_result = chamfer_distance(source_torch, target_torch)
-
-    # Compute Chamfer distance using NumPy implementation for verification
-    numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
-
-    # Check that the results are approximately equal
-    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'chamfer_distance'}, f"{metric_result.keys()=}"
-    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
-
-
-def test_chamfer_distance_unidirectional():
-    """Test unidirectional Chamfer distance implementation."""
-    # Create sample point clouds
-    source_np = np.array([
-        [0.0, 0.0, 0.0],
-        [1.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0],
-        [1.0, 1.0, 0.0]
-    ])
-    target_np = np.array([
-        [0.1, 0.1, 0.1],
-        [1.1, 0.1, 0.1],
-        [0.1, 1.1, 0.1],
-        [1.1, 1.1, 0.1],
-        [0.5, 0.5, 0.5]  # Additional point
-    ])
-
-    # Convert to PyTorch tensors
-    source_torch = torch.tensor(source_np, dtype=torch.float32)
-    target_torch = torch.tensor(target_np, dtype=torch.float32)
-
-    # Create ChamferDistance instance with unidirectional=True
-    chamfer_distance = ChamferDistance(bidirectional=False)
-
-    # Compute unidirectional Chamfer distance using the metric class
-    metric_result = chamfer_distance(source_torch, target_torch)
-
-    # Compute unidirectional Chamfer distance using NumPy implementation for verification
-    numpy_result = compute_chamfer_distance_unidirectional_numpy(source_np, target_np)
-
-    # Check that the results are approximately equal
-    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
-    assert metric_result.keys() == {'chamfer_distance'}, f"{metric_result.keys()=}"
-    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
+@pytest.mark.parametrize("case_name,source,target,expected_distance", [
+    ("perfect_match", 
+     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]], dtype=torch.float32),
+     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]], dtype=torch.float32),
+     0.0),
+    ("small_offset", 
+     torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]], dtype=torch.float32),
+     torch.tensor([[0.1, 0.1, 0.1], [1.1, 0.1, 0.1], [0.1, 1.1, 0.1], [1.1, 1.1, 0.1]], dtype=torch.float32),
+     0.1 * np.sqrt(3)),
+])
+def test_basic_functionality(case_name, source, target, expected_distance):
+    """Test basic Chamfer distance calculation with simple examples."""
+    chamfer = ChamferDistance()
+    result = chamfer(source, target)
+    assert abs(result['chamfer_distance'].item() - expected_distance) < 1e-5, \
+        f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"
 
 
 def test_with_random_point_clouds():
-    """Test with randomly generated point clouds."""
-    # Generate random point clouds of different sizes
+    """Test Chamfer distance with randomly generated point clouds."""
+    # Generate random point clouds
     np.random.seed(42)
     source_np = np.random.randn(100, 3)
     target_np = np.random.randn(150, 3)
@@ -111,10 +45,10 @@ def test_with_random_point_clouds():
     target_torch = torch.tensor(target_np, dtype=torch.float32)
 
     # Create ChamferDistance instance
-    chamfer_distance = ChamferDistance(bidirectional=True)
+    chamfer = ChamferDistance()
 
     # Compute Chamfer distance using the metric class
-    metric_result = chamfer_distance(source_torch, target_torch)
+    metric_result = chamfer(source_torch, target_torch)
 
     # Compute Chamfer distance using NumPy implementation for verification
     numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
@@ -122,4 +56,91 @@ def test_with_random_point_clouds():
     # Check that the results are approximately equal
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
     assert metric_result.keys() == {'chamfer_distance'}, f"{metric_result.keys()=}"
-    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
+    assert abs(metric_result['chamfer_distance'].item() - numpy_result) < 1e-5, \
+        f"Metric: {metric_result['chamfer_distance'].item()}, NumPy: {numpy_result}"
+
+
+def test_with_known_distance():
+    """Test Chamfer distance with synthetic inputs having known ground truth scores."""
+    # Create a source point cloud with well-separated points
+    num_points = 5
+    source_np = np.array([
+        [0.0, 0.0, 0.0],
+        [5.0, 0.0, 0.0],
+        [0.0, 5.0, 0.0],
+        [5.0, 5.0, 0.0],
+        [2.5, 2.5, 5.0]
+    ])
+
+    # Randomly sample a translation magnitude
+    translation_magnitude = np.random.uniform(0.5, 2.0)
+
+    # Generate a random translation direction and normalize it
+    translation_direction = np.random.randn(3)
+    translation_direction = translation_direction / np.linalg.norm(translation_direction)
+
+    # Apply the translation
+    translation = translation_direction * translation_magnitude
+
+    # Create target point cloud by applying translation to source
+    target_np = source_np + translation
+
+    # Convert to PyTorch tensors
+    source_torch = torch.tensor(source_np, dtype=torch.float32)
+    target_torch = torch.tensor(target_np, dtype=torch.float32)
+
+    # Create ChamferDistance instance
+    chamfer = ChamferDistance()
+
+    # Compute Chamfer distance using the metric class
+    metric_result = chamfer(source_torch, target_torch)
+
+    # With well-separated points and a translation that doesn't cause points to cross paths,
+    # the Chamfer distance should be exactly equal to the translation magnitude
+    expected_distance = translation_magnitude
+
+    # Check that the results are approximately equal
+    assert isinstance(metric_result, dict), f"{type(metric_result)=}"
+    assert metric_result.keys() == {'chamfer_distance'}, f"{metric_result.keys()=}"
+    assert abs(metric_result['chamfer_distance'].item() - expected_distance) < 1e-5, \
+        f"Metric: {metric_result['chamfer_distance'].item()}, Expected: {expected_distance}"
+
+
+@pytest.mark.parametrize("case_name,source,target,expected_distance,raises_error", [
+    ("empty_point_clouds", 
+     torch.empty((0, 3), dtype=torch.float32), 
+     torch.empty((0, 3), dtype=torch.float32), 
+     None, 
+     ValueError),
+    ("single_point", 
+     torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32), 
+     torch.tensor([[1.0, 1.0, 1.0]], dtype=torch.float32), 
+     np.sqrt(3), 
+     None),
+    ("duplicate_points", 
+     torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=torch.float32), 
+     torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32), 
+     0.0, 
+     None),
+    ("extreme_values", 
+     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32), 
+     torch.tensor([[1e6, 1e6, 1e6], [-1e6, -1e6, -1e6]], dtype=torch.float32), 
+     0.0, 
+     None),
+    ("nan_values", 
+     torch.tensor([[0.0, 0.0, 0.0], [float('nan'), float('nan'), float('nan')]], dtype=torch.float32), 
+     torch.tensor([[1.0, 1.0, 1.0], [1.0, 1.0, 1.0]], dtype=torch.float32), 
+     None, 
+     ValueError),
+])
+def test_edge_cases(case_name, source, target, expected_distance, raises_error):
+    """Test Chamfer distance with edge cases."""
+    chamfer = ChamferDistance()
+    
+    if raises_error:
+        with pytest.raises(raises_error):
+            chamfer(source, target)
+    else:
+        result = chamfer(source, target)
+        assert abs(result['chamfer_distance'].item() - expected_distance) < 1e-5, \
+            f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"
