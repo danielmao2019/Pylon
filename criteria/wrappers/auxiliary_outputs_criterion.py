@@ -1,4 +1,4 @@
-from typing import Sequence, Dict, Union, Optional
+from typing import Sequence, Dict, Union, Optional, Any
 import torch
 from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
