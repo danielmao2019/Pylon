@@ -6,17 +6,17 @@ from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import D
 class CEDiceLoss(HybridCriterion):
     """
     Combined Cross-Entropy and Dice Loss for semantic segmentation tasks.
-    
+
     This loss combines the standard Cross-Entropy loss with the Dice loss
     to benefit from both:
     - Cross-Entropy provides good gradients for accurate per-pixel classification
     - Dice loss handles class imbalance well and optimizes the IoU metric
-    
+
     This implementation supports:
     - Combined CE and Dice loss (CE + Dice)
     - Class weights to handle class imbalance
     - Ignore value to exclude specific pixel values from loss computation
-    
+
     Attributes:
         ignore_value (int): Value to ignore in loss computation
         reduction (str): How to reduce the loss over the batch dimension ('mean' or 'sum')

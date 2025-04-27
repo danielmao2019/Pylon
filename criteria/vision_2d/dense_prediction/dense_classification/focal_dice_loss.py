@@ -6,17 +6,17 @@ from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import D
 class FocalDiceLoss(HybridCriterion):
     """
     Combined Focal and Dice Loss for semantic segmentation tasks.
-    
+
     This loss combines the Focal Loss with the Dice loss to benefit from both:
     - Focal Loss helps handle class imbalance by down-weighting easy examples
     - Dice loss optimizes the IoU metric and provides good gradients for imbalanced classes
-    
+
     This implementation supports:
     - Combined Focal and Dice loss (Focal + Dice)
     - Class weights to handle class imbalance
     - Ignore value to exclude specific pixel values from loss computation
     - Gamma parameter for Focal Loss to control the focusing effect
-    
+
     Attributes:
         reduction (str): How to reduce the loss over the batch dimension ('mean' or 'sum')
         class_weights (Optional[torch.Tensor]): Optional weights for each class

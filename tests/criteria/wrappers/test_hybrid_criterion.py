@@ -99,7 +99,7 @@ def test_buffer_behavior(criteria_cfg, sample_tensor):
     for component_criterion in criterion.criteria:
         assert component_criterion.use_buffer is False
         assert not hasattr(component_criterion, 'buffer')
-    
+
     # Test update
     loss1 = criterion(y_pred=sample_tensor, y_true=torch.randn_like(sample_tensor))
     assert criterion.use_buffer is True
@@ -108,7 +108,7 @@ def test_buffer_behavior(criteria_cfg, sample_tensor):
     for component_criterion in criterion.criteria:
         assert component_criterion.use_buffer is False
         assert not hasattr(component_criterion, 'buffer')
-    
+
     # Test reset
     criterion.reset_buffer()
     assert criterion.use_buffer is True

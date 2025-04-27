@@ -126,13 +126,13 @@ class HungarianMatcher(nn.Module):
             out_prob = outputs["pred_logits"][b].softmax(-1)  # [num_queries, num_classes+1]
             out_mask = outputs["pred_masks"][b]  # [num_queries, H_pred, W_pred]
 
-            tgt_ids = targets[b]["labels"] # [1,2,3, ……]            
+            tgt_ids = targets[b]["labels"] # [1,2,3, ……]
             tgt_mask = targets[b]["masks"].to(out_mask) # [c, h, w] c = len(tgt_ids)
 
             # Compute the classification cost. Contrary to the loss, we don't use the NLL,
             # but approximate it in 1 - proba[target class].
             # The 1 is a constant that doesn't change the matching, it can be ommitted.
-            cost_class = -out_prob[:, tgt_ids] # [num_queries, num_total_targets]             
+            cost_class = -out_prob[:, tgt_ids] # [num_queries, num_total_targets]
 
             #===========================Mask2Former方式====================================#
             # out_mask = out_mask[:, None] # [num_queries, 1, H_pred, W_pred]
@@ -151,7 +151,7 @@ class HungarianMatcher(nn.Module):
             #     out_mask,
             #     point_coords.repeat(out_mask.shape[0], 1, 1),
             #     align_corners=False,
-            # ).squeeze(1) # [num_queries, self.num_points]            
+            # ).squeeze(1) # [num_queries, self.num_points]
             #===========================end====================================#
 
             #===========================MaskFormer方式====================================#
@@ -167,7 +167,7 @@ class HungarianMatcher(nn.Module):
 
                 # Compute the dice loss betwen masks
                 cost_dice = batch_dice_loss(out_mask, tgt_mask)
-            
+
             # Final cost matrix
             C = (
                 self.cost_mask * cost_mask
@@ -175,7 +175,7 @@ class HungarianMatcher(nn.Module):
                 + self.cost_dice * cost_dice
             )
             C = C.reshape(num_queries, -1).cpu() # [num_queries, num_total_targets]
-            
+
             C=np.nan_to_num(C)
 
             indices.append(linear_sum_assignment(C))

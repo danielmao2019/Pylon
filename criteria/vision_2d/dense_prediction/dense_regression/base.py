@@ -7,13 +7,13 @@ from criteria.vision_2d.dense_prediction.base import DensePredictionCriterion
 class DenseRegressionCriterion(DensePredictionCriterion):
     """
     Base class for dense regression tasks.
-    
+
     This class extends DensePredictionCriterion with functionality specific to
     regression tasks, such as:
     - Handling continuous target values
     - Computing per-channel losses
     - Optional normalization of predictions and targets
-    
+
     Attributes:
         ignore_value (float): Value to ignore in loss computation
         reduction (str): How to reduce the loss over the batch dimension ('mean' or 'sum')
@@ -28,7 +28,7 @@ class DenseRegressionCriterion(DensePredictionCriterion):
     ) -> None:
         """
         Initialize the criterion.
-        
+
         Args:
             ignore_value: Value to ignore in loss computation. Defaults to inf.
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
@@ -53,7 +53,7 @@ class DenseRegressionCriterion(DensePredictionCriterion):
             y_pred: Prediction tensor of shape (N, C, H, W)
             y_true: Ground truth tensor of shape (N, C, H, W)
             valid_mask: Boolean tensor of shape (N, H, W), True for valid pixels
-            
+
         Returns:
             Loss tensor of shape (N,) containing per-sample losses
         """

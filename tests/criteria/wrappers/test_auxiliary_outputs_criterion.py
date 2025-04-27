@@ -77,7 +77,7 @@ def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
     assert hasattr(criterion, 'buffer') and criterion.buffer == []
     assert criterion.criterion.use_buffer is False
     assert not hasattr(criterion.criterion, 'buffer')
-    
+
     # Test update
     loss1 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
     assert criterion.use_buffer is True
@@ -85,7 +85,7 @@ def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
     assert criterion.buffer[0].equal(loss1.detach().cpu())
     assert criterion.criterion.use_buffer is False
     assert not hasattr(criterion.criterion, 'buffer')
-    
+
     # Test reset
     criterion.reset_buffer()
     assert criterion.use_buffer is True

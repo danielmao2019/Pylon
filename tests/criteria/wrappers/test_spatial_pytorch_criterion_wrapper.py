@@ -77,14 +77,14 @@ def test_buffer_behavior(base_criterion, sample_tensor):
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and criterion.buffer == []
     assert not isinstance(criterion.criterion, BaseCriterion)
-    
+
     # Test update
     loss1 = criterion(y_pred=sample_tensor, y_true=torch.randn_like(sample_tensor))
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
     assert criterion.buffer[0].equal(loss1.detach().cpu())
     assert not isinstance(criterion.criterion, BaseCriterion)
-    
+
     # Test reset
     criterion.reset_buffer()
     assert criterion.use_buffer is True
