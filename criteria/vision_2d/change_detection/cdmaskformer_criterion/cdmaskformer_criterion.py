@@ -94,5 +94,5 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
                 # remove this loss if not specified in `weight_dict`
                 losses.pop(k)
         loss = loss_ce + loss_dice + loss_mask
-        self.buffer.append(loss.detach().cpu())
+        self.add_to_buffer(loss)
         return loss

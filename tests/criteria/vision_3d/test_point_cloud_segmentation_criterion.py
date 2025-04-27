@@ -10,19 +10,19 @@ from criteria.vision_3d.point_cloud_segmentation_criterion import PointCloudSegm
 ])
 def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes, ignore_value, class_weights):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     # Initialize criterion and move to device
     criterion = PointCloudSegmentationCriterion(
         ignore_value=ignore_value,
         class_weights=class_weights,
     ).to(device)
-    
+
     # Create dummy predictions and targets
     y_pred = torch.randn(batch_size * num_points, num_classes).to(device)
     if ignore_value is not None:
         # Add some ignored points
         y_true = torch.randint(
-            low=ignore_value, high=num_classes, 
+            low=ignore_value, high=num_classes,
             size=(batch_size * num_points,)
         ).to(device)
     else:
@@ -33,7 +33,7 @@ def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes,
 
     # Compute loss
     loss = criterion(y_pred, y_true)
-    
+
     # Basic checks
     assert isinstance(loss, torch.Tensor)
     assert loss.shape == ()  # Scalar output
@@ -49,10 +49,10 @@ def test_point_cloud_segmentation_criterion(batch_size, num_points, num_classes,
 def test_invalid_shapes(invalid_shape):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     criterion = PointCloudSegmentationCriterion().to(device)
-    
+
     y_pred = torch.randn(*invalid_shape[0]).to(device)
     y_true = torch.randint(0, 3, invalid_shape[1]).to(device)
-    
+
     with pytest.raises(AssertionError):
         criterion(y_pred, y_true)
 
@@ -61,28 +61,28 @@ def test_class_weights():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     num_classes = 3
     class_weights = (1.0, 2.0, 0.5)
-    
+
     criterion = PointCloudSegmentationCriterion(
         class_weights=class_weights,
     ).to(device)
-    
+
     # Verify that the weights are set correctly in the criterion
     assert criterion.criterion.weight is not None, "Class weights not set"
-    
+
     # Convert raw weights to normalized weights that sum to 1
     raw_weights = torch.tensor(class_weights, dtype=torch.float32)
     normalized_weights = raw_weights / raw_weights.sum()
-    
+
     assert torch.allclose(
         criterion.criterion.weight,
         normalized_weights.to(device)
     ), "Class weights not set correctly"
-    
+
     # Create predictions and targets
     batch_size = 100
     y_pred = torch.randn(batch_size, num_classes).to(device)
     y_true = torch.randint(0, num_classes, (batch_size,)).to(device)
-    
+
     # Verify that we can compute a loss without errors
     loss = criterion(y_pred, y_true)
     assert isinstance(loss, torch.Tensor)
@@ -101,7 +101,7 @@ def test_point_cloud_segmentation_with_class_weights():
     # Create two batches of predictions with errors in different classes
     y_true_1 = torch.full((num_points,), fill_value=2)  # All points belong to last class (highly weighted)
     y_true_2 = torch.full((num_points,), fill_value=0)  # All points belong to first class (lower weight)
-    
+
     # Same wrong predictions for both cases
     y_pred = torch.zeros(num_points, num_classes)
     y_pred[:, 0] = 5.0  # Strong prediction for first class
@@ -110,7 +110,7 @@ def test_point_cloud_segmentation_with_class_weights():
 
     # Loss when wrong on the highly weighted class
     loss_high_weight = criterion(y_pred, y_true_1)
-    
+
     # Loss when wrong on the lower weighted class
     loss_low_weight = criterion(y_pred, y_true_2)
 

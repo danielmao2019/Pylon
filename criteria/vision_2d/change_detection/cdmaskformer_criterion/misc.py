@@ -241,7 +241,7 @@ class ADEVisualize(object):
     def show_result(self, img, pred, save_path=None):
         pred = np.int32(pred)
         # colorize prediction
-        pred_color = self.colorEncode(pred, self.colors)        
+        pred_color = self.colorEncode(pred, self.colors)
         pil_img = img.convert('RGBA')
         pred_color = Image.fromarray(pred_color).convert('RGBA')
         im_vis = Image.blend(pil_img, pred_color, 0.6)

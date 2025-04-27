@@ -1,6 +1,7 @@
-from typing import Sequence, Dict, Union, Optional
+from typing import Sequence, Dict, Union, Optional, Any
 import torch
-from .single_task_criterion import SingleTaskCriterion
+from criteria.base_criterion import BaseCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.builders import build_from_config
 
 
@@ -10,11 +11,20 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
 
     REDUCTION_OPTIONS = ['sum', 'mean']
 
-    def __init__(self, criterion_cfg: dict, reduction: Optional[str] = 'sum') -> None:
-        super(AuxiliaryOutputsCriterion, self).__init__()
-        self.criterion = build_from_config(config=criterion_cfg)
+    def __init__(
+        self,
+        criterion_cfg: Dict[str, Dict[str, Any]],
+        reduction: Optional[str] = 'sum',
+        **kwargs,
+    ) -> None:
+        super(AuxiliaryOutputsCriterion, self).__init__(**kwargs)
         assert reduction in self.REDUCTION_OPTIONS
         self.reduction = reduction
+        # Build criterion as submodule
+        criterion_cfg['args']['use_buffer'] = False  # Disable buffer for component criterion
+        criterion = build_from_config(config=criterion_cfg)
+        self.register_module('criterion', criterion)
+        assert isinstance(self.criterion, BaseCriterion)
 
     def __call__(
         self,
@@ -29,13 +39,11 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
             f"{[type(elem) for elem in y_pred]}"
         # compute losses
         losses: torch.Tensor = torch.stack([
-            self.criterion(each_y_pred, y_true) for each_y_pred in y_pred
+            self.criterion(y_pred=each_y_pred, y_true=y_true) for each_y_pred in y_pred
         ], dim=0)
         if self.reduction == 'sum':
             loss = losses.sum()
         else:
             loss = losses.mean()
-        assert loss.ndim == 0, f"{loss.shape=}"
-        # log loss
-        self.buffer.append(loss.detach().cpu())
+        self.add_to_buffer(loss)
         return loss

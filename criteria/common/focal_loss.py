@@ -16,6 +16,7 @@ class FocalLoss(SingleTaskCriterion):
         gamma: float = 0.0,
         class_weights: Optional[Union[torch.Tensor, list, tuple, np.ndarray]] = None,
         ignore_value: int = -1,
+        **kwargs,
     ) -> None:
         """
         Initialize Focal Loss.
@@ -26,7 +27,7 @@ class FocalLoss(SingleTaskCriterion):
                 Must be a 1D tensor with length matching the number of classes.
             ignore_value (int): Value to ignore in loss computation (default: -1)
         """
-        super(FocalLoss, self).__init__()
+        super(FocalLoss, self).__init__(**kwargs)
 
         # Initialize gamma
         assert isinstance(gamma, (int, float)) and gamma >= 0, "gamma must be a non-negative number"

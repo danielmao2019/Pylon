@@ -11,6 +11,5 @@ class SymmetricChangeDetectionCriterion(SemanticSegmentationCriterion):
         loss_12 = self.criterion(y_pred['change_map_12'], y_true['change_map'])
         loss_21 = self.criterion(y_pred['change_map_21'], y_true['change_map'])
         total_loss = (loss_12 + loss_21) / 2
-        assert total_loss.ndim == 0, f"{total_loss.shape=}"
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss

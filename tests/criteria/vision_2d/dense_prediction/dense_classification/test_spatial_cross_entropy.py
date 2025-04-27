@@ -49,7 +49,7 @@ def test_spatial_cross_entropy_basic(sample_data):
 def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_weights, use_ignore_value):
     """
     Test that our implementation matches PyTorch's cross entropy with various parameter combinations.
-    
+
     Args:
         sample_data: Fixture providing input data
         use_class_weights: Whether to test with class weights
@@ -59,29 +59,29 @@ def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_we
     device = y_pred.device
     num_classes = y_pred.size(1)
     ignore_value = 255 if use_ignore_value else None
-    
+
     # Create class weights if needed
     class_weights = torch.tensor([0.2, 0.3, 0.5], device=device) if use_class_weights else None
-    
+
     # Prepare test data
     if use_ignore_value:
         y_true_modified = y_true.clone()
         y_true_modified[0, 0, 0] = ignore_value  # Set one pixel to ignore_value
     else:
         y_true_modified = y_true
-    
+
     # Initialize our criterion with appropriate parameters
     kwargs = {}
     if class_weights is not None:
         kwargs['class_weights'] = class_weights
     if ignore_value is not None:
         kwargs['ignore_value'] = ignore_value
-    
+
     criterion = SpatialCrossEntropyCriterion(**kwargs).to(device)
-    
+
     # Compute our loss
     our_loss = criterion(y_pred, y_true_modified)
-    
+
     # Compute PyTorch's loss with the same parameters
     pytorch_kwargs = {}
     if class_weights is not None:
@@ -105,7 +105,7 @@ def test_spatial_cross_entropy_vs_pytorch_parametrized(sample_data, use_class_we
         test_description += "with ignore_value"
     else:
         test_description += "base functionality"
-    
+
     print(test_description)  # This will show in verbose test output
 
 
