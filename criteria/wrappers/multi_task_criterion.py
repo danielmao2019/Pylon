@@ -17,12 +17,16 @@ class MultiTaskCriterion(BaseCriterion):
             for task in criterion_cfgs
         })
         self.task_names = set(criterion_cfgs.keys())
+        self.reset_buffer()
 
     def reset_buffer(self):
         r"""Reset each criterion.
         """
-        for criterion in self.task_criteria.values():
-            criterion.reset_buffer()
+        if hasattr(self, 'task_criteria'):
+            assert isinstance(self.task_criteria, torch.nn.ModuleDict)
+            assert len(self.task_criteria) > 0
+            for criterion in self.task_criteria.values():
+                criterion.reset_buffer()
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         r"""Call each criterion.
