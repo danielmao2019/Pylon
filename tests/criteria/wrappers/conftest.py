@@ -10,8 +10,8 @@ class DummyCriterionWithBuffer(torch.nn.Module):
         self.use_buffer = True
         self.buffer = []
 
-    def forward(self, y_pred, y_true):
-        loss = torch.mean((y_pred - y_true) ** 2 * self.class_weights[0])
+    def forward(self, input, target):
+        loss = torch.mean((input - target) ** 2 * self.class_weights[0])
         if self.use_buffer:
             self.buffer.append(loss.detach().cpu())
         return loss
