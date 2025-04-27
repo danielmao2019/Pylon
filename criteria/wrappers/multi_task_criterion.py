@@ -9,14 +9,14 @@ class MultiTaskCriterion(BaseCriterion):
     __doc__ = r"""This class serves as a container for all criteria needed.
     """
 
-    def __init__(self, criterion_configs: dict) -> None:
+    def __init__(self, criterion_cfgs: dict) -> None:
         super(MultiTaskCriterion, self).__init__()
         # Register criteria as submodules using ModuleDict
         self.task_criteria = torch.nn.ModuleDict({
-            task: build_from_config(config=criterion_configs[task])
-            for task in criterion_configs
+            task: build_from_config(config=criterion_cfgs[task])
+            for task in criterion_cfgs
         })
-        self.task_names = set(criterion_configs.keys())
+        self.task_names = set(criterion_cfgs.keys())
 
     def reset_buffer(self):
         r"""Reset each criterion.

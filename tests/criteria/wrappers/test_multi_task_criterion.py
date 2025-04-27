@@ -1,5 +1,6 @@
 import pytest
 import torch
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 from criteria.wrappers.multi_task_criterion import MultiTaskCriterion
 
 
@@ -8,12 +9,16 @@ def criterion_configs():
     """Create criterion configs for testing."""
     return {
         'task1': {
-            'class': torch.nn.MSELoss,
-            'args': {}
+            'class': PyTorchCriterionWrapper,
+            'args': {
+                'criterion': torch.nn.MSELoss()
+            }
         },
         'task2': {
-            'class': torch.nn.L1Loss,
-            'args': {}
+            'class': PyTorchCriterionWrapper,
+            'args': {
+                'criterion': torch.nn.L1Loss()
+            }
         }
     }
 
@@ -21,7 +26,7 @@ def criterion_configs():
 @pytest.fixture
 def criterion(criterion_configs):
     """Create a MultiTaskCriterion instance for testing."""
-    return MultiTaskCriterion(criterion_configs=criterion_configs)
+    return MultiTaskCriterion(criterion_cfgs=criterion_configs)
 
 
 def test_initialization(criterion):
