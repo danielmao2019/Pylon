@@ -30,7 +30,7 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
             f"{[type(elem) for elem in y_pred]}"
         # compute losses
         losses: torch.Tensor = torch.stack([
-            self.criterion(each_y_pred, y_true) for each_y_pred in y_pred
+            self.criterion(y_pred=each_y_pred, y_true=y_true) for each_y_pred in y_pred
         ], dim=0)
         if self.reduction == 'sum':
             loss = losses.sum()
