@@ -1,5 +1,6 @@
 import pytest
 import torch
+from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.spatial_pytorch_criterion_wrapper import SpatialPyTorchCriterionWrapper
 
 
@@ -75,20 +76,17 @@ def test_buffer_behavior(base_criterion, sample_tensor):
     criterion = SpatialPyTorchCriterionWrapper(criterion=base_criterion)
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and criterion.buffer == []
-    assert criterion.criterion.use_buffer is False
-    assert not hasattr(criterion.criterion, 'buffer')
+    assert not isinstance(criterion.criterion, BaseCriterion)
     
     # Test update
     loss1 = criterion(y_pred=sample_tensor, y_true=torch.randn_like(sample_tensor))
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
     assert criterion.buffer[0].equal(loss1.detach().cpu())
-    assert criterion.criterion.use_buffer is False
-    assert not hasattr(criterion.criterion, 'buffer')
+    assert not isinstance(criterion.criterion, BaseCriterion)
     
     # Test reset
     criterion.reset_buffer()
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and criterion.buffer == []
-    assert criterion.criterion.use_buffer is False
-    assert not hasattr(criterion.criterion, 'buffer')
+    assert not isinstance(criterion.criterion, BaseCriterion)
