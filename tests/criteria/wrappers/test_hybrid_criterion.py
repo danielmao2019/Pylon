@@ -54,7 +54,10 @@ def test_compute_loss_sum(criterion, sample_tensor):
     loss = criterion(y_pred=sample_tensor, y_true=y_true)
 
     # Compute expected loss (sum of both criteria)
-    expected_loss = sum(c(sample_tensor, y_true) for c in criterion.criteria)
+    expected_loss = sum(
+        torch.nn.MSELoss()(input=sample_tensor, target=y_true)
+        for _ in range(len(criterion.criteria))
+    )
 
     # Check that the losses match
     assert loss.item() == expected_loss.item()
@@ -80,7 +83,10 @@ def test_compute_loss_mean(criteria_cfg, sample_tensor):
     loss = criterion_mean(y_pred=sample_tensor, y_true=y_true)
 
     # Compute expected loss (mean of both criteria)
-    expected_loss = sum(c(sample_tensor, y_true) for c in criterion_mean.criteria) / 2
+    expected_loss = sum(
+        torch.nn.MSELoss()(input=sample_tensor, target=y_true)
+        for _ in range(len(criterion_mean.criteria))
+    ) / len(criterion_mean.criteria)
 
     # Check that the losses match
     assert loss.item() == expected_loss.item()
