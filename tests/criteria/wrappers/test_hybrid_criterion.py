@@ -41,8 +41,8 @@ def test_initialization(criterion):
     assert 'criteria' in children
 
     # Test that each criterion is properly registered
-    assert isinstance(criterion.criteria[0], torch.nn.MSELoss)
-    assert isinstance(criterion.criteria[1], torch.nn.L1Loss)
+    assert isinstance(criterion.criteria[0], PyTorchCriterionWrapper)
+    assert isinstance(criterion.criteria[1], PyTorchCriterionWrapper)
 
 
 def test_compute_loss_sum(criterion, sample_tensor):
