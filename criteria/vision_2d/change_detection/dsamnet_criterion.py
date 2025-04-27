@@ -5,9 +5,10 @@ from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import D
 
 
 class BatchBalancedContrastiveLoss:
-    def __init__(self, margin: Union[int, float] = 2.0, ignore_value: int = 255) -> None:
+    def __init__(self, margin: Union[int, float] = 2.0, ignore_value: int = 255, **kwargs) -> None:
         self.margin = margin
         self.ignore_value = ignore_value
+        super(BatchBalancedContrastiveLoss, self).__init__(**kwargs)
 
     def __call__(self, distance: torch.Tensor, label: torch.Tensor) -> torch.Tensor:
         assert distance.ndim == label.ndim == 3

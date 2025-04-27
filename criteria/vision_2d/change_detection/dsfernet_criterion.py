@@ -7,8 +7,8 @@ from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import D
 
 class DsferNetCriterion(SingleTaskCriterion):
 
-    def __init__(self, ignore_value: int = 255, lam: float = 1.0) -> None:
-        super(DsferNetCriterion, self).__init__()
+    def __init__(self, ignore_value: int = 255, lam: float = 1.0, **kwargs) -> None:
+        super(DsferNetCriterion, self).__init__(**kwargs)
         self.ignore_value = ignore_value
         self.lam = lam
         self.pool1 = torch.nn.MaxPool2d(8, stride=8)

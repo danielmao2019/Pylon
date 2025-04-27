@@ -7,8 +7,8 @@ from criteria.vision_2d import SemanticSegmentationCriterion, DiceLoss
 
 class SNUNetCDCriterion(SingleTaskCriterion):
 
-    def __init__(self) -> None:
-        super(SNUNetCDCriterion, self).__init__()
+    def __init__(self, **kwargs) -> None:
+        super(SNUNetCDCriterion, self).__init__(**kwargs)
         self.semantic_criterion = SemanticSegmentationCriterion()
         self.dice_criterion = DiceLoss()
 

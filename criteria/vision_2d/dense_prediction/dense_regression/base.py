@@ -24,6 +24,7 @@ class DenseRegressionCriterion(DensePredictionCriterion):
         self,
         ignore_value: float = float('inf'),
         reduction: str = 'mean',
+        **kwargs,
     ) -> None:
         """
         Initialize the criterion.
@@ -36,6 +37,7 @@ class DenseRegressionCriterion(DensePredictionCriterion):
         super(DenseRegressionCriterion, self).__init__(
             ignore_value=ignore_value,
             reduction=reduction,
+            **kwargs,
         )
 
     def _compute_unreduced_loss(

@@ -28,6 +28,7 @@ class IoULoss(DenseClassificationCriterion):
         ignore_value: int = 255,
         reduction: str = 'mean',
         class_weights: Optional[torch.Tensor] = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the criterion.
@@ -41,7 +42,8 @@ class IoULoss(DenseClassificationCriterion):
         super(IoULoss, self).__init__(
             ignore_value=ignore_value,
             reduction=reduction,
-            class_weights=class_weights
+            class_weights=class_weights,
+            **kwargs,
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:

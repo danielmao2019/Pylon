@@ -7,8 +7,8 @@ from criteria.wrappers import SingleTaskCriterion
 
 class ChangeStarCriterion(SingleTaskCriterion):
 
-    def __init__(self) -> None:
-        super(ChangeStarCriterion, self).__init__()
+    def __init__(self, **kwargs) -> None:
+        super(ChangeStarCriterion, self).__init__(**kwargs)
         self.criterion = criteria.vision_2d.SemanticSegmentationCriterion()
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:

@@ -8,8 +8,8 @@ from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import D
 
 class SRCNetCriterion(SingleTaskCriterion):
 
-    def __init__(self):
-        super(SRCNetCriterion, self).__init__()
+    def __init__(self, **kwargs):
+        super(SRCNetCriterion, self).__init__(**kwargs)
         self.edge_loss = EdgeLoss(KSIZE=7)
         self.focal_loss = SemanticSegmentationCriterion()
         self.dice_loss = DiceLoss()

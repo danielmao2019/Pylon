@@ -24,8 +24,7 @@ class FocalDiceLoss(HybridCriterion):
         gamma (float): Focusing parameter for Focal Loss (default: 0.0)
     """
 
-
-    def __init__(self, combine='sum', class_weights=None, ignore_value=255, gamma=0.0) -> None:
+    def __init__(self, combine='sum', class_weights=None, ignore_value=255, gamma=0.0, **kwargs) -> None:
         criteria_cfg = [
             {
                 'class': FocalLoss,
@@ -44,4 +43,4 @@ class FocalDiceLoss(HybridCriterion):
                 },
             },
         ]
-        super(FocalDiceLoss, self).__init__(combine=combine, criteria_cfg=criteria_cfg)
+        super(FocalDiceLoss, self).__init__(combine=combine, criteria_cfg=criteria_cfg, **kwargs)

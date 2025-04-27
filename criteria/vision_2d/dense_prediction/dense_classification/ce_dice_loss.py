@@ -23,7 +23,7 @@ class CEDiceLoss(HybridCriterion):
         class_weights (Optional[torch.Tensor]): Optional weights for each class
     """
 
-    def __init__(self, combine='sum', class_weights=None, ignore_value=255) -> None:
+    def __init__(self, combine='sum', class_weights=None, ignore_value=255, **kwargs) -> None:
         criteria_cfg = [
             {
                 'class': SemanticSegmentationCriterion,
@@ -42,4 +42,4 @@ class CEDiceLoss(HybridCriterion):
                 },
             },
         ]
-        super(CEDiceLoss, self).__init__(combine=combine, criteria_cfg=criteria_cfg)
+        super(CEDiceLoss, self).__init__(combine=combine, criteria_cfg=criteria_cfg, **kwargs)

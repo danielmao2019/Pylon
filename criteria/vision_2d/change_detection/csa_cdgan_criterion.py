@@ -5,8 +5,8 @@ from criteria.wrappers import SingleTaskCriterion, MultiTaskCriterion
 
 class CSA_CDGAN_GeneratorCriterion(SingleTaskCriterion):
 
-    def __init__(self) -> None:
-        super(CSA_CDGAN_GeneratorCriterion, self).__init__()
+    def __init__(self, **kwargs) -> None:
+        super(CSA_CDGAN_GeneratorCriterion, self).__init__(**kwargs)
         self.l_bce = torch.nn.BCELoss()
         self.l_con = torch.nn.L1Loss()
 

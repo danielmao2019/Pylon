@@ -31,6 +31,7 @@ class SSIMLoss(DenseClassificationCriterion):
         reduction: str = 'mean',
         class_weights: Optional[torch.Tensor] = None,
         window_size: int = 11,
+        **kwargs,
     ) -> None:
         """
         Initialize the criterion.
@@ -45,7 +46,8 @@ class SSIMLoss(DenseClassificationCriterion):
         super(SSIMLoss, self).__init__(
             ignore_value=ignore_value,
             reduction=reduction,
-            class_weights=class_weights
+            class_weights=class_weights,
+            **kwargs,
         )
         
         # Create Gaussian window

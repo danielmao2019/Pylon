@@ -19,6 +19,7 @@ class DepthEstimationCriterion(DenseRegressionCriterion):
     def __init__(
         self,
         reduction: str = 'mean',
+        **kwargs,
     ) -> None:
         """
         Initialize the criterion.
@@ -29,6 +30,7 @@ class DepthEstimationCriterion(DenseRegressionCriterion):
         super(DepthEstimationCriterion, self).__init__(
             ignore_value=0,  # Zero values represent invalid depths
             reduction=reduction,
+            **kwargs,
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:

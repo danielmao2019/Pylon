@@ -28,6 +28,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         ignore_value: int = 255,
         reduction: str = 'mean',
         class_weights: Optional[torch.Tensor | list | tuple | numpy.ndarray] = None,
+        **kwargs,
     ) -> None:
         """
         Initialize the criterion.
@@ -41,6 +42,7 @@ class DenseClassificationCriterion(DensePredictionCriterion):
         super(DenseClassificationCriterion, self).__init__(
             ignore_value=ignore_value,
             reduction=reduction,
+            **kwargs,
         )
 
         # Register class weights as buffer if provided

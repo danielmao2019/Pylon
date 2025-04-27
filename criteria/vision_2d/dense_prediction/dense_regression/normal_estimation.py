@@ -20,6 +20,7 @@ class NormalEstimationCriterion(DenseRegressionCriterion):
     def __init__(
         self,
         reduction: str = 'mean',
+        **kwargs,
     ) -> None:
         """
         Initialize the criterion.
@@ -30,6 +31,7 @@ class NormalEstimationCriterion(DenseRegressionCriterion):
         super(NormalEstimationCriterion, self).__init__(
             ignore_value=0,  # Zero vectors represent invalid normals
             reduction=reduction,
+            **kwargs,
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:

@@ -115,8 +115,8 @@ def isnan(x):
 
 class STMambaBCDCriterion(SingleTaskCriterion):
 
-    def __init__(self) -> None:
-        super(STMambaBCDCriterion, self).__init__()
+    def __init__(self, **kwargs) -> None:
+        super(STMambaBCDCriterion, self).__init__(**kwargs)
         self.ce_loss = SemanticSegmentationCriterion(ignore_value=255)
 
     def __call__(self, y_pred: torch.Tensor, y_true: Dict[str, torch.Tensor]) -> torch.Tensor:

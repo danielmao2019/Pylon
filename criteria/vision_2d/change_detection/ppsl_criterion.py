@@ -5,8 +5,8 @@ import torch
 
 class PPSLCriterion(SingleTaskCriterion):
 
-    def __init__(self) -> None:
-        super(PPSLCriterion, self).__init__()
+    def __init__(self, **kwargs) -> None:
+        super(PPSLCriterion, self).__init__(**kwargs)
         self.change_criterion = torch.nn.CrossEntropyLoss()
         self.semantic_criterion = torch.nn.CrossEntropyLoss()
 

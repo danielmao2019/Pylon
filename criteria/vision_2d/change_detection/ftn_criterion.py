@@ -6,8 +6,8 @@ from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
 
 class FTNCriterion(SingleTaskCriterion):
 
-    def __init__(self, num_classes: Optional[int] = 2) -> None:
-        super(FTNCriterion, self).__init__()
+    def __init__(self, num_classes: Optional[int] = 2, **kwargs) -> None:
+        super(FTNCriterion, self).__init__(**kwargs)
         self.ce_criterion = AuxiliaryOutputsCriterion(SemanticSegmentationCriterion())
         self.ssim_criterion = AuxiliaryOutputsCriterion(SSIMLoss(channels=num_classes))
         self.iou_criterion = AuxiliaryOutputsCriterion(IoULoss())

@@ -28,7 +28,8 @@ class DensePredictionCriterion(SingleTaskCriterion):
     def __init__(
         self,
         ignore_value: Optional[Union[int, float]] = None,
-        reduction: str = 'mean'
+        reduction: str = 'mean',
+        **kwargs,
     ) -> None:
         """
         Initialize the criterion.
@@ -38,7 +39,7 @@ class DensePredictionCriterion(SingleTaskCriterion):
                          provide a default value appropriate for their task.
             reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
         """
-        super(DensePredictionCriterion, self).__init__()
+        super(DensePredictionCriterion, self).__init__(**kwargs)
         
         # Validate and set ignore_value
         if ignore_value is None:
