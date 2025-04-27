@@ -12,7 +12,8 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
 
     def __init__(self, criterion_cfg: dict, reduction: Optional[str] = 'sum') -> None:
         super(AuxiliaryOutputsCriterion, self).__init__()
-        self.criterion = build_from_config(config=criterion_cfg)
+        criterion = build_from_config(config=criterion_cfg)
+        self.register_module('criterion', criterion)
         assert reduction in self.REDUCTION_OPTIONS
         self.reduction = reduction
 

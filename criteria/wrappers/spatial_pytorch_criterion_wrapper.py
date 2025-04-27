@@ -20,7 +20,7 @@ class SpatialPyTorchCriterionWrapper(SingleTaskCriterion):
         """
         super(SpatialPyTorchCriterionWrapper, self).__init__()
         assert callable(criterion), f"criterion must be callable, got {type(criterion)}"
-        self.criterion = criterion
+        self.register_module('criterion', criterion)
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """
