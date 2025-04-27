@@ -25,12 +25,8 @@ class SingleTaskCriterion(BaseCriterion):
             y_true = list(y_true.values())[0]
         assert type(y_true) == torch.Tensor, f"{type(y_true)=}"
         # compute loss
-        loss: torch.Tensor = self._compute_loss(y_pred=y_pred, y_true=y_true)
-        assert type(loss) == torch.Tensor, f"{type(loss)=}"
-        assert loss.ndim == 0, f"{loss.shape=}"
-        # log loss
-        if self.use_buffer:
-            self.buffer.append(loss.detach().cpu())
+        loss = self._compute_loss(y_pred=y_pred, y_true=y_true)
+        self.add_to_buffer(loss)
         return loss
 
     def summarize(self, output_path: Optional[str] = None) -> torch.Tensor:

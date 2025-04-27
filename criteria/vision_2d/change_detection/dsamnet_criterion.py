@@ -51,8 +51,5 @@ class DSAMNetCriterion(SingleTaskCriterion):
 
         # Combine losses
         total_loss = contrastive_loss + self.dice_weight * dice_loss
-        assert total_loss.ndim == 0, "total_loss must be a scalar"
-
-        # Log loss
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss

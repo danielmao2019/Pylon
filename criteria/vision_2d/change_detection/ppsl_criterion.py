@@ -26,6 +26,5 @@ class PPSLCriterion(SingleTaskCriterion):
         )
         metrics_losses = [self._metric_criterion(metric, y_true['change_map']) for metric in y_pred['metrics']]
         total_loss = change_loss + semantic_loss + sum(metrics_losses) / len(metrics_losses)
-        assert total_loss.ndim == 0, f"{total_loss.shape=}"
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss

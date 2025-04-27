@@ -126,7 +126,5 @@ class STMambaBCDCriterion(SingleTaskCriterion):
         ce_loss = self.ce_loss(y_pred, y_true['change_map'])
         lovasz_loss = lovasz_softmax(torch.nn.functional.softmax(y_pred, dim=1), y_true['change_map'], ignore=255)
         total_loss = ce_loss + 0.75 * lovasz_loss
-        assert total_loss.ndim == 0, f"{total_loss.shape=}"
-        # log loss
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss

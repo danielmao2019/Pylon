@@ -45,7 +45,5 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
             loss = losses.sum()
         else:
             loss = losses.mean()
-        assert loss.ndim == 0, f"{loss.shape=}"
-        # log loss
-        self.buffer.append(loss.detach().cpu())
+        self.add_to_buffer(loss)
         return loss

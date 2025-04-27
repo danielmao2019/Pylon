@@ -14,6 +14,16 @@ class BaseCriterion(torch.nn.Module, ABC):
         if self.use_buffer:
             self.buffer: List[Any] = []
 
+    def add_to_buffer(self, value: torch.Tensor) -> None:
+        if self.use_buffer:
+            assert hasattr(self, 'buffer')
+            assert isinstance(self.buffer, list)
+            assert isinstance(value, torch.Tensor), f"{type(value)=}"
+            assert value.ndim == 0, f"{value.shape=}"
+            self.add_to_buffer(value)
+        else:
+            assert not hasattr(self, 'buffer')
+
     @abstractmethod
     def __call__(self, y_pred: Any, y_true: Any) -> Any:
         raise NotImplementedError("Abstract method BaseCriterion.__call__ not implemented.")

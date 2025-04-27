@@ -36,7 +36,5 @@ class DsferNetCriterion(SingleTaskCriterion):
         consistent_loss1 = self.criterion1(y_pred[1], label_4)
         consistent_loss2 = self.criterion2(y_pred[2], label_5)
         loss = ce_loss + self.lam * 0.5 * (consistent_loss1 + consistent_loss2)
-        assert loss.ndim == 0, f"{loss.shape=}"
-        # Log loss
-        self.buffer.append(loss.detach().cpu())
+        self.add_to_buffer(loss)
         return loss

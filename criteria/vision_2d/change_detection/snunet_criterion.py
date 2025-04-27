@@ -19,6 +19,5 @@ class SNUNetCDCriterion(SingleTaskCriterion):
         semantic_loss = self.semantic_criterion(y_pred=y_pred, y_true=y_true['change_map'])
         dice_loss = self.dice_criterion(y_pred=y_pred, y_true=y_true['change_map'])
         total_loss = dice_loss + semantic_loss
-        assert total_loss.numel() == 1, f"{total_loss.shape=}"
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss

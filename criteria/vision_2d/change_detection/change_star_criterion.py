@@ -21,6 +21,5 @@ class ChangeStarCriterion(SingleTaskCriterion):
         change_loss = 0.5 * (change_12_loss + change_21_loss)
         semantic_loss = self.criterion(y_pred=y_pred['semantic'], y_true=y_true['semantic'])
         total_loss = change_loss + semantic_loss
-        assert total_loss.numel() == 1, f"{total_loss.shape=}"
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss
