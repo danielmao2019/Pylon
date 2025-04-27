@@ -5,19 +5,19 @@ from criteria.wrappers.hybrid_criterion import HybridCriterion
 
 
 @pytest.fixture
-def criteria_cfg():
-    """Create criterion configs for testing."""
+def criteria_cfg(dummy_criterion):
+    """Create criterion configs with criteria that have registered buffers."""
     return [
         {
             'class': PyTorchCriterionWrapper,
             'args': {
-                'criterion': torch.nn.MSELoss(),
+                'criterion': dummy_criterion,
             }
         },
         {
             'class': PyTorchCriterionWrapper,
             'args': {
-                'criterion': torch.nn.L1Loss(),
+                'criterion': dummy_criterion,
             }
         }
     ]
@@ -53,10 +53,11 @@ def test_compute_loss_sum(criterion, sample_tensor):
     # Compute loss using the wrapper
     loss = criterion(y_pred=sample_tensor, y_true=y_true)
 
-    # Compute expected loss (sum of MSE and L1)
-    mse_loss = torch.nn.MSELoss()(input=sample_tensor, target=y_true)
-    l1_loss = torch.nn.L1Loss()(input=sample_tensor, target=y_true)
-    expected_loss = mse_loss + l1_loss
+    # Compute expected loss (sum of both criteria)
+    expected_loss = sum(
+        torch.nn.MSELoss()(input=sample_tensor, target=y_true)
+        for _ in range(len(criterion.criteria))
+    )
 
     # Check that the losses match
     assert loss.item() == expected_loss.item()
@@ -81,10 +82,11 @@ def test_compute_loss_mean(criteria_cfg, sample_tensor):
     # Compute loss using the wrapper
     loss = criterion_mean(y_pred=sample_tensor, y_true=y_true)
 
-    # Compute expected loss (mean of MSE and L1)
-    mse_loss = torch.nn.MSELoss()(input=sample_tensor, target=y_true)
-    l1_loss = torch.nn.L1Loss()(input=sample_tensor, target=y_true)
-    expected_loss = (mse_loss + l1_loss) / 2
+    # Compute expected loss (mean of both criteria)
+    expected_loss = sum(
+        torch.nn.MSELoss()(input=sample_tensor, target=y_true)
+        for _ in range(len(criterion_mean.criteria))
+    ) / len(criterion_mean.criteria)
 
     # Check that the losses match
     assert loss.item() == expected_loss.item()
@@ -92,8 +94,10 @@ def test_compute_loss_mean(criteria_cfg, sample_tensor):
 
 def test_buffer_behavior(criteria_cfg, sample_tensor):
     """Test the buffer behavior of HybridCriterion."""
-    # Test initialize
+    # Create a criterion
     criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
+
+    # Test initialize
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and criterion.buffer == []
     for component_criterion in criterion.criteria:
@@ -101,7 +105,8 @@ def test_buffer_behavior(criteria_cfg, sample_tensor):
         assert not hasattr(component_criterion, 'buffer')
 
     # Test update
-    loss1 = criterion(y_pred=sample_tensor, y_true=torch.randn_like(sample_tensor))
+    y_true = torch.randn_like(sample_tensor)
+    loss1 = criterion(y_pred=sample_tensor, y_true=y_true)
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
     assert criterion.buffer[0].equal(loss1.detach().cpu())
@@ -116,3 +121,54 @@ def test_buffer_behavior(criteria_cfg, sample_tensor):
     for component_criterion in criterion.criteria:
         assert component_criterion.use_buffer is False
         assert not hasattr(component_criterion, 'buffer')
+
+
+def test_device_transfer(criteria_cfg, sample_tensor):
+    """Test moving the criterion between CPU and GPU."""
+    # Skip if CUDA is not available
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+
+    # Create a criterion
+    criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
+
+    # Step 1: Test on CPU
+    # Check initial state
+    for component_criterion in criterion.criteria:
+        assert not component_criterion.criterion.class_weights.is_cuda
+    assert len(criterion.buffer) == 0
+
+    # Compute loss on CPU
+    y_true = torch.randn_like(sample_tensor)
+    cpu_loss = criterion(y_pred=sample_tensor, y_true=y_true)
+    assert len(criterion.buffer) == 1
+
+    # Step 2: Move to GPU
+    criterion = criterion.cuda()
+    gpu_input = sample_tensor.cuda()
+    gpu_target = y_true.cuda()
+
+    # Check GPU state
+    for component_criterion in criterion.criteria:
+        assert component_criterion.criterion.class_weights.is_cuda
+    assert len(criterion.buffer) == 1
+
+    # Compute loss on GPU
+    gpu_loss = criterion(y_pred=gpu_input, y_true=gpu_target)
+    assert len(criterion.buffer) == 2
+
+    # Step 3: Move back to CPU
+    criterion = criterion.cpu()
+
+    # Check CPU state
+    for component_criterion in criterion.criteria:
+        assert not component_criterion.criterion.class_weights.is_cuda
+    assert len(criterion.buffer) == 2
+
+    # Compute loss on CPU again
+    cpu_loss2 = criterion(y_pred=sample_tensor, y_true=y_true)
+    assert len(criterion.buffer) == 3
+
+    # Check that all losses are equivalent
+    assert abs(cpu_loss.item() - gpu_loss.item()) < 1e-5
+    assert abs(cpu_loss.item() - cpu_loss2.item()) < 1e-5
