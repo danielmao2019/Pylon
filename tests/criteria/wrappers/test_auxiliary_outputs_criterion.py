@@ -1,5 +1,6 @@
 import pytest
 import torch
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 from criteria.wrappers.auxiliary_outputs_criterion import AuxiliaryOutputsCriterion
 
 
@@ -7,8 +8,10 @@ from criteria.wrappers.auxiliary_outputs_criterion import AuxiliaryOutputsCriter
 def criterion_cfg():
     """Create a simple criterion config for testing."""
     return {
-        'class': torch.nn.MSELoss,
-        'args': {}
+        'class': PyTorchCriterionWrapper,
+        'args': {
+            'criterion': torch.nn.MSELoss()
+        }
     }
 
 
