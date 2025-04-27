@@ -46,3 +46,28 @@ def test_compute_loss(criterion, base_criterion, sample_tensor):
     # Check that loss is in the buffer
     assert len(criterion.buffer) == 1
     assert criterion.buffer[0].equal(loss.detach().cpu())
+
+
+def test_buffer_behavior(base_criterion, sample_tensor):
+    """Test the buffer behavior of PyTorchCriterionWrapper."""
+    # Test initialize
+    criterion = PyTorchCriterionWrapper(criterion=base_criterion)
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')
+    
+    # Test update
+    loss1 = criterion(y_pred=sample_tensor, y_true=torch.randn_like(sample_tensor))
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
+    assert criterion.buffer[0].equal(loss1.detach().cpu())
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')
+    
+    # Test reset
+    criterion.reset_buffer()
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')

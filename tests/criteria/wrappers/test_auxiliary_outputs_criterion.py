@@ -67,3 +67,28 @@ def test_reduction_options(criterion_cfg, sample_tensors, sample_tensor):
 
     # The mean loss should be half of the sum loss
     assert abs(loss_mean.item() - loss_sum.item() / 2) < 1e-5
+
+
+def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
+    """Test the buffer behavior of AuxiliaryOutputsCriterion."""
+    # Test initialize
+    criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')
+    
+    # Test update
+    loss1 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
+    assert criterion.buffer[0].equal(loss1.detach().cpu())
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')
+    
+    # Test reset
+    criterion.reset_buffer()
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')

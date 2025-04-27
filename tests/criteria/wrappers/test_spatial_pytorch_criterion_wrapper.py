@@ -67,3 +67,28 @@ def test_compute_loss_different_resolution(criterion, base_criterion, sample_ten
     # Check that loss is a scalar tensor
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
+
+
+def test_buffer_behavior(base_criterion, sample_tensor):
+    """Test the buffer behavior of SpatialPyTorchCriterionWrapper."""
+    # Test initialize
+    criterion = SpatialPyTorchCriterionWrapper(criterion=base_criterion)
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')
+    
+    # Test update
+    loss1 = criterion(y_pred=sample_tensor, y_true=torch.randn_like(sample_tensor))
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
+    assert criterion.buffer[0].equal(loss1.detach().cpu())
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')
+    
+    # Test reset
+    criterion.reset_buffer()
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    assert criterion.criterion.use_buffer is False
+    assert not hasattr(criterion.criterion, 'buffer')

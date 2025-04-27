@@ -11,7 +11,8 @@ class BaseCriterion(torch.nn.Module, ABC):
         self.reset_buffer()
 
     def reset_buffer(self):
-        self.buffer: List[Any] = [] if self.use_buffer else None
+        if self.use_buffer:
+            self.buffer: List[Any] = []
 
     @abstractmethod
     def __call__(self, y_pred: Any, y_true: Any) -> Any:

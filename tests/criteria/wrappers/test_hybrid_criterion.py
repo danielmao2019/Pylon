@@ -88,3 +88,31 @@ def test_compute_loss_mean(criteria_cfg, sample_tensor):
 
     # Check that the losses match
     assert loss.item() == expected_loss.item()
+
+
+def test_buffer_behavior(criteria_cfg, sample_tensor):
+    """Test the buffer behavior of HybridCriterion."""
+    # Test initialize
+    criterion = HybridCriterion(combine='sum', criteria_cfg=criteria_cfg)
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    for component_criterion in criterion.criteria:
+        assert component_criterion.use_buffer is False
+        assert not hasattr(component_criterion, 'buffer')
+    
+    # Test update
+    loss1 = criterion(y_pred=sample_tensor, y_true=torch.randn_like(sample_tensor))
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
+    assert criterion.buffer[0].equal(loss1.detach().cpu())
+    for component_criterion in criterion.criteria:
+        assert component_criterion.use_buffer is False
+        assert not hasattr(component_criterion, 'buffer')
+    
+    # Test reset
+    criterion.reset_buffer()
+    assert criterion.use_buffer is True
+    assert hasattr(criterion, 'buffer') and criterion.buffer == []
+    for component_criterion in criterion.criteria:
+        assert component_criterion.use_buffer is False
+        assert not hasattr(component_criterion, 'buffer')
