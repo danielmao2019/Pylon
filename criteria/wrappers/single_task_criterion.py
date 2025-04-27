@@ -29,12 +29,15 @@ class SingleTaskCriterion(BaseCriterion):
         assert type(loss) == torch.Tensor, f"{type(loss)=}"
         assert loss.ndim == 0, f"{loss.shape=}"
         # log loss
-        self.buffer.append(loss.detach().cpu())
+        if self.use_buffer:
+            self.buffer.append(loss.detach().cpu())
         return loss
 
     def summarize(self, output_path: Optional[str] = None) -> torch.Tensor:
         r"""This method stacks loss trajectory across all data points in buffer.
         """
+        if not self.use_buffer or self.buffer is None:
+            raise ValueError("Buffer is disabled for this criterion")
         assert len(self.buffer) != 0
         # summarize losses
         result = torch.stack(self.buffer, dim=0)

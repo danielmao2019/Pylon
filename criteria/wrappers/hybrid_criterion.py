@@ -20,12 +20,20 @@ class HybridCriterion(SingleTaskCriterion):
 
     COMBINE_OPTIONS = {'mean', 'sum'}
 
-    def __init__(self, combine: str = 'sum', criteria_cfg: List[Dict[str, Dict[str, Any]]] = None) -> None:
-        super(HybridCriterion, self).__init__()
+    def __init__(
+        self,
+        combine: str = 'sum',
+        criteria_cfg: List[Dict[str, Dict[str, Any]]] = None,
+        **kwargs,
+    ) -> None:
+        super(HybridCriterion, self).__init__(**kwargs)
         assert combine in self.COMBINE_OPTIONS
         self.combine = combine
         # Build criteria as submodules
         assert criteria_cfg is not None and len(criteria_cfg) > 0
+        # Disable buffer for all component criteria
+        for cfg in criteria_cfg:
+            cfg['args']['use_buffer'] = False
         self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in criteria_cfg])
         assert all(isinstance(criterion, BaseCriterion) for criterion in self.criteria)
 

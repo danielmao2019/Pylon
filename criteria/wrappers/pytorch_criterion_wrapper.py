@@ -5,8 +5,12 @@ from criteria.wrappers import SingleTaskCriterion
 
 class PyTorchCriterionWrapper(SingleTaskCriterion):
 
-    def __init__(self, criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]) -> None:
-        super(PyTorchCriterionWrapper, self).__init__()
+    def __init__(
+        self,
+        criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+        **kwargs,
+    ) -> None:
+        super(PyTorchCriterionWrapper, self).__init__(**kwargs)
         assert callable(criterion), f"{type(criterion)=}"
         self.register_module('criterion', criterion)
 

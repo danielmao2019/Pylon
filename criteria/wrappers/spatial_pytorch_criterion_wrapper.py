@@ -11,14 +11,18 @@ class SpatialPyTorchCriterionWrapper(SingleTaskCriterion):
     that operate on spatial data. It handles resolution matching between predictions and ground truth.
     """
 
-    def __init__(self, criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor]) -> None:
+    def __init__(
+        self,
+        criterion: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
+        **kwargs,
+    ) -> None:
         """
         Initialize the criterion wrapper.
 
         Args:
             criterion: PyTorch criterion to wrap
         """
-        super(SpatialPyTorchCriterionWrapper, self).__init__()
+        super(SpatialPyTorchCriterionWrapper, self).__init__(**kwargs)
         assert callable(criterion), f"criterion must be callable, got {type(criterion)}"
         self.register_module('criterion', criterion)
 

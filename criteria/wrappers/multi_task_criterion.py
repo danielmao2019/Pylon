@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Any
 import torch
 from criteria import BaseCriterion
 from utils.input_checks import check_write_file
@@ -9,13 +9,14 @@ class MultiTaskCriterion(BaseCriterion):
     __doc__ = r"""This class serves as a container for all criteria needed.
     """
 
-    def __init__(self, criterion_cfgs: dict) -> None:
-        super(MultiTaskCriterion, self).__init__()
-        # Register criteria as submodules using ModuleDict
+    def __init__(self, criterion_cfgs: Dict[str, Dict[str, Any]], **kwargs) -> None:
+        super(MultiTaskCriterion, self).__init__(**kwargs)
+        # Build criteria as submodules
         self.task_criteria = torch.nn.ModuleDict({
             task: build_from_config(config=criterion_cfgs[task])
             for task in criterion_cfgs
         })
+        assert all(isinstance(criterion, BaseCriterion) for criterion in self.task_criteria.values())
         self.task_names = set(criterion_cfgs.keys())
         self.reset_buffer()
 

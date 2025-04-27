@@ -11,11 +11,17 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
 
     REDUCTION_OPTIONS = ['sum', 'mean']
 
-    def __init__(self, criterion_cfg: dict, reduction: Optional[str] = 'sum') -> None:
-        super(AuxiliaryOutputsCriterion, self).__init__()
+    def __init__(
+        self,
+        criterion_cfg: Dict[str, Dict[str, Any]],
+        reduction: Optional[str] = 'sum',
+        **kwargs,
+    ) -> None:
+        super(AuxiliaryOutputsCriterion, self).__init__(**kwargs)
         assert reduction in self.REDUCTION_OPTIONS
         self.reduction = reduction
         # Build criterion as submodule
+        criterion_cfg['args']['use_buffer'] = False  # Disable buffer for component criterion
         criterion = build_from_config(config=criterion_cfg)
         self.register_module('criterion', criterion)
         assert isinstance(self.criterion, BaseCriterion)
