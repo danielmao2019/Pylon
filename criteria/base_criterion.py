@@ -19,7 +19,7 @@ class BaseCriterion(torch.nn.Module, ABC):
             assert hasattr(self, 'buffer')
             assert isinstance(self.buffer, list)
             assert isinstance(value, torch.Tensor), f"{type(value)=}"
-            assert value.ndim == 0, f"{value.shape=}"
+            assert value.numel() == 1 and value.ndim == 0, f"{value.shape=}"
             self.buffer.append(value.detach().cpu())
         else:
             assert not hasattr(self, 'buffer')
