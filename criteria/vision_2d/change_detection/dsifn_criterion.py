@@ -6,8 +6,8 @@ from criteria.vision_2d import DiceLoss
 
 class DSIFNCriterion(SingleTaskCriterion):
 
-    def __init__(self) -> None:
-        super(DSIFNCriterion, self).__init__()
+    def __init__(self, **kwargs) -> None:
+        super(DSIFNCriterion, self).__init__(**kwargs)
         self.bce_loss = AuxiliaryOutputsCriterion(SpatialPyTorchCriterionWrapper(torch.nn.BCEWithLogitsLoss()))
         self.dice_loss = AuxiliaryOutputsCriterion(DiceLoss())
 
@@ -23,7 +23,5 @@ class DSIFNCriterion(SingleTaskCriterion):
         bce_loss = self.bce_loss(y_pred, y_true.type(torch.float32).unsqueeze(1))
         dice_loss = self.dice_loss(tuple(map(lambda x: torch.cat([1-x, x], dim=1), y_pred)), y_true)
         total_loss = bce_loss + dice_loss
-        assert total_loss.ndim == 0, f"{total_loss.shape=}"
-        # log loss
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss

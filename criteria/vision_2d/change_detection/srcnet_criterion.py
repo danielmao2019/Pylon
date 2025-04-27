@@ -8,8 +8,8 @@ from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import D
 
 class SRCNetCriterion(SingleTaskCriterion):
 
-    def __init__(self):
-        super(SRCNetCriterion, self).__init__()
+    def __init__(self, **kwargs):
+        super(SRCNetCriterion, self).__init__(**kwargs)
         self.edge_loss = EdgeLoss(KSIZE=7)
         self.focal_loss = SemanticSegmentationCriterion()
         self.dice_loss = DiceLoss()
@@ -20,7 +20,7 @@ class SRCNetCriterion(SingleTaskCriterion):
         edge = self.edge_loss(prediction, target)
         return focal / sigmas[0] + dice / sigmas[1] + edge / sigmas[2]
 
-    def __call__(self, y_pred: Tuple[torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         assert isinstance(y_pred, tuple)
         assert len(y_pred) == 4
         assert all(isinstance(x, torch.Tensor) for x in y_pred)
@@ -37,9 +37,7 @@ class SRCNetCriterion(SingleTaskCriterion):
         loss += dif
         loss += torch.sum(torch.log(sigmas)) / 2
 
-        assert loss.ndim == 0, f"{loss.shape=}"
-        # log loss
-        self.buffer.append(loss.detach().cpu())
+        self.add_to_buffer(loss)
         return loss
 
 

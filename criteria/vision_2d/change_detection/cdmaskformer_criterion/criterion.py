@@ -125,7 +125,7 @@ class SetCriterion(nn.Module):
         self.device = device
         empty_weight = torch.ones(self.num_classes + 1).to(device)
         empty_weight[0] = self.eos_coef
-        self.register_buffer("empty_weight", empty_weight)        
+        self.register_buffer("empty_weight", empty_weight)
         # pointwise mask loss parameters
         self.num_points = num_points
         self.oversample_ratio = oversample_ratio
@@ -146,7 +146,7 @@ class SetCriterion(nn.Module):
         loss_ce = F.cross_entropy(src_logits.transpose(1, 2), target_classes, self.empty_weight)
         losses = {"loss_ce": loss_ce}
         return losses
-    
+
     def loss_masks(self, outputs, targets, indices, num_masks):
         """Compute the losses related to the masks: the focal loss and the dice loss.
         targets dicts must contain the key "masks" containing a tensor of dim [nb_target_boxes, h, w]
@@ -155,7 +155,7 @@ class SetCriterion(nn.Module):
 
         src_idx = self._get_src_permutation_idx(indices)
         tgt_idx = self._get_tgt_permutation_idx(indices)
-        src_masks = outputs["pred_masks"] # 
+        src_masks = outputs["pred_masks"] #
         src_masks = src_masks[src_idx]
         masks = [t["masks"] for t in targets]
         # TODO use valid to mask invalid areas due to padding in loss
@@ -164,10 +164,10 @@ class SetCriterion(nn.Module):
         target_masks = target_masks[tgt_idx]
 
         point_logits = src_masks.flatten(1)
-        point_labels = target_masks.flatten(1)       
+        point_labels = target_masks.flatten(1)
 
         losses = {
-            "loss_mask": sigmoid_ce_loss(point_logits, point_labels, num_masks), # sigmoid_focal_loss(point_logits, point_labels, num_masks), # 
+            "loss_mask": sigmoid_ce_loss(point_logits, point_labels, num_masks), # sigmoid_focal_loss(point_logits, point_labels, num_masks), #
             "loss_dice": dice_loss(point_logits, point_labels, num_masks)
         }
 
@@ -244,7 +244,7 @@ class SetCriterion(nn.Module):
             binary_masks = binary_masks[labels]
             targets.append({'masks': binary_masks, 'labels': labels})
         return targets
-        
+
     def __repr__(self):
         head = "Criterion " + self.__class__.__name__
         body = [

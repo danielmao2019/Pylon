@@ -27,7 +27,7 @@ def test_focal_dice_loss_initialization():
     # Test default initialization
     criterion = FocalDiceLoss()
     assert criterion.combine == 'sum'
-    
+
     # Test initialization with custom parameters
     class_weights = torch.ones(2)  # 2 classes
     criterion = FocalDiceLoss(
@@ -107,7 +107,7 @@ def test_focal_dice_loss_with_class_weights(sample_data):
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
     assert loss.item() > 0
-    
+
     # Loss should be different with unequal weights
     assert not torch.isclose(loss, loss_no_weights, rtol=1e-4).item()
 
@@ -179,7 +179,7 @@ def test_focal_dice_loss_input_validation(sample_data):
     # Test out-of-range values in y_true
     y_true_invalid = y_true.clone()
     y_true_invalid[0, 0, 0] = num_classes  # This should be caught by one_hot encoding
-    
+
     # The assertion happens in the one_hot encoding function
     with pytest.raises(AssertionError, match="Found class indices >= \d+ in y_true\."):
         criterion(y_pred, y_true_invalid)
