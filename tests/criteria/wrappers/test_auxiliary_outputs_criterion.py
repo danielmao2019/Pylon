@@ -5,12 +5,12 @@ from criteria.wrappers.auxiliary_outputs_criterion import AuxiliaryOutputsCriter
 
 
 @pytest.fixture
-def criterion_cfg():
-    """Create a simple criterion config for testing."""
+def criterion_cfg(dummy_criterion):
+    """Create a criterion config with a criterion that has registered buffers."""
     return {
         'class': PyTorchCriterionWrapper,
         'args': {
-            'criterion': torch.nn.MSELoss()
+            'criterion': dummy_criterion
         }
     }
 
@@ -71,13 +71,15 @@ def test_reduction_options(criterion_cfg, sample_tensors, sample_tensor):
 
 def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
     """Test the buffer behavior of AuxiliaryOutputsCriterion."""
-    # Test initialize
+    # Create a criterion
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
+    
+    # Test initialize
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and criterion.buffer == []
     assert criterion.criterion.use_buffer is False
     assert not hasattr(criterion.criterion, 'buffer')
-
+    
     # Test update
     loss1 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
     assert criterion.use_buffer is True
@@ -85,7 +87,7 @@ def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
     assert criterion.buffer[0].equal(loss1.detach().cpu())
     assert criterion.criterion.use_buffer is False
     assert not hasattr(criterion.criterion, 'buffer')
-
+    
     # Test reset
     criterion.reset_buffer()
     assert criterion.use_buffer is True
@@ -103,27 +105,45 @@ def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
     # Create a criterion
     criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
     
-    # Move to GPU
-    criterion = criterion.cuda()
-    
-    # Check that the criterion and its component criterion are on GPU
-    assert next(criterion.parameters()).is_cuda
-    assert next(criterion.criterion.parameters()).is_cuda
-    
-    # Compute loss on GPU
-    gpu_tensors = [t.cuda() for t in sample_tensors]
-    gpu_target = sample_tensor.cuda()
-    gpu_loss = criterion(y_pred=gpu_tensors, y_true=gpu_target)
-    
-    # Move back to CPU
-    criterion = criterion.cpu()
-    
-    # Check that the criterion and its component criterion are on CPU
+    # Step 1: Test on CPU
+    # Check initial state
     assert not next(criterion.parameters()).is_cuda
     assert not next(criterion.criterion.parameters()).is_cuda
+    assert not next(criterion.criterion.criterion.parameters()).is_cuda
+    assert len(criterion.buffer) == 0
     
     # Compute loss on CPU
     cpu_loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    assert len(criterion.buffer) == 1
     
-    # Check that the losses are the same
-    assert abs(gpu_loss.item() - cpu_loss.item()) < 1e-5
+    # Step 2: Move to GPU
+    criterion = criterion.cuda()
+    gpu_tensors = [t.cuda() for t in sample_tensors]
+    gpu_target = sample_tensor.cuda()
+    
+    # Check GPU state
+    assert next(criterion.parameters()).is_cuda
+    assert next(criterion.criterion.parameters()).is_cuda
+    assert next(criterion.criterion.criterion.parameters()).is_cuda
+    assert len(criterion.buffer) == 1
+    
+    # Compute loss on GPU
+    gpu_loss = criterion(y_pred=gpu_tensors, y_true=gpu_target)
+    assert len(criterion.buffer) == 2
+    
+    # Step 3: Move back to CPU
+    criterion = criterion.cpu()
+    
+    # Check CPU state
+    assert not next(criterion.parameters()).is_cuda
+    assert not next(criterion.criterion.parameters()).is_cuda
+    assert not next(criterion.criterion.criterion.parameters()).is_cuda
+    assert len(criterion.buffer) == 2
+    
+    # Compute loss on CPU again
+    cpu_loss2 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    assert len(criterion.buffer) == 3
+    
+    # Check that all losses are equivalent
+    assert abs(cpu_loss.item() - gpu_loss.item()) < 1e-5
+    assert abs(cpu_loss.item() - cpu_loss2.item()) < 1e-5
