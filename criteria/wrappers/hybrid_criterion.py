@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 import torch
+from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.builders import build_from_config
 
@@ -23,9 +24,10 @@ class HybridCriterion(SingleTaskCriterion):
         super(HybridCriterion, self).__init__()
         assert combine in self.COMBINE_OPTIONS
         self.combine = combine
+        # Build criteria as submodules
         assert criteria_cfg is not None and len(criteria_cfg) > 0
-        # Register criteria as submodules using ModuleList
         self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in criteria_cfg])
+        assert all(isinstance(criterion, BaseCriterion) for criterion in self.criteria)
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         total_loss = 0

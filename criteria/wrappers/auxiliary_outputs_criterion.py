@@ -1,6 +1,7 @@
 from typing import Sequence, Dict, Union, Optional
 import torch
-from .single_task_criterion import SingleTaskCriterion
+from criteria.base_criterion import BaseCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.builders import build_from_config
 
 
@@ -12,10 +13,12 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
 
     def __init__(self, criterion_cfg: dict, reduction: Optional[str] = 'sum') -> None:
         super(AuxiliaryOutputsCriterion, self).__init__()
-        criterion = build_from_config(config=criterion_cfg)
-        self.register_module('criterion', criterion)
         assert reduction in self.REDUCTION_OPTIONS
         self.reduction = reduction
+        # Build criterion as submodule
+        criterion = build_from_config(config=criterion_cfg)
+        self.register_module('criterion', criterion)
+        assert isinstance(self.criterion, BaseCriterion)
 
     def __call__(
         self,
