@@ -25,7 +25,7 @@ def test_initialization(criterion):
     """Test that the criterion is properly registered as a submodule."""
     # Test that the criterion is properly registered as a submodule
     assert hasattr(criterion, 'criterion')
-    assert isinstance(criterion.criterion, torch.nn.MSELoss)
+    assert isinstance(criterion.criterion, PyTorchCriterionWrapper)
 
     # Test that the criterion is in the module's children
     assert 'criterion' in dict(criterion.named_children())
