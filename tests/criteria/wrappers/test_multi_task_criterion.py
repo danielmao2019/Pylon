@@ -50,11 +50,21 @@ def test_initialization(criterion):
 
 def test_reset_buffer(criterion, sample_multi_task_tensors):
     """Test resetting the buffer."""
+    assert not hasattr(criterion, 'buffer')
+    assert hasattr(criterion, 'task_criteria')
+    assert isinstance(criterion.task_criteria, torch.nn.ModuleDict)
+    assert all(hasattr(task_criterion, 'buffer') for task_criterion in criterion.task_criteria.values())
+
+    # Check that each task criterion's buffer has been reset
+    for task_criterion in criterion.task_criteria.values():
+        assert len(task_criterion.buffer) == 0
+
     # Call the criterion to add to buffer
     criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
 
-    # Check that the buffer has been updated
-    assert len(criterion.buffer) == 0  # MultiTaskCriterion doesn't have its own buffer
+    # Check that each task criterion's buffer has been reset
+    for task_criterion in criterion.task_criteria.values():
+        assert len(task_criterion.buffer) == 1
 
     # Reset the buffer
     criterion.reset_buffer()
