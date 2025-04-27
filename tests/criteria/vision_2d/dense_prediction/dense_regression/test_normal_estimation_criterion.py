@@ -1,6 +1,5 @@
 import pytest
 import torch
-import numpy as np
 from criteria.vision_2d.dense_prediction.dense_regression.normal_estimation import NormalEstimationCriterion
 
 
