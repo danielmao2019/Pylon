@@ -5,7 +5,7 @@ from criteria.wrappers.multi_task_criterion import MultiTaskCriterion
 
 
 @pytest.fixture
-def criterion_configs():
+def criterion_cfgs():
     """Create criterion configs for testing."""
     return {
         'task1': {
@@ -24,9 +24,9 @@ def criterion_configs():
 
 
 @pytest.fixture
-def criterion(criterion_configs):
+def criterion(criterion_cfgs):
     """Create a MultiTaskCriterion instance for testing."""
-    return MultiTaskCriterion(criterion_cfgs=criterion_configs)
+    return MultiTaskCriterion(criterion_cfgs=criterion_cfgs)
 
 
 def test_initialization(criterion):
