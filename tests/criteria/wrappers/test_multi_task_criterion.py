@@ -41,8 +41,8 @@ def test_initialization(criterion):
     assert 'task_criteria' in children
 
     # Test that each criterion is properly registered
-    assert isinstance(criterion.task_criteria['task1'], torch.nn.MSELoss)
-    assert isinstance(criterion.task_criteria['task2'], torch.nn.L1Loss)
+    assert isinstance(criterion.task_criteria['task1'], PyTorchCriterionWrapper)
+    assert isinstance(criterion.task_criteria['task2'], PyTorchCriterionWrapper)
 
     # Test that task_names is set correctly
     assert criterion.task_names == {'task1', 'task2'}
