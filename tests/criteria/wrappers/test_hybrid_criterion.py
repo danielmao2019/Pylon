@@ -1,5 +1,6 @@
 import pytest
 import torch
+from criteria.wrappers.pytorch_criterion_wrapper import PyTorchCriterionWrapper
 from criteria.wrappers.hybrid_criterion import HybridCriterion
 
 
@@ -8,12 +9,16 @@ def criteria_cfg():
     """Create criterion configs for testing."""
     return [
         {
-            'class': torch.nn.MSELoss,
-            'args': {}
+            'class': PyTorchCriterionWrapper,
+            'args': {
+                'criterion': torch.nn.MSELoss(),
+            }
         },
         {
-            'class': torch.nn.L1Loss,
-            'args': {}
+            'class': PyTorchCriterionWrapper,
+            'args': {
+                'criterion': torch.nn.L1Loss(),
+            }
         }
     ]
 
