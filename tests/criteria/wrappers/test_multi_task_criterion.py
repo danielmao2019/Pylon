@@ -113,3 +113,38 @@ def test_summarize(criterion, sample_multi_task_tensors, tmp_path):
 
     # Check that the output file exists
     assert output_path.exists()
+
+
+def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
+    """Test moving the criterion between CPU and GPU."""
+    # Skip if CUDA is not available
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    
+    # Create a criterion
+    criterion = MultiTaskCriterion(criterion_cfgs=criterion_cfgs)
+    
+    # Move to GPU
+    criterion = criterion.cuda()
+    
+    # Check that the criterion and its component criteria are on GPU
+    for task_criterion in criterion.task_criteria.values():
+        assert next(task_criterion.parameters()).is_cuda
+    
+    # Compute loss on GPU
+    gpu_tensors = {k: v.cuda() for k, v in sample_multi_task_tensors.items()}
+    gpu_losses = criterion(y_pred=gpu_tensors, y_true=gpu_tensors)
+    
+    # Move back to CPU
+    criterion = criterion.cpu()
+    
+    # Check that the criterion and its component criteria are on CPU
+    for task_criterion in criterion.task_criteria.values():
+        assert not next(task_criterion.parameters()).is_cuda
+    
+    # Compute loss on CPU
+    cpu_losses = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
+    
+    # Check that the losses are the same
+    for task_name in criterion.task_names:
+        assert abs(gpu_losses[task_name].item() - cpu_losses[task_name].item()) < 1e-5

@@ -92,3 +92,38 @@ def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
     assert hasattr(criterion, 'buffer') and criterion.buffer == []
     assert criterion.criterion.use_buffer is False
     assert not hasattr(criterion.criterion, 'buffer')
+
+
+def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
+    """Test moving the criterion between CPU and GPU."""
+    # Skip if CUDA is not available
+    if not torch.cuda.is_available():
+        pytest.skip("CUDA not available")
+    
+    # Create a criterion
+    criterion = AuxiliaryOutputsCriterion(criterion_cfg=criterion_cfg)
+    
+    # Move to GPU
+    criterion = criterion.cuda()
+    
+    # Check that the criterion and its component criterion are on GPU
+    assert next(criterion.parameters()).is_cuda
+    assert next(criterion.criterion.parameters()).is_cuda
+    
+    # Compute loss on GPU
+    gpu_tensors = [t.cuda() for t in sample_tensors]
+    gpu_target = sample_tensor.cuda()
+    gpu_loss = criterion(y_pred=gpu_tensors, y_true=gpu_target)
+    
+    # Move back to CPU
+    criterion = criterion.cpu()
+    
+    # Check that the criterion and its component criterion are on CPU
+    assert not next(criterion.parameters()).is_cuda
+    assert not next(criterion.criterion.parameters()).is_cuda
+    
+    # Compute loss on CPU
+    cpu_loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    
+    # Check that the losses are the same
+    assert abs(gpu_loss.item() - cpu_loss.item()) < 1e-5
