@@ -182,7 +182,5 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
             self.w_overlap_loss * stats['overlap_loss'] +
             self.w_saliency_loss * stats['saliency_loss']
         )
-        assert total_loss.ndim == 0, f"{total_loss.ndim=}"
-        # log loss
-        self.buffer.append(total_loss.detach().cpu())
+        self.add_to_buffer(total_loss)
         return total_loss

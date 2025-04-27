@@ -90,16 +90,16 @@ def test_dice_loss_with_class_weights(y_pred, y_true):
     # Test with equal class weights (should be same as no weights)
     criterion_equal = DiceLoss(class_weights=torch.ones(2))
     loss_equal = criterion_equal(y_pred, y_true)
-    
+
     criterion_none = DiceLoss()
     loss_none = criterion_none(y_pred, y_true)
-    
+
     assert torch.isclose(loss_equal, loss_none, rtol=1e-4).item()
-    
+
     # Test with unequal class weights
     criterion_unequal = DiceLoss(class_weights=torch.tensor([0.2, 0.8]))
     loss_unequal = criterion_unequal(y_pred, y_true)
-    
+
     # Loss should be different with unequal weights
     assert not torch.isclose(loss_unequal, loss_none, rtol=1e-4).item()
 
@@ -108,10 +108,10 @@ def test_dice_loss_with_ignore_index(y_pred, y_true):
     # Create a version of y_true with some ignored pixels
     y_true_ignored = y_true.clone()
     y_true_ignored[0, 0, 0] = 255  # Set one pixel to ignore_value
-    
+
     criterion = DiceLoss(ignore_value=255)
     loss = criterion(y_pred, y_true_ignored)
-    
+
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
     assert loss.item() > 0
@@ -124,7 +124,7 @@ def test_dice_loss_perfect_predictions():
 
     # Create ground truth labels
     y_true = torch.randint(0, num_classes, (batch_size, height, width))
-    
+
     # Create perfect predictions (one-hot encoded with high confidence)
     y_pred = torch.zeros(batch_size, num_classes, height, width)
     for b in range(batch_size):

@@ -16,7 +16,7 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
         reduction: How to reduce the loss over the batch dimension ('mean' or 'sum').
     """
 
-    def __init__(self, ignore_value: int, reduction: str = 'mean') -> None:
+    def __init__(self, ignore_value: int, reduction: str = 'mean', **kwargs) -> None:
         """
         Initialize the criterion.
 
@@ -27,7 +27,8 @@ class InstanceSegmentationCriterion(DenseRegressionCriterion):
         """
         super(InstanceSegmentationCriterion, self).__init__(
             ignore_value=ignore_value,
-            reduction=reduction
+            reduction=reduction,
+            **kwargs,
         )
 
     def _task_specific_checks(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> None:
