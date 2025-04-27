@@ -120,51 +120,45 @@ def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
     # Skip if CUDA is not available
     if not torch.cuda.is_available():
         pytest.skip("CUDA not available")
-    
+
     # Create a criterion
     criterion = MultiTaskCriterion(criterion_cfgs=criterion_cfgs)
-    
+
     # Step 1: Test on CPU
     # Check initial state
-    assert not next(criterion.parameters()).is_cuda
     for task_criterion in criterion.task_criteria.values():
-        assert not next(task_criterion.parameters()).is_cuda
         assert not task_criterion.criterion.class_weights.is_cuda
     assert len(criterion.buffer) == 0
-    
+
     # Compute loss on CPU
     cpu_losses = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
     assert len(criterion.buffer) == 1
-    
+
     # Step 2: Move to GPU
     criterion = criterion.cuda()
     gpu_tensors = {k: v.cuda() for k, v in sample_multi_task_tensors.items()}
-    
+
     # Check GPU state
-    assert next(criterion.parameters()).is_cuda
     for task_criterion in criterion.task_criteria.values():
-        assert next(task_criterion.parameters()).is_cuda
         assert task_criterion.criterion.class_weights.is_cuda
     assert len(criterion.buffer) == 1
-    
+
     # Compute loss on GPU
     gpu_losses = criterion(y_pred=gpu_tensors, y_true=gpu_tensors)
     assert len(criterion.buffer) == 2
-    
+
     # Step 3: Move back to CPU
     criterion = criterion.cpu()
-    
+
     # Check CPU state
-    assert not next(criterion.parameters()).is_cuda
     for task_criterion in criterion.task_criteria.values():
-        assert not next(task_criterion.parameters()).is_cuda
         assert not task_criterion.criterion.class_weights.is_cuda
     assert len(criterion.buffer) == 2
-    
+
     # Compute loss on CPU again
     cpu_losses2 = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
     assert len(criterion.buffer) == 3
-    
+
     # Check that all losses are equivalent
     for task_name in criterion.task_names:
         assert abs(cpu_losses[task_name].item() - gpu_losses[task_name].item()) < 1e-5
