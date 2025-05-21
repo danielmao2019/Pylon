@@ -8,9 +8,18 @@ class FTNCriterion(SingleTaskCriterion):
 
     def __init__(self, num_classes: Optional[int] = 2, **kwargs) -> None:
         super(FTNCriterion, self).__init__(**kwargs)
-        self.ce_criterion = AuxiliaryOutputsCriterion(SemanticSegmentationCriterion())
-        self.ssim_criterion = AuxiliaryOutputsCriterion(SSIMLoss(channels=num_classes))
-        self.iou_criterion = AuxiliaryOutputsCriterion(IoULoss())
+        self.ce_criterion = AuxiliaryOutputsCriterion(criterion_cfg={
+            'class': SemanticSegmentationCriterion,
+            'args': {},
+        })
+        self.ssim_criterion = AuxiliaryOutputsCriterion(criterion_cfg={
+            'class': SSIMLoss,
+            'args': {},
+        })
+        self.iou_criterion = AuxiliaryOutputsCriterion(criterion_cfg={
+            'class': IoULoss,
+            'args': {},
+        })
 
     def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         # input checks
