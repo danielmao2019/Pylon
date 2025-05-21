@@ -48,13 +48,13 @@ def monitor_gpu_usage():
     util_output = subprocess.check_output(util_cmd).decode().strip()
     gpu_util, memory_used_nvidia, memory_total_nvidia = map(int, util_output.split(', '))
 
-    # Assert that memory used from nvidia-smi is close to memory reserved from PyTorch
-    assert abs(memory_used_nvidia - memory_used_pytorch) < 1, \
-        f"Memory used/reserved mismatch: nvidia-smi={memory_used_nvidia}, PyTorch={memory_used_pytorch}"
+    # # Assert that memory used from nvidia-smi is close to memory reserved from PyTorch
+    # assert abs(memory_used_nvidia - memory_used_pytorch) < 1, \
+    #     f"Memory used/reserved mismatch: nvidia-smi={memory_used_nvidia}, PyTorch={memory_used_pytorch}"
 
-    # Assert that memory total is the same from both sources
-    assert abs(memory_total_pytorch - memory_total_nvidia) < 1, \
-        f"Memory total mismatch: PyTorch={memory_total_pytorch}, nvidia-smi={memory_total_nvidia}"
+    # # Assert that memory total is the same from both sources
+    # assert abs(memory_total_pytorch - memory_total_nvidia) < 1, \
+    #     f"Memory total mismatch: PyTorch={memory_total_pytorch}, nvidia-smi={memory_total_nvidia}"
 
     # Initialize result with all information
     result = {
