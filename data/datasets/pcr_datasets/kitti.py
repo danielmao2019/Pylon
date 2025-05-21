@@ -54,6 +54,7 @@ class KITTIDataset(BaseDataset):
                 self.annotations = json.load(f)
             return
         self.annotations: List[Dict[str, Any]] = []
+        self.seq_pose_cache = {}
         sequences = self.SEQUENCES_SPLIT[self.split]
         for seq in sequences:
             seq_path = os.path.join(self.data_root, 'sequences', seq, "velodyne")
@@ -126,14 +127,14 @@ class KITTIDataset(BaseDataset):
             self._velo2cam = np.vstack((velo2cam, [0, 0, 0, 1])).T
         return self._velo2cam
 
-    def apply_transform(self, pts, trans):
+    def apply_transform(self, pts: np.ndarray, trans: np.ndarray) -> np.ndarray:
         R = trans[:3, :3]
         T = trans[:3, 3]
         pts = pts @ R.T + T
         return pts
 
     @property
-    def velo2cam(self):
+    def velo2cam(self) -> np.ndarray:
         try:
             velo2cam = self._velo2cam
         except AttributeError:
