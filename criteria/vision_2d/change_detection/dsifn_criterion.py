@@ -8,8 +8,16 @@ class DSIFNCriterion(SingleTaskCriterion):
 
     def __init__(self, **kwargs) -> None:
         super(DSIFNCriterion, self).__init__(**kwargs)
-        self.bce_loss = AuxiliaryOutputsCriterion(SpatialPyTorchCriterionWrapper(torch.nn.BCEWithLogitsLoss()))
-        self.dice_loss = AuxiliaryOutputsCriterion(DiceLoss())
+        self.bce_loss = AuxiliaryOutputsCriterion(criterion_cfg={
+            'class': SpatialPyTorchCriterionWrapper,
+            'args': {
+                'criterion': torch.nn.BCEWithLogitsLoss(),
+            },
+        })
+        self.dice_loss = AuxiliaryOutputsCriterion(criterion_cfg={
+            'class': DiceLoss,
+            'args': {},
+        })
 
     def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         # input checks

@@ -1,4 +1,4 @@
-from typing import Sequence, Dict, Union, Optional, Any
+from typing import Sequence, Dict, Union, Optional, Callable, Any
 import torch
 from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
@@ -13,7 +13,7 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
 
     def __init__(
         self,
-        criterion_cfg: Dict[str, Dict[str, Any]],
+        criterion_cfg: Dict[str, Union[Callable, Dict[str, Any]]],
         reduction: Optional[str] = 'sum',
         **kwargs,
     ) -> None:
@@ -21,6 +21,8 @@ class AuxiliaryOutputsCriterion(SingleTaskCriterion):
         assert reduction in self.REDUCTION_OPTIONS
         self.reduction = reduction
         # Build criterion as submodule
+        assert isinstance(criterion_cfg, dict) and criterion_cfg.keys() == {'class', 'args'}, \
+            f"{type(criterion_cfg)=}, {criterion_cfg.keys()=}"
         criterion_cfg['args']['use_buffer'] = False  # Disable buffer for component criterion
         criterion = build_from_config(config=criterion_cfg)
         self.register_module('criterion', criterion)
