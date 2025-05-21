@@ -61,6 +61,7 @@ class KITTIDataset(BaseDataset):
             fnames = sorted(glob.glob(os.path.join(seq_path, "*.bin")))
             inames = sorted(list(map(lambda x: int(os.path.split(x)[-1][:-4]), fnames)))
             all_odo = self.get_video_odometry(seq)
+            print(f"{all_odo.shape=}")
             all_pos = self.odometry_to_positions(all_odo)
             assert len(fnames) == len(inames) == len(all_odo) == len(all_pos), \
                 f"{len(fnames)=}, {len(inames)=}, {len(all_odo)=}, {len(all_pos)=}"
