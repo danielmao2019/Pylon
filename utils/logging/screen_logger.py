@@ -200,5 +200,5 @@ class ScreenLogger(BaseLogger):
 
     def __del__(self):
         """Clean up the live display when the logger is destroyed."""
-        if self.live is not None:
+        if hasattr(self, 'live') and self.live is not None:
             self.live.stop()
