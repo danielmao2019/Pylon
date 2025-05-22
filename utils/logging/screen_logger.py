@@ -115,15 +115,23 @@ class ScreenLogger(BaseLogger):
             table.add_column("Learning Rate", justify="right", style="green")
             # Add hierarchical header for losses
             if self.loss_columns:
-                table.add_column("Losses", justify="right", style="red", span=len(self.loss_columns))
+                # First add the main "Losses" column
+                table.add_column("Losses", justify="right", style="red")
+                # Then add sub-columns for each loss
                 for col in self.loss_columns:
                     table.add_column(col.replace("loss_", ""), justify="right", style="red")
+            else:
+                table.add_column("Losses", justify="right", style="red")
         else:  # eval layout
             # Add hierarchical header for scores
             if self.score_columns:
-                table.add_column("Scores", justify="right", style="red", span=len(self.score_columns))
+                # First add the main "Scores" column
+                table.add_column("Scores", justify="right", style="red")
+                # Then add sub-columns for each score
                 for col in self.score_columns:
                     table.add_column(col.replace("score_", ""), justify="right", style="red")
+            else:
+                table.add_column("Scores", justify="right", style="red")
 
         table.add_column("Time (s)", justify="right", style="yellow")
         table.add_column("Memory (MB)", justify="right", style="blue")
@@ -140,7 +148,12 @@ class ScreenLogger(BaseLogger):
         for data in self.history:
             if self.layout == "train":
                 # Get all loss values
-                loss_values = [self._format_value(data.get(col, "-")) for col in self.loss_columns]
+                if self.loss_columns:
+                    # First add the main "Losses" cell with a dash
+                    loss_values = ["-"] + [self._format_value(data.get(col, "-")) for col in self.loss_columns]
+                else:
+                    loss_values = [self._format_value(data.get("loss", "-"))]
+                
                 table.add_row(
                     data.get("iteration_info", "-"),
                     self._format_value(data.get("learning_rate")),
@@ -151,7 +164,12 @@ class ScreenLogger(BaseLogger):
                 )
             else:  # eval layout
                 # Get all score values
-                score_values = [self._format_value(data.get(col, "-")) for col in self.score_columns]
+                if self.score_columns:
+                    # First add the main "Scores" cell with a dash
+                    score_values = ["-"] + [self._format_value(data.get(col, "-")) for col in self.score_columns]
+                else:
+                    score_values = [self._format_value(data.get("score", "-"))]
+                
                 table.add_row(
                     data.get("iteration_info", "-"),
                     *score_values,  # Unpack score values
