@@ -106,39 +106,6 @@ class ScreenLogger(BaseLogger):
         # Update with the first table immediately
         self._display()
 
-    def _create_table(self) -> Table:
-        """Create a table based on the current layout."""
-        table = Table()
-        table.add_column("Iteration", justify="left", style="cyan")
-
-        if self.layout == "train":
-            table.add_column("Learning Rate", justify="right", style="green")
-            # Add hierarchical header for losses
-            if self.loss_columns:
-                # First add the main "Losses" column
-                table.add_column("Losses", justify="right", style="red")
-                # Then add sub-columns for each loss
-                for col in self.loss_columns:
-                    table.add_column(col.replace("loss_", ""), justify="right", style="red")
-            else:
-                table.add_column("Losses", justify="right", style="red")
-        else:  # eval layout
-            # Add hierarchical header for scores
-            if self.score_columns:
-                # First add the main "Scores" column
-                table.add_column("Scores", justify="right", style="red")
-                # Then add sub-columns for each score
-                for col in self.score_columns:
-                    table.add_column(col.replace("score_", ""), justify="right", style="red")
-            else:
-                table.add_column("Scores", justify="right", style="red")
-
-        table.add_column("Time (s)", justify="right", style="yellow")
-        table.add_column("Memory (MB)", justify="right", style="blue")
-        table.add_column("GPU Util (%)", justify="right", style="magenta")
-
-        return table
-
     def _display(self) -> None:
         """Display the current buffer and history."""
         # Create a table for the training progress
@@ -184,6 +151,39 @@ class ScreenLogger(BaseLogger):
         else:
             # Fallback if live display is not available
             self.console.print(table)
+
+    def _create_table(self) -> Table:
+        """Create a table based on the current layout."""
+        table = Table()
+        table.add_column("Iteration", justify="left", style="cyan")
+
+        if self.layout == "train":
+            table.add_column("Learning Rate", justify="right", style="green")
+            # Add hierarchical header for losses
+            if self.loss_columns:
+                # First add the main "Losses" column
+                table.add_column("Losses", justify="right", style="red")
+                # Then add sub-columns for each loss
+                for col in self.loss_columns:
+                    table.add_column(col.replace("loss_", ""), justify="right", style="red")
+            else:
+                table.add_column("Losses", justify="right", style="red")
+        else:  # eval layout
+            # Add hierarchical header for scores
+            if self.score_columns:
+                # First add the main "Scores" column
+                table.add_column("Scores", justify="right", style="red")
+                # Then add sub-columns for each score
+                for col in self.score_columns:
+                    table.add_column(col.replace("score_", ""), justify="right", style="red")
+            else:
+                table.add_column("Scores", justify="right", style="red")
+
+        table.add_column("Time (s)", justify="right", style="yellow")
+        table.add_column("Memory (MB)", justify="right", style="blue")
+        table.add_column("GPU Util (%)", justify="right", style="magenta")
+
+        return table
 
     def _format_value(self, value: Any) -> str:
         """Format a value for display."""
