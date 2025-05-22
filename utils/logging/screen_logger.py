@@ -116,8 +116,7 @@ class ScreenLogger(BaseLogger):
             if self.layout == "train":
                 # Get all loss values
                 if self.loss_columns:
-                    # First add the main "Losses" cell with a dash
-                    loss_values = ["-"] + [self._format_value(data.get(col, "-")) for col in self.loss_columns]
+                    loss_values = [self._format_value(data.get(col, "-")) for col in self.loss_columns]
                 else:
                     loss_values = [self._format_value(data.get("loss", "-"))]
                 
@@ -132,8 +131,7 @@ class ScreenLogger(BaseLogger):
             else:  # eval layout
                 # Get all score values
                 if self.score_columns:
-                    # First add the main "Scores" cell with a dash
-                    score_values = ["-"] + [self._format_value(data.get(col, "-")) for col in self.score_columns]
+                    score_values = [self._format_value(data.get(col, "-")) for col in self.score_columns]
                 else:
                     score_values = [self._format_value(data.get("score", "-"))]
                 
@@ -154,16 +152,14 @@ class ScreenLogger(BaseLogger):
 
     def _create_table(self) -> Table:
         """Create a table based on the current layout."""
-        table = Table()
+        table = Table(show_header=True)
         table.add_column("Iteration", justify="left", style="cyan")
 
         if self.layout == "train":
             table.add_column("Learning Rate", justify="right", style="green")
             # Add hierarchical header for losses
             if self.loss_columns:
-                # First add the main "Losses" column
-                table.add_column("Losses", justify="right", style="red")
-                # Then add sub-columns for each loss
+                # Add sub-columns for each loss
                 for col in self.loss_columns:
                     table.add_column(col.replace("loss_", ""), justify="right", style="red")
             else:
@@ -171,9 +167,7 @@ class ScreenLogger(BaseLogger):
         else:  # eval layout
             # Add hierarchical header for scores
             if self.score_columns:
-                # First add the main "Scores" column
-                table.add_column("Scores", justify="right", style="red")
-                # Then add sub-columns for each score
+                # Add sub-columns for each score
                 for col in self.score_columns:
                     table.add_column(col.replace("score_", ""), justify="right", style="red")
             else:
@@ -182,6 +176,42 @@ class ScreenLogger(BaseLogger):
         table.add_column("Time (s)", justify="right", style="yellow")
         table.add_column("Memory (MB)", justify="right", style="blue")
         table.add_column("GPU Util (%)", justify="right", style="magenta")
+
+        # Create header rows for hierarchical display
+        if self.layout == "train":
+            if self.loss_columns:
+                # First row: single cells for non-hierarchical columns, merged cell for losses
+                header_row1 = ["Iteration", "Learning Rate"]
+                # Add "Losses" spanning all loss columns
+                header_row1.append("Losses" + " " * (len(self.loss_columns) - 1))
+                # Add empty cells for remaining columns
+                header_row1.extend([""] * (len(table.columns) - len(header_row1)))
+                table.add_row(*header_row1)
+
+                # Second row: empty cells for non-hierarchical columns, individual loss names
+                header_row2 = ["", ""]  # Empty cells for Iteration and Learning Rate
+                # Add individual loss names
+                header_row2.extend([col.replace("loss_", "") for col in self.loss_columns])
+                # Add empty cells for remaining columns
+                header_row2.extend([""] * (len(table.columns) - len(header_row2)))
+                table.add_row(*header_row2)
+        else:  # eval layout
+            if self.score_columns:
+                # First row: single cell for Iteration, merged cell for scores
+                header_row1 = ["Iteration"]
+                # Add "Scores" spanning all score columns
+                header_row1.append("Scores" + " " * (len(self.score_columns) - 1))
+                # Add empty cells for remaining columns
+                header_row1.extend([""] * (len(table.columns) - len(header_row1)))
+                table.add_row(*header_row1)
+
+                # Second row: empty cell for Iteration, individual score names
+                header_row2 = [""]  # Empty cell for Iteration
+                # Add individual score names
+                header_row2.extend([col.replace("score_", "") for col in self.score_columns])
+                # Add empty cells for remaining columns
+                header_row2.extend([""] * (len(table.columns) - len(header_row2)))
+                table.add_row(*header_row2)
 
         return table
 
