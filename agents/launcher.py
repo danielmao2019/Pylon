@@ -57,6 +57,7 @@ class Launcher(BaseAgent):
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
             def process_server(server):
+                print(f"Fetching status for {server}...")
                 # initialize
                 if server not in self.status:
                     self.status[server] = []
@@ -87,6 +88,7 @@ class Launcher(BaseAgent):
                     if len(self.status[server][idx]['util']['util']) > window_size:
                         self.status[server][idx]['util']['util'] = self.status[server][idx]['util']['util'][-window_size:]
                     self.status[server][idx]['util']['util_avg'] = sum(self.status[server][idx]['util']['util']) / len(self.status[server][idx]['util']['util'])
+                print(f"Got status for {server}.")
 
             with ThreadPoolExecutor() as executor:
                 list(executor.map(process_server, self.servers))
@@ -349,9 +351,11 @@ class Launcher(BaseAgent):
             running_lock = threading.Lock()
 
             def collect_running(server):
+                print(f"Collecting running processes on {server}")
                 server_running = find_running(server)
                 with running_lock:
                     all_running.extend(server_running)
+                print(f"Finished collecting processes on {server}")
 
             with ThreadPoolExecutor() as executor:
                 list(executor.map(collect_running, self.servers))
