@@ -344,16 +344,10 @@ class Launcher(BaseAgent):
     def spawn(self, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
-            all_running = []
-            running_lock = threading.Lock()
-
-            def collect_running(server):
-                server_running = find_running(server)
-                with running_lock:
-                    all_running.extend(server_running)
 
             with ThreadPoolExecutor() as executor:
-                list(executor.map(collect_running, self.servers))
+                results = list(executor.map(find_running, self.servers))
+            all_running = [process for server_running in results for process in server_running]
             
             self._remove_stuck(all_running)
             done = self._launch_missing(all_running, num_jobs=num_jobs)
