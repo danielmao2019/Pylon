@@ -269,22 +269,26 @@ class Launcher(BaseAgent):
 
     def _remove_stuck(self, all_running: List[Dict[str, Any]]) -> None:
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
-        stuck_cfgs_info = {}
-        info_lock = threading.Lock()
 
         def process_server(server):
+            server_stuck_info = {}
             server_pids = get_all_p(server)
             for pid in server_pids:
                 try:
                     cfg = parse_config(server_pids[pid]['cmd'])
                     if cfg in stuck_cfgs:
-                        with info_lock:
-                            stuck_cfgs_info[cfg] = (server, pid)
+                        server_stuck_info[cfg] = (server, pid)
                 except:
                     pass
+            return server_stuck_info
 
         with ThreadPoolExecutor() as executor:
-            list(executor.map(process_server, self.servers))
+            results = list(executor.map(process_server, self.servers))
+        
+        # Combine all server results into a single dictionary
+        stuck_cfgs_info = {}
+        for server_info in results:
+            stuck_cfgs_info.update(server_info)
 
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
