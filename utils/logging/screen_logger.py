@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
@@ -32,17 +32,21 @@ class ScreenLogger(BaseLogger):
         self.live = None
         self.display_started = False
         self.layout = layout
+        self.loss_columns = []  # Store loss column names
+        self.score_columns = []  # Store score column names
 
     def train(self) -> None:
         """Switch to training mode and reset history."""
         self.layout = "train"
         self.history = []
+        self.loss_columns = []  # Reset loss columns
         self.flush("Starting training epoch")
 
     def eval(self) -> None:
         """Switch to evaluation mode and reset history."""
         self.layout = "eval"
         self.history = []
+        self.score_columns = []  # Reset score columns
         self.flush("Starting validation epoch")
 
     def flush(self, prefix: str) -> None:
@@ -60,6 +64,18 @@ class ScreenLogger(BaseLogger):
             self.history.append(self.buffer.copy())
             if len(self.history) > self.max_iterations:
                 self.history.pop(0)
+
+            # Update column names based on buffer contents
+            if self.layout == "train":
+                for key in self.buffer.keys():
+                    if key.startswith("loss_"):
+                        if key not in self.loss_columns:
+                            self.loss_columns.append(key)
+            else:  # eval layout
+                for key in self.buffer.keys():
+                    if key.startswith("score_"):
+                        if key not in self.score_columns:
+                            self.score_columns.append(key)
 
             # Start the display if this is the first iteration
             if not self.display_started and self.history:
@@ -97,9 +113,17 @@ class ScreenLogger(BaseLogger):
 
         if self.layout == "train":
             table.add_column("Learning Rate", justify="right", style="green")
-            table.add_column("Losses", justify="right", style="red")
+            # Add hierarchical header for losses
+            if self.loss_columns:
+                table.add_column("Losses", justify="right", style="red", span=len(self.loss_columns))
+                for col in self.loss_columns:
+                    table.add_column(col.replace("loss_", ""), justify="right", style="red")
         else:  # eval layout
-            table.add_column("Scores", justify="right", style="red")
+            # Add hierarchical header for scores
+            if self.score_columns:
+                table.add_column("Scores", justify="right", style="red", span=len(self.score_columns))
+                for col in self.score_columns:
+                    table.add_column(col.replace("score_", ""), justify="right", style="red")
 
         table.add_column("Time (s)", justify="right", style="yellow")
         table.add_column("Memory (MB)", justify="right", style="blue")
@@ -114,26 +138,26 @@ class ScreenLogger(BaseLogger):
 
         # Add rows for each iteration in history
         for data in self.history:
-            # Extract GPU stats from the buffer
-            peak_memory = data.get("max_memory", "-")
-            gpu_util = data.get("gpu_util", "-")
-
             if self.layout == "train":
+                # Get all loss values
+                loss_values = [self._format_value(data.get(col, "-")) for col in self.loss_columns]
                 table.add_row(
                     data.get("iteration_info", "-"),
                     self._format_value(data.get("learning_rate")),
-                    self._format_value(data.get("losses")),
+                    *loss_values,  # Unpack loss values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(peak_memory),
-                    self._format_value(gpu_util)
+                    self._format_value(peak_memory = data.get("max_memory", "-")),
+                    self._format_value(gpu_util = data.get("current_util", "-"))
                 )
             else:  # eval layout
+                # Get all score values
+                score_values = [self._format_value(data.get(col, "-")) for col in self.score_columns]
                 table.add_row(
                     data.get("iteration_info", "-"),
-                    self._format_value(data.get("scores")),
+                    *score_values,  # Unpack score values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(peak_memory),
-                    self._format_value(gpu_util)
+                    self._format_value(peak_memory = data.get("max_memory", "-")),
+                    self._format_value(gpu_util = data.get("current_util", "-"))
                 )
 
         # Update the live display
