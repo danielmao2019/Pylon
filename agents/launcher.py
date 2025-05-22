@@ -12,6 +12,7 @@ from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import get_session_progress, has_stuck, has_failed, parse_config
 from utils.monitor.gpu_status import get_server_status, get_all_p, find_running
 from utils.logging.text_logger import TextLogger
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Launcher(BaseAgent):
@@ -55,7 +56,7 @@ class Launcher(BaseAgent):
 
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
-            for server in self.servers:
+            def process_server(server):
                 # initialize
                 if server not in self.status:
                     self.status[server] = []
@@ -64,7 +65,7 @@ class Launcher(BaseAgent):
                     server_status = get_server_status(server)
                 except Exception as e:
                     self.logger.error(f"{server=}, {e}")
-                    continue
+                    return
                 # collect
                 if not self.status[server]:
                     self.status[server] = [{
@@ -86,6 +87,9 @@ class Launcher(BaseAgent):
                     if len(self.status[server][idx]['util']['util']) > window_size:
                         self.status[server][idx]['util']['util'] = self.status[server][idx]['util']['util'][-window_size:]
                     self.status[server][idx]['util']['util_avg'] = sum(self.status[server][idx]['util']['util']) / len(self.status[server][idx]['util']['util'])
+
+            with ThreadPoolExecutor() as executor:
+                list(executor.map(process_server, self.servers))
             time.sleep(interval)
 
     # ====================================================================================================
@@ -221,13 +225,19 @@ class Launcher(BaseAgent):
         Returns:
             result (List[str]): the config filepaths for the missing experiment runs.
         """
-        result: List[str] = []
-        for config_file in self.config_files:
+        result = []
+        result_lock = threading.Lock()
+
+        def process_config(config_file):
             work_dir = get_work_dir(config_file)
             if not os.path.isdir(work_dir) or has_failed(
                 work_dir, all_running=all_running, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
             ):
-                result.append(config_file)
+                with result_lock:
+                    result.append(config_file)
+
+        with ThreadPoolExecutor() as executor:
+            list(executor.map(process_config, self.config_files))
         return result
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
@@ -241,8 +251,10 @@ class Launcher(BaseAgent):
                 gpu_index (int): index of GPU on the server.
             }
         """
-        all_idle_gpus: List[Dict[str, Any]] = []
-        for server in self.servers:
+        all_idle_gpus = []
+        gpu_lock = threading.Lock()
+
+        def process_server(server):
             server_status = self.status[server]
             for idx, gpu_status in enumerate(server_status):
                 if (
@@ -250,24 +262,35 @@ class Launcher(BaseAgent):
                     gpu_status['util']['fmem_avg'] > 12 * 1024 and
                     len(gpu_status['processes']) < num_jobs
                 ):
-                    all_idle_gpus.append({
-                        'server': server,
-                        'gpu_index': idx,
-                    })
+                    with gpu_lock:
+                        all_idle_gpus.append({
+                            'server': server,
+                            'gpu_index': idx,
+                        })
+
+        with ThreadPoolExecutor() as executor:
+            list(executor.map(process_server, self.servers))
         return all_idle_gpus
 
     def _remove_stuck(self, all_running: List[Dict[str, Any]]) -> None:
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
         stuck_cfgs_info = {}
-        for server in self.servers:
+        info_lock = threading.Lock()
+
+        def process_server(server):
             server_pids = get_all_p(server)
             for pid in server_pids:
                 try:
                     cfg = parse_config(server_pids[pid]['cmd'])
                     if cfg in stuck_cfgs:
-                        stuck_cfgs_info[cfg] = (server, pid)
+                        with info_lock:
+                            stuck_cfgs_info[cfg] = (server, pid)
                 except:
                     pass
+
+        with ThreadPoolExecutor() as executor:
+            list(executor.map(process_server, self.servers))
+
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
             cmd = ['ssh', server, 'kill', '-9', pid]
@@ -323,8 +346,16 @@ class Launcher(BaseAgent):
         while True:
             self.logger.info('='*50)
             all_running = []
-            for server in self.servers:
-                all_running.extend(find_running(server))
+            running_lock = threading.Lock()
+
+            def collect_running(server):
+                server_running = find_running(server)
+                with running_lock:
+                    all_running.extend(server_running)
+
+            with ThreadPoolExecutor() as executor:
+                list(executor.map(collect_running, self.servers))
+            
             self._remove_stuck(all_running)
             done = self._launch_missing(all_running, num_jobs=num_jobs)
             if done:
