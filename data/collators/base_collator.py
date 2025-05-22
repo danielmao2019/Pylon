@@ -32,6 +32,9 @@ class BaseCollator:
             # Transpose the second level
             datapoints[key1] = transpose_buffer(sub_dict)
 
+            if key1 == 'meta_info':
+                continue
+
             for key2, values in datapoints[key1].items():
                 # Check for custom collator
                 if key1 in self.collators and key2 in self.collators[key1]:
@@ -69,5 +72,6 @@ class BaseCollator:
         except Exception as e:
             raise RuntimeError(
                 f"[ERROR] Cannot stack tensors into a batch for key1='{key1}', key2='{key2}'. "
+                f"Example values: {values[:4]} "
                 f"Details: {e}"
             )
