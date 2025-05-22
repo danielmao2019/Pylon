@@ -49,8 +49,10 @@ class Launcher(BaseAgent):
     def _init_status(self) -> None:
         self.status = {}
         threading.Thread(target=self._get_status, daemon=True).start()
+        self.logger.info("Waiting for status initialization...")
         while set(self.status.keys()) != set(self.servers):
             time.sleep(1)
+        self.logger.info("Status initialized.")
 
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
