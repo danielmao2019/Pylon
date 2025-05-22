@@ -248,10 +248,8 @@ class Launcher(BaseAgent):
                 gpu_index (int): index of GPU on the server.
             }
         """
-        all_idle_gpus = []
-        gpu_lock = threading.Lock()
-
         def process_server(server):
+            idle_gpus = []
             server_status = self.status[server]
             for idx, gpu_status in enumerate(server_status):
                 if (
@@ -259,15 +257,15 @@ class Launcher(BaseAgent):
                     gpu_status['util']['fmem_avg'] > 12 * 1024 and
                     len(gpu_status['processes']) < num_jobs
                 ):
-                    with gpu_lock:
-                        all_idle_gpus.append({
-                            'server': server,
-                            'gpu_index': idx,
-                        })
+                    idle_gpus.append({
+                        'server': server,
+                        'gpu_index': idx,
+                    })
+            return idle_gpus
 
         with ThreadPoolExecutor() as executor:
-            list(executor.map(process_server, self.servers))
-        return all_idle_gpus
+            results = list(executor.map(process_server, self.servers))
+        return [gpu for server_gpus in results for gpu in server_gpus]
 
     def _remove_stuck(self, all_running: List[Dict[str, Any]]) -> None:
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
