@@ -146,8 +146,8 @@ class ScreenLogger(BaseLogger):
                     self._format_value(data.get("learning_rate")),
                     *loss_values,  # Unpack loss values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(peak_memory = data.get("max_memory", "-")),
-                    self._format_value(gpu_util = data.get("current_util", "-"))
+                    self._format_value(data.get("max_memory", "-")),
+                    self._format_value(data.get("current_util", "-"))
                 )
             else:  # eval layout
                 # Get all score values
@@ -156,8 +156,8 @@ class ScreenLogger(BaseLogger):
                     data.get("iteration_info", "-"),
                     *score_values,  # Unpack score values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(peak_memory = data.get("max_memory", "-")),
-                    self._format_value(gpu_util = data.get("current_util", "-"))
+                    self._format_value(data.get("max_memory", "-")),
+                    self._format_value(data.get("current_util", "-"))
                 )
 
         # Update the live display
