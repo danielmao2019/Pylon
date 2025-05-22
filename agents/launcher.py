@@ -54,9 +54,7 @@ class Launcher(BaseAgent):
 
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
-            print("Starting _get_status loop", flush=True)
             def process_server(server):
-                print(f"Fetching status for {server}...", flush=True)
                 # initialize
                 if server not in self.status:
                     self.status[server] = []
@@ -87,14 +85,9 @@ class Launcher(BaseAgent):
                     if len(self.status[server][idx]['util']['util']) > window_size:
                         self.status[server][idx]['util']['util'] = self.status[server][idx]['util']['util'][-window_size:]
                     self.status[server][idx]['util']['util_avg'] = sum(self.status[server][idx]['util']['util']) / len(self.status[server][idx]['util']['util'])
-                print(f"Got status for {server}.", flush=True)
 
-            print("About to start ThreadPoolExecutor", flush=True)
             with ThreadPoolExecutor() as executor:
-                print("Created ThreadPoolExecutor", flush=True)
                 list(executor.map(process_server, self.servers))
-                print("Finished ThreadPoolExecutor", flush=True)
-            print("End of _get_status loop", flush=True)
             time.sleep(interval)
 
     # ====================================================================================================
