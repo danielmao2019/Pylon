@@ -12,6 +12,7 @@ from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import get_session_progress, has_stuck, has_failed, parse_config
 from utils.monitor.gpu_status import get_server_status, get_all_p, find_running
 from utils.logging.text_logger import TextLogger
+from concurrent.futures import ThreadPoolExecutor
 
 
 class Launcher(BaseAgent):
@@ -48,14 +49,14 @@ class Launcher(BaseAgent):
     def _init_status(self) -> None:
         self.status = {}
         threading.Thread(target=self._get_status, daemon=True).start()
-        self.logger.info("Waiting for self.status initialization...")
+        self.logger.info("Waiting for status initialization...")
         while set(self.status.keys()) != set(self.servers):
             time.sleep(1)
-        self.logger.info("Done.")
+        self.logger.info("Status initialized.")
 
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
-            for server in self.servers:
+            def process_server(server):
                 # initialize
                 if server not in self.status:
                     self.status[server] = []
@@ -64,7 +65,7 @@ class Launcher(BaseAgent):
                     server_status = get_server_status(server)
                 except Exception as e:
                     self.logger.error(f"{server=}, {e}")
-                    continue
+                    return
                 # collect
                 if not self.status[server]:
                     self.status[server] = [{
@@ -86,6 +87,9 @@ class Launcher(BaseAgent):
                     if len(self.status[server][idx]['util']['util']) > window_size:
                         self.status[server][idx]['util']['util'] = self.status[server][idx]['util']['util'][-window_size:]
                     self.status[server][idx]['util']['util_avg'] = sum(self.status[server][idx]['util']['util']) / len(self.status[server][idx]['util']['util'])
+
+            with ThreadPoolExecutor() as executor:
+                list(executor.map(process_server, self.servers))
             time.sleep(interval)
 
     # ====================================================================================================
@@ -221,14 +225,17 @@ class Launcher(BaseAgent):
         Returns:
             result (List[str]): the config filepaths for the missing experiment runs.
         """
-        result: List[str] = []
-        for config_file in self.config_files:
+        def process_config(config_file):
             work_dir = get_work_dir(config_file)
             if not os.path.isdir(work_dir) or has_failed(
                 work_dir, all_running=all_running, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
             ):
-                result.append(config_file)
-        return result
+                return config_file
+            return None
+
+        with ThreadPoolExecutor() as executor:
+            results = list(executor.map(process_config, self.config_files))
+        return [r for r in results if r is not None]
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
@@ -241,8 +248,8 @@ class Launcher(BaseAgent):
                 gpu_index (int): index of GPU on the server.
             }
         """
-        all_idle_gpus: List[Dict[str, Any]] = []
-        for server in self.servers:
+        def process_server(server):
+            idle_gpus = []
             server_status = self.status[server]
             for idx, gpu_status in enumerate(server_status):
                 if (
@@ -250,24 +257,39 @@ class Launcher(BaseAgent):
                     gpu_status['util']['fmem_avg'] > 12 * 1024 and
                     len(gpu_status['processes']) < num_jobs
                 ):
-                    all_idle_gpus.append({
+                    idle_gpus.append({
                         'server': server,
                         'gpu_index': idx,
                     })
-        return all_idle_gpus
+            return idle_gpus
+
+        with ThreadPoolExecutor() as executor:
+            results = list(executor.map(process_server, self.servers))
+        return [gpu for server_gpus in results for gpu in server_gpus]
 
     def _remove_stuck(self, all_running: List[Dict[str, Any]]) -> None:
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
-        stuck_cfgs_info = {}
-        for server in self.servers:
+
+        def process_server(server):
+            server_stuck_info = {}
             server_pids = get_all_p(server)
             for pid in server_pids:
                 try:
                     cfg = parse_config(server_pids[pid]['cmd'])
                     if cfg in stuck_cfgs:
-                        stuck_cfgs_info[cfg] = (server, pid)
+                        server_stuck_info[cfg] = (server, pid)
                 except:
                     pass
+            return server_stuck_info
+
+        with ThreadPoolExecutor() as executor:
+            results = list(executor.map(process_server, self.servers))
+
+        # Combine all server results into a single dictionary
+        stuck_cfgs_info = {}
+        for server_info in results:
+            stuck_cfgs_info.update(server_info)
+
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
             cmd = ['ssh', server, 'kill', '-9', pid]
@@ -290,7 +312,9 @@ class Launcher(BaseAgent):
         num_launch = min(len(gpu_pool), len(missing_runs))
         gpu_pool = gpu_pool[:num_launch]
         missing_runs = missing_runs[:num_launch]
-        for gpu, run in zip(gpu_pool, missing_runs):
+
+        def launch_job(args):
+            gpu, run = args
             error_log = os.path.join(get_work_dir(run), "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
@@ -317,17 +341,29 @@ class Launcher(BaseAgent):
             ])
             self.logger.info(cmd)
             os.system(cmd)
+
+        with ThreadPoolExecutor() as executor:
+            list(executor.map(launch_job, zip(gpu_pool, missing_runs)))
         return False
 
     def spawn(self, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
-            all_running = []
-            for server in self.servers:
-                all_running.extend(find_running(server))
+
+            self.logger.info("Collecting all running jobs...")
+            with ThreadPoolExecutor() as executor:
+                results = list(executor.map(find_running, self.servers))
+            all_running = [process for server_running in results for process in server_running]
+
+            self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_running)
+
+            self.logger.info("Launching missing jobs...")
             done = self._launch_missing(all_running, num_jobs=num_jobs)
+
             if done:
                 self.logger.info("All done.")
+
             self.logger.info("")
+
             time.sleep(self.sleep_time)
