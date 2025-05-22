@@ -49,10 +49,8 @@ class Launcher(BaseAgent):
     def _init_status(self) -> None:
         self.status = {}
         threading.Thread(target=self._get_status, daemon=True).start()
-        self.logger.info("Waiting for self.status initialization...")
         while set(self.status.keys()) != set(self.servers):
             time.sleep(1)
-        self.logger.info("Done.")
 
     def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
         while True:
@@ -351,27 +349,19 @@ class Launcher(BaseAgent):
 
     def spawn(self, num_jobs: Optional[int] = 1) -> None:
         while True:
-            self.logger.info("Starting spawn loop")
             self.logger.info('='*50)
             all_running = []
             running_lock = threading.Lock()
 
             def collect_running(server):
-                print(f"Collecting running processes on {server}", flush=True)
                 server_running = find_running(server)
                 with running_lock:
                     all_running.extend(server_running)
-                print(f"Finished collecting processes on {server}", flush=True)
 
-            self.logger.info("About to start ThreadPoolExecutor in spawn")
             with ThreadPoolExecutor() as executor:
-                self.logger.info("Created ThreadPoolExecutor in spawn")
                 list(executor.map(collect_running, self.servers))
-                self.logger.info("Finished ThreadPoolExecutor in spawn")
             
-            self.logger.info("Removing stuck processes")
             self._remove_stuck(all_running)
-            self.logger.info("Launching missing processes")
             done = self._launch_missing(all_running, num_jobs=num_jobs)
             if done:
                 self.logger.info("All done.")
