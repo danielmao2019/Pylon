@@ -284,7 +284,7 @@ class Launcher(BaseAgent):
 
         with ThreadPoolExecutor() as executor:
             results = list(executor.map(process_server, self.servers))
-        
+
         # Combine all server results into a single dictionary
         stuck_cfgs_info = {}
         for server_info in results:
@@ -345,13 +345,20 @@ class Launcher(BaseAgent):
         while True:
             self.logger.info('='*50)
 
+            self.logger.info("Collecting all running jobs...")
             with ThreadPoolExecutor() as executor:
                 results = list(executor.map(find_running, self.servers))
             all_running = [process for server_running in results for process in server_running]
-            
+
+            self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_running)
+
+            self.logger.info("Launching missing jobs...")
             done = self._launch_missing(all_running, num_jobs=num_jobs)
+
             if done:
                 self.logger.info("All done.")
+
             self.logger.info("")
+
             time.sleep(self.sleep_time)
