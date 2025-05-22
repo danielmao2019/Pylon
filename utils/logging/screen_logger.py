@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, List, Dict
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
@@ -32,17 +32,21 @@ class ScreenLogger(BaseLogger):
         self.live = None
         self.display_started = False
         self.layout = layout
+        self.loss_columns = []  # Store loss column names
+        self.score_columns = []  # Store score column names
 
     def train(self) -> None:
         """Switch to training mode and reset history."""
         self.layout = "train"
         self.history = []
+        self.loss_columns = []  # Reset loss columns
         self.flush("Starting training epoch")
 
     def eval(self) -> None:
         """Switch to evaluation mode and reset history."""
         self.layout = "eval"
         self.history = []
+        self.score_columns = []  # Reset score columns
         self.flush("Starting validation epoch")
 
     def flush(self, prefix: str) -> None:
@@ -60,6 +64,18 @@ class ScreenLogger(BaseLogger):
             self.history.append(self.buffer.copy())
             if len(self.history) > self.max_iterations:
                 self.history.pop(0)
+
+            # Update column names based on buffer contents
+            if self.layout == "train":
+                for key in self.buffer.keys():
+                    if key.startswith("loss_"):
+                        if key not in self.loss_columns:
+                            self.loss_columns.append(key)
+            else:  # eval layout
+                for key in self.buffer.keys():
+                    if key.startswith("score_"):
+                        if key not in self.score_columns:
+                            self.score_columns.append(key)
 
             # Start the display if this is the first iteration
             if not self.display_started and self.history:
@@ -90,23 +106,6 @@ class ScreenLogger(BaseLogger):
         # Update with the first table immediately
         self._display()
 
-    def _create_table(self) -> Table:
-        """Create a table based on the current layout."""
-        table = Table()
-        table.add_column("Iteration", justify="left", style="cyan")
-
-        if self.layout == "train":
-            table.add_column("Learning Rate", justify="right", style="green")
-            table.add_column("Losses", justify="right", style="red")
-        else:  # eval layout
-            table.add_column("Scores", justify="right", style="red")
-
-        table.add_column("Time (s)", justify="right", style="yellow")
-        table.add_column("Memory (MB)", justify="right", style="blue")
-        table.add_column("GPU Util (%)", justify="right", style="magenta")
-
-        return table
-
     def _display(self) -> None:
         """Display the current buffer and history."""
         # Create a table for the training progress
@@ -114,26 +113,34 @@ class ScreenLogger(BaseLogger):
 
         # Add rows for each iteration in history
         for data in self.history:
-            # Extract GPU stats from the buffer
-            peak_memory = data.get("max_memory", "-")
-            gpu_util = data.get("gpu_util", "-")
-
             if self.layout == "train":
+                # Get all loss values
+                if self.loss_columns:
+                    loss_values = [self._format_value(data.get(col, "-")) for col in self.loss_columns]
+                else:
+                    loss_values = [self._format_value(data.get("loss", "-"))]
+                
                 table.add_row(
                     data.get("iteration_info", "-"),
                     self._format_value(data.get("learning_rate")),
-                    self._format_value(data.get("losses")),
+                    *loss_values,  # Unpack loss values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(peak_memory),
-                    self._format_value(gpu_util)
+                    self._format_value(data.get("max_memory", "-")),
+                    self._format_value(data.get("current_util", "-"))
                 )
             else:  # eval layout
+                # Get all score values
+                if self.score_columns:
+                    score_values = [self._format_value(data.get(col, "-")) for col in self.score_columns]
+                else:
+                    score_values = [self._format_value(data.get("score", "-"))]
+                
                 table.add_row(
                     data.get("iteration_info", "-"),
-                    self._format_value(data.get("scores")),
+                    *score_values,  # Unpack score values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(peak_memory),
-                    self._format_value(gpu_util)
+                    self._format_value(data.get("max_memory", "-")),
+                    self._format_value(data.get("current_util", "-"))
                 )
 
         # Update the live display
@@ -142,6 +149,71 @@ class ScreenLogger(BaseLogger):
         else:
             # Fallback if live display is not available
             self.console.print(table)
+
+    def _create_table(self) -> Table:
+        """Create a table based on the current layout."""
+        table = Table(show_header=True)
+        table.add_column("Iteration", justify="left", style="cyan")
+
+        if self.layout == "train":
+            table.add_column("Learning Rate", justify="right", style="green")
+            # Add hierarchical header for losses
+            if self.loss_columns:
+                # Add sub-columns for each loss
+                for col in self.loss_columns:
+                    table.add_column(col.replace("loss_", ""), justify="right", style="red")
+            else:
+                table.add_column("Losses", justify="right", style="red")
+        else:  # eval layout
+            # Add hierarchical header for scores
+            if self.score_columns:
+                # Add sub-columns for each score
+                for col in self.score_columns:
+                    table.add_column(col.replace("score_", ""), justify="right", style="red")
+            else:
+                table.add_column("Scores", justify="right", style="red")
+
+        table.add_column("Time (s)", justify="right", style="yellow")
+        table.add_column("Memory (MB)", justify="right", style="blue")
+        table.add_column("GPU Util (%)", justify="right", style="magenta")
+
+        # Create header rows for hierarchical display
+        if self.layout == "train":
+            if self.loss_columns:
+                # First row: single cells for non-hierarchical columns, merged cell for losses
+                header_row1 = ["Iteration", "Learning Rate"]
+                # Add "Losses" spanning all loss columns
+                header_row1.append("Losses" + " " * (len(self.loss_columns) - 1))
+                # Add empty cells for remaining columns
+                header_row1.extend([""] * (len(table.columns) - len(header_row1)))
+                table.add_row(*header_row1)
+
+                # Second row: empty cells for non-hierarchical columns, individual loss names
+                header_row2 = ["", ""]  # Empty cells for Iteration and Learning Rate
+                # Add individual loss names
+                header_row2.extend([col.replace("loss_", "") for col in self.loss_columns])
+                # Add empty cells for remaining columns
+                header_row2.extend([""] * (len(table.columns) - len(header_row2)))
+                table.add_row(*header_row2)
+        else:  # eval layout
+            if self.score_columns:
+                # First row: single cell for Iteration, merged cell for scores
+                header_row1 = ["Iteration"]
+                # Add "Scores" spanning all score columns
+                header_row1.append("Scores" + " " * (len(self.score_columns) - 1))
+                # Add empty cells for remaining columns
+                header_row1.extend([""] * (len(table.columns) - len(header_row1)))
+                table.add_row(*header_row1)
+
+                # Second row: empty cell for Iteration, individual score names
+                header_row2 = [""]  # Empty cell for Iteration
+                # Add individual score names
+                header_row2.extend([col.replace("score_", "") for col in self.score_columns])
+                # Add empty cells for remaining columns
+                header_row2.extend([""] * (len(table.columns) - len(header_row2)))
+                table.add_row(*header_row2)
+
+        return table
 
     def _format_value(self, value: Any) -> str:
         """Format a value for display."""
