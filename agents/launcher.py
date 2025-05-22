@@ -225,20 +225,17 @@ class Launcher(BaseAgent):
         Returns:
             result (List[str]): the config filepaths for the missing experiment runs.
         """
-        result = []
-        result_lock = threading.Lock()
-
         def process_config(config_file):
             work_dir = get_work_dir(config_file)
             if not os.path.isdir(work_dir) or has_failed(
                 work_dir, all_running=all_running, sleep_time=self.sleep_time, expected_files=self.expected_files, epochs=self.epochs,
             ):
-                with result_lock:
-                    result.append(config_file)
+                return config_file
+            return None
 
         with ThreadPoolExecutor() as executor:
-            list(executor.map(process_config, self.config_files))
-        return result
+            results = list(executor.map(process_config, self.config_files))
+        return [r for r in results if r is not None]
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
