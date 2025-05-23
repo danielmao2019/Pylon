@@ -1,9 +1,10 @@
 """Dataset loader module."""
+from typing import Dict, Any, Optional, List
 import os
 import logging
-from typing import Dict, Any, Optional, List
 import importlib.util
-from pathlib import Path
+from data.viewer.managers.registry import DATASET_GROUPS, get_dataset_type
+
 
 class DatasetLoader:
     """Handles loading and configuration of datasets."""
@@ -13,7 +14,7 @@ class DatasetLoader:
 
         Args:
             config_dir: Optional directory containing dataset configurations
-            dataset_types: Optional list of dataset types to load (e.g., ['change_detection', 'point_cloud_registration'])
+            dataset_types: Optional list of dataset types to load (e.g., ['2d_change_detection', 'point_cloud_registration'])
         """
         self.logger = logging.getLogger(__name__)
 
@@ -21,14 +22,15 @@ class DatasetLoader:
         if config_dir is None:
             repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
             self.config_dirs = {
-                'change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
+                '2d_change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
+                '3d_change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
                 'point_cloud_registration': os.path.join(repo_root, "configs/common/datasets/point_cloud_registration/train")
             }
         else:
             self.config_dirs = {'default': config_dir}
 
         # Default to loading all dataset types if none specified
-        self.dataset_types = dataset_types or ['change_detection', 'point_cloud_registration']
+        self.dataset_types = dataset_types or list(DATASET_GROUPS.keys())
         self.configs = self._load_dataset_configs()
 
     def _load_dataset_configs(self) -> Dict[str, Any]:
@@ -39,19 +41,13 @@ class DatasetLoader:
         """
         dataset_configs = {}
 
-        # Mapping of dataset types to their supported datasets
-        supported_datasets = {
-            'change_detection': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'urb3dcd', 'slpccd'],
-            'point_cloud_registration': ['synth_pcr', 'real_pcr'],
-        }
-
         for dataset_type in self.dataset_types:
             if dataset_type not in self.config_dirs:
                 self.logger.warning(f"Config directory not found for dataset type: {dataset_type}")
                 continue
 
             config_dir = self.config_dirs[dataset_type]
-            for dataset_name in supported_datasets.get(dataset_type, []):
+            for dataset_name in DATASET_GROUPS.get(dataset_type, []):
                 config_file = os.path.join(config_dir, f"{dataset_name}.py")
 
                 try:
