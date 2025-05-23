@@ -1,6 +1,8 @@
+from typing import Optional
 import numpy as np
 import torch
 from scipy.spatial import cKDTree
+import open3d as o3d
 from utils.point_cloud_ops.apply_transform import apply_transform
 
 
@@ -38,3 +40,34 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
     ], dtype=np.int64)
 
     return torch.from_numpy(corr_indices)
+
+
+def get_correspondences_v2(
+    src_pcd: o3d.geometry.PointCloud,
+    tgt_pcd: o3d.geometry.PointCloud,
+    trans: np.ndarray,
+    search_voxel_size: float,
+    K: Optional[int] = None
+) -> torch.Tensor:
+    """Find correspondences between two point clouds within a matching radius.
+
+    Args:
+        src_pcd (o3d.geometry.PointCloud): Source point cloud
+        tgt_pcd (o3d.geometry.PointCloud): Target point cloud
+        trans (np.ndarray): Transformation matrix from source to target
+        search_voxel_size (float): Search voxel size
+    """
+    src_pcd.transform(trans)
+    pcd_tree = o3d.geometry.KDTreeFlann(tgt_pcd)
+
+    correspondences = []
+    for i, point in enumerate(src_pcd.points):
+        [count, idx, _] = pcd_tree.search_radius_vector_3d(point, search_voxel_size)
+        if K is not None:
+            idx = idx[:K]
+        for j in idx:
+            correspondences.append([i, j])
+
+    correspondences = np.array(correspondences)
+    correspondences = torch.from_numpy(correspondences)
+    return correspondences
