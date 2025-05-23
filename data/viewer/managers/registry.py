@@ -59,4 +59,4 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
             return dataset_type
 
     # Raise error for unknown dataset types
-    raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
+    raise ValueError(f"Unknown dataset type for dataset: {dataset_name}. {base_name=}, {DATASET_GROUPS=}.")
