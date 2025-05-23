@@ -1,5 +1,5 @@
 """Dataset-related callbacks for the viewer."""
-from typing import Dict, List, Optional, Union, Any, Literal
+from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 import logging
@@ -7,48 +7,9 @@ from data.viewer.states.viewer_state import ViewerEvent
 from data.viewer.layout.display.dataset import create_dataset_info_display
 from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.callbacks.registry import callback, registry
+from data.viewer.managers.registry import get_dataset_type
 
 logger = logging.getLogger(__name__)
-
-# Dataset type definitions
-DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
-
-# Dataset type mapping
-DATASET_TYPE_MAPPING = {
-    'air_change': '2d_change_detection',
-    'cdd': '2d_change_detection',
-    'levir_cd': '2d_change_detection',
-    'oscd': '2d_change_detection',
-    'sysu_cd': '2d_change_detection',
-    'urb3dcd': '3d_change_detection',
-    'slpccd': '3d_change_detection',
-    'synth_pcr': 'point_cloud_registration',
-    'real_pcr': 'point_cloud_registration',
-}
-
-def get_dataset_type(dataset_name: str) -> DatasetType:
-    """Determine the dataset type from the dataset name.
-    
-    Args:
-        dataset_name: Name of the dataset
-        
-    Returns:
-        Dataset type
-        
-    Raises:
-        ValueError: If the dataset type cannot be determined
-    """
-    # Extract base name if it contains a path
-    base_name = dataset_name.split('/')[-1] if '/' in dataset_name else dataset_name
-    
-    # Get the dataset type from the mapping
-    dataset_type = DATASET_TYPE_MAPPING.get(base_name)
-    
-    # If still no dataset type found, raise an error
-    if dataset_type is None:
-        raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
-        
-    return dataset_type
 
 @callback(
     outputs=[
@@ -86,7 +47,7 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
     logger.info(f"Attempting to load dataset: {dataset_name}")
     dataset_info = registry.viewer.dataset_manager.load_dataset(dataset_name)
     
-    # Determine dataset type
+    # Determine dataset type using registry
     dataset_type = get_dataset_type(dataset_name)
     dataset_info['type'] = dataset_type
 
