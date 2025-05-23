@@ -3,7 +3,8 @@
 This module contains centralized definitions for dataset groups and formats
 used across the codebase.
 """
-from typing import Dict, List, Literal
+from typing import Literal
+
 
 # Dataset type definitions
 DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
@@ -37,6 +38,7 @@ DATASET_FORMATS = {
         'label_format': ['transform']
     }
 }
+
 
 def get_dataset_type(dataset_name: str) -> DatasetType:
     """Determine the type of dataset based on its name.
