@@ -48,7 +48,7 @@ class DatasetLoader:
 
             config_dir = self.config_dirs[dataset_type]
             for dataset_name in DATASET_GROUPS.get(dataset_type, []):
-                config_file = os.path.join(config_dir, f"{dataset_name}.py")
+                config_file = os.path.join(config_dir, f"{dataset_name}_data_cfg.py")
 
                 try:
                     if not os.path.isfile(config_file):
@@ -57,7 +57,7 @@ class DatasetLoader:
 
                     # Import the config
                     spec = importlib.util.spec_from_file_location(
-                        f"configs.common.datasets.{dataset_type}.train.{dataset_name}",
+                        f"configs.common.datasets.{dataset_type}.train.{dataset_name}_data_cfg",
                         config_file
                     )
                     module = importlib.util.module_from_spec(spec)
