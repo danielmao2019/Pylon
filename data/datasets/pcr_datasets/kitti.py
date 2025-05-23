@@ -49,15 +49,11 @@ class KITTIDataset(BaseDataset):
         super(KITTIDataset, self).__init__(**kwargs)
 
     def _init_annotations(self) -> None:
-        self.annotations_cache_root = os.path.join(self.data_root, 'annotations')
         if os.path.isfile(os.path.join(self.annotations_cache_root, f'{self.split}.json')):
             with open(os.path.join(self.annotations_cache_root, f'{self.split}.json'), 'r') as f:
                 self.annotations = json.load(f)
             return
-
-        os.makedirs(self.annotations_cache_root, exist_ok=True)
         self.annotations: List[Dict[str, Any]] = []
-        self.seq_pose_cache = {}
         sequences = self.SEQUENCES_SPLIT[self.split]
         for seq in sequences:
             seq_path = os.path.join(self.data_root, 'sequences', seq, "velodyne")
