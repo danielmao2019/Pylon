@@ -103,15 +103,15 @@ class DatasetLoader:
             self.logger.error(f"No configuration found for dataset: {dataset_name}")
             return None
 
-        # Adjust data_root path if needed
         dataset_cfg = config.get('train_dataset', {})
+
+        # Handle relative paths in dataset config
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-        if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args']:
-            if not os.path.isabs(dataset_cfg['args']['data_root']):
-                dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
-        if 'args' in dataset_cfg and 'gt_transforms_filepath' in dataset_cfg['args']:
-            if not os.path.isabs(dataset_cfg['args']['gt_transforms_filepath']):
-                dataset_cfg['args']['gt_transforms_filepath'] = os.path.join(repo_root, dataset_cfg['args']['gt_transforms_filepath'])
+        path_keys = ['data_root', 'gt_transforms_filepath']
+        if 'args' in dataset_cfg:
+            for key in path_keys:
+                if key in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args'][key]):
+                    dataset_cfg['args'][key] = os.path.join(repo_root, dataset_cfg['args'][key])
 
         # Import the dataset builder
         import utils.builders
