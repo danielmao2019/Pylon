@@ -6,7 +6,7 @@ data_cfg = {
     'train_dataset': {
         'class': data.datasets.KITTIDataset,
         'args': {
-            'data_root': './data/datasets/soft_links/kitti',
+            'data_root': './data/datasets/soft_links/KITTI',
             'split': 'train',
         },
     },
