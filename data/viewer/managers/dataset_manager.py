@@ -42,20 +42,6 @@ class DatasetManager:
         # Store configurations for easy access
         self._configs = self.loader.configs
 
-    def get_dataset_type(self, dataset_name: str) -> DatasetType:
-        """Determine the type of dataset based on its name.
-
-        Args:
-            dataset_name: Name of the dataset
-
-        Returns:
-            Dataset type (2d_change_detection, 3d_change_detection, or point_cloud_registration)
-
-        Raises:
-            ValueError: If the dataset type cannot be determined
-        """
-        return get_dataset_type(dataset_name)
-
     def get_available_datasets(self) -> List[str]:
         """Get list of available datasets.
 
@@ -98,7 +84,7 @@ class DatasetManager:
         self.transform_manager.register_transforms_from_config(transforms_cfg)
 
         # Determine dataset type and format
-        dataset_type = self.get_dataset_type(dataset_name)
+        dataset_type = get_dataset_type(dataset_name)
         dataset_format = DATASET_FORMATS[dataset_type]
 
         # Get dataset info

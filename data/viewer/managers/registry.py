@@ -38,14 +38,6 @@ DATASET_FORMATS = {
     }
 }
 
-def get_all_supported_datasets() -> Dict[str, List[str]]:
-    """Get a mapping of all supported datasets by their type.
-    
-    Returns:
-        Dictionary mapping dataset types to lists of supported dataset names
-    """
-    return DATASET_GROUPS
-
 def get_dataset_type(dataset_name: str) -> DatasetType:
     """Determine the type of dataset based on its name.
 
