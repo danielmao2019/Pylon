@@ -44,16 +44,6 @@ Contains various calibration matrices:
 - Tr: Transformation from velodyne to camera coordinate system
 - Tr_imu_to_velo: Transformation from IMU to velodyne coordinate system
 
-### Dataset Output
-The dataset class returns a dictionary containing:
-- `src_points`: (N, 3) float32 array, source point cloud
-- `tgt_points`: (N, 3) float32 array, target point cloud
-- `transform`: (4, 4) float32 array, ground truth transformation matrix
-- `sequence`: str, sequence ID
-- `src_frame`: str, source frame filename
-- `tgt_frame`: str, target frame filename
-- `distance`: float, distance between frames
-
 ## Download Instructions
 
 1. Download the KITTI odometry benchmark from the official website:
@@ -103,4 +93,4 @@ The dataset is typically split as follows:
 - Validation: Sequences 06-07
 - Testing: Sequences 08-10
 
-This split ensures that the evaluation is performed on different environments and driving scenarios than those used for training. 
+This split ensures that the evaluation is performed on different environments and driving scenarios than those used for training.
