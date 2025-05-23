@@ -110,8 +110,9 @@ class DatasetLoader:
         path_keys = ['data_root', 'gt_transforms_filepath']
         if 'args' in dataset_cfg:
             for key in path_keys:
+                print(f"Adjusting path for {key}")
                 if key in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args'][key]):
-                    dataset_cfg['args'][key] = os.path.join(repo_root, dataset_cfg['args'][key])
+                    dataset_cfg['args'][key] = os.path.normpath(os.path.join(repo_root, dataset_cfg['args'][key]))
 
         # Import the dataset builder
         import utils.builders
