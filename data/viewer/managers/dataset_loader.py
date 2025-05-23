@@ -1,9 +1,10 @@
 """Dataset loader module."""
+from typing import Dict, Any, Optional, List
 import os
 import logging
-from typing import Dict, Any, Optional, List
 import importlib.util
-from pathlib import Path
+from data.viewer.managers.registry import DATASET_GROUPS, get_dataset_type
+
 
 class DatasetLoader:
     """Handles loading and configuration of datasets."""
@@ -13,7 +14,7 @@ class DatasetLoader:
 
         Args:
             config_dir: Optional directory containing dataset configurations
-            dataset_types: Optional list of dataset types to load (e.g., ['change_detection', 'point_cloud_registration'])
+            dataset_types: Optional list of dataset types to load (e.g., ['2d_change_detection', 'point_cloud_registration'])
         """
         self.logger = logging.getLogger(__name__)
 
@@ -21,14 +22,15 @@ class DatasetLoader:
         if config_dir is None:
             repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
             self.config_dirs = {
-                'change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
+                '2d_change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
+                '3d_change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
                 'point_cloud_registration': os.path.join(repo_root, "configs/common/datasets/point_cloud_registration/train")
             }
         else:
             self.config_dirs = {'default': config_dir}
 
         # Default to loading all dataset types if none specified
-        self.dataset_types = dataset_types or ['change_detection', 'point_cloud_registration']
+        self.dataset_types = dataset_types or list(DATASET_GROUPS.keys())
         self.configs = self._load_dataset_configs()
 
     def _load_dataset_configs(self) -> Dict[str, Any]:
@@ -39,20 +41,14 @@ class DatasetLoader:
         """
         dataset_configs = {}
 
-        # Mapping of dataset types to their supported datasets
-        supported_datasets = {
-            'change_detection': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd', 'urb3dcd', 'slpccd'],
-            'point_cloud_registration': ['synth_pcr', 'real_pcr'],
-        }
-
         for dataset_type in self.dataset_types:
             if dataset_type not in self.config_dirs:
                 self.logger.warning(f"Config directory not found for dataset type: {dataset_type}")
                 continue
 
             config_dir = self.config_dirs[dataset_type]
-            for dataset_name in supported_datasets.get(dataset_type, []):
-                config_file = os.path.join(config_dir, f"{dataset_name}.py")
+            for dataset_name in DATASET_GROUPS.get(dataset_type, []):
+                config_file = os.path.join(config_dir, f"{dataset_name}_data_cfg.py")
 
                 try:
                     if not os.path.isfile(config_file):
@@ -61,7 +57,7 @@ class DatasetLoader:
 
                     # Import the config
                     spec = importlib.util.spec_from_file_location(
-                        f"configs.common.datasets.{dataset_type}.train.{dataset_name}",
+                        f"configs.common.datasets.{dataset_type}.train.{dataset_name}_data_cfg",
                         config_file
                     )
                     module = importlib.util.module_from_spec(spec)
@@ -107,15 +103,16 @@ class DatasetLoader:
             self.logger.error(f"No configuration found for dataset: {dataset_name}")
             return None
 
-        # Adjust data_root path if needed
         dataset_cfg = config.get('train_dataset', {})
+
+        # Handle relative paths in dataset config
         repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-        if 'args' in dataset_cfg and 'data_root' in dataset_cfg['args']:
-            if not os.path.isabs(dataset_cfg['args']['data_root']):
-                dataset_cfg['args']['data_root'] = os.path.join(repo_root, dataset_cfg['args']['data_root'])
-        if 'args' in dataset_cfg and 'gt_transforms_filepath' in dataset_cfg['args']:
-            if not os.path.isabs(dataset_cfg['args']['gt_transforms_filepath']):
-                dataset_cfg['args']['gt_transforms_filepath'] = os.path.join(repo_root, dataset_cfg['args']['gt_transforms_filepath'])
+        path_keys = ['data_root', 'gt_transforms_filepath']
+        if 'args' in dataset_cfg:
+            for key in path_keys:
+                print(f"Adjusting path for {key}")
+                if key in dataset_cfg['args'] and not os.path.isabs(dataset_cfg['args'][key]):
+                    dataset_cfg['args'][key] = os.path.normpath(os.path.join(repo_root, dataset_cfg['args'][key]))
 
         # Import the dataset builder
         import utils.builders
