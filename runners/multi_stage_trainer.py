@@ -9,31 +9,30 @@ import os
 class MultiStageTrainer(BaseTrainer):
     """Trainer class for multi-stage training with continuous epoch numbering.
     
-    This trainer takes a list of configs and corresponding epoch counts for each stage.
-    It maintains continuous epoch numbering across stages and reinitializes components
-    (except model) when entering a new stage.
+    This trainer takes a list of configs for each stage. The number of epochs for each stage
+    is read from the config files. It maintains continuous epoch numbering across stages and 
+    reinitializes components (except model) when entering a new stage.
     """
 
     def __init__(
         self,
         stage_configs: List[Dict[str, Any]],
-        stage_epochs: List[int],
         device: Optional[torch.device] = torch.device('cuda'),
     ) -> None:
         """Initialize the multi-stage trainer.
         
         Args:
-            stage_configs: List of config dictionaries for each stage
-            stage_epochs: List of number of epochs for each stage
+            stage_configs: List of config dictionaries for each stage. Each config must contain
+                          an 'epochs' key specifying the number of epochs for that stage.
             device: Device to use for training
         """
-        assert len(stage_configs) == len(stage_epochs), "Number of configs must match number of epoch counts"
-        assert all(epochs > 0 for epochs in stage_epochs), "All stage epoch counts must be positive"
+        assert len(stage_configs) > 0, "Must provide at least one stage config"
+        assert all('epochs' in config for config in stage_configs), "Each stage config must contain 'epochs' key"
+        assert all(config['epochs'] > 0 for config in stage_configs), "All stage epoch counts must be positive"
         
         # Store stage info
         self.stage_configs = stage_configs
-        self.stage_epochs = stage_epochs
-        self.tot_epochs = sum(stage_epochs)
+        self.stage_epochs = [config['epochs'] for config in stage_configs]
         
         # Initialize with first stage config
         super().__init__(config=stage_configs[0], device=device)
@@ -41,6 +40,10 @@ class MultiStageTrainer(BaseTrainer):
         # Track current stage
         self.current_stage = 0
         self.stage_start_epoch = 0
+
+    def _init_tot_epochs(self) -> None:
+        """Override to use total epochs across all stages."""
+        self.tot_epochs = sum(self.stage_epochs)
 
     def _get_stage_for_epoch(self, epoch: int) -> int:
         """Get the stage index for a given epoch number."""
