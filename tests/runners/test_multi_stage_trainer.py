@@ -152,4 +152,4 @@ def test_multi_stage_vs_single_stage(test_dir):
         with open(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
             multi_scores = json.load(f)
         
-        assert single_scores == multi_scores, f"Validation scores don't match at epoch {epoch}" 
+        assert single_scores == multi_scores, f"Validation scores don't match at epoch {epoch}"
