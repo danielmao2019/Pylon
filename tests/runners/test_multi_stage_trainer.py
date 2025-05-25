@@ -208,7 +208,7 @@ def test_multi_stage_vs_single_stage(test_dir):
         for (single_name, single_param), (multi_name, multi_param) in zip(
             single_model_state.items(), multi_model_state.items()
         ):
-            assert single_name == multi_name, f"Parameter names don't match: {single_name} vs {multi_name}"
+            assert single_name == multi_name, f"Parameter names don't match: {single_name} vs {multi_name}. {epoch=}"
             assert torch.allclose(single_param, multi_param), f"Parameters don't match for {single_name}. {epoch=}"
 
         # Compare optimizer states
