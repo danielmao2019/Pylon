@@ -225,24 +225,14 @@ def test_multi_stage_vs_single_stage(test_dir):
             else:
                 assert single_param == multi_param, f"Optimizer states don't match for {single_name}"
 
-        # Compare scheduler states
-        single_sched_state = single_checkpoint['scheduler_state_dict']
-        multi_sched_state = multi_checkpoint['scheduler_state_dict']
-
-        # Check that all scheduler states match exactly
-        for (single_name, single_param), (multi_name, multi_param) in zip(
-            single_sched_state.items(), multi_sched_state.items()
-        ):
-            assert single_name == multi_name, f"Scheduler state names don't match: {single_name} vs {multi_name}"
-            if isinstance(single_param, torch.Tensor):
-                assert torch.allclose(single_param, multi_param), f"Scheduler states don't match for {single_name}. {single_param=}, {multi_param=}."
-            else:
-                assert single_param == multi_param, f"Scheduler states don't match for {single_name}. {single_param=}, {multi_param=}."
+        # Compare training losses
+        single_losses = torch.load(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "training_losses.pt"))
+        multi_losses = torch.load(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "training_losses.pt"))
+        assert torch.allclose(single_losses, multi_losses), f"Training losses don't match at epoch {epoch}"
 
         # Compare validation scores
         with open(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
             single_scores = json.load(f)
         with open(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
             multi_scores = json.load(f)
-
         assert single_scores == multi_scores, f"Validation scores don't match at epoch {epoch}"
