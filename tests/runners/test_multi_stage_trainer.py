@@ -5,11 +5,14 @@ import torch
 from runners.multi_stage_trainer import MultiStageTrainer
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
-from metrics.base_metric import BaseMetric
+from metrics.wrappers.single_task_metric import SingleTaskMetric
+from utils.io import save_json
 
 
-class SimpleMetric(BaseMetric):
+class SimpleMetric(SingleTaskMetric):
     """A simple metric implementation for testing."""
+
+    DIRECTION = -1  # Lower is better for MSE
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict[str, torch.Tensor]:
         """Compute MSE score."""
