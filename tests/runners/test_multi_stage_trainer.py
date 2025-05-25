@@ -101,6 +101,7 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'init_seed': 42,
         'epochs': epochs,
         'train_seeds': [42] * epochs,
+        'checkpoint_method': 'all',
         'train_dataset': {
             'class': dataset,
             'args': {'size': 100, 'device': 'cuda'}
@@ -111,6 +112,10 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
                 'batch_size': 32,
                 'shuffle': True
             }
+        },
+        'criterion': {
+            'class': SimpleCriterion,
+            'args': {}
         },
         'val_dataset': {
             'class': dataset,
@@ -123,16 +128,12 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
                 'shuffle': False
             }
         },
-        'model': {
-            'class': model,
-            'args': {}
-        },
-        'criterion': {
-            'class': SimpleCriterion,
-            'args': {}
-        },
         'metric': {
             'class': metric,
+            'args': {}
+        },
+        'model': {
+            'class': model,
             'args': {}
         },
         'optimizer': {
