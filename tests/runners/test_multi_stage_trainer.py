@@ -182,13 +182,12 @@ def test_multi_stage_vs_single_stage(test_dir):
         metric=SimpleMetric
     )
 
-    # Initialize trainers
+    # Initialize trainers and run training
     single_trainer = SupervisedSingleTaskTrainer(config=single_stage_config)
-    multi_trainer = SupervisedMultiStageTrainer(stage_configs=[stage1_config, stage2_config])
-
-    # Run training
     single_trainer.run()
+    multi_trainer = SupervisedMultiStageTrainer(stage_configs=[stage1_config, stage2_config])
     multi_trainer.run()
+
 
     # Compare model parameters at each epoch
     for epoch in range(10):
