@@ -145,7 +145,7 @@ class BaseTrainer(ABC):
             self.model = model
         else:
             self.model = None
-        
+
         if self.cum_epochs > 0:
             checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{self.cum_epochs-1}", "checkpoint.pt")
             try:
