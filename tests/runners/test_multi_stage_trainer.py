@@ -4,6 +4,7 @@ import json
 import torch
 from runners.multi_stage_trainer import MultiStageTrainer
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from metrics.base_metric import BaseMetric
 
 
@@ -67,13 +68,14 @@ class SimpleModel(torch.nn.Module):
         return self.linear(x)
 
 
-class SimpleCriterion(torch.nn.Module):
+class SimpleCriterion(SingleTaskCriterion):
     """A simple criterion for testing."""
     def __init__(self):
         super().__init__()
         self.mse = torch.nn.MSELoss()
 
-    def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+    def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
+        """Compute MSE loss."""
         return self.mse(y_pred, y_true)
 
 
