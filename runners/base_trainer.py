@@ -91,19 +91,20 @@ class BaseTrainer(ABC):
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
         utils.determinism.set_determinism()
-        # get seed for initialization steps
+
+        # Get training seeds
+        assert 'train_seeds' in self.config.keys()
+        train_seeds = self.config['train_seeds']
+        assert type(train_seeds) == list, f"{type(train_seeds)=}"
+        assert all(type(seed) == int for seed in train_seeds), f"{train_seeds=}"
+        assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
+        self.train_seeds = train_seeds
+
+        # Set init seed
         assert 'init_seed' in self.config.keys()
         init_seed = self.config['init_seed']
         assert type(init_seed) == int, f"{type(init_seed)=}"
         utils.determinism.set_seed(seed=init_seed)
-        # get seeds for training
-        assert 'train_seeds' in self.config.keys()
-        train_seeds = self.config['train_seeds']
-        assert type(train_seeds) == list, f"{type(train_seeds)=}"
-        for seed in train_seeds:
-            assert type(seed) == int, f"{type(seed)=}"
-        assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
-        self.train_seeds = train_seeds
 
     def _init_dataloaders_(self) -> None:
         self.logger.info("Initializing dataloaders...")
@@ -197,7 +198,7 @@ class BaseTrainer(ABC):
 
     def _init_state_(self) -> None:
         self.logger.info("Initializing state...")
-        # init epoch numbers
+        # Get self.cum_epochs
         if self.work_dir is None:
             self.cum_epochs = 0
             return

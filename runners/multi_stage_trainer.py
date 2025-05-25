@@ -43,6 +43,21 @@ class MultiStageTrainer(BaseTrainer):
         """Override to use total epochs across all stages."""
         self.tot_epochs = sum(self.stage_epochs)
 
+    def _init_determinism_(self):
+        self.logger.info("Initializing determinism...")
+        utils.determinism.set_determinism()
+
+        # Get training seeds
+        self.train_seeds = []
+        for stage_config in self.stage_configs:
+            assert 'train_seeds' in stage_config.keys()
+            train_seeds = stage_config['train_seeds']
+            assert type(train_seeds) == list, f"{type(train_seeds)=}"
+            assert all(type(seed) == int for seed in train_seeds), f"{train_seeds=}"
+            assert len(train_seeds) == stage_config['epochs'], f"{len(train_seeds)=}, {stage_config['epochs']=}"
+            self.train_seeds.extend(train_seeds)
+        assert len(self.train_seeds) == self.tot_epochs, f"{len(self.train_seeds)=}, {self.tot_epochs=}"
+
     def _get_stage_for_epoch(self, epoch: int) -> int:
         """Get the stage index for a given epoch number."""
         running_sum = 0
@@ -60,6 +75,12 @@ class MultiStageTrainer(BaseTrainer):
         self.logger.info(f"Switching to stage {stage_idx}")
         self.current_stage = stage_idx
         self.config = copy.deepcopy(self.stage_configs[stage_idx])
+
+        # Set init seed
+        assert 'init_seed' in self.config.keys()
+        init_seed = self.config['init_seed']
+        assert type(init_seed) == int, f"{type(init_seed)=}"
+        utils.determinism.set_seed(seed=init_seed)
 
     def _reinitialize(self) -> None:
         # Reinitialize components except model
