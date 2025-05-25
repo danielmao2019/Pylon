@@ -6,6 +6,7 @@ from runners.multi_stage_trainer import MultiStageTrainer
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from metrics.wrappers.single_task_metric import SingleTaskMetric
+import optimizers
 from utils.io import save_json
 
 
@@ -135,10 +136,15 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
             'args': {}
         },
         'optimizer': {
-            'class': torch.optim.SGD,
+            'class': optimizers.SingleTaskOptimizer,
             'args': {
-                'lr': 0.01
-            }
+                'optimizer_config': {
+                    'class': torch.optim.SGD,
+                    'args': {
+                        'lr': 1.0e-03,
+                    },
+                },
+            },
         },
         'scheduler': {
             'class': torch.optim.lr_scheduler.ConstantLR,
