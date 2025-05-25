@@ -34,11 +34,10 @@ class MultiStageTrainer(BaseTrainer):
         self.stage_epochs = [config['epochs'] for config in stage_configs]
 
         # Initialize with first stage config
-        super().__init__(config=stage_configs[0], device=device)
+        super(MultiStageTrainer, self).__init__(config=stage_configs[0], device=device)
 
         # Track current stage
         self.current_stage = 0
-        self.stage_start_epoch = 0
 
     def _init_tot_epochs(self) -> None:
         """Override to use total epochs across all stages."""
