@@ -145,6 +145,15 @@ class BaseTrainer(ABC):
             self.model = model
         else:
             self.model = None
+        
+        if self.cum_epochs > 0:
+            checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{self.cum_epochs-1}", "checkpoint.pt")
+            try:
+                self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
+                checkpoint = torch.load(checkpoint_filepath)
+                self._load_checkpoint_(checkpoint)
+            except Exception as e:
+                self.logger.error(f"[ERROR] Failed to load checkpoint at {checkpoint_filepath}: {e}")
 
     def _init_criterion_(self) -> None:
         self.logger.info("Initializing criterion...")
@@ -182,7 +191,6 @@ class BaseTrainer(ABC):
             checkpoint (dict): the output of torch.load(checkpoint_filepath).
         """
         assert type(checkpoint) == dict, f"{type(checkpoint)=}"
-        self.cum_epochs = checkpoint['epoch'] + 1
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
@@ -190,8 +198,8 @@ class BaseTrainer(ABC):
     def _init_state_(self) -> None:
         self.logger.info("Initializing state...")
         # init epoch numbers
-        self.cum_epochs = 0
         if self.work_dir is None:
+            self.cum_epochs = 0
             return
         # determine where to resume from
         load_idx: Optional[int] = None
@@ -206,14 +214,9 @@ class BaseTrainer(ABC):
         # resume state
         if load_idx is None:
             self.logger.info("Training from scratch.")
+            self.cum_epochs = 0
             return
-        checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{load_idx}", "checkpoint.pt")
-        try:
-            self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
-            checkpoint = torch.load(checkpoint_filepath)
-            self._load_checkpoint_(checkpoint)
-        except Exception as e:
-            self.logger.error(f"[ERROR] Failed to load checkpoint at {checkpoint_filepath}: {e}")
+        self.cum_epochs = load_idx + 1
 
     # ====================================================================================================
     # iteration-level methods
@@ -331,7 +334,6 @@ class BaseTrainer(ABC):
             output_path (str): the file path to which the checkpoint will be saved.
         """
         torch.save(obj={
-            'epoch': self.cum_epochs,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
