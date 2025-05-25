@@ -69,9 +69,6 @@ class MultiStageTrainer(BaseTrainer):
 
     def _switch_to_stage(self, stage_idx: int) -> None:
         """Switch to a new stage by reinitializing components with the stage's config."""
-        if stage_idx == self.current_stage:
-            return
-
         self.logger.info(f"Switching to stage {stage_idx}")
         self.current_stage = stage_idx
         self.config = copy.deepcopy(self.stage_configs[stage_idx])
