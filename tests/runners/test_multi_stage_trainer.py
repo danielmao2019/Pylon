@@ -1,11 +1,10 @@
 """Test cases for MultiStageTrainer comparing with SupervisedSingleTaskTrainer."""
 import os
+import json
 import torch
-import pytest
 from runners.multi_stage_trainer import MultiStageTrainer
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from tests.runners.conftest import SimpleModel, SimpleDataset, SimpleMetric
-import json
 
 
 class SimpleCriterion(torch.nn.Module):
