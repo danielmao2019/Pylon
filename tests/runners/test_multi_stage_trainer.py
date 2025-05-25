@@ -235,9 +235,9 @@ def test_multi_stage_vs_single_stage(test_dir):
         ):
             assert single_name == multi_name, f"Scheduler state names don't match: {single_name} vs {multi_name}"
             if isinstance(single_param, torch.Tensor):
-                assert torch.allclose(single_param, multi_param), f"Scheduler states don't match for {single_name}"
+                assert torch.allclose(single_param, multi_param), f"Scheduler states don't match for {single_name}. {single_param=}, {multi_param=}."
             else:
-                assert single_param == multi_param, f"Scheduler states don't match for {single_name}"
+                assert single_param == multi_param, f"Scheduler states don't match for {single_name}. {single_param=}, {multi_param=}."
 
         # Compare validation scores
         with open(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
