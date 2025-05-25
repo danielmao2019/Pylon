@@ -9,12 +9,12 @@ from utils.io import save_json
 
 class SimpleMetric(BaseMetric):
     """A simple metric implementation for testing."""
-    
+
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Compute MSE score."""
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
-    
+
     def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Update the metric buffer with the current batch's score."""
         score = self._compute_score(y_pred, y_true)
@@ -23,46 +23,46 @@ class SimpleMetric(BaseMetric):
         # Add to buffer
         self.add_to_buffer(score)
         return score
-    
+
     def summarize(self, output_path=None) -> Dict[str, float]:
         """Calculate average score from buffer and optionally save to file."""
         if not self.buffer:
             return {"mse": 0.0}
-        
+
         # Calculate average score
         mse_scores = [score["mse"] for score in self.buffer]
         avg_score = sum(mse_scores) / len(mse_scores)
         result = {"mse": avg_score}
-        
+
         # Save to file if path is provided
         if output_path:
             save_json(obj=result, filepath=output_path)
-        
+
         return result
 
 
 class SimpleDataset(torch.utils.data.Dataset):
     """A simple dataset for testing."""
-    
+
     def __init__(self, size=100, device='cuda'):
         self.device = device
         self.data = torch.randn(size, 10, device=device)
         self.labels = torch.randn(size, 1, device=device)
-    
+
     def __len__(self):
         return len(self.data)
-    
+
     def __getitem__(self, idx):
         return {'inputs': self.data[idx], 'labels': self.labels[idx]}
 
 
 class SimpleModel(torch.nn.Module):
     """A simple model for testing."""
-    
+
     def __init__(self):
         super().__init__()
         self.linear = torch.nn.Linear(10, 1)
-    
+
     def forward(self, x):
         return self.linear(x)
 

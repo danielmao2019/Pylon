@@ -91,19 +91,20 @@ class BaseTrainer(ABC):
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
         utils.determinism.set_determinism()
-        # get seed for initialization steps
+
+        # Get training seeds
+        assert 'train_seeds' in self.config.keys()
+        train_seeds = self.config['train_seeds']
+        assert type(train_seeds) == list, f"{type(train_seeds)=}"
+        assert all(type(seed) == int for seed in train_seeds), f"{train_seeds=}"
+        assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
+        self.train_seeds = train_seeds
+
+        # Set init seed
         assert 'init_seed' in self.config.keys()
         init_seed = self.config['init_seed']
         assert type(init_seed) == int, f"{type(init_seed)=}"
         utils.determinism.set_seed(seed=init_seed)
-        # get seeds for training
-        assert 'train_seeds' in self.config.keys()
-        train_seeds = self.config['train_seeds']
-        assert type(train_seeds) == list, f"{type(train_seeds)=}"
-        for seed in train_seeds:
-            assert type(seed) == int, f"{type(seed)=}"
-        assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
-        self.train_seeds = train_seeds
 
     def _init_dataloaders_(self) -> None:
         self.logger.info("Initializing dataloaders...")
@@ -146,6 +147,15 @@ class BaseTrainer(ABC):
         else:
             self.model = None
 
+        if self.cum_epochs > 0:
+            checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{self.cum_epochs-1}", "checkpoint.pt")
+            try:
+                self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
+                checkpoint = torch.load(checkpoint_filepath)
+                self._load_checkpoint_(checkpoint)
+            except Exception as e:
+                self.logger.error(f"[ERROR] Failed to load checkpoint at {checkpoint_filepath}: {e}")
+
     def _init_criterion_(self) -> None:
         self.logger.info("Initializing criterion...")
         if self.config.get('criterion', None):
@@ -182,16 +192,15 @@ class BaseTrainer(ABC):
             checkpoint (dict): the output of torch.load(checkpoint_filepath).
         """
         assert type(checkpoint) == dict, f"{type(checkpoint)=}"
-        self.cum_epochs = checkpoint['epoch'] + 1
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
     def _init_state_(self) -> None:
         self.logger.info("Initializing state...")
-        # init epoch numbers
-        self.cum_epochs = 0
+        # Get self.cum_epochs
         if self.work_dir is None:
+            self.cum_epochs = 0
             return
         # determine where to resume from
         load_idx: Optional[int] = None
@@ -206,14 +215,9 @@ class BaseTrainer(ABC):
         # resume state
         if load_idx is None:
             self.logger.info("Training from scratch.")
+            self.cum_epochs = 0
             return
-        checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{load_idx}", "checkpoint.pt")
-        try:
-            self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
-            checkpoint = torch.load(checkpoint_filepath)
-            self._load_checkpoint_(checkpoint)
-        except Exception as e:
-            self.logger.error(f"[ERROR] Failed to load checkpoint at {checkpoint_filepath}: {e}")
+        self.cum_epochs = load_idx + 1
 
     # ====================================================================================================
     # iteration-level methods
@@ -331,7 +335,6 @@ class BaseTrainer(ABC):
             output_path (str): the file path to which the checkpoint will be saved.
         """
         torch.save(obj={
-            'epoch': self.cum_epochs,
             'model_state_dict': self.model.state_dict(),
             'optimizer_state_dict': self.optimizer.state_dict(),
             'scheduler_state_dict': self.scheduler.state_dict(),
@@ -430,17 +433,46 @@ class BaseTrainer(ABC):
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
         if latest_checkpoint in checkpoints:
             checkpoints.remove(latest_checkpoint)
-        for checkpoint in checkpoints:
-            assert checkpoint.endswith("checkpoint.pt")
-            epoch_dir = os.path.dirname(checkpoint)
-            assert os.path.basename(epoch_dir).startswith("epoch_")
-            epoch = int(os.path.basename(epoch_dir).split('_')[1])
-            # remove only if next epoch has finished
-            if check_epoch_finished(
-                epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
-                expected_files=self.expected_files,
-            ):
-                os.system(' '.join(["rm", "-f", checkpoint]))
+
+        # Handle different checkpoint methods
+        checkpoint_method = self.config.get('checkpoint_method', 'latest')
+        if checkpoint_method == 'all':
+            # Keep all checkpoints
+            return
+        elif checkpoint_method == 'latest':
+            # Keep only the latest checkpoint
+            for checkpoint in checkpoints:
+                assert checkpoint.endswith("checkpoint.pt")
+                epoch_dir = os.path.dirname(checkpoint)
+                assert os.path.basename(epoch_dir).startswith("epoch_")
+                epoch = int(os.path.basename(epoch_dir).split('_')[1])
+                # remove only if next epoch has finished
+                if check_epoch_finished(
+                    epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
+                    expected_files=self.expected_files,
+                ):
+                    os.system(' '.join(["rm", "-f", checkpoint]))
+        else:
+            # Handle interval-based checkpointing
+            assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
+            assert checkpoint_method > 0, "checkpoint_method interval must be positive"
+
+            for checkpoint in checkpoints:
+                assert checkpoint.endswith("checkpoint.pt")
+                epoch_dir = os.path.dirname(checkpoint)
+                assert os.path.basename(epoch_dir).startswith("epoch_")
+                epoch = int(os.path.basename(epoch_dir).split('_')[1])
+
+                # Keep checkpoints at the specified interval
+                if epoch % checkpoint_method == checkpoint_method - 1:
+                    continue
+
+                # remove only if next epoch has finished
+                if check_epoch_finished(
+                    epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
+                    expected_files=self.expected_files,
+                ):
+                    os.system(' '.join(["rm", "-f", checkpoint]))
 
     # ====================================================================================================
     # test epoch
@@ -491,13 +523,13 @@ class BaseTrainer(ABC):
     def _init_components_(self):
         self._init_logger()
         self._init_determinism_()
+        self._init_state_()
         self._init_dataloaders_()
         self._init_model_()
         self._init_criterion_()
         self._init_metric_()
         self._init_optimizer_()
         self._init_scheduler_()
-        self._init_state_()
 
     def run(self):
         # initialize run

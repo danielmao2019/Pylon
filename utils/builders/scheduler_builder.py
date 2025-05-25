@@ -16,7 +16,10 @@ def build_scheduler(trainer: "runners.BaseTrainer", cfg: dict) -> torch.optim.lr
                 lr_lambda_cfg['args']['steps'] = len(trainer.train_dataloader)
         else:
             raise NotImplementedError
-    elif cfg['class'] == torch.optim.lr_scheduler.StepLR:
+    elif cfg['class'] in (
+        torch.optim.lr_scheduler.ConstantLR,
+        torch.optim.lr_scheduler.StepLR,
+    ):
         pass
     elif cfg['class'] == torch.optim.lr_scheduler.PolynomialLR:
         assert set(cfg['args'].keys()).issubset({'optimizer', 'total_iters', 'power'}), f"{cfg['args'].keys()=}"
