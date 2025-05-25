@@ -12,7 +12,7 @@ class SimpleCriterion(torch.nn.Module):
     def __init__(self):
         super().__init__()
         self.mse = torch.nn.MSELoss()
-    
+
     def forward(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         return self.mse(y_pred, y_true)
 
@@ -21,7 +21,7 @@ class SupervisedMultiStageTrainer(SupervisedSingleTaskTrainer, MultiStageTrainer
     """A concrete trainer class that combines supervised training with multi-stage functionality."""
     def __init__(self, stage_configs: list[dict]):
         """Initialize the trainer with a list of stage configurations.
-        
+
         Args:
             stage_configs: List of configuration dictionaries for each stage.
         """
@@ -88,40 +88,40 @@ def test_multi_stage_vs_single_stage(test_dir):
     """Compare SupervisedMultiStageTrainer with SupervisedSingleTaskTrainer."""
     # Create configs
     single_stage_config = create_base_config(os.path.join(test_dir, "single_stage"), epochs=10)
-    
+
     # Create two identical stage configs for multi-stage
     stage1_config = create_base_config(os.path.join(test_dir, "multi_stage_stage1"), epochs=5)
     stage2_config = create_base_config(os.path.join(test_dir, "multi_stage_stage2"), epochs=5)
-    
+
     # Initialize trainers
     single_trainer = SupervisedSingleTaskTrainer(config=single_stage_config)
     multi_trainer = SupervisedMultiStageTrainer(stage_configs=[stage1_config, stage2_config])
-    
+
     # Run training
     single_trainer.run()
     multi_trainer.run()
-    
+
     # Compare model parameters at each epoch
     for epoch in range(10):
         # Load checkpoints
         single_checkpoint = torch.load(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "checkpoint.pt"))
         multi_checkpoint = torch.load(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "checkpoint.pt"))
-        
+
         # Compare model states
         single_model_state = single_checkpoint['model_state_dict']
         multi_model_state = multi_checkpoint['model_state_dict']
-        
+
         # Check that all parameters match exactly
         for (single_name, single_param), (multi_name, multi_param) in zip(
             single_model_state.items(), multi_model_state.items()
         ):
             assert single_name == multi_name, f"Parameter names don't match: {single_name} vs {multi_name}"
             assert torch.allclose(single_param, multi_param), f"Parameters don't match for {single_name}"
-        
+
         # Compare optimizer states
         single_optim_state = single_checkpoint['optimizer_state_dict']
         multi_optim_state = multi_checkpoint['optimizer_state_dict']
-        
+
         # Check that all optimizer states match exactly
         for (single_name, single_param), (multi_name, multi_param) in zip(
             single_optim_state.items(), multi_optim_state.items()
@@ -131,11 +131,11 @@ def test_multi_stage_vs_single_stage(test_dir):
                 assert torch.allclose(single_param, multi_param), f"Optimizer states don't match for {single_name}"
             else:
                 assert single_param == multi_param, f"Optimizer states don't match for {single_name}"
-        
+
         # Compare scheduler states
         single_sched_state = single_checkpoint['scheduler_state_dict']
         multi_sched_state = multi_checkpoint['scheduler_state_dict']
-        
+
         # Check that all scheduler states match exactly
         for (single_name, single_param), (multi_name, multi_param) in zip(
             single_sched_state.items(), multi_sched_state.items()
@@ -145,11 +145,11 @@ def test_multi_stage_vs_single_stage(test_dir):
                 assert torch.allclose(single_param, multi_param), f"Scheduler states don't match for {single_name}"
             else:
                 assert single_param == multi_param, f"Scheduler states don't match for {single_name}"
-        
+
         # Compare validation scores
         with open(os.path.join(single_stage_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
             single_scores = json.load(f)
         with open(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
             multi_scores = json.load(f)
-        
+
         assert single_scores == multi_scores, f"Validation scores don't match at epoch {epoch}"
