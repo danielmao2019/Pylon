@@ -493,13 +493,13 @@ class BaseTrainer(ABC):
     def _init_components_(self):
         self._init_logger()
         self._init_determinism_()
+        self._init_state_()
         self._init_dataloaders_()
         self._init_model_()
         self._init_criterion_()
         self._init_metric_()
         self._init_optimizer_()
         self._init_scheduler_()
-        self._init_state_()
 
     def run(self):
         # initialize run
