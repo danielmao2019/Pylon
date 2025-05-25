@@ -182,9 +182,14 @@ def test_multi_stage_vs_single_stage(test_dir):
         metric=SimpleMetric
     )
 
-    # Initialize trainers and run training
+    # Initialize and run single stage trainer first
     single_trainer = SupervisedSingleTaskTrainer(config=single_stage_config)
     single_trainer.run()
+
+    # Explicitly delete the first trainer to ensure its logger is cleaned up
+    del single_trainer
+
+    # Then initialize and run multi-stage trainer
     multi_trainer = SupervisedMultiStageTrainer(stage_configs=[stage1_config, stage2_config])
     multi_trainer.run()
 
