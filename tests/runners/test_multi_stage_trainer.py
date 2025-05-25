@@ -4,7 +4,6 @@ import json
 import torch
 from runners.multi_stage_trainer import MultiStageTrainer
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
-from tests.runners.conftest import SimpleModel, SimpleDataset, SimpleMetric
 
 
 class SimpleCriterion(torch.nn.Module):
@@ -28,7 +27,7 @@ class SupervisedMultiStageTrainer(SupervisedSingleTaskTrainer, MultiStageTrainer
         MultiStageTrainer.__init__(self, stage_configs=stage_configs)
 
 
-def create_base_config(work_dir: str, epochs: int) -> dict:
+def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> dict:
     """Create a base config that can be used for both trainers."""
     return {
         'work_dir': work_dir,
@@ -36,7 +35,7 @@ def create_base_config(work_dir: str, epochs: int) -> dict:
         'epochs': epochs,
         'train_seeds': [42] * epochs,
         'train_dataset': {
-            'class': SimpleDataset,
+            'class': dataset,
             'args': {'size': 100, 'device': 'cuda'}
         },
         'train_dataloader': {
@@ -47,7 +46,7 @@ def create_base_config(work_dir: str, epochs: int) -> dict:
             }
         },
         'val_dataset': {
-            'class': SimpleDataset,
+            'class': dataset,
             'args': {'size': 100, 'device': 'cuda'}
         },
         'val_dataloader': {
@@ -58,7 +57,7 @@ def create_base_config(work_dir: str, epochs: int) -> dict:
             }
         },
         'model': {
-            'class': SimpleModel,
+            'class': model,
             'args': {}
         },
         'criterion': {
@@ -66,7 +65,7 @@ def create_base_config(work_dir: str, epochs: int) -> dict:
             'args': {}
         },
         'metric': {
-            'class': SimpleMetric,
+            'class': metric,
             'args': {}
         },
         'optimizer': {
@@ -84,14 +83,32 @@ def create_base_config(work_dir: str, epochs: int) -> dict:
     }
 
 
-def test_multi_stage_vs_single_stage(test_dir):
+def test_multi_stage_vs_single_stage(test_dir, simple_model, simple_dataset, simple_metric):
     """Compare SupervisedMultiStageTrainer with SupervisedSingleTaskTrainer."""
     # Create configs
-    single_stage_config = create_base_config(os.path.join(test_dir, "single_stage"), epochs=10)
+    single_stage_config = create_base_config(
+        os.path.join(test_dir, "single_stage"),
+        epochs=10,
+        model=simple_model,
+        dataset=simple_dataset,
+        metric=simple_metric
+    )
 
     # Create two identical stage configs for multi-stage
-    stage1_config = create_base_config(os.path.join(test_dir, "multi_stage_stage1"), epochs=5)
-    stage2_config = create_base_config(os.path.join(test_dir, "multi_stage_stage2"), epochs=5)
+    stage1_config = create_base_config(
+        os.path.join(test_dir, "multi_stage_stage1"),
+        epochs=5,
+        model=simple_model,
+        dataset=simple_dataset,
+        metric=simple_metric
+    )
+    stage2_config = create_base_config(
+        os.path.join(test_dir, "multi_stage_stage2"),
+        epochs=5,
+        model=simple_model,
+        dataset=simple_dataset,
+        metric=simple_metric
+    )
 
     # Initialize trainers
     single_trainer = SupervisedSingleTaskTrainer(config=single_stage_config)
