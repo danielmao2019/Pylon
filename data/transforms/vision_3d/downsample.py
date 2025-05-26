@@ -1,5 +1,4 @@
-from typing import Dict
-import numpy as np
+from typing import Dict, Union
 import torch
 import open3d as o3d
 from data.transforms.base_transform import BaseTransform
@@ -9,8 +8,10 @@ from utils.point_cloud_ops.select import Select
 
 class DownSample(BaseTransform):
 
-    def __init__(self, voxel_size: int):
-        self.voxel_size = voxel_size
+    def __init__(self, voxel_size: Union[float, int]):
+        assert isinstance(voxel_size, (float, int))
+        assert voxel_size > 0, f"{voxel_size=}"
+        self.voxel_size = float(voxel_size)
 
     def _call_single_(self, pc: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         check_point_cloud(pc)
