@@ -1,7 +1,7 @@
 from typing import Dict
+import numpy as np
 import torch
 import open3d as o3d
-import numpy as np
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 
