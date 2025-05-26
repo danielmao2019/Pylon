@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 import pytest
 from data.transforms.vision_3d.downsample import DownSample
 
@@ -103,10 +102,16 @@ def test_downsample_single_point():
         assert value.shape[0] == 1
 
 
-def test_downsample_invalid_voxel_size():
+@pytest.mark.parametrize("invalid_voxel_size", [
+    0,      # Zero voxel size
+    -1,     # Negative voxel size
+    -0.1,   # Negative float voxel size
+    "0.1",  # String instead of number
+    None,   # None value
+    [],     # Empty list
+    {},     # Empty dict
+])
+def test_downsample_invalid_voxel_size(invalid_voxel_size):
     # Test with invalid voxel size
     with pytest.raises(AssertionError):
-        DownSample(voxel_size=0)  # Zero voxel size
-    
-    with pytest.raises(AssertionError):
-        DownSample(voxel_size=-1)  # Negative voxel size
+        DownSample(voxel_size=invalid_voxel_size)
