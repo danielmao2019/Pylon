@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import patch
-from data.transforms.random_rotation import RandomRotation
+from data.transforms.vision_2d.random_rotation import RandomRotation
 import torch
 
 
