@@ -1,9 +1,8 @@
 from typing import Tuple, List, Union, Optional
 import random
 import torch
-import torchvision.transforms.functional as TF
-from data.transforms import BaseTransform
-from data.transforms import Rotation
+from data.transforms.base_transform import BaseTransform
+from data.transforms.vision_2d.rotation import Rotation
 
 
 class RandomRotation(BaseTransform):

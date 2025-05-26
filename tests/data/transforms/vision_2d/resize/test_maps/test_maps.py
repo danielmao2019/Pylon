@@ -1,7 +1,7 @@
 import pytest
-from data.transforms.resize.maps import ResizeMaps
 import os
 import torch
+from data.transforms.vision_2d.resize.maps import ResizeMaps
 from utils.io.image import _load_image, _load_multispectral_image
 
 
@@ -13,7 +13,7 @@ def test_image_2d() -> torch.Tensor:
     Returns:
         torch.Tensor: Loaded and validated 2D image tensor.
     """
-    filepath = "./data/transforms/resize/test_maps/assets/test_png.png"
+    filepath = "./tests/data/transforms/vision_2d/resize/test_maps/assets/test_png.png"
 
     # Ensure the file exists
     assert os.path.isfile(filepath), (
@@ -40,8 +40,8 @@ def test_image_3d() -> torch.Tensor:
         torch.Tensor: Loaded and validated 3D tensor with stacked bands.
     """
     filepaths = [
-        "data/transforms/resize/test_maps/assets/test_tif_1.tif",
-        "data/transforms/resize/test_maps/assets/test_tif_2.tif",
+        "./tests/data/transforms/vision_2d/resize/test_maps/assets/test_tif_1.tif",
+        "./tests/data/transforms/vision_2d/resize/test_maps/assets/test_tif_2.tif",
     ]
 
     # Ensure all files exist
@@ -68,7 +68,7 @@ def test_image_bmp() -> torch.Tensor:
     Returns:
         torch.Tensor: Loaded and validated BMP image tensor with RGB channels.
     """
-    filepath = "./data/transforms/resize/test_maps/assets/1_A.bmp"
+    filepath = "./tests/data/transforms/vision_2d/resize/test_maps/assets/1_A.bmp"
 
     # Ensure the file exists
     assert os.path.isfile(filepath), (

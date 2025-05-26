@@ -1,5 +1,5 @@
 import pytest
-from data.transforms.flip import Flip
+from data.transforms.vision_2d.flip import Flip
 import torch
 
 
