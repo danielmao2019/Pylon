@@ -14,6 +14,9 @@ class DownSample(BaseTransform):
     def _call_single_(self, pc: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         check_point_cloud(pc)
 
+        # Store original device
+        device = pc['pos'].device
+
         # Convert to Open3D point cloud for downsampling
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(pc['pos'].detach().cpu().numpy())
@@ -32,8 +35,8 @@ class DownSample(BaseTransform):
         result = {}
         for key, value in pc.items():
             if key == 'pos':
-                result[key] = torch.from_numpy(np.asarray(downsampled_pcd.points))
+                result[key] = torch.from_numpy(np.asarray(downsampled_pcd.points)).to(device)
             else:
-                result[key] = value[kept_indices]
+                result[key] = value[kept_indices].to(device)
 
         return result
