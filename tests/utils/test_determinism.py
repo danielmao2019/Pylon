@@ -1,6 +1,5 @@
 """Test cases for determinism utilities."""
 import torch
-import pytest
 from utils.determinism import set_seed, set_determinism
 
 

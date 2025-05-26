@@ -1,19 +1,22 @@
-from typing import Any, Dict
+from typing import Any, Dict, Union, List
 import torch
+from utils.input_checks.point_cloud import check_point_cloud
 
 
 class Select:
-    def __init__(self, indices: torch.Tensor) -> None:
+
+    def __init__(self, indices: Union[torch.Tensor, List[int]]) -> None:
         self.indices = indices
 
     def __call__(self, pc: Dict[str, Any]) -> Dict[str, Any]:
-        assert isinstance(pc, dict), f"{type(pc)=}"
-        assert pc.keys() >= {'pos'}, f"{pc.keys()=}"
-        assert pc['pos'].ndim == 2 and pc['pos'].shape[1] == 3, f"{pc['pos'].shape=}"
-        assert pc['pos'].dtype == torch.float32, f"{pc['pos'].dtype=}"
+        check_point_cloud(pc)
+        assert 'indices' not in pc, f"Point cloud already has an 'indices' key. Using utils.point_cloud_ops.Select will cause a name conflict."
+        if isinstance(self.indices, list):
+            self.indices = torch.tensor(self.indices, dtype=torch.int64, device=pc['pos'].device)
+        else:
+            assert self.indices.device == pc['pos'].device, f"{self.indices.device=}, {pc['pos'].device=}"
         result = {}
         for key, val in pc.items():
-            if isinstance(val, torch.Tensor) and val.size(0) == pc['pos'].size(0):
-                result[key] = val[self.indices]
+            result[key] = val[self.indices]
         result['indices'] = self.indices
         return result
