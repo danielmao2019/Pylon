@@ -194,12 +194,13 @@ def test_compose_valid_transforms(transforms, example, expected):
     assert produced == expected, f"{produced=}, {expected=}"
 
 
-@pytest.mark.parametrize("transforms, example, error_type", [
+@pytest.mark.parametrize("transforms, example, error_type, error_msg", [
     # Invalid transform type
     (
         [123],  # Not a tuple or dict
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
+        ".*type.*int.*",
     ),
     
     # Invalid tuple length
@@ -207,6 +208,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [(lambda x: x + 1, ('inputs', 'x'), 'extra')],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
+        ".*len.*3.*",
     ),
     
     # Non-callable function
@@ -214,6 +216,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [("not_a_function", ('inputs', 'x'))],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
+        ".*type.*str.*",
     ),
     
     # Invalid input names type
@@ -221,6 +224,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [(lambda x: x + 1, "not_a_tuple")],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
+        ".*type.*str.*",
     ),
     
     # Invalid key pair length
@@ -228,6 +232,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [(lambda x: x + 1, [('inputs', 'x', 'extra')])],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
+        ".*len.*3.*",
     ),
     
     # Invalid key type
@@ -235,6 +240,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [(lambda x: x + 1, [(123, 'x')])],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
+        ".*type.*int.*",
     ),
     
     # Missing dictionary keys
@@ -242,6 +248,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         [{"input_names": ('inputs', 'x')}],  # Missing "op"
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         AssertionError,
+        ".*missing 'op' key.*",
     ),
     
     # Mismatched output count
@@ -253,6 +260,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         }],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         RuntimeError,
+        ".*produced.*outputs but expected 3.*",
     ),
     
     # Invalid datapoint structure
@@ -260,12 +268,14 @@ def test_compose_valid_transforms(transforms, example, expected):
         [(lambda x: x + 1, ('inputs', 'x'))],
         {'wrong_key': {'x': 1}},  # Missing required keys
         AssertionError,
+        ".*datapoint.*keys.*",
     ),
 ])
-def test_compose_invalid_inputs(transforms, example, error_type):
+def test_compose_invalid_inputs(transforms, example, error_type, error_msg):
     """Test invalid transform configurations and error handling."""
-    transform = Compose(transforms=transforms)
-    with pytest.raises(error_type):
+    import re
+    with pytest.raises(error_type, match=error_msg):
+        transform = Compose(transforms=transforms)
         transform(example)
 
 
