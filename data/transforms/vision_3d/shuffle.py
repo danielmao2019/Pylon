@@ -9,5 +9,5 @@ class Shuffle(BaseTransform):
 
     def _call_single_(self, pc: Dict[str, Any]) -> Dict[str, Any]:
         check_point_cloud(pc)
-        indices = torch.randperm(pc['pos'].shape[0])
+        indices = torch.randperm(pc['pos'].shape[0], device=pc['pos'].device)
         return Select(indices)(pc)
