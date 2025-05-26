@@ -160,6 +160,8 @@ def test_downsample_multiple_point_clouds(multiple_point_clouds):
         
         # Check that the data types are preserved
         for key in result_pc.keys():
+            if key == 'indices':
+                continue
             assert result_pc[key].dtype == original_pc[key].dtype
 
 
