@@ -136,7 +136,7 @@ def test_downsample_single_point():
 def test_downsample_multiple_point_clouds(multiple_point_clouds):
     # Test downsampling multiple point clouds
     downsample = DownSample(voxel_size=0.1)
-    results = downsample(multiple_point_clouds)
+    results = downsample(*multiple_point_clouds)
     
     # Check that we got the same number of point clouds back
     assert len(results) == len(multiple_point_clouds)
