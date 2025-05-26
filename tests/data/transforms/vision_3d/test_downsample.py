@@ -16,6 +16,37 @@ def sample_point_cloud():
     return pc
 
 
+@pytest.fixture
+def multiple_point_clouds():
+    # Create multiple point clouds with different sizes and fields
+    pcs = []
+    
+    # First PC: standard fields
+    pc1 = {
+        'pos': torch.randn(1000, 3),
+        'rgb': torch.rand(1000, 3),
+        'intensity': torch.rand(1000)
+    }
+    pcs.append(pc1)
+    
+    # Second PC: different size, different fields
+    pc2 = {
+        'pos': torch.randn(500, 3),
+        'feat': torch.randn(500, 4),
+        'label': torch.randint(0, 10, (500,))
+    }
+    pcs.append(pc2)
+    
+    # Third PC: empty point cloud
+    pc3 = {
+        'pos': torch.empty(0, 3),
+        'rgb': torch.empty(0, 3)
+    }
+    pcs.append(pc3)
+    
+    return pcs
+
+
 def test_downsample_basic(sample_point_cloud):
     # Test basic downsampling with a reasonable voxel size
     voxel_size = 0.1
@@ -100,6 +131,36 @@ def test_downsample_single_point():
     # Should keep the single point
     for key, value in result.items():
         assert value.shape[0] == 1
+
+
+def test_downsample_multiple_point_clouds(multiple_point_clouds):
+    # Test downsampling multiple point clouds
+    downsample = DownSample(voxel_size=0.1)
+    results = downsample(multiple_point_clouds)
+    
+    # Check that we got the same number of point clouds back
+    assert len(results) == len(multiple_point_clouds)
+    
+    # Check each point cloud
+    for original_pc, result_pc in zip(multiple_point_clouds, results):
+        # Check that all fields are present
+        assert set(result_pc.keys()) == set(original_pc.keys()) | {'indices'}
+        
+        # Check that all tensors have the same number of points
+        num_points = result_pc['pos'].shape[0]
+        for key, value in result_pc.items():
+            assert isinstance(value, torch.Tensor)
+            assert value.shape[0] == num_points
+        
+        # Check that the number of points decreased (unless it was empty)
+        if original_pc['pos'].shape[0] > 0:
+            assert num_points <= original_pc['pos'].shape[0]
+        else:
+            assert num_points == 0
+        
+        # Check that the data types are preserved
+        for key in result_pc.keys():
+            assert result_pc[key].dtype == original_pc[key].dtype
 
 
 @pytest.mark.parametrize("invalid_voxel_size", [
