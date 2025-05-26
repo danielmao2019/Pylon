@@ -26,7 +26,7 @@ def test_downsample_basic(sample_point_cloud):
     result = downsample(sample_point_cloud)
     
     # Check that all fields are present
-    assert set(result.keys()) == set(sample_point_cloud.keys())
+    assert set(result.keys()) == set(sample_point_cloud.keys()) | {'indices'}
     
     # Check that all tensors have the same number of points
     num_points = result['pos'].shape[0]
@@ -39,6 +39,8 @@ def test_downsample_basic(sample_point_cloud):
     
     # Check that the data types are preserved
     for key in result.keys():
+        if key == 'indices':
+            continue
         assert result[key].dtype == sample_point_cloud[key].dtype
 
 
@@ -54,7 +56,7 @@ def test_downsample_device_consistency(sample_point_cloud):
         
         # Check that all tensors are on the same device
         for key, value in result.items():
-            assert value.device == device
+            assert value.device.type == device.type
 
 
 def test_downsample_voxel_size_effect(sample_point_cloud):
