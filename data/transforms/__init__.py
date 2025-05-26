@@ -3,6 +3,7 @@ DATA.TRANSFORMS API
 """
 from data.transforms.base_transform import BaseTransform
 from data.transforms.compose import Compose
+from data.transforms.identity import Identity
 from data.transforms.randomize import Randomize
 from data.transforms import normalize
 from data.transforms import resize
@@ -17,6 +18,7 @@ from data.transforms import vision_3d
 __all__ = (
     'BaseTransform',
     'Compose',
+    'Identity',
     'Randomize',
     'normalize',
     'resize',
