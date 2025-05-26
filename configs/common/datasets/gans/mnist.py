@@ -2,7 +2,6 @@ import criteria.wrappers.pytorch_criterion_wrapper
 import torch
 import data
 import criteria
-import metrics
 
 
 collate_fn_config = {

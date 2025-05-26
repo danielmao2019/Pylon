@@ -9,19 +9,19 @@ transforms_cfg = {
     'args': {
         'transforms': [
             (
-                data.transforms.crop.RandomCrop(size=(224, 224)),
+                data.transforms.vision_2d.RandomCrop(size=(224, 224)),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map'), ('labels', 'semantic_map')]
             ),
             (
-                data.transforms.RandomRotation(choices=[0, 90, 180, 270]),
+                data.transforms.vision_2d.RandomRotation(choices=[0, 90, 180, 270]),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map'), ('labels', 'semantic_map')]
             ),
             (
-                data.transforms.Randomize(transform=data.transforms.Flip(axis=-1), p=0.5),
+                data.transforms.Randomize(transform=data.transforms.vision_2d.Flip(axis=-1), p=0.5),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map'), ('labels', 'semantic_map')]
             ),
             (
-                data.transforms.Randomize(transform=data.transforms.Flip(axis=-2), p=0.5),
+                data.transforms.Randomize(transform=data.transforms.vision_2d.Flip(axis=-2), p=0.5),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map'), ('labels', 'semantic_map')]
             ),
             (

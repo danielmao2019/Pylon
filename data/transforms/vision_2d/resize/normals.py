@@ -1,7 +1,7 @@
 from typing import Tuple
 import torch
 import torchvision
-from ..base_transform import BaseTransform
+from data.transforms.base_transform import BaseTransform
 
 
 class ResizeNormals(BaseTransform):

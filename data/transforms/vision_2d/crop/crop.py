@@ -1,7 +1,7 @@
 from typing import Tuple, Optional
 import torch
 import data
-from data.transforms import BaseTransform
+from data.transforms.base_transform import BaseTransform
 
 
 class Crop(BaseTransform):
