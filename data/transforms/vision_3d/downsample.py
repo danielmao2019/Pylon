@@ -26,6 +26,9 @@ class DownSample(BaseTransform):
             max_bound=pcd.get_max_bound()
         )
 
+        # Convert IntVector list to a list of integers (taking first point from each voxel)
+        kept_indices = [indices[0] for indices in kept_indices]
+
         # Create a Select operation with the kept indices
         select_op = Select(kept_indices)
 
