@@ -19,26 +19,37 @@ data_cfg = {
                         {
                             'op': data.transforms.vision_3d.DownSample(voxel_size=0.05),
                             'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                            'output_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
                         },
                         {
                             'op': data.transforms.vision_3d.Shuffle(),
-                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                            'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
                         },
                         {
                             'op': data.transforms.vision_3d.RandomRigidTransform(rot_mag=180.0, trans_mag=0.0),
-                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
+                            'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'), ('labels', 'transform')],
                         },
                         {
                             'op': data.transforms.vision_3d.DownSample(voxel_size=0.30),
-                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                            'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
+                            'output_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
                         },
                         {
                             'op': data.transforms.vision_3d.Shuffle(),
-                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                            'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
                         },
                         {
                             'op': data.transforms.vision_3d.Clamp(max_points=40000),
-                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                            'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+                        },
+                        {
+                            'op': data.transforms.Identity(),
+                            'input_names': [
+                                ('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'),
+                                ('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds'),
+                                ('labels', 'transform'),
+                                ('meta_info', 'seq'), ('meta_info', 't0'), ('meta_info', 't1'),
+                            ],
                         },
                     ],
                 },
