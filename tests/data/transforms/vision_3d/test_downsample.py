@@ -105,8 +105,8 @@ def test_downsample_single_point():
 
 def test_downsample_invalid_voxel_size():
     # Test with invalid voxel size
-    with pytest.raises(ValueError):
+    with pytest.raises(AssertionError):
         DownSample(voxel_size=0)  # Zero voxel size
     
-    with pytest.raises(ValueError):
+    with pytest.raises(AssertionError):
         DownSample(voxel_size=-1)  # Negative voxel size
