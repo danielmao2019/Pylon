@@ -30,40 +30,38 @@ class Compose(BaseTransform):
             transforms = []
         assert type(transforms) == list, f"{type(transforms)=}"
 
-        processed_transforms = []
+        parsed_transforms = []
         for idx, transform in enumerate(transforms):
             if isinstance(transform, tuple):
                 # Handle backward compatibility case
                 assert len(transform) == 2, f"{idx=}, {len(transform)=}"
 
+                # parse transform
                 func = transform[0]
                 assert callable(func), f"{type(func)=}"
                 input_names = self._process_names(transform[1])
-
-                processed_transforms.append({
-                    "op": func,
-                    "input_names": input_names,
-                    "output_names": input_names,
-                })
+                output_names = input_names
             else:
                 # Handle new dictionary format
                 assert isinstance(transform, dict), f"{idx=}, {type(transform)=}"
                 assert "op" in transform, f"Transform {idx} missing 'op' key"
                 assert "input_names" in transform, f"Transform {idx} missing 'input_names' key"
 
+                # parse transform
                 func = transform["op"]
                 assert callable(func), f"{type(func)=}"
                 input_names = self._process_names(transform["input_names"])
                 output_names = self._process_names(transform.get("output_names", input_names))
 
-                processed_transforms.append({
-                    "op": func,
-                    "input_names": input_names,
-                    "output_names": output_names,
-                })
+            # append to processed transforms
+            parsed_transforms.append({
+                "op": func,
+                "input_names": input_names,
+                "output_names": output_names,
+            })
 
         # assign to class attribute
-        self.transforms = processed_transforms
+        self.transforms = parsed_transforms
 
     @staticmethod
     def _process_names(names: Union[Tuple[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:
