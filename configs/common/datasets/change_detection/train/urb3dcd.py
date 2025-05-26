@@ -14,8 +14,7 @@ config = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 4,
-            'num_workers': 4,
+            'batch_size': 1,
         },
     },
     'criterion': {
