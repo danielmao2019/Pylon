@@ -9,7 +9,7 @@ class Select:
 
     def __call__(self, pc: Dict[str, Any]) -> Dict[str, Any]:
         check_point_cloud(pc)
-        assert 'indices' not in pc, f"Point cloud already has an 'indices' key. Using utils.point_cloud_ops.Select will cause a conflict."
+        assert 'indices' not in pc, f"Point cloud already has an 'indices' key. Using utils.point_cloud_ops.Select will cause a name conflict."
         if isinstance(self.indices, list):
             self.indices = torch.tensor(self.indices, dtype=torch.int64, device=pc['pos'].device)
         else:
