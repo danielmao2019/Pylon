@@ -1,7 +1,7 @@
 from typing import Union
 import torch
 import torchvision.transforms.functional as TF
-from data.transforms import BaseTransform
+from data.transforms.base_transform import BaseTransform
 
 
 class Rotation(BaseTransform):

@@ -10,12 +10,12 @@ def transforms_cfg(
 ) -> dict:
     if first == "RandomCrop":
         first_transform = (
-            data.transforms.crop.RandomCrop(size=size, resize=resize, interpolation=None),
+            data.transforms.vision_2d.RandomCrop(size=size, resize=resize, interpolation=None),
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )
     elif first == "ResizeMaps":
         first_transform = (
-            data.transforms.resize.ResizeMaps(size=size, interpolation=None),
+            data.transforms.vision_2d.ResizeMaps(size=size, interpolation=None),
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )
     else:
@@ -26,15 +26,15 @@ def transforms_cfg(
             'transforms': [
                 first_transform,
                 (
-                    data.transforms.RandomRotation(choices=[0, 90, 180, 270]),
+                    data.transforms.vision_2d.RandomRotation(choices=[0, 90, 180, 270]),
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                 ),
                 (
-                    data.transforms.Randomize(transform=data.transforms.Flip(axis=-1), p=0.5),
+                    data.transforms.Randomize(transform=data.transforms.vision_2d.Flip(axis=-1), p=0.5),
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                 ),
                 (
-                    data.transforms.Randomize(transform=data.transforms.Flip(axis=-2), p=0.5),
+                    data.transforms.Randomize(transform=data.transforms.vision_2d.Flip(axis=-2), p=0.5),
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                 ),
                 (

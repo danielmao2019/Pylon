@@ -2,7 +2,7 @@
 """
 import numpy
 import torch
-from ..base_transform import BaseTransform
+from data.transforms.base_transform import BaseTransform
 
 
 class NormalizeDepth(BaseTransform):

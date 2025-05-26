@@ -14,7 +14,7 @@ transforms_cfg = {
     'args': {
         'transforms': [
             (
-                data.transforms.crop.RandomCrop(size=(224, 224)),
+                data.transforms.vision_2d.RandomCrop(size=(224, 224)),
                 [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'lbl_1'), ('labels', 'lbl_2')]
             ),
         ],
