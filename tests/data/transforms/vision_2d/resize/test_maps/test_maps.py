@@ -1,7 +1,7 @@
 import pytest
-from data.transforms.resize.maps import ResizeMaps
 import os
 import torch
+from data.transforms.vision_2d.resize.maps import ResizeMaps
 from utils.io.image import _load_image, _load_multispectral_image
 
 
