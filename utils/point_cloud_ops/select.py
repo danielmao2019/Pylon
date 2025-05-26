@@ -4,6 +4,7 @@ from utils.input_checks.point_cloud import check_point_cloud
 
 
 class Select:
+
     def __init__(self, indices: Union[torch.Tensor, List[int]]) -> None:
         self.indices = indices
 
