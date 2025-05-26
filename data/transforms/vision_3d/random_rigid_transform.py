@@ -119,8 +119,8 @@ class RandomRigidTransform(BaseTransform):
         # source point cloud to the target point cloud
         random_transform_inv = torch.inverse(random_transform)
         assert torch.equal(random_transform_inv[-1, :], torch.tensor([0, 0, 0, 1], device=random_transform_inv.device))
-        assert torch.equal(random_transform_inv[:3, :3], random_transform[:3, :3].T)
-        assert torch.equal(random_transform_inv[:3, 3], -random_transform[:3, :3].T @ random_transform[:3, 3])
+        assert torch.allclose(random_transform_inv[:3, :3], random_transform[:3, :3].T)
+        assert torch.allclose(random_transform_inv[:3, 3], -random_transform[:3, :3].T @ random_transform[:3, 3])
 
         new_transform = transform @ random_transform_inv
 
