@@ -1,8 +1,8 @@
 from typing import Tuple, List, Union, Optional
 import random
 import torch
-from data.transforms import BaseTransform
-from data.transforms.crop import Crop
+from data.transforms.base_transform import BaseTransform
+from data.transforms.vision_2d.crop.crop import Crop
 
 
 class RandomCrop(BaseTransform):

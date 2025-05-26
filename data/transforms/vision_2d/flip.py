@@ -1,5 +1,5 @@
 import torch
-from data.transforms import BaseTransform
+from data.transforms.base_transform import BaseTransform
 
 
 class Flip(BaseTransform):
