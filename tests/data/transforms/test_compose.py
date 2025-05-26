@@ -11,6 +11,112 @@ def basic_datapoint():
     }
 
 
+@pytest.mark.parametrize("transforms, expected_parsed", [
+    # Test None transforms
+    (
+        None,
+        [],
+    ),
+    
+    # Test empty transforms
+    (
+        [],
+        [],
+    ),
+    
+    # Test single-input transform (tuple format)
+    (
+        [(lambda x: x + 1, ('inputs', 'x'))],
+        [{
+            "op": lambda x: x + 1,
+            "input_names": [('inputs', 'x')],
+            "output_names": [('inputs', 'x')],
+        }],
+    ),
+    
+    # Test multi-input transform (tuple format)
+    (
+        [(lambda x, y: [x + 1, y + 1], [('inputs', 'x'), ('inputs', 'y')])],
+        [{
+            "op": lambda x, y: [x + 1, y + 1],
+            "input_names": [('inputs', 'x'), ('inputs', 'y')],
+            "output_names": [('inputs', 'x'), ('inputs', 'y')],
+        }],
+    ),
+    
+    # Test dictionary format with same input/output names
+    (
+        [{
+            "op": lambda x: x + 1,
+            "input_names": ('inputs', 'x'),
+        }],
+        [{
+            "op": lambda x: x + 1,
+            "input_names": [('inputs', 'x')],
+            "output_names": [('inputs', 'x')],
+        }],
+    ),
+    
+    # Test dictionary format with different input/output names
+    (
+        [{
+            "op": lambda x: x + 1,
+            "input_names": ('inputs', 'x'),
+            "output_names": ('inputs', 'x_processed'),
+        }],
+        [{
+            "op": lambda x: x + 1,
+            "input_names": [('inputs', 'x')],
+            "output_names": [('inputs', 'x_processed')],
+        }],
+    ),
+    
+    # Test mixed format transforms
+    (
+        [
+            (lambda x: x + 1, ('inputs', 'x')),
+            {
+                "op": lambda x: x * 2,
+                "input_names": ('inputs', 'x'),
+                "output_names": ('inputs', 'x_doubled'),
+            }
+        ],
+        [
+            {
+                "op": lambda x: x + 1,
+                "input_names": [('inputs', 'x')],
+                "output_names": [('inputs', 'x')],
+            },
+            {
+                "op": lambda x: x * 2,
+                "input_names": [('inputs', 'x')],
+                "output_names": [('inputs', 'x_doubled')],
+            }
+        ],
+    ),
+])
+def test_compose_init(transforms, expected_parsed):
+    """Test that transform configurations are correctly parsed during initialization."""
+    compose = Compose(transforms=transforms)
+    
+    # For each transform, verify the parsed configuration
+    assert len(compose.transforms) == len(expected_parsed), \
+        f"Expected {len(expected_parsed)} transforms, got {len(compose.transforms)}"
+    
+    for actual, expected in zip(compose.transforms, expected_parsed):
+        # Check that the function is the same
+        assert actual["op"].__code__.co_code == expected["op"].__code__.co_code, \
+            "Transform function mismatch"
+        
+        # Check input names
+        assert actual["input_names"] == expected["input_names"], \
+            f"Input names mismatch: {actual['input_names']} != {expected['input_names']}"
+        
+        # Check output names
+        assert actual["output_names"] == expected["output_names"], \
+            f"Output names mismatch: {actual['output_names']} != {expected['output_names']}"
+
+
 @pytest.mark.parametrize("transforms, example, expected", [
     # Basic single-input transform tests
     (
