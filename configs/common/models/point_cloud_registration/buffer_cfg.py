@@ -13,6 +13,7 @@ model_cfg = {
                 'pos_num': 512,
             },
             'test': {
+                'scale': 0.30 / 0.30,
                 'pose_refine': False,
             },
             'point': {
