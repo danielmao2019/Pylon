@@ -43,7 +43,17 @@ def calibrate_neighbors_stack_mode(
 
 
 class GeoTransformerDataloader(BaseDataLoader):
-    def __init__(self, dataset, num_stages, voxel_size, search_radius, keep_ratio=0.8, sample_threshold=2000, **kwargs):
+
+    def __init__(
+        self,
+        dataset,
+        num_stages,
+        voxel_size,
+        search_radius,
+        keep_ratio=0.8,
+        sample_threshold=2000,
+        **kwargs,
+    ) -> None:
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
         self.neighbor_limits = calibrate_neighbors_stack_mode(
             dataset,
