@@ -25,8 +25,12 @@ model_cfg = {
             },
             'patch': {
                 'des_r': 3.0,
+                'num_points_per_patch': 512,
+                'rad_n': 3,
                 'azi_n': 20,
                 'ele_n': 7,
+                'delta': 0.8,
+                'voxel_sample': 10,
             },
             'match': {
                 'dist_th': 0.30,
