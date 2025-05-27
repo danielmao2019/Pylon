@@ -215,4 +215,8 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
         'relt_pose': relt_pose,
     }
 
-    return dict_inputs
+    return {
+        'inputs': dict_inputs,
+        'labels': list_data['labels'],
+        'meta_info': list_data['meta_info'],
+    }
