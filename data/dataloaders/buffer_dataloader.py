@@ -1,7 +1,7 @@
 from functools import partial
-import torch
 import numpy as np
-from models.point_learner import architecture
+import torch
+from models.point_cloud_registration.buffer.point_learner import architecture
 from data.collators.buffer.buffer_collate_fn import buffer_collate_fn
 from data.dataloaders.base_dataloader import BaseDataLoader
 
