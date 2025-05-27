@@ -208,11 +208,11 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
         'upsamples': input_upsamples,
         'features': batched_features.float(),
         'stack_lengths': input_batches_len,
-        'src_pcd_raw': torch.from_numpy(s_pts).float(),
-        'tgt_pcd_raw': torch.from_numpy(t_pts).float(),
-        'src_pcd': torch.from_numpy(src_kpt).float(),
-        'tgt_pcd': torch.from_numpy(tgt_kpt).float(),
-        'relt_pose': torch.from_numpy(relt_pose).float(),
+        'src_pcd_raw': s_pts,
+        'tgt_pcd_raw': t_pts,
+        'src_pcd': src_kpt,
+        'tgt_pcd': tgt_kpt,
+        'relt_pose': relt_pose,
     }
 
     return dict_inputs
