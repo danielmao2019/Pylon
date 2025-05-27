@@ -22,7 +22,7 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
         batched_input = collate_fn([dataset[i]], config, neighborhood_limits=[hist_n] * 5)
 
         # update histogram
-        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).numpy() for neighb_mat in
+        counts = [torch.sum(neighb_mat < neighb_mat.shape[0], dim=1).cpu().numpy() for neighb_mat in
                   batched_input['neighbors']]
         hists = [np.bincount(c, minlength=hist_n)[:hist_n] for c in counts]
         neighb_hists += np.vstack(hists)
