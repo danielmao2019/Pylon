@@ -6,7 +6,7 @@ from utils.builders import build_from_config
 def test_buffer() -> None:
     model_cfg['args']['config']['data']['dataset'] = 'KITTI'
     model_cfg['args']['config']['stage'] = 'Ref'
-    model = build_from_config(model_cfg)
+    model = build_from_config(model_cfg).cuda()
     dataset_cfg = data_cfg['train_dataset']
     dataset = build_from_config(dataset_cfg)
     dataloader_cfg = data_cfg['train_dataloader']
