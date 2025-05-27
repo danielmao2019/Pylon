@@ -10,41 +10,60 @@ def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=Non
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
     if (features is None) and (labels is None):
-        s_points, s_len = cpp_subsampling.subsample_batch(points,
-                                                          batches_len,
-                                                          sampleDl=sampleDl,
-                                                          max_p=max_p,
-                                                          verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len)
+        device = points.device
+        points = points.detach().cpu().numpy()
+        batches_len = batches_len.detach().cpu().numpy().astype(np.int32)
+        s_points, s_len = cpp_subsampling.subsample_batch(
+            points, batches_len, sampleDl=sampleDl, max_p=max_p, verbose=verbose,
+        )
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+        )
 
     elif (labels is None):
-        s_points, s_len, s_features = cpp_subsampling.subsample_batch(points,
-                                                                      batches_len,
-                                                                      features=features,
-                                                                      sampleDl=sampleDl,
-                                                                      max_p=max_p,
-                                                                      verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len), torch.from_numpy(s_features)
+        device = points.device
+        points = points.detach().cpu().numpy()
+        batches_len = batches_len.detach().cpu().numpy().astype(np.int32)
+        features = features.detach().cpu().numpy()
+        s_points, s_len, s_features = cpp_subsampling.subsample_batch(
+            points, batches_len, features=features, sampleDl=sampleDl, max_p=max_p, verbose=verbose,
+        )
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_features).to(device),
+        )
 
     elif (features is None):
-        s_points, s_len, s_labels = cpp_subsampling.subsample_batch(points,
-                                                                    batches_len,
-                                                                    classes=labels,
-                                                                    sampleDl=sampleDl,
-                                                                    max_p=max_p,
-                                                                    verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len), torch.from_numpy(s_labels)
+        device = points.device
+        points = points.detach().cpu().numpy()
+        batches_len = batches_len.detach().cpu().numpy().astype(np.int32)
+        labels = labels.detach().cpu().numpy()
+        s_points, s_len, s_labels = cpp_subsampling.subsample_batch(
+            points, batches_len, classes=labels, sampleDl=sampleDl, max_p=max_p, verbose=verbose,
+        )
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_labels).to(device),
+        )
 
     else:
-        s_points, s_len, s_features, s_labels = cpp_subsampling.subsample_batch(points,
-                                                                                batches_len,
-                                                                                features=features,
-                                                                                classes=labels,
-                                                                                sampleDl=sampleDl,
-                                                                                max_p=max_p,
-                                                                                verbose=verbose)
-        return torch.from_numpy(s_points), torch.from_numpy(s_len), torch.from_numpy(s_features), torch.from_numpy(
-            s_labels)
+        device = points.device
+        points = points.detach().cpu().numpy()
+        batches_len = batches_len.detach().cpu().numpy().astype(np.int32)
+        features = features.detach().cpu().numpy()
+        labels = labels.detach().cpu().numpy()
+        s_points, s_len, s_features, s_labels = cpp_subsampling.subsample_batch(
+            points, batches_len, features=features, classes=labels, sampleDl=sampleDl, max_p=max_p, verbose=verbose,
+        )
+        return (
+            torch.from_numpy(s_points).to(device),
+            torch.from_numpy(s_len).to(device),
+            torch.from_numpy(s_features).to(device),
+            torch.from_numpy(s_labels).to(device),
+        )
 
 
 def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_neighbors):
