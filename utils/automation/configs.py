@@ -6,26 +6,27 @@ import re
 def generate_seeds(
     template_config: str,
     base_seed: str,
-    num_repetitions: Optional[int] = 3,
-    ub: Optional[int] = 10**8-1,
-) -> None:
-    # determine number of epochs
-    epochs = re.findall(pattern="'epochs': (\d+),", string=template_config)
-    if len(epochs) == 0:
-        return _generate_eval_seeds(template_config, base_seed, ub)
-    else:
-        return _generate_train_seeds(template_config, base_seed, num_repetitions, ub)
-
-
-def _generate_train_seeds(
-    template_config: str,
-    base_seed: str,
+    base_work_dir: str,
     num_repetitions: Optional[int] = 3,
     ub: Optional[int] = 10**8-1,
 ) -> None:
     # determine number of epochs
     epochs = re.findall(pattern="'epochs': (\d+),", string=template_config)
     epochs = list(map(int, epochs))
+    if len(epochs) == 0:
+        return _generate_eval_seeds(template_config, base_seed, base_work_dir, epochs, ub)
+    else:
+        return _generate_train_seeds(template_config, base_seed, base_work_dir, num_repetitions, ub)
+
+
+def _generate_train_seeds(
+    template_config: str,
+    base_seed: str,
+    base_work_dir: str,
+    epochs: List[int],
+    num_repetitions: Optional[int] = 3,
+    ub: Optional[int] = 10**8-1,
+) -> None:
     # generate seeds
     seeded_configs: List[str] = []
     for idx in range(num_repetitions):
@@ -50,6 +51,8 @@ def _generate_train_seeds(
                 config += f"config[{idx}]['init_seed'] = {init_seed_multi_stage[idx]}\n"
                 config += f"config[{idx}]['train_seeds'] = [" + ", ".join(list(map(str, train_seeds_multi_stage[idx]))) + "]\n"
             config += '\n'
+            config += f"# work dir\n"
+            config += f"config['work_dir'] = \"" + base_work_dir + f"run_{idx}" + "\"\n"
         # append
         seeded_configs.append(config)
     return seeded_configs
@@ -58,6 +61,7 @@ def _generate_train_seeds(
 def _generate_eval_seeds(
     template_config: str,
     base_seed: str,
+    base_work_dir: str,
     ub: Optional[int] = 10**8-1,
 ) -> None:
     # generate seeds
@@ -70,6 +74,8 @@ def _generate_eval_seeds(
     config += f"# seeds\n"
     config += f"config['seed'] = {seed}\n"
     config += '\n'
+    config += f"# work dir\n"
+    config += f"config['work_dir'] = \"" + base_work_dir + "run_0" + "\"\n"
     # append
     seeded_configs.append(config)
     return seeded_configs

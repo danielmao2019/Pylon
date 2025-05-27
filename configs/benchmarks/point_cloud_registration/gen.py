@@ -156,12 +156,11 @@ def main(dataset: str, model: str) -> None:
     relpath = os.path.join("benchmarks", "point_cloud_registration", dataset)
     seeded_configs: List[str] = utils.automation.configs.generate_seeds(
         template_config=config, base_seed=relpath,
+        base_work_dir=os.path.join("./logs", relpath, model),
     )
     # save to disk
     os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
-        seeded_config += f"# work dir\n"
-        seeded_config += f"config['work_dir'] = \"" + os.path.join("./logs", relpath, f"{model}_run_{idx}") + "\"\n"
         with open(os.path.join("./configs", relpath, f"{model}_run_{idx}.py"), mode='w') as f:
             f.write(seeded_config)
 
