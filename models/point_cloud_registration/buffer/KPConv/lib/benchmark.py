@@ -6,9 +6,12 @@ Last modified: 30.11.2020
 """
 
 import numpy as np
-import os,sys,glob,torch,math
+import torch
+import math
+import os
 from collections import defaultdict
 import nibabel.quaternions as nq
+
 
 def rotation_error(R1, R2):
     """

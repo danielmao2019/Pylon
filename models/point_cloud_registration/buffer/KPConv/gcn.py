@@ -2,8 +2,6 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from copy import deepcopy
-import torch.utils.checkpoint as checkpoint
-from models.KPConv.lib.utils import square_distance
 from knn_cuda import KNN
 
 

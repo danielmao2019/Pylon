@@ -6,10 +6,10 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch_batch_svd import svd
 import open3d
-import pointnet2_ops.pointnet2_utils as pnt2
 import matplotlib.colors
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import pointnet2_ops.pointnet2_utils as pnt2
 from models.point_cloud_registration.buffer.utils.SE3 import *
 
 

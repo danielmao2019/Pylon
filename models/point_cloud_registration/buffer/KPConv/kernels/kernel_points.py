@@ -15,11 +15,9 @@
 #      Hugues THOMAS - 11/06/2018
 #
 
-import time
 import numpy as np
-from os import makedirs
 from os.path import join, exists
-from models.KPConv.lib.ply import read_ply, write_ply
+from models.point_cloud_registration.buffer.KPConv.lib.ply import read_ply, write_ply
 
 
 # ------------------------------------------------------------------------------------------

@@ -13,14 +13,12 @@
 #
 #      Hugues THOMAS - 06/03/2020
 
-import time
 import math
 import torch
 import torch.nn as nn
 from torch.nn.parameter import Parameter
 from torch.nn.init import kaiming_uniform_
-from models.KPConv.kernels.kernel_points import load_kernels
-import utils.common
+from models.point_cloud_registration.buffer.KPConv.kernels.kernel_points import load_kernels
 
 
 def gather(x, idx, method=2):

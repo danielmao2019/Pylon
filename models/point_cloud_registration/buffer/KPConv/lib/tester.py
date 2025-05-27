@@ -2,15 +2,14 @@ from lib.trainer import Trainer
 import os, torch
 from tqdm import tqdm
 import numpy as np
-from lib.benchmark_utils import ransac_pose_estimation, random_sample, get_angle_deviation, to_o3d_pcd, to_array
-import open3d as o3d
+from models.point_cloud_registration.buffer.KPConv.lib.benchmark_utils import ransac_pose_estimation, get_angle_deviation, to_array
 
 # Modelnet part
 from common.math_torch import se3
 from common.math.so3 import dcm2euler
 from common.misc import prepare_logger
 from collections import defaultdict
-import coloredlogs
+
 
 class IndoorTester(Trainer):
     """

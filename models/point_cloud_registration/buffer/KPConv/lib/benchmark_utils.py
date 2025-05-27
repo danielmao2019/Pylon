@@ -5,14 +5,10 @@ Author: Shengyu Huang
 Last modified: 30.11.2020
 """
 
-import os,re,sys,json,yaml,random, glob, argparse, torch, pickle
-from tqdm import tqdm
+import os, glob, torch
 import numpy as np
-from scipy.spatial.transform import Rotation
 import open3d as o3d
-from lib.benchmark import read_trajectory, read_pairs, read_trajectory_info, write_trajectory
-
-_EPS = 1e-7  # To prevent division by zero
+from models.point_cloud_registration.buffer.KPConv.lib.benchmark import read_trajectory, write_trajectory
 
 
 def fmr_wrt_distance(data,split,inlier_ratio_threshold=0.05):
