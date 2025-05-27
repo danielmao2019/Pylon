@@ -7,6 +7,7 @@ def test_buffer_dataloader() -> None:
     dataset = build_from_config(dataset_cfg)
     dataloader_cfg = data_cfg['train_dataloader']
     dataloader = build_from_config(dataloader_cfg, dataset=dataset)
+    print(f"Total batches: {len(dataloader)}. Checking first 10 batches...")
     idx = 0
     for dp in dataloader:
         print(f"Validating batch {idx}...")
