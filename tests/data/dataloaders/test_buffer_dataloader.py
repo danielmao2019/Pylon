@@ -1,29 +1,12 @@
-import easydict as edict
-from data.datasets import KITTIDataset
-from data.dataloaders import BufferDataloader
+from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg
+from utils.builders import build_from_config
 
 
 def test_buffer_dataloader() -> None:
-    dataset = KITTIDataset(
-        data_root='./data/datasets/soft_links/KITTI',
-        split='train',
-    )
-
-    dataloader = BufferDataloader(
-        dataset=dataset,
-        config=edict.EasyDict({
-            'point': {
-                'conv_radius': 2.0,
-            },
-            'data': {
-                'voxel_size_0': 0.30,
-            },
-        }),
-        batch_size=1,
-        num_workers=16,
-        shuffle=True,
-        drop_last=True,
-    )
+    dataset_cfg = data_cfg['train_dataset']
+    dataset = build_from_config(dataset_cfg)
+    dataloader_cfg = data_cfg['train_dataloader']
+    dataloader = build_from_config(dataloader_cfg, dataset=dataset)
 
     for dp in dataloader:
         assert isinstance(dp, dict), f"dp is not a dict"
