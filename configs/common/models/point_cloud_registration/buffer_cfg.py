@@ -17,6 +17,7 @@ model_cfg = {
             },
             'point': {
                 'in_feats_dim': 3,
+                'first_feats_dim': 32,
                 'conv_radius': 2.0,
                 'keypts_th': 0.5,
                 'num_keypts': 1500,
