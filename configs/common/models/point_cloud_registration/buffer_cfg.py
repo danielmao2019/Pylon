@@ -24,6 +24,7 @@ model_cfg = {
                 'num_keypts': 1500,
             },
             'patch': {
+                'des_r': 3.0,
                 'azi_n': 20,
                 'ele_n': 7,
             },
