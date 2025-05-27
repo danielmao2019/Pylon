@@ -16,6 +16,7 @@ model_cfg = {
                 'pose_refine': False,
             },
             'point': {
+                'conv_radius': 2.0,
                 'keypts_th': 0.5,
                 'num_keypts': 1500,
             },
