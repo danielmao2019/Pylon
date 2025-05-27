@@ -57,12 +57,16 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     :param radius: float32
     :return: neighbors indices
     """
-
+    device = queries.device
+    queries = queries.detach().cpu().numpy()
+    supports = supports.detach().cpu().numpy()
+    q_batches = q_batches.detach().cpu().numpy()
+    s_batches = s_batches.detach().cpu().numpy()
     neighbors = cpp_neighbors.batch_query(queries, supports, q_batches, s_batches, radius=radius)
     if max_neighbors > 0:
-        return torch.from_numpy(neighbors[:, :max_neighbors])
+        return torch.from_numpy(neighbors[:, :max_neighbors]).to(device)
     else:
-        return torch.from_numpy(neighbors)
+        return torch.from_numpy(neighbors).to(device)
 
 
 def buffer_collate_fn(list_data, config, neighborhood_limits):
@@ -86,9 +90,9 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
     batched_lengths_list.append(len(src_kpt))
     batched_lengths_list.append(len(tgt_kpt))
 
-    batched_points = torch.from_numpy(np.concatenate(batched_points_list, axis=0))
-    batched_features = torch.from_numpy(np.concatenate(batched_features_list, axis=0))
-    batched_lengths = torch.from_numpy(np.array(batched_lengths_list)).int()
+    batched_points = torch.cat(batched_points_list, dim=0)
+    batched_features = torch.cat(batched_features_list, dim=0)
+    batched_lengths = torch.tensor(batched_lengths_list, dtype=torch.int64, device=batched_points.device)
 
     # Starting radius of convolutions
     r_normal = config.data.voxel_size_0 * config.point.conv_radius
