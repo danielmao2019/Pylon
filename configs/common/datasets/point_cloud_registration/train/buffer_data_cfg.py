@@ -43,6 +43,10 @@ data_cfg = {
                             'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
                         },
                         {
+                            'op': data.transforms.vision_3d.EstimateNormals(),
+                            'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
+                        },
+                        {
                             'op': data.transforms.Identity(),
                             'input_names': [
                                 ('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'),

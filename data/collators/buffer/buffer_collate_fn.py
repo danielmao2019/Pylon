@@ -72,13 +72,13 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
     assert len(list_data) == 1
     list_data = list_data[0]
 
-    s_pts, t_pts = list_data['inputs']['src_pc_fds'], list_data['inputs']['tgt_pc_fds']
+    s_pts, t_pts = list_data['inputs']['src_pc_fds']['pos'], list_data['inputs']['tgt_pc_fds']['pos']
     relt_pose = list_data['labels']['transform']
     s_kpt, t_kpt = list_data['inputs']['src_pc_sds'], list_data['inputs']['tgt_pc_sds']
-    src_kpt = s_kpt[:, :3]
-    tgt_kpt = t_kpt[:, :3]
-    src_f = s_kpt[:, 3:]
-    tgt_f = t_kpt[:, 3:]
+    src_kpt = s_kpt['pos']
+    tgt_kpt = t_kpt['pos']
+    src_f = s_kpt['normals']
+    tgt_f = t_kpt['normals']
     batched_points_list.append(src_kpt)
     batched_points_list.append(tgt_kpt)
     batched_features_list.append(src_f)
