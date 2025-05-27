@@ -1,9 +1,9 @@
 from typing import List
 import os
 import sys
-os.chdir("../../..")
 sys.path.append("../../..")
 import utils
+os.chdir("../../..")
 
 
 def add_heading(config: str) -> str:

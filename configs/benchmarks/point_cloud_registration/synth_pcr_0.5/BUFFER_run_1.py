@@ -68,18 +68,26 @@ multi_stage_cfg = []
 ref_cfg = copy.deepcopy(config)
 ref_cfg['stage'] = 'Ref'
 ref_cfg['model']['args']['config']['stage'] = 'Ref'
+ref_cfg['criterion'] = multi_stage_criterion_cfg[0]
+ref_cfg['metric'] = multi_stage_metric_cfg[0]
 multi_stage_cfg.append(ref_cfg)
 desc_cfg = copy.deepcopy(config)
 desc_cfg['stage'] = 'Desc'
 desc_cfg['model']['args']['config']['stage'] = 'Desc'
+desc_cfg['criterion'] = multi_stage_criterion_cfg[1]
+desc_cfg['metric'] = multi_stage_metric_cfg[1]
 multi_stage_cfg.append(desc_cfg)
 keypt_cfg = copy.deepcopy(config)
 keypt_cfg['stage'] = 'Keypt'
 keypt_cfg['model']['args']['config']['stage'] = 'Keypt'
+keypt_cfg['criterion'] = multi_stage_criterion_cfg[2]
+keypt_cfg['metric'] = multi_stage_metric_cfg[2]
 multi_stage_cfg.append(keypt_cfg)
 inlier_cfg = copy.deepcopy(config)
 inlier_cfg['stage'] = 'Inlier'
 inlier_cfg['model']['args']['config']['stage'] = 'Inlier'
+inlier_cfg['criterion'] = multi_stage_criterion_cfg[3]
+inlier_cfg['metric'] = multi_stage_metric_cfg[3]
 multi_stage_cfg.append(inlier_cfg)
 config = multi_stage_cfg
 
