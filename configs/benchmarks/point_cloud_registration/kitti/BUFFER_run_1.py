@@ -47,8 +47,8 @@ config = {
     },
 }
 
-from runners import SupervisedSingleTaskTrainer
-config['runner'] = SupervisedSingleTaskTrainer
+from runners import MultiStageTrainer
+config['runner'] = MultiStageTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
@@ -82,8 +82,6 @@ inlier_cfg['stage'] = 'Inlier'
 inlier_cfg['model']['args']['config']['stage'] = 'Inlier'
 multi_stage_cfg.append(inlier_cfg)
 config = multi_stage_cfg
-from runners import MultiStageTrainer
-config['runner'] = MultiStageTrainer
 
 # seeds
 config['init_seed'] = 47520536
