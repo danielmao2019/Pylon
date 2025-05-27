@@ -125,7 +125,7 @@ data_cfg = {
     'metric': None,
 }
 
-multi_stage_metri_cfg = [
+multi_stage_metric_cfg = [
     {
         'class': metrics.vision_3d.point_cloud_registration.BUFFER_RefStageMetric,
         'args': {},
