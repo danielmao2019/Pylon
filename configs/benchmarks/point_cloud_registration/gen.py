@@ -24,6 +24,10 @@ def main(dataset: str, model: str) -> None:
         config += f"from runners import BaseEvaluator\n"
         config += f"config['runner'] = BaseEvaluator\n"
         config += '\n'
+    elif model == 'BUFFER':
+        config += f"from runners import MultiStageTrainer\n"
+        config += f"config['runner'] = MultiStageTrainer\n"
+        config += '\n'
     else:
         config += f"from runners import SupervisedSingleTaskTrainer\n"
         config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
@@ -130,8 +134,6 @@ def main(dataset: str, model: str) -> None:
         config += f"inlier_cfg['model']['args']['config']['stage'] = 'Inlier'\n"
         config += f"multi_stage_cfg.append(inlier_cfg)\n"
         config += f"config = multi_stage_cfg\n"
-        config += f"from runners import MultiStageTrainer\n"
-        config += f"config['runner'] = MultiStageTrainer\n"
         config += '\n'
     else:
         raise NotImplementedError
