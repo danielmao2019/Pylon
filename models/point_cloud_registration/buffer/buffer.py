@@ -8,8 +8,8 @@ import models.point_cloud_registration.buffer.patchnet as pn
 from models.point_cloud_registration.buffer.point_learner import EFCNN, DetNet
 from models.point_cloud_registration.buffer.patch_embedder import MiniSpinNet
 from models.point_cloud_registration.buffer.utils.SE3 import *
+from models.point_cloud_registration.buffer.utils.common import make_open3d_point_cloud
 import kornia.geometry.conversions as Convert
-from ThreeDMatch.dataset import make_open3d_point_cloud
 import pointnet2_ops.pointnet2_utils as pnt2
 from knn_cuda import KNN
 
