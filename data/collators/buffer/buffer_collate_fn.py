@@ -5,8 +5,7 @@ import cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 from models.point_learner import architecture
 
 
-def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0,
-                                  random_grid_orient=True):
+def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0):
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
@@ -73,9 +72,9 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
     assert len(list_data) == 1
     list_data = list_data[0]
 
-    s_pts, t_pts = list_data['src_fds_pts'], list_data['tgt_fds_pts']
-    relt_pose = list_data['relt_pose']
-    s_kpt, t_kpt = list_data['src_sds_pts'], list_data['tgt_sds_pts']
+    s_pts, t_pts = list_data['inputs']['src_pc_fds'], list_data['inputs']['tgt_pc_fds']
+    relt_pose = list_data['labels']['transform']
+    s_kpt, t_kpt = list_data['inputs']['src_pc_sds'], list_data['inputs']['tgt_pc_sds']
     src_kpt = s_kpt[:, :3]
     tgt_kpt = t_kpt[:, :3]
     src_f = s_kpt[:, 3:]
