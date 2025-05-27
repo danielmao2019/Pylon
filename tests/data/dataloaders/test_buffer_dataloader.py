@@ -9,6 +9,7 @@ def test_buffer_dataloader() -> None:
     dataloader = build_from_config(dataloader_cfg, dataset=dataset)
     idx = 0
     for dp in dataloader:
+        print(f"Validating batch {idx}...")
         if idx >= 10:
             break
         assert isinstance(dp, dict), f"dp is not a dict"
