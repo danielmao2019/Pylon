@@ -1,5 +1,6 @@
-from models.KPConv.blocks import *
-from models.vn_layers import *
+from models.point_cloud_registration.buffer.KPConv.blocks import *
+from models.point_cloud_registration.buffer.vn_layers import *
+
 
 architecture = [
     'VNN_first',

@@ -1,17 +1,10 @@
 import torch.nn as nn
 import torch.nn.functional as F
-import models.patchnet as pn
+import models.point_cloud_registration.buffer.patchnet as pn
 import utils.common
-import pointnet2_ops.pointnet2_utils as pnt2
-from knn_cuda import KNN
-from loss.desc_loss import cdist
 from utils.SE3 import *
-from einops import repeat, rearrange
+import pointnet2_ops.pointnet2_utils as pnt2
 import kornia.geometry.conversions as Convert
-import open3d as o3d
-from ThreeDMatch.dataset import make_open3d_point_cloud
-import copy
-from utils.timer import Timer
 
 
 class MiniSpinNet(nn.Module):
