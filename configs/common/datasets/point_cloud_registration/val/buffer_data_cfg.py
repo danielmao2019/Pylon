@@ -1,5 +1,6 @@
 import torch
 import data
+import metrics
 
 
 data_cfg = {
@@ -123,3 +124,22 @@ data_cfg = {
     },
     'metric': None,
 }
+
+multi_stage_metri_cfg = [
+    {
+        'class': metrics.vision_3d.point_cloud_registration.BUFFER_RefStageMetric,
+        'args': {},
+    },
+    {
+        'class': metrics.vision_3d.point_cloud_registration.BUFFER_DescStageMetric,
+        'args': {},
+    },
+    {
+        'class': metrics.vision_3d.point_cloud_registration.BUFFER_KeyptStageMetric,
+        'args': {},
+    },
+    {
+        'class': metrics.vision_3d.point_cloud_registration.BUFFER_InlierStageMetric,
+        'args': {},
+    },
+]

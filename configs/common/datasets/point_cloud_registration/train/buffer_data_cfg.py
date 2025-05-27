@@ -1,5 +1,6 @@
 import easydict as edict
 import data
+import criteria
 
 
 data_cfg = {
@@ -76,3 +77,22 @@ data_cfg = {
     },
     'criterion': None,
 }
+
+multi_stage_criterion_cfg = [
+    {
+        'class': criteria.vision_3d.point_cloud_registration.BUFFER_RefStageCriterion,
+        'args': {},
+    },
+    {
+        'class': criteria.vision_3d.point_cloud_registration.BUFFER_DescStageCriterion,
+        'args': {},
+    },
+    {
+        'class': criteria.vision_3d.point_cloud_registration.BUFFER_KeyptStageCriterion,
+        'args': {},
+    },
+    {
+        'class': criteria.vision_3d.point_cloud_registration.BUFFER_InlierStageCriterion,
+        'args': {},
+    },
+]

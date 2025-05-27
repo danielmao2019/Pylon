@@ -86,6 +86,42 @@ def main(dataset: str, overlap: float, model: str) -> None:
         config += f"from configs.common.metrics.point_cloud_registration.overlappredator_metric_cfg import metric_cfg\n"
         config += f"config['metric'] = metric_cfg\n"
         config += '\n'
+    elif model == 'BUFFER':
+        config += f"# data config\n"
+        config += f"from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg\n"
+        config += f"config.update(train_data_cfg)\n"
+        config += f"from configs.common.datasets.point_cloud_registration.val.buffer_data_cfg import data_cfg as val_data_cfg\n"
+        config += f"config.update(val_data_cfg)\n"
+        config += '\n'
+        config += f"# model config\n"
+        config += f"from configs.common.models.point_cloud_registration.buffer_cfg import model_cfg\n"
+        config += f"model_cfg['args']['config']['data']['dataset'] = 'KITTI'\n"
+        config += f"config['model'] = model_cfg\n"
+        config += '\n'
+        config += f"import copy\n"
+        config += f"from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import multi_stage_criterion_cfg\n"
+        config += f"from configs.common.datasets.point_cloud_registration.val.buffer_data_cfg import multi_stage_metric_cfg\n"
+        config += f"multi_stage_cfg = []\n"
+        config += f"ref_cfg = copy.deepcopy(config)\n"
+        config += f"ref_cfg['stage'] = 'Ref'\n"
+        config += f"ref_cfg['model']['args']['config']['stage'] = 'Ref'\n"
+        config += f"multi_stage_cfg.append(ref_cfg)\n"
+        config += f"desc_cfg = copy.deepcopy(config)\n"
+        config += f"desc_cfg['stage'] = 'Desc'\n"
+        config += f"desc_cfg['model']['args']['config']['stage'] = 'Desc'\n"
+        config += f"multi_stage_cfg.append(desc_cfg)\n"
+        config += f"keypt_cfg = copy.deepcopy(config)\n"
+        config += f"keypt_cfg['stage'] = 'Keypt'\n"
+        config += f"keypt_cfg['model']['args']['config']['stage'] = 'Keypt'\n"
+        config += f"multi_stage_cfg.append(keypt_cfg)\n"
+        config += f"inlier_cfg = copy.deepcopy(config)\n"
+        config += f"inlier_cfg['stage'] = 'Inlier'\n"
+        config += f"inlier_cfg['model']['args']['config']['stage'] = 'Inlier'\n"
+        config += f"multi_stage_cfg.append(inlier_cfg)\n"
+        config += f"config = multi_stage_cfg\n"
+        config += f"from runners import MultiStageTrainer\n"
+        config += f"config['runner'] = MultiStageTrainer\n"
+        config += '\n'
     else:
         raise NotImplementedError
     # add seeds
