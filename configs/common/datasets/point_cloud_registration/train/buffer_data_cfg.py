@@ -1,4 +1,4 @@
-import torch
+import easydict as edict
 import data
 
 
@@ -57,8 +57,16 @@ data_cfg = {
         },
     },
     'train_dataloader': {
-        'class': torch.utils.data.DataLoader,
+        'class': data.dataloaders.BufferDataloader,
         'args': {
+            'config': edict.EasyDict({
+                'point': {
+                    'conv_radius': 2.0,
+                },
+                'data': {
+                    'voxel_size_0': 0.30,
+                },
+            }),
             'batch_size': 1,
         },
     },

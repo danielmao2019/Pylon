@@ -1,8 +1,8 @@
 import torch
 import numpy as np
-import cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
-import cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
-from models.point_learner import architecture
+import data.collators.buffer.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
+import data.collators.buffer.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
+from models.point_cloud_registration.buffer.point_learner import architecture
 
 
 def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0):
