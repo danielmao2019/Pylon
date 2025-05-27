@@ -53,15 +53,15 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     :param queries: (N1, 3) the query points
     :param supports: (N2, 3) the support points
     :param q_batches: (B) the list of lengths of batch elements in queries
-    :param s_batches: (B)the list of lengths of batch elements in supports
+    :param s_batches: (B) the list of lengths of batch elements in supports
     :param radius: float32
     :return: neighbors indices
     """
     device = queries.device
     queries = queries.detach().cpu().numpy()
     supports = supports.detach().cpu().numpy()
-    q_batches = q_batches.detach().cpu().numpy()
-    s_batches = s_batches.detach().cpu().numpy()
+    q_batches = q_batches.detach().cpu().numpy().astype(np.int32)
+    s_batches = s_batches.detach().cpu().numpy().astype(np.int32)
     neighbors = cpp_neighbors.batch_query(queries, supports, q_batches, s_batches, radius=radius)
     if max_neighbors > 0:
         return torch.from_numpy(neighbors[:, :max_neighbors]).to(device)
