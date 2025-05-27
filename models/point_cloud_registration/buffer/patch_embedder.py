@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import models.point_cloud_registration.buffer.patchnet as pn
-import utils.common
-from utils.SE3 import *
+from models.point_cloud_registration.buffer.utils.common import *
+from models.point_cloud_registration.buffer.utils.SE3 import *
 import pointnet2_ops.pointnet2_utils as pnt2
 import kornia.geometry.conversions as Convert
 
@@ -119,11 +119,11 @@ class MiniSpinNet(nn.Module):
 
         if dataset == '3DMatch' or dataset == '3DLoMatch':
             if z_axis is None:
-                z_axis = utils.common.cal_Z_axis(delta_x, ref_point=center)
-                z_axis = utils.common.l2_norm(z_axis, axis=1)
+                z_axis = cal_Z_axis(delta_x, ref_point=center)
+                z_axis = l2_norm(z_axis, axis=1)
             else:
                 z_axis = z_axis[0]
-            R = utils.common.RodsRotatFormula(z_axis,
+            R = RodsRotatFormula(z_axis,
                                               torch.FloatTensor([0, 0, 1]).expand_as(z_axis))
             delta_x = torch.matmul(delta_x, R)
 
@@ -144,17 +144,17 @@ class MiniSpinNet(nn.Module):
     def SPT(self, delta_x, des_r, voxel_r):
 
         # partition the local surface along elevator, azimuth, radial dimensions
-        S2_xyz = torch.FloatTensor(utils.common.get_voxel_coordinate(radius=des_r,
+        S2_xyz = torch.FloatTensor(get_voxel_coordinate(radius=des_r,
                                                                      rad_n=self.rad_n,
                                                                      azi_n=self.azi_n,
                                                                      ele_n=self.ele_n))
 
         pts_xyz = S2_xyz.view(1, -1, 3).repeat([delta_x.shape[0], 1, 1]).cuda()
         # query points in sphere
-        new_points = utils.common.sphere_query(delta_x, pts_xyz, radius=voxel_r,
+        new_points = sphere_query(delta_x, pts_xyz, radius=voxel_r,
                                                nsample=self.voxel_sample)
         # transform rotation-variant coords into rotation-invariant coords
-        new_points = utils.common.var_to_invar(new_points, self.rad_n, self.azi_n, self.ele_n)
+        new_points = var_to_invar(new_points, self.rad_n, self.azi_n, self.ele_n)
 
         return new_points
 
