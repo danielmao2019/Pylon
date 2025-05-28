@@ -47,8 +47,8 @@ config = {
     },
 }
 
-from runners import SupervisedSingleTaskTrainer
-config['runner'] = SupervisedSingleTaskTrainer
+from runners.pcr_trainers import BufferTrainer
+config['runner'] = BufferTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
@@ -122,8 +122,8 @@ config = {
     },
 }
 
-from runners import SupervisedSingleTaskTrainer
-config['runner'] = SupervisedSingleTaskTrainer
+from runners.pcr_trainers import BufferTrainer
+config['runner'] = BufferTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
@@ -192,8 +192,8 @@ config = {
     },
 }
 
-from runners import SupervisedSingleTaskTrainer
-config['runner'] = SupervisedSingleTaskTrainer
+from runners.pcr_trainers import BufferTrainer
+config['runner'] = BufferTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
@@ -262,8 +262,8 @@ config = {
     },
 }
 
-from runners import SupervisedSingleTaskTrainer
-config['runner'] = SupervisedSingleTaskTrainer
+from runners.pcr_trainers import BufferTrainer
+config['runner'] = BufferTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
