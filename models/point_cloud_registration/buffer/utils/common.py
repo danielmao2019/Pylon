@@ -437,6 +437,7 @@ def sphere_query(pts, new_pts, radius, nsample):
     B, N, C = pts.shape
     pts = pts.contiguous()
     new_pts = new_pts.contiguous()
+    pts = pts.to(torch.float32)
     group_idx = pnt2.ball_query(radius, nsample, pts[:, :, :3].contiguous(), new_pts[:, :, :3].contiguous())
     mask = group_idx[:, :, 0].unsqueeze(2).repeat(1, 1, nsample)
     mask = (group_idx == mask).float()
