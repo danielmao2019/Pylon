@@ -8,5 +8,6 @@ class BufferTrainer(SupervisedSingleTaskTrainer):
         freeze_stages = ['Ref', 'Desc', 'Keypt', 'Inlier']
         freeze_stages.remove(self.config['stage'])
         for stage in freeze_stages:
+            print(f"Freezing {stage} module in self.model...")
             for param in getattr(self.model, stage).parameters():
                 param.requires_grad = False
