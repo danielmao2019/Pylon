@@ -1,6 +1,6 @@
 from typing import Dict, Any
 import torch
-from .base_trainer import BaseTrainer
+from runners.base_trainer import BaseTrainer
 import optimizers
 import utils
 

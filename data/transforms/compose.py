@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict, Callable, Union, Any, Optional
 import copy
-from .base_transform import BaseTransform
+from data.transforms.base_transform import BaseTransform
 
 
 class Compose(BaseTransform):
