@@ -40,6 +40,9 @@ def _generate_train_seeds(
             config += f"config['init_seed'] = {init_seed}\n"
             config += f"config['train_seeds'] = [" + ", ".join(list(map(str, train_seeds))) + "]\n"
             config += '\n'
+            if base_work_dir is not None:
+                config += f"# work dir\n"
+                config += f"config['work_dir'] = \"" + base_work_dir + f"_run_{idx}" + "\"\n"
         else:
             init_seed_multi_stage: List[int] = [random.randint(0, ub) for _ in range(len(epochs))]
             train_seeds_multi_stage: List[List[int]] = [
@@ -51,9 +54,10 @@ def _generate_train_seeds(
                 config += f"config[{idx_stage}]['init_seed'] = {init_seed_multi_stage[idx_stage]}\n"
                 config += f"config[{idx_stage}]['train_seeds'] = [" + ", ".join(list(map(str, train_seeds_multi_stage[idx_stage]))) + "]\n"
             config += '\n'
-        if base_work_dir is not None:
-            config += f"# work dir\n"
-            config += f"config['work_dir'] = \"" + base_work_dir + f"_run_{idx}" + "\"\n"
+            if base_work_dir is not None:
+                config += f"# work dir\n"
+                for idx_stage in range(len(epochs)):
+                    config += f"config[{idx_stage}]['work_dir'] = \"" + base_work_dir + f"_run_{idx}" + "\"\n"
         # append
         seeded_configs.append(config)
     return seeded_configs
