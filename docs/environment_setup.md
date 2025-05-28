@@ -65,8 +65,17 @@ conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
 #### 3.3.2. Computer Vision
 
 ```bash
-conda install -c conda-forge -y opencv pycocotools rasterio imageio
-pip install open3d
+conda install -c conda-forge -y opencv pycocotools rasterio imageio plyfile
+pip install open3d laspy
+```
+
+Point cloud registration related
+
+```bash
+git clone git@github.com:erikwijmans/Pointnet2_PyTorch.git && cd Pointnet2_PyTorch && pip install pointnet2_ops_lib/. && cd ..
+pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
+pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
+git clone https://github.com/KinglittleQ/torch-batch-svd.git && cd torch-batch-svd && python setup.py install && cd ..
 ```
 
 #### 3.3.3. Visualization and Data Analysis
@@ -92,8 +101,8 @@ pip install rich
 
 ```bash
 # Conda packages
-conda install -c conda-forge -y ftfy regex plyfile easydict
+conda install -c conda-forge -y ftfy regex easydict
 
 # Pip packages
-pip install laspy fvcore triton jsbeautifier
+pip install fvcore triton jsbeautifier
 ```
