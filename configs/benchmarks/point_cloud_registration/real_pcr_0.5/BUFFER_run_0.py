@@ -64,8 +64,9 @@ config['model'] = model_cfg
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import multi_stage_criterion_cfg
 from configs.common.datasets.point_cloud_registration.val.buffer_data_cfg import multi_stage_metric_cfg
 multi_stage_cfg = []
+import copy
 
-ref_cfg = config
+ref_cfg = copy.deepcopy(config)
 ref_cfg['stage'] = 'Ref'
 ref_cfg['model']['args']['config']['stage'] = 'Ref'
 ref_cfg['criterion'] = multi_stage_criterion_cfg[0]
@@ -135,7 +136,7 @@ from configs.common.models.point_cloud_registration.buffer_cfg import model_cfg
 model_cfg['args']['config']['data']['dataset'] = 'KITTI'
 config['model'] = model_cfg
 
-desc_cfg = config
+desc_cfg = copy.deepcopy(config)
 desc_cfg['stage'] = 'Desc'
 desc_cfg['model']['args']['config']['stage'] = 'Desc'
 desc_cfg['criterion'] = multi_stage_criterion_cfg[1]
@@ -205,7 +206,7 @@ from configs.common.models.point_cloud_registration.buffer_cfg import model_cfg
 model_cfg['args']['config']['data']['dataset'] = 'KITTI'
 config['model'] = model_cfg
 
-keypt_cfg = config
+keypt_cfg = copy.deepcopy(config)
 keypt_cfg['stage'] = 'Keypt'
 keypt_cfg['model']['args']['config']['stage'] = 'Keypt'
 keypt_cfg['criterion'] = multi_stage_criterion_cfg[2]
@@ -275,7 +276,7 @@ from configs.common.models.point_cloud_registration.buffer_cfg import model_cfg
 model_cfg['args']['config']['data']['dataset'] = 'KITTI'
 config['model'] = model_cfg
 
-inlier_cfg = config
+inlier_cfg = copy.deepcopy(config)
 inlier_cfg['stage'] = 'Inlier'
 inlier_cfg['model']['args']['config']['stage'] = 'Inlier'
 inlier_cfg['criterion'] = multi_stage_criterion_cfg[3]
