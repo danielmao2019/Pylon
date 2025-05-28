@@ -47,8 +47,8 @@ config = {
     },
 }
 
-from runners import MultiStageTrainer
-config['runner'] = MultiStageTrainer
+from runners import SupervisedSingleTaskTrainer
+config['runner'] = SupervisedSingleTaskTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
@@ -121,8 +121,8 @@ config = {
     },
 }
 
-from runners import MultiStageTrainer
-config['runner'] = MultiStageTrainer
+from runners import SupervisedSingleTaskTrainer
+config['runner'] = SupervisedSingleTaskTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
@@ -191,8 +191,8 @@ config = {
     },
 }
 
-from runners import MultiStageTrainer
-config['runner'] = MultiStageTrainer
+from runners import SupervisedSingleTaskTrainer
+config['runner'] = SupervisedSingleTaskTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg
@@ -261,8 +261,8 @@ config = {
     },
 }
 
-from runners import MultiStageTrainer
-config['runner'] = MultiStageTrainer
+from runners import SupervisedSingleTaskTrainer
+config['runner'] = SupervisedSingleTaskTrainer
 
 # data config
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg

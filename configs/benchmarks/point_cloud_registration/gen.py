@@ -24,10 +24,6 @@ def main(dataset: str, model: str) -> None:
         config += f"from runners import BaseEvaluator\n"
         config += f"config['runner'] = BaseEvaluator\n"
         config += '\n'
-    elif model == 'BUFFER':
-        config += f"from runners import MultiStageTrainer\n"
-        config += f"config['runner'] = MultiStageTrainer\n"
-        config += '\n'
     else:
         config += f"from runners import SupervisedSingleTaskTrainer\n"
         config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
