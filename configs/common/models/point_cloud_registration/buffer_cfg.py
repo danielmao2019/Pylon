@@ -6,8 +6,10 @@ model_cfg = {
     'class': BUFFER,
     'args': {
         'config': edict({
+            'stage': None,
             'data': {
                 'voxel_size_0': 0.30,
+                'dataset': 'KITTI',
             },
             'train': {
                 'pos_num': 512,
