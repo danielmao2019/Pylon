@@ -19,20 +19,26 @@ if __name__ == "__main__":
     spec.loader.exec_module(module)
     config = module.config
 
-    # Modify config if --debug is provided
-    if args.debug:
-        config['work_dir'] = os.path.join("./logs", "debug", os.path.relpath(config['work_dir'], start="./logs"))
-        os.system(f"rm -rf {config['work_dir']}")
-        config['epochs'] = 3
-        config['train_seeds'] = config['train_seeds'][:3]
-        for split in ['train', 'val', 'test']:
-            dataset_key = split + "_dataset"
-            dataloader_key = split + "_dataloader"
+    if isinstance(config, dict):
+        config_list = [config]
+    else:
+        config_list = config
 
-            if dataset_key in config and config[dataset_key] is not None:
-                if dataloader_key in config and config[dataloader_key] is not None:
-                    batch_size = config[dataloader_key]['args'].get('batch_size', 1)
-                    config[dataset_key]['args']['indices'] = list(range(3 * batch_size))
+    for config in config_list:
+        # Modify config if --debug is provided
+        if args.debug:
+            config['work_dir'] = os.path.join("./logs", "debug", os.path.relpath(config['work_dir'], start="./logs"))
+            os.system(f"rm -rf {config['work_dir']}")
+            config['epochs'] = 3
+            config['train_seeds'] = config['train_seeds'][:3]
+            for split in ['train', 'val', 'test']:
+                dataset_key = split + "_dataset"
+                dataloader_key = split + "_dataloader"
 
-    # Run training
-    config['runner'](config=config).run()
+                if dataset_key in config and config[dataset_key] is not None:
+                    if dataloader_key in config and config[dataloader_key] is not None:
+                        batch_size = config[dataloader_key]['args'].get('batch_size', 1)
+                        config[dataset_key]['args']['indices'] = list(range(3 * batch_size))
+
+        # Run training
+        config['runner'](config=config).run()

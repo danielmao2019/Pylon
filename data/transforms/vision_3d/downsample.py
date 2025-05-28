@@ -24,7 +24,7 @@ class DownSample(BaseTransform):
         _, _, kept_indices = pcd.voxel_down_sample_and_trace(
             voxel_size=self.voxel_size,
             min_bound=pcd.get_min_bound(),
-            max_bound=pcd.get_max_bound()
+            max_bound=pcd.get_max_bound(),
         )
 
         # Convert IntVector list to a list of integers (taking first point from each voxel)

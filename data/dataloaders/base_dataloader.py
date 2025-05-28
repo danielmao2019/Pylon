@@ -4,6 +4,7 @@ import data
 
 
 class BaseDataLoader(torch.utils.data.DataLoader):
+
     def __init__(
         self,
         dataset: torch.utils.data.Dataset,
@@ -11,7 +12,7 @@ class BaseDataLoader(torch.utils.data.DataLoader):
         shuffle: Optional[bool] = False,
         last_mode: Optional[str] = 'keep',
         **kwargs,
-    ):
+    ) -> None:
         """
         Custom DataLoader with `last_mode`:
         - 'drop': drop the last incomplete batch (equivalent to drop_last=True in PyTorch DataLoader)

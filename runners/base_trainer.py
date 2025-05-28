@@ -240,9 +240,8 @@ class BaseTrainer(ABC):
             self.gpu_monitor.start()
 
         # do computation
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
-            dp['outputs'] = self.model(dp['inputs'])
-            dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
+        dp['outputs'] = self.model(dp['inputs'])
+        dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
 
         # update logger
         self.logger.update_buffer({"learning_rate": self.scheduler.get_last_lr()})
@@ -276,9 +275,8 @@ class BaseTrainer(ABC):
             self.gpu_monitor.start()
 
         # do computation
-        with torch.autocast(device_type='cuda', dtype=torch.float16):
-            dp['outputs'] = self.model(dp['inputs'])
-            dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
+        dp['outputs'] = self.model(dp['inputs'])
+        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
 
         # Log scores
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
