@@ -11,6 +11,11 @@ class BUFFER_KeyptStageCriterion(SingleTaskCriterion):
         self.desc_loss = ContrastiveLoss()
 
     def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
+        assert isinstance(y_pred, dict), f"{type(y_pred)=}"
+        assert y_pred.keys() == {'src_s', 'tgt_s', 'src_kpt', 'src_des', 'tgt_des'}, f"{y_pred.keys()=}"
+        assert isinstance(y_true, dict), f"{type(y_true)=}"
+        assert y_true.keys() == {'transform'}, f"{y_true.keys()=}"
+
         src_s, tgt_s = y_pred['src_s'], y_pred['tgt_s']
         src_kpt, src_des, tgt_des = y_pred['src_kpt'], y_pred['src_des'], y_pred['tgt_des']
         _, diff, _ = self.desc_loss(src_des, tgt_des, cdist(src_kpt, src_kpt))
