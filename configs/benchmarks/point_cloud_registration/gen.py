@@ -15,7 +15,12 @@ def add_heading(config: str) -> str:
 
 
 def main(dataset: str, model: str) -> None:
-    template_name = "template_eval.py" if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus'] else "template_train.py"
+    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
+        template_name = "template_eval.py"
+    elif model == 'BUFFER':
+        template_name = "template_buffer.py"
+    else:
+        template_name = "template_train.py"
     with open(f"./configs/benchmarks/point_cloud_registration/{template_name}", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
@@ -25,9 +30,7 @@ def main(dataset: str, model: str) -> None:
         config += f"config['runner'] = BaseEvaluator\n"
         config += '\n'
     elif model == 'BUFFER':
-        config += f"from runners.pcr_trainers import BufferTrainer\n"
-        config += f"config['runner'] = BufferTrainer\n"
-        config += '\n'
+        pass
     else:
         config += f"from runners import SupervisedSingleTaskTrainer\n"
         config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
@@ -102,55 +105,7 @@ def main(dataset: str, model: str) -> None:
         config += f"config['metric'] = metric_cfg\n"
         config += '\n'
     elif model == 'BUFFER':
-        config += f"# data config\n"
-        config += f"from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg as train_data_cfg\n"
-        config += f"config.update(train_data_cfg)\n"
-        config += f"from configs.common.datasets.point_cloud_registration.val.buffer_data_cfg import data_cfg as val_data_cfg\n"
-        config += f"config.update(val_data_cfg)\n"
-        config += '\n'
-        config += f"# model config\n"
-        config += f"from configs.common.models.point_cloud_registration.buffer_cfg import model_cfg\n"
-        config += f"model_cfg['args']['config']['data']['dataset'] = 'KITTI'\n"
-        config += f"config['model'] = model_cfg\n"
-        config += '\n'
-        base_config = config
-        config += f"from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import multi_stage_criterion_cfg\n"
-        config += f"from configs.common.datasets.point_cloud_registration.val.buffer_data_cfg import multi_stage_metric_cfg\n"
-        config += f"multi_stage_cfg = []\n"
-        config += f"import copy\n"
-        config += '\n'
-        config += f"ref_cfg = copy.deepcopy(config)\n"
-        config += f"ref_cfg['stage'] = 'Ref'\n"
-        config += f"ref_cfg['model']['args']['config']['stage'] = 'Ref'\n"
-        config += f"ref_cfg['criterion'] = multi_stage_criterion_cfg[0]\n"
-        config += f"ref_cfg['metric'] = multi_stage_metric_cfg[0]\n"
-        config += f"multi_stage_cfg.append(ref_cfg)\n"
-        config += '\n'
-        config += base_config
-        config += f"desc_cfg = copy.deepcopy(config)\n"
-        config += f"desc_cfg['stage'] = 'Desc'\n"
-        config += f"desc_cfg['model']['args']['config']['stage'] = 'Desc'\n"
-        config += f"desc_cfg['criterion'] = multi_stage_criterion_cfg[1]\n"
-        config += f"desc_cfg['metric'] = multi_stage_metric_cfg[1]\n"
-        config += f"multi_stage_cfg.append(desc_cfg)\n"
-        config += '\n'
-        config += base_config
-        config += f"keypt_cfg = copy.deepcopy(config)\n"
-        config += f"keypt_cfg['stage'] = 'Keypt'\n"
-        config += f"keypt_cfg['model']['args']['config']['stage'] = 'Keypt'\n"
-        config += f"keypt_cfg['criterion'] = multi_stage_criterion_cfg[2]\n"
-        config += f"keypt_cfg['metric'] = multi_stage_metric_cfg[2]\n"
-        config += f"multi_stage_cfg.append(keypt_cfg)\n"
-        config += '\n'
-        config += base_config
-        config += f"inlier_cfg = copy.deepcopy(config)\n"
-        config += f"inlier_cfg['stage'] = 'Inlier'\n"
-        config += f"inlier_cfg['model']['args']['config']['stage'] = 'Inlier'\n"
-        config += f"inlier_cfg['criterion'] = multi_stage_criterion_cfg[3]\n"
-        config += f"inlier_cfg['metric'] = multi_stage_metric_cfg[3]\n"
-        config += f"multi_stage_cfg.append(inlier_cfg)\n"
-        config += f"config = multi_stage_cfg\n"
-        config += '\n'
+        pass
     else:
         raise NotImplementedError
     # add seeds
