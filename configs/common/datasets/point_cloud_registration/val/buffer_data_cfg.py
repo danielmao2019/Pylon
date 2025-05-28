@@ -67,7 +67,7 @@ data_cfg = {
             'batch_size': 1,
         },
     },
-    'testdataset': {
+    'test_dataset': {
         'class': data.datasets.KITTIDataset,
         'args': {
             'data_root': './data/datasets/soft_links/KITTI',
