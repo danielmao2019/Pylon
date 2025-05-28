@@ -113,8 +113,9 @@ def main(dataset: str, model: str) -> None:
         config += f"from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import multi_stage_criterion_cfg\n"
         config += f"from configs.common.datasets.point_cloud_registration.val.buffer_data_cfg import multi_stage_metric_cfg\n"
         config += f"multi_stage_cfg = []\n"
+        config += f"import copy\n"
         config += '\n'
-        config += f"ref_cfg = config\n"
+        config += f"ref_cfg = copy.deepcopy(config)\n"
         config += f"ref_cfg['stage'] = 'Ref'\n"
         config += f"ref_cfg['model']['args']['config']['stage'] = 'Ref'\n"
         config += f"ref_cfg['criterion'] = multi_stage_criterion_cfg[0]\n"
@@ -122,7 +123,7 @@ def main(dataset: str, model: str) -> None:
         config += f"multi_stage_cfg.append(ref_cfg)\n"
         config += '\n'
         config += base_config
-        config += f"desc_cfg = config\n"
+        config += f"desc_cfg = copy.deepcopy(config)\n"
         config += f"desc_cfg['stage'] = 'Desc'\n"
         config += f"desc_cfg['model']['args']['config']['stage'] = 'Desc'\n"
         config += f"desc_cfg['criterion'] = multi_stage_criterion_cfg[1]\n"
@@ -130,7 +131,7 @@ def main(dataset: str, model: str) -> None:
         config += f"multi_stage_cfg.append(desc_cfg)\n"
         config += '\n'
         config += base_config
-        config += f"keypt_cfg = config\n"
+        config += f"keypt_cfg = copy.deepcopy(config)\n"
         config += f"keypt_cfg['stage'] = 'Keypt'\n"
         config += f"keypt_cfg['model']['args']['config']['stage'] = 'Keypt'\n"
         config += f"keypt_cfg['criterion'] = multi_stage_criterion_cfg[2]\n"
@@ -138,7 +139,7 @@ def main(dataset: str, model: str) -> None:
         config += f"multi_stage_cfg.append(keypt_cfg)\n"
         config += '\n'
         config += base_config
-        config += f"inlier_cfg = config\n"
+        config += f"inlier_cfg = copy.deepcopy(config)\n"
         config += f"inlier_cfg['stage'] = 'Inlier'\n"
         config += f"inlier_cfg['model']['args']['config']['stage'] = 'Inlier'\n"
         config += f"inlier_cfg['criterion'] = multi_stage_criterion_cfg[3]\n"
