@@ -6,7 +6,7 @@ import re
 def generate_seeds(
     template_config: str,
     base_seed: str,
-    base_work_dir: str,
+    base_work_dir: Optional[str] = None,
     num_repetitions: Optional[int] = 3,
     ub: Optional[int] = 10**8-1,
 ) -> None:
@@ -14,16 +14,16 @@ def generate_seeds(
     epochs = re.findall(pattern="'epochs': (\d+),", string=template_config)
     epochs = list(map(int, epochs))
     if len(epochs) == 0:
-        return _generate_eval_seeds(template_config, base_seed, base_work_dir, epochs, ub)
+        return _generate_eval_seeds(template_config, base_seed, base_work_dir, ub)
     else:
-        return _generate_train_seeds(template_config, base_seed, base_work_dir, num_repetitions, ub)
+        return _generate_train_seeds(template_config, base_seed, base_work_dir, epochs, num_repetitions, ub)
 
 
 def _generate_train_seeds(
     template_config: str,
     base_seed: str,
-    base_work_dir: str,
-    epochs: List[int],
+    base_work_dir: Optional[str] = None,
+    epochs: Optional[List[int]] = None,
     num_repetitions: Optional[int] = 3,
     ub: Optional[int] = 10**8-1,
 ) -> None:
@@ -47,12 +47,13 @@ def _generate_train_seeds(
                 for num_epochs in epochs
             ]
             config += f"# seeds\n"
-            for idx in range(len(epochs)):
-                config += f"config[{idx}]['init_seed'] = {init_seed_multi_stage[idx]}\n"
-                config += f"config[{idx}]['train_seeds'] = [" + ", ".join(list(map(str, train_seeds_multi_stage[idx]))) + "]\n"
+            for idx_stage in range(len(epochs)):
+                config += f"config[{idx_stage}]['init_seed'] = {init_seed_multi_stage[idx_stage]}\n"
+                config += f"config[{idx_stage}]['train_seeds'] = [" + ", ".join(list(map(str, train_seeds_multi_stage[idx_stage]))) + "]\n"
             config += '\n'
+        if base_work_dir is not None:
             config += f"# work dir\n"
-            config += f"config['work_dir'] = \"" + base_work_dir + f"run_{idx}" + "\"\n"
+            config += f"config['work_dir'] = \"" + base_work_dir + f"_run_{idx}" + "\"\n"
         # append
         seeded_configs.append(config)
     return seeded_configs
@@ -61,7 +62,7 @@ def _generate_train_seeds(
 def _generate_eval_seeds(
     template_config: str,
     base_seed: str,
-    base_work_dir: str,
+    base_work_dir: Optional[str] = None,
     ub: Optional[int] = 10**8-1,
 ) -> None:
     # generate seeds
@@ -74,8 +75,9 @@ def _generate_eval_seeds(
     config += f"# seeds\n"
     config += f"config['seed'] = {seed}\n"
     config += '\n'
-    config += f"# work dir\n"
-    config += f"config['work_dir'] = \"" + base_work_dir + "run_0" + "\"\n"
+    if base_work_dir is not None:
+        config += f"# work dir\n"
+        config += f"config['work_dir'] = \"" + base_work_dir + "_run_0" + "\"\n"
     # append
     seeded_configs.append(config)
     return seeded_configs
