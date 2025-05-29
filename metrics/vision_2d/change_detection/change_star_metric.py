@@ -36,14 +36,24 @@ class ChangeStarMetric(SingleTaskMetric):
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         assert len(self.buffer) != 0
         buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
-        # summarize scores
+
+        # Initialize result structure
         result: Dict[str, Dict[str, torch.Tensor]] = {
-            'change': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                buffer=buffer['change'], num_classes=2,
-            ),
+            "aggregated": {},
+            "per_datapoint": {},
         }
+
+        # First compute per-datapoint scores
+        for key in buffer:
+            key_scores = torch.stack(buffer[key], dim=0)
+            result["per_datapoint"][key] = key_scores
+
+        # Compute aggregated metrics
+        result["aggregated"]['change'] = metrics.vision_2d.SemanticSegmentationMetric._summarize(
+            buffer=buffer['change'], num_classes=2,
+        )
         if len(buffer) == 3:
-            result.update({
+            result["aggregated"].update({
                 'semantic_1': metrics.vision_2d.SemanticSegmentationMetric._summarize(
                     buffer=buffer['semantic_1'], num_classes=5,
                 ),
@@ -51,6 +61,7 @@ class ChangeStarMetric(SingleTaskMetric):
                     buffer=buffer['semantic_2'], num_classes=5,
                 ),
             })
+
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)

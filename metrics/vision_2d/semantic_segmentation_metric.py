@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import torch
 import torchvision
 from metrics.common import ConfusionMatrix
@@ -96,11 +96,11 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         result['class_IoU'] = class_iou
         result['mean_IoU'] = mean_iou
         # summarize confusion matrix
-        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in ['tp', 'tn', 'fp', 'fn']}
-        tp = confusion_matrix['tp']
-        tn = confusion_matrix['tn']
-        fp = confusion_matrix['fp']
-        fn = confusion_matrix['fn']
+        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in ['class_tp', 'class_tn', 'class_fp', 'class_fn']}
+        tp = confusion_matrix['class_tp']
+        tn = confusion_matrix['class_tn']
+        fp = confusion_matrix['class_fp']
+        fn = confusion_matrix['class_fn']
         result.update(confusion_matrix)
         result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
         result['class_precision'] = tp / (tp + fp)
@@ -116,7 +116,22 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         seen so far into a single floating point number.
         """
         assert len(self.buffer) != 0
-        result = self._summarize(self.buffer, self.num_classes)
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+        
+        # Initialize result structure
+        result: Dict[str, Dict[str, torch.Tensor]] = {
+            "aggregated": {},
+            "per_datapoint": {},
+        }
+
+        # First compute per-datapoint scores
+        for key in buffer:
+            key_scores = torch.stack(buffer[key], dim=0)
+            result["per_datapoint"][key] = key_scores
+
+        # Compute aggregated metrics
+        result["aggregated"] = self._summarize(self.buffer, self.num_classes)
+
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)

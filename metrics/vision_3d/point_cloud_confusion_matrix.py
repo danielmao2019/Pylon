@@ -78,10 +78,10 @@ class PointCloudConfusionMatrix(SingleTaskMetric):
         assert torch.all(total == total[0]), "Inconsistent total counts across classes"
 
         score = {
-            'tp': tp,
-            'tn': tn,
-            'fp': fp,
-            'fn': fn,
+            'class_tp': tp,
+            'class_tn': tn,
+            'class_fp': fp,
+            'class_fn': fn,
             'class_accuracy': (tp + tn) / (tp + tn + fp + fn),
             'class_precision': tp / (tp + fp + 1e-7),
             'class_recall': tp / (tp + fn + 1e-7),
@@ -145,8 +145,8 @@ class PointCloudConfusionMatrix(SingleTaskMetric):
             for key in buffer
         }
         bincount = torch.stack([
-            confusion_matrix['tp'], confusion_matrix['tn'],
-            confusion_matrix['fp'], confusion_matrix['fn'],
+            confusion_matrix['class_tp'], confusion_matrix['class_tn'],
+            confusion_matrix['class_fp'], confusion_matrix['class_fn'],
         ], dim=0)
         result["aggregated"] = self._bincount2score(bincount, num_points=bincount.sum())
 

@@ -29,6 +29,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
         self.areas = areas
         assert set(areas).issubset(self.AREA_RANGES.keys()), f"Unknown area ranges: {set(areas) - set(self.AREA_RANGES.keys())}"
         self.limits = limits
+        self.thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
 
     @staticmethod
     def _call_with_area_limit_(
@@ -71,6 +72,16 @@ class ObjectDetectionMetric(SingleTaskMetric):
             overlaps[:, true_idx] = -1
         return result
 
+    @staticmethod
+    def _compute_recalls(overlaps: torch.Tensor, thresholds: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """Compute recalls at different thresholds for a single datapoint."""
+        recalls = torch.tensor([(overlaps >= t).type(torch.float32).mean() for t in thresholds])
+        return {
+            "AR": recalls.mean(),
+            "recalls": recalls,
+            "thresholds": thresholds,
+        }
+
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, List[torch.Tensor]]) -> torch.Tensor:
         r"""
         Args:
@@ -97,41 +108,68 @@ class ObjectDetectionMetric(SingleTaskMetric):
         assert type(y_true['areas']) == list, f"{type(y_true['areas'])=}"
         # compute scores
         batch_size: int = len(y_pred['bboxes'])
-        scores: List[Dict[str, torch.Tensor]] = []
+        scores: List[Dict[str, Dict[str, torch.Tensor]]] = []
         for idx in range(batch_size):
             # sort predictions in descending order
             inds = torch.sort(y_pred['objectness'][idx], dim=0, descending=True)[1]
             pred_bboxes = y_pred['bboxes'][idx][inds]
             gt_bboxes = y_true['bboxes'][idx]
             gt_areas = y_true['areas'][idx]
-            single_result: Dict[str, torch.Tensor] = {}
+            single_result: Dict[str, Dict[str, torch.Tensor]] = {}
             for area in self.areas:
                 for limit in self.limits:
-                    single_result[f"gt_overlaps_{area}@{limit}"] = self._call_with_area_limit_(
+                    key = f"gt_overlaps_{area}@{limit}"
+                    # Compute overlaps
+                    overlaps = self._call_with_area_limit_(
                         pred_bboxes=pred_bboxes, gt_bboxes=gt_bboxes, gt_areas=gt_areas,
                         area_range=self.AREA_RANGES[area], limit=limit,
                     )
+                    # Compute recalls
+                    recalls_dict = self._compute_recalls(overlaps, self.thresholds)
+                    # Store in nested structure
+                    single_result[key] = {
+                        'per_bbox': overlaps,
+                        **recalls_dict,
+                    }
             scores.append(single_result)
-        scores = transpose_buffer(scores)
-        for key in scores:
-            scores[key] = torch.cat(scores[key], dim=0)
-        self.buffer.append(scores)
+        self.buffer.extend(scores)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         assert len(self.buffer) != 0
-        result: Dict[str, Any] = {}
-        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
-        thresholds = torch.arange(0.5, 0.95 + 1e-5, 0.05, dtype=torch.float32)
-        for key in buffer:
-            key_scores = torch.cat(buffer[key], dim=0)
-            assert key_scores.ndim == 1, f"{key_scores.shape=}"
-            recalls = torch.tensor([(key_scores >= t).type(torch.float32).mean() for t in thresholds])
-            result[key] =  {
-                "AR": recalls.mean(),
-                "recalls": recalls,
-                "thresholds": thresholds,
+        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
+        buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
+            key: transpose_buffer(buffer[key]) for key in buffer.keys()
+        }
+
+        # Initialize result structure
+        result: Dict[str, Dict[str, Dict[str, torch.Tensor]]] = {
+            "aggregated": {key1: {} for key1 in buffer.keys()},
+            "per_datapoint": {key1: {} for key1 in buffer.keys()},
+        }
+
+        # For per-datapoint scores, stack the nested dictionaries
+        for key1 in buffer.keys():
+            for key2 in buffer[key1].keys():
+                if key2 == 'per_bbox':
+                    continue
+                per_datapoint_scores = torch.stack(buffer[key1][key2], dim=0)
+                assert per_datapoint_scores.ndim == 1, f"{per_datapoint_scores.shape=}"
+                result["per_datapoint"][key1][key2] = per_datapoint_scores
+
+        # For aggregated metrics, concatenate overlaps and compute recalls
+        for key1 in buffer.keys():
+            # Concatenate overlaps across all datapoints
+            overlaps = torch.cat(buffer[key1]['per_bbox'], dim=0)
+            assert overlaps.ndim == 1, f"{overlaps.shape=}"
+            # Compute recalls on concatenated overlaps
+            recalls_dict = self._compute_recalls(overlaps, self.thresholds)
+            # Store in nested structure
+            result["aggregated"][key1] = {
+                'per_bbox': overlaps,
+                **recalls_dict,
             }
+
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)

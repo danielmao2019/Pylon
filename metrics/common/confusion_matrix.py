@@ -32,10 +32,10 @@ class ConfusionMatrix(SingleTaskMetric):
     @staticmethod
     def _bincount2score(bincount: torch.Tensor, batch_size: int) -> Dict[str, torch.Tensor]:
         score = {
-            'tp': bincount.diag(),
-            'tn': bincount.sum() - bincount.sum(dim=0) - bincount.sum(dim=1) + bincount.diag(),
-            'fp': bincount.sum(dim=0) - bincount.diag(),
-            'fn': bincount.sum(dim=1) - bincount.diag(),
+            'class_tp': bincount.diag(),
+            'class_tn': bincount.sum() - bincount.sum(dim=0) - bincount.sum(dim=1) + bincount.diag(),
+            'class_fp': bincount.sum(dim=0) - bincount.diag(),
+            'class_fn': bincount.sum(dim=1) - bincount.diag(),
         }
         assert torch.all(torch.stack(list(score.values()), dim=0).sum(dim=0) == batch_size), f"{torch.stack(list(score.values()), dim=0).sum(dim=0)=}"
         return score
@@ -55,20 +55,33 @@ class ConfusionMatrix(SingleTaskMetric):
         assert len(self.buffer) != 0
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
         # summarize scores
-        result: Dict[str, torch.Tensor] = {}
-        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in buffer}
-        tp = confusion_matrix['tp']
-        tn = confusion_matrix['tn']
-        fp = confusion_matrix['fp']
-        fn = confusion_matrix['fn']
-        result.update(confusion_matrix)
-        result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
-        result['class_precision'] = tp / (tp + fp)
-        result['class_recall'] = tp / (tp + fn)
-        result['class_f1'] = 2 * tp / (2 * tp + fp + fn)
+        result: Dict[str, Dict[str, torch.Tensor]] = {
+            "aggregated": {},
+            "per_datapoint": {},
+        }
+
+        # First compute per-datapoint scores
+        for key in buffer:
+            key_scores = torch.stack(buffer[key], dim=0)
+            result["per_datapoint"][key] = key_scores
+
+        # Compute aggregated confusion matrix
+        confusion_matrix = {
+            key: torch.stack(buffer[key], dim=0).sum(dim=0)
+            for key in buffer
+        }
+        tp = confusion_matrix['class_tp']
+        tn = confusion_matrix['class_tn']
+        fp = confusion_matrix['class_fp']
+        fn = confusion_matrix['class_fn']
+        result["aggregated"].update(confusion_matrix)
+        result["aggregated"]['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
+        result["aggregated"]['class_precision'] = tp / (tp + fp)
+        result["aggregated"]['class_recall'] = tp / (tp + fn)
+        result["aggregated"]['class_f1'] = 2 * tp / (2 * tp + fp + fn)
         total = tp + tn + fp + fn
         assert torch.all(total == total[0])
-        result['accuracy'] = tp.sum() / total[0]
+        result["aggregated"]['accuracy'] = tp.sum() / total[0]
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
