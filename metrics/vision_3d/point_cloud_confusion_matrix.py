@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Any
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_point_cloud_segmentation, check_write_file
@@ -69,14 +69,30 @@ class PointCloudConfusionMatrix(SingleTaskMetric):
         Returns:
             Dictionary of metric scores.
         """
+        tp = bincount.diag()
+        tn = bincount.sum() - bincount.sum(dim=0) - bincount.sum(dim=1) + bincount.diag()
+        fp = bincount.sum(dim=0) - bincount.diag()
+        fn = bincount.sum(dim=1) - bincount.diag()
+
+        total = tp + tn + fp + fn
+        assert torch.all(total == total[0]), "Inconsistent total counts across classes"
+
         score = {
-            'tp': bincount.diag(),
-            'tn': bincount.sum() - bincount.sum(dim=0) - bincount.sum(dim=1) + bincount.diag(),
-            'fp': bincount.sum(dim=0) - bincount.diag(),
-            'fn': bincount.sum(dim=1) - bincount.diag(),
+            'tp': tp,
+            'tn': tn,
+            'fp': fp,
+            'fn': fn,
+            'class_accuracy': (tp + tn) / (tp + tn + fp + fn),
+            'class_precision': tp / (tp + fp + 1e-7),
+            'class_recall': tp / (tp + fn + 1e-7),
+            'class_f1': 2 * tp / (2 * tp + fp + fn + 1e-7),
+            'accuracy': tp.sum() / total[0],
+            'mean_precision': (tp / (tp + fp + 1e-7)).mean(),
+            'mean_recall': (tp / (tp + fn + 1e-7)).mean(),
+            'mean_f1': (2 * tp / (2 * tp + fp + fn + 1e-7)).mean(),
         }
-        assert torch.all(torch.stack(list(score.values()), dim=0).sum(dim=0) == num_points), \
-            f"{torch.stack(list(score.values()), dim=0).sum(dim=0)=}"
+        assert torch.all(torch.stack([tp, tn, fp, fn], dim=0).sum(dim=0) == num_points), \
+            f"{torch.stack([tp, tn, fp, fn], dim=0).sum(dim=0)=}"
         return score
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -112,28 +128,27 @@ class PointCloudConfusionMatrix(SingleTaskMetric):
         assert len(self.buffer) != 0
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
 
-        # Summarize scores
-        result: Dict[str, torch.Tensor] = {}
-        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in buffer}
-        tp = confusion_matrix['tp']
-        tn = confusion_matrix['tn']
-        fp = confusion_matrix['fp']
-        fn = confusion_matrix['fn']
-        result.update(confusion_matrix)
+        # Initialize result structure
+        result: Dict[str, Any] = {
+            "aggregated": {},
+            "per_datapoint": {},
+        }
 
-        # Per-class metrics
-        result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
-        result['class_precision'] = tp / (tp + fp + 1e-7)  # Add epsilon to avoid division by zero
-        result['class_recall'] = tp / (tp + fn + 1e-7)     # Add epsilon to avoid division by zero
-        result['class_f1'] = 2 * tp / (2 * tp + fp + fn + 1e-7)  # Add epsilon to avoid division by zero
+        # First compute per-datapoint scores
+        for key in buffer:
+            key_scores = torch.stack(buffer[key], dim=0)
+            result["per_datapoint"][key] = key_scores
 
-        # Global metrics
-        total = tp + tn + fp + fn
-        assert torch.all(total == total[0]), "Inconsistent total counts across classes"
-        result['accuracy'] = tp.sum() / total[0]
-        result['mean_precision'] = result['class_precision'].mean()
-        result['mean_recall'] = result['class_recall'].mean()
-        result['mean_f1'] = result['class_f1'].mean()
+        # Compute aggregated confusion matrix
+        confusion_matrix = {
+            key: torch.stack(buffer[key], dim=0).sum(dim=0)
+            for key in buffer
+        }
+        bincount = torch.stack([
+            confusion_matrix['tp'], confusion_matrix['tn'],
+            confusion_matrix['fp'], confusion_matrix['fn'],
+        ], dim=0)
+        result["aggregated"] = self._bincount2score(bincount, num_points=bincount.sum())
 
         # Save to disk
         if output_path is not None:
