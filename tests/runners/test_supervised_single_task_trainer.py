@@ -230,6 +230,49 @@ def test_interrupt_and_resume() -> None:
     assert trainer2.cum_epochs == 3, f"Expected to resume from epoch 3, but got {trainer2.cum_epochs}"
     print(f"Successfully resumed training from epoch {trainer2.cum_epochs}")
     
+    # Create new event for second interruption
+    stop_event = threading.Event()
+    interrupt_flag = threading.Event()
+    
+    def observer_thread_2():
+        """Monitor training progress and interrupt after epoch 6."""
+        while not stop_event.is_set():
+            # Check if epoch 6 is complete
+            epoch_dir = os.path.join(config['work_dir'], "epoch_5")  # 0-based indexing
+            if os.path.exists(epoch_dir) and check_epoch_finished(
+                epoch_dir=epoch_dir,
+                expected_files=trainer2.expected_files,
+            ):
+                # Set interrupt flag immediately
+                interrupt_flag.set()
+                break
+            time.sleep(0.1)  # Check every 100ms
+    
+    # Start observer thread
+    observer = threading.Thread(target=observer_thread_2)
+    observer.start()
+    
+    try:
+        # Continue training in main thread
+        start_epoch = trainer2.cum_epochs
+        trainer2.logger.page_break()
+        # Run until interrupted
+        for idx in range(start_epoch, trainer2.tot_epochs):
+            if interrupt_flag.is_set():
+                break
+            utils.determinism.set_seed(seed=trainer2.train_seeds[idx])
+            trainer2._train_epoch_()
+            trainer2._val_epoch_()
+            trainer2.logger.page_break()
+            trainer2.cum_epochs = idx + 1
+            time.sleep(3)  # allow some more time for interrupt_flag to be set
+    except:
+        pass
+    
+    # Signal observer thread to stop
+    stop_event.set()
+    observer.join()
+    
     # Create a new work directory for uninterrupted training
     uninterrupted_dir = config['work_dir'] + "_uninterrupted"
     if os.path.isdir(uninterrupted_dir):
