@@ -19,7 +19,7 @@ config = {
         },
     },
     'metric': {
-        'class': metrics.vision_3d.PointCloudConfusionMatrix,
+        'class': metrics.common.ConfusionMatrix,
         'args': {
             'num_classes': 7,  # Urb3DCD dataset has 7 classes
         },
