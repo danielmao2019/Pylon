@@ -36,29 +36,34 @@ class ChangeStarMetric(SingleTaskMetric):
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         assert len(self.buffer) != 0
         buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
+        buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
+            key1: {key2: torch.stack(buffer[key1][key2], dim=0) for key2 in buffer[key1].keys()}
+            for key1 in buffer.keys()
+        }
 
         # Initialize result structure
         result: Dict[str, Dict[str, torch.Tensor]] = {
-            "aggregated": {},
-            "per_datapoint": {},
+            "aggregated": {key1: {} for key1 in buffer.keys()},
+            "per_datapoint": {key1: {} for key1 in buffer.keys()},
         }
 
         # First compute per-datapoint scores
-        for key in buffer:
-            key_scores = torch.stack(buffer[key], dim=0)
-            result["per_datapoint"][key] = key_scores
+        for key1 in buffer.keys():
+            for key2 in buffer[key1].keys():
+                key_scores = torch.stack(buffer[key1][key2], dim=0)
+                result["per_datapoint"][key1][key2] = key_scores
 
         # Compute aggregated metrics
         result["aggregated"]['change'] = metrics.vision_2d.SemanticSegmentationMetric._summarize(
-            buffer=buffer['change'], num_classes=2,
+            buffer=transpose_buffer(buffer['change']), num_classes=2,
         )
         if len(buffer) == 3:
             result["aggregated"].update({
                 'semantic_1': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                    buffer=buffer['semantic_1'], num_classes=5,
+                    buffer=transpose_buffer(buffer['semantic_1']), num_classes=5,
                 ),
                 'semantic_2': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                    buffer=buffer['semantic_2'], num_classes=5,
+                    buffer=transpose_buffer(buffer['semantic_2']), num_classes=5,
                 ),
             })
 
