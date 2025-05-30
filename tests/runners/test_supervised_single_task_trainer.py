@@ -1,38 +1,76 @@
 """The purpose of this set of test cases is to compare training performance against other frameworks,
 including the native PyTorch for loop.
 """
-from typing import List, Dict
+from typing import Tuple, List, Dict
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import os
 import json
 import torch
 import torchvision
-import data
+from data.datasets.random_datasets import BaseRandomDataset
+from data.transforms import Compose
 import criteria
 import metrics
+import optimizers
 import schedulers
+import utils
+import threading
+import time
+from utils.automation.run_status import check_epoch_finished
+from utils.ops import buffer_allclose
 
+
+torch.manual_seed(0)
+gt = torch.rand(size=(10, 10), dtype=torch.float32)
+
+def gt_func(x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+    return gt @ x + noise * 0.001
 
 dataset_config = {
-    'class': data.datasets.random_datasets.ClassificationRandomDataset,
+    'class': BaseRandomDataset,
     'args': {
-        'num_examples': 10,
-        'num_classes': 10,
-        'image_res': (64, 64),
+        'num_examples': 100,
         'initial_seed': 0,
+        'gen_func_config': {
+            'inputs': {
+                'x': (
+                    torch.rand,
+                    {'size': (10,), 'dtype': torch.float32},
+                ),
+            },
+            'labels': {
+                'y': (
+                    torch.randn,
+                    {'size': (10,), 'dtype': torch.float32},
+                ),
+            },
+        },
+        'transforms_cfg': {
+            'class': Compose,
+            'args': {
+                'transforms': [
+                    {
+                        'op': gt_func,
+                        'input_names': [('inputs', 'x'), ('labels', 'y')],
+                        'output_names': [('labels', 'y')],
+                    }
+                ],
+            },
+        },
     },
 }
 
+
 class TestModel(torch.nn.Module):
 
-    def __init__(self, model: torch.nn.Module) -> None:
+    def __init__(self) -> None:
         super(TestModel, self).__init__()
-        self.model = model
+        self.linear = torch.nn.Linear(in_features=10, out_features=10)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-        assert type(inputs) == dict, f"{type(inputs)=}"
-        assert len(inputs) == 1, f"{inputs.keys()=}"
-        return self.model(list(inputs.values())[0])
+        assert isinstance(inputs, dict), f"{type(inputs)=}"
+        assert inputs.keys() == {'x'}, f"{inputs.keys()=}"
+        return self.linear(inputs['x'])
 
 
 config = {
@@ -47,7 +85,7 @@ config = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 1,
+            'batch_size': 4,
             'num_workers': 8,
         },
     },
@@ -70,36 +108,39 @@ config = {
     # ==================================================
     'model': {
         'class': TestModel,
-        'args': {
-            'model': torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10),
-        },
+        'args': {},
     },
     'criterion': {
-        'class': criteria.PyTorchCriterionWrapper,
+        'class': criteria.wrappers.PyTorchCriterionWrapper,
         'args': {
-            'criterion': torch.nn.CrossEntropyLoss(reduction='mean'),
+            'criterion': torch.nn.MSELoss(reduction='mean'),
         },
     },
     'metric': {
-        'class': metrics.ConfusionMatrix,
+        'class': metrics.wrappers.PyTorchMetricWrapper,
         'args': {
-            'num_classes': 10,
+            'metric': torch.nn.MSELoss(reduction='mean'),
         },
     },
     # ==================================================
     # optimizer
     # ==================================================
     'optimizer': {
-        'class': torch.optim.SGD,
+        'class': optimizers.SingleTaskOptimizer,
         'args': {
-            'lr': 1e-03,
+            'optimizer_config': {
+                'class': torch.optim.SGD,
+                'args': {
+                    'lr': 1e-03,
+                },
+            },
         },
     },
     'scheduler': {
         'class': torch.optim.lr_scheduler.LambdaLR,
         'args': {
             'lr_lambda': {
-                'class': schedulers.ConstantLambda,
+                'class': schedulers.lr_lambdas.ConstantLambda,
                 'args': {},
             },
         },
@@ -150,7 +191,193 @@ def test_pytorch() -> None:
     plt.savefig(os.path.join(config['work_dir'], "acc_pytorch.png"))
 
 
-if __name__ == "__main__":
-    import matplotlib.pyplot as plt
-    test_supervised_single_task_trainer()
-    test_pytorch()
+def test_interrupt_and_resume() -> None:
+    """Test that training can be interrupted and resumed from a checkpoint.
+
+    This test:
+    1. Starts training in main thread
+    2. Uses observer thread to monitor epoch 3 completion
+    3. Interrupts training when epoch 3 is done
+    4. Creates a new trainer to resume
+    5. Interrupts again at epoch 6
+    6. Runs uninterrupted training up to epoch 6
+    7. Verifies files match between interrupted and uninterrupted training
+    """
+    if os.path.isdir(config['work_dir']):
+        os.system(' '.join(["rm", "-r", config['work_dir']]))
+
+    # Create first trainer
+    trainer1 = SupervisedSingleTaskTrainer(config=config)
+
+    # Create an event to signal the observer thread to stop
+    stop_event = threading.Event()
+    # Create a flag to signal training interruption
+    interrupt_flag = threading.Event()
+
+    def observer_thread():
+        """Monitor training progress and interrupt after epoch 3."""
+        while not stop_event.is_set():
+            # Check if epoch 3 is complete
+            epoch_dir = os.path.join(config['work_dir'], "epoch_2")  # 0-based indexing
+            if os.path.exists(epoch_dir) and check_epoch_finished(
+                epoch_dir=epoch_dir,
+                expected_files=trainer1.expected_files,
+            ):
+                # Set interrupt flag immediately
+                interrupt_flag.set()
+                break
+            time.sleep(0.1)  # Check every 100ms
+
+    # Start observer thread
+    observer = threading.Thread(target=observer_thread)
+    observer.start()
+
+    # Start training in main thread
+    trainer1._init_components_()
+    start_epoch = trainer1.cum_epochs
+    trainer1.logger.page_break()
+    # Run until interrupted
+    for idx in range(start_epoch, trainer1.tot_epochs):
+        if interrupt_flag.is_set():
+            break
+        utils.determinism.set_seed(seed=trainer1.train_seeds[idx])
+        trainer1._train_epoch_()
+        trainer1._val_epoch_()
+        trainer1.logger.page_break()
+        trainer1.cum_epochs = idx + 1
+        time.sleep(3)  # allow some more time for interrupt_flag to be set
+
+    # Signal observer thread to stop
+    stop_event.set()
+    observer.join()
+    # Clean up trainer1
+    del trainer1
+
+    # Second run - should resume from epoch 3
+    trainer2 = SupervisedSingleTaskTrainer(config=config)
+    trainer2._init_components_()
+    # Verify that trainer2 is resuming from epoch 3
+    assert trainer2.cum_epochs == 3, f"Expected to resume from epoch 3, but got {trainer2.cum_epochs}"
+    print(f"Successfully resumed training from epoch {trainer2.cum_epochs}")
+
+    # Create new event for second interruption
+    stop_event = threading.Event()
+    interrupt_flag = threading.Event()
+
+    def observer_thread_2():
+        """Monitor training progress and interrupt after epoch 6."""
+        while not stop_event.is_set():
+            # Check if epoch 6 is complete
+            epoch_dir = os.path.join(config['work_dir'], "epoch_5")  # 0-based indexing
+            if os.path.exists(epoch_dir) and check_epoch_finished(
+                epoch_dir=epoch_dir,
+                expected_files=trainer2.expected_files,
+            ):
+                # Set interrupt flag immediately
+                interrupt_flag.set()
+                break
+            time.sleep(0.1)  # Check every 100ms
+
+    # Start observer thread
+    observer = threading.Thread(target=observer_thread_2)
+    observer.start()
+
+    # Continue training in main thread
+    start_epoch = trainer2.cum_epochs
+    trainer2.logger.page_break()
+    # Run until interrupted
+    for idx in range(start_epoch, trainer2.tot_epochs):
+        if interrupt_flag.is_set():
+            break
+        utils.determinism.set_seed(seed=trainer2.train_seeds[idx])
+        trainer2._train_epoch_()
+        trainer2._val_epoch_()
+        trainer2.logger.page_break()
+        trainer2.cum_epochs = idx + 1
+        time.sleep(3)  # allow some more time for interrupt_flag to be set
+
+    # Signal observer thread to stop
+    stop_event.set()
+    observer.join()
+    # Clean up trainer2
+    del trainer2
+
+    # Create a new work directory for uninterrupted training
+    uninterrupted_dir = config['work_dir'] + "_uninterrupted"
+    if os.path.isdir(uninterrupted_dir):
+        os.system(' '.join(["rm", "-r", uninterrupted_dir]))
+    os.makedirs(uninterrupted_dir)
+
+    # Create config for uninterrupted training
+    uninterrupted_config = config.copy()
+    uninterrupted_config['work_dir'] = uninterrupted_dir
+
+    # Run uninterrupted training
+    trainer3 = SupervisedSingleTaskTrainer(config=uninterrupted_config)
+
+    # Create new event for third interruption
+    stop_event = threading.Event()
+    interrupt_flag = threading.Event()
+
+    def observer_thread_3():
+        """Monitor training progress and interrupt after epoch 6."""
+        while not stop_event.is_set():
+            # Check if epoch 6 is complete
+            epoch_dir = os.path.join(uninterrupted_dir, "epoch_5")  # 0-based indexing
+            if os.path.exists(epoch_dir) and check_epoch_finished(
+                epoch_dir=epoch_dir,
+                expected_files=trainer3.expected_files,
+            ):
+                # Set interrupt flag immediately
+                interrupt_flag.set()
+                break
+            time.sleep(0.1)  # Check every 100ms
+
+    # Start observer thread
+    observer = threading.Thread(target=observer_thread_3)
+    observer.start()
+
+    # Run training in main thread
+    trainer3._init_components_()
+    start_epoch = trainer3.cum_epochs
+    trainer3.logger.page_break()
+    # Run until interrupted
+    for idx in range(start_epoch, trainer3.tot_epochs):
+        if interrupt_flag.is_set():
+            break
+        utils.determinism.set_seed(seed=trainer3.train_seeds[idx])
+        trainer3._train_epoch_()
+        trainer3._val_epoch_()
+        trainer3.logger.page_break()
+        trainer3.cum_epochs = idx + 1
+        time.sleep(3)  # allow some more time for interrupt_flag to be set
+
+    # Signal observer thread to stop
+    stop_event.set()
+    observer.join()
+    # Clean up trainer3
+    del trainer3
+
+    # Compare files between interrupted and uninterrupted training
+    test_interrupt_and_resume_compare()
+
+
+def test_interrupt_and_resume_compare() -> None:
+    # Compare files between interrupted and uninterrupted training
+    for epoch in range(6):
+        interrupted_epoch_dir = os.path.join(config['work_dir'], f"epoch_{epoch}")
+        uninterrupted_epoch_dir = os.path.join(config['work_dir'] + "_uninterrupted", f"epoch_{epoch}")
+
+        # Compare training losses
+        interrupted_losses = torch.load(os.path.join(interrupted_epoch_dir, "training_losses.pt"))
+        uninterrupted_losses = torch.load(os.path.join(uninterrupted_epoch_dir, "training_losses.pt"))
+        assert torch.allclose(interrupted_losses, uninterrupted_losses, rtol=1e-01, atol=0), f"Training losses mismatch at epoch {epoch}"
+
+        # Compare validation scores
+        with open(os.path.join(interrupted_epoch_dir, "validation_scores.json")) as f:
+            interrupted_scores = json.load(f)
+        with open(os.path.join(uninterrupted_epoch_dir, "validation_scores.json")) as f:
+            uninterrupted_scores = json.load(f)
+        assert buffer_allclose(interrupted_scores, uninterrupted_scores, rtol=1e-01, atol=0), f"Validation scores mismatch at epoch {epoch}"
+
+        print(f"Epoch {epoch} files match between interrupted and uninterrupted training")

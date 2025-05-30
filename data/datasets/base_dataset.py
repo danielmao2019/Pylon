@@ -38,17 +38,17 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             max_cache_memory_percent (float): maximum percentage of system memory to use for cache
         """
         torch.multiprocessing.set_start_method('spawn', force=True)
-        
+
         # input checks
         if data_root is not None:
             self.data_root = check_read_dir(path=data_root)
-            
+
         # initialize
         super(BaseDataset, self).__init__()
         self._init_split(split=split)
         self._init_indices(indices=indices)
         self._init_transforms(transforms_cfg=transforms_cfg)
-        
+
         # Initialize cache
         if use_cache:
             self.cache = DatasetCache(
@@ -57,18 +57,18 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             )
         else:
             self.cache = None
-            
+
         self._init_device(device)
-        
+
         # sanity check
         self.check_sha1sum = check_sha1sum
         self._sanity_check()
-        
+
         # initialize annotations at the end because of splits
         self._init_annotations_all_splits()
 
     def _init_split(self, split: Optional[Union[str, Tuple[float, ...]]]) -> None:
-        assert split is None or type(split) in [str, tuple], f"{type(split)=}"
+        assert split is None or isinstance(split, (str, tuple)), f"{type(split)=}"
         if type(split) == tuple:
             assert len(split) == len(self.SPLIT_OPTIONS), f"{split=}, {self.SPLIT_OPTIONS=}"
             assert all(type(x) in [int, float] for x in split)
@@ -203,7 +203,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self.device = device
 
     def _sanity_check(self) -> None:
-        assert self.SPLIT_OPTIONS is not None
+        assert hasattr(self, 'SPLIT_OPTIONS') and self.SPLIT_OPTIONS is not None
         if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
             assert set(self.SPLIT_OPTIONS) == set(self.DATASET_SIZE.keys())
         assert self.INPUT_NAMES is not None
@@ -244,7 +244,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         raw_datapoint = None
         if self.cache is not None:
             raw_datapoint = self.cache.get(idx)
-            
+
         # If not in cache, load from disk and cache it
         if raw_datapoint is None:
             # Load raw datapoint
@@ -257,13 +257,13 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Cache the raw datapoint
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
-        
+
         # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
         transformed_datapoint = self.transforms(raw_datapoint)
-        
+
         # Move to device
         return apply_tensor_op(
-            func=lambda x: x.to(self.device), 
+            func=lambda x: x.to(self.device),
             inputs=transformed_datapoint
         )
 
