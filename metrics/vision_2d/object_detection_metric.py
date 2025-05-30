@@ -142,29 +142,28 @@ class ObjectDetectionMetric(SingleTaskMetric):
             key1: transpose_buffer(buffer[key1]) for key1 in buffer.keys()
         }
 
-        # Initialize result structure
+        # define result structure
         result: Dict[str, Dict[str, Dict[str, torch.Tensor]]] = {
-            "aggregated": {key1: {} for key1 in buffer.keys()},
-            "per_datapoint": {key1: {} for key1 in buffer.keys()},
+            "aggregated": {},
+            "per_datapoint": {},
         }
 
-        # For per-datapoint scores, stack the nested dictionaries
-        for key1 in buffer.keys():
-            for key2 in buffer[key1].keys():
-                if key2 == 'per_bbox':
-                    continue
-                per_datapoint_scores = torch.stack(buffer[key1][key2], dim=0)
-                assert per_datapoint_scores.ndim == 1, f"{per_datapoint_scores.shape=}"
-                result["per_datapoint"][key1][key2] = per_datapoint_scores
+        # get per-datapoint summary
+        result['per_datapoint'] = {
+            key1: {
+                key2: torch.stack(buffer[key1][key2], dim=0)
+                for key2 in buffer[key1].keys()
+            } for key1 in buffer.keys()
+        }
 
-        # For aggregated metrics, concatenate overlaps and compute recalls
+        # get aggregated summary
         for key1 in buffer.keys():
-            # Concatenate overlaps across all datapoints
+            # concatenate overlaps across all datapoints
             overlaps = torch.cat(buffer[key1]['per_bbox'], dim=0)
             assert overlaps.ndim == 1, f"{overlaps.shape=}"
-            # Compute recalls on concatenated overlaps
+            # compute recalls on concatenated overlaps
             recalls_dict = self._compute_recalls(overlaps, self.thresholds)
-            # Store in nested structure
+            # store in nested structure
             result["aggregated"][key1] = {
                 'per_bbox': overlaps,
                 **recalls_dict,
