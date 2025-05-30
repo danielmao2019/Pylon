@@ -44,14 +44,11 @@ class SemanticSegmentationMetric(SingleTaskMetric):
             y_true (torch.Tensor): an int64 tensor of shape (N, H, W) for ground-truth mask.
 
         Return:
-            score (Dict[str, torch.Tensor]): a dictionary with the following fields
-            {
-                'IoU': a 1D tensor of length `self.num_classes` representing the IoU scores for each class.
-                'tp': a 1D tensor of length `self.num_classes` representing the tp scores for each class.
-                'tn': a 1D tensor of length `self.num_classes` representing the tn scores for each class.
-                'fp': a 1D tensor of length `self.num_classes` representing the fp scores for each class.
-                'fn': a 1D tensor of length `self.num_classes` representing the fn scores for each class.
-            }
+            score (Dict[str, torch.Tensor]): a dictionary with the following fields: [
+                'IoU', 'class_tp', 'class_tn', 'class_fp', 'class_fn',
+                'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
+                'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
+            ]
         """
         # input checks
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
@@ -98,19 +95,13 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         result['class_IoU'] = class_iou
         result['mean_IoU'] = mean_iou
         # summarize confusion matrix
-        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in ['class_tp', 'class_tn', 'class_fp', 'class_fn']}
-        tp = confusion_matrix['class_tp']
-        tn = confusion_matrix['class_tn']
-        fp = confusion_matrix['class_fp']
-        fn = confusion_matrix['class_fn']
-        result.update(confusion_matrix)
-        result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
-        result['class_precision'] = tp / (tp + fp)
-        result['class_recall'] = tp / (tp + fn)
-        result['class_f1'] = 2 * tp / (2 * tp + fp + fn)
-        total = tp + tn + fp + fn
-        assert torch.all(total == total[0])
-        result['accuracy'] = tp.sum() / total[0]
+        agg_cm = {
+            key: torch.stack(buffer[key], dim=0).sum(dim=0)
+            for key in ['class_tp', 'class_tn', 'class_fp', 'class_fn']
+        }
+        agg_scores = ConfusionMatrix._cm2score(agg_cm)
+        result.update(agg_cm)
+        result.update(agg_scores)
         return result
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
