@@ -1,7 +1,7 @@
 """The purpose of this set of test cases is to compare training performance against other frameworks,
 including the native PyTorch for loop.
 """
-from typing import List, Dict
+from typing import Tuple, List, Dict
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import os
 import json
@@ -21,6 +21,9 @@ from utils.automation.run_status import check_epoch_finished
 
 torch.manual_seed(0)
 gt = torch.rand(size=(10, 10), dtype=torch.float32)
+
+def gt_func(xy: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    return gt @ xy[0] + xy[1]
 
 dataset_config = {
     'class': BaseRandomDataset,
@@ -46,7 +49,7 @@ dataset_config = {
             'args': {
                 'transforms': [
                     {
-                        'op': lambda xy: gt @ xy[0] + xy[1],
+                        'op': gt_func,
                         'input_names': [('inputs', 'x'), ('labels', 'y')],
                         'output_names': [('labels', 'y')],
                     }
