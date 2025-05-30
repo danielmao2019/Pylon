@@ -203,7 +203,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self.device = device
 
     def _sanity_check(self) -> None:
-        assert self.SPLIT_OPTIONS is not None
+        assert hasattr(self, 'SPLIT_OPTIONS') and self.SPLIT_OPTIONS is not None
         if hasattr(self, 'DATASET_SIZE') and self.DATASET_SIZE is not None:
             assert set(self.SPLIT_OPTIONS) == set(self.DATASET_SIZE.keys())
         assert self.INPUT_NAMES is not None
