@@ -6,6 +6,8 @@ from data.datasets import BaseDataset
 class BaseRandomDataset(BaseDataset):
 
     SPLIT_OPTIONS = ['all']
+    INPUT_NAMES = None
+    LABEL_NAMES = None
 
     def __init__(
         self,
@@ -25,15 +27,17 @@ class BaseRandomDataset(BaseDataset):
         super(BaseRandomDataset, self).__init__(**kwargs)
 
     def _init_gen_func_config_(self, config: Dict[str, Dict[str, Tuple[Callable, dict]]]) -> None:
-        assert type(config) == dict, f"{type(config)=}"
+        assert isinstance(config, dict), f"{type(config)=}"
         assert set(config.keys()) == set(['inputs', 'labels']), f"{config.keys()=}"
+        self.INPUT_NAMES = list(config['inputs'].keys())
+        self.LABEL_NAMES = list(config['labels'].keys())
         for key1 in config:
-            assert type(config[key1]) == dict, f"{type(config[key1])=}"
+            assert isinstance(config[key1], dict), f"{type(config[key1])=}"
             for key2 in config[key1]:
-                assert type(config[key1][key2]) == tuple, f"{type(config[key1][key2])=}"
+                assert isinstance(config[key1][key2], tuple), f"{type(config[key1][key2])=}"
                 assert len(config[key1][key2]) == 2, f"{len(config[key1][key2])=}"
                 assert callable(config[key1][key2][0]), f"{type(config[key1][key2][0])=}"
-                assert type(config[key1][key2][1]) == dict, f"{type(config[key1][key2][1])=}"
+                assert isinstance(config[key1][key2][1], dict), f"{type(config[key1][key2][1])=}"
         self.gen_func_config = config
 
     def _init_generator_(self, initial_seed: Optional[int]) -> None:
