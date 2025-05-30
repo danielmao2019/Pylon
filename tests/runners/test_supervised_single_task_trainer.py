@@ -23,7 +23,7 @@ torch.manual_seed(0)
 gt = torch.rand(size=(10, 10), dtype=torch.float32)
 
 def gt_func(x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
-    return gt @ x + noise * 0.01
+    return gt @ x + noise * 0.001
 
 dataset_config = {
     'class': BaseRandomDataset,
