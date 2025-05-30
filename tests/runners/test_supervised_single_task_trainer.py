@@ -28,7 +28,7 @@ def gt_func(x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
 dataset_config = {
     'class': BaseRandomDataset,
     'args': {
-        'num_examples': 10,
+        'num_examples': 100,
         'initial_seed': 0,
         'gen_func_config': {
             'inputs': {
@@ -84,7 +84,7 @@ config = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 1,
+            'batch_size': 4,
             'num_workers': 8,
         },
     },
