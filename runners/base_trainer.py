@@ -215,6 +215,9 @@ class BaseTrainer(ABC):
             checkpoint (dict): the output of torch.load(checkpoint_filepath).
         """
         assert type(checkpoint) == dict, f"{type(checkpoint)=}"
+        for component in ['model', 'optimizer', 'scheduler']:
+            assert hasattr(self, component), f"{component=}"
+            assert getattr(self, component) is not None, f"{component=}"
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
