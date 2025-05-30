@@ -23,7 +23,7 @@ torch.manual_seed(0)
 gt = torch.rand(size=(10, 10), dtype=torch.float32)
 
 def gt_func(xy: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-    return gt @ xy[0] + xy[1]
+    return gt @ xy[0] + xy[1] * 0.01
 
 dataset_config = {
     'class': BaseRandomDataset,
@@ -40,7 +40,7 @@ dataset_config = {
             'labels': {
                 'y': (
                     torch.randn,
-                    {'size': (10,), 'mean': 0, 'std': 0.1, 'dtype': torch.float32},
+                    {'size': (10,), 'dtype': torch.float32},
                 ),
             },
         },
