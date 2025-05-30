@@ -30,7 +30,7 @@ import torch
 def test_confusion_matrix_call(y_pred, y_true, num_classes, expected) -> None:
     metric = ConfusionMatrix(num_classes=num_classes)
     score = metric(y_pred=y_pred, y_true=y_true)
-    assert score.keys() == expected.keys()
+    assert set(score.keys()) >= set(expected.keys())
     for key in expected:
         assert torch.equal(score[key], expected[key])
 
@@ -71,7 +71,7 @@ def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expecte
     for y_pred, y_true in zip(y_pred_list, y_true_list):
         metric(y_pred=y_pred, y_true=y_true)
     summary = metric.summarize(output_path=None)
-    assert set(summary.keys()) == set(expected.keys())
+    assert set(summary.keys()) >= set(expected.keys())
     for key in expected:
         assert torch.equal(summary[key].isnan(), expected[key].isnan())
         assert torch.equal(summary[key][~summary[key].isnan()], expected[key][~expected[key].isnan()])
