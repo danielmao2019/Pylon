@@ -180,6 +180,8 @@ def test_interrupt_and_resume() -> None:
     
     # Create an event to signal the observer thread to stop
     stop_event = threading.Event()
+    # Create a flag to signal training interruption
+    interrupt_flag = threading.Event()
     
     def observer_thread():
         """Monitor training progress and interrupt after epoch 3."""
@@ -192,8 +194,8 @@ def test_interrupt_and_resume() -> None:
             ):
                 # Wait a bit to ensure epoch 3 files are written
                 time.sleep(1)
-                # Delete trainer to interrupt training
-                del trainer1
+                # Set interrupt flag
+                interrupt_flag.set()
                 break
             time.sleep(0.1)  # Check every 100ms
     
@@ -203,9 +205,19 @@ def test_interrupt_and_resume() -> None:
     
     try:
         # Start training in main thread
-        trainer1.run()
+        trainer1._init_components_()
+        start_epoch = trainer1.cum_epochs
+        trainer1.logger.page_break()
+        # Run until interrupted
+        for idx in range(start_epoch, trainer1.tot_epochs):
+            if interrupt_flag.is_set():
+                break
+            utils.determinism.set_seed(seed=trainer1.train_seeds[idx])
+            trainer1._train_epoch_()
+            trainer1._val_epoch_()
+            trainer1.logger.page_break()
+            trainer1.cum_epochs = idx + 1
     except:
-        # Training will be interrupted when trainer1 is deleted
         pass
     
     # Signal observer thread to stop
@@ -214,13 +226,14 @@ def test_interrupt_and_resume() -> None:
     
     # Second run - should resume from epoch 3
     trainer2 = SupervisedSingleTaskTrainer(config=config)
-    # Verify that trainer2 is resuming from epoch 3
     trainer2._init_components_()
+    # Verify that trainer2 is resuming from epoch 3
     assert trainer2.cum_epochs == 3, f"Expected to resume from epoch 3, but got {trainer2.cum_epochs}"
     print(f"Successfully resumed training from epoch {trainer2.cum_epochs}")
     
     # Create new event for second interruption
     stop_event = threading.Event()
+    interrupt_flag = threading.Event()
     
     def observer_thread_2():
         """Monitor training progress and interrupt after epoch 6."""
@@ -233,8 +246,8 @@ def test_interrupt_and_resume() -> None:
             ):
                 # Wait a bit to ensure epoch 6 files are written
                 time.sleep(1)
-                # Delete trainer to interrupt training
-                del trainer2
+                # Set interrupt flag
+                interrupt_flag.set()
                 break
             time.sleep(0.1)  # Check every 100ms
     
@@ -244,9 +257,18 @@ def test_interrupt_and_resume() -> None:
     
     try:
         # Continue training in main thread
-        trainer2.run()
+        start_epoch = trainer2.cum_epochs
+        trainer2.logger.page_break()
+        # Run until interrupted
+        for idx in range(start_epoch, trainer2.tot_epochs):
+            if interrupt_flag.is_set():
+                break
+            utils.determinism.set_seed(seed=trainer2.train_seeds[idx])
+            trainer2._train_epoch_()
+            trainer2._val_epoch_()
+            trainer2.logger.page_break()
+            trainer2.cum_epochs = idx + 1
     except:
-        # Training will be interrupted when trainer2 is deleted
         pass
     
     # Signal observer thread to stop
