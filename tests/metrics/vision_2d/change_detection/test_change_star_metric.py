@@ -45,7 +45,12 @@ def test_change_star_metric_call(y_pred, y_true):
     assert set(score.keys()) == expected_categories
     
     # Check each category has the expected metrics
-    expected_metrics = {'IoU', 'class_tp', 'class_tn', 'class_fp', 'class_fn'}
+    expected_metrics = {
+        'IoU',
+        'class_tp', 'class_tn', 'class_fp', 'class_fn',
+        'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
+        'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
+    }
     for category in expected_categories:
         assert set(score[category].keys()) == expected_metrics
         for metric in expected_metrics:
