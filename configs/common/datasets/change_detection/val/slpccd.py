@@ -48,7 +48,7 @@ config = {
         },
     },
     'metric': {
-        'class': metrics.vision_3d.PointCloudConfusionMatrix,
+        'class': metrics.common.ConfusionMatrix,
         'args': {
             'num_classes': 2,  # SLPCCD dataset has 2 classes (unchanged/changed)
         },

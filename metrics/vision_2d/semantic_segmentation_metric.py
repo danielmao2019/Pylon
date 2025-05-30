@@ -1,4 +1,4 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 import torch
 import torchvision
 from metrics.common import ConfusionMatrix
@@ -44,14 +44,11 @@ class SemanticSegmentationMetric(SingleTaskMetric):
             y_true (torch.Tensor): an int64 tensor of shape (N, H, W) for ground-truth mask.
 
         Return:
-            score (Dict[str, torch.Tensor]): a dictionary with the following fields
-            {
-                'IoU': a 1D tensor of length `self.num_classes` representing the IoU scores for each class.
-                'tp': a 1D tensor of length `self.num_classes` representing the tp scores for each class.
-                'tn': a 1D tensor of length `self.num_classes` representing the tn scores for each class.
-                'fp': a 1D tensor of length `self.num_classes` representing the fp scores for each class.
-                'fn': a 1D tensor of length `self.num_classes` representing the fn scores for each class.
-            }
+            score (Dict[str, torch.Tensor]): a dictionary with the following fields: [
+                'IoU', 'class_tp', 'class_tn', 'class_fp', 'class_fn',
+                'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
+                'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
+            ]
         """
         # input checks
         check_semantic_segmentation(y_pred=y_pred, y_true=y_true)
@@ -74,11 +71,13 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         nan_mask[y_true.unique()] = False
         iou = self._bincount2score(bincount, nan_mask, self.num_classes)
         # compute confusion matrix
-        confusion_matrix = ConfusionMatrix._bincount2score(bincount, batch_size=y_true.size(0))
+        cm = ConfusionMatrix._bincount2cm(bincount, batch_size=y_true.size(0))
+        cm_scores = ConfusionMatrix._cm2score(cm)
         # prepare final output
         score = {}
         score.update(iou)
-        score.update(confusion_matrix)
+        score.update(cm)
+        score.update(cm_scores)
         return score
 
     @staticmethod
@@ -96,19 +95,13 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         result['class_IoU'] = class_iou
         result['mean_IoU'] = mean_iou
         # summarize confusion matrix
-        confusion_matrix = {key: torch.stack(buffer[key], dim=0).sum(dim=0) for key in ['tp', 'tn', 'fp', 'fn']}
-        tp = confusion_matrix['tp']
-        tn = confusion_matrix['tn']
-        fp = confusion_matrix['fp']
-        fn = confusion_matrix['fn']
-        result.update(confusion_matrix)
-        result['class_accuracy'] = (tp + tn) / (tp + tn + fp + fn)
-        result['class_precision'] = tp / (tp + fp)
-        result['class_recall'] = tp / (tp + fn)
-        result['class_f1'] = 2 * tp / (2 * tp + fp + fn)
-        total = tp + tn + fp + fn
-        assert torch.all(total == total[0])
-        result['accuracy'] = tp.sum() / total[0]
+        agg_cm = {
+            key: torch.stack(buffer[key], dim=0).sum(dim=0)
+            for key in ['class_tp', 'class_tn', 'class_fp', 'class_fn']
+        }
+        agg_scores = ConfusionMatrix._cm2score(agg_cm)
+        result.update(agg_cm)
+        result.update(agg_scores)
         return result
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
@@ -116,7 +109,22 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         seen so far into a single floating point number.
         """
         assert len(self.buffer) != 0
-        result = self._summarize(self.buffer, self.num_classes)
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+        
+        # Initialize result structure
+        result: Dict[str, Dict[str, torch.Tensor]] = {
+            "aggregated": {},
+            "per_datapoint": {},
+        }
+
+        # First compute per-datapoint scores
+        for key in buffer:
+            key_scores = torch.stack(buffer[key], dim=0)
+            result["per_datapoint"][key] = key_scores
+
+        # Compute aggregated metrics
+        result["aggregated"] = self._summarize(self.buffer, self.num_classes)
+
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
