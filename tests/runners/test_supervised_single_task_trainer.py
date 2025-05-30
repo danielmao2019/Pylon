@@ -192,9 +192,7 @@ def test_interrupt_and_resume() -> None:
                 epoch_dir=epoch_dir,
                 expected_files=trainer1.expected_files,
             ):
-                # Wait a bit to ensure epoch 3 files are written
-                time.sleep(1)
-                # Set interrupt flag
+                # Set interrupt flag immediately
                 interrupt_flag.set()
                 break
             time.sleep(0.1)  # Check every 100ms
@@ -217,6 +215,7 @@ def test_interrupt_and_resume() -> None:
             trainer1._val_epoch_()
             trainer1.logger.page_break()
             trainer1.cum_epochs = idx + 1
+            time.sleep(3)  # allow some more time for interrupt_flag to be set
     except:
         pass
     
@@ -231,50 +230,6 @@ def test_interrupt_and_resume() -> None:
     assert trainer2.cum_epochs == 3, f"Expected to resume from epoch 3, but got {trainer2.cum_epochs}"
     print(f"Successfully resumed training from epoch {trainer2.cum_epochs}")
     
-    # Create new event for second interruption
-    stop_event = threading.Event()
-    interrupt_flag = threading.Event()
-    
-    def observer_thread_2():
-        """Monitor training progress and interrupt after epoch 6."""
-        while not stop_event.is_set():
-            # Check if epoch 6 is complete
-            epoch_dir = os.path.join(config['work_dir'], "epoch_5")  # 0-based indexing
-            if os.path.exists(epoch_dir) and check_epoch_finished(
-                epoch_dir=epoch_dir,
-                expected_files=trainer2.expected_files,
-            ):
-                # Wait a bit to ensure epoch 6 files are written
-                time.sleep(1)
-                # Set interrupt flag
-                interrupt_flag.set()
-                break
-            time.sleep(0.1)  # Check every 100ms
-    
-    # Start observer thread
-    observer = threading.Thread(target=observer_thread_2)
-    observer.start()
-    
-    try:
-        # Continue training in main thread
-        start_epoch = trainer2.cum_epochs
-        trainer2.logger.page_break()
-        # Run until interrupted
-        for idx in range(start_epoch, trainer2.tot_epochs):
-            if interrupt_flag.is_set():
-                break
-            utils.determinism.set_seed(seed=trainer2.train_seeds[idx])
-            trainer2._train_epoch_()
-            trainer2._val_epoch_()
-            trainer2.logger.page_break()
-            trainer2.cum_epochs = idx + 1
-    except:
-        pass
-    
-    # Signal observer thread to stop
-    stop_event.set()
-    observer.join()
-    
     # Create a new work directory for uninterrupted training
     uninterrupted_dir = config['work_dir'] + "_uninterrupted"
     if os.path.isdir(uninterrupted_dir):
@@ -284,11 +239,53 @@ def test_interrupt_and_resume() -> None:
     # Create config for uninterrupted training
     uninterrupted_config = config.copy()
     uninterrupted_config['work_dir'] = uninterrupted_dir
-    uninterrupted_config['epochs'] = 6  # Only run 6 epochs
     
     # Run uninterrupted training
     trainer3 = SupervisedSingleTaskTrainer(config=uninterrupted_config)
-    trainer3.run()
+    
+    # Create new event for third interruption
+    stop_event = threading.Event()
+    interrupt_flag = threading.Event()
+    
+    def observer_thread_3():
+        """Monitor training progress and interrupt after epoch 6."""
+        while not stop_event.is_set():
+            # Check if epoch 6 is complete
+            epoch_dir = os.path.join(uninterrupted_dir, "epoch_5")  # 0-based indexing
+            if os.path.exists(epoch_dir) and check_epoch_finished(
+                epoch_dir=epoch_dir,
+                expected_files=trainer3.expected_files,
+            ):
+                # Set interrupt flag immediately
+                interrupt_flag.set()
+                break
+            time.sleep(0.1)  # Check every 100ms
+    
+    # Start observer thread
+    observer = threading.Thread(target=observer_thread_3)
+    observer.start()
+    
+    try:
+        # Run training in main thread
+        trainer3._init_components_()
+        start_epoch = trainer3.cum_epochs
+        trainer3.logger.page_break()
+        # Run until interrupted
+        for idx in range(start_epoch, trainer3.tot_epochs):
+            if interrupt_flag.is_set():
+                break
+            utils.determinism.set_seed(seed=trainer3.train_seeds[idx])
+            trainer3._train_epoch_()
+            trainer3._val_epoch_()
+            trainer3.logger.page_break()
+            trainer3.cum_epochs = idx + 1
+            time.sleep(3)  # allow some more time for interrupt_flag to be set
+    except:
+        pass
+    
+    # Signal observer thread to stop
+    stop_event.set()
+    observer.join()
     
     # Compare files between interrupted and uninterrupted training
     for epoch in range(6):
