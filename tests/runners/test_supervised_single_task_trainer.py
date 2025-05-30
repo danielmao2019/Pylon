@@ -219,6 +219,8 @@ def test_interrupt_and_resume() -> None:
     # Signal observer thread to stop
     stop_event.set()
     observer.join()
+    # Clean up trainer1
+    del trainer1
     
     # Second run - should resume from epoch 3
     trainer2 = SupervisedSingleTaskTrainer(config=config)
@@ -266,6 +268,8 @@ def test_interrupt_and_resume() -> None:
     # Signal observer thread to stop
     stop_event.set()
     observer.join()
+    # Clean up trainer2
+    del trainer2
     
     # Create a new work directory for uninterrupted training
     uninterrupted_dir = config['work_dir'] + "_uninterrupted"
@@ -320,6 +324,8 @@ def test_interrupt_and_resume() -> None:
     # Signal observer thread to stop
     stop_event.set()
     observer.join()
+    # Clean up trainer3
+    del trainer3
     
     # Compare files between interrupted and uninterrupted training
     for epoch in range(6):
