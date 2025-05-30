@@ -44,11 +44,20 @@ class SingleTaskMetric(BaseMetric):
         assert len(self.buffer) != 0
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
         # summarize scores
-        result: Dict[str, torch.Tensor] = {}
+        result: Dict[str, Dict[str, torch.Tensor]] = {
+            "aggregated": {},
+            "per_datapoint": {},
+        }
+
+        # For each metric, store both the per-datapoint values and compute the mean
         for key in buffer:
             key_scores = torch.stack(buffer[key], dim=0)
             assert key_scores.ndim == 1, f"{key_scores.shape=}"
-            result[key] = key_scores.mean()
+            # Store per-datapoint values
+            result["per_datapoint"][key] = key_scores
+            # Store aggregated value
+            result["aggregated"][key] = key_scores.mean()
+
         # save to disk
         if output_path is not None:
             check_write_file(path=output_path)
