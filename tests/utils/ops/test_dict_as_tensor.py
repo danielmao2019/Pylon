@@ -110,7 +110,7 @@ def test_transpose_buffer_invalid_cases(buffer: List[Dict[str, Any]]) -> None:
         [{'a': [1, 5], 'b': [3, 7]}, {'a': [2, 6], 'b': [4, 8]}],
     ),
 ])
-def test_buffer_permute(buffer: Any, axes: Tuple[int, ...], expected: Any) -> None:
+def test_buffer_permute_edge_cases(buffer: Any, axes: Tuple[int, ...], expected: Any) -> None:
     assert buffer_permute(buffer, axes) == expected
 
 
