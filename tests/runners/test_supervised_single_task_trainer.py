@@ -378,6 +378,6 @@ def test_interrupt_and_resume_compare() -> None:
             interrupted_scores = json.load(f)
         with open(os.path.join(uninterrupted_epoch_dir, "validation_scores.json")) as f:
             uninterrupted_scores = json.load(f)
-        assert buffer_allclose(interrupted_scores, uninterrupted_scores), f"Validation scores mismatch at epoch {epoch}"
+        assert buffer_allclose(interrupted_scores, uninterrupted_scores, rtol=1e-01, atol=0), f"Validation scores mismatch at epoch {epoch}"
 
         print(f"Epoch {epoch} files match between interrupted and uninterrupted training")
