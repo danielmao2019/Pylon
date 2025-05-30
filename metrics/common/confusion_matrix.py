@@ -83,7 +83,7 @@ class ConfusionMatrix(SingleTaskMetric):
             'class_precision': tp / (tp + fp),
             'class_recall': tp / (tp + fn),
             'class_f1': 2 * tp / (2 * tp + fp + fn),
-            'accuracy': tp.sum() / (tp + tn + fp + fn).sum(),
+            'accuracy': tp.sum() / (tp + tn + fp + fn)[0],
             'mean_precision': (tp / (tp + fp)).mean(),
             'mean_recall': (tp / (tp + fn)).mean(),
             'mean_f1': (2 * tp / (2 * tp + fp + fn)).mean(),

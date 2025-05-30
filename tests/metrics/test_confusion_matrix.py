@@ -14,6 +14,7 @@ import torch
         'class_tn': torch.tensor([4, 1, 4, 3, 3, 2, 4, 3, 4, 4]),
         'class_fp': torch.tensor([0, 2, 0, 0, 0, 2, 0, 0, 0, 0]),
         'class_fn': torch.tensor([0, 1, 0, 1, 1, 0, 0, 1, 0, 0]),
+        'accuracy': torch.tensor(0/4, dtype=torch.float32),
     }),
     (torch.tensor([
         [-1.1595,  1.4228, -2.3782,  0.0046, -0.3676,  1.9378, -1.6972,  0.3562, 0.4178,  0.8286],
@@ -25,6 +26,7 @@ import torch
         'class_tn': torch.tensor([4, 2, 4, 3, 3, 2, 4, 3, 4, 4]),
         'class_fp': torch.tensor([0, 2, 0, 0, 0, 1, 0, 0, 0, 0]),
         'class_fn': torch.tensor([0, 0, 0, 1, 1, 0, 0, 1, 0, 0]),
+        'accuracy': torch.tensor(1/4, dtype=torch.float32),
     }),
 ])
 def test_confusion_matrix_call(y_pred, y_true, num_classes, expected) -> None:
@@ -77,7 +79,8 @@ def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expecte
     assert set(aggregated.keys()) >= set(expected.keys())
     for key in expected:
         assert torch.equal(aggregated[key].isnan(), expected[key].isnan())
-        assert torch.equal(aggregated[key][~aggregated[key].isnan()], expected[key][~expected[key].isnan()])
+        assert torch.equal(aggregated[key][~aggregated[key].isnan()], expected[key][~expected[key].isnan()]), \
+            f"{key=}, {aggregated[key]=}, {expected[key]=}, {aggregated[key].isnan()=}, {expected[key].isnan()=}"
 
     per_datapoint = summary['per_datapoint']
     assert set(per_datapoint.keys()) >= set(expected.keys())
