@@ -133,15 +133,22 @@ def test_change_star_metric_summarize(y_preds, y_trues):
     # Check aggregated structure
     expected_categories = {'change', 'semantic_1', 'semantic_2'}
     expected_aggregated_keys = {
-        'class_IoU', 'mean_IoU', 'class_tp', 'class_tn', 'class_fp', 'class_fn',
-        'class_accuracy', 'class_precision', 'class_recall', 'class_f1', 'accuracy'
+        'class_IoU', 'mean_IoU',
+        'class_tp', 'class_tn', 'class_fp', 'class_fn',
+        'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
+        'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
     }
     for category in expected_categories:
         assert category in result['aggregated']
         assert set(result['aggregated'][category].keys()) == expected_aggregated_keys
     
     # Check per_datapoint structure
-    expected_per_datapoint_keys = {'IoU', 'class_tp', 'class_tn', 'class_fp', 'class_fn'}
+    expected_per_datapoint_keys = {
+        'IoU',
+        'class_tp', 'class_tn', 'class_fp', 'class_fn',
+        'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
+        'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
+    }
     for category in expected_categories:
         assert category in result['per_datapoint']
         assert set(result['per_datapoint'][category].keys()) == expected_per_datapoint_keys
