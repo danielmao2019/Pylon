@@ -1,6 +1,6 @@
 from typing import Callable
 import torch
-from criteria.wrappers import SingleTaskCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
 class PyTorchCriterionWrapper(SingleTaskCriterion):

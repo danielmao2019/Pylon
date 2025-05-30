@@ -1,6 +1,6 @@
 from typing import Tuple, Optional
 import torch
-from .base_random_dataset import BaseRandomDataset
+from data.datasets.random_datasets.base_random_dataset import BaseRandomDataset
 
 
 class ClassificationRandomDataset(BaseRandomDataset):
