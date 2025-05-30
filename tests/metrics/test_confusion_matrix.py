@@ -78,7 +78,8 @@ def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expecte
     aggregated = summary['aggregated']
     assert set(aggregated.keys()) >= set(expected.keys())
     for key in expected:
-        assert torch.equal(aggregated[key].isnan(), expected[key].isnan())
+        assert torch.equal(aggregated[key].isnan(), expected[key].isnan()), \
+            f"{key=}, {aggregated[key]=}, {expected[key]=}, {aggregated[key].isnan()=}, {expected[key].isnan()=}"
         assert torch.equal(aggregated[key][~aggregated[key].isnan()], expected[key][~expected[key].isnan()]), \
             f"{key=}, {aggregated[key]=}, {expected[key]=}, {aggregated[key].isnan()=}, {expected[key].isnan()=}"
 
