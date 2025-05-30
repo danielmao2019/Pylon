@@ -203,13 +203,6 @@ def buffer_permute(
     if axes is not None and axes == type(axes)(range(len(axes))):
         return buffer
 
-    # Handle None case - use reverse order
-    if axes is None:
-        axes = list(range(len(structure)))[::-1]
-
-    if axes == type(axes)(range(len(axes))):
-        return buffer
-
     # Get the structure of the buffer
     structure = buffer_structure or get_buffer_structure(buffer)
 
