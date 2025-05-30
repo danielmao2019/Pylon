@@ -201,23 +201,20 @@ def test_interrupt_and_resume() -> None:
     observer = threading.Thread(target=observer_thread)
     observer.start()
     
-    try:
-        # Start training in main thread
-        trainer1._init_components_()
-        start_epoch = trainer1.cum_epochs
+    # Start training in main thread
+    trainer1._init_components_()
+    start_epoch = trainer1.cum_epochs
+    trainer1.logger.page_break()
+    # Run until interrupted
+    for idx in range(start_epoch, trainer1.tot_epochs):
+        if interrupt_flag.is_set():
+            break
+        utils.determinism.set_seed(seed=trainer1.train_seeds[idx])
+        trainer1._train_epoch_()
+        trainer1._val_epoch_()
         trainer1.logger.page_break()
-        # Run until interrupted
-        for idx in range(start_epoch, trainer1.tot_epochs):
-            if interrupt_flag.is_set():
-                break
-            utils.determinism.set_seed(seed=trainer1.train_seeds[idx])
-            trainer1._train_epoch_()
-            trainer1._val_epoch_()
-            trainer1.logger.page_break()
-            trainer1.cum_epochs = idx + 1
-            time.sleep(3)  # allow some more time for interrupt_flag to be set
-    except:
-        pass
+        trainer1.cum_epochs = idx + 1
+        time.sleep(3)  # allow some more time for interrupt_flag to be set
     
     # Signal observer thread to stop
     stop_event.set()
@@ -252,22 +249,19 @@ def test_interrupt_and_resume() -> None:
     observer = threading.Thread(target=observer_thread_2)
     observer.start()
     
-    try:
-        # Continue training in main thread
-        start_epoch = trainer2.cum_epochs
+    # Continue training in main thread
+    start_epoch = trainer2.cum_epochs
+    trainer2.logger.page_break()
+    # Run until interrupted
+    for idx in range(start_epoch, trainer2.tot_epochs):
+        if interrupt_flag.is_set():
+            break
+        utils.determinism.set_seed(seed=trainer2.train_seeds[idx])
+        trainer2._train_epoch_()
+        trainer2._val_epoch_()
         trainer2.logger.page_break()
-        # Run until interrupted
-        for idx in range(start_epoch, trainer2.tot_epochs):
-            if interrupt_flag.is_set():
-                break
-            utils.determinism.set_seed(seed=trainer2.train_seeds[idx])
-            trainer2._train_epoch_()
-            trainer2._val_epoch_()
-            trainer2.logger.page_break()
-            trainer2.cum_epochs = idx + 1
-            time.sleep(3)  # allow some more time for interrupt_flag to be set
-    except:
-        pass
+        trainer2.cum_epochs = idx + 1
+        time.sleep(3)  # allow some more time for interrupt_flag to be set
     
     # Signal observer thread to stop
     stop_event.set()
@@ -308,23 +302,20 @@ def test_interrupt_and_resume() -> None:
     observer = threading.Thread(target=observer_thread_3)
     observer.start()
     
-    try:
-        # Run training in main thread
-        trainer3._init_components_()
-        start_epoch = trainer3.cum_epochs
+    # Run training in main thread
+    trainer3._init_components_()
+    start_epoch = trainer3.cum_epochs
+    trainer3.logger.page_break()
+    # Run until interrupted
+    for idx in range(start_epoch, trainer3.tot_epochs):
+        if interrupt_flag.is_set():
+            break
+        utils.determinism.set_seed(seed=trainer3.train_seeds[idx])
+        trainer3._train_epoch_()
+        trainer3._val_epoch_()
         trainer3.logger.page_break()
-        # Run until interrupted
-        for idx in range(start_epoch, trainer3.tot_epochs):
-            if interrupt_flag.is_set():
-                break
-            utils.determinism.set_seed(seed=trainer3.train_seeds[idx])
-            trainer3._train_epoch_()
-            trainer3._val_epoch_()
-            trainer3.logger.page_break()
-            trainer3.cum_epochs = idx + 1
-            time.sleep(3)  # allow some more time for interrupt_flag to be set
-    except:
-        pass
+        trainer3.cum_epochs = idx + 1
+        time.sleep(3)  # allow some more time for interrupt_flag to be set
     
     # Signal observer thread to stop
     stop_event.set()
