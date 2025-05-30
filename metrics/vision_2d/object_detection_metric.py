@@ -142,32 +142,20 @@ class ObjectDetectionMetric(SingleTaskMetric):
             key1: transpose_buffer(buffer[key1]) for key1 in buffer.keys()
         }
 
-        # define result structure
+        # summarize scores
         result: Dict[str, Dict[str, Dict[str, torch.Tensor]]] = {
-            "aggregated": {},
-            "per_datapoint": {},
+            "aggregated": {
+                key1: self._compute_recalls(torch.cat(buffer[key1]['per_bbox'], dim=0), self.thresholds)
+                for key1 in buffer.keys()
+            },
+            "per_datapoint": {
+                key1: {
+                    key2: torch.stack(buffer[key1][key2], dim=0)
+                    for key2 in buffer[key1].keys()
+                    if key2 != 'per_bbox'
+                } for key1 in buffer.keys()
+            },
         }
-
-        # get per-datapoint summary
-        result['per_datapoint'] = {
-            key1: {
-                key2: torch.stack(buffer[key1][key2], dim=0)
-                for key2 in buffer[key1].keys()
-            } for key1 in buffer.keys()
-        }
-
-        # get aggregated summary
-        for key1 in buffer.keys():
-            # concatenate overlaps across all datapoints
-            overlaps = torch.cat(buffer[key1]['per_bbox'], dim=0)
-            assert overlaps.ndim == 1, f"{overlaps.shape=}"
-            # compute recalls on concatenated overlaps
-            recalls_dict = self._compute_recalls(overlaps, self.thresholds)
-            # store in nested structure
-            result["aggregated"][key1] = {
-                'per_bbox': overlaps,
-                **recalls_dict,
-            }
 
         # save to disk
         if output_path is not None:
