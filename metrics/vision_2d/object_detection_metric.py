@@ -139,7 +139,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
         assert len(self.buffer) != 0
         buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
         buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
-            key: transpose_buffer(buffer[key]) for key in buffer.keys()
+            key1: transpose_buffer(buffer[key1]) for key1 in buffer.keys()
         }
 
         # Initialize result structure
