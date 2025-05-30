@@ -22,8 +22,8 @@ from utils.automation.run_status import check_epoch_finished
 torch.manual_seed(0)
 gt = torch.rand(size=(10, 10), dtype=torch.float32)
 
-def gt_func(xy: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-    return gt @ xy[0] + xy[1] * 0.01
+def gt_func(x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+    return gt @ x + noise * 0.01
 
 dataset_config = {
     'class': BaseRandomDataset,
