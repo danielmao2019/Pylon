@@ -98,8 +98,11 @@ class ConfusionMatrix(SingleTaskMetric):
         y_pred = torch.argmax(y_pred, dim=1).type(torch.int64)
         # compute confusion matrix
         bincount = self._get_bincount(y_pred=y_pred, y_true=y_true, num_classes=self.num_classes)
+        scores = {}
         cm = self._bincount2cm(bincount, batch_size=y_true.size(0))
-        scores = self._cm2score(cm)
+        cm_scores = self._cm2score(cm)
+        scores.update(cm)
+        scores.update(cm_scores)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
