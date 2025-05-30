@@ -106,6 +106,33 @@ class BaseTrainer(ABC):
         assert type(init_seed) == int, f"{type(init_seed)=}"
         utils.determinism.set_seed(seed=init_seed)
 
+    @property
+    def expected_files(self) -> List[str]:
+        return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+
+    def _init_state_(self) -> None:
+        self.logger.info("Initializing state...")
+        # Get self.cum_epochs
+        if self.work_dir is None:
+            self.cum_epochs = 0
+            return
+        # determine where to resume from
+        load_idx: Optional[int] = None
+        for idx in range(self.tot_epochs):
+            if not check_epoch_finished(
+                epoch_dir=os.path.join(self.work_dir, f"epoch_{idx}"),
+                expected_files=self.expected_files,
+            ):
+                break
+            if os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")):
+                load_idx = idx
+        # resume state
+        if load_idx is None:
+            self.logger.info("Training from scratch.")
+            self.cum_epochs = 0
+            return
+        self.cum_epochs = load_idx + 1
+
     def _init_dataloaders_(self) -> None:
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
@@ -137,6 +164,23 @@ class BaseTrainer(ABC):
         else:
             self.test_dataloader = None
 
+    def _init_criterion_(self) -> None:
+        self.logger.info("Initializing criterion...")
+        if self.config.get('criterion', None):
+            criterion = build_from_config(self.config['criterion'])
+            assert isinstance(criterion, criteria.BaseCriterion) and isinstance(criterion, torch.nn.Module), f"{type(criterion)=}"
+            criterion = criterion.to(self.device)
+            self.criterion = criterion
+        else:
+            self.criterion = None
+
+    def _init_metric_(self) -> None:
+        self.logger.info("Initializing metric...")
+        if self.config.get('metric', None):
+            self.metric = build_from_config(self.config['metric'])
+        else:
+            self.metric = None
+
     def _init_model_(self) -> None:
         self.logger.info("Initializing model...")
         if self.config.get('model', None):
@@ -156,23 +200,6 @@ class BaseTrainer(ABC):
             except Exception as e:
                 self.logger.error(f"[ERROR] Failed to load checkpoint at {checkpoint_filepath}: {e}")
 
-    def _init_criterion_(self) -> None:
-        self.logger.info("Initializing criterion...")
-        if self.config.get('criterion', None):
-            criterion = build_from_config(self.config['criterion'])
-            assert isinstance(criterion, criteria.BaseCriterion) and isinstance(criterion, torch.nn.Module), f"{type(criterion)=}"
-            criterion = criterion.to(self.device)
-            self.criterion = criterion
-        else:
-            self.criterion = None
-
-    def _init_metric_(self) -> None:
-        self.logger.info("Initializing metric...")
-        if self.config.get('metric', None):
-            self.metric = build_from_config(self.config['metric'])
-        else:
-            self.metric = None
-
     @abstractmethod
     def _init_optimizer_(self) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._init_optimizer_ not implemented.")
@@ -180,10 +207,6 @@ class BaseTrainer(ABC):
     @abstractmethod
     def _init_scheduler_(self) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._init_scheduler_ not implemented.")
-
-    @property
-    def expected_files(self) -> List[str]:
-        return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
 
     def _load_checkpoint_(self, checkpoint: dict) -> None:
         r"""Default checkpoint loading method. Override to load more.
@@ -195,29 +218,6 @@ class BaseTrainer(ABC):
         self.model.load_state_dict(checkpoint['model_state_dict'])
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-
-    def _init_state_(self) -> None:
-        self.logger.info("Initializing state...")
-        # Get self.cum_epochs
-        if self.work_dir is None:
-            self.cum_epochs = 0
-            return
-        # determine where to resume from
-        load_idx: Optional[int] = None
-        for idx in range(self.tot_epochs):
-            if not check_epoch_finished(
-                epoch_dir=os.path.join(self.work_dir, f"epoch_{idx}"),
-                expected_files=self.expected_files,
-            ):
-                break
-            if os.path.isfile(os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")):
-                load_idx = idx
-        # resume state
-        if load_idx is None:
-            self.logger.info("Training from scratch.")
-            self.cum_epochs = 0
-            return
-        self.cum_epochs = load_idx + 1
 
     # ====================================================================================================
     # iteration-level methods
@@ -523,9 +523,9 @@ class BaseTrainer(ABC):
         self._init_determinism_()
         self._init_state_()
         self._init_dataloaders_()
-        self._init_model_()
         self._init_criterion_()
         self._init_metric_()
+        self._init_model_()
         self._init_optimizer_()
         self._init_scheduler_()
 
