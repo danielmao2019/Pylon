@@ -78,16 +78,3 @@ class RegistrationRecall(SingleTaskMetric):
             "translation_error_m": trans_error,
             "registration_recall": success.float()
         }
-
-    def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
-        """
-        Summarize accumulated scores.
-
-        Args:
-            output_path: Path to save the results, if provided.
-
-        Returns:
-            Dict[str, torch.Tensor]: Dictionary of summarized metric scores.
-        """
-        result = super(RegistrationRecall, self).summarize(output_path)
-        return result

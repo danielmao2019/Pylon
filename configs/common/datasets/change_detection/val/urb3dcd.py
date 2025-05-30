@@ -1,7 +1,6 @@
 import torch
 import data
 import metrics
-from ._transforms_cfg import transforms_cfg
 
 
 config = {
@@ -19,7 +18,7 @@ config = {
         },
     },
     'metric': {
-        'class': metrics.vision_3d.PointCloudConfusionMatrix,
+        'class': metrics.common.ConfusionMatrix,
         'args': {
             'num_classes': 7,  # Urb3DCD dataset has 7 classes
         },
