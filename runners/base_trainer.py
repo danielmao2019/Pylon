@@ -191,15 +191,6 @@ class BaseTrainer(ABC):
         else:
             self.model = None
 
-        if self.cum_epochs > 0:
-            checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{self.cum_epochs-1}", "checkpoint.pt")
-            try:
-                self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
-                checkpoint = torch.load(checkpoint_filepath)
-                self._load_checkpoint_(checkpoint)
-            except Exception as e:
-                self.logger.error(f"[ERROR] Failed to load checkpoint at {checkpoint_filepath}: {e}")
-
     @abstractmethod
     def _init_optimizer_(self) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._init_optimizer_ not implemented.")
@@ -208,12 +199,12 @@ class BaseTrainer(ABC):
     def _init_scheduler_(self) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._init_scheduler_ not implemented.")
 
-    def _load_checkpoint_(self, checkpoint: dict) -> None:
-        r"""Default checkpoint loading method. Override to load more.
-
-        Args:
-            checkpoint (dict): the output of torch.load(checkpoint_filepath).
-        """
+    def _load_checkpoint_(self) -> None:
+        if self.cum_epochs == 0:
+            return
+        checkpoint_filepath = os.path.join(self.work_dir, f"epoch_{self.cum_epochs-1}", "checkpoint.pt")
+        self.logger.info(f"Loading checkpoint from {checkpoint_filepath}...")
+        checkpoint = torch.load(checkpoint_filepath)
         assert type(checkpoint) == dict, f"{type(checkpoint)=}"
         for component in ['model', 'optimizer', 'scheduler']:
             assert hasattr(self, component), f"{component=}"
@@ -531,6 +522,7 @@ class BaseTrainer(ABC):
         self._init_model_()
         self._init_optimizer_()
         self._init_scheduler_()
+        self._load_checkpoint_()
 
     def run(self):
         # initialize run
