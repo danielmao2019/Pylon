@@ -74,11 +74,13 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         nan_mask[y_true.unique()] = False
         iou = self._bincount2score(bincount, nan_mask, self.num_classes)
         # compute confusion matrix
-        confusion_matrix = ConfusionMatrix._bincount2score(bincount, batch_size=y_true.size(0))
+        cm = ConfusionMatrix._bincount2cm(bincount, batch_size=y_true.size(0))
+        cm_scores = ConfusionMatrix._cm2score(cm)
         # prepare final output
         score = {}
         score.update(iou)
-        score.update(confusion_matrix)
+        score.update(cm)
+        score.update(cm_scores)
         return score
 
     @staticmethod
