@@ -71,7 +71,13 @@ def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expecte
     for y_pred, y_true in zip(y_pred_list, y_true_list):
         metric(y_pred=y_pred, y_true=y_true)
     summary = metric.summarize(output_path=None)
-    assert set(summary.keys()) >= set(expected.keys())
+    assert set(summary.keys()) == {'aggregated', 'per_datapoint'}
+
+    aggregated = summary['aggregated']
+    assert set(aggregated.keys()) >= set(expected.keys())
     for key in expected:
-        assert torch.equal(summary[key].isnan(), expected[key].isnan())
-        assert torch.equal(summary[key][~summary[key].isnan()], expected[key][~expected[key].isnan()])
+        assert torch.equal(aggregated[key].isnan(), expected[key].isnan())
+        assert torch.equal(aggregated[key][~aggregated[key].isnan()], expected[key][~expected[key].isnan()])
+
+    per_datapoint = summary['per_datapoint']
+    assert set(per_datapoint.keys()) >= set(expected.keys())
