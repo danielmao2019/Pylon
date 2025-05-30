@@ -5,6 +5,8 @@ from data.datasets import BaseDataset
 
 class BaseRandomDataset(BaseDataset):
 
+    SPLIT_OPTIONS = ['all']
+
     def __init__(
         self,
         num_examples: int,
