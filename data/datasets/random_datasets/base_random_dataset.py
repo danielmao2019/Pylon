@@ -10,6 +10,7 @@ class BaseRandomDataset(BaseDataset):
         num_examples: int,
         gen_func_config: Dict[str, Dict[str, Tuple[Callable, dict]]],
         initial_seed: Optional[int] = None,
+        **kwargs,
     ) -> None:
         # init num examples
         assert type(num_examples) == int, f"{type(num_examples)=}"
@@ -19,7 +20,7 @@ class BaseRandomDataset(BaseDataset):
         self._init_gen_func_config_(config=gen_func_config)
         self.initial_seed = initial_seed
         # init transform
-        super(BaseRandomDataset, self).__init__()
+        super(BaseRandomDataset, self).__init__(**kwargs)
 
     def _init_gen_func_config_(self, config: Dict[str, Dict[str, Tuple[Callable, dict]]]) -> None:
         assert type(config) == dict, f"{type(config)=}"
