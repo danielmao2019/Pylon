@@ -68,7 +68,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self._init_annotations_all_splits()
 
     def _init_split(self, split: Optional[Union[str, Tuple[float, ...]]]) -> None:
-        assert split is None or type(split) in [str, tuple], f"{type(split)=}"
+        assert split is None or isinstance(split, (str, tuple)), f"{type(split)=}"
         if type(split) == tuple:
             assert len(split) == len(self.SPLIT_OPTIONS), f"{split=}, {self.SPLIT_OPTIONS=}"
             assert all(type(x) in [int, float] for x in split)

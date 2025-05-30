@@ -17,8 +17,7 @@ class BaseRandomDataset(BaseDataset):
         self.num_examples = num_examples
         # init gen func config
         self._init_gen_func_config_(config=gen_func_config)
-        # init generator
-        self._init_generator_(initial_seed)
+        self.initial_seed = initial_seed
         # init transform
         super(BaseRandomDataset, self).__init__()
 
@@ -60,8 +59,13 @@ class BaseRandomDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
+        if not (
+            hasattr(self, 'initial_seed') and hasattr(self, 'generator')
+        ):
+            self._init_generator_(initial_seed=self.initial_seed)
         seed = self.initial_seed + idx
         self.generator.manual_seed(seed)
+        self.generator.set_state(torch.get_rng_state())
         inputs, labels = tuple({
             key2: self.gen_func_config[key1][key2][0](**self.gen_func_config[key1][key2][1], generator=self.generator)
             for key2 in self.gen_func_config[key1]
