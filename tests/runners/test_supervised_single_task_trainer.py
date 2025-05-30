@@ -10,6 +10,7 @@ import torchvision
 import data
 import criteria
 import metrics
+import optimizers
 import schedulers
 import utils
 import threading
@@ -94,9 +95,14 @@ config = {
     # optimizer
     # ==================================================
     'optimizer': {
-        'class': torch.optim.SGD,
+        'class': optimizers.SingleTaskOptimizer,
         'args': {
-            'lr': 1e-03,
+            'optimizer_config': {
+                'class': torch.optim.SGD,
+                'args': {
+                    'lr': 1e-03,
+                },
+            },
         },
     },
     'scheduler': {
