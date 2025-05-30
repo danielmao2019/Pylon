@@ -7,7 +7,8 @@ import os
 import json
 import torch
 import torchvision
-import data
+from data.datasets.random_datasets import BaseRandomDataset
+from data.transforms import Compose
 import criteria
 import metrics
 import optimizers
@@ -18,26 +19,54 @@ import time
 from utils.automation.run_status import check_epoch_finished
 
 
+torch.manual_seed(0)
+gt = torch.rand(size=(10, 10), dtype=torch.float32)
+
 dataset_config = {
-    'class': data.datasets.random_datasets.ClassificationRandomDataset,
+    'class': BaseRandomDataset,
     'args': {
         'num_examples': 10,
-        'num_classes': 10,
-        'image_res': (64, 64),
         'initial_seed': 0,
+        'gen_func_config': {
+            'inputs': {
+                'x': (
+                    torch.rand,
+                    {'size': (10,), 'dtype': torch.float32},
+                ),
+            },
+            'labels': {
+                'y': (
+                    torch.randn,
+                    {'size': (10,), 'mean': 0, 'std': 0.1, 'dtype': torch.float32},
+                ),
+            },
+        },
+        'transforms_cfg': {
+            'class': Compose,
+            'args': {
+                'transforms': [
+                    {
+                        'op': lambda xy: gt @ xy[0] + xy[1],
+                        'input_names': [('inputs', 'x'), ('labels', 'y')],
+                        'output_names': [('labels', 'y')],
+                    }
+                ],
+            },
+        },
     },
 }
 
+
 class TestModel(torch.nn.Module):
 
-    def __init__(self, model: torch.nn.Module) -> None:
+    def __init__(self) -> None:
         super(TestModel, self).__init__()
-        self.model = model
+        self.linear = torch.nn.Linear(in_features=10, out_features=10)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-        assert type(inputs) == dict, f"{type(inputs)=}"
-        assert len(inputs) == 1, f"{inputs.keys()=}"
-        return self.model(list(inputs.values())[0])
+        assert isinstance(inputs, dict), f"{type(inputs)=}"
+        assert inputs.keys() == {'x'}, f"{inputs.keys()=}"
+        return self.linear(inputs['x'])
 
 
 config = {
@@ -75,20 +104,18 @@ config = {
     # ==================================================
     'model': {
         'class': TestModel,
-        'args': {
-            'model': torchvision.models.ResNet(torchvision.models.resnet.BasicBlock, [2, 2, 2, 2], num_classes=10),
-        },
+        'args': {},
     },
     'criterion': {
         'class': criteria.wrappers.PyTorchCriterionWrapper,
         'args': {
-            'criterion': torch.nn.CrossEntropyLoss(reduction='mean'),
+            'criterion': torch.nn.MSELoss(reduction='mean'),
         },
     },
     'metric': {
-        'class': metrics.common.ConfusionMatrix,
+        'class': metrics.wrappers.PyTorchMetricWrapper,
         'args': {
-            'num_classes': 10,
+            'metric': torch.nn.MSELoss(reduction='mean'),
         },
     },
     # ==================================================
