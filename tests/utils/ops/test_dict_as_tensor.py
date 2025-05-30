@@ -1,25 +1,152 @@
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Any, Tuple
 import pytest
 import numpy
 import torch
 
 
 # ====================================================================================================
-from .dict_as_tensor import transpose_buffer
+from utils.ops.dict_as_tensor import buffer_allclose
+# ====================================================================================================
+
+@pytest.mark.parametrize("buffer1, buffer2, expected", [
+    (
+        {
+            'aggregated': {
+                'score': 6.2039361000061035,
+            },
+            'per_datapoint': {
+                'score': [8.609664916992188, 6.130837440490723, 5.303650379180908, 3.886174440383911, 8.193755149841309, 5.008403778076172, 2.8916900157928467, 7.274683475494385, 8.609664916992188, 6.130837440490723],
+            },
+        },
+        {
+            'aggregated': {
+                'score': 6.200444221496582,
+            },
+            'per_datapoint': {
+                'score': [8.629473686218262, 6.111517429351807, 5.312509059906006, 3.873427629470825, 8.167315483093262, 5.01690673828125, 2.894746780395508, 7.257554054260254, 8.629473686218262, 6.111517429351807],
+            },
+        },
+        True,
+    ),
+])
+def test_buffer_allclose(buffer1, buffer2, expected) -> None:
+    assert buffer_allclose(buffer1, buffer2, rtol=1e-01, atol=0) == expected
+
+
+# ====================================================================================================
+from utils.ops.dict_as_tensor import transpose_buffer, buffer_permute
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, expected", [
+    # List[List[Any]] -> List[List[Any]]
+    (
+        [[1, 2, 3], [4, 5, 6]],
+        [[1, 4], [2, 5], [3, 6]],
+    ),
+    # List[Dict[str, Any]] -> Dict[str, List[Any]]
     (
         [{'a': 1, 'b': 2, 'c': 3}, {'a': 3, 'b': 2, 'c': 1}],
         {'a': [1, 3], 'b': [2, 2], 'c': [3, 1]},
     ),
+    # List[Dict[str, Dict[str, Any]]] -> Dict[str, List[Dict[str, Any]]]
+    (
+        [{'a': {'x': 1, 'y': 2}, 'b': {'x': 3, 'y': 4}}, {'a': {'x': 5, 'y': 6}, 'b': {'x': 7, 'y': 8}}],
+        {'a': [{'x': 1, 'y': 2}, {'x': 5, 'y': 6}], 'b': [{'x': 3, 'y': 4}, {'x': 7, 'y': 8}]},
+    ),
 ])
-def test_transpose_buffer(buffer: List[Dict[str, float]], expected: Dict[str, List[float]]) -> None:
+def test_transpose_buffer(buffer: List[Dict[str, Any]], expected: Dict[str, List[Any]]) -> None:
     assert transpose_buffer(buffer=buffer) == expected
 
 
+@pytest.mark.parametrize("buffer", [
+    [],
+])
+def test_transpose_buffer_invalid_cases(buffer: List[Dict[str, Any]]) -> None:
+    with pytest.raises(AssertionError, match="Transpose is not supported for buffers with less than 2 axes."):
+        transpose_buffer(buffer=buffer)
+
+
+@pytest.mark.parametrize("buffer, axes, expected", [
+    # Basic transpose (same as transpose_buffer)
+    (
+        [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}],
+        (1, 0),
+        {'a': [1, 3], 'b': [2, 4]},
+    ),
+    # List[Dict[str, Any]] -> Dict[str, List[Any]]
+    (
+        [{'a': 1}],
+        (1, 0),
+        {'a': [1]},
+    ),
+    # List[Dict[str, List[Any]]] -> Dict[str, List[List[Any]]]
+    (
+        [{'a': [1, 2], 'b': [3, 4]}, {'a': [5, 6], 'b': [7, 8]}],
+        (1, 0, 2),
+        {'a': [[1, 2], [5, 6]], 'b': [[3, 4], [7, 8]]},
+    ),
+    # List[Dict[str, List[Any]]] -> List[List[Dict[str, Any]]]
+    (
+        [{'a': [1, 2], 'b': [3, 4]}, {'a': [5, 6], 'b': [7, 8]}],
+        (2, 0, 1),
+        [[{'a': 1, 'b': 3}, {'a': 5, 'b': 7}], [{'a': 2, 'b': 4}, {'a': 6, 'b': 8}]],
+    ),
+    # Tuple[Dict[str, Any], ...] -> Dict[str, Tuple[Any, ...]]
+    (
+        ({'a': 1, 'b': 2}, {'a': 3, 'b': 4}),
+        (1, 0),
+        {'a': (1, 3), 'b': (2, 4)},
+    ),
+    # List[Dict[str, Tuple[Any, ...]]] -> Dict[str, List[Tuple[Any, ...]]]
+    (
+        [{'a': (1, 2), 'b': (3, 4)}, {'a': (5, 6), 'b': (7, 8)}],
+        (1, 0, 2),
+        {'a': [(1, 2), (5, 6)], 'b': [(3, 4), (7, 8)]},
+    ),
+    # Test axes=None (reverse order)
+    (
+        [{'a': [1, 2], 'b': [3, 4]}, {'a': [5, 6], 'b': [7, 8]}],
+        None,
+        [{'a': [1, 5], 'b': [3, 7]}, {'a': [2, 6], 'b': [4, 8]}],
+    ),
+])
+def test_buffer_permute(buffer: Any, axes: Tuple[int, ...], expected: Any) -> None:
+    assert buffer_permute(buffer, axes) == expected
+
+
+@pytest.mark.parametrize("buffer, axes, expected", [
+    # Empty buffer
+    (
+        [],
+        (0,),
+        [],
+    ),
+    # List[Dict[str, Any]] -> List[Dict[str, Any]]
+    (
+        [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}],
+        (0, 1),
+        [{'a': 1, 'b': 2}, {'a': 3, 'b': 4}],
+    ),
+])
+def test_buffer_permute_edge_cases(buffer: Any, axes: Tuple[int, ...], expected: Any) -> None:
+    assert buffer_permute(buffer, axes) == expected
+
+
+@pytest.mark.parametrize("buffer, axes", [
+    # Invalid axes length
+    ([{'a': [1]}], (1, 0)),
+    # Invalid axes values
+    ([{'a': 1}], (0, 2)),
+    # Duplicate axes
+    ([{'a': 1}], (0, 0)),
+])
+def test_buffer_permute_invalid_axes(buffer: Any, axes: Tuple[int, ...]) -> None:
+    with pytest.raises(AssertionError):
+        buffer_permute(buffer, axes)
+
+
 # ====================================================================================================
-from .dict_as_tensor import buffer_add
+from utils.ops.dict_as_tensor import buffer_add
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffers, expected", [
@@ -33,7 +160,7 @@ def test_buffer_add(buffers, expected) -> None:
 
 
 # ====================================================================================================
-from .dict_as_tensor import buffer_sub
+from utils.ops.dict_as_tensor import buffer_sub
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, other, expected", [
@@ -48,7 +175,7 @@ def test_buffer_sub(buffer, other, expected) -> None:
 
 
 # ====================================================================================================
-from .dict_as_tensor import buffer_mul
+from utils.ops.dict_as_tensor import buffer_mul
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, other, expected", [
@@ -63,7 +190,7 @@ def test_buffer_mul(buffer, other, expected) -> None:
 
 
 # ====================================================================================================
-from .dict_as_tensor import buffer_div
+from utils.ops.dict_as_tensor import buffer_div
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, other, expected", [
@@ -78,7 +205,7 @@ def test_buffer_div(buffer, other, expected) -> None:
 
 
 # ====================================================================================================
-from .dict_as_tensor import buffer_mean
+from utils.ops.dict_as_tensor import buffer_mean
 # ====================================================================================================
 
 @pytest.mark.parametrize("buffer, expected", [

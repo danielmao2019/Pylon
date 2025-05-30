@@ -2,7 +2,7 @@
 as an any immutable object indexed tensor, of any data type. For now, we name dictionaries under this
 view as 'buffer'. A buffer could be tuple, list, dict, numpy.ndarray, and torch.Tensor.
 """
-from typing import List, Dict, Any, Optional
+from typing import Tuple, List, Sequence, Set, Dict, Any, Optional
 import numpy
 import torch
 
@@ -25,23 +25,29 @@ def buffer_equal(buffer, other) -> bool:
     return result
 
 
-def buffer_close(
+def buffer_allclose(
     buffer, other,
-    rtol: Optional[float] = 1e-05,
-    atol: Optional[float] = 1e-08,
-    equal_nan: Optional[bool] = False,
+    rtol: float = 1e-05,
+    atol: float = 1e-08,
+    equal_nan: bool = False,
 ) -> bool:
     assert type(buffer) == type(other)
-    if type(buffer) in [tuple, list]:
+    if isinstance(buffer, (tuple, list)):
         assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
-        return all([buffer_close(buffer[idx], other[idx]) for idx in range(len(buffer))])
-    elif type(buffer) == dict:
+        return all(
+            buffer_allclose(buffer[idx], other[idx], rtol=rtol, atol=atol, equal_nan=equal_nan)
+            for idx in range(len(buffer))
+        )
+    elif isinstance(buffer, dict):
         assert set(buffer.keys()) == set(other.keys()), f"{buffer.keys()=}, {other.keys()=}"
-        return all([buffer_close(buffer[key], other[key]) for key in buffer])
-    elif type(buffer) == numpy.ndarray:
+        return all(
+            buffer_allclose(buffer[key], other[key], rtol=rtol, atol=atol, equal_nan=equal_nan)
+            for key in buffer.keys()
+        )
+    elif isinstance(buffer, numpy.ndarray):
         assert buffer.shape == other.shape
         return numpy.allclose(buffer, other, rtol=rtol, atol=atol, equal_nan=equal_nan)
-    elif type(buffer) == torch.Tensor:
+    elif isinstance(buffer, torch.Tensor):
         assert buffer.shape == other.shape, f"{buffer.shape=}, {other.shape=}"
         return torch.allclose(buffer, other, rtol=rtol, atol=atol, equal_nan=equal_nan)
     else:
@@ -123,15 +129,145 @@ def buffer_mean(buffer):
     return buffer_scalar_mul(buffer_add(*list(buffer)), 1 / len(buffer))
 
 
-def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
-    # input check
-    assert type(buffer) == list, f"{type(buffer)=}"
-    assert all(type(elem) == dict for elem in buffer)
-    keys = buffer[0].keys()
-    assert all(elem.keys() == keys for elem in buffer)
-    # transpose buffer
-    result: Dict[Any, List[Any]] = {
-        key: [elem[key] for elem in buffer]
-        for key in keys
-    }
+def get_buffer_structure(buffer) -> List[Tuple[Any, Set[Any]]]:
+    """Get the structure of a buffer.
+    """
+    if isinstance(buffer, (list, tuple)):
+        curr_structure = (type(buffer), set(range(len(buffer))))
+        next_structures = [get_buffer_structure(elem) for elem in buffer]
+    elif isinstance(buffer, dict):
+        curr_structure = (type(buffer), set(buffer.keys()))
+        next_structures = [get_buffer_structure(elem) for elem in buffer.values()]
+    else:
+        return []
+    if len(next_structures) == 0:
+        return [curr_structure]
+    next_n_axes = max(list(map(len, next_structures)))
+    next_structure = []
+    for axis in range(next_n_axes):
+        axis_types = set(
+            elem_structures[axis][0] for elem_structures in next_structures
+            if len(elem_structures) > axis
+        )
+        assert len(axis_types) == 1, f"{axis_types=}"
+        axis_type = axis_types.pop()
+        axis_indices = set.union(*[
+            elem_structures[axis][1] for elem_structures in next_structures
+            if len(elem_structures) > axis
+        ])
+        next_structure.append((axis_type, axis_indices))
+    return [curr_structure] + next_structure
+
+
+def buffer_select(buffer, axis: int, index: Any) -> Any:
+    """Select a slice from a buffer at a specific axis and index.
+
+    Args:
+        buffer: A buffer (list, tuple, or dict) containing other buffers
+        axis: The axis to slice at (0-based)
+        index: The index to select at that axis
+
+    Returns:
+        The selected slice from the buffer
+    """
+    if axis == 0:
+        return buffer[index]
+
+    if isinstance(buffer, (list, tuple)):
+        return type(buffer)(buffer_select(elem, axis - 1, index) for elem in buffer)
+    elif isinstance(buffer, dict):
+        return {k: buffer_select(v, axis - 1, index) for k, v in buffer.items()}
+    else:
+        raise NotImplementedError(f"Unsupported buffer type: {type(buffer)}")
+
+
+def buffer_permute(
+    buffer,
+    axes: Optional[Sequence[int]] = None,
+    buffer_structure: Optional[List[Tuple[Any, Set[Any]]]] = None,
+):
+    """Permute the axes of a buffer.
+
+    Args:
+        buffer: A buffer (list, tuple, or dict) containing other buffers
+        axes: Optional sequence of ints specifying the permutation of axes.
+              If None, uses the original order of axes.
+
+    Returns:
+        A new buffer with axes permuted according to the axes parameter.
+    """
+
+    if len(buffer) == 0:
+        return buffer
+
+    if axes is not None and axes == type(axes)(range(len(axes))):
+        return buffer
+
+    # Get the structure of the buffer
+    structure = buffer_structure or get_buffer_structure(buffer)
+
+    # Handle None case - use reverse order
+    if axes is None:
+        axes = list(range(len(structure)))[::-1]
+
+    # Validate axes
+    assert len(axes) == len(structure), f"{len(axes)=}, {len(structure)=}"
+    assert min(axes) == 0, f"{min(axes)=}"
+    assert max(axes) == len(axes) - 1, f"{max(axes)=}"
+    assert set(axes) == set(range(len(axes))), f"{axes=}"
+
+    # Get the target type and indices for the first axis after permutation
+    target_type, target_indices = structure[axes[0]]
+
+    # Create the result container
+    if target_type in (list, tuple):
+        # check if the indices are consecutive
+        assert min(target_indices) == 0, f"{min(target_indices)=}"
+        assert max(target_indices) == len(target_indices) - 1, f"{max(target_indices)=}"
+        assert len(target_indices) == len(set(target_indices)), f"{target_indices=}"
+        # For list/tuple, we'll collect values in a list first
+        result = [None] * len(target_indices)
+    else:  # dict
+        result = {key: None for key in target_indices}
+
+    # For each index in the target first axis
+    for target_idx in target_indices:
+        # Get the value by slicing at the correct axis
+        value = buffer_select(buffer, axes[0], target_idx)
+
+        # If this is the last axis, just copy the value
+        if len(axes) == 1:
+            result[target_idx] = value
+        else:
+            # Recursively permute the remaining axes
+            # Create new axes list by removing the current axis and adjusting remaining indices
+            remaining_axes = []
+            for ax in axes[1:]:
+                if ax > axes[0]:
+                    remaining_axes.append(ax - 1)
+                else:
+                    remaining_axes.append(ax)
+            # Create new structure by removing the current axis
+            remaining_structure = [s for i, s in enumerate(structure) if i != axes[0]]
+            result[target_idx] = buffer_permute(
+                value,
+                remaining_axes,
+                buffer_structure=remaining_structure,
+            )
+
+    # Convert list to tuple if needed
+    if target_type == tuple:
+        result = tuple(result)
+
     return result
+
+
+def transpose_buffer(buffer: List[Dict[Any, Any]]) -> Dict[Any, List[Any]]:
+    """Legacy function that only handles List[Dict] -> Dict[List] transformation.
+    Use buffer_permute for more general axis permutations.
+    """
+    structure = get_buffer_structure(buffer)
+    assert len(structure) >= 2, f"Transpose is not supported for buffers with less than 2 axes."
+    # For transpose, we swap the first two axes and keep the rest in order
+    axes = (1, 0) + tuple(range(2, len(structure)))
+    return buffer_permute(buffer, axes=axes, buffer_structure=structure)
