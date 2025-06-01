@@ -17,40 +17,40 @@ from runners.eval_viewer.backend.cache_manager import load_or_create_cache
 def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
     """
     Creates and initializes the Dash application.
-    
+
     Args:
         log_dirs: List of paths to log directories
         force_reload: Whether to force recreation of cache
-        
+
     Returns:
         app: Initialized Dash application
-        
+
     Raises:
         AssertionError: If any validation fails
     """
     # Load or create cache
     caches = load_or_create_cache(log_dirs, force_reload)
-    
+
     # Get max epoch and metrics
     max_epoch = validate_log_directories(log_dirs)
     metrics = sorted(list(get_common_metrics(log_dirs)))
-    
+
     # Create app
     app = dash.Dash(__name__)
-    
+
     # Create layout
     app.layout = create_layout(max_epoch, metrics, len(log_dirs))
-    
+
     # Register callbacks
     register_callbacks(app, log_dirs, caches)
-    
+
     return app
 
 
 def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050, force_reload: bool = False):
     """
     Runs the Dash application.
-    
+
     Args:
         log_dirs: List of paths to log directories
         debug: Whether to run in debug mode
@@ -68,10 +68,10 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8050, help="Port number")
     parser.add_argument("--force_reload", action="store_true", help="Force recreation of cache")
     args = parser.parse_args()
-    
+
     log_dirs = [
         '/home/daniel/repos/Pylon/logs/test_supervised_single_task_trainer',
         '/home/daniel/repos/Pylon/logs/test_supervised_single_task_trainer_uninterrupted',
     ]
-    
+
     run_app(log_dirs=log_dirs, debug=args.debug, port=args.port, force_reload=args.force_reload)
