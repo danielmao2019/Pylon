@@ -42,7 +42,7 @@ def create_score_maps_cache(log_dir: str, metrics: List[str]) -> np.ndarray:
     """
     # Count number of epochs
     epoch = 0
-    while os.path.exists(os.path.join(log_dir, f"validation_scores_{epoch}.json")):
+    while os.path.exists(os.path.join(log_dir, f"epoch_{epoch}", "validation_scores.json")):
         epoch += 1
     n_epochs = epoch
 
