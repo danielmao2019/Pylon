@@ -20,7 +20,22 @@ def create_app(log_dirs: List[str]) -> dash.Dash:
     Raises:
         AssertionError: If any validation fails
     """
-    pass
+    # Validate log directories and get max epoch
+    max_epoch = validate_log_directories(log_dirs)
+    
+    # Get common metrics
+    metrics = sorted(list(get_common_metrics(log_dirs)))
+    
+    # Create app
+    app = dash.Dash(__name__)
+    
+    # Create layout
+    app.layout = create_layout(max_epoch, metrics, len(log_dirs))
+    
+    # Register callbacks
+    register_callbacks(app, log_dirs)
+    
+    return app
 
 
 def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050):
@@ -32,7 +47,8 @@ def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050):
         debug: Whether to run in debug mode
         port: Port number to run the server on
     """
-    pass
+    app = create_app(log_dirs)
+    app.run_server(debug=debug, port=port)
 
 
 if __name__ == "__main__":
