@@ -7,6 +7,9 @@ import numpy as np
 from runners.eval_viewer.backend.data_loader import get_common_metrics, load_validation_scores
 from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_heatmap, create_aggregated_scores_plot
 
+from utils.data_loader import load_validation_scores, extract_metric_scores
+from utils.visualization import create_score_map, create_score_map_figure
+
 
 def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):
     """
