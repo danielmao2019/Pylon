@@ -2,6 +2,7 @@ from typing import List, Dict, Set, Tuple
 import os
 import json
 import numpy as np
+import glob
 
 
 def validate_log_directories(log_dirs: List[str]) -> int:
@@ -31,24 +32,18 @@ def validate_log_directories(log_dirs: List[str]) -> int:
     # Find max epoch for each run
     max_epochs = []
     for log_dir in log_dirs:
-        epoch_dirs = [d for d in os.listdir(log_dir) if d.startswith("epoch_")]
-        assert len(epoch_dirs) > 0, f"No epoch directories found in {log_dir}"
-        
-        # Extract epoch numbers and validate format
-        epoch_nums = []
-        for epoch_dir in epoch_dirs:
-            assert epoch_dir.startswith("epoch_"), f"Invalid epoch directory name: {epoch_dir}"
-            epoch_num = int(epoch_dir.split("_")[1])
-            epoch_nums.append(epoch_num)
+        idx = 0
+        while True:
+            epoch_dir = os.path.join(log_dir, f"epoch_{idx}")
+            scores_path = os.path.join(epoch_dir, "validation_scores.json")
             
-            # Check validation_scores.json exists
-            scores_path = os.path.join(log_dir, epoch_dir, "validation_scores.json")
-            assert os.path.isfile(scores_path), f"validation_scores.json not found in {epoch_dir}"
+            if not os.path.isdir(epoch_dir) or not os.path.isfile(scores_path):
+                break
+                
+            idx += 1
         
-        # Check epoch numbers are consecutive
-        epoch_nums.sort()
-        assert epoch_nums == list(range(len(epoch_nums))), f"Non-consecutive epoch numbers in {log_dir}"
-        max_epochs.append(max(epoch_nums))
+        assert idx > 0, f"No completed epochs in {log_dir}"
+        max_epochs.append(idx - 1)
     
     # Return minimum max epoch (where all runs have completed)
     return min(max_epochs)
