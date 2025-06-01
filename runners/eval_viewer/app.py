@@ -58,7 +58,7 @@ def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050, force_re
         force_reload: Whether to force recreation of cache
     """
     app = create_app(log_dirs, force_reload)
-    app.run_server(debug=debug, port=port)
+    app.run(debug=debug, port=port)
 
 
 if __name__ == "__main__":
