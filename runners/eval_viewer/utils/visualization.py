@@ -15,13 +15,12 @@ def create_score_map(scores: List[float]) -> np.ndarray:
     """
     n = len(scores)
     side_length = int(np.ceil(np.sqrt(n)))
-    score_map = np.zeros((side_length, side_length))
     
-    # Fill the matrix row by row
-    for i, score in enumerate(scores):
-        row = i // side_length
-        col = i % side_length
-        score_map[row, col] = score
+    # Create array of NaN's
+    score_map = np.full((side_length, side_length), np.nan)
+    
+    # Reshape scores into a square matrix, filling with NaN's
+    score_map.flat[:n] = scores
     
     return score_map
 
