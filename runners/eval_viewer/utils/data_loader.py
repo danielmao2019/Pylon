@@ -24,6 +24,8 @@ def validate_log_directories(log_dirs: List[str]) -> int:
     Raises:
         AssertionError: If any validation fails
     """
+    assert len(log_dirs) > 0, "No log directories provided"
+    
     # Check all directories exist
     for log_dir in log_dirs:
         assert os.path.isdir(log_dir), f"Directory does not exist: {log_dir}"
@@ -48,6 +50,46 @@ def validate_log_directories(log_dirs: List[str]) -> int:
     return min(max_epochs)
 
 
+def get_metrics_from_json(scores_filepath: str) -> Set[str]:
+    """
+    Gets the set of metric names from a validation_scores.json file.
+    
+    Args:
+        scores_filepath: Path to validation_scores.json file
+        
+    Returns:
+        metrics: Set of metric names
+        
+    Raises:
+        AssertionError: If file has invalid format
+    """
+    with open(scores_filepath, 'r') as f:
+        scores = json.load(f)
+    
+    assert isinstance(scores, dict), \
+        f"Invalid scores format in {scores_filepath}"
+    assert scores.keys() == {'aggregated', 'per_datapoint'}, \
+        f"Invalid keys in {scores_filepath}"
+    assert isinstance(scores['aggregated'], dict), \
+        f"Invalid aggregated format in {scores_filepath}"
+    assert isinstance(scores['per_datapoint'], dict), \
+        f"Invalid per_datapoint format in {scores_filepath}"
+    assert scores['aggregated'].keys() == scores['per_datapoint'].keys(), \
+        f"Invalid keys in {scores_filepath}"
+    
+    metrics = []
+    for key in scores['per_datapoint'].keys():
+        if isinstance(scores['per_datapoint'][key], list):
+            # Handle sub-metrics (e.g., class_tp[0], class_tp[1], etc.)
+            assert all(isinstance(score, float) for score in scores['per_datapoint'][key]), \
+                f"Invalid scores format in {scores_filepath}"
+            metrics.extend([f"{key}[{i}]" for i in range(len(scores['per_datapoint'][key]))])
+        else:
+            metrics.append(key)
+    
+    return set(metrics)
+
+
 def get_common_metrics(log_dirs: List[str]) -> Set[str]:
     """
     Gets the set of common metrics across all validation scores files.
@@ -62,44 +104,25 @@ def get_common_metrics(log_dirs: List[str]) -> Set[str]:
         AssertionError: If no common metrics are found
     """
     # Get metrics from first run's first epoch
-    first_log_dir = log_dirs[0]
-    first_epoch_dir = os.path.join(first_log_dir, "epoch_0")
-    first_scores_path = os.path.join(first_epoch_dir, "validation_scores.json")
-    
-    with open(first_scores_path, 'r') as f:
-        first_scores = json.load(f)
-    
-    # Get all metrics from first run
-    metrics = set()
-    for key in first_scores['aggregated'].keys():
-        if isinstance(first_scores['aggregated'][key], list):
-            # Handle sub-metrics (e.g., class_tp[0], class_tp[1], etc.)
-            for i in range(len(first_scores['aggregated'][key])):
-                metrics.add(f"{key}[{i}]")
-        else:
-            metrics.add(key)
+    first_scores_path = os.path.join(log_dirs[0], "epoch_0", "validation_scores.json")
+    metrics = get_metrics_from_json(first_scores_path)
+    assert len(metrics) > 0, "No metrics found"
     
     # Verify metrics are consistent across all runs and epochs
     for log_dir in log_dirs:
-        epoch_dirs = [d for d in os.listdir(log_dir) if d.startswith("epoch_")]
-        for epoch_dir in epoch_dirs:
-            scores_path = os.path.join(log_dir, epoch_dir, "validation_scores.json")
-            with open(scores_path, 'r') as f:
-                scores = json.load(f)
+        idx = 0
+        while True:
+            epoch_dir = os.path.join(log_dir, f"epoch_{idx}")
+            scores_path = os.path.join(epoch_dir, "validation_scores.json")
             
-            # Get metrics from current file
-            current_metrics = set()
-            for key in scores['aggregated'].keys():
-                if isinstance(scores['aggregated'][key], list):
-                    for i in range(len(scores['aggregated'][key])):
-                        current_metrics.add(f"{key}[{i}]")
-                else:
-                    current_metrics.add(key)
+            if not os.path.isdir(epoch_dir) or not os.path.isfile(scores_path):
+                break
             
-            # Verify metrics match
+            current_metrics = get_metrics_from_json(scores_path)
             assert current_metrics == metrics, f"Inconsistent metrics in {scores_path}"
+            
+            idx += 1
     
-    assert len(metrics) > 0, "No metrics found"
     return metrics
 
 
