@@ -4,8 +4,8 @@ from dash import Input, Output, State, dcc
 from dash.exceptions import PreventUpdate
 import numpy as np
 
-from utils.data_loader import load_validation_scores, extract_metric_scores
-from utils.visualization import create_score_map, create_score_map_figure
+from runners.eval_viewer.backend.data_loader import load_validation_scores, extract_metric_scores
+from runners.eval_viewer.backend.visualization import create_score_map, create_score_map_figure
 
 
 def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):

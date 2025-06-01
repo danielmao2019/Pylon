@@ -2,10 +2,17 @@ from typing import List
 import dash
 from dash import html
 
-from utils.data_loader import validate_log_directories, get_common_metrics
-from utils.cache_manager import load_or_create_cache
-from layouts.main_layout import create_layout
-from callbacks.update_plots import register_callbacks
+import os
+project_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
+print(project_root)
+import sys
+sys.path.append(project_root)
+os.chdir(project_root)
+
+from runners.eval_viewer.layouts.main_layout import create_layout
+from runners.eval_viewer.callbacks.update_plots import register_callbacks
+from runners.eval_viewer.backend.data_loader import validate_log_directories, get_common_metrics
+from runners.eval_viewer.backend.cache_manager import load_or_create_cache, load_or_create_cache_for_log_dir
 
 
 def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
@@ -58,10 +65,14 @@ def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050, force_re
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log_dirs", nargs="+", required=True, help="List of log directory paths")
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")
     parser.add_argument("--port", type=int, default=8050, help="Port number")
     parser.add_argument("--force_reload", action="store_true", help="Force recreation of cache")
     args = parser.parse_args()
     
-    run_app(log_dirs=args.log_dirs, debug=args.debug, port=args.port, force_reload=args.force_reload)
+    log_dirs = [
+        '/home/daniel/repos/Pylon/logs/test_supervised_single_task_trainer',
+        '/home/daniel/repos/Pylon/logs/test_supervised_single_task_trainer_uninterrupted',
+    ]
+    
+    run_app(log_dirs=log_dirs, debug=args.debug, port=args.port, force_reload=args.force_reload)
