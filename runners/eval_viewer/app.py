@@ -3,16 +3,18 @@ import dash
 from dash import html
 
 from utils.data_loader import validate_log_directories, get_common_metrics
+from utils.cache_manager import load_or_create_cache
 from layouts.main_layout import create_layout
 from callbacks.update_plots import register_callbacks
 
 
-def create_app(log_dirs: List[str]) -> dash.Dash:
+def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
     """
     Creates and initializes the Dash application.
     
     Args:
         log_dirs: List of paths to log directories
+        force_reload: Whether to force recreation of cache
         
     Returns:
         app: Initialized Dash application
@@ -20,10 +22,11 @@ def create_app(log_dirs: List[str]) -> dash.Dash:
     Raises:
         AssertionError: If any validation fails
     """
-    # Validate log directories and get max epoch
-    max_epoch = validate_log_directories(log_dirs)
+    # Load or create cache
+    caches = load_or_create_cache(log_dirs, force_reload)
     
-    # Get common metrics
+    # Get max epoch and metrics
+    max_epoch = validate_log_directories(log_dirs)
     metrics = sorted(list(get_common_metrics(log_dirs)))
     
     # Create app
@@ -33,12 +36,12 @@ def create_app(log_dirs: List[str]) -> dash.Dash:
     app.layout = create_layout(max_epoch, metrics, len(log_dirs))
     
     # Register callbacks
-    register_callbacks(app, log_dirs)
+    register_callbacks(app, log_dirs, caches)
     
     return app
 
 
-def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050):
+def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050, force_reload: bool = False):
     """
     Runs the Dash application.
     
@@ -46,8 +49,9 @@ def run_app(log_dirs: List[str], debug: bool = False, port: int = 8050):
         log_dirs: List of paths to log directories
         debug: Whether to run in debug mode
         port: Port number to run the server on
+        force_reload: Whether to force recreation of cache
     """
-    app = create_app(log_dirs)
+    app = create_app(log_dirs, force_reload)
     app.run_server(debug=debug, port=port)
 
 
@@ -57,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument("--log_dirs", nargs="+", required=True, help="List of log directory paths")
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")
     parser.add_argument("--port", type=int, default=8050, help="Port number")
+    parser.add_argument("--force_reload", action="store_true", help="Force recreation of cache")
     args = parser.parse_args()
     
-    run_app(log_dirs=args.log_dirs, debug=args.debug, port=args.port)
+    run_app(log_dirs=args.log_dirs, debug=args.debug, port=args.port, force_reload=args.force_reload)

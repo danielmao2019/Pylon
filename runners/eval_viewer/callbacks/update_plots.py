@@ -1,19 +1,21 @@
-from typing import List
+from typing import List, Dict
 import dash
-from dash import Input, Output, State
+from dash import Input, Output, State, dcc
 from dash.exceptions import PreventUpdate
+import numpy as np
 
 from utils.data_loader import load_validation_scores, extract_metric_scores
 from utils.visualization import create_score_map, create_score_map_figure
 
 
-def register_callbacks(app: dash.Dash, log_dirs: List[str]):
+def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):
     """
     Registers all callbacks for the app.
     
     Args:
         app: Dash application instance
         log_dirs: List of paths to log directories
+        caches: Dictionary mapping log directory to score maps array
     """
     # Create outputs for each run's score map
     outputs = [Output(f'score-map-{i}', 'children') for i in range(len(log_dirs))]
@@ -31,6 +33,7 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str]):
             epoch: Selected epoch index
             metric: Selected metric name
             log_dirs: List of paths to log directories
+            caches: Dictionary mapping log directory to score maps array
             
         Returns:
             figures: List of Plotly figure dictionaries for each run
@@ -40,14 +43,9 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str]):
         
         figures = []
         for i, log_dir in enumerate(log_dirs):
-            # Load scores for this run and epoch
-            scores = load_validation_scores(log_dir, epoch)
-            
-            # Extract scores for selected metric
-            metric_scores = extract_metric_scores(scores, metric)
-            
-            # Create score map
-            score_map = create_score_map(metric_scores)
+            # Get score map from cache
+            score_maps = caches[log_dir]
+            score_map = score_maps[epoch]  # Shape: (C, H, W)
             
             # Create figure
             run_name = log_dir.split('/')[-1]
