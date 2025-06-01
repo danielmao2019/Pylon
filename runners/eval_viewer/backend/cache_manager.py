@@ -36,22 +36,30 @@ def create_score_maps_cache(log_dir: str, metrics: List[str]) -> np.ndarray:
 
     Returns:
         score_maps: numpy array of shape (N, C, H, W) where:
-            N = number of validation datapoints
+            N = number of epochs
             C = number of metrics
-            H, W = sqrt(N) rounded up
+            H, W = dimensions of the square matrix
     """
-    # Get number of datapoints from first epoch
+    # Count number of epochs
+    epoch = 0
+    while os.path.exists(os.path.join(log_dir, f"validation_scores_{epoch}.json")):
+        epoch += 1
+    n_epochs = epoch
+
+    # Get dimensions from first epoch
     scores = load_validation_scores(log_dir, 0)
     n_datapoints = len(next(iter(scores['per_datapoint'].values())))
     side_length = int(np.ceil(np.sqrt(n_datapoints)))
 
     # Initialize cache with NaN's
-    score_maps = np.full((n_datapoints, len(metrics), side_length, side_length), np.nan)
+    score_maps = np.full((n_epochs, len(metrics), side_length, side_length), np.nan)
 
-    # Fill cache for each metric
-    for c, metric in enumerate(metrics):
-        metric_scores = extract_metric_scores(scores, metric)
-        score_maps[:, c].flat[:n_datapoints] = metric_scores
+    # Fill cache for each epoch and metric
+    for e in range(n_epochs):
+        scores = load_validation_scores(log_dir, e)
+        for c, metric in enumerate(metrics):
+            metric_scores = extract_metric_scores(scores, metric)
+            score_maps[e, c].flat[:n_datapoints] = metric_scores
 
     return score_maps
 
