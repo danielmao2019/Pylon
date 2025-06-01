@@ -2,7 +2,6 @@ from typing import List, Dict, Set, Tuple
 import os
 import json
 import numpy as np
-import glob
 
 
 def validate_log_directories(log_dirs: List[str]) -> int:
