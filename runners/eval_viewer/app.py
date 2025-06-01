@@ -1,7 +1,6 @@
 from typing import List
 import dash
 from dash import html
-
 import os
 project_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", ".."))
 print(project_root)
@@ -12,7 +11,7 @@ os.chdir(project_root)
 from runners.eval_viewer.layouts.main_layout import create_layout
 from runners.eval_viewer.callbacks.update_plots import register_callbacks
 from runners.eval_viewer.backend.data_loader import validate_log_directories, get_common_metrics
-from runners.eval_viewer.backend.cache_manager import load_or_create_cache, load_or_create_cache_for_log_dir
+from runners.eval_viewer.backend.cache_manager import load_or_create_cache
 
 
 def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
