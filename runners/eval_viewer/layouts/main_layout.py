@@ -49,9 +49,18 @@ def create_score_maps_grid(num_runs: int) -> html.Div:
         grid: HTML div containing the score maps grid
     """
     return html.Div([
-        html.Div(id=f'score-map-{i}', style={'width': '50%', 'display': 'inline-block'})
-        for i in range(num_runs)
-    ], style={'display': 'flex', 'flexWrap': 'wrap'})
+        # Individual score maps
+        html.Div([
+            html.Div(id=f'score-map-{i}', style={'width': '50%', 'display': 'inline-block'})
+            for i in range(num_runs)
+        ], style={'display': 'flex', 'flexWrap': 'wrap'}),
+        
+        # Aggregated heatmap
+        html.Div([
+            html.H2("Common Failure Cases", style={'textAlign': 'center'}),
+            html.Div(id='aggregated-heatmap', style={'width': '100%'})
+        ], style={'marginTop': '20px'})
+    ])
 
 
 def create_layout(max_epoch: int, metrics: List[str], num_runs: int) -> html.Div:
