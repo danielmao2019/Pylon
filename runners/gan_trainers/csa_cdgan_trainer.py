@@ -7,7 +7,7 @@ import utils
 
 class CSA_CDGAN_Trainer(GAN_BaseTrainer):
 
-    def _train_step_(self, dp: Dict[str, Dict[str, torch.Tensor]]) -> None:
+    def _train_step(self, dp: Dict[str, Dict[str, torch.Tensor]]) -> None:
         # init time
         start_time = time.time()
 
