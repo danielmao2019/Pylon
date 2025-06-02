@@ -14,11 +14,11 @@ transforms_config = {
                 ('inputs', 'image'),
             ),
             (
-                data.transforms.resize.ResizeMaps(size=(256, 512), antialias=True),
+                data.transforms.vision_2d.ResizeMaps(size=(256, 512), antialias=True),
                 ('labels', 'depth_estimation'),
             ),
             (
-                data.transforms.resize.ResizeMaps(size=(256, 512), interpolation=torchvision.transforms.functional.InterpolationMode.NEAREST),
+                data.transforms.vision_2d.ResizeMaps(size=(256, 512), interpolation='nearest', antialias=True),
                 ('labels', 'semantic_segmentation'),
             ),
             (

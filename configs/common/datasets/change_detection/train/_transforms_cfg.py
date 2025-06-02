@@ -15,7 +15,7 @@ def transforms_cfg(
         )
     elif first == "ResizeMaps":
         first_transform = (
-            data.transforms.vision_2d.ResizeMaps(size=size, interpolation=None),
+            data.transforms.vision_2d.ResizeMaps(size=size, interpolation=None, antialias=True),
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )
     else:
