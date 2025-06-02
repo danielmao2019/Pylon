@@ -31,13 +31,13 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     print(f"Starting training from epoch {trainer.cum_epochs}")
 
     # Create an event to signal the observer thread to stop
-    stop_event = threading.Event()
+    stop_observing = threading.Event()
     # Create a flag to signal training interruption
-    interrupt_flag = threading.Event()
+    stop_training = threading.Event()
 
     def observer_thread():
         """Monitor training progress and interrupt after target epoch."""
-        while not stop_event.is_set():
+        while not stop_observing.is_set():
             # Check if target epoch is complete
             epoch_dir = os.path.join(config['work_dir'], f"epoch_{end_epoch-1}")  # 0-based indexing
             if os.path.exists(epoch_dir) and check_epoch_finished(
@@ -45,7 +45,7 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
                 expected_files=trainer.expected_files,
             ):
                 # Set interrupt flag immediately
-                interrupt_flag.set()
+                stop_training.set()
                 break
             time.sleep(0.1)  # Check every 100ms
 
@@ -57,17 +57,17 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     trainer.logger.page_break()
     # Run until interrupted
     for idx in range(start_epoch, trainer.tot_epochs):
-        if interrupt_flag.is_set():
+        if stop_training.is_set():
             break
         utils.determinism.set_seed(seed=trainer.train_seeds[idx])
         trainer._train_epoch_()
         trainer._val_epoch_()
         trainer.logger.page_break()
         trainer.cum_epochs = idx + 1
-        time.sleep(3)  # allow some more time for interrupt_flag to be set
+        time.sleep(3)  # allow some more time for stop_training to be set
 
     # Signal observer thread to stop
-    stop_event.set()
+    stop_observing.set()
     observer.join()
     # Clean up trainer
     del trainer
