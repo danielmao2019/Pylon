@@ -1,7 +1,7 @@
 from typing import Union, Optional
 import pytest
-from .builder import build_from_config
 import copy
+from utils.builders.builder import build_from_config
 
 
 class _DummyObj:
