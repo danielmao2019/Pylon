@@ -7,7 +7,7 @@ import utils
 
 class GANTrainer(GAN_BaseTrainer):
 
-    def _train_step_(self, dp: Dict[str, Dict[str, Any]]) -> None:
+    def _train_step(self, dp: Dict[str, Dict[str, Any]]) -> None:
         # init time
         start_time = time.time()
         # do computation
