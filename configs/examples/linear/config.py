@@ -45,13 +45,8 @@ config = {
             'num_workers': 8,
         },
     },
-    'test_dataset': dataset_cfg,
-    'test_dataloader': {
-        'class': torch.utils.data.DataLoader,
-        'args': {
-            'num_workers': 8,
-        },
-    },
+    'test_dataset': None,
+    'test_dataloader': None,
     # ==================================================
     # model
     # ==================================================
