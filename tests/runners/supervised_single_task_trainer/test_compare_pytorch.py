@@ -25,6 +25,9 @@ class Dataset(torch.utils.data.Dataset):
 
 
 def run_pytorch() -> None:
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+    torch.backends.cudnn.benchmark = False
+    torch.use_deterministic_algorithms(True, warn_only=True)
     torch.manual_seed(0)
     train_dataset = Dataset()
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=8)
@@ -33,7 +36,7 @@ def run_pytorch() -> None:
     criterion = torch.nn.MSELoss(reduction='mean')
     metric = torch.nn.MSELoss(reduction='mean')
     model = torch.nn.Linear(in_features=2, out_features=2)
-    optimizer = torch.optim.SGD(params=model.parameters(), lr=1e-03)
+    optimizer = torch.optim.SGD(params=list(model.parameters()), lr=1e-03)
     work_dir = "./logs/tests/supervised_single_task_trainer/compare_pytorch"
     for idx in range(10):
         torch.manual_seed(0)
@@ -44,7 +47,8 @@ def run_pytorch() -> None:
         # train epoch
         model.train()
         for datapoint in train_dataloader:
-            loss = criterion(input=model(datapoint[0]), target=datapoint[1])
+            output = model(datapoint[0])
+            loss = criterion(input=output, target=datapoint[1])
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -56,7 +60,8 @@ def run_pytorch() -> None:
         model.eval()
         with torch.no_grad():
             for datapoint in val_dataloader:
-                score = metric(input=model(datapoint[0]), target=datapoint[1])
+                output = model(datapoint[0])
+                score = metric(input=output, target=datapoint[1])
                 all_scores.append(score.item())
         # save scores
         save_scores = {
