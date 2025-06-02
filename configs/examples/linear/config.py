@@ -75,7 +75,7 @@ config = {
             'optimizer_config': {
                 'class': torch.optim.SGD,
                 'args': {
-                    'lr': 1e-03,
+                    'lr': 1.0e-01,
                 },
             },
         },
