@@ -1,6 +1,6 @@
 import math
 import torch
-from timm.models.layers import trunc_normal_
+from timm.layers import trunc_normal_
 from models.change_detection.change_former.modules.overlap_patch_embed import OverlapPatchEmbed
 from models.change_detection.change_former.modules.block import Block
 

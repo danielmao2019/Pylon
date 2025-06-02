@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from timm.models.layers import to_2tuple, DropPath
+from timm.layers import to_2tuple, DropPath
 
 
 class Mlp(nn.Module):

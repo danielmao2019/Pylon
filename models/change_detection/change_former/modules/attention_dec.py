@@ -1,6 +1,6 @@
 import math
 import torch
-from timm.models.layers import trunc_normal_
+from timm.layers import trunc_normal_
 
 
 class Attention_dec(torch.nn.Module):

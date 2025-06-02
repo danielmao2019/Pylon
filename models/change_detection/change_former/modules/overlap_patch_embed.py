@@ -1,6 +1,6 @@
 import math
 import torch
-from timm.models.layers import to_2tuple, trunc_normal_
+from timm.layers import to_2tuple, trunc_normal_
 
 
 class OverlapPatchEmbed(torch.nn.Module):
