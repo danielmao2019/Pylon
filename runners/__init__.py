@@ -9,6 +9,7 @@ from runners.multi_stage_trainer import MultiStageTrainer
 from runners import gan_trainers
 from runners import pcr_trainers
 from runners.base_evaluator import BaseEvaluator
+from runners import eval_viewer
 
 
 __all__ = (
@@ -20,4 +21,5 @@ __all__ = (
     'gan_trainers',
     'pcr_trainers',
     'BaseEvaluator',
+    'eval_viewer',
 )
