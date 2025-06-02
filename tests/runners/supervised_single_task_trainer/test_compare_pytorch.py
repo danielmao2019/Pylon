@@ -10,10 +10,13 @@ gt = torch.rand(size=(2, 2), dtype=torch.float32)
 
 class Dataset(torch.utils.data.Dataset):
 
+    def __init__(self) -> None:
+        self.generator = torch.Generator()
+
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        torch.manual_seed(idx)
-        x = torch.rand(size=(2,), dtype=torch.float32)
-        noise = torch.randn(size=(2,), dtype=torch.float32)
+        self.generator.manual_seed(idx)
+        x = torch.rand(size=(2,), dtype=torch.float32, generator=self.generator)
+        noise = torch.randn(size=(2,), dtype=torch.float32, generator=self.generator)
         y = gt @ x + noise * 0.001
         return x, y
 
