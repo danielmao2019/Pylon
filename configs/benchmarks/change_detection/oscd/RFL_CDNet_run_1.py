@@ -62,6 +62,7 @@ config['model'] = {'class': models.change_detection.RFL_CDNet, 'args': {}}
 
 # criterion config
 import criteria
+config['criterion']['args']['use_buffer'] = False
 config['criterion'] = {'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {'criterion_cfg': config['criterion'], 'reduction': 'sum'}}
 
 # seeds

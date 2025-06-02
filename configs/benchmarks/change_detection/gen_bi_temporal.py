@@ -51,6 +51,7 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
+        config += f"config['criterion']['args']['use_buffer'] = False\n"
         config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{'criterion_cfg': config['criterion'], 'reduction': 'sum'}}}}\n"""
         config += '\n'
     elif model == "DSIFN":
@@ -71,6 +72,7 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
+        config += f"config['criterion']['args']['use_buffer'] = False\n"
         config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{'criterion_cfg': config['criterion'], 'reduction': 'sum'}}}}\n"""
         config += '\n'
     elif model == "HANet":
@@ -154,13 +156,8 @@ def main(dataset: str, model: str) -> None:
         if int(model[-1]) in {4, 5, 6}:
             config += f"# criterion config\n"
             config += f"import criteria\n"
-            config += f"""config['criterion'] = {{
-    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
-    'args': {{
-        'criterion_cfg': config['criterion'],
-        'reduction': 'mean',
-    }},
-}}\n"""
+            config += f"config['criterion']['args']['use_buffer'] = False\n"
+            config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{'criterion_cfg': config['criterion'], 'reduction': 'mean'}}}}\n"""
             config += '\n'
     elif model.startswith("ChangeNext"):
         config += f"import models\n"
@@ -179,13 +176,8 @@ def main(dataset: str, model: str) -> None:
         config += '\n'
         config += f"# criterion config\n"
         config += f"import criteria\n"
-        config += f"""config['criterion'] = {{
-    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
-    'args': {{
-        'criterion_cfg': config['criterion'],
-        'reduction': 'mean',
-    }},
-}}\n"""
+        config += f"config['criterion']['args']['use_buffer'] = False\n"
+        config += f"""config['criterion'] = {{'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {{ 'criterion_cfg': config['criterion'], 'reduction': 'mean'}}}}\n"""
         config += '\n'
     elif model == "FTN":
         config += f"import models\n"
