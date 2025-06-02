@@ -37,7 +37,7 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
         Returns:
             figures: List of Plotly figure dictionaries for each run and the aggregated heatmap
         """
-        if metric is None:
+        if metric is None or epoch is None:
             raise PreventUpdate
 
         # Get sorted list of metrics to ensure consistent indexing
@@ -51,6 +51,8 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
         for i, log_dir in enumerate(log_dirs):
             # Get score map from cache
             score_maps_cache = caches[log_dir]  # Shape: (N, C, H, W)
+
+            # Get score map for current epoch and metric
             score_map = score_maps_cache[epoch, metric_idx]  # Shape: (H, W)
             score_maps.append(score_map)
 
