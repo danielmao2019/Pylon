@@ -12,11 +12,14 @@ class DSIFNCriterion(SingleTaskCriterion):
             'class': SpatialPyTorchCriterionWrapper,
             'args': {
                 'criterion': torch.nn.BCEWithLogitsLoss(),
+                'use_buffer': False,
             },
         })
         self.dice_loss = AuxiliaryOutputsCriterion(criterion_cfg={
             'class': DiceLoss,
-            'args': {},
+            'args': {
+                'use_buffer': False,
+            },
         })
 
     def __call__(self, y_pred: Tuple[torch.Tensor, ...], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
