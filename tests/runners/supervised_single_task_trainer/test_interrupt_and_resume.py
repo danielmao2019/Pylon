@@ -29,8 +29,7 @@ def test_interrupt_and_resume() -> None:
     6. Runs uninterrupted training up to epoch 6
     7. Verifies files match between interrupted and uninterrupted training
     """
-    if os.path.isdir(config['work_dir']):
-        os.system(' '.join(["rm", "-r", config['work_dir']]))
+    os.system(f"rm -rf {config['work_dir']}")
 
     # Create first trainer
     trainer1 = SupervisedSingleTaskTrainer(config=config)
@@ -130,9 +129,7 @@ def test_interrupt_and_resume() -> None:
 
     # Create a new work directory for uninterrupted training
     uninterrupted_dir = config['work_dir'] + "_uninterrupted"
-    if os.path.isdir(uninterrupted_dir):
-        os.system(' '.join(["rm", "-r", uninterrupted_dir]))
-    os.makedirs(uninterrupted_dir)
+    os.system(f"rm -rf {uninterrupted_dir}")
 
     # Create config for uninterrupted training
     uninterrupted_config = config.copy()
