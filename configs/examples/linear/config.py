@@ -25,8 +25,8 @@ config = {
     'runner': SupervisedSingleTaskTrainer,
     'work_dir': "./logs/examples/linear",
     'init_seed': 0,
-    'epochs': 100,
-    'train_seeds': [0] * 100,
+    'epochs': 10,
+    'train_seeds': [0] * 10,
     # ==================================================
     # dataloaders
     # ==================================================
