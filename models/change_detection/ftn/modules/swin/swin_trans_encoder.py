@@ -1,6 +1,6 @@
 import math
 import torch
-from timm.models.layers import trunc_normal_
+from timm.layers import trunc_normal_
 from models.change_detection.ftn.modules.patch.patch_embed import PatchEmbed
 from models.change_detection.ftn.modules.patch.patch_merging import PatchMerging
 from models.change_detection.ftn.modules.basic_layer import BasicLayer
