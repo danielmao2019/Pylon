@@ -4,8 +4,8 @@ from dash import Input, Output, State, dcc
 from dash.exceptions import PreventUpdate
 import numpy as np
 
-from runners.eval_viewer.backend.data_loader import load_validation_scores, extract_metric_scores
-from runners.eval_viewer.backend.visualization import create_score_map, create_score_map_figure
+from runners.eval_viewer.backend.data_loader import get_common_metrics
+from runners.eval_viewer.backend.visualization import create_score_map_figure
 
 
 def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):
@@ -32,8 +32,6 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
         Args:
             epoch: Selected epoch index
             metric: Selected metric name
-            log_dirs: List of paths to log directories
-            caches: Dictionary mapping log directory to score maps array
 
         Returns:
             figures: List of Plotly figure dictionaries for each run
@@ -41,11 +39,15 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
         if metric is None:
             raise PreventUpdate
 
+        # Get sorted list of metrics to ensure consistent indexing
+        metrics = sorted(list(get_common_metrics(log_dirs)))
+        metric_idx = metrics.index(metric)
+
         figures = []
         for i, log_dir in enumerate(log_dirs):
             # Get score map from cache
-            score_maps = caches[log_dir]
-            score_map = score_maps[epoch]  # Shape: (C, H, W)
+            score_maps = caches[log_dir]  # Shape: (N, C, H, W)
+            score_map = score_maps[epoch, metric_idx]  # Shape: (H, W)
 
             # Create figure
             run_name = log_dir.split('/')[-1]

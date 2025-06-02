@@ -36,6 +36,8 @@ def create_score_map_figure(score_map: np.ndarray, title: str) -> go.Figure:
     Returns:
         figure: Plotly figure object
     """
+    assert score_map.ndim == 2, f"Score map must be 2D, got {score_map.ndim}D"
+
     color_scale = get_color_scale()
 
     fig = go.Figure(data=go.Heatmap(
