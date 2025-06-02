@@ -1,7 +1,7 @@
 import pytest
 import torch
 import torch.nn as nn
-from utils.builders import build_from_config
+from utils.builders.builder import build_from_config
 
 
 class DummyClass:
