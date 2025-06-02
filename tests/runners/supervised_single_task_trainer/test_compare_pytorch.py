@@ -36,7 +36,7 @@ def run_pytorch() -> None:
     criterion = torch.nn.MSELoss(reduction='mean')
     metric = torch.nn.MSELoss(reduction='mean')
     model = torch.nn.Linear(in_features=2, out_features=2)
-    optimizer = torch.optim.SGD(params=list(model.parameters()), lr=1e-03)
+    optimizer = torch.optim.SGD(params=list(model.parameters()), lr=1.0e-01)
     work_dir = "./logs/tests/supervised_single_task_trainer/compare_pytorch"
     os.system(f"rm -rf {work_dir}")
     os.makedirs(work_dir, exist_ok=True)
