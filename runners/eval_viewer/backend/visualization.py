@@ -101,6 +101,9 @@ def create_aggregated_heatmap(score_maps: List[np.ndarray], title: str) -> go.Fi
             ticktext=['0%', '25%', '50%', '75%', '100%'],
             tickvals=[0, 0.25, 0.5, 0.75, 1]
         ),
+        hoverongaps=False,
+        hoverinfo='x+y+z',
+        customdata=normalized,  # Add custom data for hover
     ))
 
     fig.update_layout(
@@ -110,6 +113,7 @@ def create_aggregated_heatmap(score_maps: List[np.ndarray], title: str) -> go.Fi
         xaxis=dict(showgrid=False),
         yaxis=dict(showgrid=False),
         margin=dict(l=0, r=0, t=30, b=0),
+        clickmode='event+select',  # Enable click events
     )
 
     return fig
