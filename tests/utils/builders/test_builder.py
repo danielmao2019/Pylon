@@ -15,102 +15,99 @@ class DummyClass:
         return self.value1 == other.value1 and self.value2 == other.value2
 
 
-def test_basic_functionality():
-    """Test basic functionality of build_from_config with simple objects."""
-    # Test with simple values
-    assert build_from_config(5) == 5
-    assert build_from_config("test") == "test"
-    assert build_from_config([1, 2, 3]) == [1, 2, 3]
-
-    # Test with nested config
-    config = {
-        'class': DummyClass,
-        'args': {
-            'value1': 1,
-            'value2': {
+@pytest.mark.parametrize(
+    "input_config, expected",
+    [
+        (5, 5),
+        ("test", "test"),
+        ([1, 2, 3], [1, 2, 3]),
+        (
+            {
                 'class': DummyClass,
                 'args': {
-                    'value1': 2,
-                    'value2': 3
+                    'value1': 1,
+                    'value2': {
+                        'class': DummyClass,
+                        'args': {
+                            'value1': 2,
+                            'value2': 3
+                        }
+                    }
                 }
+            },
+            DummyClass(1, DummyClass(2, 3))
+        ),
+        (
+            {
+                'class': DummyClass,
+                'args': {
+                    'value1': 1
+                }
+            },
+            DummyClass(1, 2)  # We'll pass value2=2 as a kwarg in the test
+        ),
+    ]
+)
+def test_basic_functionality(input_config, expected):
+    if isinstance(expected, DummyClass) and 'value2' not in input_config.get('args', {}):
+        # Test with kwargs for DummyClass
+        result = build_from_config(input_config, value2=2)
+        assert result == expected
+    else:
+        result = build_from_config(input_config)
+        assert result == expected
+
+
+@pytest.mark.parametrize(
+    "optimizer_config_factory",
+    [
+        # Direct optimizer config
+        lambda params: {
+            'class': torch.optim.SGD,
+            'args': {
+                'params': params,
+                'lr': 0.01
             }
-        }
-    }
-    result = build_from_config(config)
-    assert isinstance(result, DummyClass)
-    assert result.value1 == 1
-    assert isinstance(result.value2, DummyClass)
-    assert result.value2.value1 == 2
-    assert result.value2.value2 == 3
-
-    # Test with kwargs
-    config = {
-        'class': DummyClass,
-        'args': {
-            'value1': 1
-        }
-    }
-    result = build_from_config(config, value2=2)
-    assert isinstance(result, DummyClass)
-    assert result.value1 == 1
-    assert result.value2 == 2
-
-
-def test_optimizer_parameter_preservation():
-    """Test that build_from_config preserves PyTorch parameters when building optimizers."""
-    # Create a simple model
+        },
+        # Nested optimizer config inside DummyClass
+        lambda params: {
+            'class': DummyClass,
+            'args': {
+                'value1': {
+                    'class': torch.optim.SGD,
+                    'args': {
+                        'params': params,
+                        'lr': 0.01
+                    }
+                },
+                'value2': 3
+            }
+        },
+    ]
+)
+def test_optimizer_parameter_preservation(optimizer_config_factory):
     model = nn.Linear(10, 10)
     original_params = list(model.parameters())
-    
-    # Create optimizer config
-    optimizer_config = {
-        'class': torch.optim.SGD,
-        'args': {
-            'params': original_params,
-            'lr': 0.01
-        }
-    }
+    config = optimizer_config_factory(original_params)
+    result = build_from_config(config)
 
-    # Build optimizer using build_from_config
-    optimizer = build_from_config(optimizer_config)
-    
-    # Get parameters from optimizer
+    # Extract optimizer depending on config type
+    if isinstance(result, torch.optim.Optimizer):
+        optimizer = result
+    elif isinstance(result, DummyClass) and isinstance(result.value1, torch.optim.Optimizer):
+        optimizer = result.value1
+    else:
+        raise AssertionError("Unexpected result type from build_from_config")
+
     optimizer_params = optimizer.param_groups[0]['params']
-
-    # Test that parameters are preserved (same objects)
     assert len(original_params) == len(optimizer_params)
     for orig_param, opt_param in zip(original_params, optimizer_params):
-        # Test using id()
         assert id(orig_param) == id(opt_param), "Parameters should be the same object (id)"
-        # Test using data_ptr()
         assert orig_param.data_ptr() == opt_param.data_ptr(), "Parameters should point to the same memory (data_ptr)"
-        # Test using is operator
         assert orig_param is opt_param, "Parameters should be the same object (is)"
-
-    # Test with nested config
-    nested_config = {
-        'class': DummyClass,
-        'args': {
-            'value1': optimizer_config,
-            'value2': 3
-        }
-    }
-    
-    # Build nested config
-    nested_result = build_from_config(nested_config)
-    nested_optimizer = nested_result.value1
-    nested_params = nested_optimizer.param_groups[0]['params']
-
-    # Test that parameters are preserved in nested config
-    assert len(original_params) == len(nested_params)
-    for orig_param, nested_param in zip(original_params, nested_params):
-        assert id(orig_param) == id(nested_param), "Parameters should be preserved in nested config (id)"
-        assert orig_param.data_ptr() == nested_param.data_ptr(), "Parameters should be preserved in nested config (data_ptr)"
-        assert orig_param is nested_param, "Parameters should be preserved in nested config (is)"
 
     # Test that modifying optimizer parameters affects model parameters
     for param in optimizer_params:
         param.data += 1.0
-    
     for orig_param, opt_param in zip(original_params, optimizer_params):
         assert torch.allclose(orig_param, opt_param), "Parameter modifications should be reflected in both model and optimizer" 
