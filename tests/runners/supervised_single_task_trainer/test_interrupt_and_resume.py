@@ -1,15 +1,13 @@
 """The purpose of this set of test cases is to compare training performance against other frameworks,
 including the native PyTorch for loop.
 """
-from typing import Tuple, List, Dict
-from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import os
 import threading
 import time
 import json
 import torch
-import torchvision
 
+from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import utils
 from utils.automation.run_status import check_epoch_finished
 from utils.ops import buffer_allclose
