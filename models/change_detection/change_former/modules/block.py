@@ -1,6 +1,6 @@
 import math
 import torch
-from timm.models.layers import DropPath, trunc_normal_
+from timm.layers import DropPath, trunc_normal_
 from models.change_detection.change_former.modules.attention import Attention
 from models.change_detection.change_former.modules.mlp import Mlp
 

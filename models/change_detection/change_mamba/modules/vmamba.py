@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
 from einops import repeat
-from timm.models.layers import DropPath, trunc_normal_
+from timm.layers import DropPath, trunc_normal_
 from fvcore.nn import flop_count, parameter_count
 DropPath.__repr__ = lambda self: f"timm.DropPath({self.drop_prob})"
 
