@@ -24,7 +24,7 @@ class MultiTaskCriterion(BaseCriterion):
         r"""Reset each criterion.
         """
         if hasattr(self, 'task_criteria'):
-            assert isinstance(self.task_criteria, torch.nn.ModuleDict)
+            assert isinstance(self.task_criteria, torch.nn.ModuleDict), f"{type(self.task_criteria)=}"
             assert len(self.task_criteria) > 0
             for criterion in self.task_criteria.values():
                 criterion.reset_buffer()

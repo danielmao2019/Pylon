@@ -1,6 +1,8 @@
 from typing import Dict
 import torch
-from criteria.wrappers import SingleTaskCriterion, MultiTaskCriterion
+from criteria.base_criterion import BaseCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
+from criteria.wrappers.multi_task_criterion import MultiTaskCriterion
 
 
 class CSA_CDGAN_GeneratorCriterion(SingleTaskCriterion):
@@ -30,13 +32,14 @@ class CSA_CDGAN_DiscriminatorCriterion(SingleTaskCriterion):
         return err_d_total
 
 
-class CSA_CDGAN_Criterion(MultiTaskCriterion, torch.nn.Module):
+class CSA_CDGAN_Criterion(MultiTaskCriterion):
 
     def __init__(self) -> None:
-        self.task_criteria = {
+        BaseCriterion.__init__(self)
+        self.task_criteria = torch.nn.ModuleDict({
             'generator': CSA_CDGAN_GeneratorCriterion(),
             'discriminator': CSA_CDGAN_DiscriminatorCriterion(),
-        }
+        })
         self.task_names = set(self.task_criteria.keys())
         self.reset_buffer()
 
