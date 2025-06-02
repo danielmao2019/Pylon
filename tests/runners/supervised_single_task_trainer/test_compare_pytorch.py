@@ -38,6 +38,8 @@ def run_pytorch() -> None:
     model = torch.nn.Linear(in_features=2, out_features=2)
     optimizer = torch.optim.SGD(params=list(model.parameters()), lr=1e-03)
     work_dir = "./logs/tests/supervised_single_task_trainer/compare_pytorch"
+    os.system(f"rm -rf {work_dir}")
+    os.makedirs(work_dir, exist_ok=True)
     for idx in range(10):
         torch.manual_seed(0)
         all_losses = []
@@ -72,7 +74,7 @@ def run_pytorch() -> None:
                 'score': torch.tensor(all_scores).detach().tolist(),
             },
         }
-        with open(os.path.join(epoch_dir, "validation_scores.pt"), "w") as f:
+        with open(os.path.join(epoch_dir, "validation_scores.json"), "w") as f:
             json.dump(save_scores, f)
 
 
@@ -84,6 +86,6 @@ def test_compare_pytorch() -> None:
         losses1 = torch.load(os.path.join(dir1, f"epoch_{idx}", "training_losses.pt"))
         losses2 = torch.load(os.path.join(dir2, f"epoch_{idx}", "training_losses.pt"))
         assert torch.allclose(losses1, losses2), f"{idx} - losses"
-        scores1 = json.load(open(os.path.join(dir1, f"epoch_{idx}", "validation_scores.pt")))
-        scores2 = json.load(open(os.path.join(dir2, f"epoch_{idx}", "validation_scores.pt")))
+        scores1 = json.load(open(os.path.join(dir1, f"epoch_{idx}", "validation_scores.json")))
+        scores2 = json.load(open(os.path.join(dir2, f"epoch_{idx}", "validation_scores.json")))
         assert scores1 == scores2, f"{idx} - scores"
