@@ -46,7 +46,7 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
 
         figures = []
         score_maps = []
-        
+
         # Create individual score maps
         for i, log_dir in enumerate(log_dirs):
             # Get score map from cache
