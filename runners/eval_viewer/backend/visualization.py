@@ -78,17 +78,17 @@ def create_aggregated_heatmap(score_maps: List[np.ndarray], title: str) -> go.Fi
     # Flatten all score maps to find the global score distribution
     all_scores = np.concatenate([score_map.flatten() for score_map in score_maps])
     all_scores = all_scores[~np.isnan(all_scores)]  # Remove NaN values
-    
+
     # Use the 25th percentile as the failure threshold
     # This means scores below this threshold are considered "failures"
     failure_threshold = np.percentile(all_scores, 25)
-    
+
     # Convert all score maps to binary masks (1 for failures, 0 for non-failures)
     binary_maps = [score_map < failure_threshold for score_map in score_maps]
-    
+
     # Sum the binary maps to get the number of runs that failed at each position
     aggregated = np.sum(binary_maps, axis=0)
-    
+
     # Normalize to [0, 1] range
     normalized = aggregated / len(score_maps)
     fig = go.Figure(data=go.Heatmap(

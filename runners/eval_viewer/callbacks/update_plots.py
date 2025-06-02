@@ -55,7 +55,7 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
 
         figures = []
         score_maps = []
-        
+
         # Create individual score maps
         for i, log_dir in enumerate(log_dirs):
             # Get score map from cache
@@ -84,17 +84,17 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
             # Get clicked point coordinates
             point = click_data['points'][0]
             row, col = point['y'], point['x']
-            
+
             # Calculate datapoint index
             side_length = score_maps[0].shape[0]
             datapoint_idx = row * side_length + col
-            
+
             # Get scores for this datapoint across all runs
             scores = []
             for score_map in score_maps:
                 if not np.isnan(score_map[row, col]):
                     scores.append(score_map[row, col])
-            
+
             if scores:
                 # Create datapoint info display
                 datapoint_info = html.Div([
