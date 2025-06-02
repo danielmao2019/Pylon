@@ -1,7 +1,7 @@
 from typing import Tuple, Optional
 import torch
-import data
 from data.transforms.base_transform import BaseTransform
+from data.transforms.vision_2d.resize.maps import ResizeMaps
 
 
 class Crop(BaseTransform):
@@ -33,7 +33,7 @@ class Crop(BaseTransform):
         self.loc = loc
         self.size = size
         if resize:
-            self.resize_op = data.transforms.resize.ResizeMaps(
+            self.resize_op = ResizeMaps(
                 size=resize, interpolation=interpolation,
             )
         else:
