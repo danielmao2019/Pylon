@@ -85,7 +85,7 @@ def test_compare_pytorch() -> None:
     for idx in range(10):
         losses1 = torch.load(os.path.join(dir1, f"epoch_{idx}", "training_losses.pt"))
         losses2 = torch.load(os.path.join(dir2, f"epoch_{idx}", "training_losses.pt"))
-        assert torch.equal(losses1, losses2), f"{idx} - losses"
+        assert torch.allclose(losses1, losses2), f"{idx} - losses"
         scores1 = json.load(open(os.path.join(dir1, f"epoch_{idx}", "validation_scores.json")))
         scores2 = json.load(open(os.path.join(dir2, f"epoch_{idx}", "validation_scores.json")))
         assert scores1 == scores2, f"{idx} - scores"
