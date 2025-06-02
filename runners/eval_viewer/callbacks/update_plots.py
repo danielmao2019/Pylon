@@ -22,16 +22,17 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
     """
     # Create outputs for each run's score map and the aggregated heatmap
     outputs = [Output(f'score-map-{i}', 'children') for i in range(len(log_dirs))]
-    outputs.append(Output('aggregated-heatmap', 'children'))
+    outputs.append(Output('aggregated-heatmap-graph', 'children'))
     outputs.append(Output('selected-datapoint', 'children'))
 
     @app.callback(
         outputs,
         [Input('epoch-slider', 'value'),
          Input('metric-dropdown', 'value'),
-         Input('aggregated-heatmap', 'clickData')]
+         Input('aggregated-heatmap-graph', 'clickData')],
+        [State('selected-datapoint', 'children')]
     )
-    def update_score_maps(epoch: int, metric: str, click_data: dict) -> List[dict]:
+    def update_score_maps(epoch: int, metric: str, click_data: dict, prev_selection: dict) -> List[dict]:
         """
         Updates the score maps based on selected epoch and metric.
 
@@ -39,6 +40,7 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
             epoch: Selected epoch index
             metric: Selected metric name
             click_data: Data from heatmap click event
+            prev_selection: Previous datapoint selection
 
         Returns:
             figures: List of Plotly figure dictionaries for each run and the aggregated heatmap,
@@ -70,10 +72,15 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
 
         # Create aggregated heatmap
         agg_fig = create_aggregated_heatmap(score_maps, f"Common Failure Cases - {metric}")
-        figures.append(dcc.Graph(figure=agg_fig, id='aggregated-heatmap-graph'))
+        figures.append(dcc.Graph(
+            figure=agg_fig,
+            id='aggregated-heatmap-graph',
+            config={'displayModeBar': True},
+            style={'height': '600px'}
+        ))
 
         # Handle selected datapoint
-        if click_data is not None:
+        if click_data is not None and 'points' in click_data and len(click_data['points']) > 0:
             # Get clicked point coordinates
             point = click_data['points'][0]
             row, col = point['y'], point['x']
@@ -103,6 +110,9 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
                     html.H4(f"Datapoint {datapoint_idx}"),
                     html.P("No data available for this position")
                 ])
+        elif prev_selection is not None:
+            # Keep previous selection if no new click
+            datapoint_info = prev_selection
         else:
             datapoint_info = html.Div([
                 html.P("Click on a cell in the heatmap to view datapoint details")

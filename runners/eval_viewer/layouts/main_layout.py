@@ -71,7 +71,7 @@ def create_score_maps_grid(num_runs: int) -> html.Div:
         # Aggregated heatmap
         html.Div([
             html.H2("Common Failure Cases", style={'textAlign': 'center'}),
-            html.Div(id='aggregated-heatmap', style={'width': '100%'}),
+            html.Div(id='aggregated-heatmap-graph', style={'width': '100%'}),
             
             # Selected datapoint display
             html.Div([
