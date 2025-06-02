@@ -70,8 +70,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     log_dirs = [
-        '/home/daniel/repos/Pylon/logs/test_supervised_single_task_trainer',
-        '/home/daniel/repos/Pylon/logs/test_supervised_single_task_trainer_uninterrupted',
+        '/home/daniel/repos/Pylon/logs/examples/linear',
+        '/home/daniel/repos/Pylon/logs/tests/supervised_single_task_trainer/interrupt_and_resume',
     ]
 
     run_app(log_dirs=log_dirs, debug=args.debug, port=args.port, force_reload=args.force_reload)
