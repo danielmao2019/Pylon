@@ -66,13 +66,8 @@ config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256)
 
 # criterion config
 import criteria
-config['criterion'] = {
-    'class': criteria.wrappers.AuxiliaryOutputsCriterion,
-    'args': {
-        'criterion_cfg': config['criterion'],
-        'reduction': 'mean',
-    },
-}
+config['criterion']['args']['use_buffer'] = False
+config['criterion'] = {'class': criteria.wrappers.AuxiliaryOutputsCriterion, 'args': {'criterion_cfg': config['criterion'], 'reduction': 'mean'}}
 
 # seeds
 config['init_seed'] = 53780356
