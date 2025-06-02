@@ -13,7 +13,7 @@ class TestModel(torch.nn.Module):
 
     def __init__(self) -> None:
         super(TestModel, self).__init__()
-        self.linear = torch.nn.Linear(in_features=10, out_features=10)
+        self.linear = torch.nn.Linear(in_features=2, out_features=2)
 
     def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
         assert isinstance(inputs, dict), f"{type(inputs)=}"
