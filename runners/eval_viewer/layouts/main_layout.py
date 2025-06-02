@@ -67,11 +67,17 @@ def create_score_maps_grid(num_runs: int) -> html.Div:
             html.Div(id=f'score-map-{i}', style={'width': '50%', 'display': 'inline-block'})
             for i in range(num_runs)
         ], style={'display': 'flex', 'flexWrap': 'wrap'}),
-
+        
         # Aggregated heatmap
         html.Div([
             html.H2("Common Failure Cases", style={'textAlign': 'center'}),
-            html.Div(id='aggregated-heatmap', style={'width': '100%'})
+            html.Div(id='aggregated-heatmap', style={'width': '100%'}),
+            
+            # Selected datapoint display
+            html.Div([
+                html.H3("Selected Datapoint", style={'textAlign': 'center'}),
+                html.Div(id='selected-datapoint', style={'width': '100%'})
+            ], style={'marginTop': '20px'})
         ], style={'marginTop': '20px'})
     ])
 
