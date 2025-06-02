@@ -72,7 +72,6 @@ class BaseRandomDataset(BaseDataset):
             self._init_generator_(initial_seed=self.initial_seed)
         seed = self.initial_seed + idx
         self.generator.manual_seed(seed)
-        self.generator.set_state(torch.get_rng_state())
         inputs, labels = tuple({
             key2: self.gen_func_config[key1][key2][0](**self.gen_func_config[key1][key2][1], generator=self.generator)
             for key2 in self.gen_func_config[key1]
