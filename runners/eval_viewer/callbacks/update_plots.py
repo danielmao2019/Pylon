@@ -1,6 +1,6 @@
 from typing import List, Dict
 import dash
-from dash import Input, Output, dcc, html
+from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 import numpy as np
 
