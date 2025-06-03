@@ -86,11 +86,11 @@ def get_metrics_from_json(scores_filepath: str) -> Set[str]:
         sample = scores['per_datapoint'][key][0]
         if isinstance(sample, list):
             # Handle sub-metrics (e.g., class_tp[0], class_tp[1], etc.)
-            assert all(isinstance(score, float) for score in sample), \
-                f"Invalid scores format in {scores_filepath}"
+            assert all(isinstance(score, (float, int)) for score in sample), \
+                f"Invalid scores format in {scores_filepath}: {[type(score) for score in sample]}"
             metrics.extend([f"{key}[{i}]" for i in range(len(sample))])
         else:
-            assert isinstance(sample, float), \
+            assert isinstance(sample, (float, int)), \
                 f"Invalid scores format in {scores_filepath}"
             metrics.append(key)
 
