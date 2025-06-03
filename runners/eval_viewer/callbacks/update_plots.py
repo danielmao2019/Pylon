@@ -5,7 +5,7 @@ from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
 from runners.eval_viewer.backend.data_loader import get_common_metrics, load_validation_scores
-from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_scores_plot
+from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_scores_plot, create_overlaid_score_map
 
 
 def get_color_for_score(score: float, min_score: float, max_score: float) -> str:
@@ -72,19 +72,13 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
             score_map = score_maps_cache[epoch, metric_idx]
             score_maps.append(score_map)
         if score_maps:
-            valid_scores = [s for m in score_maps for s in m.flatten() if not np.isnan(s)]
-            min_score = min(valid_scores)
-            max_score = max(valid_scores)
-            side_length = score_maps[0].shape[0]
+            normalized = create_overlaid_score_map(score_maps, f"Common Failure Cases - {metric}")
+            side_length = normalized.shape[0]
             buttons = []
             for row in range(side_length):
                 for col in range(side_length):
-                    scores = [score_map[row, col] for score_map in score_maps if not np.isnan(score_map[row, col])]
-                    if scores:
-                        avg_score = np.mean(scores)
-                        color = get_color_for_score(avg_score, min_score, max_score)
-                    else:
-                        color = '#808080'
+                    value = normalized[row, col]
+                    color = get_color_for_score(value, 0.0, 1.0)  # normalized is already in [0, 1]
                     button = html.Button(
                         '',
                         id={'type': 'grid-button', 'index': f'{row}-{col}'},
@@ -106,9 +100,9 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
                 'width': 'fit-content',
                 'margin': '0 auto'
             })
+            return button_grid
         else:
-            button_grid = html.Div("No data available")
-        return button_grid
+            return html.Div("No data available")
 
     # 3. Selected datapoint info
     @app.callback(
