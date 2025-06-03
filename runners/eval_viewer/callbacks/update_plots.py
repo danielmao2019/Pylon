@@ -1,11 +1,11 @@
 from typing import List, Dict
 import dash
-from dash import Input, Output, State, dcc
+from dash import Input, Output, dcc
 from dash.exceptions import PreventUpdate
 import numpy as np
 
-from runners.eval_viewer.backend.data_loader import get_common_metrics
-from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_heatmap
+from runners.eval_viewer.backend.data_loader import get_common_metrics, load_validation_scores
+from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_heatmap, create_aggregated_scores_plot
 
 
 def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):
@@ -66,3 +66,38 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
         figures.append(dcc.Graph(figure=agg_fig))
 
         return figures
+
+    @app.callback(
+        Output('aggregated-scores-plot', 'children'),
+        [Input('metric-dropdown', 'value')]
+    )
+    def update_aggregated_scores_plot(metric: str) -> dcc.Graph:
+        """
+        Updates the aggregated scores plot based on selected metric.
+
+        Args:
+            metric: Selected metric name
+
+        Returns:
+            figure: Plotly figure dictionary for the aggregated scores plot
+        """
+        if metric is None:
+            raise PreventUpdate
+
+        # Load scores for all epochs from all runs
+        epoch_scores = []
+        for log_dir in log_dirs:
+            run_scores = []
+            epoch = 0
+            while True:
+                try:
+                    scores = load_validation_scores(log_dir, epoch)
+                    run_scores.append(scores)
+                    epoch += 1
+                except AssertionError:
+                    break
+            epoch_scores.append(run_scores)
+
+        # Create figure
+        fig = create_aggregated_scores_plot(epoch_scores, log_dirs, metric)
+        return dcc.Graph(figure=fig)
