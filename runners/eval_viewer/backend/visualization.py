@@ -64,55 +64,22 @@ def get_color_scale() -> List[Tuple[float, str]]:
     ]
 
 
-def create_aggregated_heatmap(score_maps: List[np.ndarray], title: str) -> go.Figure:
+def create_overlaid_score_map(score_maps: List[np.ndarray], title: str = None) -> np.ndarray:
     """
-    Creates a Plotly figure for an aggregated heatmap showing common failure cases.
-
+    Returns the normalized overlaid score map (failure rate map) as a 2D numpy array.
     Args:
         score_maps: List of 2D numpy arrays containing scores from different runs
-        title: Title for the figure
-
+        title: (Unused, kept for compatibility)
     Returns:
-        figure: Plotly figure object
+        normalized: 2D numpy array of normalized failure rates
     """
-    # Flatten all score maps to find the global score distribution
     all_scores = np.concatenate([score_map.flatten() for score_map in score_maps])
-    all_scores = all_scores[~np.isnan(all_scores)]  # Remove NaN values
-
-    # Use the 25th percentile as the failure threshold
-    # This means scores below this threshold are considered "failures"
+    all_scores = all_scores[~np.isnan(all_scores)]
     failure_threshold = np.percentile(all_scores, 25)
-
-    # Convert all score maps to binary masks (1 for failures, 0 for non-failures)
     binary_maps = [score_map < failure_threshold for score_map in score_maps]
-
-    # Sum the binary maps to get the number of runs that failed at each position
     aggregated = np.sum(binary_maps, axis=0)
-
-    # Normalize to [0, 1] range
     normalized = aggregated / len(score_maps)
-
-    fig = go.Figure(data=go.Heatmap(
-        z=normalized,
-        colorscale='Viridis',
-        showscale=True,
-        colorbar=dict(
-            title="Failure Rate",
-            ticktext=['0%', '25%', '50%', '75%', '100%'],
-            tickvals=[0, 0.25, 0.5, 0.75, 1]
-        ),
-    ))
-
-    fig.update_layout(
-        title=f"{title} (Failure threshold: {failure_threshold:.3f})",
-        xaxis_title="Column",
-        yaxis_title="Row",
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=False),
-        margin=dict(l=0, r=0, t=30, b=0),
-    )
-
-    return fig
+    return normalized
 
 
 def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs: List[str], metric: str) -> go.Figure:
