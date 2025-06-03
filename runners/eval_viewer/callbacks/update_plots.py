@@ -74,11 +74,16 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
         if score_maps:
             normalized = create_overlaid_score_map(score_maps, f"Common Failure Cases - {metric}")
             side_length = normalized.shape[0]
+            # Get the number of real datapoints from the first score map
+            n_datapoints = np.count_nonzero(~np.isnan(score_maps[0]))
             buttons = []
             for row in range(side_length):
                 for col in range(side_length):
+                    idx = row * side_length + col
+                    if idx >= n_datapoints:
+                        continue  # Skip padding cells
                     value = normalized[row, col]
-                    color = get_color_for_score(value, 0.0, 1.0)  # normalized is already in [0, 1]
+                    color = get_color_for_score(value, 0.0, 1.0)
                     button = html.Button(
                         '',
                         id={'type': 'grid-button', 'index': f'{row}-{col}'},
