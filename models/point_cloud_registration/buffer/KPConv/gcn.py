@@ -2,7 +2,6 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 from copy import deepcopy
-from knn_cuda import KNN
 
 
 def get_graph_feature(coords, feats, k=10):
@@ -19,6 +18,7 @@ def get_graph_feature(coords, feats, k=10):
 
     ref = coords.transpose(-1, -2)
     query = ref
+    from knn_cuda import KNN
     dis, idx = KNN(k=k+1, transpose_mode=True)(ref, query) #[B, N, K+1]
     idx = idx[:, :, 1:] #here we ignore the smallest element as it's the query itself
 
