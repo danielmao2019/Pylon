@@ -15,10 +15,5 @@ def save_json(obj: Any, filepath: str) -> None:
         os.path.isdir(os.path.dirname(filepath))
     ), f"{filepath=}, {os.path.dirname(filepath)=}"
     obj = serialize_tensor(obj)
-    try:
-        with open(filepath, mode='w') as f:
-            f.write(jsbeautifier.beautify(json.dumps(obj), jsbeautifier.default_options()))
-    except PermissionError:
-        raise PermissionError(f"No write permission for file: {filepath}")
-    except OSError as e:
-        raise OSError(f"Failed to write to file {filepath}: {str(e)}")
+    with open(filepath, mode='w') as f:
+        f.write(jsbeautifier.beautify(json.dumps(obj), jsbeautifier.default_options()))
