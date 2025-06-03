@@ -34,7 +34,10 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         # output check
         assert iou.shape == (num_classes,), f"{iou.shape=}, {num_classes=}"
         assert iou.is_floating_point(), f"{iou.dtype=}"
-        score = {'IoU': iou}
+        score = {
+            'class_IoU': iou,
+            'mean_IoU': torch.nanmean(iou),
+        }
         return score
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -45,7 +48,8 @@ class SemanticSegmentationMetric(SingleTaskMetric):
 
         Return:
             score (Dict[str, torch.Tensor]): a dictionary with the following fields: [
-                'IoU', 'class_tp', 'class_tn', 'class_fp', 'class_fn',
+                'class_IoU', 'mean_IoU',
+                'class_tp', 'class_tn', 'class_fp', 'class_fn',
                 'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
                 'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
             ]
@@ -86,14 +90,16 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(buffer)
         result: Dict[str, torch.Tensor] = {}
         # summarize IoU
-        iou = torch.stack(buffer['IoU'], dim=0)
+        iou = torch.stack(buffer['class_IoU'], dim=0)
         assert iou.shape == (num_datapoints, num_classes), f"{iou.shape=}, {num_datapoints=}, {num_classes=}"
         class_iou = torch.nanmean(iou, dim=0)
         assert class_iou.shape == (num_classes,), f"{class_iou.shape=}"
         mean_iou = torch.nanmean(class_iou)
         assert mean_iou.ndim == 0, f"{mean_iou.shape=}"
-        result['class_IoU'] = class_iou
-        result['mean_IoU'] = mean_iou
+        result.update({
+            'class_IoU': class_iou,
+            'mean_IoU': mean_iou,
+        })
         # summarize confusion matrix
         agg_cm = {
             key: torch.stack(buffer[key], dim=0).sum(dim=0)
