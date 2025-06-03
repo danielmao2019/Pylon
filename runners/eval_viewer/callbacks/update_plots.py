@@ -33,86 +33,58 @@ def get_color_for_score(score: float, min_score: float, max_score: float) -> str
 def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):
     """
     Registers all callbacks for the app.
-
-    Args:
-        app: Dash application instance
-        log_dirs: List of paths to log directories
-        caches: Dictionary mapping log directory to score maps array
     """
-    # Create outputs for each run's score map and the button grid
+    # 1. Individual score maps
     outputs = [Output(f'score-map-{i}', 'children') for i in range(len(log_dirs))]
-    outputs.append(Output('button-grid-container', 'children'))
-    outputs.append(Output('selected-datapoint', 'children'))
-
     @app.callback(
         outputs,
         [Input('epoch-slider', 'value'),
-         Input('metric-dropdown', 'value')],
-        [State('selected-datapoint', 'children')]
+         Input('metric-dropdown', 'value')]
     )
-    def update_score_maps(epoch: int, metric: str, prev_selection: dict) -> List[dict]:
-        """
-        Updates the score maps based on selected epoch and metric.
-
-        Args:
-            epoch: Selected epoch index
-            metric: Selected metric name
-            prev_selection: Previous datapoint selection
-
-        Returns:
-            figures: List of Plotly figure dictionaries for each run and the button grid,
-                    plus selected datapoint information
-        """
+    def update_score_maps(epoch: int, metric: str):
         if metric is None or epoch is None:
             raise PreventUpdate
-
-        # Get sorted list of metrics to ensure consistent indexing
         metrics = sorted(list(get_common_metrics(log_dirs)))
         metric_idx = metrics.index(metric)
-
         figures = []
-        score_maps = []
-
-        # Create individual score maps
         for i, log_dir in enumerate(log_dirs):
-            # Get score map from cache
-            score_maps_cache = caches[log_dir]  # Shape: (N, C, H, W)
-
-            # Get score map for current epoch and metric
-            score_map = score_maps_cache[epoch, metric_idx]  # Shape: (H, W)
-            score_maps.append(score_map)
-
-            # Create figure
+            score_maps_cache = caches[log_dir]
+            score_map = score_maps_cache[epoch, metric_idx]
             run_name = log_dir.split('/')[-1]
             fig = create_score_map_figure(score_map, f"{run_name} - {metric}")
             figures.append(dcc.Graph(figure=fig))
+        return figures
 
-        # Create button grid
+    # 2. Overlaid button grid (overlaid heatmap as buttons)
+    @app.callback(
+        Output('button-grid-container', 'children'),
+        [Input('epoch-slider', 'value'),
+         Input('metric-dropdown', 'value')]
+    )
+    def update_overlaid_score_map(epoch: int, metric: str):
+        if metric is None or epoch is None:
+            raise PreventUpdate
+        metrics = sorted(list(get_common_metrics(log_dirs)))
+        metric_idx = metrics.index(metric)
+        score_maps = []
+        for log_dir in log_dirs:
+            score_maps_cache = caches[log_dir]
+            score_map = score_maps_cache[epoch, metric_idx]
+            score_maps.append(score_map)
         if score_maps:
-            # Calculate min and max scores for color scaling
             valid_scores = [s for m in score_maps for s in m.flatten() if not np.isnan(s)]
             min_score = min(valid_scores)
             max_score = max(valid_scores)
-            
-            # Create grid of buttons
             side_length = score_maps[0].shape[0]
             buttons = []
-            
             for row in range(side_length):
                 for col in range(side_length):
-                    # Calculate average score for this position
-                    scores = []
-                    for score_map in score_maps:
-                        if not np.isnan(score_map[row, col]):
-                            scores.append(score_map[row, col])
-                    
+                    scores = [score_map[row, col] for score_map in score_maps if not np.isnan(score_map[row, col])]
                     if scores:
                         avg_score = np.mean(scores)
                         color = get_color_for_score(avg_score, min_score, max_score)
                     else:
-                        color = '#808080'  # Gray for no data
-                    
-                    # Create button
+                        color = '#808080'
                     button = html.Button(
                         '',
                         id={'type': 'grid-button', 'index': f'{row}-{col}'},
@@ -127,7 +99,6 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
                         }
                     )
                     buttons.append(button)
-            
             button_grid = html.Div(buttons, style={
                 'display': 'grid',
                 'gridTemplateColumns': f'repeat({side_length}, 20px)',
@@ -137,61 +108,34 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
             })
         else:
             button_grid = html.Div("No data available")
+        return button_grid
 
-        figures.append(button_grid)
-        
-        # Keep previous selection if no new click
-        if prev_selection is not None:
-            datapoint_info = prev_selection
-        else:
-            datapoint_info = html.Div([
-                html.P("Click on a cell in the grid to view datapoint details")
-            ])
-
-        figures.append(datapoint_info)
-        return figures
-
+    # 3. Selected datapoint info
     @app.callback(
         Output('selected-datapoint', 'children'),
         [Input({'type': 'grid-button', 'index': dash.ALL}, 'n_clicks')],
         [State('epoch-slider', 'value'),
          State('metric-dropdown', 'value')]
     )
-    def update_selected_datapoint(clicks, epoch: int, metric: str) -> html.Div:
-        """Updates the selected datapoint display when a button is clicked."""
+    def update_selected_datapoint(clicks, epoch: int, metric: str):
         if not any(clicks) or epoch is None or metric is None:
             raise PreventUpdate
-
-        # Find which button was clicked
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
-        
         button_id = ctx.triggered[0]['prop_id'].split('.')[0]
         row, col = map(int, button_id.split('-'))
-
-        # Get score maps for current epoch and metric
         metrics = sorted(list(get_common_metrics(log_dirs)))
         metric_idx = metrics.index(metric)
-        
         score_maps = []
         for log_dir in log_dirs:
             score_maps_cache = caches[log_dir]
             score_map = score_maps_cache[epoch, metric_idx]
             score_maps.append(score_map)
-
-        # Calculate datapoint index
         side_length = score_maps[0].shape[0]
         datapoint_idx = row * side_length + col
-
-        # Get scores for this datapoint across all runs
-        scores = []
-        for score_map in score_maps:
-            if not np.isnan(score_map[row, col]):
-                scores.append(score_map[row, col])
-
+        scores = [score_map[row, col] for score_map in score_maps if not np.isnan(score_map[row, col])]
         if scores:
-            # Create datapoint info display
             return html.Div([
                 html.H4(f"Datapoint {datapoint_idx}"),
                 html.P(f"Position: Row {row}, Column {col}"),
