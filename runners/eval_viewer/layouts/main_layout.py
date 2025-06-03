@@ -1,5 +1,4 @@
 from typing import List
-import dash
 from dash import html, dcc
 
 
