@@ -313,37 +313,32 @@ class Launcher(BaseAgent):
         gpu_pool = gpu_pool[:num_launch]
         missing_runs = missing_runs[:num_launch]
 
-        def launch_job(args):
-            gpu, run = args
+        def launch_job(gpu, run):
             error_log = os.path.join(get_work_dir(run), "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
-            cmd = ' '.join([
-                'ssh', gpu['server'],
-                "'",
-                    'tmux', 'new-session', '-d',
-                    '"',
-                        # navigate to project dir
-                        'cd', self.project_dir, '&&',
-                        # pull latest code
-                        'git', 'checkout', 'main', '&&', 'git', 'pull', '&&',
-                        # conda environment
-                        'source', '~/miniconda3/bin/activate', self.conda_env, '&&',
-                        'mkdir', '-p', os.path.dirname(error_log), '&&',
-                        # launch command
-                        "MKL_SERVICE_FORCE_INTEL=1",
-                        f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
-                        'python', 'main.py', '--config-filepath', run,
-                        '2>', error_log,
-                        *([';', 'exec', 'bash'] if self.keep_tmux else []),
-                    '"',
-                "'",
+            cmd = ' && '.join([
+                f"cd {self.project_dir}",
+                "git checkout main",
+                "git pull --rebase origin main",
+                "source ~/.bashrc",
+                f"source ~/miniconda3/bin/activate {self.conda_env}",
+                f"mkdir -p {os.path.dirname(error_log)}",
+                ' '.join([
+                    "MKL_SERVICE_FORCE_INTEL=1",
+                    f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
+                    "python", "main.py", "--config-filepath", run,
+                    # "2>", error_log,
+                ]),
             ])
+            cmd = cmd + "; exec bash" if self.keep_tmux else cmd
+            cmd = f"tmux new-session -d \"{cmd}\""
+            cmd = f"ssh {gpu['server']} '{cmd}'"
             self.logger.info(cmd)
             os.system(cmd)
 
-        with ThreadPoolExecutor() as executor:
-            list(executor.map(launch_job, zip(gpu_pool, missing_runs)))
+        for gpu, run in zip(gpu_pool, missing_runs):
+            launch_job(gpu, run)
         return False
 
     def spawn(self, num_jobs: Optional[int] = 1) -> None:
