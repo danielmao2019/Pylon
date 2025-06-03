@@ -64,9 +64,9 @@ def get_color_scale() -> List[Tuple[float, str]]:
     ]
 
 
-def create_aggregated_heatmap(score_maps: List[np.ndarray], title: str) -> go.Figure:
+def create_overlaid_score_map(score_maps: List[np.ndarray], title: str) -> go.Figure:
     """
-    Creates a Plotly figure for an aggregated heatmap showing common failure cases.
+    Creates a Plotly figure for an overlaid score map showing common failure cases.
 
     Args:
         score_maps: List of 2D numpy arrays containing scores from different runs
