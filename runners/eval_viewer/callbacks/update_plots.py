@@ -3,13 +3,9 @@ import dash
 from dash import Input, Output, dcc, html
 from dash.exceptions import PreventUpdate
 import numpy as np
-import plotly.express as px
 
 from runners.eval_viewer.backend.data_loader import get_common_metrics, load_validation_scores
 from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_scores_plot
-
-from utils.data_loader import load_validation_scores, extract_metric_scores
-from utils.visualization import create_score_map, create_score_map_figure
 
 
 def get_color_for_score(score: float, min_score: float, max_score: float) -> str:
