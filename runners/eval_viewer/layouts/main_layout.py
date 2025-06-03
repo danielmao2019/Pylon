@@ -38,6 +38,19 @@ def create_controls(max_epoch: int, metrics: List[str]) -> html.Div:
     ], style={'padding': '20px'})
 
 
+def create_aggregated_scores_plot() -> html.Div:
+    """
+    Creates the plot for visualizing aggregated scores over epochs.
+
+    Returns:
+        plot: HTML div containing the aggregated scores plot
+    """
+    return html.Div([
+        html.H2("Aggregated Scores Over Time", style={'textAlign': 'center'}),
+        html.Div(id='aggregated-scores-plot', style={'width': '100%'})
+    ], style={'marginTop': '20px'})
+
+
 def create_score_maps_grid(num_runs: int) -> html.Div:
     """
     Creates the grid layout for displaying score maps.
@@ -78,5 +91,6 @@ def create_layout(max_epoch: int, metrics: List[str], num_runs: int) -> html.Div
     return html.Div([
         html.H1("Evaluation Viewer", style={'textAlign': 'center'}),
         create_controls(max_epoch, metrics),
+        create_aggregated_scores_plot(),
         create_score_maps_grid(num_runs),
     ])

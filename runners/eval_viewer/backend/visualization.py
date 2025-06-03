@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 import numpy as np
 import plotly.graph_objects as go
 
@@ -27,35 +27,26 @@ def create_score_map(scores: List[float]) -> np.ndarray:
 
 def create_score_map_figure(score_map: np.ndarray, title: str) -> go.Figure:
     """
-    Creates a Plotly figure for a score map.
+    Creates a heatmap figure for a score map.
 
     Args:
-        score_map: 2D numpy array containing scores
+        score_map: 2D numpy array of scores
         title: Title for the figure
 
     Returns:
-        figure: Plotly figure object
+        fig: Plotly figure object
     """
-    assert score_map.ndim == 2, f"Score map must be 2D, got {score_map.ndim}D"
-
-    color_scale = get_color_scale()
-
     fig = go.Figure(data=go.Heatmap(
         z=score_map,
-        colorscale=color_scale,
+        colorscale='Viridis',
         showscale=True,
-        colorbar=dict(title="Score"),
     ))
-
     fig.update_layout(
         title=title,
-        xaxis_title="Column",
-        yaxis_title="Row",
-        xaxis=dict(showgrid=False),
-        yaxis=dict(showgrid=False),
+        xaxis_title="X",
+        yaxis_title="Y",
         margin=dict(l=0, r=0, t=30, b=0),
     )
-
     return fig
 
 
@@ -101,18 +92,9 @@ def create_aggregated_heatmap(score_maps: List[np.ndarray], title: str) -> go.Fi
     # Normalize to [0, 1] range
     normalized = aggregated / len(score_maps)
 
-    # Create custom colorscale that emphasizes common failures
-    colorscale = [
-        [0, 'rgb(255, 255, 255)'],  # White for no failures
-        [0.25, 'rgb(255, 255, 200)'],  # Light yellow for few failures
-        [0.5, 'rgb(255, 200, 0)'],  # Yellow for moderate failures
-        [0.75, 'rgb(255, 100, 0)'],  # Orange for many failures
-        [1, 'rgb(255, 0, 0)']  # Red for all failures
-    ]
-
     fig = go.Figure(data=go.Heatmap(
         z=normalized,
-        colorscale=colorscale,
+        colorscale='Viridis',
         showscale=True,
         colorbar=dict(
             title="Failure Rate",
@@ -130,4 +112,49 @@ def create_aggregated_heatmap(score_maps: List[np.ndarray], title: str) -> go.Fi
         margin=dict(l=0, r=0, t=30, b=0),
     )
 
+    return fig
+
+
+def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs: List[str], metric: str) -> go.Figure:
+    """
+    Creates a line plot showing aggregated scores over epochs for each run.
+
+    Args:
+        epoch_scores: List of dictionaries containing aggregated scores for each epoch
+        log_dirs: List of log directory paths
+        metric: Name of the metric to plot
+
+    Returns:
+        fig: Plotly figure object
+    """
+    fig = go.Figure()
+
+    for i, (scores, log_dir) in enumerate(zip(epoch_scores, log_dirs)):
+        run_name = log_dir.split('/')[-1]
+        
+        # Extract scores for the selected metric
+        if '[' in metric:
+            base_metric, idx_str = metric.split('[')
+            idx = int(idx_str.rstrip(']'))
+            y_values = [scores['aggregated'][base_metric][idx] for scores in epoch_scores[i]]
+        else:
+            y_values = [scores['aggregated'][metric] for scores in epoch_scores[i]]
+        
+        x_values = list(range(len(y_values)))
+        
+        fig.add_trace(go.Scatter(
+            x=x_values,
+            y=y_values,
+            name=run_name,
+            mode='lines+markers'
+        ))
+
+    fig.update_layout(
+        title=f"Aggregated {metric} Over Time",
+        xaxis_title="Epoch",
+        yaxis_title="Score",
+        showlegend=True,
+        margin=dict(l=0, r=0, t=30, b=0),
+    )
+    
     return fig
