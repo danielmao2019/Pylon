@@ -50,41 +50,46 @@ def create_aggregated_scores_plot() -> html.Div:
     ], style={'marginTop': '20px'})
 
 
-def create_score_maps_grid(num_runs: int) -> html.Div:
-    """
-    Creates the grid layout for displaying score maps.
-
-    Args:
-        num_runs: Number of runs to display
-
-    Returns:
-        grid: HTML div containing the score maps grid
-    """
+def create_individual_score_maps_section(num_runs: int) -> html.Div:
+    """Section for individual score maps."""
     return html.Div([
-        # Individual score maps
+        html.H2("Individual Score Maps", style={'textAlign': 'center'}),
         html.Div([
             html.Div(id=f'score-map-{i}', style={'width': '50%', 'display': 'inline-block'})
             for i in range(num_runs)
-        ], style={'display': 'flex', 'flexWrap': 'wrap'}),
+        ], style={'display': 'flex', 'flexWrap': 'wrap'})
+    ], style={'marginTop': '20px'})
 
-        # Button grid for common failure cases
-        html.Div([
-            html.H2("Common Failure Cases", style={'textAlign': 'center'}),
-            html.Div(id='button-grid-container', style={
-                'display': 'grid',
-                'gridTemplateColumns': 'repeat(auto-fill, minmax(20px, 1fr))',
-                'gap': '1px',
-                'width': '100%',
-                'maxWidth': '800px',
-                'margin': '0 auto'
-            }),
 
-            # Selected datapoint display
-            html.Div([
-                html.H3("Selected Datapoint", style={'textAlign': 'center'}),
-                html.Div(id='selected-datapoint', style={'width': '100%'})
-            ], style={'marginTop': '20px'})
-        ], style={'marginTop': '20px'})
+def create_button_grid_section() -> html.Div:
+    """Section for the button grid (overlaid score map)."""
+    return html.Div([
+        html.H2("Common Failure Cases", style={'textAlign': 'center'}),
+        html.Div(id='button-grid-container', style={
+            'display': 'grid',
+            'gridTemplateColumns': 'repeat(auto-fill, minmax(20px, 1fr))',
+            'gap': '1px',
+            'width': '100%',
+            'maxWidth': '800px',
+            'margin': '0 auto'
+        })
+    ], style={'marginTop': '20px'})
+
+
+def create_datapoint_display_section() -> html.Div:
+    """Section for the selected datapoint display."""
+    return html.Div([
+        html.H3("Selected Datapoint", style={'textAlign': 'center'}),
+        html.Div(id='selected-datapoint', style={'width': '100%'})
+    ], style={'marginTop': '20px'})
+
+
+def create_score_maps_grid(num_runs: int) -> html.Div:
+    """Combines the three sections into the main grid layout."""
+    return html.Div([
+        create_individual_score_maps_section(num_runs),
+        create_button_grid_section(),
+        create_datapoint_display_section()
     ])
 
 
