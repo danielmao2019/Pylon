@@ -117,8 +117,11 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
-        button_id = ctx.triggered[0]['prop_id'].split('.')[0]
-        row, col = map(int, button_id.split('-'))
+        triggered_id = ctx.triggered_id
+        if isinstance(triggered_id, dict) and 'index' in triggered_id:
+            row, col = map(int, triggered_id['index'].split('-'))
+        else:
+            raise PreventUpdate
         metrics = sorted(list(get_common_metrics(log_dirs)))
         metric_idx = metrics.index(metric)
         score_maps = []
