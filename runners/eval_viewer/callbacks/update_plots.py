@@ -1,8 +1,8 @@
 from typing import List, Dict
+import numpy as np
 import dash
 from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
-import numpy as np
 
 from runners.eval_viewer.backend.data_loader import get_common_metrics, load_validation_scores
 from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_scores_plot
