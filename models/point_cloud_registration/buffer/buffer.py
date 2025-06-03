@@ -11,7 +11,6 @@ from models.point_cloud_registration.buffer.utils.SE3 import *
 from models.point_cloud_registration.buffer.utils.common import make_open3d_point_cloud
 import kornia.geometry.conversions as Convert
 import pointnet2_ops.pointnet2_utils as pnt2
-from knn_cuda import KNN
 
 
 class EquiMatch(nn.Module):
@@ -343,6 +342,7 @@ class BUFFER(nn.Module):
             - s_mids:    [A]
             - t_mids:    [B]
         """
+        from knn_cuda import KNN
         # mutual knn
         ref = tgt_des.unsqueeze(0)
         query = src_des.unsqueeze(0)
@@ -373,6 +373,7 @@ class BUFFER(nn.Module):
         # knn
         ref = target.unsqueeze(0)
         query = source.unsqueeze(0)
+        from knn_cuda import KNN
         s_dis, s_idx = KNN(k=1, transpose_mode=True)(ref, query)
         sourceNNidx = s_idx[0]
         min_ind = torch.cat([torch.arange(source.shape[0])[:, None].cuda(), sourceNNidx], dim=-1)
