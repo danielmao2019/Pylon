@@ -30,12 +30,12 @@ def get_color_for_score(score: float, min_score: float, max_score: float) -> str
 
     return f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})'
 
-def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):
+def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: Dict[str, LogDirInfo], caches: Dict[str, np.ndarray]):
     """
     Registers all callbacks for the app.
     """
     # 1. Individual score maps
-    outputs = [Output(f'score-map-{i}', 'children') for i in range(len(log_dirs))]
+    outputs = [Output(f'score-map-{i}', 'children') for i in range(len(log_dir_infos))]
     @app.callback(
         outputs,
         [Input('epoch-slider', 'value'),
@@ -44,10 +44,9 @@ def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np
     def update_score_maps(epoch: int, metric: str):
         if metric is None or epoch is None:
             raise PreventUpdate
-        metrics = sorted(list(get_common_metrics(log_dirs)))
-        metric_idx = metrics.index(metric)
+        metric_idx = metric_names.index(metric)
         figures = []
-        for i, log_dir in enumerate(log_dirs):
+        for i, log_dir in enumerate(log_dir_infos):
             score_maps_cache = caches[log_dir]
             score_map = score_maps_cache[epoch, metric_idx]
             run_name = log_dir.split('/')[-1]
