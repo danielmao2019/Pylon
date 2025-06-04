@@ -15,7 +15,6 @@ from runners.eval_viewer.backend.datapoint_viewer import DatapointViewer
 from data.viewer.managers.dataset_manager import DatasetManager
 
 
-
 def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
     """Create the Dash application.
 
