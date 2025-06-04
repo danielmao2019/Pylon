@@ -59,13 +59,13 @@ class DatasetLoader:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
 
-                if not hasattr(module, 'config'):
+                if not hasattr(module, 'data_cfg'):
                     self.logger.warning(f"No config found in {config_file}")
                     continue
 
                 # Add to configs with dataset type prefix
                 config_key = f"{dataset_type}/{dataset_name}"
-                dataset_configs[config_key] = module.config
+                dataset_configs[config_key] = module.data_cfg
                 self.logger.info(f"Loaded config for dataset: {config_key}")
 
         return dataset_configs
