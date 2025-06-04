@@ -68,7 +68,6 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
         score_info = html.Div([
             html.H4(f"Datapoint {datapoint_idx}"),
             html.P(f"Position: Row {row}, Column {col}"),
-            html.P(f"Dataset: {datapoint_viewer.current_dataset}"),
             html.P(f"Type: {datapoint_viewer.dataset_type}"),
             # Add more score information as needed
         ])
