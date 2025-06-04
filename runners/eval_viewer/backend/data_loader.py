@@ -164,21 +164,25 @@ def get_score_map(epoch_dirs: List[str], metric_names: Set[str], force_reload: b
     # Sort metric names for consistent ordering
     sorted_metrics = sorted(metric_names)
     
-    # Fill score map for each epoch and metric
-    for e, epoch_dir in enumerate(epoch_dirs):
+    # Load all scores at once
+    all_scores = []
+    for epoch_dir in epoch_dirs:
         with open(os.path.join(epoch_dir, "validation_scores.json"), "r") as f:
             scores = json.load(f)
-            
-        for c, metric in enumerate(sorted_metrics):
-            if '[' in metric:
-                base_metric, idx_str = metric.split('[')
-                idx = int(idx_str.rstrip(']'))
-                metric_scores = [float(score[idx]) for score in scores['per_datapoint'][base_metric]]
-            else:
-                metric_scores = [float(score) for score in scores['per_datapoint'][metric]]
-            
-            # Fill the flattened scores into the square matrix
-            score_map[e, c].flat[:n_datapoints] = metric_scores
+            epoch_scores = []
+            for metric in sorted_metrics:
+                if '[' in metric:
+                    base_metric, idx_str = metric.split('[')
+                    idx = int(idx_str.rstrip(']'))
+                    metric_scores = np.array([float(score[idx]) for score in scores['per_datapoint'][base_metric]])
+                else:
+                    metric_scores = np.array([float(score) for score in scores['per_datapoint'][metric]])
+                epoch_scores.append(metric_scores)
+            all_scores.append(epoch_scores)
+    
+    # Convert to numpy array and reshape
+    all_scores = np.array(all_scores)  # Shape: (n_epochs, n_metrics, n_datapoints)
+    score_map.reshape(n_epochs, n_metrics, -1)[:, :, :n_datapoints] = all_scores
     
     # Save to cache
     np.save(cache_path, score_map)
