@@ -1,9 +1,13 @@
-from typing import List, Dict, Set, Tuple, NamedTuple
+from typing import List, Dict, Set, Tuple, NamedTuple, Optional
 import os
 import json
+import pickle
 import numpy as np
 from pathlib import Path
 from data.viewer.managers.registry import get_dataset_type, DatasetType
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LogDirInfo(NamedTuple):
@@ -12,231 +16,316 @@ class LogDirInfo(NamedTuple):
     metrics: Set[str]
     dataset_class: str
     dataset_type: DatasetType
-    scores: Dict[int, Dict]  # epoch -> scores
-    score_maps: np.ndarray  # (n_epochs, n_metrics, side_length, side_length)
+    scores: Dict[str, Dict[str, float]]
+    score_maps: Dict[str, Dict[str, Dict[str, float]]]
 
 
 def get_cache_path(log_dir: str) -> str:
-    """Get the cache file path for a log directory.
-
+    """Get the path to the cache file for a log directory.
+    
     Args:
         log_dir: Path to log directory
-
+        
     Returns:
-        cache_path: Path to cache file
+        Path to cache file
     """
+    # Create cache directory in eval viewer
     cache_dir = Path(__file__).parent.parent / "score_maps_cache"
     cache_dir.mkdir(exist_ok=True)
-
+    
     # Use the last component of log_dir as the cache filename
     run_name = os.path.basename(os.path.normpath(log_dir))
     return str(cache_dir / f"{run_name}.npy")
 
 
-def create_score_maps(scores: Dict[int, Dict], metrics: List[str]) -> np.ndarray:
-    """Create score maps array from scores dictionary.
-
+def get_epoch_dirs(log_dir: str) -> List[str]:
+    """Get list of consecutive epoch directories in a log directory that have validation scores.
+    
     Args:
-        scores: Dictionary mapping epochs to scores
-        metrics: List of metrics to include
-
+        log_dir: Path to log directory
+        
     Returns:
-        score_maps: numpy array of shape (N, C, H, W) where:
-            N = number of epochs
-            C = number of metrics
-            H, W = dimensions of the square matrix
+        List of consecutive epoch directory paths that have validation scores
+        
+    Raises:
+        ValueError: If no valid epoch directories found or epochs are not consecutive
     """
-    n_epochs = len(scores)
-    n_datapoints = len(next(iter(scores[0]['per_datapoint'].values())))
-    side_length = int(np.ceil(np.sqrt(n_datapoints)))
+    epoch_dirs = []
+    epoch = 0
+    
+    while True:
+        epoch_dir = os.path.join(log_dir, f"epoch_{epoch}")
+        scores_file = os.path.join(epoch_dir, "validation_scores.json")
+        
+        if not os.path.exists(epoch_dir) or not os.path.exists(scores_file):
+            break
+            
+        epoch_dirs.append(epoch_dir)
+        epoch += 1
+    
+    if not epoch_dirs:
+        raise ValueError(f"No epoch directories with validation scores found in {log_dir}")
+        
+    return epoch_dirs
 
-    # Initialize cache with NaN's
-    score_maps = np.full((n_epochs, len(metrics), side_length, side_length), np.nan)
 
-    # Fill cache for each epoch and metric
-    for e in range(n_epochs):
-        for c, metric in enumerate(metrics):
-            if '[' in metric:
-                base_metric, idx_str = metric.split('[')
-                idx = int(idx_str.rstrip(']'))
-                metric_scores = [float(score[idx]) for score in scores[e]['per_datapoint'][base_metric]]
+def get_max_epoch(epoch_dirs: List[str]) -> int:
+    """Get the maximum epoch number from a list of epoch directories.
+    
+    Args:
+        epoch_dirs: List of epoch directory paths
+        
+    Returns:
+        Maximum epoch number
+    """
+    return max(int(os.path.basename(d).split("_")[1]) for d in epoch_dirs)
+
+
+def extract_metrics_from_scores(scores_file: str) -> Set[str]:
+    """Extract metric names including sub-metrics from a validation scores file.
+    
+    Args:
+        scores_file: Path to validation scores file
+        
+    Returns:
+        Set of metric names including sub-metrics (e.g., class_tp[0])
+        
+    Raises:
+        ValueError: If scores file format is invalid
+    """
+    with open(scores_file, "r") as f:
+        scores = json.load(f)
+        assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
+        assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
+        assert isinstance(scores['per_datapoint'], dict), f"Invalid per_datapoint format in {scores_file}"
+        
+        # Extract metrics from per_datapoint scores
+        metrics = set()
+        for key in scores['per_datapoint'].keys():
+            sample = scores['per_datapoint'][key][0]
+            if isinstance(sample, list):
+                metrics.update(f"{key}[{i}]" for i in range(len(sample)))
             else:
-                metric_scores = [float(score) for score in scores[e]['per_datapoint'][metric]]
-            score_maps[e, c].flat[:n_datapoints] = metric_scores
+                assert isinstance(sample, (float, int)), f"Invalid sample type in {scores_file}"
+                metrics.add(key)
+                
+        return metrics
 
+
+def get_metrics(epoch_dirs: List[str]) -> Set[str]:
+    """Get set of metrics from validation scores files.
+    
+    Args:
+        epoch_dirs: List of epoch directory paths
+        
+    Returns:
+        Set of metric names including sub-metrics (e.g., class_tp[0])
+        
+    Raises:
+        ValueError: If no validation scores found or metrics are inconsistent
+    """
+    metrics = None
+    for epoch_dir in epoch_dirs:
+        scores_file = os.path.join(epoch_dir, "validation_scores.json")
+        assert os.path.exists(scores_file)
+        
+        current_metrics = extract_metrics_from_scores(scores_file)
+        if metrics is None:
+            metrics = current_metrics
+        elif current_metrics != metrics:
+            raise ValueError(f"Inconsistent metrics found in {scores_file}")
+                
+    return metrics
+
+
+def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
+    """Get dataset class and type from config file.
+    
+    Args:
+        log_dir: Path to log directory
+        
+    Returns:
+        Tuple of (dataset_class, dataset_type)
+        
+    Raises:
+        ValueError: If config file not found or invalid
+    """
+    config_file = os.path.join(log_dir, "config.json")
+    if not os.path.exists(config_file):
+        raise ValueError(f"Config file not found: {config_file}")
+        
+    with open(config_file, "r") as f:
+        config = json.load(f)
+        
+    dataset_class = config.get("dataset", {}).get("class")
+    if not dataset_class:
+        raise ValueError(f"Dataset class not found in {config_file}")
+        
+    dataset_type = get_dataset_type(dataset_class)
+    return dataset_class, dataset_type
+
+
+def get_scores(epoch_dirs: List[str], metrics: Set[str]) -> Dict[str, Dict[str, float]]:
+    """Get scores for each epoch and metric.
+    
+    Args:
+        epoch_dirs: List of epoch directory paths
+        metrics: Set of metric names
+        
+    Returns:
+        Dictionary mapping epochs to metric scores
+    """
+    scores = {}
+    for epoch_dir in epoch_dirs:
+        epoch = int(os.path.basename(epoch_dir).split("_")[1])
+        scores_file = os.path.join(epoch_dir, "val_scores.json")
+        
+        if not os.path.exists(scores_file):
+            continue
+            
+        with open(scores_file, "r") as f:
+            epoch_scores = json.load(f)
+            scores[epoch] = {metric: epoch_scores[metric] for metric in metrics}
+    return scores
+
+
+def get_score_maps(epoch_dirs: List[str], metrics: Set[str]) -> Dict[str, Dict[str, Dict[str, float]]]:
+    """Get score maps for each epoch, metric and datapoint.
+    
+    Args:
+        epoch_dirs: List of epoch directory paths
+        metrics: Set of metric names
+        
+    Returns:
+        Dictionary mapping epochs to metric score maps
+    """
+    score_maps = {}
+    for epoch_dir in epoch_dirs:
+        epoch = int(os.path.basename(epoch_dir).split("_")[1])
+        score_maps_file = os.path.join(epoch_dir, "val_score_maps.json")
+        
+        if not os.path.exists(score_maps_file):
+            continue
+            
+        with open(score_maps_file, "r") as f:
+            epoch_score_maps = json.load(f)
+            score_maps[epoch] = {
+                metric: epoch_score_maps[metric] 
+                for metric in metrics 
+                if metric in epoch_score_maps
+            }
     return score_maps
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
-    """Extract all necessary information from a log directory.
+    """Extract all information from a log directory.
     
     Args:
         log_dir: Path to log directory
-        force_reload: Whether to force reload of cached data
+        force_reload: Whether to force reload from source files
         
     Returns:
-        LogDirInfo containing:
-            - max_epoch: Number of completed epochs
-            - metrics: Set of metric names
-            - dataset_class: Name of dataset class
-            - dataset_type: Type of dataset
-            - scores: Dictionary mapping epochs to scores
-            - score_maps: Cached score maps array
-            
-    Raises:
-        AssertionError: If any validation fails
-    """
-    # Check directory exists
-    assert os.path.isdir(log_dir), f"Directory does not exist: {log_dir}"
-    
-    # Get dataset info from config
-    config_path = os.path.join(log_dir, "config.json")
-    assert os.path.isfile(config_path), f"config.json not found in {log_dir}"
-    
-    with open(config_path, 'r') as f:
-        config = json.load(f)
+        LogDirInfo object containing all extracted information
         
-    assert 'val_dataset' in config, f"val_dataset not found in config.json in {log_dir}"
-    assert 'class' in config['val_dataset'], f"dataset class not found in config.json in {log_dir}"
-    
-    dataset_class = config['val_dataset']['class']
-    dataset_name = dataset_class.lower().replace('dataset', '')
-    dataset_type = get_dataset_type(dataset_name)
-    
-    # Check if we can load from cache
+    Raises:
+        ValueError: If log directory is invalid or required files are missing
+    """
+    # Check if log directory exists
+    if not os.path.exists(log_dir):
+        raise ValueError(f"Log directory not found: {log_dir}")
+        
+    # Try to load from cache first
     cache_path = get_cache_path(log_dir)
     if not force_reload and os.path.exists(cache_path):
         try:
-            # Load cache
             cache_data = np.load(cache_path, allow_pickle=True)
             if isinstance(cache_data, np.ndarray) and cache_data.dtype == np.dtype('O'):
-                # Cache contains both scores and score_maps
-                scores = cache_data[0].item()
-                score_maps = cache_data[1]
-                metrics = set(cache_data[2])
-                
-                # Validate cache
-                assert isinstance(scores, dict), "Invalid cache format: scores not a dict"
-                assert isinstance(score_maps, np.ndarray), "Invalid cache format: score_maps not an array"
-                assert isinstance(metrics, set), "Invalid cache format: metrics not a set"
-                
-                # Get max epoch from scores
-                max_epoch = max(scores.keys())
-                
-                return LogDirInfo(max_epoch, metrics, dataset_class, dataset_type, scores, score_maps)
+                # Cache contains all LogDirInfo fields
+                return LogDirInfo(
+                    max_epoch=cache_data[0],
+                    metrics=set(cache_data[1]),
+                    dataset_class=cache_data[2],
+                    dataset_type=cache_data[3],
+                    scores=cache_data[4].item(),
+                    score_maps=cache_data[5].item()
+                )
         except Exception as e:
-            logger.warning(f"Failed to load cache for {log_dir}: {str(e)}")
+            logger.warning(f"Failed to load cache from {cache_path}: {e}")
     
-    # Get epoch info and scores
-    max_epoch = -1
-    scores = {}
-    metrics = None
+    # Extract information from source files
+    epoch_dirs = get_epoch_dirs(log_dir)
+    max_epoch = get_max_epoch(epoch_dirs)
+    metrics = get_metrics(epoch_dirs)
+    dataset_class, dataset_type = get_dataset_info(log_dir)
+    scores = get_scores(epoch_dirs, metrics)
+    score_maps = get_score_maps(epoch_dirs, metrics)
     
-    while True:
-        epoch = max_epoch + 1
-        epoch_dir = os.path.join(log_dir, f"epoch_{epoch}")
-        scores_path = os.path.join(epoch_dir, "validation_scores.json")
-        
-        if not os.path.isdir(epoch_dir) or not os.path.isfile(scores_path):
-            break
-            
-        # Load scores
-        with open(scores_path, 'r') as f:
-            epoch_scores = json.load(f)
-            
-        # Validate scores format
-        assert isinstance(epoch_scores, dict), f"Invalid scores format in {scores_path}"
-        assert epoch_scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_path}"
-        assert isinstance(epoch_scores['aggregated'], dict), f"Invalid aggregated format in {scores_path}"
-        assert isinstance(epoch_scores['per_datapoint'], dict), f"Invalid per_datapoint format in {scores_path}"
-        assert epoch_scores['aggregated'].keys() == epoch_scores['per_datapoint'].keys(), \
-            f"Invalid keys in {scores_path}"
-            
-        # Extract metrics from first epoch
-        if metrics is None:
-            metrics = set()
-            for key in epoch_scores['per_datapoint'].keys():
-                sample = epoch_scores['per_datapoint'][key][0]
-                if isinstance(sample, list):
-                    metrics.update(f"{key}[{i}]" for i in range(len(sample)))
-                else:
-                    metrics.add(key)
-                    
-        # Validate metrics are consistent
-        current_metrics = set()
-        for key in epoch_scores['per_datapoint'].keys():
-            sample = epoch_scores['per_datapoint'][key][0]
-            if isinstance(sample, list):
-                current_metrics.update(f"{key}[{i}]" for i in range(len(sample)))
-            else:
-                current_metrics.add(key)
-        assert current_metrics == metrics, f"Inconsistent metrics in {scores_path}"
-        
-        scores[epoch] = epoch_scores
-        max_epoch = epoch
-        
-    assert max_epoch >= 0, f"No completed epochs in {log_dir}"
-    assert metrics is not None and len(metrics) > 0, f"No metrics found in {log_dir}"
+    # Create LogDirInfo object
+    info = LogDirInfo(
+        max_epoch=max_epoch,
+        metrics=metrics,
+        dataset_class=dataset_class,
+        dataset_type=dataset_type,
+        scores=scores,
+        score_maps=score_maps
+    )
     
-    # Create score maps
-    score_maps = create_score_maps(scores, sorted(list(metrics)))
-    
-    # Save to cache
+    # Cache the results
     try:
-        np.save(cache_path, np.array([scores, score_maps, metrics], dtype=object))
+        np.save(cache_path, np.array([
+            info.max_epoch,
+            list(info.metrics),
+            info.dataset_class,
+            info.dataset_type,
+            info.scores,
+            info.score_maps
+        ], dtype=object))
     except Exception as e:
-        logger.warning(f"Failed to save cache for {log_dir}: {str(e)}")
+        logger.warning(f"Failed to save cache to {cache_path}: {e}")
     
-    return LogDirInfo(max_epoch, metrics, dataset_class, dataset_type, scores, score_maps)
+    return info
 
 
 def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[int, Set[str], DatasetType, Dict[str, LogDirInfo]]:
-    """Initialize and validate all log directories.
-    
-    This function:
-    1. Extracts all necessary information from each log directory
-    2. Validates that all directories use the same dataset type
-    3. Validates that all directories have consistent metrics
-    4. Returns the common max epoch, metrics, dataset type, and all log directory info
+    """Initialize log directories and validate consistency.
     
     Args:
         log_dirs: List of paths to log directories
-        force_reload: Whether to force reload of cached data
+        force_reload: Whether to force reload from source files
         
     Returns:
-        Tuple containing:
-            - max_epoch: Maximum epoch index where all runs have completed training
-            - metrics: Set of common metric names
-            - dataset_type: Type of dataset being used
-            - log_dir_infos: Dictionary mapping log directories to their info
-            
-    Raises:
-        AssertionError: If any validation fails
-    """
-    assert len(log_dirs) > 0, "No log directories provided"
-    
-    # Extract info from all log directories
-    log_dir_infos = {}
-    dataset_types = set()
-    all_metrics = None
-    
-    for log_dir in log_dirs:
-        info = extract_log_dir_info(log_dir, force_reload)
-        log_dir_infos[log_dir] = info
-        dataset_types.add(info.dataset_type)
+        Tuple of (max_epoch, metrics, dataset_type, log_dir_infos)
         
-        if all_metrics is None:
-            all_metrics = info.metrics
-        else:
-            assert info.metrics == all_metrics, f"Inconsistent metrics in {log_dir}"
-            
-    # Validate all directories use the same dataset type
-    assert len(dataset_types) == 1, f"Multiple dataset types found: {dataset_types}"
+    Raises:
+        ValueError: If log directories are invalid or inconsistent
+    """
+    # Extract information from each log directory
+    log_dir_infos = {}
+    for log_dir in log_dirs:
+        try:
+            info = extract_log_dir_info(log_dir, force_reload)
+            log_dir_infos[log_dir] = info
+        except Exception as e:
+            raise ValueError(f"Failed to process log directory {log_dir}: {e}")
+    
+    # Validate consistency
+    if not log_dir_infos:
+        raise ValueError("No valid log directories found")
+        
+    # Get common information
+    max_epoch = max(info.max_epoch for info in log_dir_infos.values())
+    all_metrics = set.intersection(*(info.metrics for info in log_dir_infos.values()))
+    dataset_types = {info.dataset_type for info in log_dir_infos.values()}
+    
+    # Validate dataset type consistency
+    if len(dataset_types) != 1:
+        raise ValueError(f"All log directories must use the same dataset type. Found: {dataset_types}")
     dataset_type = dataset_types.pop()
     
-    # Get common max epoch
-    max_epoch = min(info.max_epoch for info in log_dir_infos.values())
-    
+    # Validate metrics consistency
+    if not all_metrics:
+        raise ValueError("No common metrics found across log directories")
+        
     return max_epoch, all_metrics, dataset_type, log_dir_infos
 
 
