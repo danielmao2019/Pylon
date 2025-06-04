@@ -264,7 +264,9 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     return info
 
 
-def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[int, Set[str], DatasetType, Dict[str, LogDirInfo]]:
+def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
+    int, Set[str], str, DatasetType, Dict[str, LogDirInfo],
+]:
     """Initialize log directories and validate consistency.
 
     Args:
@@ -272,7 +274,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         force_reload: Whether to force reload from source files
 
     Returns:
-        Tuple of (max_epoch, metrics, dataset_type, log_dir_infos)
+        Tuple of (max_epoch, metrics, dataset_class, dataset_type, log_dir_infos)
 
     Raises:
         ValueError: If log directories are invalid or inconsistent
@@ -293,7 +295,9 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         for key, info in log_dir_infos.items()
     }.items())}"""
     metric_names = list(log_dir_infos.values())[0].metric_names
-    assert all(info.dataset_type == log_dir_infos[0].dataset_type for info in log_dir_infos.values())
+    assert all(info.dataset_class == list(log_dir_infos.values())[0].dataset_class for info in log_dir_infos.values())
+    dataset_class = list(log_dir_infos.values())[0].dataset_class
+    assert all(info.dataset_type == list(log_dir_infos.values())[0].dataset_type for info in log_dir_infos.values())
     dataset_type = list(log_dir_infos.values())[0].dataset_type
 
-    return max_epochs, metric_names, dataset_type, log_dir_infos
+    return max_epochs, metric_names, dataset_class, dataset_type, log_dir_infos
