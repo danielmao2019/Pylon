@@ -31,21 +31,19 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
         [Output('score-info-container', 'children'),
          Output('datapoint-visualization-container', 'children')],
         [Input({'type': 'grid-button', 'index': dash.ALL}, 'n_clicks')],
-        [State('log-dirs', 'value')]
     )
-    def update_datapoint_viewer(clicks, log_dir: str):
+    def update_datapoint_viewer(clicks):
         """Update the datapoint viewer when a grid button is clicked.
 
         Args:
             clicks: List of click events from grid buttons
-            log_dir: Path to the log directory being viewed
 
         Returns:
             Tuple containing:
                 - score_info: HTML elements showing score information
                 - datapoint_viz: HTML elements showing datapoint visualization
         """
-        if not any(clicks) or log_dir is None:
+        if not any(clicks):
             raise PreventUpdate
 
         ctx = dash.callback_context
@@ -64,7 +62,7 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
         datapoint_idx = row * side_length + col
 
         # Load datapoint
-        datapoint = datapoint_viewer.load_datapoint(log_dir, datapoint_idx)
+        datapoint = datapoint_viewer.load_datapoint(datapoint_idx)
 
         # Create score info display
         score_info = html.Div([
