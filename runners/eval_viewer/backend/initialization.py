@@ -1,4 +1,5 @@
 from typing import List, Dict, Set, Tuple, NamedTuple
+import importlib.util
 import os
 import json
 import numpy as np
@@ -206,7 +207,7 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, np.ndar
     return metric_names, score_map, aggregated_scores
 
 
-def get_data_info(log_dir: str) -> Tuple[str, DatasetType]:
+def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[str, Any]]:
     """Get dataset class and type from config file.
 
     Args:
@@ -220,7 +221,14 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType]:
     """
     dataset_class = log_dir.split("/")[-2]
     dataset_type = get_dataset_type(dataset_class)
-    return dataset_class, dataset_type
+    config_file = os.path.join("./configs", os.path.relpath(log_dir, "./logs")) + "_run_0.py"
+    spec = importlib.util.spec_from_file_location("config_file", config_file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    config = module.config
+    dataset_cfg = config['val_dataset']
+    dataloader_cfg = config['val_dataloader']
+    return dataset_class, dataset_type, dataset_cfg, dataloader_cfg
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
@@ -248,23 +256,22 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
 
     # Try to load from cache first
     if not force_reload and os.path.exists(cache_path):
-        try:
-            cache = np.load(cache_path, allow_pickle=True)
-            return LogDirInfo(
-                num_epochs=cache['num_epochs'].item(),
-                metric_names=cache['metric_names'].tolist(),
-                score_map=cache['score_map'],
-                aggregated_scores=cache['aggregated_scores'],
-                dataset_class=cache['dataset_class'].item(),
-                dataset_type=cache['dataset_type'].item(),
-            )
-        except Exception as e:
-            logger.warning(f"Failed to load cache from {cache_path}: {e}")
+        cache = np.load(cache_path, allow_pickle=True)
+        return LogDirInfo(
+            num_epochs=cache['num_epochs'],
+            metric_names=cache['metric_names'],
+            score_map=cache['score_map'],
+            aggregated_scores=cache['aggregated_scores'],
+            dataset_class=cache['dataset_class'],
+            dataset_type=cache['dataset_type'],
+            dataset_cfg=cache['dataset_cfg'],
+            dataloader_cfg=cache['dataloader_cfg'],
+        )
 
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
     metric_names, score_map, aggregated_scores = get_score_map(epoch_dirs)
-    dataset_class, dataset_type = get_data_info(log_dir)
+    dataset_class, dataset_type, dataset_cfg, dataloader_cfg = get_data_info(log_dir)
 
     # Create LogDirInfo object
     info = LogDirInfo(
@@ -274,6 +281,8 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         aggregated_scores=aggregated_scores,
         dataset_class=dataset_class,
         dataset_type=dataset_type,
+        dataset_cfg=dataset_cfg,
+        dataloader_cfg=dataloader_cfg,
     )
 
     # Save to cache
@@ -285,6 +294,8 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         aggregated_scores=info.aggregated_scores,
         dataset_class=info.dataset_class,
         dataset_type=info.dataset_type,
+        dataset_cfg=info.dataset_cfg,
+        dataloader_cfg=info.dataloader_cfg,
     )
 
     return info
