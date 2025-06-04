@@ -8,7 +8,6 @@ from runners.eval_viewer.backend.datapoint_viewer import DatapointViewer
 from data.viewer.layout.display.display_2d import display_2d_datapoint
 from data.viewer.layout.display.display_3d import display_3d_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
-from data.viewer.managers.registry import get_dataset_type, DatasetType
 
 import logging
 logger = logging.getLogger(__name__)
@@ -67,28 +66,25 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
         # Load datapoint
         datapoint = datapoint_viewer.load_datapoint(log_dir, datapoint_idx)
 
-        # Get dataset type using registry function
-        dataset_type = get_dataset_type(datapoint_viewer.current_dataset)
-
         # Create score info display
         score_info = html.Div([
             html.H4(f"Datapoint {datapoint_idx}"),
             html.P(f"Position: Row {row}, Column {col}"),
             html.P(f"Dataset: {datapoint_viewer.current_dataset}"),
-            html.P(f"Type: {dataset_type}"),
+            html.P(f"Type: {datapoint_viewer.dataset_type}"),
             # Add more score information as needed
         ])
 
         # Get the appropriate display function
-        display_func = DISPLAY_FUNCTIONS.get(dataset_type)
+        display_func = DISPLAY_FUNCTIONS.get(datapoint_viewer.dataset_type)
         if display_func is None:
-            logger.error(f"No display function found for dataset type: {dataset_type}")
-            return score_info, html.Div(f"Error: Unsupported dataset type: {dataset_type}")
+            logger.error(f"No display function found for dataset type: {datapoint_viewer.dataset_type}")
+            return score_info, html.Div(f"Error: Unsupported dataset type: {datapoint_viewer.dataset_type}")
 
         # Create datapoint visualization
-        if dataset_type == 'point_cloud_registration':
+        if datapoint_viewer.dataset_type == 'point_cloud_registration':
             display = display_func(datapoint, point_size=2.0, point_opacity=0.8, camera_state={}, radius=1.0)
-        elif dataset_type == '3d_change_detection':
+        elif datapoint_viewer.dataset_type == '3d_change_detection':
             display = display_func(datapoint, point_size=2.0, point_opacity=0.8, class_labels={}, camera_state={})
         else:  # 2d_change_detection
             display = display_func(datapoint)

@@ -4,6 +4,7 @@ import json
 import os
 import logging
 from data.viewer.managers.dataset_manager import DatasetManager
+from data.viewer.managers.registry import DatasetType
 
 logger = logging.getLogger(__name__)
 
@@ -37,13 +38,15 @@ def resolve_dataset_from_log_dir(log_dir: str) -> Tuple[str, Dict]:
 class DatapointViewer:
     """Component for displaying individual datapoint information in the eval viewer."""
 
-    def __init__(self, dataset_manager: DatasetManager):
+    def __init__(self, dataset_manager: DatasetManager, dataset_type: DatasetType):
         """Initialize the datapoint viewer.
 
         Args:
             dataset_manager: DatasetManager instance from data.viewer for loading datapoints
+            dataset_type: Type of dataset being used (2d_change_detection, 3d_change_detection, or point_cloud_registration)
         """
         self.dataset_manager = dataset_manager
+        self.dataset_type = dataset_type
         self.dataset_configs = {}  # Cache of dataset configs per log directory
         self.current_dataset = None
         self.current_datapoint_idx = None

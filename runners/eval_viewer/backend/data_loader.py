@@ -1,25 +1,28 @@
 from typing import List, Dict, Set, Tuple
 import os
 import json
-import numpy as np
+from data.viewer.managers.registry import get_dataset_type, DatasetType
 
 
-def validate_log_directories(log_dirs: List[str]) -> int:
+def validate_log_directories(log_dirs: List[str]) -> Tuple[int, DatasetType]:
     """
-    Validates log directories and returns max epoch index.
+    Validates log directories and returns max epoch index and dataset type.
 
     This function checks that:
     1. All provided log directories exist
     2. Each directory has epoch_0, epoch_1, etc.
     3. Each epoch directory has validation_scores.json
     4. All validation_scores.json have the same set of metrics
-    5. Returns the maximum epoch index where all runs have completed training
+    5. All log directories use the same dataset type
+    6. Returns the maximum epoch index where all runs have completed training and the dataset type
 
     Args:
         log_dirs: List of paths to log directories
 
     Returns:
-        max_epoch: Maximum epoch index where all runs have completed training
+        Tuple containing:
+            - max_epoch: Maximum epoch index where all runs have completed training
+            - dataset_type: Type of dataset being used (2d_change_detection, 3d_change_detection, or point_cloud_registration)
 
     Raises:
         AssertionError: If any validation fails
@@ -30,9 +33,27 @@ def validate_log_directories(log_dirs: List[str]) -> int:
     for log_dir in log_dirs:
         assert os.path.isdir(log_dir), f"Directory does not exist: {log_dir}"
 
-    # Find max epoch for each run
+    # Find max epoch for each run and validate dataset types
     max_epochs = []
+    dataset_types = set()
+    
     for log_dir in log_dirs:
+        # Get dataset type from config
+        config_path = os.path.join(log_dir, "config.json")
+        assert os.path.isfile(config_path), f"config.json not found in {log_dir}"
+        
+        with open(config_path, 'r') as f:
+            config = json.load(f)
+            
+        assert 'val_dataset' in config, f"val_dataset not found in config.json in {log_dir}"
+        assert 'class' in config['val_dataset'], f"dataset class not found in config.json in {log_dir}"
+        
+        dataset_class = config['val_dataset']['class']
+        dataset_name = dataset_class.lower().replace('dataset', '')
+        dataset_type = get_dataset_type(dataset_name)
+        dataset_types.add(dataset_type)
+        
+        # Check epochs
         idx = 0
         while True:
             epoch_dir = os.path.join(log_dir, f"epoch_{idx}")
@@ -46,8 +67,12 @@ def validate_log_directories(log_dirs: List[str]) -> int:
         assert idx > 0, f"No completed epochs in {log_dir}"
         max_epochs.append(idx - 1)
 
-    # Return minimum max epoch (where all runs have completed)
-    return min(max_epochs)
+    # Verify all runs use the same dataset type
+    assert len(dataset_types) == 1, f"Multiple dataset types found: {dataset_types}"
+    dataset_type = dataset_types.pop()
+
+    # Return minimum max epoch (where all runs have completed) and dataset type
+    return min(max_epochs), dataset_type
 
 
 def get_metrics_from_json(scores_filepath: str) -> Set[str]:
