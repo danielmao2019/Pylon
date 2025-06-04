@@ -26,13 +26,13 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
         app: Dash application instance
     """
     # Initialize log directories
-    max_epochs, metric_names, dataset_type, log_dir_infos = initialize_log_dirs(log_dirs, force_reload)
+    max_epochs, metric_names, dataset_class, dataset_type, log_dir_infos = initialize_log_dirs(log_dirs, force_reload)
 
     # Initialize dataset manager
     dataset_manager = DatasetManager()
 
     # Create datapoint viewer
-    datapoint_viewer = DatapointViewer(dataset_manager, dataset_type)
+    datapoint_viewer = DatapointViewer(dataset_manager, dataset_class, dataset_type)
 
     # Create app
     app = dash.Dash(__name__)
