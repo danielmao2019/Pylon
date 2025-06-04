@@ -20,7 +20,6 @@ def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
     assert all(isinstance(metric, str) for metric in metric_names), f"{metric_names=}"
     assert all(metric_names), f"{metric_names=}"
 
-    print({i: str(i) for i in range(max_epoch + 1)})
     return html.Div([
         html.Div([
             html.Label("Epoch:"),
