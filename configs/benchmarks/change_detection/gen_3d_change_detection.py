@@ -24,9 +24,9 @@ def main(dataset: str, model: str) -> None:
     config += '\n'
     # add dataset config
     config += f"# dataset config\n"
-    config += f"from configs.common.datasets.change_detection.train.{dataset}_data_cfg import config as train_dataset_config\n" 
+    config += f"from configs.common.datasets.change_detection.train.{dataset}_data_cfg import data_cfg as train_dataset_config\n" 
     config += f"config.update(train_dataset_config)\n"
-    config += f"from configs.common.datasets.change_detection.val.{dataset}_data_cfg import config as val_dataset_config\n" 
+    config += f"from configs.common.datasets.change_detection.val.{dataset}_data_cfg import data_cfg as val_dataset_config\n" 
     config += f"config.update(val_dataset_config)\n"
     config += '\n'
     # add model config
