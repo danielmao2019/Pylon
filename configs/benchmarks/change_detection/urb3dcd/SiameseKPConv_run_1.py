@@ -53,7 +53,7 @@ config['runner'] = SupervisedSingleTaskTrainer
 # dataset config
 from configs.common.datasets.change_detection.train.urb3dcd_data_cfg import config as train_dataset_config
 config.update(train_dataset_config)
-from configs.common.datasets.change_detection.val.urb3dcd import config as val_dataset_config
+from configs.common.datasets.change_detection.val.urb3dcd_data_cfg import config as val_dataset_config
 config.update(val_dataset_config)
 
 # model config
