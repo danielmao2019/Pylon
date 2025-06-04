@@ -1,7 +1,6 @@
-from typing import List, Dict, Set, Tuple, NamedTuple, Optional
+from typing import List, Dict, Set, Tuple, NamedTuple
 import os
 import json
-import pickle
 import numpy as np
 from pathlib import Path
 from data.viewer.managers.registry import get_dataset_type, DatasetType
@@ -19,23 +18,6 @@ class LogDirInfo(NamedTuple):
     scores: Dict[str, Dict[str, float]]
     score_maps: Dict[str, Dict[str, Dict[str, float]]]
 
-
-def get_cache_path(log_dir: str) -> str:
-    """Get the path to the cache file for a log directory.
-    
-    Args:
-        log_dir: Path to log directory
-        
-    Returns:
-        Path to cache file
-    """
-    # Create cache directory in eval viewer
-    cache_dir = Path(__file__).parent.parent / "score_maps_cache"
-    cache_dir.mkdir(exist_ok=True)
-    
-    # Use the last component of log_dir as the cache filename
-    run_name = os.path.basename(os.path.normpath(log_dir))
-    return str(cache_dir / f"{run_name}.npy")
 
 
 def get_epoch_dirs(log_dir: str) -> List[str]:
@@ -138,31 +120,22 @@ def get_metrics(epoch_dirs: List[str]) -> Set[str]:
     return metrics
 
 
-def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
-    """Get dataset class and type from config file.
+def get_cache_path(log_dir: str) -> str:
+    """Get the path to the cache file for a log directory.
     
     Args:
         log_dir: Path to log directory
         
     Returns:
-        Tuple of (dataset_class, dataset_type)
-        
-    Raises:
-        ValueError: If config file not found or invalid
+        Path to cache file
     """
-    config_file = os.path.join(log_dir, "config.json")
-    if not os.path.exists(config_file):
-        raise ValueError(f"Config file not found: {config_file}")
-        
-    with open(config_file, "r") as f:
-        config = json.load(f)
-        
-    dataset_class = config.get("dataset", {}).get("class")
-    if not dataset_class:
-        raise ValueError(f"Dataset class not found in {config_file}")
-        
-    dataset_type = get_dataset_type(dataset_class)
-    return dataset_class, dataset_type
+    # Create cache directory in eval viewer
+    cache_dir = Path(__file__).parent.parent / "score_maps_cache"
+    cache_dir.mkdir(exist_ok=True)
+    
+    # Use the last component of log_dir as the cache filename
+    run_name = os.path.basename(os.path.normpath(log_dir))
+    return str(cache_dir / f"{run_name}.npy")
 
 
 def get_scores(epoch_dirs: List[str], metrics: Set[str]) -> Dict[str, Dict[str, float]]:
@@ -215,6 +188,33 @@ def get_score_maps(epoch_dirs: List[str], metrics: Set[str]) -> Dict[str, Dict[s
                 if metric in epoch_score_maps
             }
     return score_maps
+
+
+def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
+    """Get dataset class and type from config file.
+    
+    Args:
+        log_dir: Path to log directory
+        
+    Returns:
+        Tuple of (dataset_class, dataset_type)
+        
+    Raises:
+        ValueError: If config file not found or invalid
+    """
+    config_file = os.path.join(log_dir, "config.json")
+    if not os.path.exists(config_file):
+        raise ValueError(f"Config file not found: {config_file}")
+        
+    with open(config_file, "r") as f:
+        config = json.load(f)
+        
+    dataset_class = config.get("dataset", {}).get("class")
+    if not dataset_class:
+        raise ValueError(f"Dataset class not found in {config_file}")
+        
+    dataset_type = get_dataset_type(dataset_class)
+    return dataset_class, dataset_type
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
