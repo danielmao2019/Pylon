@@ -3,7 +3,7 @@ import data
 import metrics
 
 
-config = {
+data_cfg = {
     'val_dataset': {
         'class': data.datasets.SLPCCDDataset,
         'args': {

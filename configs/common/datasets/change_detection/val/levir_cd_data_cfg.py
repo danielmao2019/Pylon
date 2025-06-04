@@ -15,7 +15,7 @@ collate_fn_cfg = {
     },
 }
 
-config = {
+data_cfg = {
     'val_dataset': {
         'class': data.datasets.LevirCdDataset,
         'args': {

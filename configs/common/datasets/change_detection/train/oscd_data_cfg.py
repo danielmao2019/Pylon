@@ -20,7 +20,7 @@ class_dist = torch.Tensor(data.datasets.OSCDDataset.CLASS_DIST['train']).to(torc
 num_classes = data.datasets.OSCDDataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
-config = {
+data_cfg = {
     'train_dataset': {
         'class': data.datasets.OSCDDataset,
         'args': {

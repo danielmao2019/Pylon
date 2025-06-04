@@ -45,7 +45,7 @@ collate_fn_cfg = {
 
 source_dataset = data.datasets.WHU_BD_Dataset(data_root="./data/datasets/soft_links/WHU-BD", split="train")
 
-config = {
+data_cfg = {
     'train_dataset': {
         'class': data.datasets.PPSLDataset,
         'args': {

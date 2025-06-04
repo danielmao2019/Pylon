@@ -19,7 +19,7 @@ collate_fn_cfg = {
     },
 }
 
-config = {
+data_cfg = {
     'val_datasets': [
         air_change_cfg['val_dataset'],
         cdd_cfg['val_dataset'],
