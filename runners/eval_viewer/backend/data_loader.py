@@ -1,4 +1,4 @@
-from typing import List, Dict, Set, Tuple, NamedTuple
+from typing import List, Dict, Set, Tuple, NamedTuple, Any
 import os
 import json
 import numpy as np
@@ -15,6 +15,7 @@ class LogDirInfo(NamedTuple):
     metric_names: Set[str]
     dataset_class: str
     dataset_type: DatasetType
+    scores: List[Dict[str, Dict[str, Any]]]
     score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
 
 
@@ -92,7 +93,7 @@ def get_metric_names_per_datapoint(scores_dict: dict) -> List[str]:
     return metrics
 
 
-def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray]:
+def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray, Dict[str, Dict[str, Any]]]:
     """Get score map for a single epoch and all metrics.
 
     Args:
@@ -123,7 +124,7 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray]:
 
     score_map_epoch = np.stack([score_map_epoch_metric[1]
                               for score_map_epoch_metric in all_score_maps_epoch], axis=0)
-    return metric_names, score_map_epoch
+    return metric_names, score_map_epoch, scores
 
 
 def get_epoch_dirs(log_dir: str) -> List[str]:
@@ -174,7 +175,7 @@ def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
     return dataset_class, dataset_type
 
 
-def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray]:
+def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, List[Dict[str, Dict[str, Any]]]]:
     """Get score map array from validation scores files.
 
     Args:
@@ -196,8 +197,9 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray]:
 
     # Stack all epoch score maps
     score_map = np.stack([score_map_epoch[1] for score_map_epoch in all_score_maps], axis=0)
+    scores = [score_map_epoch[2] for score_map_epoch in all_score_maps]
 
-    return metric_names, score_map
+    return metric_names, score_map, scores
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
@@ -232,14 +234,15 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
                 metric_names=cache['metric_names'].tolist(),
                 dataset_class=cache['dataset_class'].item(),
                 dataset_type=cache['dataset_type'].item(),
-                score_map=cache['score_map']
+                scores=cache['scores'],
+                score_map=cache['score_map'],
             )
         except Exception as e:
             logger.warning(f"Failed to load cache from {cache_path}: {e}")
 
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
-    metric_names, score_map = get_score_map(epoch_dirs)
+    metric_names, score_map, scores = get_score_map(epoch_dirs)
     dataset_class, dataset_type = get_dataset_info(log_dir)
 
     # Create LogDirInfo object
@@ -248,7 +251,8 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         metric_names=metric_names,
         dataset_class=dataset_class,
         dataset_type=dataset_type,
-        score_map=score_map
+        scores=scores,
+        score_map=score_map,
     )
 
     # Save to cache
@@ -258,6 +262,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         metric_names=info.metric_names,
         dataset_class=info.dataset_class,
         dataset_type=info.dataset_type,
+        scores=info.scores,
         score_map=info.score_map
     )
 

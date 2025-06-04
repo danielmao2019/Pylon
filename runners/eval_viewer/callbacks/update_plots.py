@@ -182,7 +182,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
             raise PreventUpdate
 
         # Get scores for all epochs from all runs
-        epoch_scores = [info.score_map[epoch] for info in log_dir_infos.values()]
+        epoch_scores = [info.scores[epoch] for info in log_dir_infos.values()]
 
         # Create figure
         fig = create_aggregated_scores_plot(epoch_scores, list(log_dir_infos.keys()), metric)
