@@ -2,6 +2,7 @@
 from typing import Dict
 import logging
 from data.viewer.managers.dataset_manager import DatasetManager
+from data.viewer.managers.registry import DatasetType
 
 logger = logging.getLogger(__name__)
 
