@@ -34,8 +34,12 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
     if '[' in metric_name:
         base_metric, idx_str = metric_name.split('[')
         idx = int(idx_str.rstrip(']'))
+        assert base_metric in scores['per_datapoint'], f"Metric {base_metric} not found in scores"
+        assert isinstance(scores['per_datapoint'][base_metric], list), f"Metric {base_metric} is not a list"
+        assert idx < len(scores['per_datapoint'][base_metric]), f"Index {idx} out of range for {base_metric}"
         metric_scores = np.array([float(score[idx]) for score in scores['per_datapoint'][base_metric]])
     else:
+        assert metric_name in scores['per_datapoint'], f"Metric {metric_name} not found in scores"
         metric_scores = np.array([float(score) for score in scores['per_datapoint'][metric_name]])
     
     n_datapoints = len(metric_scores)
@@ -244,56 +248,16 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         ValueError: If log directories are invalid or inconsistent
     """
     # Extract information from each log directory
-    log_dir_infos = {}
-    for log_dir in log_dirs:
-        try:
-            info = extract_log_dir_info(log_dir, force_reload)
-            log_dir_infos[log_dir] = info
-        except Exception as e:
-            raise ValueError(f"Failed to process log directory {log_dir}: {e}")
+    log_dir_infos = {
+        log_dir: extract_log_dir_info(log_dir, force_reload)
+        for log_dir in log_dirs
+    }
     
-    # Validate consistency
-    if not log_dir_infos:
-        raise ValueError("No valid log directories found")
-        
     # Get common information
-    max_epoch = max(info.max_epoch for info in log_dir_infos.values())
-    all_metrics = set.intersection(*(info.metrics for info in log_dir_infos.values()))
-    dataset_types = {info.dataset_type for info in log_dir_infos.values()}
+    max_epochs = max(info.num_epochs for info in log_dir_infos.values())
+    assert all(info.metric_names == log_dir_infos[0].metric_names for info in log_dir_infos.values())
+    metric_names = log_dir_infos[0].metric_names
+    assert all(info.dataset_type == log_dir_infos[0].dataset_type for info in log_dir_infos.values())
+    dataset_type = log_dir_infos[0].dataset_type
     
-    # Validate dataset type consistency
-    if len(dataset_types) != 1:
-        raise ValueError(f"All log directories must use the same dataset type. Found: {dataset_types}")
-    dataset_type = dataset_types.pop()
-    
-    # Validate metrics consistency
-    if not all_metrics:
-        raise ValueError("No common metrics found across log directories")
-        
-    return max_epoch, all_metrics, dataset_type, log_dir_infos
-
-
-def extract_metric_scores(scores: Dict, metric: str) -> List[float]:
-    """Extracts scores for a specific metric from validation scores.
-
-    Args:
-        scores: Dictionary containing validation scores
-        metric: Name of the metric to extract
-
-    Returns:
-        metric_scores: List of float scores for the specified metric
-
-    Raises:
-        AssertionError: If metric doesn't exist in scores
-    """
-    # Handle sub-metrics (e.g., class_tp[0])
-    if '[' in metric:
-        base_metric, idx_str = metric.split('[')
-        idx = int(idx_str.rstrip(']'))
-        assert base_metric in scores['per_datapoint'], f"Metric {base_metric} not found in scores"
-        assert isinstance(scores['per_datapoint'][base_metric], list), f"Metric {base_metric} is not a list"
-        assert idx < len(scores['per_datapoint'][base_metric]), f"Index {idx} out of range for {base_metric}"
-        return [float(score[idx]) for score in scores['per_datapoint'][base_metric]]
-    else:
-        assert metric in scores['per_datapoint'], f"Metric {metric} not found in scores"
-        return [float(score) for score in scores['per_datapoint'][metric]]
+    return max_epochs, metric_names, dataset_type, log_dir_infos
