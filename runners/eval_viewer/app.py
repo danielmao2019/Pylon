@@ -9,6 +9,7 @@ os.chdir(project_root)
 
 from runners.eval_viewer.layouts.main_layout import create_layout
 from runners.eval_viewer.callbacks.update_plots import register_callbacks
+from runners.eval_viewer.callbacks.datapoint_viewer import register_datapoint_viewer_callbacks
 from runners.eval_viewer.backend.data_loader import initialize_log_dirs
 from runners.eval_viewer.backend.datapoint_viewer import DatapointViewer
 from data.viewer.managers.dataset_manager import DatasetManager
@@ -42,7 +43,7 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
 
     # Register callbacks
     register_callbacks(app, metric_names, log_dir_infos)
-
+    register_datapoint_viewer_callbacks(app, datapoint_viewer)
     return app
 
 
