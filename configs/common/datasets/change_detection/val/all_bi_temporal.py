@@ -1,11 +1,11 @@
 import torch
 import data
 import metrics
-from .air_change import config as air_change_cfg
-from .cdd import config as cdd_cfg
-from .levir_cd import config as levir_cd_cfg
-from .oscd import config as oscd_cfg
-from .sysu_cd import config as sysu_cd_cfg
+from .air_change_data_cfg import config as air_change_cfg
+from .cdd_data_cfg import config as cdd_cfg
+from .levir_cd_data_cfg import config as levir_cd_cfg
+from .oscd_data_cfg import config as oscd_cfg
+from .sysu_cd_data_cfg import config as sysu_cd_cfg
 
 
 collate_fn_cfg = {
