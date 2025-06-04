@@ -1,5 +1,6 @@
 from typing import List
 from dash import html, dcc
+from runners.eval_viewer.layouts.datapoint_viewer import create_datapoint_viewer_layout
 
 
 def create_controls(max_epoch: int, metrics: List[str]) -> html.Div:
@@ -110,4 +111,5 @@ def create_layout(max_epoch: int, metrics: List[str], num_runs: int) -> html.Div
         create_controls(max_epoch, metrics),
         create_aggregated_scores_plot(),
         create_score_maps_grid(num_runs),
+        create_datapoint_viewer_layout(),
     ])
