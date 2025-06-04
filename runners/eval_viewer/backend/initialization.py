@@ -168,23 +168,6 @@ def get_epoch_dirs(log_dir: str) -> List[str]:
     return epoch_dirs
 
 
-def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
-    """Get dataset class and type from config file.
-
-    Args:
-        log_dir: Path to log directory
-
-    Returns:
-        Tuple of (dataset_class, dataset_type)
-
-    Raises:
-        ValueError: If config file not found or invalid
-    """
-    dataset_class = log_dir.split("/")[-2]
-    dataset_type = get_dataset_type(dataset_class)
-    return dataset_class, dataset_type
-
-
 def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, np.ndarray]:
     """Get score map array from validation scores files.
 
@@ -221,6 +204,23 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, np.ndar
         f"Score map and aggregated scores have different shapes: {score_map.shape} != {aggregated_scores.shape}"
 
     return metric_names, score_map, aggregated_scores
+
+
+def get_data_info(log_dir: str) -> Tuple[str, DatasetType]:
+    """Get dataset class and type from config file.
+
+    Args:
+        log_dir: Path to log directory
+
+    Returns:
+        Tuple of (dataset_class, dataset_type)
+
+    Raises:
+        ValueError: If config file not found or invalid
+    """
+    dataset_class = log_dir.split("/")[-2]
+    dataset_type = get_dataset_type(dataset_class)
+    return dataset_class, dataset_type
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
@@ -264,7 +264,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
     metric_names, score_map, aggregated_scores = get_score_map(epoch_dirs)
-    dataset_class, dataset_type = get_dataset_info(log_dir)
+    dataset_class, dataset_type = get_data_info(log_dir)
 
     # Create LogDirInfo object
     info = LogDirInfo(
