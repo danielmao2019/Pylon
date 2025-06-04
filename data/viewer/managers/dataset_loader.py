@@ -3,7 +3,7 @@ from typing import Dict, Any, Optional, List
 import os
 import logging
 import importlib.util
-from data.viewer.managers.registry import DATASET_GROUPS, get_dataset_type
+from data.viewer.managers.registry import DATASET_GROUPS
 
 
 class DatasetLoader:
@@ -50,31 +50,26 @@ class DatasetLoader:
             for dataset_name in DATASET_GROUPS.get(dataset_type, []):
                 config_file = os.path.join(config_dir, f"{dataset_name}_data_cfg.py")
 
-                try:
-                    if not os.path.isfile(config_file):
-                        self.logger.warning(f"Dataset config file not found: {config_file}")
-                        continue
-
-                    # Import the config
-                    spec = importlib.util.spec_from_file_location(
-                        f"configs.common.datasets.{dataset_type}.train.{dataset_name}_data_cfg",
-                        config_file
-                    )
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-
-                    if not hasattr(module, 'data_cfg'):
-                        self.logger.warning(f"No config found in {config_file}")
-                        continue
-
-                    # Add to configs with dataset type prefix
-                    config_key = f"{dataset_type}/{dataset_name}"
-                    dataset_configs[config_key] = module.data_cfg
-                    self.logger.info(f"Loaded config for dataset: {config_key}")
-
-                except Exception as e:
-                    self.logger.error(f"Error loading config for {dataset_name}: {str(e)}")
+                if not os.path.isfile(config_file):
+                    self.logger.warning(f"Dataset config file not found: {config_file}")
                     continue
+
+                # Import the config
+                spec = importlib.util.spec_from_file_location(
+                    f"configs.common.datasets.{dataset_type}.train.{dataset_name}_data_cfg",
+                    config_file
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                if not hasattr(module, 'data_cfg'):
+                    self.logger.warning(f"No config found in {config_file}")
+                    continue
+
+                # Add to configs with dataset type prefix
+                config_key = f"{dataset_type}/{dataset_name}"
+                dataset_configs[config_key] = module.data_cfg
+                self.logger.info(f"Loaded config for dataset: {config_key}")
 
         return dataset_configs
 
