@@ -106,8 +106,8 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray]:
     assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
     assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
 
-    metric_names = get_metric_names_aggregated(scores['per_datapoint'])
-    assert metric_names == get_metric_names_per_datapoint(scores['aggregated'])
+    metric_names = get_metric_names_aggregated(scores['aggregated'])
+    assert metric_names == get_metric_names_per_datapoint(scores['per_datapoint'])
 
     all_score_maps_epoch = [
         get_score_map_epoch_metric(scores_file, metric_name)
