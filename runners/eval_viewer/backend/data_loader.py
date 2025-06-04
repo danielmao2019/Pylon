@@ -160,13 +160,13 @@ def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
 
 def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray]:
     """Get score map array from validation scores files.
-    
+
     Args:
         epoch_dirs: List of epoch directory paths
-        
+
     Returns:
         Tuple of (metric_names, score_map) where score_map has shape (N, C, H, W)
-        
+
     Raises:
         ValueError: If scores format is invalid
     """
@@ -177,36 +177,36 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray]:
     ]
     assert all(score_map_epoch[0] == all_score_maps[0][0] for score_map_epoch in all_score_maps)
     metric_names = all_score_maps[0][0]
-    
+
     # Stack all epoch score maps
     score_map = np.stack([score_map_epoch[1] for score_map_epoch in all_score_maps], axis=0)
-    
+
     return metric_names, score_map
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
     """Extract all information from a log directory.
-    
+
     Args:
         log_dir: Path to log directory
         force_reload: Whether to force reload from source files
-        
+
     Returns:
         LogDirInfo object containing all extracted information
-        
+
     Raises:
         ValueError: If log directory is invalid or required files are missing
     """
     # Check if log directory exists
     if not os.path.exists(log_dir):
         raise ValueError(f"Log directory not found: {log_dir}")
-    
+
     # Get cache path
     cache_dir = Path(__file__).parent.parent / "cache"
     cache_dir.mkdir(exist_ok=True)
     run_name = os.path.basename(os.path.normpath(log_dir))
     cache_path = str(cache_dir / f"{run_name}.npz")
-    
+
     # Try to load from cache first
     if not force_reload and os.path.exists(cache_path):
         try:
@@ -220,12 +220,12 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
             )
         except Exception as e:
             logger.warning(f"Failed to load cache from {cache_path}: {e}")
-    
+
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
     metric_names, score_map = get_score_map(epoch_dirs)
     dataset_class, dataset_type = get_dataset_info(log_dir)
-    
+
     # Create LogDirInfo object
     info = LogDirInfo(
         num_epochs=len(epoch_dirs),
@@ -234,7 +234,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         dataset_type=dataset_type,
         score_map=score_map
     )
-    
+
     # Save to cache
     np.savez(
         cache_path,
@@ -244,7 +244,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         dataset_type=info.dataset_type,
         score_map=info.score_map
     )
-    
+
     return info
 
 
