@@ -41,7 +41,7 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
     app.layout = create_layout(log_dirs, max_epochs, sorted(list(metric_names)))
 
     # Register callbacks
-    register_callbacks(app, metric_names, log_dir_infos, datapoint_viewer)
+    register_callbacks(app, metric_names, log_dir_infos)
 
     return app
 
