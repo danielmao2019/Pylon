@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 import numpy as np
 import plotly.graph_objects as go
 
@@ -82,7 +82,7 @@ def create_overlaid_score_map(score_maps: List[np.ndarray], title: str = None) -
     return normalized
 
 
-def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs: List[str], metric: str) -> go.Figure:
+def create_aggregated_scores_plot(epoch_scores: List[Dict[str, Dict[str, Any]]], log_dirs: List[str], metric_name: str) -> go.Figure:
     """
     Creates a line plot showing aggregated scores over epochs for each run.
 
@@ -96,16 +96,16 @@ def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs
     """
     fig = go.Figure()
 
-    for i, (scores, log_dir) in enumerate(zip(epoch_scores, log_dirs)):
+    for i, log_dir in enumerate(log_dirs):
         run_name = log_dir.split('/')[-1]
 
         # Extract scores for the selected metric
-        if '[' in metric:
-            base_metric, idx_str = metric.split('[')
+        if '[' in metric_name:
+            base_metric, idx_str = metric_name.split('[')
             idx = int(idx_str.rstrip(']'))
             y_values = [scores['aggregated'][base_metric][idx] for scores in epoch_scores[i]]
         else:
-            y_values = [scores['aggregated'][metric] for scores in epoch_scores[i]]
+            y_values = [scores['aggregated'][metric_name] for scores in epoch_scores[i]]
 
         x_values = list(range(len(y_values)))
 
@@ -117,7 +117,7 @@ def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs
         ))
 
     fig.update_layout(
-        title=f"Aggregated {metric} Over Time",
+        title=f"Aggregated {metric_name} Over Time",
         xaxis_title="Epoch",
         yaxis_title="Score",
         showlegend=True,
