@@ -1,11 +1,11 @@
 import torch
 import data
 import metrics
-from .air_change import config as air_change_cfg
-from .cdd import config as cdd_cfg
-from .levir_cd import config as levir_cd_cfg
-from .oscd import config as oscd_cfg
-from .sysu_cd import config as sysu_cd_cfg
+from configs.common.datasets.change_detection.val.air_change_data_cfg import config as air_change_cfg
+from configs.common.datasets.change_detection.val.cdd_data_cfg import config as cdd_cfg
+from configs.common.datasets.change_detection.val.levir_cd_data_cfg import config as levir_cd_cfg
+from configs.common.datasets.change_detection.val.oscd_data_cfg import config as oscd_cfg
+from configs.common.datasets.change_detection.val.sysu_cd_data_cfg import config as sysu_cd_cfg
 
 
 collate_fn_cfg = {
@@ -19,7 +19,7 @@ collate_fn_cfg = {
     },
 }
 
-config = {
+data_cfg = {
     'val_datasets': [
         air_change_cfg['val_dataset'],
         cdd_cfg['val_dataset'],

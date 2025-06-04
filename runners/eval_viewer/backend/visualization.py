@@ -1,4 +1,4 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 import numpy as np
 import plotly.graph_objects as go
 
@@ -82,46 +82,37 @@ def create_overlaid_score_map(score_maps: List[np.ndarray], title: str = None) -
     return normalized
 
 
-def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs: List[str], metric: str) -> go.Figure:
+def create_aggregated_scores_plot(epoch_scores: List[np.ndarray], log_dirs: List[str], metric_name: str) -> go.Figure:
     """
     Creates a line plot showing aggregated scores over epochs for each run.
 
     Args:
         epoch_scores: List of dictionaries containing aggregated scores for each epoch
         log_dirs: List of log directory paths
-        metric: Name of the metric to plot
+        metric_name: Name of the metric to plot
 
     Returns:
         fig: Plotly figure object
     """
+    assert isinstance(epoch_scores, list)
+    assert all(isinstance(scores, np.ndarray) for scores in epoch_scores)
+
     fig = go.Figure()
 
-    for i, (scores, log_dir) in enumerate(zip(epoch_scores, log_dirs)):
-        run_name = log_dir.split('/')[-1]
-        
-        # Extract scores for the selected metric
-        if '[' in metric:
-            base_metric, idx_str = metric.split('[')
-            idx = int(idx_str.rstrip(']'))
-            y_values = [scores['aggregated'][base_metric][idx] for scores in epoch_scores[i]]
-        else:
-            y_values = [scores['aggregated'][metric] for scores in epoch_scores[i]]
-        
-        x_values = list(range(len(y_values)))
-        
+    for scores, log_dir in zip(epoch_scores, log_dirs):
         fig.add_trace(go.Scatter(
-            x=x_values,
-            y=y_values,
-            name=run_name,
+            x=list(range(len(scores))),
+            y=scores,
+            name=log_dir.split('/')[-1],
             mode='lines+markers'
         ))
 
     fig.update_layout(
-        title=f"Aggregated {metric} Over Time",
+        title=f"Aggregated {metric_name} Over Time",
         xaxis_title="Epoch",
         yaxis_title="Score",
         showlegend=True,
         margin=dict(l=0, r=0, t=30, b=0),
     )
-    
+
     return fig

@@ -3,7 +3,7 @@ import data
 import criteria
 
 
-config = {
+data_cfg = {
     'train_dataset': {
         'class': data.datasets.Urb3DCDDataset,
         'args': {

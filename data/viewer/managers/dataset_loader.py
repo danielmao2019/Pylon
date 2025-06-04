@@ -42,39 +42,24 @@ class DatasetLoader:
         dataset_configs = {}
 
         for dataset_type in self.dataset_types:
-            if dataset_type not in self.config_dirs:
-                self.logger.warning(f"Config directory not found for dataset type: {dataset_type}")
-                continue
+            assert dataset_type in self.config_dirs, f"Config directory not found for dataset type: {dataset_type}"
 
             config_dir = self.config_dirs[dataset_type]
-            for dataset_name in DATASET_GROUPS.get(dataset_type, []):
+            for dataset_name in DATASET_GROUPS[dataset_type]:
                 config_file = os.path.join(config_dir, f"{dataset_name}_data_cfg.py")
+                assert os.path.isfile(config_file), f"Dataset config file not found: {config_file}"
 
-                try:
-                    if not os.path.isfile(config_file):
-                        self.logger.warning(f"Dataset config file not found: {config_file}")
-                        continue
+                # Import the config
+                spec = importlib.util.spec_from_file_location("config_file", config_file)
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
 
-                    # Import the config
-                    spec = importlib.util.spec_from_file_location(
-                        f"configs.common.datasets.{dataset_type}.train.{dataset_name}_data_cfg",
-                        config_file
-                    )
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
+                assert hasattr(module, 'data_cfg'), f"No config found in {config_file}"
 
-                    if not hasattr(module, 'data_cfg'):
-                        self.logger.warning(f"No config found in {config_file}")
-                        continue
-
-                    # Add to configs with dataset type prefix
-                    config_key = f"{dataset_type}/{dataset_name}"
-                    dataset_configs[config_key] = module.data_cfg
-                    self.logger.info(f"Loaded config for dataset: {config_key}")
-
-                except Exception as e:
-                    self.logger.error(f"Error loading config for {dataset_name}: {str(e)}")
-                    continue
+                # Add to configs with dataset type prefix
+                config_key = f"{dataset_type}/{dataset_name}"
+                dataset_configs[config_key] = module.data_cfg
+                self.logger.info(f"Loaded config for dataset: {config_key}")
 
         return dataset_configs
 
@@ -87,7 +72,10 @@ class DatasetLoader:
         Returns:
             Dataset configuration or None if not found
         """
-        return self.configs.get(dataset_name)
+        dataset_type = get_dataset_type(dataset_name)
+        config_key = f"{dataset_type}/{dataset_name}"
+        assert config_key in self.configs, f"Config not found for dataset: {config_key}"
+        return self.configs[config_key]
 
     def load_dataset(self, dataset_name: str) -> Optional[Any]:
         """Load a dataset instance.
@@ -99,9 +87,6 @@ class DatasetLoader:
             Dataset instance or None if loading fails
         """
         config = self.get_config(dataset_name)
-        if not config:
-            self.logger.error(f"No configuration found for dataset: {dataset_name}")
-            return None
 
         dataset_cfg = config.get('train_dataset', {})
 

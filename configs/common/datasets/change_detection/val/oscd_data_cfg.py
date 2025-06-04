@@ -1,7 +1,7 @@
 import torch
 import data
 import metrics
-from ._transforms_cfg import transforms_cfg
+from configs.common.datasets.change_detection.val._transforms_cfg import transforms_cfg
 
 
 collate_fn_cfg = {
@@ -16,7 +16,7 @@ collate_fn_cfg = {
     },
 }
 
-config = {
+data_cfg = {
     'val_dataset': {
         'class': data.datasets.OSCDDataset,
         'args': {

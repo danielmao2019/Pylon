@@ -143,9 +143,7 @@ class DatasetManager:
         Returns:
             Dict containing inputs, labels and meta_info, with transforms applied if specified
         """
-        if dataset_name not in self._datasets:
-            self.logger.error(f"Dataset not loaded: {dataset_name}")
-            return None
+        assert dataset_name in self._datasets, f"Dataset not loaded: {dataset_name}"
 
         # Try to get from cache first
         cache_key = (index, tuple(transform_indices) if transform_indices else None)
