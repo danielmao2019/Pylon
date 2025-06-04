@@ -15,9 +15,7 @@ class LogDirInfo(NamedTuple):
     metrics: Set[str]
     dataset_class: str
     dataset_type: DatasetType
-    scores: Dict[str, Dict[str, float]]
-    score_maps: Dict[str, Dict[str, Dict[str, float]]]
-
+    score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
 
 
 def get_epoch_dirs(log_dir: str) -> List[str]:
@@ -120,74 +118,72 @@ def get_metrics(epoch_dirs: List[str]) -> Set[str]:
     return metrics
 
 
-def get_cache_path(log_dir: str) -> str:
-    """Get the path to the cache file for a log directory.
+def get_score_map(epoch_dirs: List[str], metric_names: Set[str], force_reload: bool = False) -> np.ndarray:
+    """Get score map array from validation scores files or cache.
     
     Args:
-        log_dir: Path to log directory
+        epoch_dirs: List of epoch directory paths
+        metric_names: Set of metric names including sub-metrics
+        force_reload: Whether to force reload from source files
         
     Returns:
-        Path to cache file
+        Score map array of shape (N, C, H, W) where:
+            N = number of epochs
+            C = number of metrics
+            H, W = dimensions of the square matrix (H*W = n_datapoints)
+            
+    Raises:
+        ValueError: If scores format is invalid or cache is corrupted
     """
-    # Create cache directory in eval viewer
+    # Get cache path
     cache_dir = Path(__file__).parent.parent / "score_maps_cache"
     cache_dir.mkdir(exist_ok=True)
+    run_name = os.path.basename(os.path.normpath(os.path.dirname(epoch_dirs[0])))
+    cache_path = str(cache_dir / f"{run_name}.npy")
     
-    # Use the last component of log_dir as the cache filename
-    run_name = os.path.basename(os.path.normpath(log_dir))
-    return str(cache_dir / f"{run_name}.npy")
-
-
-def get_scores(epoch_dirs: List[str], metrics: Set[str]) -> Dict[str, Dict[str, float]]:
-    """Get scores for each epoch and metric.
+    # Try to load from cache first
+    if not force_reload and os.path.exists(cache_path):
+        score_map = np.load(cache_path)
+        if not isinstance(score_map, np.ndarray) or score_map.ndim != 4:
+            raise ValueError(f"Invalid cache format in {cache_path}")
+        return score_map
     
-    Args:
-        epoch_dirs: List of epoch directory paths
-        metrics: Set of metric names
-        
-    Returns:
-        Dictionary mapping epochs to metric scores
-    """
-    scores = {}
-    for epoch_dir in epoch_dirs:
-        epoch = int(os.path.basename(epoch_dir).split("_")[1])
-        scores_file = os.path.join(epoch_dir, "val_scores.json")
-        
-        if not os.path.exists(scores_file):
-            continue
+    # Get number of datapoints from first epoch
+    with open(os.path.join(epoch_dirs[0], "validation_scores.json"), "r") as f:
+        scores = json.load(f)
+        n_datapoints = len(scores['per_datapoint'][next(iter(scores['per_datapoint'].keys()))])
+    
+    # Calculate dimensions for square matrix
+    side_length = int(np.ceil(np.sqrt(n_datapoints)))
+    
+    # Initialize score map with NaN's
+    n_epochs = len(epoch_dirs)
+    n_metrics = len(metric_names)
+    score_map = np.full((n_epochs, n_metrics, side_length, side_length), np.nan)
+    
+    # Sort metric names for consistent ordering
+    sorted_metrics = sorted(metric_names)
+    
+    # Fill score map for each epoch and metric
+    for e, epoch_dir in enumerate(epoch_dirs):
+        with open(os.path.join(epoch_dir, "validation_scores.json"), "r") as f:
+            scores = json.load(f)
             
-        with open(scores_file, "r") as f:
-            epoch_scores = json.load(f)
-            scores[epoch] = {metric: epoch_scores[metric] for metric in metrics}
-    return scores
-
-
-def get_score_maps(epoch_dirs: List[str], metrics: Set[str]) -> Dict[str, Dict[str, Dict[str, float]]]:
-    """Get score maps for each epoch, metric and datapoint.
-    
-    Args:
-        epoch_dirs: List of epoch directory paths
-        metrics: Set of metric names
-        
-    Returns:
-        Dictionary mapping epochs to metric score maps
-    """
-    score_maps = {}
-    for epoch_dir in epoch_dirs:
-        epoch = int(os.path.basename(epoch_dir).split("_")[1])
-        score_maps_file = os.path.join(epoch_dir, "val_score_maps.json")
-        
-        if not os.path.exists(score_maps_file):
-            continue
+        for c, metric in enumerate(sorted_metrics):
+            if '[' in metric:
+                base_metric, idx_str = metric.split('[')
+                idx = int(idx_str.rstrip(']'))
+                metric_scores = [float(score[idx]) for score in scores['per_datapoint'][base_metric]]
+            else:
+                metric_scores = [float(score) for score in scores['per_datapoint'][metric]]
             
-        with open(score_maps_file, "r") as f:
-            epoch_score_maps = json.load(f)
-            score_maps[epoch] = {
-                metric: epoch_score_maps[metric] 
-                for metric in metrics 
-                if metric in epoch_score_maps
-            }
-    return score_maps
+            # Fill the flattened scores into the square matrix
+            score_map[e, c].flat[:n_datapoints] = metric_scores
+    
+    # Save to cache
+    np.save(cache_path, score_map)
+    
+    return score_map
 
 
 def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
@@ -233,57 +229,21 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     # Check if log directory exists
     if not os.path.exists(log_dir):
         raise ValueError(f"Log directory not found: {log_dir}")
-        
-    # Try to load from cache first
-    cache_path = get_cache_path(log_dir)
-    if not force_reload and os.path.exists(cache_path):
-        try:
-            cache_data = np.load(cache_path, allow_pickle=True)
-            if isinstance(cache_data, np.ndarray) and cache_data.dtype == np.dtype('O'):
-                # Cache contains all LogDirInfo fields
-                return LogDirInfo(
-                    max_epoch=cache_data[0],
-                    metrics=set(cache_data[1]),
-                    dataset_class=cache_data[2],
-                    dataset_type=cache_data[3],
-                    scores=cache_data[4].item(),
-                    score_maps=cache_data[5].item()
-                )
-        except Exception as e:
-            logger.warning(f"Failed to load cache from {cache_path}: {e}")
     
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
     max_epoch = get_max_epoch(epoch_dirs)
     metrics = get_metrics(epoch_dirs)
     dataset_class, dataset_type = get_dataset_info(log_dir)
-    scores = get_scores(epoch_dirs, metrics)
-    score_maps = get_score_maps(epoch_dirs, metrics)
+    score_map = get_score_map(epoch_dirs, metrics, force_reload)
     
-    # Create LogDirInfo object
-    info = LogDirInfo(
+    return LogDirInfo(
         max_epoch=max_epoch,
         metrics=metrics,
         dataset_class=dataset_class,
         dataset_type=dataset_type,
-        scores=scores,
-        score_maps=score_maps
+        score_map=score_map
     )
-    
-    # Cache the results
-    try:
-        np.save(cache_path, np.array([
-            info.max_epoch,
-            list(info.metrics),
-            info.dataset_class,
-            info.dataset_type,
-            info.scores,
-            info.score_maps
-        ], dtype=object))
-    except Exception as e:
-        logger.warning(f"Failed to save cache to {cache_path}: {e}")
-    
-    return info
 
 
 def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[int, Set[str], DatasetType, Dict[str, LogDirInfo]]:
