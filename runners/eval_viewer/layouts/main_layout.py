@@ -114,8 +114,37 @@ def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> htm
     """
     return html.Div([
         html.H1("Evaluation Viewer", style={'textAlign': 'center'}),
-        create_controls(max_epoch, metric_names),
-        create_aggregated_scores_plot(),
-        create_score_maps_grid(num_runs),
-        create_datapoint_viewer_layout(),
+        html.Div([
+            # Left column: Score maps and controls
+            html.Div([
+                create_controls(max_epoch, metric_names),
+                create_aggregated_scores_plot(),
+                create_score_maps_grid(num_runs),
+            ], style={
+                'width': '60%',
+                'float': 'left',
+                'height': 'calc(100vh - 100px)',
+                'overflowY': 'auto',
+                'padding': '20px',
+                'boxSizing': 'border-box'
+            }),
+            
+            # Right column: Datapoint viewer
+            html.Div([
+                create_datapoint_viewer_layout(),
+            ], style={
+                'width': '40%',
+                'float': 'right',
+                'height': 'calc(100vh - 100px)',
+                'overflowY': 'auto',
+                'padding': '20px',
+                'boxSizing': 'border-box',
+                'borderLeft': '1px solid #ddd'
+            })
+        ], style={
+            'display': 'flex',
+            'width': '100%',
+            'height': 'calc(100vh - 100px)',
+            'position': 'relative'
+        })
     ])
