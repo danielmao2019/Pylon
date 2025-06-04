@@ -94,6 +94,10 @@ def create_aggregated_scores_plot(epoch_scores: List[Dict[str, Dict[str, Any]]],
     Returns:
         fig: Plotly figure object
     """
+    assert isinstance(epoch_scores, list)
+    assert all(isinstance(scores, dict) for scores in epoch_scores)
+    assert all(scores.keys() == {'aggregated', 'per_datapoint'} for scores in epoch_scores)
+
     fig = go.Figure()
 
     for i, log_dir in enumerate(log_dirs):
