@@ -1,18 +1,25 @@
 from typing import List
 from dash import html, dcc
+from runners.eval_viewer.layouts.datapoint_viewer import create_datapoint_viewer_layout
 
 
-def create_controls(max_epoch: int, metrics: List[str]) -> html.Div:
+def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
     """
     Creates the control panel with epoch slider and metric dropdown.
 
     Args:
         max_epoch: Maximum epoch index
-        metrics: List of available metrics
+        metric_names: List of available metrics
 
     Returns:
         controls: HTML div containing the controls
     """
+    assert isinstance(max_epoch, int), f"{type(max_epoch)=}"
+    assert isinstance(metric_names, list), f"{type(metric_names)=}"
+    assert len(metric_names) > 0, f"{metric_names=}"
+    assert all(isinstance(metric, str) for metric in metric_names), f"{metric_names=}"
+    assert all(metric_names), f"{metric_names=}"
+
     return html.Div([
         html.Div([
             html.Label("Epoch:"),
@@ -30,8 +37,8 @@ def create_controls(max_epoch: int, metrics: List[str]) -> html.Div:
             html.Label("Metric:"),
             dcc.Dropdown(
                 id='metric-dropdown',
-                options=[{'label': metric, 'value': metric} for metric in sorted(metrics)],
-                value=metrics[0] if metrics else None,
+                options=[{'label': metric, 'value': metric} for metric in sorted(metric_names)],
+                value=metric_names[0] if metric_names else None,
             ),
         ], style={'width': '50%', 'display': 'inline-block', 'float': 'right'}),
     ], style={'padding': '20px'})
@@ -93,13 +100,13 @@ def create_score_maps_grid(num_runs: int) -> html.Div:
     ])
 
 
-def create_layout(max_epoch: int, metrics: List[str], num_runs: int) -> html.Div:
+def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> html.Div:
     """
     Creates the main dashboard layout.
 
     Args:
         max_epoch: Maximum epoch index
-        metrics: List of available metrics
+        metric_names: List of available metrics
         num_runs: Number of runs to display
 
     Returns:
@@ -107,7 +114,37 @@ def create_layout(max_epoch: int, metrics: List[str], num_runs: int) -> html.Div
     """
     return html.Div([
         html.H1("Evaluation Viewer", style={'textAlign': 'center'}),
-        create_controls(max_epoch, metrics),
-        create_aggregated_scores_plot(),
-        create_score_maps_grid(num_runs),
+        html.Div([
+            # Left column: Score maps and controls
+            html.Div([
+                create_controls(max_epoch, metric_names),
+                create_aggregated_scores_plot(),
+                create_score_maps_grid(num_runs),
+            ], style={
+                'width': '60%',
+                'float': 'left',
+                'height': 'calc(100vh - 100px)',
+                'overflowY': 'auto',
+                'padding': '20px',
+                'boxSizing': 'border-box'
+            }),
+            
+            # Right column: Datapoint viewer
+            html.Div([
+                create_datapoint_viewer_layout(),
+            ], style={
+                'width': '40%',
+                'float': 'right',
+                'height': 'calc(100vh - 100px)',
+                'overflowY': 'auto',
+                'padding': '20px',
+                'boxSizing': 'border-box',
+                'borderLeft': '1px solid #ddd'
+            })
+        ], style={
+            'display': 'flex',
+            'width': '100%',
+            'height': 'calc(100vh - 100px)',
+            'position': 'relative'
+        })
     ])

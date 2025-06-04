@@ -1,33 +1,31 @@
 import torch
 import data
 import criteria
-from ._transforms_cfg import transforms_cfg
+from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
 
 
-collate_fn_cfg = {
+collate_fn_config = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
             'meta_info': {
-                'image_size': torch.Tensor,
-                'crop_loc': torch.Tensor,
-                'crop_size': torch.Tensor,
+                'image_resolution': torch.Tensor,
             },
         },
     },
 }
 
-class_dist = torch.Tensor(data.datasets.AirChangeDataset.CLASS_DIST['train']).to(torch.float32)
-num_classes = data.datasets.AirChangeDataset.NUM_CLASSES
+class_dist = torch.Tensor(data.datasets.LevirCdDataset.CLASS_DIST['train']).to(torch.float32)
+num_classes = data.datasets.LevirCdDataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
-config = {
+data_cfg = {
     'train_dataset': {
-        'class': data.datasets.AirChangeDataset,
+        'class': data.datasets.LevirCdDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/AirChange",
+            'data_root': "./data/datasets/soft_links/LEVIR-CD",
             'split': "train",
-            'transforms_cfg': transforms_cfg(first='ResizeMaps', size=(224, 224)),
+            'transforms_cfg': transforms_cfg(size=(224, 224)),
         },
     },
     'train_dataloader': {
@@ -35,7 +33,7 @@ config = {
         'args': {
             'batch_size': 4,
             'num_workers': 4,
-            'collate_fn': collate_fn_cfg,
+            'collate_fn': collate_fn_config,
         },
     },
     'criterion': {

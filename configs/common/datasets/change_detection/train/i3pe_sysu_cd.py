@@ -1,7 +1,7 @@
 import torch
 import data
 import criteria
-from ._transforms_cfg import transforms_cfg
+from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
 
 
 collate_fn_config = {
@@ -19,7 +19,7 @@ class_dist = torch.Tensor(data.datasets.SYSU_CD_Dataset.CLASS_DIST['train']).to(
 num_classes = data.datasets.SYSU_CD_Dataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
-config = {
+data_cfg = {
     'train_dataset': {
         'class': data.datasets.I3PEDataset,
         'args': {

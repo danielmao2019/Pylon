@@ -19,6 +19,7 @@ def display_2d_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     Returns:
         html.Div containing the visualization
     """
+    assert datapoint is not None, f"{datapoint=}"
     # Check if the inputs have the expected structure
     img_1: Optional[torch.Tensor] = datapoint['inputs'].get('img_1')
     img_2: Optional[torch.Tensor] = datapoint['inputs'].get('img_2')
