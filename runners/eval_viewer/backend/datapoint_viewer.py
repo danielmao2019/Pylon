@@ -19,7 +19,6 @@ class DatapointViewer:
         self.dataset_manager = dataset_manager
         self.dataset_class = dataset_class
         self.dataset_type = dataset_type
-        self.dataset = dataset_manager.get_dataset(dataset_class)
         self.current_datapoint_idx = None
 
     def load_datapoint(self, datapoint_idx: int) -> Dict:
@@ -31,6 +30,6 @@ class DatapointViewer:
         Returns:
             Dict containing the datapoint data
         """
-        datapoint = self.dataset[datapoint_idx]
+        datapoint = self.dataset_manager.get_datapoint(self.dataset_class, datapoint_idx)
         self.current_datapoint_idx = datapoint_idx
         return datapoint
