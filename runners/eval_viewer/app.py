@@ -30,6 +30,7 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
 
     # Initialize dataset manager
     dataset_manager = DatasetManager()
+    dataset_manager.load_dataset(dataset_class)
 
     # Create datapoint viewer
     datapoint_viewer = DatapointViewer(dataset_manager, dataset_class, dataset_type)
