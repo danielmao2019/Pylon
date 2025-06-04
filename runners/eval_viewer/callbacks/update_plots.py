@@ -167,7 +167,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         [Input('epoch-slider', 'value'),
          Input('metric-dropdown', 'value')]
     )
-    def update_aggregated_scores_plot(epoch: int, metric: str) -> dcc.Graph:
+    def update_aggregated_scores_plot(metric_name: str) -> dcc.Graph:
         """
         Updates the aggregated scores plot based on selected metric.
 
@@ -178,12 +178,13 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         Returns:
             figure: Plotly figure dictionary for the aggregated scores plot
         """
-        if metric is None or epoch is None:
+        if metric_name is None:
             raise PreventUpdate
 
         # Get scores for all epochs from all runs
-        epoch_scores = [info.scores[epoch] for info in log_dir_infos.values()]
+        metric_idx = metric_names.index(metric_name)
+        epoch_scores = [info.aggregated_scores[:, metric_idx] for info in log_dir_infos.values()]
 
         # Create figure
-        fig = create_aggregated_scores_plot(epoch_scores, list(log_dir_infos.keys()), metric)
+        fig = create_aggregated_scores_plot(epoch_scores, list(log_dir_infos.keys()), metric_name=metric_name)
         return dcc.Graph(figure=fig)
