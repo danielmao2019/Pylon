@@ -15,8 +15,8 @@ class LogDirInfo(NamedTuple):
     metric_names: Set[str]
     dataset_class: str
     dataset_type: DatasetType
-    scores: List[Dict[str, Dict[str, Any]]]
     score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
+    aggregated_scores: np.ndarray  # Shape: (N, C) where N=epochs, C=metrics
 
 
 def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray, float]:

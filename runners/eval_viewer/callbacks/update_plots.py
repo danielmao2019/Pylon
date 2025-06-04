@@ -164,8 +164,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
 
     @app.callback(
         Output('aggregated-scores-plot', 'children'),
-        [Input('epoch-slider', 'value'),
-         Input('metric-dropdown', 'value')]
+        [Input('metric-dropdown', 'value')]
     )
     def update_aggregated_scores_plot(metric_name: str) -> dcc.Graph:
         """
