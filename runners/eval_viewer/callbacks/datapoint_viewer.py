@@ -32,17 +32,13 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
         [Output('score-info-container', 'children'),
          Output('datapoint-visualization-container', 'children')],
         [Input({'type': 'grid-button', 'index': dash.ALL}, 'n_clicks')],
-        [State('epoch-slider', 'value'),
-         State('metric-dropdown', 'value'),
-         State('log-dirs', 'value')]
+        [State('log-dirs', 'value')]
     )
-    def update_datapoint_viewer(clicks, epoch: int, metric: str, log_dir: str):
+    def update_datapoint_viewer(clicks, log_dir: str):
         """Update the datapoint viewer when a grid button is clicked.
 
         Args:
             clicks: List of click events from grid buttons
-            epoch: Current epoch number
-            metric: Selected metric name
             log_dir: Path to the log directory being viewed
 
         Returns:
@@ -50,7 +46,7 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
                 - score_info: HTML elements showing score information
                 - datapoint_viz: HTML elements showing datapoint visualization
         """
-        if not any(clicks) or epoch is None or metric is None or log_dir is None:
+        if not any(clicks) or log_dir is None:
             raise PreventUpdate
 
         ctx = dash.callback_context
