@@ -1,21 +1,25 @@
 import torch
 import data
 import metrics
-from ._transforms_cfg import transforms_cfg
+from configs.common.datasets.change_detection.val._transforms_cfg import transforms_cfg
 
 
 collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
-        'collators': {},
+        'collators': {
+            'meta_info': {
+                'image_resolution': torch.Tensor,
+            },
+        },
     },
 }
 
-config = {
+data_cfg = {
     'val_dataset': {
-        'class': data.datasets.SYSU_CD_Dataset,
+        'class': data.datasets.LevirCdDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/SYSU-CD",
+            'data_root': "./data/datasets/soft_links/LEVIR-CD",
             'split': "val",
             'transforms_cfg': transforms_cfg(size=(224, 224)),
         },
@@ -29,9 +33,9 @@ config = {
         },
     },
     'test_dataset': {
-        'class': data.datasets.SYSU_CD_Dataset,
+        'class': data.datasets.LevirCdDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/SYSU-CD",
+            'data_root': "./data/datasets/soft_links/LEVIR-CD",
             'split': "test",
             'transforms_cfg': transforms_cfg,
         },

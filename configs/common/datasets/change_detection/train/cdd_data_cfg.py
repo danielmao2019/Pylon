@@ -1,33 +1,31 @@
 import torch
 import data
 import criteria
-from ._transforms_cfg import transforms_cfg
+from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
 
 
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
             'meta_info': {
-                'date_1': list,
-                'date_2': list,
+                'image_resolution': torch.Tensor,
             },
         },
     },
 }
 
-class_dist = torch.Tensor(data.datasets.OSCDDataset.CLASS_DIST['train']).to(torch.float32)
-num_classes = data.datasets.OSCDDataset.NUM_CLASSES
+class_dist = torch.Tensor(data.datasets.CDDDataset.CLASS_DIST['train']).to(torch.float32)
+num_classes = data.datasets.CDDDataset.NUM_CLASSES
 class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
-config = {
+data_cfg = {
     'train_dataset': {
-        'class': data.datasets.OSCDDataset,
+        'class': data.datasets.CDDDataset,
         'args': {
-            'data_root': "./data/datasets/soft_links/OSCD",
+            'data_root': "./data/datasets/soft_links/CDD",
             'split': "train",
             'transforms_cfg': transforms_cfg(size=(224, 224)),
-            'bands': None,
         },
     },
     'train_dataloader': {
@@ -35,7 +33,7 @@ config = {
         'args': {
             'batch_size': 4,
             'num_workers': 4,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'criterion': {
