@@ -55,20 +55,17 @@ class DatasetLoader:
                     continue
 
                 # Import the config
-                spec = importlib.util.spec_from_file_location(
-                    f"configs.common.datasets.{dataset_type}.train.{dataset_name}_data_cfg",
-                    config_file
-                )
+                spec = importlib.util.spec_from_file_location("config_file", config_file)
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
 
-                if not hasattr(module, 'data_cfg'):
+                if not hasattr(module, 'config'):
                     self.logger.warning(f"No config found in {config_file}")
                     continue
 
                 # Add to configs with dataset type prefix
                 config_key = f"{dataset_type}/{dataset_name}"
-                dataset_configs[config_key] = module.data_cfg
+                dataset_configs[config_key] = module.config
                 self.logger.info(f"Loaded config for dataset: {config_key}")
 
         return dataset_configs

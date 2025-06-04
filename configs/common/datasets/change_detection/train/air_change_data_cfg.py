@@ -1,7 +1,7 @@
 import torch
 import data
 import criteria
-from ._transforms_cfg import transforms_cfg
+from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
 
 
 collate_fn_cfg = {
