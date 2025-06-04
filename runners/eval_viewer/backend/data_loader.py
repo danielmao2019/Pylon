@@ -4,6 +4,7 @@ import json
 import numpy as np
 from pathlib import Path
 from data.viewer.managers.registry import get_dataset_type, DatasetType
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 logger = logging.getLogger(__name__)
@@ -196,11 +197,20 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, np.ndar
     Raises:
         ValueError: If scores format is invalid
     """
-    # Get score maps for all epochs
-    all_score_maps = [
-        get_score_map_epoch(os.path.join(epoch_dir, "validation_scores.json"))
-        for epoch_dir in epoch_dirs
-    ]
+    # Get score maps for all epochs in parallel while preserving order
+    results = {}
+    with ThreadPoolExecutor() as executor:
+        future_to_idx = {
+            executor.submit(get_score_map_epoch, os.path.join(epoch_dir, "validation_scores.json")): idx
+            for idx, epoch_dir in enumerate(epoch_dirs)
+        }
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            results[idx] = future.result()
+
+    # Sort results by index to maintain order
+    all_score_maps = [results[idx] for idx in range(len(epoch_dirs))]
+
     assert all(score_map_epoch[0] == all_score_maps[0][0] for score_map_epoch in all_score_maps)
     metric_names = all_score_maps[0][0]
 
@@ -295,11 +305,16 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     Raises:
         ValueError: If log directories are invalid or inconsistent
     """
-    # Extract information from each log directory
-    log_dir_infos = {
-        log_dir: extract_log_dir_info(log_dir, force_reload)
-        for log_dir in log_dirs
-    }
+    # Extract information from each log directory in parallel
+    log_dir_infos = {}
+    with ThreadPoolExecutor() as executor:
+        future_to_log_dir = {
+            executor.submit(extract_log_dir_info, log_dir, force_reload): log_dir
+            for log_dir in log_dirs
+        }
+        for future in as_completed(future_to_log_dir):
+            log_dir = future_to_log_dir[future]
+            log_dir_infos[log_dir] = future.result()
 
     # Get common information
     max_epochs = max(info.num_epochs for info in log_dir_infos.values())

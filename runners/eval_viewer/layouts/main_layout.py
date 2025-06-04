@@ -128,7 +128,7 @@ def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> htm
                 'padding': '20px',
                 'boxSizing': 'border-box'
             }),
-            
+
             # Right column: Datapoint viewer
             html.Div([
                 create_datapoint_viewer_layout(),
