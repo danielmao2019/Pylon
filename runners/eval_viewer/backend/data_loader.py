@@ -19,7 +19,7 @@ class LogDirInfo(NamedTuple):
     score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
 
 
-def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray]:
+def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray, float]:
     """Get score map for a single epoch and metric.
 
     Args:
@@ -27,7 +27,7 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
         metric_name: Name of metric (including sub-metrics)
 
     Returns:
-        Tuple of (n_datapoints, score_map) where score_map has shape (H, W)
+        Tuple of (n_datapoints, score_map, aggregated_score) where score_map has shape (H, W)
     """
     with open(scores_file, "r") as f:
         scores = json.load(f)
@@ -38,17 +38,22 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
         assert base_metric in scores['per_datapoint'], f"Metric {base_metric} not found in scores"
         assert isinstance(scores['per_datapoint'][base_metric], list), f"Metric {base_metric} is not a list"
         assert idx < len(scores['per_datapoint'][base_metric]), f"Index {idx} out of range for {base_metric}"
-        metric_scores = np.array([float(score[idx]) for score in scores['per_datapoint'][base_metric]])
+        per_datapoint_scores = np.array([float(score[idx]) for score in scores['per_datapoint'][base_metric]])
+        aggregated_score = float(scores['aggregated'][base_metric][idx])
     else:
         assert metric_name in scores['per_datapoint'], f"Metric {metric_name} not found in scores"
-        metric_scores = np.array([float(score) for score in scores['per_datapoint'][metric_name]])
+        per_datapoint_scores = np.array([float(score) for score in scores['per_datapoint'][metric_name]])
+        aggregated_score = float(scores['aggregated'][metric_name])
 
-    n_datapoints = len(metric_scores)
+    assert per_datapoint_scores.ndim == 1, f"Per-datapoint scores {per_datapoint_scores} is not 1D"
+    assert isinstance(aggregated_score, float), f"Aggregated score {aggregated_score} is not a float"
+
+    n_datapoints = len(per_datapoint_scores)
     side_length = int(np.ceil(np.sqrt(n_datapoints)))
     score_map = np.full((side_length, side_length), np.nan)
-    score_map.flat[:n_datapoints] = metric_scores
+    score_map.flat[:n_datapoints] = per_datapoint_scores
 
-    return n_datapoints, score_map
+    return n_datapoints, score_map, aggregated_score
 
 
 def get_metric_names_aggregated(scores_dict: dict) -> List[str]:
@@ -93,7 +98,7 @@ def get_metric_names_per_datapoint(scores_dict: dict) -> List[str]:
     return metrics
 
 
-def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray, Dict[str, Dict[str, Any]]]:
+def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray, np.ndarray]:
     """Get score map for a single epoch and all metrics.
 
     Args:
@@ -122,9 +127,13 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray, Dict[s
         [score_map_epoch_metric[0] for score_map_epoch_metric in all_score_maps_epoch],
     ))}"""
 
-    score_map_epoch = np.stack([score_map_epoch_metric[1]
-                              for score_map_epoch_metric in all_score_maps_epoch], axis=0)
-    return metric_names, score_map_epoch, scores
+    score_map_epoch = np.stack([
+        score_map_epoch_metric[1] for score_map_epoch_metric in all_score_maps_epoch
+    ], axis=0)
+    aggregated_scores_epoch = np.array([
+        score_map_epoch_metric[2] for score_map_epoch_metric in all_score_maps_epoch
+    ])
+    return metric_names, score_map_epoch, aggregated_scores_epoch
 
 
 def get_epoch_dirs(log_dir: str) -> List[str]:
@@ -175,7 +184,7 @@ def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
     return dataset_class, dataset_type
 
 
-def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, List[Dict[str, Dict[str, Any]]]]:
+def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, np.ndarray]:
     """Get score map array from validation scores files.
 
     Args:
@@ -197,9 +206,11 @@ def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, List[Di
 
     # Stack all epoch score maps
     score_map = np.stack([score_map_epoch[1] for score_map_epoch in all_score_maps], axis=0)
-    scores = [score_map_epoch[2] for score_map_epoch in all_score_maps]
+    aggregated_scores = np.stack([score_map_epoch[2] for score_map_epoch in all_score_maps], axis=0)
+    assert score_map.shape[:2] == aggregated_scores.shape, \
+        f"Score map and aggregated scores have different shapes: {score_map.shape} != {aggregated_scores.shape}"
 
-    return metric_names, score_map, scores
+    return metric_names, score_map, aggregated_scores
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
@@ -242,7 +253,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
 
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
-    metric_names, score_map, scores = get_score_map(epoch_dirs)
+    metric_names, score_map, aggregated_scores = get_score_map(epoch_dirs)
     dataset_class, dataset_type = get_dataset_info(log_dir)
 
     # Create LogDirInfo object
@@ -251,8 +262,8 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         metric_names=metric_names,
         dataset_class=dataset_class,
         dataset_type=dataset_type,
-        scores=scores,
         score_map=score_map,
+        aggregated_scores=aggregated_scores,
     )
 
     # Save to cache
@@ -262,8 +273,8 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         metric_names=info.metric_names,
         dataset_class=info.dataset_class,
         dataset_type=info.dataset_type,
-        scores=info.scores,
-        score_map=info.score_map
+        score_map=info.score_map,
+        aggregated_scores=info.aggregated_scores,
     )
 
     return info
