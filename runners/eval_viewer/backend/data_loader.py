@@ -113,8 +113,13 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray]:
         get_score_map_epoch_metric(scores_file, metric_name)
         for metric_name in metric_names
     ]
-    assert all(score_map_epoch_metric[0] == all_score_maps_epoch[0][0]
-              for score_map_epoch_metric in all_score_maps_epoch)
+    assert all(
+        score_map_epoch_metric[0] == all_score_maps_epoch[0][0]
+        for score_map_epoch_metric in all_score_maps_epoch
+    ), f"""{list(zip(
+        metric_names,
+        [score_map_epoch_metric[0] for score_map_epoch_metric in all_score_maps_epoch],
+    ))}"""
 
     score_map_epoch = np.stack([score_map_epoch_metric[1]
                               for score_map_epoch_metric in all_score_maps_epoch], axis=0)
