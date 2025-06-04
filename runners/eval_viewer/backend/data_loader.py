@@ -243,10 +243,10 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
             return LogDirInfo(
                 num_epochs=cache['num_epochs'].item(),
                 metric_names=cache['metric_names'].tolist(),
+                score_map=cache['score_map'],
+                aggregated_scores=cache['aggregated_scores'],
                 dataset_class=cache['dataset_class'].item(),
                 dataset_type=cache['dataset_type'].item(),
-                scores=cache['scores'],
-                score_map=cache['score_map'],
             )
         except Exception as e:
             logger.warning(f"Failed to load cache from {cache_path}: {e}")
@@ -260,10 +260,10 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     info = LogDirInfo(
         num_epochs=len(epoch_dirs),
         metric_names=metric_names,
-        dataset_class=dataset_class,
-        dataset_type=dataset_type,
         score_map=score_map,
         aggregated_scores=aggregated_scores,
+        dataset_class=dataset_class,
+        dataset_type=dataset_type,
     )
 
     # Save to cache
@@ -271,10 +271,10 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         cache_path,
         num_epochs=info.num_epochs,
         metric_names=info.metric_names,
-        dataset_class=info.dataset_class,
-        dataset_type=info.dataset_type,
         score_map=info.score_map,
         aggregated_scores=info.aggregated_scores,
+        dataset_class=info.dataset_class,
+        dataset_type=info.dataset_type,
     )
 
     return info
