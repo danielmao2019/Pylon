@@ -1,193 +1,157 @@
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, NamedTuple
 import os
 import json
 from data.viewer.managers.registry import get_dataset_type, DatasetType
 
 
-def validate_log_directories(log_dirs: List[str]) -> Tuple[int, DatasetType]:
+class LogDirInfo(NamedTuple):
+    """Information extracted from a log directory."""
+    max_epoch: int
+    metrics: Set[str]
+    dataset_class: str
+    dataset_type: DatasetType
+    scores: Dict[int, Dict]  # epoch -> scores
+
+
+def extract_log_dir_info(log_dir: str) -> LogDirInfo:
+    """Extract all necessary information from a log directory.
+    
+    Args:
+        log_dir: Path to log directory
+        
+    Returns:
+        LogDirInfo containing:
+            - max_epoch: Number of completed epochs
+            - metrics: Set of metric names
+            - dataset_class: Name of dataset class
+            - dataset_type: Type of dataset
+            - scores: Dictionary mapping epochs to scores
+            
+    Raises:
+        AssertionError: If any validation fails
     """
-    Validates log directories and returns max epoch index and dataset type.
+    # Check directory exists
+    assert os.path.isdir(log_dir), f"Directory does not exist: {log_dir}"
+    
+    # Get dataset info from config
+    config_path = os.path.join(log_dir, "config.json")
+    assert os.path.isfile(config_path), f"config.json not found in {log_dir}"
+    
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+        
+    assert 'val_dataset' in config, f"val_dataset not found in config.json in {log_dir}"
+    assert 'class' in config['val_dataset'], f"dataset class not found in config.json in {log_dir}"
+    
+    dataset_class = config['val_dataset']['class']
+    dataset_name = dataset_class.lower().replace('dataset', '')
+    dataset_type = get_dataset_type(dataset_name)
+    
+    # Get epoch info and scores
+    max_epoch = -1
+    scores = {}
+    metrics = None
+    
+    while True:
+        epoch = max_epoch + 1
+        epoch_dir = os.path.join(log_dir, f"epoch_{epoch}")
+        scores_path = os.path.join(epoch_dir, "validation_scores.json")
+        
+        if not os.path.isdir(epoch_dir) or not os.path.isfile(scores_path):
+            break
+            
+        # Load scores
+        with open(scores_path, 'r') as f:
+            epoch_scores = json.load(f)
+            
+        # Validate scores format
+        assert isinstance(epoch_scores, dict), f"Invalid scores format in {scores_path}"
+        assert epoch_scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_path}"
+        assert isinstance(epoch_scores['aggregated'], dict), f"Invalid aggregated format in {scores_path}"
+        assert isinstance(epoch_scores['per_datapoint'], dict), f"Invalid per_datapoint format in {scores_path}"
+        assert epoch_scores['aggregated'].keys() == epoch_scores['per_datapoint'].keys(), \
+            f"Invalid keys in {scores_path}"
+            
+        # Extract metrics from first epoch
+        if metrics is None:
+            metrics = set()
+            for key in epoch_scores['per_datapoint'].keys():
+                sample = epoch_scores['per_datapoint'][key][0]
+                if isinstance(sample, list):
+                    metrics.update(f"{key}[{i}]" for i in range(len(sample)))
+                else:
+                    metrics.add(key)
+                    
+        # Validate metrics are consistent
+        current_metrics = set()
+        for key in epoch_scores['per_datapoint'].keys():
+            sample = epoch_scores['per_datapoint'][key][0]
+            if isinstance(sample, list):
+                current_metrics.update(f"{key}[{i}]" for i in range(len(sample)))
+            else:
+                current_metrics.add(key)
+        assert current_metrics == metrics, f"Inconsistent metrics in {scores_path}"
+        
+        scores[epoch] = epoch_scores
+        max_epoch = epoch
+        
+    assert max_epoch >= 0, f"No completed epochs in {log_dir}"
+    assert metrics is not None and len(metrics) > 0, f"No metrics found in {log_dir}"
+    
+    return LogDirInfo(max_epoch, metrics, dataset_class, dataset_type, scores)
 
-    This function checks that:
-    1. All provided log directories exist
-    2. Each directory has epoch_0, epoch_1, etc.
-    3. Each epoch directory has validation_scores.json
-    4. All validation_scores.json have the same set of metrics
-    5. All log directories use the same dataset type
-    6. Returns the maximum epoch index where all runs have completed training and the dataset type
 
+def initialize_log_dirs(log_dirs: List[str]) -> Tuple[int, Set[str], DatasetType, Dict[str, LogDirInfo]]:
+    """Initialize and validate all log directories.
+    
+    This function:
+    1. Extracts all necessary information from each log directory
+    2. Validates that all directories use the same dataset type
+    3. Validates that all directories have consistent metrics
+    4. Returns the common max epoch, metrics, dataset type, and all log directory info
+    
     Args:
         log_dirs: List of paths to log directories
-
+        
     Returns:
         Tuple containing:
             - max_epoch: Maximum epoch index where all runs have completed training
-            - dataset_type: Type of dataset being used (2d_change_detection, 3d_change_detection, or point_cloud_registration)
-
+            - metrics: Set of common metric names
+            - dataset_type: Type of dataset being used
+            - log_dir_infos: Dictionary mapping log directories to their info
+            
     Raises:
         AssertionError: If any validation fails
     """
     assert len(log_dirs) > 0, "No log directories provided"
-
-    # Check all directories exist
-    for log_dir in log_dirs:
-        assert os.path.isdir(log_dir), f"Directory does not exist: {log_dir}"
-
-    # Find max epoch for each run and validate dataset types
-    max_epochs = []
+    
+    # Extract info from all log directories
+    log_dir_infos = {}
     dataset_types = set()
+    all_metrics = None
     
     for log_dir in log_dirs:
-        # Get dataset type from config
-        config_path = os.path.join(log_dir, "config.json")
-        assert os.path.isfile(config_path), f"config.json not found in {log_dir}"
+        info = extract_log_dir_info(log_dir)
+        log_dir_infos[log_dir] = info
+        dataset_types.add(info.dataset_type)
         
-        with open(config_path, 'r') as f:
-            config = json.load(f)
+        if all_metrics is None:
+            all_metrics = info.metrics
+        else:
+            assert info.metrics == all_metrics, f"Inconsistent metrics in {log_dir}"
             
-        assert 'val_dataset' in config, f"val_dataset not found in config.json in {log_dir}"
-        assert 'class' in config['val_dataset'], f"dataset class not found in config.json in {log_dir}"
-        
-        dataset_class = config['val_dataset']['class']
-        dataset_name = dataset_class.lower().replace('dataset', '')
-        dataset_type = get_dataset_type(dataset_name)
-        dataset_types.add(dataset_type)
-        
-        # Check epochs
-        idx = 0
-        while True:
-            epoch_dir = os.path.join(log_dir, f"epoch_{idx}")
-            scores_path = os.path.join(epoch_dir, "validation_scores.json")
-
-            if not os.path.isdir(epoch_dir) or not os.path.isfile(scores_path):
-                break
-
-            idx += 1
-
-        assert idx > 0, f"No completed epochs in {log_dir}"
-        max_epochs.append(idx - 1)
-
-    # Verify all runs use the same dataset type
+    # Validate all directories use the same dataset type
     assert len(dataset_types) == 1, f"Multiple dataset types found: {dataset_types}"
     dataset_type = dataset_types.pop()
-
-    # Return minimum max epoch (where all runs have completed) and dataset type
-    return min(max_epochs), dataset_type
-
-
-def get_metrics_from_json(scores_filepath: str) -> Set[str]:
-    """
-    Gets the set of metric names from a validation_scores.json file.
-
-    Args:
-        scores_filepath: Path to validation_scores.json file
-
-    Returns:
-        metrics: Set of metric names
-
-    Raises:
-        AssertionError: If file has invalid format
-    """
-    with open(scores_filepath, 'r') as f:
-        scores = json.load(f)
-
-    assert isinstance(scores, dict), \
-        f"Invalid scores format in {scores_filepath}"
-    assert scores.keys() == {'aggregated', 'per_datapoint'}, \
-        f"Invalid keys in {scores_filepath}"
-    assert isinstance(scores['aggregated'], dict), \
-        f"Invalid aggregated format in {scores_filepath}"
-    assert isinstance(scores['per_datapoint'], dict), \
-        f"Invalid per_datapoint format in {scores_filepath}"
-    assert scores['aggregated'].keys() == scores['per_datapoint'].keys(), \
-        f"Invalid keys in {scores_filepath}\n" \
-        f"Common keys: {scores['aggregated'].keys() & scores['per_datapoint'].keys()}\n" \
-        f"Unique keys in aggregated: {scores['aggregated'].keys() - scores['per_datapoint'].keys()}\n" \
-        f"Unique keys in per_datapoint: {scores['per_datapoint'].keys() - scores['aggregated'].keys()}"
-
-    metrics = []
-    for key in scores['per_datapoint'].keys():
-        assert isinstance(scores['per_datapoint'][key], list)
-        assert len(scores['per_datapoint'][key]) > 0
-        sample = scores['per_datapoint'][key][0]
-        if isinstance(sample, list):
-            # Handle sub-metrics (e.g., class_tp[0], class_tp[1], etc.)
-            assert all(isinstance(score, (float, int)) for score in sample), \
-                f"Invalid scores format in {scores_filepath}: {[type(score) for score in sample]}"
-            metrics.extend([f"{key}[{i}]" for i in range(len(sample))])
-        else:
-            assert isinstance(sample, (float, int)), \
-                f"Invalid scores format in {scores_filepath}"
-            metrics.append(key)
-
-    return set(metrics)
-
-
-def get_common_metrics(log_dirs: List[str]) -> Set[str]:
-    """
-    Gets the set of common metrics across all validation scores files.
-
-    Args:
-        log_dirs: List of paths to log directories
-
-    Returns:
-        metrics: Set of metric names that are present in all validation scores files
-
-    Raises:
-        AssertionError: If no common metrics are found
-    """
-    # Get metrics from first run's first epoch
-    first_scores_path = os.path.join(log_dirs[0], "epoch_0", "validation_scores.json")
-    metrics = get_metrics_from_json(first_scores_path)
-    assert len(metrics) > 0, "No metrics found"
-
-    # Verify metrics are consistent across all runs and epochs
-    for log_dir in log_dirs:
-        idx = 0
-        while True:
-            epoch_dir = os.path.join(log_dir, f"epoch_{idx}")
-            scores_path = os.path.join(epoch_dir, "validation_scores.json")
-
-            if not os.path.isdir(epoch_dir) or not os.path.isfile(scores_path):
-                break
-
-            current_metrics = get_metrics_from_json(scores_path)
-            assert current_metrics == metrics, f"Inconsistent metrics in {scores_path}"
-
-            idx += 1
-
-    return metrics
-
-
-def load_validation_scores(log_dir: str, epoch: int) -> Dict:
-    """
-    Loads validation scores from a specific epoch.
-
-    Args:
-        log_dir: Path to log directory
-        epoch: Epoch index
-
-    Returns:
-        scores: Dictionary containing validation scores
-
-    Raises:
-        AssertionError: If file doesn't exist or has invalid format
-    """
-    scores_path = os.path.join(log_dir, f"epoch_{epoch}", "validation_scores.json")
-    assert os.path.isfile(scores_path), f"validation_scores.json not found at {scores_path}"
-
-    with open(scores_path, 'r') as f:
-        scores = json.load(f)
-
-    assert isinstance(scores, dict), f"Invalid scores format in {scores_path}"
-    assert 'aggregated' in scores and 'per_datapoint' in scores, f"Missing required keys in {scores_path}"
-
-    return scores
+    
+    # Get common max epoch
+    max_epoch = min(info.max_epoch for info in log_dir_infos.values())
+    
+    return max_epoch, all_metrics, dataset_type, log_dir_infos
 
 
 def extract_metric_scores(scores: Dict, metric: str) -> List[float]:
-    """
-    Extracts scores for a specific metric from validation scores.
+    """Extracts scores for a specific metric from validation scores.
 
     Args:
         scores: Dictionary containing validation scores
