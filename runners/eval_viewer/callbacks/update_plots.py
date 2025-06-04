@@ -164,29 +164,25 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
 
     @app.callback(
         Output('aggregated-scores-plot', 'children'),
-        [Input('metric-dropdown', 'value')]
+        [Input('epoch-slider', 'value'),
+         Input('metric-dropdown', 'value')]
     )
-    def update_aggregated_scores_plot(metric: str) -> dcc.Graph:
+    def update_aggregated_scores_plot(epoch: int, metric: str) -> dcc.Graph:
         """
         Updates the aggregated scores plot based on selected metric.
 
         Args:
+            epoch: Selected epoch
             metric: Selected metric name
 
         Returns:
             figure: Plotly figure dictionary for the aggregated scores plot
         """
-        if metric is None:
+        if metric is None or epoch is None:
             raise PreventUpdate
 
         # Get scores for all epochs from all runs
-        epoch_scores = []
-        for info in log_dir_infos.values():
-            run_scores = []
-            for epoch in range(info.num_epochs):
-                scores = info.score_map[epoch]
-                run_scores.append(scores)
-            epoch_scores.append(run_scores)
+        epoch_scores = [info.score_map[epoch] for info in log_dir_infos.values()]
 
         # Create figure
         fig = create_aggregated_scores_plot(epoch_scores, list(log_dir_infos.keys()), metric)
