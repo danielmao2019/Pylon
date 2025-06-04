@@ -51,9 +51,9 @@ from runners import SupervisedSingleTaskTrainer
 config['runner'] = SupervisedSingleTaskTrainer
 
 # dataset config
-from configs.common.datasets.change_detection.train.sysu_cd import config as train_dataset_config
+from configs.common.datasets.change_detection.train.sysu_cd_data_cfg import config as train_dataset_config
 config.update(train_dataset_config)
-from configs.common.datasets.change_detection.val.sysu_cd import config as val_dataset_config
+from configs.common.datasets.change_detection.val.sysu_cd_data_cfg import config as val_dataset_config
 config.update(val_dataset_config)
 
 # model config
