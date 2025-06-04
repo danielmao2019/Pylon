@@ -11,11 +11,88 @@ logger = logging.getLogger(__name__)
 
 class LogDirInfo(NamedTuple):
     """Information extracted from a log directory."""
-    max_epoch: int
-    metrics: Set[str]
+    num_epochs: int
+    metric_names: Set[str]
     dataset_class: str
     dataset_type: DatasetType
     score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
+
+
+def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray]:
+    """Get score map for a single epoch and metric.
+    
+    Args:
+        scores_file: Path to validation scores file
+        metric_name: Name of metric (including sub-metrics)
+        
+    Returns:
+        Tuple of (n_datapoints, score_map) where score_map has shape (H, W)
+    """
+    with open(scores_file, "r") as f:
+        scores = json.load(f)
+    
+    if '[' in metric_name:
+        base_metric, idx_str = metric_name.split('[')
+        idx = int(idx_str.rstrip(']'))
+        metric_scores = np.array([float(score[idx]) for score in scores['per_datapoint'][base_metric]])
+    else:
+        metric_scores = np.array([float(score) for score in scores['per_datapoint'][metric_name]])
+    
+    n_datapoints = len(metric_scores)
+    side_length = int(np.ceil(np.sqrt(n_datapoints)))
+    score_map = np.full((side_length, side_length), np.nan)
+    score_map.flat[:n_datapoints] = metric_scores
+    
+    return n_datapoints, score_map
+
+
+def get_metric_names(scores_dict: dict) -> Set[str]:
+    """Extract metric names including sub-metrics from scores dictionary.
+    
+    Args:
+        scores_dict: Dictionary containing per_datapoint scores
+        
+    Returns:
+        Set of metric names including sub-metrics (e.g., class_tp[0])
+    """
+    metrics = set()
+    for key in scores_dict.keys():
+        sample = scores_dict[key][0]
+        if isinstance(sample, list):
+            metrics.update(f"{key}[{i}]" for i in range(len(sample)))
+        else:
+            assert isinstance(sample, (float, int)), f"Invalid sample type for metric {key}"
+            metrics.add(key)
+    return metrics
+
+
+def get_score_map_epoch(scores_file: str) -> Tuple[Set[str], np.ndarray]:
+    """Get score map for a single epoch and all metrics.
+    
+    Args:
+        scores_file: Path to validation scores file
+        
+    Returns:
+        Tuple of (metric_names, score_map) where score_map has shape (C, H, W)
+    """
+    with open(scores_file, "r") as f:
+        scores = json.load(f)
+    assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
+    assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
+    
+    metric_names = get_metric_names(scores['per_datapoint'])
+    assert metric_names == get_metric_names(scores['aggregated'])
+    
+    all_score_maps_epoch = [
+        get_score_map_epoch_metric(scores_file, metric_name)
+        for metric_name in metric_names
+    ]
+    assert all(score_map_epoch_metric[0] == all_score_maps_epoch[0][0] 
+              for score_map_epoch_metric in all_score_maps_epoch)
+    
+    score_map_epoch = np.stack([score_map_epoch_metric[1] 
+                              for score_map_epoch_metric in all_score_maps_epoch], axis=0)
+    return metric_names, score_map_epoch
 
 
 def get_epoch_dirs(log_dir: str) -> List[str]:
@@ -49,147 +126,6 @@ def get_epoch_dirs(log_dir: str) -> List[str]:
     return epoch_dirs
 
 
-def get_max_epoch(epoch_dirs: List[str]) -> int:
-    """Get the maximum epoch number from a list of epoch directories.
-    
-    Args:
-        epoch_dirs: List of epoch directory paths
-        
-    Returns:
-        Maximum epoch number
-    """
-    return max(int(os.path.basename(d).split("_")[1]) for d in epoch_dirs)
-
-
-def extract_metrics_from_scores(scores_file: str) -> Set[str]:
-    """Extract metric names including sub-metrics from a validation scores file.
-    
-    Args:
-        scores_file: Path to validation scores file
-        
-    Returns:
-        Set of metric names including sub-metrics (e.g., class_tp[0])
-        
-    Raises:
-        ValueError: If scores file format is invalid
-    """
-    with open(scores_file, "r") as f:
-        scores = json.load(f)
-        assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
-        assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
-        assert isinstance(scores['per_datapoint'], dict), f"Invalid per_datapoint format in {scores_file}"
-        
-        # Extract metrics from per_datapoint scores
-        metrics = set()
-        for key in scores['per_datapoint'].keys():
-            sample = scores['per_datapoint'][key][0]
-            if isinstance(sample, list):
-                metrics.update(f"{key}[{i}]" for i in range(len(sample)))
-            else:
-                assert isinstance(sample, (float, int)), f"Invalid sample type in {scores_file}"
-                metrics.add(key)
-                
-        return metrics
-
-
-def get_metrics(epoch_dirs: List[str]) -> Set[str]:
-    """Get set of metrics from validation scores files.
-    
-    Args:
-        epoch_dirs: List of epoch directory paths
-        
-    Returns:
-        Set of metric names including sub-metrics (e.g., class_tp[0])
-        
-    Raises:
-        ValueError: If no validation scores found or metrics are inconsistent
-    """
-    metrics = None
-    for epoch_dir in epoch_dirs:
-        scores_file = os.path.join(epoch_dir, "validation_scores.json")
-        assert os.path.exists(scores_file)
-        
-        current_metrics = extract_metrics_from_scores(scores_file)
-        if metrics is None:
-            metrics = current_metrics
-        elif current_metrics != metrics:
-            raise ValueError(f"Inconsistent metrics found in {scores_file}")
-                
-    return metrics
-
-
-def get_score_map(epoch_dirs: List[str], metric_names: Set[str], force_reload: bool = False) -> np.ndarray:
-    """Get score map array from validation scores files or cache.
-    
-    Args:
-        epoch_dirs: List of epoch directory paths
-        metric_names: Set of metric names including sub-metrics
-        force_reload: Whether to force reload from source files
-        
-    Returns:
-        Score map array of shape (N, C, H, W) where:
-            N = number of epochs
-            C = number of metrics
-            H, W = dimensions of the square matrix (H*W = n_datapoints)
-            
-    Raises:
-        ValueError: If scores format is invalid or cache is corrupted
-    """
-    # Get cache path
-    cache_dir = Path(__file__).parent.parent / "score_maps_cache"
-    cache_dir.mkdir(exist_ok=True)
-    run_name = os.path.basename(os.path.normpath(os.path.dirname(epoch_dirs[0])))
-    cache_path = str(cache_dir / f"{run_name}.npy")
-    
-    # Try to load from cache first
-    if not force_reload and os.path.exists(cache_path):
-        score_map = np.load(cache_path)
-        if not isinstance(score_map, np.ndarray) or score_map.ndim != 4:
-            raise ValueError(f"Invalid cache format in {cache_path}")
-        return score_map
-    
-    # Get number of datapoints from first epoch
-    with open(os.path.join(epoch_dirs[0], "validation_scores.json"), "r") as f:
-        scores = json.load(f)
-        n_datapoints = len(scores['per_datapoint'][next(iter(scores['per_datapoint'].keys()))])
-    
-    # Calculate dimensions for square matrix
-    side_length = int(np.ceil(np.sqrt(n_datapoints)))
-    
-    # Initialize score map with NaN's
-    n_epochs = len(epoch_dirs)
-    n_metrics = len(metric_names)
-    score_map = np.full((n_epochs, n_metrics, side_length, side_length), np.nan)
-    
-    # Sort metric names for consistent ordering
-    sorted_metrics = sorted(metric_names)
-    
-    # Load all scores at once
-    all_scores = []
-    for epoch_dir in epoch_dirs:
-        with open(os.path.join(epoch_dir, "validation_scores.json"), "r") as f:
-            scores = json.load(f)
-            epoch_scores = []
-            for metric in sorted_metrics:
-                if '[' in metric:
-                    base_metric, idx_str = metric.split('[')
-                    idx = int(idx_str.rstrip(']'))
-                    metric_scores = np.array([float(score[idx]) for score in scores['per_datapoint'][base_metric]])
-                else:
-                    metric_scores = np.array([float(score) for score in scores['per_datapoint'][metric]])
-                epoch_scores.append(metric_scores)
-            all_scores.append(epoch_scores)
-    
-    # Convert to numpy array and reshape
-    all_scores = np.array(all_scores)  # Shape: (n_epochs, n_metrics, n_datapoints)
-    score_map.reshape(n_epochs, n_metrics, -1)[:, :, :n_datapoints] = all_scores
-    
-    # Save to cache
-    np.save(cache_path, score_map)
-    
-    return score_map
-
-
 def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
     """Get dataset class and type from config file.
     
@@ -217,6 +153,51 @@ def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
     return dataset_class, dataset_type
 
 
+def get_score_map(epoch_dirs: List[str], force_reload: bool = False) -> np.ndarray:
+    """Get score map array from validation scores files or cache.
+    
+    Args:
+        epoch_dirs: List of epoch directory paths
+        force_reload: Whether to force reload from source files
+        
+    Returns:
+        Score map array of shape (N, C, H, W) where:
+            N = number of epochs
+            C = number of metrics
+            H, W = dimensions of the square matrix (H*W = n_datapoints)
+            
+    Raises:
+        ValueError: If scores format is invalid or cache is corrupted
+    """
+    # Get cache path
+    cache_dir = Path(__file__).parent.parent / "score_maps_cache"
+    cache_dir.mkdir(exist_ok=True)
+    run_name = os.path.basename(os.path.normpath(os.path.dirname(epoch_dirs[0])))
+    cache_path = str(cache_dir / f"{run_name}.npy")
+    
+    # Try to load from cache first
+    if not force_reload and os.path.exists(cache_path):
+        score_map = np.load(cache_path)
+        if not isinstance(score_map, np.ndarray) or score_map.ndim != 4:
+            raise ValueError(f"Invalid cache format in {cache_path}")
+        return score_map
+    
+    # Get score maps for all epochs
+    all_score_maps = [
+        get_score_map_epoch(os.path.join(epoch_dir, "validation_scores.json"))
+        for epoch_dir in epoch_dirs
+    ]
+    assert all(score_map_epoch[0] == all_score_maps[0][0] for score_map_epoch in all_score_maps)
+    
+    # Stack all epoch score maps
+    score_map = np.stack([score_map_epoch[1] for score_map_epoch in all_score_maps], axis=0)
+    
+    # Save to cache
+    np.save(cache_path, score_map)
+    
+    return score_map
+
+
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
     """Extract all information from a log directory.
     
@@ -236,14 +217,13 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
-    max_epoch = get_max_epoch(epoch_dirs)
-    metrics = get_metrics(epoch_dirs)
+    num_epochs = len(epoch_dirs)
+    metric_names, score_map = get_score_map(epoch_dirs, force_reload)
     dataset_class, dataset_type = get_dataset_info(log_dir)
-    score_map = get_score_map(epoch_dirs, metrics, force_reload)
-    
+
     return LogDirInfo(
-        max_epoch=max_epoch,
-        metrics=metrics,
+        num_epochs=num_epochs,
+        metric_names=metric_names,
         dataset_class=dataset_class,
         dataset_type=dataset_type,
         score_map=score_map
