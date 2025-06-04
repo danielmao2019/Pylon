@@ -1,6 +1,8 @@
 from typing import List, Dict, Set, Tuple, NamedTuple
 import os
 import json
+import numpy as np
+from pathlib import Path
 from data.viewer.managers.registry import get_dataset_type, DatasetType
 
 
@@ -11,13 +13,66 @@ class LogDirInfo(NamedTuple):
     dataset_class: str
     dataset_type: DatasetType
     scores: Dict[int, Dict]  # epoch -> scores
+    score_maps: np.ndarray  # (n_epochs, n_metrics, side_length, side_length)
 
 
-def extract_log_dir_info(log_dir: str) -> LogDirInfo:
+def get_cache_path(log_dir: str) -> str:
+    """Get the cache file path for a log directory.
+
+    Args:
+        log_dir: Path to log directory
+
+    Returns:
+        cache_path: Path to cache file
+    """
+    cache_dir = Path(__file__).parent.parent / "score_maps_cache"
+    cache_dir.mkdir(exist_ok=True)
+
+    # Use the last component of log_dir as the cache filename
+    run_name = os.path.basename(os.path.normpath(log_dir))
+    return str(cache_dir / f"{run_name}.npy")
+
+
+def create_score_maps(scores: Dict[int, Dict], metrics: List[str]) -> np.ndarray:
+    """Create score maps array from scores dictionary.
+
+    Args:
+        scores: Dictionary mapping epochs to scores
+        metrics: List of metrics to include
+
+    Returns:
+        score_maps: numpy array of shape (N, C, H, W) where:
+            N = number of epochs
+            C = number of metrics
+            H, W = dimensions of the square matrix
+    """
+    n_epochs = len(scores)
+    n_datapoints = len(next(iter(scores[0]['per_datapoint'].values())))
+    side_length = int(np.ceil(np.sqrt(n_datapoints)))
+
+    # Initialize cache with NaN's
+    score_maps = np.full((n_epochs, len(metrics), side_length, side_length), np.nan)
+
+    # Fill cache for each epoch and metric
+    for e in range(n_epochs):
+        for c, metric in enumerate(metrics):
+            if '[' in metric:
+                base_metric, idx_str = metric.split('[')
+                idx = int(idx_str.rstrip(']'))
+                metric_scores = [float(score[idx]) for score in scores[e]['per_datapoint'][base_metric]]
+            else:
+                metric_scores = [float(score) for score in scores[e]['per_datapoint'][metric]]
+            score_maps[e, c].flat[:n_datapoints] = metric_scores
+
+    return score_maps
+
+
+def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
     """Extract all necessary information from a log directory.
     
     Args:
         log_dir: Path to log directory
+        force_reload: Whether to force reload of cached data
         
     Returns:
         LogDirInfo containing:
@@ -26,6 +81,7 @@ def extract_log_dir_info(log_dir: str) -> LogDirInfo:
             - dataset_class: Name of dataset class
             - dataset_type: Type of dataset
             - scores: Dictionary mapping epochs to scores
+            - score_maps: Cached score maps array
             
     Raises:
         AssertionError: If any validation fails
@@ -46,6 +102,30 @@ def extract_log_dir_info(log_dir: str) -> LogDirInfo:
     dataset_class = config['val_dataset']['class']
     dataset_name = dataset_class.lower().replace('dataset', '')
     dataset_type = get_dataset_type(dataset_name)
+    
+    # Check if we can load from cache
+    cache_path = get_cache_path(log_dir)
+    if not force_reload and os.path.exists(cache_path):
+        try:
+            # Load cache
+            cache_data = np.load(cache_path, allow_pickle=True)
+            if isinstance(cache_data, np.ndarray) and cache_data.dtype == np.dtype('O'):
+                # Cache contains both scores and score_maps
+                scores = cache_data[0].item()
+                score_maps = cache_data[1]
+                metrics = set(cache_data[2])
+                
+                # Validate cache
+                assert isinstance(scores, dict), "Invalid cache format: scores not a dict"
+                assert isinstance(score_maps, np.ndarray), "Invalid cache format: score_maps not an array"
+                assert isinstance(metrics, set), "Invalid cache format: metrics not a set"
+                
+                # Get max epoch from scores
+                max_epoch = max(scores.keys())
+                
+                return LogDirInfo(max_epoch, metrics, dataset_class, dataset_type, scores, score_maps)
+        except Exception as e:
+            logger.warning(f"Failed to load cache for {log_dir}: {str(e)}")
     
     # Get epoch info and scores
     max_epoch = -1
@@ -98,10 +178,19 @@ def extract_log_dir_info(log_dir: str) -> LogDirInfo:
     assert max_epoch >= 0, f"No completed epochs in {log_dir}"
     assert metrics is not None and len(metrics) > 0, f"No metrics found in {log_dir}"
     
-    return LogDirInfo(max_epoch, metrics, dataset_class, dataset_type, scores)
+    # Create score maps
+    score_maps = create_score_maps(scores, sorted(list(metrics)))
+    
+    # Save to cache
+    try:
+        np.save(cache_path, np.array([scores, score_maps, metrics], dtype=object))
+    except Exception as e:
+        logger.warning(f"Failed to save cache for {log_dir}: {str(e)}")
+    
+    return LogDirInfo(max_epoch, metrics, dataset_class, dataset_type, scores, score_maps)
 
 
-def initialize_log_dirs(log_dirs: List[str]) -> Tuple[int, Set[str], DatasetType, Dict[str, LogDirInfo]]:
+def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[int, Set[str], DatasetType, Dict[str, LogDirInfo]]:
     """Initialize and validate all log directories.
     
     This function:
@@ -112,6 +201,7 @@ def initialize_log_dirs(log_dirs: List[str]) -> Tuple[int, Set[str], DatasetType
     
     Args:
         log_dirs: List of paths to log directories
+        force_reload: Whether to force reload of cached data
         
     Returns:
         Tuple containing:
@@ -131,7 +221,7 @@ def initialize_log_dirs(log_dirs: List[str]) -> Tuple[int, Set[str], DatasetType
     all_metrics = None
     
     for log_dir in log_dirs:
-        info = extract_log_dir_info(log_dir)
+        info = extract_log_dir_info(log_dir, force_reload)
         log_dir_infos[log_dir] = info
         dataset_types.add(info.dataset_type)
         
