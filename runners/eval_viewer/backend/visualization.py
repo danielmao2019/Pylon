@@ -98,7 +98,7 @@ def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs
 
     for i, (scores, log_dir) in enumerate(zip(epoch_scores, log_dirs)):
         run_name = log_dir.split('/')[-1]
-        
+
         # Extract scores for the selected metric
         if '[' in metric:
             base_metric, idx_str = metric.split('[')
@@ -106,9 +106,9 @@ def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs
             y_values = [scores['aggregated'][base_metric][idx] for scores in epoch_scores[i]]
         else:
             y_values = [scores['aggregated'][metric] for scores in epoch_scores[i]]
-        
+
         x_values = list(range(len(y_values)))
-        
+
         fig.add_trace(go.Scatter(
             x=x_values,
             y=y_values,
@@ -123,5 +123,5 @@ def create_aggregated_scores_plot(epoch_scores: List[Dict[str, float]], log_dirs
         showlegend=True,
         margin=dict(l=0, r=0, t=30, b=0),
     )
-    
+
     return fig

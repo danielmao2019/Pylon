@@ -12,10 +12,10 @@ def get_color_for_score(score: float, min_score: float, max_score: float) -> str
     """Convert a score to a color using a red-yellow-green colormap."""
     if np.isnan(score):
         return '#808080'  # Gray for NaN values
-    
+
     # Normalize score to [0, 1]
     normalized = (score - min_score) / (max_score - min_score)
-    
+
     # Create color gradient from red (0) to yellow (0.5) to green (1)
     if normalized < 0.5:
         # Red to Yellow
@@ -27,7 +27,7 @@ def get_color_for_score(score: float, min_score: float, max_score: float) -> str
         r = 2 * (1 - normalized)
         g = 1.0
         b = 0.0
-    
+
     return f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})'
 
 def register_callbacks(app: dash.Dash, log_dirs: List[str], caches: Dict[str, np.ndarray]):

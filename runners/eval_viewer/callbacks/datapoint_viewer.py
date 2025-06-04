@@ -23,7 +23,7 @@ DISPLAY_FUNCTIONS = {
 
 def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
     """Register callbacks for datapoint viewer functionality.
-    
+
     Args:
         app: Dash application instance
         datapoint_viewer: DatapointViewer instance
@@ -38,13 +38,13 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
     )
     def update_datapoint_viewer(clicks, epoch: int, metric: str, log_dir: str):
         """Update the datapoint viewer when a grid button is clicked.
-        
+
         Args:
             clicks: List of click events from grid buttons
             epoch: Current epoch number
             metric: Selected metric name
             log_dir: Path to the log directory being viewed
-            
+
         Returns:
             Tuple containing:
                 - score_info: HTML elements showing score information
@@ -52,28 +52,28 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
         """
         if not any(clicks) or epoch is None or metric is None or log_dir is None:
             raise PreventUpdate
-            
+
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
-            
+
         triggered_id = ctx.triggered_id
         if not isinstance(triggered_id, dict) or 'index' not in triggered_id:
             raise PreventUpdate
-            
+
         # Get row and column from button index
         row, col = map(int, triggered_id['index'].split('-'))
-        
+
         # Calculate datapoint index from grid position
         side_length = int(np.sqrt(len(clicks)))  # Assuming square grid
         datapoint_idx = row * side_length + col
-        
+
         # Load datapoint
         datapoint = datapoint_viewer.load_datapoint(log_dir, datapoint_idx)
-        
+
         # Get dataset type using registry function
         dataset_type = get_dataset_type(datapoint_viewer.current_dataset)
-        
+
         # Create score info display
         score_info = html.Div([
             html.H4(f"Datapoint {datapoint_idx}"),
@@ -82,13 +82,13 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
             html.P(f"Type: {dataset_type}"),
             # Add more score information as needed
         ])
-        
+
         # Get the appropriate display function
         display_func = DISPLAY_FUNCTIONS.get(dataset_type)
         if display_func is None:
             logger.error(f"No display function found for dataset type: {dataset_type}")
             return score_info, html.Div(f"Error: Unsupported dataset type: {dataset_type}")
-        
+
         # Create datapoint visualization
         if dataset_type == 'point_cloud_registration':
             display = display_func(datapoint, point_size=2.0, point_opacity=0.8, camera_state={}, radius=1.0)
@@ -96,5 +96,5 @@ def register_datapoint_viewer_callbacks(app, datapoint_viewer: DatapointViewer):
             display = display_func(datapoint, point_size=2.0, point_opacity=0.8, class_labels={}, camera_state={})
         else:  # 2d_change_detection
             display = display_func(datapoint)
-        
+
         return score_info, display
