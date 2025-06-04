@@ -4,7 +4,7 @@ import dash
 from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
-from runners.eval_viewer.backend.data_loader import get_common_metrics, load_validation_scores
+from runners.eval_viewer.backend.data_loader import LogDirInfo
 from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_scores_plot, create_overlaid_score_map
 
 
@@ -30,9 +30,15 @@ def get_color_for_score(score: float, min_score: float, max_score: float) -> str
 
     return f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})'
 
-def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: Dict[str, LogDirInfo], caches: Dict[str, np.ndarray]):
+
+def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: Dict[str, LogDirInfo]):
     """
     Registers all callbacks for the app.
+
+    Args:
+        app: Dash application instance
+        metric_names: List of metric names
+        log_dir_infos: Dictionary mapping log directory paths to LogDirInfo objects
     """
     # 1. Individual score maps
     outputs = [Output(f'score-map-{i}', 'children') for i in range(len(log_dir_infos))]
@@ -44,11 +50,11 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
     def update_score_maps(epoch: int, metric: str):
         if metric is None or epoch is None:
             raise PreventUpdate
+
         metric_idx = metric_names.index(metric)
         figures = []
-        for i, log_dir in enumerate(log_dir_infos):
-            score_maps_cache = caches[log_dir]
-            score_map = score_maps_cache[epoch, metric_idx]
+        for i, (log_dir, info) in enumerate(log_dir_infos.items()):
+            score_map = info.score_map[epoch, metric_idx]
             run_name = log_dir.split('/')[-1]
             fig = create_score_map_figure(score_map, f"{run_name} - {metric}")
             figures.append(dcc.Graph(figure=fig))
@@ -63,18 +69,19 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
     def update_overlaid_score_map(epoch: int, metric: str):
         if metric is None or epoch is None:
             raise PreventUpdate
-        metrics = sorted(list(get_common_metrics(log_dirs)))
-        metric_idx = metrics.index(metric)
+
+        metric_idx = metric_names.index(metric)
         score_maps = []
-        for log_dir in log_dirs:
-            score_maps_cache = caches[log_dir]
-            score_map = score_maps_cache[epoch, metric_idx]
+        for info in log_dir_infos.values():
+            score_map = info.score_map[epoch, metric_idx]
             score_maps.append(score_map)
+
         if score_maps:
             normalized = create_overlaid_score_map(score_maps, f"Common Failure Cases - {metric}")
             side_length = normalized.shape[0]
             # Get the number of real datapoints from the first score map
             n_datapoints = np.count_nonzero(~np.isnan(score_maps[0]))
+
             buttons = []
             for row in range(side_length):
                 for col in range(side_length):
@@ -97,6 +104,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
                         }
                     )
                     buttons.append(button)
+
             button_grid = html.Div(buttons, style={
                 'display': 'grid',
                 'gridTemplateColumns': f'repeat({side_length}, 20px)',
@@ -118,24 +126,27 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
     def update_selected_datapoint(clicks, epoch: int, metric: str):
         if not any(clicks) or epoch is None or metric is None:
             raise PreventUpdate
+
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
+
         triggered_id = ctx.triggered_id
         if isinstance(triggered_id, dict) and 'index' in triggered_id:
             row, col = map(int, triggered_id['index'].split('-'))
         else:
             raise PreventUpdate
-        metrics = sorted(list(get_common_metrics(log_dirs)))
-        metric_idx = metrics.index(metric)
+
+        metric_idx = metric_names.index(metric)
         score_maps = []
-        for log_dir in log_dirs:
-            score_maps_cache = caches[log_dir]
-            score_map = score_maps_cache[epoch, metric_idx]
+        for info in log_dir_infos.values():
+            score_map = info.score_map[epoch, metric_idx]
             score_maps.append(score_map)
+
         side_length = score_maps[0].shape[0]
         datapoint_idx = row * side_length + col
         scores = [score_map[row, col] for score_map in score_maps if not np.isnan(score_map[row, col])]
+
         if scores:
             return html.Div([
                 html.H4(f"Datapoint {datapoint_idx}"),
@@ -168,20 +179,15 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         if metric is None:
             raise PreventUpdate
 
-        # Load scores for all epochs from all runs
+        # Get scores for all epochs from all runs
         epoch_scores = []
-        for log_dir in log_dirs:
+        for info in log_dir_infos.values():
             run_scores = []
-            epoch = 0
-            while True:
-                try:
-                    scores = load_validation_scores(log_dir, epoch)
-                    run_scores.append(scores)
-                    epoch += 1
-                except AssertionError:
-                    break
+            for epoch in range(info.num_epochs):
+                scores = info.score_map[epoch]
+                run_scores.append(scores)
             epoch_scores.append(run_scores)
 
         # Create figure
-        fig = create_aggregated_scores_plot(epoch_scores, log_dirs, metric)
+        fig = create_aggregated_scores_plot(epoch_scores, list(log_dir_infos.keys()), metric)
         return dcc.Graph(figure=fig)
