@@ -169,7 +169,10 @@ def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
         raise ValueError(f"Config file not found: {config_file}")
 
     with open(config_file, "r") as f:
-        config = json.load(f)
+        try:
+            config = json.load(f)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Invalid JSON in {config_file}: {e}")
 
     dataset_class = config.get("dataset", {}).get("class")
     if not dataset_class:
