@@ -52,10 +52,10 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
 
 def get_metric_names_aggregated(scores_dict: dict) -> List[str]:
     """Extract metric names from aggregated scores dictionary.
-    
+
     Args:
         scores_dict: Dictionary containing aggregated scores
-    
+
     Returns:
         List of metric names
     """
@@ -164,20 +164,7 @@ def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
     Raises:
         ValueError: If config file not found or invalid
     """
-    config_file = os.path.join(log_dir, "config.json")
-    if not os.path.exists(config_file):
-        raise ValueError(f"Config file not found: {config_file}")
-
-    with open(config_file, "r") as f:
-        try:
-            config = json.load(f)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in {config_file}: {e}")
-
-    dataset_class = config.get("dataset", {}).get("class")
-    if not dataset_class:
-        raise ValueError(f"Dataset class not found in {config_file}")
-
+    dataset_class = log_dir.split("/")[-2]
     dataset_type = get_dataset_type(dataset_class)
     return dataset_class, dataset_type
 
