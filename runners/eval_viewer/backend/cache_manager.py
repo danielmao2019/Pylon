@@ -1,11 +1,9 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict
 import os
-import json
 import numpy as np
 from pathlib import Path
 
 from .data_loader import validate_log_directories, get_common_metrics, load_validation_scores, extract_metric_scores
-from .visualization import create_score_map
 
 
 def get_cache_path(log_dir: str) -> str:
