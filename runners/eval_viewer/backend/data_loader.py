@@ -75,6 +75,7 @@ def get_metrics_from_json(scores_filepath: str) -> Set[str]:
     assert isinstance(scores['per_datapoint'], dict), \
         f"Invalid per_datapoint format in {scores_filepath}"
     assert scores['aggregated'].keys() == scores['per_datapoint'].keys(), \
+        f"Invalid keys in {scores_filepath}\n" \
         f"Common keys: {scores['aggregated'].keys() & scores['per_datapoint'].keys()}\n" \
         f"Unique keys in aggregated: {scores['aggregated'].keys() - scores['per_datapoint'].keys()}\n" \
         f"Unique keys in per_datapoint: {scores['per_datapoint'].keys() - scores['aggregated'].keys()}"
