@@ -50,7 +50,27 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
     return n_datapoints, score_map
 
 
-def get_metric_names(scores_dict: dict) -> List[str]:
+def get_metric_names_aggregated(scores_dict: dict) -> List[str]:
+    """Extract metric names from aggregated scores dictionary.
+    
+    Args:
+        scores_dict: Dictionary containing aggregated scores
+    
+    Returns:
+        List of metric names
+    """
+    metrics = set()
+    for key in scores_dict.keys():
+        if isinstance(scores_dict[key], list):
+            metrics.update(f"{key}[{i}]" for i in range(len(scores_dict[key])))
+        else:
+            assert isinstance(scores_dict[key], (float, int)), f"Invalid sample type for metric {key}"
+            metrics.add(key)
+    metrics = list(sorted(metrics))
+    return metrics
+
+
+def get_metric_names_per_datapoint(scores_dict: dict) -> List[str]:
     """Extract metric names including sub-metrics from scores dictionary.
 
     Args:
@@ -61,6 +81,7 @@ def get_metric_names(scores_dict: dict) -> List[str]:
     """
     metrics = set()
     for key in scores_dict.keys():
+        assert isinstance(scores_dict[key], list), f"Invalid scores format in {scores_dict}"
         sample = scores_dict[key][0]
         if isinstance(sample, list):
             metrics.update(f"{key}[{i}]" for i in range(len(sample)))
@@ -85,8 +106,8 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray]:
     assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
     assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
 
-    metric_names = get_metric_names(scores['per_datapoint'])
-    assert metric_names == get_metric_names(scores['aggregated'])
+    metric_names = get_metric_names_aggregated(scores['per_datapoint'])
+    assert metric_names == get_metric_names_per_datapoint(scores['aggregated'])
 
     all_score_maps_epoch = [
         get_score_map_epoch_metric(scores_file, metric_name)
