@@ -4,7 +4,7 @@ import dash
 from dash import Input, Output, State, dcc, html
 from dash.exceptions import PreventUpdate
 
-from runners.eval_viewer.backend.data_loader import LogDirInfo
+from runners.eval_viewer.backend.initialization import LogDirInfo
 from runners.eval_viewer.backend.visualization import create_score_map_figure, create_aggregated_scores_plot, create_overlaid_score_map
 
 
