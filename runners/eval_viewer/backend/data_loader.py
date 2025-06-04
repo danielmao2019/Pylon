@@ -285,9 +285,15 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
 
     # Get common information
     max_epochs = max(info.num_epochs for info in log_dir_infos.values())
-    assert all(info.metric_names == log_dir_infos[0].metric_names for info in log_dir_infos.values())
-    metric_names = log_dir_infos[0].metric_names
+    assert all(
+        info.metric_names == list(log_dir_infos.values())[0].metric_names
+        for info in log_dir_infos.values()
+    ), f"""{list({
+        key: info.metric_names
+        for key, info in log_dir_infos.items()
+    }.items())}"""
+    metric_names = list(log_dir_infos.values())[0].metric_names
     assert all(info.dataset_type == log_dir_infos[0].dataset_type for info in log_dir_infos.values())
-    dataset_type = log_dir_infos[0].dataset_type
+    dataset_type = list(log_dir_infos.values())[0].dataset_type
 
     return max_epochs, metric_names, dataset_type, log_dir_infos
