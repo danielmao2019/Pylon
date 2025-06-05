@@ -1,6 +1,5 @@
 from typing import List
 from dash import html, dcc
-from runners.eval_viewer.layouts.datapoint_viewer import create_datapoint_viewer_layout
 
 
 def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
@@ -57,6 +56,32 @@ def create_aggregated_scores_plot() -> html.Div:
     ], style={'marginTop': '20px'})
 
 
+def create_color_bar(min_score: float, max_score: float) -> html.Div:
+    """Create a color bar showing the score range.
+    
+    Args:
+        min_score: Minimum score value
+        max_score: Maximum score value
+        
+    Returns:
+        Color bar as an HTML div
+    """
+    return html.Div([
+        html.Div([
+            html.Div(style={
+                'width': '20px',
+                'height': '100px',
+                'background': 'linear-gradient(to bottom, rgb(255,0,0), rgb(255,255,0), rgb(0,255,0))',
+                'marginRight': '10px'
+            }),
+            html.Div([
+                html.Div(f"{max_score:.2f}", style={'marginBottom': '5px'}),
+                html.Div(f"{min_score:.2f}")
+            ], style={'display': 'flex', 'flexDirection': 'column', 'justifyContent': 'space-between'})
+        ], style={'display': 'flex', 'alignItems': 'center'})
+    ], style={'marginLeft': '10px'})
+
+
 def create_individual_score_maps_layout(run_names: List[str]) -> html.Div:
     """Section for individual score maps.
     
@@ -68,7 +93,10 @@ def create_individual_score_maps_layout(run_names: List[str]) -> html.Div:
         html.Div([
             html.Div([
                 html.H3(run_name, style={'textAlign': 'center', 'marginBottom': '10px'}),
-                html.Div(id=f'individual-button-grid-{i}', style={'width': '100%', 'display': 'inline-block'})
+                html.Div([
+                    html.Div(id=f'individual-button-grid-{i}', style={'width': '100%', 'display': 'inline-block'}),
+                    html.Div(id=f'individual-color-bar-{i}', style={'display': 'inline-block'})
+                ], style={'display': 'flex', 'alignItems': 'center'})
             ], style={'width': '50%', 'display': 'inline-block'})
             for i, run_name in enumerate(run_names)
         ], style={'display': 'flex', 'flexWrap': 'wrap'})
@@ -79,14 +107,17 @@ def create_overlaid_score_map_layout() -> html.Div:
     """Section for the button grid (overlaid score map)."""
     return html.Div([
         html.H2("Common Failure Cases", style={'textAlign': 'center'}),
-        html.Div(id='overlaid-button-grid', style={
-            'display': 'grid',
-            'gridTemplateColumns': 'repeat(auto-fill, minmax(20px, 1fr))',
-            'gap': '1px',
-            'width': '100%',
-            'maxWidth': '800px',
-            'margin': '0 auto'
-        })
+        html.Div([
+            html.Div(id='overlaid-button-grid', style={
+                'display': 'grid',
+                'gridTemplateColumns': 'repeat(auto-fill, minmax(20px, 1fr))',
+                'gap': '1px',
+                'width': '100%',
+                'maxWidth': '800px',
+                'margin': '0 auto'
+            }),
+            html.Div(id='overlaid-color-bar', style={'display': 'inline-block'})
+        ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'})
     ], style={'marginTop': '20px'})
 
 

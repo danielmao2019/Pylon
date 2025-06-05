@@ -6,6 +6,7 @@ from dash.exceptions import PreventUpdate
 
 from runners.eval_viewer.backend.initialization import LogDirInfo
 from runners.eval_viewer.backend.visualization import create_aggregated_scores_plot, create_overlaid_score_map
+from runners.eval_viewer.layouts.main_layout import create_color_bar
 
 
 def get_color_for_score(score: float, min_score: float, max_score: float) -> str:
@@ -115,14 +116,14 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         return dcc.Graph(figure=fig)
 
     @app.callback(
-        Output('overlaid-button-grid', 'children'),
+        [Output('overlaid-button-grid', 'children'),
+         Output('overlaid-color-bar', 'children')],
         [Input('epoch-slider', 'value'),
          Input('metric-dropdown', 'value')]
     )
     def update_overlaid_score_map(epoch: int, metric_name: str):
         if metric_name is None or epoch is None:
             raise PreventUpdate
-
         metric_idx = metric_names.index(metric_name)
         score_maps = [
             info.score_map[epoch, metric_idx]
@@ -130,9 +131,19 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         ]
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
         overlaid_score_map = create_overlaid_score_map(score_maps)
-        return create_button_grid(overlaid_score_map, 'overlaid-grid-button')
+        button_grid = create_button_grid(overlaid_score_map, 'overlaid-grid-button')
+        min_score = np.nanmin(overlaid_score_map)
+        max_score = np.nanmax(overlaid_score_map)
+        color_bar = create_color_bar(min_score, max_score)
+        return button_grid, color_bar
 
-    outputs = [Output(f'individual-button-grid-{i}', 'children') for i in range(len(log_dir_infos))]
+    outputs = []
+    for i in range(len(log_dir_infos)):
+        outputs.extend([
+            Output(f'individual-button-grid-{i}', 'children'),
+            Output(f'individual-color-bar-{i}', 'children')
+        ])
+    
     @app.callback(
         outputs,
         [Input('epoch-slider', 'value'),
@@ -141,11 +152,13 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
     def update_individual_score_maps(epoch: int, metric_name: str):
         if metric_name is None or epoch is None:
             raise PreventUpdate
-
         metric_idx = metric_names.index(metric_name)
-        figures = []
+        results = []
         for i, info in enumerate(log_dir_infos.values()):
             score_map = info.score_map[epoch, metric_idx]
             button_grid = create_button_grid(score_map, 'individual-grid-button', run_idx=i)
-            figures.append(button_grid)
-        return figures
+            min_score = np.nanmin(score_map)
+            max_score = np.nanmax(score_map)
+            color_bar = create_color_bar(min_score, max_score)
+            results.extend([button_grid, color_bar])
+        return results
