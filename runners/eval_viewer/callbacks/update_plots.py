@@ -129,7 +129,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
             for info in log_dir_infos.values()
         ]
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
-        overlaid_score_map = create_overlaid_score_map(score_maps, f"Common Failure Cases - {metric_name}")
+        overlaid_score_map = create_overlaid_score_map(score_maps)
         return create_button_grid(overlaid_score_map, 'overlaid-grid-button')
 
     outputs = [Output(f'individual-button-grid-{i}', 'children') for i in range(len(log_dir_infos))]

@@ -60,8 +60,8 @@ def create_aggregated_scores_plot() -> html.Div:
 def create_score_maps_grid(num_runs: int) -> html.Div:
     """Combines the three sections into the main grid layout."""
     return html.Div([
-        create_individual_score_maps_layout(num_runs),
         create_overlaid_score_map_layout(),
+        create_individual_score_maps_layout(num_runs),
     ])
 
 
