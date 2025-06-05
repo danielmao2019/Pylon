@@ -89,6 +89,11 @@ def display_2d_datapoint(datapoint: Dict[str, Any]) -> html.Div:
 
 def tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable image."""
+    assert isinstance(tensor, torch.Tensor), f"{tensor=}"
+    if tensor.ndim == 4:
+        assert tensor.shape[0] == 1, f"{tensor.shape=}"
+        tensor = tensor.squeeze(0)
+    assert tensor.ndim == 3, f"{tensor.ndim=}"
     img: np.ndarray = tensor.cpu().numpy()
 
     # Handle normalization with zero division check
