@@ -6,7 +6,7 @@ import importlib.util
 from data.viewer.managers.registry import DATASET_GROUPS, get_dataset_type
 
 
-class DatasetLoader:
+class DatasetBuilder:
     """Handles loading and configuration of datasets."""
 
     def __init__(self, config_dir: Optional[str] = None, dataset_types: Optional[List[str]] = None):
@@ -77,7 +77,7 @@ class DatasetLoader:
         assert config_key in self.configs, f"Config not found for dataset: {config_key}"
         return self.configs[config_key]
 
-    def load_dataset(self, dataset_name: str) -> Optional[Any]:
+    def build_dataset(self, dataset_name: str) -> Optional[Any]:
         """Load a dataset instance.
 
         Args:
