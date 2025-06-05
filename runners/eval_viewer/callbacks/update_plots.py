@@ -65,11 +65,36 @@ def create_button_grid(
         for col in range(side_length):
             idx = row * side_length + col
             if idx >= n_datapoints:
-                continue  # Skip padding cells
+                # This is a padding position - no button at all
+                buttons.append(html.Div(style={
+                    'width': '20px',
+                    'height': '20px',
+                    'padding': '0',
+                    'margin': '0',
+                }))
+                continue
+
             value = score_map[row, col]
-            if not np.isnan(value):
+            button_id = {'type': button_type, 'index': f'{run_idx}-{row}-{col}' if run_idx is not None else f'{row}-{col}'}
+            
+            if np.isnan(value):
+                # This is a NaN score - show gray button
+                button = html.Button(
+                    '',
+                    id=button_id,
+                    style={
+                        'width': '20px',
+                        'height': '20px',
+                        'padding': '0',
+                        'margin': '0',
+                        'border': 'none',
+                        'backgroundColor': '#f0f0f0',  # Light gray for NaN values
+                        'cursor': 'not-allowed'  # Show that these buttons are not clickable
+                    }
+                )
+            else:
+                # This is a valid score - show colored button
                 color = get_color_for_score(value, min_score, max_score)
-                button_id = {'type': button_type, 'index': f'{run_idx}-{row}-{col}' if run_idx is not None else f'{row}-{col}'}
                 button = html.Button(
                     '',
                     id=button_id,
@@ -83,7 +108,7 @@ def create_button_grid(
                         'cursor': 'pointer'
                     }
                 )
-                buttons.append(button)
+            buttons.append(button)
 
     return html.Div(buttons, style={
         'display': 'grid',
