@@ -221,7 +221,7 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
     """
     dataset_class = log_dir.split("/")[-2]
     dataset_type = get_dataset_type(dataset_class)
-    config_file = os.path.join("./configs", os.path.relpath(log_dir, "./logs")) + "_run_0.py"
+    config_file = os.path.join("./configs", os.path.relpath(log_dir, "./logs")) + ".py"
     spec = importlib.util.spec_from_file_location("config_file", config_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
