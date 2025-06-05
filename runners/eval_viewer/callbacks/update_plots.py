@@ -173,7 +173,9 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         ]
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
         overlaid_score_map = create_overlaid_score_map(score_maps)
-        button_grid = create_button_grid(num_datapoints, overlaid_score_map, 'overlaid-grid-button')
+        button_grid = create_button_grid(
+            num_datapoints, overlaid_score_map, 'overlaid-grid-button',
+        )
         min_score = np.nanmin(overlaid_score_map)
         max_score = np.nanmax(overlaid_score_map)
         color_bar = create_color_bar(min_score, max_score)
@@ -208,14 +210,10 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         max_score = max(np.nanmax(score_map) for score_map in score_maps)
 
         results = []
-        for i, (score_map, run_info) in enumerate(zip(score_maps, log_dir_infos.values())):
+        for i, score_map in enumerate(score_maps):
             button_grid = create_button_grid(
-                run_info.num_datapoints,
-                score_map,
-                'individual-grid-button',
-                run_idx=i,
-                min_score=min_score,
-                max_score=max_score,
+                num_datapoints, score_map, 'individual-grid-button',
+                run_idx=i, min_score=min_score, max_score=max_score,
             )
             color_bar = create_color_bar(min_score, max_score)
             results.extend([button_grid, color_bar])

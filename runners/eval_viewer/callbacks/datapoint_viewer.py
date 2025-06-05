@@ -74,8 +74,8 @@ def register_datapoint_viewer_callbacks(
         
         if triggered_id['type'] == 'overlaid-grid-button':
             # Overlaid button grid click - use the common dataset from dataset_cfg
-            datapoint_idx = int(index_parts[0])
             run_idx = None
+            datapoint_idx = int(index_parts[0])
             current_dataset = dataset  # Use the dataset built from dataset_cfg
             collate_fn = None  # No collate function for overlaid view
         else:
