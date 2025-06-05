@@ -57,21 +57,20 @@ def create_aggregated_scores_plot() -> html.Div:
     ], style={'marginTop': '20px'})
 
 
-def create_score_maps_grid(num_runs: int) -> html.Div:
-    """Combines the three sections into the main grid layout."""
-    return html.Div([
-        create_overlaid_score_map_layout(),
-        create_individual_score_maps_layout(num_runs),
-    ])
-
-
-def create_individual_score_maps_layout(num_runs: int) -> html.Div:
-    """Section for individual score maps."""
+def create_individual_score_maps_layout(run_names: List[str]) -> html.Div:
+    """Section for individual score maps.
+    
+    Args:
+        run_names: List of run names to display
+    """
     return html.Div([
         html.H2("Individual Score Maps", style={'textAlign': 'center'}),
         html.Div([
-            html.Div(id=f'individual-button-grid-{i}', style={'width': '50%', 'display': 'inline-block'})
-            for i in range(num_runs)
+            html.Div([
+                html.H3(run_name, style={'textAlign': 'center', 'marginBottom': '10px'}),
+                html.Div(id=f'individual-button-grid-{i}', style={'width': '100%', 'display': 'inline-block'})
+            ], style={'width': '50%', 'display': 'inline-block'})
+            for i, run_name in enumerate(run_names)
         ], style={'display': 'flex', 'flexWrap': 'wrap'})
     ], style={'marginTop': '20px'})
 
@@ -99,14 +98,22 @@ def create_datapoint_display_section() -> html.Div:
     ], style={'marginTop': '20px'})
 
 
-def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> html.Div:
+def create_score_maps_grid(run_names: List[str]) -> html.Div:
+    """Combines the three sections into the main grid layout."""
+    return html.Div([
+        create_overlaid_score_map_layout(),
+        create_individual_score_maps_layout(run_names),
+    ])
+
+
+def create_layout(max_epoch: int, metric_names: List[str], run_names: List[str]) -> html.Div:
     """
     Creates the main dashboard layout.
 
     Args:
         max_epoch: Maximum epoch index
         metric_names: List of available metrics
-        num_runs: Number of runs to display
+        run_names: List of run names to display
 
     Returns:
         layout: HTML div containing the complete layout
@@ -118,7 +125,7 @@ def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> htm
             html.Div([
                 create_controls(max_epoch, metric_names),
                 create_aggregated_scores_plot(),
-                create_score_maps_grid(num_runs),
+                create_score_maps_grid(run_names),
             ], style={
                 'width': '60%',
                 'float': 'left',

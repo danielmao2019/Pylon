@@ -26,11 +26,14 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
     # Initialize log directories
     max_epochs, metric_names, dataset_cfg, dataset_type, log_dir_infos = initialize_log_dirs(log_dirs, force_reload)
 
+    # Extract run names from log directories
+    run_names = [os.path.basename(os.path.normpath(log_dir)) for log_dir in log_dirs]
+
     # Create app
     app = dash.Dash(__name__)
 
     # Create layout
-    app.layout = create_layout(max_epochs, metric_names, len(log_dirs))
+    app.layout = create_layout(max_epochs, metric_names, run_names)
 
     # Register callbacks
     register_callbacks(app, metric_names, log_dir_infos)
