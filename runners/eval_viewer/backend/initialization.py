@@ -3,6 +3,7 @@ import importlib.util
 import os
 import json
 import numpy as np
+import pickle
 from pathlib import Path
 from data.viewer.managers.registry import get_dataset_type, DatasetType, CONFIG_DIRS
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -261,21 +262,12 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     cache_dir = Path(__file__).parent.parent / "cache"
     cache_dir.mkdir(exist_ok=True)
     run_name = os.path.basename(os.path.normpath(log_dir))
-    cache_path = str(cache_dir / f"{run_name}.npz")
+    cache_path = str(cache_dir / f"{run_name}.pkl")
 
     # Try to load from cache first
     if not force_reload and os.path.exists(cache_path):
-        cache = np.load(cache_path, allow_pickle=True)
-        return LogDirInfo(
-            num_epochs=cache['num_epochs'],
-            metric_names=cache['metric_names'],
-            score_map=cache['score_map'],
-            aggregated_scores=cache['aggregated_scores'],
-            dataset_class=cache['dataset_class'],
-            dataset_type=cache['dataset_type'],
-            dataset_cfg=cache['dataset_cfg'],
-            dataloader_cfg=cache['dataloader_cfg'],
-        )
+        with open(cache_path, 'rb') as f:
+            return pickle.load(f)
 
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
@@ -295,17 +287,8 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     )
 
     # Save to cache
-    np.savez(
-        cache_path,
-        num_epochs=info.num_epochs,
-        metric_names=info.metric_names,
-        score_map=info.score_map,
-        aggregated_scores=info.aggregated_scores,
-        dataset_class=info.dataset_class,
-        dataset_type=info.dataset_type,
-        dataset_cfg=info.dataset_cfg,
-        dataloader_cfg=info.dataloader_cfg,
-    )
+    with open(cache_path, 'wb') as f:
+        pickle.dump(info, f)
 
     return info
 
