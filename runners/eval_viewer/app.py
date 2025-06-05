@@ -11,8 +11,6 @@ from runners.eval_viewer.layouts.main_layout import create_layout
 from runners.eval_viewer.callbacks.update_plots import register_callbacks
 from runners.eval_viewer.callbacks.datapoint_viewer import register_datapoint_viewer_callbacks
 from runners.eval_viewer.backend.initialization import initialize_log_dirs
-from runners.eval_viewer.backend.datapoint_viewer import DatapointViewer
-from data.viewer.managers.dataset_manager import DatasetManager
 
 
 def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
@@ -28,13 +26,6 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
     # Initialize log directories
     max_epochs, metric_names, dataset_class, dataset_type, log_dir_infos = initialize_log_dirs(log_dirs, force_reload)
 
-    # Initialize dataset manager
-    dataset_manager = DatasetManager()
-    dataset_manager.load_dataset(dataset_class)
-
-    # Create datapoint viewer
-    datapoint_viewer = DatapointViewer(dataset_manager, dataset_class, dataset_type)
-
     # Create app
     app = dash.Dash(__name__)
 
@@ -43,7 +34,7 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
 
     # Register callbacks
     register_callbacks(app, metric_names, log_dir_infos)
-    register_datapoint_viewer_callbacks(app, datapoint_viewer)
+    register_datapoint_viewer_callbacks(app, log_dir_infos)
     return app
 
 

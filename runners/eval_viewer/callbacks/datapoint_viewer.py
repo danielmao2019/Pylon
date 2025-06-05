@@ -1,6 +1,6 @@
 """Callbacks for datapoint viewing functionality."""
 import dash
-from dash import Input, Output, State, html
+from dash import Input, Output, html
 from dash.exceptions import PreventUpdate
 import numpy as np
 
