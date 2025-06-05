@@ -34,7 +34,7 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
 
     # Register callbacks
     register_callbacks(app, metric_names, log_dir_infos)
-    register_datapoint_viewer_callbacks(app, metric_names, dataset_cfg, dataset_type, log_dir_infos)
+    register_datapoint_viewer_callbacks(app, dataset_cfg, dataset_type, log_dir_infos)
     return app
 
 

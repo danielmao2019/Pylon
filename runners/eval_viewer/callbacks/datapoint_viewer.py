@@ -25,7 +25,6 @@ DISPLAY_FUNCTIONS = {
 
 def register_datapoint_viewer_callbacks(
     app,
-    metric_names: List[str],
     dataset_cfg: Dict[str, Any],
     dataset_type: DatasetType,
     log_dir_infos: Dict[str, LogDirInfo],
