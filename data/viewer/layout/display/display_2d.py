@@ -57,73 +57,61 @@ def display_2d_datapoint(datapoint: Dict[str, Any]) -> html.Div:
             ], style={'background-color': '#f0f0f0', 'padding': '10px', 'border-radius': '5px'})
         ])
 
-    try:
-        # Create the figures using helper function
-        fig_components: List[html.Div] = [
-            html.Div([
-                dcc.Graph(figure=create_2d_figure(img_1, title="Image 1"))
-            ], style={'width': '33%', 'display': 'inline-block'}),
-            
-            html.Div([
-                dcc.Graph(figure=create_2d_figure(img_2, title="Image 2"))
-            ], style={'width': '33%', 'display': 'inline-block'}),
-            
-            html.Div([
-                dcc.Graph(figure=create_2d_figure(change_map, title="Change Map", colorscale="Viridis"))
-            ], style={'width': '33%', 'display': 'inline-block'})
+    # Create the figures using helper function
+    fig_components: List[html.Div] = [
+        html.Div([
+            dcc.Graph(figure=create_2d_figure(img_1, title="Image 1"))
+        ], style={'width': '33%', 'display': 'inline-block'}),
+        
+        html.Div([
+            dcc.Graph(figure=create_2d_figure(img_2, title="Image 2"))
+        ], style={'width': '33%', 'display': 'inline-block'}),
+        
+        html.Div([
+            dcc.Graph(figure=create_2d_figure(change_map, title="Change Map", colorscale="Viridis"))
+        ], style={'width': '33%', 'display': 'inline-block'})
+    ]
+    
+    # Get statistics using helper function
+    stats_components: List[html.Div] = [
+        html.Div([
+            html.H4("Image 1 Statistics:"),
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_1).items()])
+        ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        
+        html.Div([
+            html.H4("Image 2 Statistics:"),
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_2).items()])
+        ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        
+        html.Div([
+            html.H4("Change Statistics:"),
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_1, change_map).items()])
+        ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'})
+    ]
+    
+    # Extract metadata
+    meta_info: Dict[str, Any] = datapoint.get('meta_info', {})
+    meta_display: List[Union[html.H4, html.Pre]] = []
+    if meta_info:
+        meta_display = [
+            html.H4("Metadata:"),
+            html.Pre(format_value(meta_info), 
+                    style={'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px', 
+                            'overflow-y': 'auto', 'border-radius': '5px'})
         ]
+    
+    # Compile the complete display
+    return html.Div([
+        # Image displays
+        html.Div(fig_components),
         
-        # Get statistics using helper function
-        stats_components: List[html.Div] = [
-            html.Div([
-                html.H4("Image 1 Statistics:"),
-                html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_1).items()])
-            ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-            
-            html.Div([
-                html.H4("Image 2 Statistics:"),
-                html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_2).items()])
-            ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-            
-            html.Div([
-                html.H4("Change Statistics:"),
-                html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_1, change_map).items()])
-            ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'})
-        ]
-        
-        # Extract metadata
-        meta_info: Dict[str, Any] = datapoint.get('meta_info', {})
-        meta_display: List[Union[html.H4, html.Pre]] = []
-        if meta_info:
-            meta_display = [
-                html.H4("Metadata:"),
-                html.Pre(format_value(meta_info), 
-                      style={'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px', 
-                             'overflow-y': 'auto', 'border-radius': '5px'})
-            ]
-        
-        # Compile the complete display
-        return html.Div([
-            # Image displays
-            html.Div(fig_components),
-            
-            # Info section
-            html.Div([
-                html.Div(stats_components),
-                html.Div(meta_display, style={'margin-top': '20px'})
-            ], style={'margin-top': '20px'})
-        ])
-    except Exception as e:
-        return html.Div([
-            html.H3("Error Processing Images", style={'color': 'red'}),
-            html.P(f"An error occurred while processing the images: {str(e)}"),
-            html.P("Datapoint structure:"),
-            html.P(f"Inputs keys: {list(datapoint['inputs'].keys())}"),
-            html.P(f"Labels keys: {list(datapoint['labels'].keys())}"),
-            html.P(f"Input 1 shape: {img_1.shape if img_1 is not None else 'None'}"),
-            html.P(f"Input 2 shape: {img_2.shape if img_2 is not None else 'None'}"),
-            html.P(f"Change map shape: {change_map.shape if change_map is not None else 'None'}")
-        ])
+        # Info section
+        html.Div([
+            html.Div(stats_components),
+            html.Div(meta_display, style={'margin-top': '20px'})
+        ], style={'margin-top': '20px'})
+    ])
 
 
 def tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
