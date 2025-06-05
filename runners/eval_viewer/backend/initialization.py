@@ -344,7 +344,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     assert all(info.dataset_type == list(log_dir_infos.values())[0].dataset_type for info in log_dir_infos.values())
     dataset_type = list(log_dir_infos.values())[0].dataset_type
     repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
-    config_file = os.path.join(repo_root, "configs", "common", "datasets", CONFIG_DIRS[dataset_type], "val", f"{dataset_class}_data_cfg.py")
+    config_file = os.path.join(repo_root, "configs", "common", "datasets", os.path.dirname(CONFIG_DIRS[dataset_type]), "val", f"{dataset_class}_data_cfg.py")
     spec = importlib.util.spec_from_file_location("config_file", config_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
