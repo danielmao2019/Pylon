@@ -239,9 +239,7 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
     # Extract dataset and collate function configs
     dataset_cfg = config['val_dataset']
     dataloader_cfg = config['val_dataloader']
-    collate_fn_cfg = dataloader_cfg.get('collate_fn', {
-        'class': BaseCollator, 'args': {},
-    })
+    collate_fn_cfg = dataloader_cfg.get('collate_fn', {'class': BaseCollator, 'args': {}})
     return dataset_class, dataset_type, dataset_cfg, collate_fn_cfg
 
 
