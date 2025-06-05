@@ -70,7 +70,7 @@ def create_individual_score_maps_layout(num_runs: int) -> html.Div:
     return html.Div([
         html.H2("Individual Score Maps", style={'textAlign': 'center'}),
         html.Div([
-            html.Div(id=f'individual-score-map-{i}', style={'width': '50%', 'display': 'inline-block'})
+            html.Div(id=f'individual-button-grid-{i}', style={'width': '50%', 'display': 'inline-block'})
             for i in range(num_runs)
         ], style={'display': 'flex', 'flexWrap': 'wrap'})
     ], style={'marginTop': '20px'})
