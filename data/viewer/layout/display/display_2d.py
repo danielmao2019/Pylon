@@ -93,7 +93,9 @@ def tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
     if tensor.ndim == 4:
         assert tensor.shape[0] == 1, f"{tensor.shape=}"
         tensor = tensor.squeeze(0)
-    assert tensor.ndim == 3, f"{tensor.ndim=}"
+    if tensor.ndim == 3:
+        tensor = tensor.squeeze(0)
+
     img: np.ndarray = tensor.cpu().numpy()
 
     # Handle normalization with zero division check
