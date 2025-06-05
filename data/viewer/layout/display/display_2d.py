@@ -20,42 +20,15 @@ def display_2d_datapoint(datapoint: Dict[str, Any]) -> html.Div:
         html.Div containing the visualization
     """
     assert datapoint is not None, f"{datapoint=}"
+    assert isinstance(datapoint, dict), f"{datapoint=}"
+    assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}, f"{datapoint.keys()=}"
+    assert datapoint['inputs'].keys() == {'img_1', 'img_2'}, f"{datapoint['inputs'].keys()=}"
+    assert datapoint['labels'].keys() == {'change_map'}, f"{datapoint['labels'].keys()=}"
+
     # Check if the inputs have the expected structure
-    img_1: Optional[torch.Tensor] = datapoint['inputs'].get('img_1')
-    img_2: Optional[torch.Tensor] = datapoint['inputs'].get('img_2')
-    change_map: Optional[torch.Tensor] = datapoint['labels'].get('change_map')
-
-    # Verify that all required data is present and has the correct type
-    error_messages: List[str] = []
-
-    if img_1 is None:
-        error_messages.append("Image 1 (img_1) is missing")
-    elif not isinstance(img_1, torch.Tensor):
-        error_messages.append(f"Image 1 (img_1) has unexpected type: {type(img_1).__name__}")
-
-    if img_2 is None:
-        error_messages.append("Image 2 (img_2) is missing")
-    elif not isinstance(img_2, torch.Tensor):
-        error_messages.append(f"Image 2 (img_2) has unexpected type: {type(img_2).__name__}")
-
-    if change_map is None:
-        error_messages.append("Change map is missing")
-    elif not isinstance(change_map, torch.Tensor):
-        error_messages.append(f"Change map has unexpected type: {type(change_map).__name__}")
-
-    # If any errors were found, display them
-    if error_messages:
-        return html.Div([
-            html.H3("Error Displaying 2D Image Data", style={'color': 'red'}),
-            html.P("The dataset structure doesn't match the expected format:"),
-            html.Ul([html.Li(msg) for msg in error_messages]),
-            html.P("Datapoint structure:"),
-            html.Div([
-                html.P(f"Inputs keys: {list(datapoint['inputs'].keys())}"),
-                html.P(f"Labels keys: {list(datapoint['labels'].keys())}"),
-                html.Pre(f"Meta info: {format_value(datapoint.get('meta_info', {}))}")
-            ], style={'background-color': '#f0f0f0', 'padding': '10px', 'border-radius': '5px'})
-        ])
+    img_1: torch.Tensor = datapoint['inputs']['img_1']
+    img_2: torch.Tensor = datapoint['inputs']['img_2']
+    change_map: torch.Tensor = datapoint['labels']['change_map']
 
     # Create the figures using helper function
     fig_components: List[html.Div] = [
