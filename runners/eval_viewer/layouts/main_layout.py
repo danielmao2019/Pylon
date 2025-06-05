@@ -90,20 +90,20 @@ def create_overlaid_score_map_layout() -> html.Div:
     ], style={'marginTop': '20px'})
 
 
-def create_datapoint_display_section() -> html.Div:
-    """Section for the selected datapoint display."""
-    return html.Div([
-        html.H3("Selected Datapoint", style={'textAlign': 'center'}),
-        html.Div(id='datapoint-display', style={'width': '100%'})
-    ], style={'marginTop': '20px'})
-
-
 def create_score_maps_grid(run_names: List[str]) -> html.Div:
     """Combines the three sections into the main grid layout."""
     return html.Div([
         create_overlaid_score_map_layout(),
         create_individual_score_maps_layout(run_names),
     ])
+
+
+def create_datapoint_display_section() -> html.Div:
+    """Section for the selected datapoint display."""
+    return html.Div([
+        html.H3("Selected Datapoint", style={'textAlign': 'center'}),
+        html.Div(id='datapoint-display', style={'width': '100%'})
+    ], style={'marginTop': '20px'})
 
 
 def create_layout(max_epoch: int, metric_names: List[str], run_names: List[str]) -> html.Div:
