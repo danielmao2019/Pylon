@@ -40,26 +40,26 @@ def create_button_grid(
     max_score: Optional[float] = None,
 ) -> html.Div:
     """Create a button grid from a score map.
-    
+
     Args:
         score_map: Score map array of shape (H, W)
         button_type: Type of button ('overlaid-grid-button' for overlaid, 'individual-grid-button' for individual)
         run_idx: Index of the run (only needed for individual buttons)
         min_score: Global minimum score for color scaling (if None, use local min)
         max_score: Global maximum score for color scaling (if None, use local max)
-        
+
     Returns:
         Button grid as an HTML div
     """
     side_length = score_map.shape[0]
     n_datapoints = np.count_nonzero(~np.isnan(score_map))
-    
+
     # Use global min/max if provided, otherwise use local min/max
     if min_score is None:
         min_score = np.nanmin(score_map)
     if max_score is None:
         max_score = np.nanmax(score_map)
-    
+
     buttons = []
     for row in range(side_length):
         for col in range(side_length):
@@ -158,7 +158,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
             Output(f'individual-button-grid-{i}', 'children'),
             Output(f'individual-color-bar-{i}', 'children')
         ])
-    
+
     @app.callback(
         outputs,
         [Input('epoch-slider', 'value'),
@@ -169,17 +169,17 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
             raise PreventUpdate
 
         metric_idx = metric_names.index(metric_name)
-        
+
         # Get all score maps for this epoch and metric
         score_maps = [
             info.score_map[epoch, metric_idx]
             for info in log_dir_infos.values()
         ]
-        
+
         # Calculate global min/max scores across all individual maps
         min_score = min(np.nanmin(score_map) for score_map in score_maps)
         max_score = max(np.nanmax(score_map) for score_map in score_maps)
-        
+
         results = []
         for i, score_map in enumerate(score_maps):
             button_grid = create_button_grid(score_map, 'individual-grid-button', run_idx=i, min_score=min_score, max_score=max_score)
