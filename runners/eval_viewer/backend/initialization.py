@@ -5,6 +5,7 @@ import json
 import numpy as np
 import pickle
 from pathlib import Path
+from data.collators.base_collator import BaseCollator
 from data.viewer.managers.registry import get_dataset_type, DatasetType, CONFIG_DIRS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
@@ -238,7 +239,9 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
     # Extract dataset and collate function configs
     dataset_cfg = config['val_dataset']
     dataloader_cfg = config['val_dataloader']
-    collate_fn_cfg = dataloader_cfg.get('collate_fn', None)
+    collate_fn_cfg = dataloader_cfg.get('collate_fn', {
+        'class': BaseCollator, 'args': {},
+    })
     return dataset_class, dataset_type, dataset_cfg, collate_fn_cfg
 
 
