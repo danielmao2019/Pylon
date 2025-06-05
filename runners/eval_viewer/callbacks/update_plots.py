@@ -33,6 +33,7 @@ def get_color_for_score(score: float, min_score: float, max_score: float) -> str
 
 
 def create_button_grid(
+    num_datapoints: int,
     score_map: np.ndarray,
     button_type: str,
     run_idx: int = None,
@@ -42,6 +43,7 @@ def create_button_grid(
     """Create a button grid from a score map.
 
     Args:
+        num_datapoints: Number of datapoints in the dataset
         score_map: Score map array of shape (H, W)
         button_type: Type of button ('overlaid-grid-button' for overlaid, 'individual-grid-button' for individual)
         run_idx: Index of the run (only needed for individual buttons)
@@ -52,7 +54,6 @@ def create_button_grid(
         Button grid as an HTML div
     """
     side_length = score_map.shape[0]
-    n_datapoints = np.count_nonzero(~np.isnan(score_map))
 
     # Use global min/max if provided, otherwise use local min/max
     if min_score is None:
@@ -64,7 +65,7 @@ def create_button_grid(
     for row in range(side_length):
         for col in range(side_length):
             idx = row * side_length + col
-            if idx >= n_datapoints:
+            if idx >= num_datapoints:
                 # This is a padding position - no button at all
                 buttons.append(html.Div(style={
                     'width': '20px',
@@ -75,7 +76,7 @@ def create_button_grid(
                 continue
 
             value = score_map[row, col]
-            button_id = {'type': button_type, 'index': f'{run_idx}-{row}-{col}' if run_idx is not None else f'{row}-{col}'}
+            button_id = {'type': button_type, 'index': f'{run_idx}-{idx}' if run_idx is not None else str(idx)}
 
             if np.isnan(value):
                 # This is a NaN score - show gray button
@@ -119,13 +120,14 @@ def create_button_grid(
     })
 
 
-def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: Dict[str, LogDirInfo]):
+def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: int, log_dir_infos: Dict[str, LogDirInfo]):
     """
     Registers all callbacks for the app.
 
     Args:
         app: Dash application instance
         metric_names: List of metric names
+        num_datapoints: Number of datapoints in the dataset
         log_dir_infos: Dictionary mapping log directory paths to LogDirInfo objects
     """
     @app.callback(
@@ -171,7 +173,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         ]
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
         overlaid_score_map = create_overlaid_score_map(score_maps)
-        button_grid = create_button_grid(overlaid_score_map, 'overlaid-grid-button')
+        button_grid = create_button_grid(num_datapoints, overlaid_score_map, 'overlaid-grid-button')
         min_score = np.nanmin(overlaid_score_map)
         max_score = np.nanmax(overlaid_score_map)
         color_bar = create_color_bar(min_score, max_score)
@@ -206,8 +208,15 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         max_score = max(np.nanmax(score_map) for score_map in score_maps)
 
         results = []
-        for i, score_map in enumerate(score_maps):
-            button_grid = create_button_grid(score_map, 'individual-grid-button', run_idx=i, min_score=min_score, max_score=max_score)
+        for i, (score_map, run_info) in enumerate(zip(score_maps, log_dir_infos.values())):
+            button_grid = create_button_grid(
+                run_info.num_datapoints,
+                score_map,
+                'individual-grid-button',
+                run_idx=i,
+                min_score=min_score,
+                max_score=max_score,
+            )
             color_bar = create_color_bar(min_score, max_score)
             results.extend([button_grid, color_bar])
         return results
