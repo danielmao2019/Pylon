@@ -4,6 +4,7 @@ This module contains centralized definitions for dataset groups and formats
 used across the codebase.
 """
 from typing import Literal
+import os
 
 
 # Dataset type definitions
@@ -14,6 +15,13 @@ DATASET_GROUPS = {
     '2d_change_detection': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3d_change_detection': ['urb3dcd', 'slpccd'],
     'point_cloud_registration': ['synth_pcr', 'real_pcr', 'kitti'],
+}
+
+repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
+CONFIG_DIRS = {
+    '2d_change_detection': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
+    '3d_change_detection': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
+    'point_cloud_registration': os.path.join(repo_root, 'configs/common/datasets/point_cloud_registration/train'),
 }
 
 # Dataset format specifications by type

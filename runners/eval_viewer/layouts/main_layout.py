@@ -1,6 +1,5 @@
 from typing import List
 from dash import html, dcc
-from runners.eval_viewer.layouts.datapoint_viewer import create_datapoint_viewer_layout
 
 
 def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
@@ -57,57 +56,95 @@ def create_aggregated_scores_plot() -> html.Div:
     ], style={'marginTop': '20px'})
 
 
-def create_individual_score_maps_section(num_runs: int) -> html.Div:
-    """Section for individual score maps."""
+def create_color_bar(min_score: float, max_score: float) -> html.Div:
+    """Create a color bar showing the score range.
+    
+    Args:
+        min_score: Minimum score value
+        max_score: Maximum score value
+        
+    Returns:
+        Color bar as an HTML div
+    """
+    return html.Div([
+        html.Div([
+            html.Div(style={
+                'width': '20px',
+                'height': '100px',
+                'background': 'linear-gradient(to bottom, rgb(255,0,0), rgb(255,255,0), rgb(0,255,0))',
+                'marginRight': '10px'
+            }),
+            html.Div([
+                html.Div(f"{max_score:.2f}", style={'marginBottom': '5px'}),
+                html.Div(f"{min_score:.2f}")
+            ], style={'display': 'flex', 'flexDirection': 'column', 'justifyContent': 'space-between'})
+        ], style={'display': 'flex', 'alignItems': 'center'})
+    ], style={'marginLeft': '10px'})
+
+
+def create_individual_score_maps_layout(run_names: List[str]) -> html.Div:
+    """Section for individual score maps.
+    
+    Args:
+        run_names: List of run names to display
+    """
     return html.Div([
         html.H2("Individual Score Maps", style={'textAlign': 'center'}),
         html.Div([
-            html.Div(id=f'score-map-{i}', style={'width': '50%', 'display': 'inline-block'})
-            for i in range(num_runs)
+            html.Div([
+                html.H3(run_name, style={'textAlign': 'center', 'marginBottom': '10px'}),
+                html.Div([
+                    html.Div(id=f'individual-button-grid-{i}', style={'width': '100%', 'display': 'inline-block'}),
+                    html.Div(id=f'individual-color-bar-{i}', style={'display': 'inline-block'})
+                ], style={'display': 'flex', 'alignItems': 'center'})
+            ], style={'width': '50%', 'display': 'inline-block'})
+            for i, run_name in enumerate(run_names)
         ], style={'display': 'flex', 'flexWrap': 'wrap'})
     ], style={'marginTop': '20px'})
 
 
-def create_button_grid_section() -> html.Div:
+def create_overlaid_score_map_layout() -> html.Div:
     """Section for the button grid (overlaid score map)."""
     return html.Div([
         html.H2("Common Failure Cases", style={'textAlign': 'center'}),
-        html.Div(id='button-grid-container', style={
-            'display': 'grid',
-            'gridTemplateColumns': 'repeat(auto-fill, minmax(20px, 1fr))',
-            'gap': '1px',
-            'width': '100%',
-            'maxWidth': '800px',
-            'margin': '0 auto'
-        })
+        html.Div([
+            html.Div(id='overlaid-button-grid', style={
+                'display': 'grid',
+                'gridTemplateColumns': 'repeat(auto-fill, minmax(20px, 1fr))',
+                'gap': '1px',
+                'width': '100%',
+                'maxWidth': '800px',
+                'margin': '0 auto'
+            }),
+            html.Div(id='overlaid-color-bar', style={'display': 'inline-block'})
+        ], style={'display': 'flex', 'alignItems': 'center', 'justifyContent': 'center'})
     ], style={'marginTop': '20px'})
+
+
+def create_score_maps_grid(run_names: List[str]) -> html.Div:
+    """Combines the three sections into the main grid layout."""
+    return html.Div([
+        create_overlaid_score_map_layout(),
+        create_individual_score_maps_layout(run_names),
+    ])
 
 
 def create_datapoint_display_section() -> html.Div:
     """Section for the selected datapoint display."""
     return html.Div([
         html.H3("Selected Datapoint", style={'textAlign': 'center'}),
-        html.Div(id='selected-datapoint', style={'width': '100%'})
+        html.Div(id='datapoint-display', style={'width': '100%'})
     ], style={'marginTop': '20px'})
 
 
-def create_score_maps_grid(num_runs: int) -> html.Div:
-    """Combines the three sections into the main grid layout."""
-    return html.Div([
-        create_individual_score_maps_section(num_runs),
-        create_button_grid_section(),
-        create_datapoint_display_section()
-    ])
-
-
-def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> html.Div:
+def create_layout(max_epoch: int, metric_names: List[str], run_names: List[str]) -> html.Div:
     """
     Creates the main dashboard layout.
 
     Args:
         max_epoch: Maximum epoch index
         metric_names: List of available metrics
-        num_runs: Number of runs to display
+        run_names: List of run names to display
 
     Returns:
         layout: HTML div containing the complete layout
@@ -119,7 +156,7 @@ def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> htm
             html.Div([
                 create_controls(max_epoch, metric_names),
                 create_aggregated_scores_plot(),
-                create_score_maps_grid(num_runs),
+                create_score_maps_grid(run_names),
             ], style={
                 'width': '60%',
                 'float': 'left',
@@ -128,10 +165,10 @@ def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> htm
                 'padding': '20px',
                 'boxSizing': 'border-box'
             }),
-            
+
             # Right column: Datapoint viewer
             html.Div([
-                create_datapoint_viewer_layout(),
+                create_datapoint_display_section(),
             ], style={
                 'width': '40%',
                 'float': 'right',
