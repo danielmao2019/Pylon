@@ -7,14 +7,10 @@ from typing import Dict, Any, Optional, List
 import logging
 
 from data.viewer.managers.dataset_cache import DatasetCache
-from data.viewer.managers.dataset_loader import DatasetLoader
+from data.viewer.managers.dataset_builder import DatasetBuilder
 from data.viewer.managers.transform_manager import TransformManager
-from data.viewer.managers.registry import (
-    DatasetType,
-    DATASET_GROUPS,
-    DATASET_FORMATS,
-    get_dataset_type
-)
+from data.viewer.managers.registry import DATASET_FORMATS, get_dataset_type
+
 
 class DatasetManager:
     """Manages dataset operations including loading, caching, and transformations."""
@@ -30,7 +26,7 @@ class DatasetManager:
         self.logger = logging.getLogger(__name__)
 
         # Initialize components
-        self.loader = DatasetLoader(config_dir)
+        self.loader = DatasetBuilder(config_dir)
         self.transform_manager = TransformManager()
         self._datasets: Dict[str, Any] = {}
         self._caches: Dict[str, DatasetCache] = {}
@@ -68,7 +64,7 @@ class DatasetManager:
 
         # Load dataset if not already loaded
         if dataset_name not in self._datasets:
-            dataset = self.loader.load_dataset(dataset_name)
+            dataset = self.loader.build_dataset(dataset_name)
             if dataset is None:
                 raise ValueError(f"Failed to load dataset: {dataset_name}.")
             self._datasets[dataset_name] = dataset

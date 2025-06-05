@@ -1,9 +1,13 @@
-from typing import List, Dict, Set, Tuple, NamedTuple
+from typing import List, Dict, Set, Tuple, NamedTuple, Any
+import importlib.util
 import os
 import json
 import numpy as np
+import pickle
 from pathlib import Path
-from data.viewer.managers.registry import get_dataset_type, DatasetType
+from data.collators.base_collator import BaseCollator
+from data.viewer.managers.registry import get_dataset_type, DatasetType, CONFIG_DIRS
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 logger = logging.getLogger(__name__)
@@ -13,10 +17,13 @@ class LogDirInfo(NamedTuple):
     """Information extracted from a log directory."""
     num_epochs: int
     metric_names: Set[str]
-    dataset_class: str
-    dataset_type: DatasetType
-    score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
+    num_datapoints: int  # Number of datapoints in the dataset
+    score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(num_datapoints)
     aggregated_scores: np.ndarray  # Shape: (N, C) where N=epochs, C=metrics
+    dataset_class: str
+    dataset_type: DatasetType  # 2d_change_detection, 3d_change_detection, point_cloud_registration, etc.
+    dataset_cfg: Dict[str, Any]
+    collate_fn_cfg: Dict[str, Any]
 
 
 def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray, float]:
@@ -27,7 +34,7 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
         metric_name: Name of metric (including sub-metrics)
 
     Returns:
-        Tuple of (n_datapoints, score_map, aggregated_score) where score_map has shape (H, W)
+        Tuple of (num_datapoints, score_map, aggregated_score) where score_map has shape (H, W)
     """
     with open(scores_file, "r") as f:
         scores = json.load(f)
@@ -48,12 +55,12 @@ def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int,
     assert per_datapoint_scores.ndim == 1, f"Per-datapoint scores {per_datapoint_scores} is not 1D"
     assert isinstance(aggregated_score, float), f"Aggregated score {aggregated_score} is not a float"
 
-    n_datapoints = len(per_datapoint_scores)
-    side_length = int(np.ceil(np.sqrt(n_datapoints)))
+    num_datapoints = len(per_datapoint_scores)
+    side_length = int(np.ceil(np.sqrt(num_datapoints)))
     score_map = np.full((side_length, side_length), np.nan)
-    score_map.flat[:n_datapoints] = per_datapoint_scores
+    score_map.flat[:num_datapoints] = per_datapoint_scores
 
-    return n_datapoints, score_map, aggregated_score
+    return num_datapoints, score_map, aggregated_score
 
 
 def get_metric_names_aggregated(scores_dict: dict) -> List[str]:
@@ -98,14 +105,14 @@ def get_metric_names_per_datapoint(scores_dict: dict) -> List[str]:
     return metrics
 
 
-def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray, np.ndarray]:
+def get_score_map_epoch(scores_file: str) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
     """Get score map for a single epoch and all metrics.
 
     Args:
         scores_file: Path to validation scores file
 
     Returns:
-        Tuple of (metric_names, score_map) where score_map has shape (C, H, W)
+        Tuple of (metric_names, num_datapoints, score_map, aggregated_scores)
     """
     with open(scores_file, "r") as f:
         scores = json.load(f)
@@ -119,8 +126,11 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray, np.nda
         get_score_map_epoch_metric(scores_file, metric_name)
         for metric_name in metric_names
     ]
+
+    # Validate that all metrics have the same number of datapoints
+    num_datapoints = all_score_maps_epoch[0][0]
     assert all(
-        score_map_epoch_metric[0] == all_score_maps_epoch[0][0]
+        score_map_epoch_metric[0] == num_datapoints
         for score_map_epoch_metric in all_score_maps_epoch
     ), f"""{list(zip(
         metric_names,
@@ -133,7 +143,7 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], np.ndarray, np.nda
     aggregated_scores_epoch = np.array([
         score_map_epoch_metric[2] for score_map_epoch_metric in all_score_maps_epoch
     ])
-    return metric_names, score_map_epoch, aggregated_scores_epoch
+    return metric_names, num_datapoints, score_map_epoch, aggregated_scores_epoch
 
 
 def get_epoch_dirs(log_dir: str) -> List[str]:
@@ -167,50 +177,81 @@ def get_epoch_dirs(log_dir: str) -> List[str]:
     return epoch_dirs
 
 
-def get_dataset_info(log_dir: str) -> Tuple[str, DatasetType]:
-    """Get dataset class and type from config file.
-
-    Args:
-        log_dir: Path to log directory
-
-    Returns:
-        Tuple of (dataset_class, dataset_type)
-
-    Raises:
-        ValueError: If config file not found or invalid
-    """
-    dataset_class = log_dir.split("/")[-2]
-    dataset_type = get_dataset_type(dataset_class)
-    return dataset_class, dataset_type
-
-
-def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], np.ndarray, np.ndarray]:
+def get_score_map(epoch_dirs: List[str]) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
     """Get score map array from validation scores files.
 
     Args:
         epoch_dirs: List of epoch directory paths
 
     Returns:
-        Tuple of (metric_names, score_map) where score_map has shape (N, C, H, W)
+        Tuple of (metric_names, num_datapoints, score_map, aggregated_scores)
 
     Raises:
         ValueError: If scores format is invalid
     """
-    # Get score maps for all epochs
-    all_score_maps = [
-        get_score_map_epoch(os.path.join(epoch_dir, "validation_scores.json"))
-        for epoch_dir in epoch_dirs
-    ]
-    assert all(score_map_epoch[0] == all_score_maps[0][0] for score_map_epoch in all_score_maps)
+    # Get score maps for all epochs in parallel while preserving order
+    results = {}
+    with ThreadPoolExecutor() as executor:
+        future_to_idx = {
+            executor.submit(get_score_map_epoch, os.path.join(epoch_dir, "validation_scores.json")): idx
+            for idx, epoch_dir in enumerate(epoch_dirs)
+        }
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            results[idx] = future.result()
+
+    # Sort results by index to maintain order
+    all_score_maps = [results[idx] for idx in range(len(epoch_dirs))]
+
+    # Validate that all epochs have the same metric names
     metric_names = all_score_maps[0][0]
+    assert all(score_map_epoch[0] == metric_names for score_map_epoch in all_score_maps), \
+        f"Different metrics across epochs: {[score_map_epoch[0] for score_map_epoch in all_score_maps]}"
+
+    # Validate that all epochs have the same number of datapoints
+    num_datapoints = all_score_maps[0][1]
+    assert all(score_map_epoch[1] == num_datapoints for score_map_epoch in all_score_maps), \
+        f"Different number of datapoints across epochs: {[score_map_epoch[1] for score_map_epoch in all_score_maps]}"
 
     # Stack all epoch score maps
-    score_map = np.stack([score_map_epoch[1] for score_map_epoch in all_score_maps], axis=0)
-    aggregated_scores = np.stack([score_map_epoch[2] for score_map_epoch in all_score_maps], axis=0)
+    score_map = np.stack([score_map_epoch[2] for score_map_epoch in all_score_maps], axis=0)
+    aggregated_scores = np.stack([score_map_epoch[3] for score_map_epoch in all_score_maps], axis=0)
     assert score_map.shape[:2] == aggregated_scores.shape, \
         f"Score map and aggregated scores have different shapes: {score_map.shape} != {aggregated_scores.shape}"
 
-    return metric_names, score_map, aggregated_scores
+    return metric_names, num_datapoints, score_map, aggregated_scores
+
+
+def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[str, Any]]:
+    """Get dataset class and type from config file.
+
+    Args:
+        log_dir: Path to log directory
+
+    Returns:
+        Tuple of (dataset_class, dataset_type, dataset_cfg, collate_fn_cfg)
+
+    Raises:
+        ValueError: If config file not found or invalid
+    """
+    dataset_class = log_dir.split("/")[-2]
+    dataset_type = get_dataset_type(dataset_class)
+
+    # Get the config file path
+    config_file = os.path.join("./configs", os.path.relpath(log_dir, "./logs")) + ".py"
+    assert os.path.isfile(config_file), f"Config file not found: {config_file}"
+
+    # Load the config module
+    spec = importlib.util.spec_from_file_location("config_file", config_file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    config = module.config
+
+    # Extract dataset and collate function configs
+    dataset_cfg = config['val_dataset']
+    dataloader_cfg = config['val_dataloader']
+    collate_fn_cfg = dataloader_cfg.get('collate_fn', {'class': BaseCollator, 'args': {}})
+    return dataset_class, dataset_type, dataset_cfg, collate_fn_cfg
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
@@ -234,54 +275,40 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     cache_dir = Path(__file__).parent.parent / "cache"
     cache_dir.mkdir(exist_ok=True)
     run_name = os.path.basename(os.path.normpath(log_dir))
-    cache_path = str(cache_dir / f"{run_name}.npz")
+    cache_path = str(cache_dir / f"{run_name}.pkl")
 
     # Try to load from cache first
     if not force_reload and os.path.exists(cache_path):
-        try:
-            cache = np.load(cache_path, allow_pickle=True)
-            return LogDirInfo(
-                num_epochs=cache['num_epochs'].item(),
-                metric_names=cache['metric_names'].tolist(),
-                score_map=cache['score_map'],
-                aggregated_scores=cache['aggregated_scores'],
-                dataset_class=cache['dataset_class'].item(),
-                dataset_type=cache['dataset_type'].item(),
-            )
-        except Exception as e:
-            logger.warning(f"Failed to load cache from {cache_path}: {e}")
+        with open(cache_path, 'rb') as f:
+            return pickle.load(f)
 
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
-    metric_names, score_map, aggregated_scores = get_score_map(epoch_dirs)
-    dataset_class, dataset_type = get_dataset_info(log_dir)
+    metric_names, num_datapoints, score_map, aggregated_scores = get_score_map(epoch_dirs)
+    dataset_class, dataset_type, dataset_cfg, collate_fn_cfg = get_data_info(log_dir)
 
     # Create LogDirInfo object
     info = LogDirInfo(
         num_epochs=len(epoch_dirs),
         metric_names=metric_names,
+        num_datapoints=num_datapoints,
         score_map=score_map,
         aggregated_scores=aggregated_scores,
         dataset_class=dataset_class,
         dataset_type=dataset_type,
+        dataset_cfg=dataset_cfg,
+        collate_fn_cfg=collate_fn_cfg,
     )
 
     # Save to cache
-    np.savez(
-        cache_path,
-        num_epochs=info.num_epochs,
-        metric_names=info.metric_names,
-        score_map=info.score_map,
-        aggregated_scores=info.aggregated_scores,
-        dataset_class=info.dataset_class,
-        dataset_type=info.dataset_type,
-    )
+    with open(cache_path, 'wb') as f:
+        pickle.dump(info, f)
 
     return info
 
 
 def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
-    int, Set[str], str, DatasetType, Dict[str, LogDirInfo],
+    int, Set[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo],
 ]:
     """Initialize log directories and validate consistency.
 
@@ -290,16 +317,21 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         force_reload: Whether to force reload from source files
 
     Returns:
-        Tuple of (max_epoch, metrics, dataset_class, dataset_type, log_dir_infos)
+        Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos)
 
     Raises:
         ValueError: If log directories are invalid or inconsistent
     """
-    # Extract information from each log directory
-    log_dir_infos = {
-        log_dir: extract_log_dir_info(log_dir, force_reload)
-        for log_dir in log_dirs
-    }
+    # Extract information from each log directory in parallel
+    log_dir_infos = {}
+    with ThreadPoolExecutor() as executor:
+        future_to_log_dir = {
+            executor.submit(extract_log_dir_info, log_dir, force_reload): log_dir
+            for log_dir in log_dirs
+        }
+        for future in as_completed(future_to_log_dir):
+            log_dir = future_to_log_dir[future]
+            log_dir_infos[log_dir] = future.result()
 
     # Get common information
     max_epochs = max(info.num_epochs for info in log_dir_infos.values())
@@ -312,8 +344,17 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     }.items())}"""
     metric_names = list(log_dir_infos.values())[0].metric_names
     assert all(info.dataset_class == list(log_dir_infos.values())[0].dataset_class for info in log_dir_infos.values())
+    num_datapoints = list(log_dir_infos.values())[0].num_datapoints
+    assert all(info.num_datapoints == num_datapoints for info in log_dir_infos.values())
     dataset_class = list(log_dir_infos.values())[0].dataset_class
     assert all(info.dataset_type == list(log_dir_infos.values())[0].dataset_type for info in log_dir_infos.values())
     dataset_type = list(log_dir_infos.values())[0].dataset_type
+    repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
+    config_file = os.path.join(repo_root, "configs", "common", "datasets", os.path.dirname(CONFIG_DIRS[dataset_type]), "val", f"{dataset_class}_data_cfg.py")
+    spec = importlib.util.spec_from_file_location("config_file", config_file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    data_cfg = module.data_cfg
+    dataset_cfg = data_cfg['val_dataset']
 
-    return max_epochs, metric_names, dataset_class, dataset_type, log_dir_infos
+    return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos

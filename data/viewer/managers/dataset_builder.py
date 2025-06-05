@@ -3,10 +3,10 @@ from typing import Dict, Any, Optional, List
 import os
 import logging
 import importlib.util
-from data.viewer.managers.registry import DATASET_GROUPS, get_dataset_type
+from data.viewer.managers.registry import DATASET_GROUPS, CONFIG_DIRS, get_dataset_type
 
 
-class DatasetLoader:
+class DatasetBuilder:
     """Handles loading and configuration of datasets."""
 
     def __init__(self, config_dir: Optional[str] = None, dataset_types: Optional[List[str]] = None):
@@ -20,12 +20,7 @@ class DatasetLoader:
 
         # If no config_dir is provided, use the default locations
         if config_dir is None:
-            repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../.."))
-            self.config_dirs = {
-                '2d_change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
-                '3d_change_detection': os.path.join(repo_root, "configs/common/datasets/change_detection/train"),
-                'point_cloud_registration': os.path.join(repo_root, "configs/common/datasets/point_cloud_registration/train")
-            }
+            self.config_dirs = CONFIG_DIRS
         else:
             self.config_dirs = {'default': config_dir}
 
@@ -77,7 +72,7 @@ class DatasetLoader:
         assert config_key in self.configs, f"Config not found for dataset: {config_key}"
         return self.configs[config_key]
 
-    def load_dataset(self, dataset_name: str) -> Optional[Any]:
+    def build_dataset(self, dataset_name: str) -> Optional[Any]:
         """Load a dataset instance.
 
         Args:
