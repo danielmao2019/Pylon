@@ -348,7 +348,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     spec = importlib.util.spec_from_file_location("config_file", config_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    config = module.config
-    dataset_cfg = config['val_dataset']
+    data_cfg = module.data_cfg
+    dataset_cfg = data_cfg['val_dataset']
 
     return max_epochs, metric_names, dataset_cfg, dataset_type, log_dir_infos
