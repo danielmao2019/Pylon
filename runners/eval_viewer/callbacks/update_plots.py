@@ -76,7 +76,7 @@ def create_button_grid(
 
             value = score_map[row, col]
             button_id = {'type': button_type, 'index': f'{run_idx}-{row}-{col}' if run_idx is not None else f'{row}-{col}'}
-            
+
             if np.isnan(value):
                 # This is a NaN score - show gray button
                 button = html.Button(
