@@ -216,18 +216,25 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
         log_dir: Path to log directory
 
     Returns:
-        Tuple of (dataset_class, dataset_type)
+        Tuple of (dataset_class, dataset_type, dataset_cfg, dataloader_cfg)
 
     Raises:
         ValueError: If config file not found or invalid
     """
     dataset_class = log_dir.split("/")[-2]
     dataset_type = get_dataset_type(dataset_class)
+    
+    # Get the config file path
     config_file = os.path.join("./configs", os.path.relpath(log_dir, "./logs")) + ".py"
+    assert os.path.isfile(config_file), f"Config file not found: {config_file}"
+    
+    # Load the config module
     spec = importlib.util.spec_from_file_location("config_file", config_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     config = module.config
+    
+    # Extract dataset and dataloader configs
     dataset_cfg = config['val_dataset']
     dataloader_cfg = config['val_dataloader']
     return dataset_class, dataset_type, dataset_cfg, dataloader_cfg
