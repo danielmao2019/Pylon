@@ -78,8 +78,8 @@ class Compose(BaseTransform):
         r"""This method overrides parent `__call__` method.
         """
         # input checks
-        assert type(datapoint) == dict, f"{type(datapoint)=}"
-        assert set(datapoint.keys()) == set(['inputs', 'labels', 'meta_info']), f"{datapoint.keys()=}"
+        assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+        assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}, f"{datapoint.keys()=}"
 
         # Create a deep copy of the input datapoint to avoid in-place modification
         datapoint = copy.deepcopy(datapoint)
