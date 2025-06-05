@@ -18,7 +18,7 @@ class LogDirInfo(NamedTuple):
     score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
     aggregated_scores: np.ndarray  # Shape: (N, C) where N=epochs, C=metrics
     dataset_class: str
-    dataset_type: DatasetType
+    dataset_type: DatasetType  # 2d_change_detection, 3d_change_detection, point_cloud_registration, etc.
     dataset_cfg: Dict[str, Any]
     dataloader_cfg: Dict[str, Any]
 
