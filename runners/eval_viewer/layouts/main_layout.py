@@ -87,7 +87,7 @@ def create_datapoint_display_section() -> html.Div:
     """Section for the selected datapoint display."""
     return html.Div([
         html.H3("Selected Datapoint", style={'textAlign': 'center'}),
-        html.Div(id='selected-datapoint', style={'width': '100%'})
+        html.Div(id='datapoint-display', style={'width': '100%'})
     ], style={'marginTop': '20px'})
 
 
@@ -96,7 +96,6 @@ def create_score_maps_grid(num_runs: int) -> html.Div:
     return html.Div([
         create_individual_score_maps_section(num_runs),
         create_button_grid_section(),
-        create_datapoint_display_section()
     ])
 
 
@@ -131,7 +130,7 @@ def create_layout(max_epoch: int, metric_names: List[str], num_runs: int) -> htm
 
             # Right column: Datapoint viewer
             html.Div([
-                create_datapoint_viewer_layout(),
+                create_datapoint_display_section(),
             ], style={
                 'width': '40%',
                 'float': 'right',

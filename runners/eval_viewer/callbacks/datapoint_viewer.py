@@ -42,68 +42,27 @@ def register_datapoint_viewer_callbacks(
     dataset = build_from_config(dataset_cfg)
 
     @app.callback(
-        Output('selected-datapoint', 'children'),
-        [Input({'type': 'overlaid-grid-button', 'index': dash.ALL}, 'n_clicks')],
+        Output('datapoint-display', 'children'),
+        [Input({'type': 'overlaid-grid-button', 'index': dash.ALL}, 'n_clicks'),
+         Input({'type': 'individual-grid-button', 'index': dash.ALL}, 'n_clicks')],
         [State('epoch-slider', 'value'),
          State('metric-dropdown', 'value')]
     )
-    def update_selected_datapoint(clicks, epoch: int, metric_name: str):
-        if not any(clicks) or epoch is None or metric_name is None:
-            raise PreventUpdate
-
-        ctx = dash.callback_context
-        if not ctx.triggered:
-            raise PreventUpdate
-
-        triggered_id = ctx.triggered_id
-        if isinstance(triggered_id, dict) and 'index' in triggered_id:
-            row, col = map(int, triggered_id['index'].split('-'))
-        else:
-            raise PreventUpdate
-
-        metric_idx = metric_names.index(metric_name)
-        score_maps = []
-        for info in log_dir_infos.values():
-            score_map = info.score_map[epoch, metric_idx]
-            score_maps.append(score_map)
-
-        side_length = score_maps[0].shape[0]
-        datapoint_idx = row * side_length + col
-        scores = [score_map[row, col] for score_map in score_maps if not np.isnan(score_map[row, col])]
-
-        if scores:
-            return html.Div([
-                html.H4(f"Datapoint {datapoint_idx}"),
-                html.P(f"Position: Row {row}, Column {col}"),
-                html.P(f"Number of runs with data: {len(scores)}"),
-                html.P(f"Average score: {np.mean(scores):.3f}"),
-                html.P(f"Min score: {np.min(scores):.3f}"),
-                html.P(f"Max score: {np.max(scores):.3f}"),
-            ])
-        else:
-            return html.Div([
-                html.H4(f"Datapoint {datapoint_idx}"),
-                html.P("No data available for this position")
-            ])
-
-    @app.callback(
-        [Output('score-info-container', 'children'),
-         Output('datapoint-visualization-container', 'children')],
-        [Input({'type': 'overlaid-grid-button', 'index': dash.ALL}, 'n_clicks'),
-         Input({'type': 'individual-grid-button', 'index': dash.ALL}, 'n_clicks')],
-    )
-    def update_datapoint_viewer(overlaid_clicks, individual_clicks):
-        """Update the datapoint viewer when a grid button is clicked.
+    def update_selected_datapoint(overlaid_clicks, individual_clicks, epoch: int, metric_name: str):
+        """Update the selected datapoint display when a grid button is clicked.
 
         Args:
             overlaid_clicks: List of click events from overlaid grid buttons
             individual_clicks: List of click events from individual grid buttons
+            epoch: Current epoch
+            metric_name: Current metric name
 
         Returns:
-            Tuple containing:
-                - score_info: HTML elements showing score information
-                - datapoint_viz: HTML elements showing datapoint visualization
+            HTML elements showing datapoint information and visualization
         """
+        if not any(overlaid_clicks) and not any(individual_clicks) or epoch is None or metric_name is None:
+            raise PreventUpdate
+
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
@@ -114,7 +73,7 @@ def register_datapoint_viewer_callbacks(
 
         # Parse the button index
         index_parts = triggered_id['index'].split('-')
-
+        
         if triggered_id['type'] == 'overlaid-grid-button':
             # Overlaid button grid click - use the common dataset from dataset_cfg
             row, col = map(int, index_parts)
@@ -143,18 +102,21 @@ def register_datapoint_viewer_callbacks(
         if collate_fn is not None:
             datapoint = collate_fn([datapoint])
 
-        # Create score info display
-        score_info = html.Div([
-            html.H4(f"Datapoint {datapoint_idx}"),
-            html.P(f"Position: Row {row}, Column {col}"),
-            html.P(f"Type: {dataset_type}"),
-            html.P(f"Source: {'Individual Run' if run_idx is not None else 'Overlaid View'}"),
-            # Add more score information as needed
-        ])
-
         # Get the appropriate display function
         display_func = DISPLAY_FUNCTIONS.get(dataset_type)
         assert display_func is not None, f"No display function found for dataset type: {dataset_type}"
         display = display_func(datapoint)
 
-        return score_info, display
+        # Create combined display with info and visualization
+        return html.Div([
+            # Info section
+            html.Div([
+                html.H4(f"Datapoint {datapoint_idx}"),
+                html.P(f"Position: Row {row}, Column {col}"),
+                html.P(f"Type: {dataset_type}"),
+                html.P(f"Source: {'Individual Run' if run_idx is not None else 'Overlaid View'}"),
+            ], style={'marginBottom': '20px'}),
+            
+            # Visualization section
+            html.Div(display)
+        ])
