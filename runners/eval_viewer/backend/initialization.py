@@ -15,7 +15,7 @@ class LogDirInfo(NamedTuple):
     """Information extracted from a log directory."""
     num_epochs: int
     metric_names: Set[str]
-    dataset_class: str
+    dataset_cfg: Dict[str, Any]
     dataset_type: DatasetType
     score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(n_datapoints)
     aggregated_scores: np.ndarray  # Shape: (N, C) where N=epochs, C=metrics
