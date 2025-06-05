@@ -24,7 +24,7 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
         app: Dash application instance
     """
     # Initialize log directories
-    max_epochs, metric_names, dataset_class, dataset_type, log_dir_infos = initialize_log_dirs(log_dirs, force_reload)
+    max_epochs, metric_names, dataset_cfg, dataset_type, log_dir_infos = initialize_log_dirs(log_dirs, force_reload)
 
     # Create app
     app = dash.Dash(__name__)
@@ -34,7 +34,7 @@ def create_app(log_dirs: List[str], force_reload: bool = False) -> dash.Dash:
 
     # Register callbacks
     register_callbacks(app, metric_names, log_dir_infos)
-    register_datapoint_viewer_callbacks(app, log_dir_infos)
+    register_datapoint_viewer_callbacks(app, metric_names, dataset_cfg, dataset_type, log_dir_infos)
     return app
 
 

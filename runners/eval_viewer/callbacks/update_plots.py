@@ -116,52 +116,6 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], log_dir_infos: D
         else:
             return html.Div("No data available")
 
-    # 3. Selected datapoint info
-    @app.callback(
-        Output('selected-datapoint', 'children'),
-        [Input({'type': 'grid-button', 'index': dash.ALL}, 'n_clicks')],
-        [State('epoch-slider', 'value'),
-         State('metric-dropdown', 'value')]
-    )
-    def update_selected_datapoint(clicks, epoch: int, metric: str):
-        if not any(clicks) or epoch is None or metric is None:
-            raise PreventUpdate
-
-        ctx = dash.callback_context
-        if not ctx.triggered:
-            raise PreventUpdate
-
-        triggered_id = ctx.triggered_id
-        if isinstance(triggered_id, dict) and 'index' in triggered_id:
-            row, col = map(int, triggered_id['index'].split('-'))
-        else:
-            raise PreventUpdate
-
-        metric_idx = metric_names.index(metric)
-        score_maps = []
-        for info in log_dir_infos.values():
-            score_map = info.score_map[epoch, metric_idx]
-            score_maps.append(score_map)
-
-        side_length = score_maps[0].shape[0]
-        datapoint_idx = row * side_length + col
-        scores = [score_map[row, col] for score_map in score_maps if not np.isnan(score_map[row, col])]
-
-        if scores:
-            return html.Div([
-                html.H4(f"Datapoint {datapoint_idx}"),
-                html.P(f"Position: Row {row}, Column {col}"),
-                html.P(f"Number of runs with data: {len(scores)}"),
-                html.P(f"Average score: {np.mean(scores):.3f}"),
-                html.P(f"Min score: {np.min(scores):.3f}"),
-                html.P(f"Max score: {np.max(scores):.3f}"),
-            ])
-        else:
-            return html.Div([
-                html.H4(f"Datapoint {datapoint_idx}"),
-                html.P("No data available for this position")
-            ])
-
     @app.callback(
         Output('aggregated-scores-plot', 'children'),
         [Input('metric-dropdown', 'value')]

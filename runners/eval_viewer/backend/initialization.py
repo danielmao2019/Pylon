@@ -4,7 +4,7 @@ import os
 import json
 import numpy as np
 from pathlib import Path
-from data.viewer.managers.registry import get_dataset_type, DatasetType
+from data.viewer.managers.registry import get_dataset_type, DatasetType, CONFIG_DIRS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
@@ -302,7 +302,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
 
 
 def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
-    int, Set[str], str, DatasetType, Dict[str, LogDirInfo],
+    int, Set[str], Dict[str, Any], DatasetType, Dict[str, LogDirInfo],
 ]:
     """Initialize log directories and validate consistency.
 
@@ -341,5 +341,12 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     dataset_class = list(log_dir_infos.values())[0].dataset_class
     assert all(info.dataset_type == list(log_dir_infos.values())[0].dataset_type for info in log_dir_infos.values())
     dataset_type = list(log_dir_infos.values())[0].dataset_type
+    repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
+    config_file = os.path.join(repo_root, "configs", "common", "datasets", CONFIG_DIRS[dataset_type], "val", f"{dataset_class}_data_cfg.py")
+    spec = importlib.util.spec_from_file_location("config_file", config_file)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    config = module.config
+    dataset_cfg = config['val_dataset']
 
-    return max_epochs, metric_names, dataset_class, dataset_type, log_dir_infos
+    return max_epochs, metric_names, dataset_cfg, dataset_type, log_dir_infos
