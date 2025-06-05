@@ -114,7 +114,7 @@ def register_datapoint_viewer_callbacks(
 
         # Parse the button index
         index_parts = triggered_id['index'].split('-')
-        
+
         if triggered_id['type'] == 'overlaid-grid-button':
             # Overlaid button grid click - use the common dataset from dataset_cfg
             row, col = map(int, index_parts)
