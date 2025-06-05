@@ -43,7 +43,7 @@ def register_datapoint_viewer_callbacks(
 
     @app.callback(
         Output('selected-datapoint', 'children'),
-        [Input({'type': 'grid-button', 'index': dash.ALL}, 'n_clicks')],
+        [Input({'type': 'overlaid-grid-button', 'index': dash.ALL}, 'n_clicks')],
         [State('epoch-slider', 'value'),
          State('metric-dropdown', 'value')]
     )
@@ -89,22 +89,21 @@ def register_datapoint_viewer_callbacks(
     @app.callback(
         [Output('score-info-container', 'children'),
          Output('datapoint-visualization-container', 'children')],
-        [Input({'type': 'grid-button', 'index': dash.ALL}, 'n_clicks')],
+        [Input({'type': 'overlaid-grid-button', 'index': dash.ALL}, 'n_clicks'),
+         Input({'type': 'individual-grid-button', 'index': dash.ALL}, 'n_clicks')],
     )
-    def update_datapoint_viewer(clicks):
+    def update_datapoint_viewer(overlaid_clicks, individual_clicks):
         """Update the datapoint viewer when a grid button is clicked.
 
         Args:
-            clicks: List of click events from grid buttons
+            overlaid_clicks: List of click events from overlaid grid buttons
+            individual_clicks: List of click events from individual grid buttons
 
         Returns:
             Tuple containing:
                 - score_info: HTML elements showing score information
                 - datapoint_viz: HTML elements showing datapoint visualization
         """
-        if not any(clicks):
-            raise PreventUpdate
-
         ctx = dash.callback_context
         if not ctx.triggered:
             raise PreventUpdate
@@ -113,21 +112,43 @@ def register_datapoint_viewer_callbacks(
         if not isinstance(triggered_id, dict) or 'index' not in triggered_id:
             raise PreventUpdate
 
-        # Get row and column from button index
-        row, col = map(int, triggered_id['index'].split('-'))
+        # Parse the button index
+        index_parts = triggered_id['index'].split('-')
+        
+        if triggered_id['type'] == 'overlaid-grid-button':
+            # Overlaid button grid click - use the common dataset from dataset_cfg
+            row, col = map(int, index_parts)
+            run_idx = None
+            current_dataset = dataset  # Use the dataset built from dataset_cfg
+            collate_fn = None  # No collate function for overlaid view
+            # Calculate side length from overlaid clicks
+            side_length = int(np.sqrt(len(overlaid_clicks)))  # Assuming square grid
+        else:
+            # Individual score map button click - use run-specific dataset and collate function
+            run_idx, row, col = map(int, index_parts)
+            run_info = list(log_dir_infos.values())[run_idx]
+            current_dataset = build_from_config(run_info.dataset_cfg)
+            if hasattr(run_info, 'dataloader_cfg') and run_info.dataloader_cfg is not None:
+                collate_fn = build_from_config(run_info.dataloader_cfg).collate_fn
+            else:
+                collate_fn = None
+            # Calculate side length from individual clicks
+            side_length = int(np.sqrt(len(individual_clicks)))  # Assuming square grid
 
         # Calculate datapoint index from grid position
-        side_length = int(np.sqrt(len(clicks)))  # Assuming square grid
         datapoint_idx = row * side_length + col
 
-        # Load datapoint
-        datapoint = dataset[datapoint_idx]
+        # Load and process datapoint
+        datapoint = current_dataset[datapoint_idx]
+        if collate_fn is not None:
+            datapoint = collate_fn([datapoint])
 
         # Create score info display
         score_info = html.Div([
             html.H4(f"Datapoint {datapoint_idx}"),
             html.P(f"Position: Row {row}, Column {col}"),
             html.P(f"Type: {dataset_type}"),
+            html.P(f"Source: {'Individual Run' if run_idx is not None else 'Overlaid View'}"),
             # Add more score information as needed
         ])
 
