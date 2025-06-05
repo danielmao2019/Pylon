@@ -33,7 +33,6 @@ def register_datapoint_viewer_callbacks(
 
     Args:
         app: Dash application instance
-        metric_names: List of metric names
         dataset_cfg: Dataset configuration
         dataset_type: Dataset type
         log_dir_infos: Dict of LogDirInfo instances
@@ -86,10 +85,7 @@ def register_datapoint_viewer_callbacks(
             run_idx, row, col = map(int, index_parts)
             run_info = list(log_dir_infos.values())[run_idx]
             current_dataset = build_from_config(run_info.dataset_cfg)
-            if hasattr(run_info, 'dataloader_cfg') and run_info.dataloader_cfg is not None:
-                collate_fn = build_from_config(run_info.dataloader_cfg).collate_fn
-            else:
-                collate_fn = None
+            collate_fn = build_from_config(run_info.collate_fn_cfg)
             # Calculate side length from individual clicks
             side_length = int(np.sqrt(len(individual_clicks)))  # Assuming square grid
 
@@ -99,7 +95,7 @@ def register_datapoint_viewer_callbacks(
         # Load and process datapoint
         datapoint = current_dataset[datapoint_idx]
         if collate_fn is not None:
-            datapoint = collate_fn([datapoint])
+            datapoint = collate_fn([datapoint])  # Apply collate function to single datapoint
 
         # Get the appropriate display function
         display_func = DISPLAY_FUNCTIONS.get(dataset_type)
