@@ -46,5 +46,11 @@ def build_from_config(config: Any, **kwargs) -> Any:
             
         # build self
         return config_copy['class'](**config_copy['args'])
+    elif isinstance(config, dict):
+        return {key: build_from_config(val) for key, val in config.items()}
+    elif isinstance(config, list):
+        return [build_from_config(item) for item in config]
+    elif isinstance(config, tuple):
+        return tuple(build_from_config(item) for item in config)
     else:
         return config
