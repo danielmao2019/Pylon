@@ -7,9 +7,6 @@ import torch
 class BaseTransform:
     """Base class for all transforms."""
 
-    def __init__(self) -> None:
-        self.generator = None
-
     def set_seed(self, seed: Any) -> None:
         """Set the random seed for the generator if it exists."""
         if hasattr(self, 'generator'):
