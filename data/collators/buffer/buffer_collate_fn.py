@@ -109,7 +109,6 @@ def buffer_collate_fn(datapoint, config, neighborhood_limits):
     r_normal = config.data.voxel_size_0 * config.point.conv_radius
 
     # Starting layer
-    layer_blocks = []
     layer = 0
 
     # Lists of inputs
@@ -120,14 +119,16 @@ def buffer_collate_fn(datapoint, config, neighborhood_limits):
     input_upsamples = []
 
     for block_i, block in enumerate(architecture):
-
         # Stop when meeting a global pooling or upsampling
         if 'global' in block or 'upsample' in block:
             break
 
-        # Get all blocks of the layer
-        if not ('pool' in block or 'strided' in block):
-            layer_blocks += [block]
+        # Check if the current block is a pooling or strided operation
+        is_pooling_or_strided = 'pool' in block or 'strided' in block
+
+        # If the current block is not a pooling or strided operation, add it to the layer blocks
+        if not is_pooling_or_strided:
+            # Check if the next block is not an upsampling operation
             if block_i < len(architecture) - 1 and not ('upsample' in architecture[block_i + 1]):
                 continue
 
@@ -135,7 +136,8 @@ def buffer_collate_fn(datapoint, config, neighborhood_limits):
         # Convolution neighbors indices
         # *****************************
 
-        if layer_blocks:
+        # Compute neighbor indices for convolution
+        if not is_pooling_or_strided:
             neighbor_indices = batch_neighbors_kpconv(
                 batched_points, batched_points, batched_lengths, batched_lengths,
                 r_normal, neighborhood_limits[layer],
@@ -147,8 +149,8 @@ def buffer_collate_fn(datapoint, config, neighborhood_limits):
         # Pooling neighbors indices
         # *************************
 
-        # If end of layer is a pooling operation
-        if 'pool' in block or 'strided' in block:
+        # If the current block is a pooling operation, compute downsampling and upsampling indices
+        if is_pooling_or_strided:
             downsample_points, downsample_lengths = batch_grid_subsampling_kpconv(
                 batched_points, batched_lengths,
                 sampleDl=2 * r_normal / config.point.conv_radius,
@@ -181,7 +183,6 @@ def buffer_collate_fn(datapoint, config, neighborhood_limits):
         # Update radius and reset blocks
         r_normal *= 2.0
         layer += 1
-        layer_blocks = []
 
     ###############
     # Return inputs
