@@ -20,7 +20,10 @@ data_cfg = {
                 'args': {
                     'transforms': [
                         (
-                            data.transforms.vision_3d.PCRTranslation(),
+                            {
+                                'class': data.transforms.vision_3d.PCRTranslation,
+                                'args': {},
+                            },
                             [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
                         ),
                     ],

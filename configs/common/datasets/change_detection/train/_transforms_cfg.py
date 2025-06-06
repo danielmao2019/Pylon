@@ -10,12 +10,18 @@ def transforms_cfg(
 ) -> dict:
     if first == "RandomCrop":
         first_transform = (
-            data.transforms.vision_2d.RandomCrop(size=size, resize=resize, interpolation=None),
+            {
+                'class': data.transforms.vision_2d.RandomCrop,
+                'args': {'size': size, 'resize': resize, 'interpolation': None},
+            },
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )
     elif first == "ResizeMaps":
         first_transform = (
-            data.transforms.vision_2d.ResizeMaps(size=size, interpolation=None, antialias=True),
+            {
+                'class': data.transforms.vision_2d.ResizeMaps,
+                'args': {'size': size, 'interpolation': None, 'antialias': True},
+            },
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )
     else:
@@ -26,23 +32,44 @@ def transforms_cfg(
             'transforms': [
                 first_transform,
                 (
-                    data.transforms.vision_2d.RandomRotation(choices=[0, 90, 180, 270]),
+                    {
+                        'class': data.transforms.vision_2d.RandomRotation,
+                        'args': {'choices': [0, 90, 180, 270]},
+                    },
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                 ),
                 (
-                    data.transforms.Randomize(transform=data.transforms.vision_2d.Flip(axis=-1), p=0.5),
+                    {
+                        'class': data.transforms.Randomize,
+                        'args': {'transform': data.transforms.vision_2d.Flip(axis=-1), 'p': 0.5},
+                    },
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                 ),
                 (
-                    data.transforms.Randomize(transform=data.transforms.vision_2d.Flip(axis=-2), p=0.5),
+                    {
+                        'class': data.transforms.Randomize,
+                        'args': {'transform': data.transforms.vision_2d.Flip(axis=-2), 'p': 0.5},
+                    },
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                 ),
                 (
-                    data.transforms.Randomize(torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5), p=0.5),
+                    {
+                        'class': data.transforms.Randomize,
+                        'args': {
+                            'transform': torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+                            'p': 0.5,
+                        },
+                    },
                     ('inputs', 'img_1'),
                 ),
                 (
-                    data.transforms.Randomize(torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5), p=0.5),
+                    {
+                        'class': data.transforms.Randomize,
+                        'args': {
+                            'transform': torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+                            'p': 0.5,
+                        },
+                    },
                     ('inputs', 'img_2'),
                 ),
             ],
