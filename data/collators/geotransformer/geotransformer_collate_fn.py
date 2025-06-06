@@ -2,85 +2,7 @@ from typing import Dict, Any
 import torch
 from data.collators.geotransformer.grid_subsample import grid_subsample
 from data.collators.geotransformer.radius_search import radius_search
-
-
-def precompute_data_stack_mode(points, lengths, num_stages, voxel_size, radius, neighbor_limits):
-    assert num_stages == len(neighbor_limits)
-
-    points_list = []
-    lengths_list = []
-    neighbors_list = []
-    subsampling_list = []
-    upsampling_list = []
-
-    # grid subsampling
-    for i in range(num_stages):
-        if i > 0:
-            points, lengths = grid_subsample(points, lengths, voxel_size=voxel_size)
-        points_list.append(points)
-        lengths_list.append(lengths)
-        voxel_size *= 2
-
-    # radius search
-    for i in range(num_stages):
-        cur_points = points_list[i]
-        cur_lengths = lengths_list[i]
-
-        neighbors = radius_search(
-            cur_points,
-            cur_points,
-            cur_lengths,
-            cur_lengths,
-            radius,
-            neighbor_limits[i],
-        )
-        # Validate neighbor tensor shape
-        expected_shape = (cur_points.shape[0], neighbor_limits[i])
-        assert neighbors.shape == expected_shape, \
-            f"Stage {i}: Expected shape {expected_shape} but got {neighbors.shape}"
-        neighbors_list.append(neighbors)
-
-        if i < num_stages - 1:
-            sub_points = points_list[i + 1]
-            sub_lengths = lengths_list[i + 1]
-
-            subsampling = radius_search(
-                sub_points,
-                cur_points,
-                sub_lengths,
-                cur_lengths,
-                radius,
-                neighbor_limits[i],
-            )
-            # Validate subsampling tensor shape
-            expected_shape = (sub_points.shape[0], neighbor_limits[i])
-            assert subsampling.shape == expected_shape, \
-                f"Stage {i} subsampling: Expected shape {expected_shape} but got {subsampling.shape}"
-            subsampling_list.append(subsampling)
-
-            upsampling = radius_search(
-                cur_points,
-                sub_points,
-                cur_lengths,
-                sub_lengths,
-                radius * 2,
-                neighbor_limits[i + 1],
-            )
-            # Validate upsampling tensor shape
-            expected_shape = (cur_points.shape[0], neighbor_limits[i + 1])
-            assert upsampling.shape == expected_shape, \
-                f"Stage {i} upsampling: Expected shape {expected_shape} but got {upsampling.shape}"
-            upsampling_list.append(upsampling)
-
-        radius *= 2
-
-    return {
-        'points': points_list,
-        'lengths': lengths_list,
-        'neighbors': neighbors_list,
-        'subsampling': subsampling_list,
-        'upsampling': upsampling_list,
-    }
+from data.collators.pcr_collator import pcr_collate_fn
 
 
 def geotransformer_collate_fn(
@@ -125,20 +47,66 @@ def geotransformer_collate_fn(
     lengths = torch.tensor([points.shape[0] for points in points_list], dtype=torch.long, device=device)
     points = torch.cat(points_list, dim=0)
 
-    # Process source and target point clouds separately
-    inputs_dict = precompute_data_stack_mode(points, lengths, num_stages, voxel_size, search_radius, neighbor_limits)
-    inputs_dict['features'] = feats
-    inputs_dict['transform'] = data_dicts[0]['labels']['transform']
+    # Define architecture for pcr_collator
+    architecture = []
+    current_voxel_size = voxel_size
+    current_radius = search_radius
+    
+    for i in range(num_stages):
+        # Add conv block
+        architecture.append({
+            'type': 'conv',
+            'radius': current_radius,
+            'sample_dl': current_voxel_size,
+            'neighborhood_limit': neighbor_limits[i]
+        })
+        
+        # Add pool block if not last stage
+        if i < num_stages - 1:
+            architecture.append({
+                'type': 'pool',
+                'radius': current_radius,
+                'sample_dl': current_voxel_size * 2,  # Double the voxel size for pooling
+                'neighborhood_limit': neighbor_limits[i]
+            })
+        
+        current_voxel_size *= 2
+        current_radius *= 2
+
+    # Call pcr_collator
+    collated_data = pcr_collate_fn(
+        points, points,  # Use same points for src and tgt since we're doing self-neighborhood
+        architecture,
+        downsample_fn=grid_subsample,
+        neighbor_fn=radius_search,
+    )
+
+    # Remove last elements from downsamples and upsamples
+    collated_data['downsamples'] = collated_data['downsamples'][:-1]
+    collated_data['upsamples'] = collated_data['upsamples'][:-1]
+
+    # Map keys to match original format
+    inputs_dict = {
+        'points': collated_data['points'],
+        'lengths': collated_data['lengths'],
+        'neighbors': collated_data['neighbors'],
+        'subsampling': collated_data['downsamples'],  # Map downsamples to subsampling
+        'upsampling': collated_data['upsamples'],  # Map upsamples to upsampling
+        'features': feats,
+        'transform': data_dicts[0]['labels']['transform']
+    }
+
+    # Prepare meta info
     meta_info = {
         key: [d['meta_info'][key] for d in data_dicts]
         for key in data_dicts[0]['meta_info']
     }
     meta_info['batch_size'] = batch_size
-    collated_dict = {
+
+    return {
         'inputs': inputs_dict,
         'labels': {
             'transform': torch.stack([d['labels']['transform'] for d in data_dicts], dim=0),
         },
         'meta_info': meta_info,
     }
-    return collated_dict
