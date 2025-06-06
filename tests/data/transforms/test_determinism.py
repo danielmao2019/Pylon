@@ -51,7 +51,7 @@ class DummyDataset(BaseDataset):
         return inputs, labels, meta_info
 
 
-def run(tmpdir) -> None:
+def run() -> list:
     dataset = DummyDataset(
         split='train',
         transforms_cfg={
@@ -102,28 +102,28 @@ def run(tmpdir) -> None:
     dataloader = torch.utils.data.DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
 
     train_seeds = [42, 43]
-    for epoch, seed in enumerate(train_seeds):
-        dataset.set_base_seed(seed)
-        for batch_idx, batch in enumerate(dataloader):
-            torch.save(batch, os.path.join(tmpdir, f'epoch_{epoch}_batch_{batch_idx}.pt'))
+    results = []
+    for idx in range(2):
+        dataloader.dataset.set_base_seed(train_seeds[idx])
+        for batch in dataloader:
+            results.append(batch)
+    return results
 
 
 def test_transform_determinism():
     """Test that transforms produce identical results across epochs with batched data."""
-    with tempfile.TemporaryDirectory() as tmpdir1:
-        run(tmpdir1)
-    with tempfile.TemporaryDirectory() as tmpdir2:
-        run(tmpdir2)
+    # Run twice and compare results
+    first_run_results = run()
+    second_run_results = run()
 
-    for epoch in range(2):
-        for batch_idx in range(2):
-            batch1 = torch.load(os.path.join(tmpdir1, f'epoch_{epoch}_batch_{batch_idx}.pt'))
-            batch2 = torch.load(os.path.join(tmpdir2, f'epoch_{epoch}_batch_{batch_idx}.pt'))
-            assert batch1.keys() == batch2.keys() == {'inputs', 'labels', 'meta_info'}
-            assert batch1['inputs'].keys() == batch2['inputs'].keys() == {'image', 'point_cloud'}
-            assert batch1['labels'].keys() == batch2['labels'].keys() == {'label'}
-            assert batch1['meta_info'].keys() == batch2['meta_info'].keys() == {'idx'}
-            assert torch.allclose(batch1['inputs']['image'], batch2['inputs']['image'])
-            assert torch.allclose(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud'])
-            assert torch.allclose(batch1['labels']['label'], batch2['labels']['label'])
-            assert torch.allclose(batch1['meta_info']['idx'], batch2['meta_info']['idx'])
+    # Compare results
+    assert len(first_run_results) == len(second_run_results)
+    for batch1, batch2 in zip(first_run_results, second_run_results):
+        assert batch1.keys() == batch2.keys() == {'inputs', 'labels', 'meta_info'}
+        assert batch1['inputs'].keys() == batch2['inputs'].keys() == {'image', 'point_cloud'}
+        assert batch1['labels'].keys() == batch2['labels'].keys() == {'label'}
+        assert batch1['meta_info'].keys() == batch2['meta_info'].keys() == {'idx'}
+        assert torch.allclose(batch1['inputs']['image'], batch2['inputs']['image'])
+        assert torch.allclose(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud'])
+        assert torch.allclose(batch1['labels']['label'], batch2['labels']['label'])
+        assert torch.allclose(batch1['meta_info']['idx'], batch2['meta_info']['idx'])
