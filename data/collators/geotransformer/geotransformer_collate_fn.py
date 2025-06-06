@@ -54,14 +54,14 @@ def create_geotransformer_architecture(num_stages, voxel_size, search_radius, ne
     return architecture
 
 
-def pack_geotransformer_results(collated_data, unpacked_data, batch_size):
+def pack_geotransformer_results(collated_data, unpacked_data):
     """Pack pcr_collator results into geotransformer format."""
     # Remove last elements from downsamples and upsamples
     collated_data['downsamples'] = collated_data['downsamples'][:-1]
     collated_data['upsamples'] = collated_data['upsamples'][:-1]
 
     # Map keys to match original format
-    inputs_dict = {
+    return {
         'points': collated_data['points'],
         'lengths': collated_data['lengths'],
         'neighbors': collated_data['neighbors'],
@@ -69,21 +69,6 @@ def pack_geotransformer_results(collated_data, unpacked_data, batch_size):
         'upsampling': collated_data['upsamples'],  # Map upsamples to upsampling
         'features': unpacked_data['features'],
         'transform': unpacked_data['transform']
-    }
-
-    # Prepare meta info
-    meta_info = {
-        key: [unpacked_data['meta_info'][key]]
-        for key in unpacked_data['meta_info']
-    }
-    meta_info['batch_size'] = batch_size
-
-    return {
-        'inputs': inputs_dict,
-        'labels': {
-            'transform': unpacked_data['transform'].unsqueeze(0),  # Add batch dimension
-        },
-        'meta_info': meta_info,
     }
 
 
@@ -139,4 +124,19 @@ def geotransformer_collate_fn(
     )
 
     # Pack results
-    return pack_geotransformer_results(collated_data, unpacked_data, batch_size)
+    inputs_dict = pack_geotransformer_results(collated_data, unpacked_data)
+
+    # Prepare meta info
+    meta_info = {
+        key: [unpacked_data['meta_info'][key]]
+        for key in unpacked_data['meta_info']
+    }
+    meta_info['batch_size'] = batch_size
+
+    return {
+        'inputs': inputs_dict,
+        'labels': {
+            'transform': unpacked_data['transform'].unsqueeze(0),  # Add batch dimension
+        },
+        'meta_info': meta_info,
+    }
