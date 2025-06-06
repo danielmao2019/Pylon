@@ -4,7 +4,7 @@ import glob
 import json
 import time
 import torch
-from .cfg_log_conversion import get_work_dir
+from utils.automation.cfg_log_conversion import get_work_dir
 
 
 def is_running(work_dir: str, sleep_time: int) -> bool:
@@ -65,6 +65,20 @@ def has_failed(work_dir: str, all_running: List[Dict[str, Any]], sleep_time: int
         and not has_finished(work_dir, expected_files=expected_files, epochs=epochs)
         and not has_stuck(work_dir, all_running)
     )
+
+
+def has_outdated(work_dir: str, expected_files: List[str], epochs: int, days: int = 30) -> bool:
+    r"""
+    Check if the last update is older than `days` days.
+    """
+    if not has_finished(work_dir, expected_files=expected_files, epochs=epochs):
+        return False
+    last_update = max([
+        os.path.getmtime(os.path.join(work_dir, f"epoch_{epoch}", filename))
+        for epoch in range(epochs)
+        for filename in expected_files
+    ])
+    return time.time() - last_update > days * 24 * 60 * 60
 
 
 def _check_file_loadable(filepath: str) -> bool:

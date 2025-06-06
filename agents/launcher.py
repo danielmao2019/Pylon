@@ -9,7 +9,7 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.automation.run_status import get_session_progress, has_stuck, has_failed, parse_config
+from utils.automation.run_status import get_session_progress, has_stuck, has_failed, has_outdated, parse_config
 from utils.monitor.gpu_status import get_server_status, get_all_p, find_running
 from utils.logging.text_logger import TextLogger
 from concurrent.futures import ThreadPoolExecutor
@@ -295,6 +295,14 @@ class Launcher(BaseAgent):
             cmd = ['ssh', server, 'kill', '-9', pid]
             subprocess.check_output(cmd)
 
+    def _remove_outdated(self, days: int) -> None:
+        outdated_cfgs = list(filter(lambda x: has_outdated(
+            get_work_dir(x), self.expected_files, self.epochs, days=days,
+        ), self.config_files))
+        self.logger.info(f"The following runs has not been updated in the last {days} days and will be removed: {outdated_cfgs}")
+        for cfg in outdated_cfgs:
+            os.system(f"rm -rf {get_work_dir(cfg)}")
+
     def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:
         r"""
         Returns:
@@ -341,7 +349,7 @@ class Launcher(BaseAgent):
             launch_job(gpu, run)
         return False
 
-    def spawn(self, num_jobs: Optional[int] = 1) -> None:
+    def spawn(self, outdated_days: int = 120, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
 
@@ -352,6 +360,9 @@ class Launcher(BaseAgent):
 
             self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_running)
+
+            self.logger.info("Removing outdated jobs...")
+            self._remove_outdated(days=outdated_days)
 
             self.logger.info("Launching missing jobs...")
             done = self._launch_missing(all_running, num_jobs=num_jobs)
