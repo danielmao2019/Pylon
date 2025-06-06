@@ -33,7 +33,8 @@ def get_session_progress(work_dir: str, expected_files: List[str], epochs: int) 
 
 
 def has_finished(work_dir: str, expected_files: List[str], epochs: int) -> bool:
-    assert os.path.isdir(work_dir), f"{work_dir=}"
+    if not os.path.isdir(work_dir):
+        return False
     return get_session_progress(work_dir, expected_files=expected_files, epochs=epochs) == epochs
 
 
@@ -107,6 +108,8 @@ def check_epoch_finished(epoch_dir: str, expected_files: List[str], check_load: 
         2. File non-empty.
         3. File load-able.
     """
+    if not os.path.isdir(epoch_dir):
+        return False
     return all([
         os.path.isfile(os.path.join(epoch_dir, filename)) and
         os.path.getsize(os.path.join(epoch_dir, filename)) > 0 and
