@@ -9,6 +9,8 @@ config = {
     # seeds
     'init_seed': None,
     'train_seeds': None,
+    'val_seeds': None,
+    'test_seed': None,
     # dataset config
     'train_dataset': None,
     'train_dataloader': None,
