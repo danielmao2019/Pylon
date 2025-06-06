@@ -4,14 +4,15 @@ UTILS API
 from utils import automation
 from utils import builders
 from utils import conversions
+from utils import determinism
 from utils import input_checks
 from utils import io
 from utils import logging
 from utils import models
+from utils import monitor
 from utils import ops
 from utils import point_cloud_ops
 
-from utils import determinism
 from utils import gradients
 
 from utils import object_detection
@@ -22,14 +23,15 @@ __all__ = (
     'automation',
     'builders',
     'conversions',
+    'determinism',
     'input_checks',
     'io',
     'logging',
     'models',
+    'monitor',
     'ops',
     'point_cloud_ops',
 
-    'determinism',
     'gradients',
 
     'object_detection',
