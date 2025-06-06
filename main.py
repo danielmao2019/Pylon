@@ -31,6 +31,7 @@ if __name__ == "__main__":
             os.system(f"rm -rf {config['work_dir']}")
             config['epochs'] = 3
             config['train_seeds'] = config['train_seeds'][:3]
+            config['val_seeds'] = config['val_seeds'][:3]
             for split in ['train', 'val', 'test']:
                 dataset_key = split + "_dataset"
                 dataloader_key = split + "_dataloader"
