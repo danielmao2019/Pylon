@@ -5,31 +5,43 @@ import criteria
 import metrics
 
 
-transforms_config = {
+transforms_cfg = {
     'class': data.transforms.Compose,
     'args': {
         'transforms': [
             (
-                torchvision.transforms.Resize(size=(288, 384), antialias=True),
+                {
+                    'class': torchvision.transforms.Resize,
+                    'args': {'size': (288, 384), 'antialias': True},
+                },
                 ('inputs', 'image'),
             ),
             (
-                data.transforms.vision_2d.ResizeMaps(size=(288, 384), antialias=True),
+                {
+                    'class': data.transforms.vision_2d.ResizeMaps,
+                    'args': {'size': (288, 384), 'antialias': True},
+                },
                 ('labels', 'depth_estimation'),
             ),
             (
-                data.transforms.vision_2d.ResizeNormals(target_size=(288, 384)),
+                {
+                    'class': data.transforms.vision_2d.ResizeNormals,
+                    'args': {'target_size': (288, 384)},
+                },
                 ('labels', 'normal_estimation'),
             ),
             (
-                data.transforms.vision_2d.ResizeMaps(size=(288, 384), interpolation='nearest', antialias=True),
+                {
+                    'class': data.transforms.vision_2d.ResizeMaps,
+                    'args': {'size': (288, 384), 'interpolation': 'nearest', 'antialias': True},
+                },
                 ('labels', 'semantic_segmentation'),
             ),
         ],
     },
 }
 
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
@@ -47,7 +59,7 @@ config = {
             'data_root': "./data/datasets/soft_links/NYUD_MT",
             'split': "train",
             'indices': None,
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
             'semantic_granularity': 'coarse',
         },
     },
@@ -56,7 +68,7 @@ config = {
         'args': {
             'batch_size': 32,
             'num_workers': 8,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg
         },
     },
     'val_dataset': {
@@ -65,7 +77,7 @@ config = {
             'data_root': "./data/datasets/soft_links/NYUD_MT",
             'split': "val",
             'indices': None,
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
             'semantic_granularity': 'coarse',
         },
     },
@@ -73,7 +85,7 @@ config = {
         'class': torch.utils.data.DataLoader,
         'args': {
             'num_workers': 8,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'test_dataset': {
@@ -82,7 +94,7 @@ config = {
             'data_root': "./data/datasets/soft_links/NYUD_MT",
             'split': "test",
             'indices': None,
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
             'semantic_granularity': 'coarse',
         },
     },
@@ -90,7 +102,7 @@ config = {
         'class': torch.utils.data.DataLoader,
         'args': {
             'num_workers': 8,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'criterion': {

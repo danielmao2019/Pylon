@@ -8,43 +8,68 @@ def get_transforms_cfg(method: str, num_axis: int) -> dict:
         'args': {
             'transforms': [
                 {
-                    'op': data.transforms.vision_3d.UniformPosNoise(min=-0.5*0.05, max=+0.5*0.05),
+                    'op': {
+                        'class': data.transforms.vision_3d.UniformPosNoise,
+                        'args': {'min': -0.5*0.05, 'max': +0.5*0.05},
+                    },
                     'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
                 },
                 {
-                    'op': data.transforms.vision_3d.DownSample(voxel_size=0.05),
+                    'op': {
+                        'class': data.transforms.vision_3d.DownSample,
+                        'args': {'voxel_size': 0.05},
+                    },
                     'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
                     'output_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
                 },
                 {
-                    'op': data.transforms.vision_3d.Shuffle(),
+                    'op': {
+                        'class': data.transforms.vision_3d.Shuffle,
+                        'args': {},
+                    },
                     'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
                 },
                 {
-                    'op': data.transforms.vision_3d.RandomRigidTransform(
-                        rot_mag=180.0, trans_mag=0.0, method=method, num_axis=num_axis,
-                    ),
+                    'op': {
+                        'class': data.transforms.vision_3d.RandomRigidTransform,
+                        'args': {'rot_mag': 180.0, 'trans_mag': 0.0, 'method': method, 'num_axis': num_axis},
+                    },
                     'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'), ('labels', 'transform')],
                 },
                 {
-                    'op': data.transforms.vision_3d.DownSample(voxel_size=0.30),
+                    'op': {
+                        'class': data.transforms.vision_3d.DownSample,
+                        'args': {'voxel_size': 0.30},
+                    },
                     'input_names': [('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds')],
                     'output_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
                 },
                 {
-                    'op': data.transforms.vision_3d.Shuffle(),
+                    'op': {
+                        'class': data.transforms.vision_3d.Shuffle,
+                        'args': {},
+                    },
                     'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
                 },
                 {
-                    'op': data.transforms.vision_3d.Clamp(max_points=40000),
+                    'op': {
+                        'class': data.transforms.vision_3d.Clamp,
+                        'args': {'max_points': 40000},
+                    },
                     'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
                 },
                 {
-                    'op': data.transforms.vision_3d.EstimateNormals(),
+                    'op': {
+                        'class': data.transforms.vision_3d.EstimateNormals,
+                        'args': {},
+                    },
                     'input_names': [('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds')],
                 },
                 {
-                    'op': data.transforms.Identity(),
+                    'op': {
+                        'class': data.transforms.Identity,
+                        'args': {},
+                    },
                     'input_names': [
                         ('inputs', 'src_pc_fds'), ('inputs', 'tgt_pc_fds'),
                         ('inputs', 'src_pc_sds'), ('inputs', 'tgt_pc_sds'),

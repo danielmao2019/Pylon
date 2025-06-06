@@ -6,19 +6,22 @@ import criteria
 import metrics
 
 
-transforms_config = {
+transforms_cfg = {
     'class': data.transforms.Compose,
     'args': {
         'transforms': [
             (
-                torchvision.transforms.Resize(size=(28, 28), antialias=True),
+                {
+                    'class': torchvision.transforms.Resize,
+                    'args': {'size': (28, 28), 'antialias': True},
+                },
                 ('inputs', 'image'),
             ),
         ],
     },
 }
 
-collate_fn_config = {
+collate_fn_cfg = {
     'class': data.collators.BaseCollator,
     'args': {
         'collators': {
@@ -36,7 +39,7 @@ config = {
             'data_root': "./data/datasets/soft_links",
             'split': "train",
             'indices': None,
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
         },
     },
     'train_dataloader': {
@@ -44,7 +47,7 @@ config = {
         'args': {
             'batch_size': 256,
             'num_workers': 8,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'val_dataset': {
@@ -53,7 +56,7 @@ config = {
             'data_root': "./data/datasets/soft_links",
             'split': "val",
             'indices': None,
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
         },
     },
     'val_dataloader': {
@@ -61,7 +64,7 @@ config = {
         'args': {
             'batch_size': 256,
             'num_workers': 8,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'test_dataset': {
@@ -70,7 +73,7 @@ config = {
             'data_root': "./data/datasets/soft_links",
             'split': "test",
             'indices': None,
-            'transforms_cfg': transforms_config,
+            'transforms_cfg': transforms_cfg,
         },
     },
     'test_dataloader': {
@@ -78,7 +81,7 @@ config = {
         'args': {
             'batch_size': 256,
             'num_workers': 8,
-            'collate_fn': collate_fn_config,
+            'collate_fn': collate_fn_cfg,
         },
     },
     'criterion': {
