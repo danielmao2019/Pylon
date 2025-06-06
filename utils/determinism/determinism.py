@@ -1,8 +1,8 @@
+from typing import Dict, Any
 import os
 import random
 import numpy
 import torch
-from typing import Any, Dict, Tuple
 
 
 def set_determinism():
