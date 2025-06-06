@@ -206,12 +206,12 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
         'neighbors': input_neighbors,
         'pools': input_pools,
         'upsamples': input_upsamples,
-        'features': batched_features.float(),
         'stack_lengths': input_batches_len,
         'src_pcd_raw': s_pts,
         'tgt_pcd_raw': t_pts,
         'src_pcd': src_kpt,
         'tgt_pcd': tgt_kpt,
+        'features': batched_features.float(),
         'relt_pose': relt_pose,
     }
 
