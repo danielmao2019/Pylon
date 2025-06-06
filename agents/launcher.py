@@ -295,7 +295,7 @@ class Launcher(BaseAgent):
             cmd = ['ssh', server, 'kill', '-9', pid]
             subprocess.check_output(cmd)
 
-    def _remove_outdated(self, days: int = 30) -> None:
+    def _remove_outdated(self, days: int) -> None:
         outdated_cfgs = list(filter(lambda x: has_outdated(
             get_work_dir(x), self.expected_files, self.epochs, days=days,
         ), self.config_files))
@@ -349,7 +349,7 @@ class Launcher(BaseAgent):
             launch_job(gpu, run)
         return False
 
-    def spawn(self, num_jobs: Optional[int] = 1) -> None:
+    def spawn(self, outdated_days: int = 120, num_jobs: Optional[int] = 1) -> None:
         while True:
             self.logger.info('='*50)
 
@@ -362,7 +362,7 @@ class Launcher(BaseAgent):
             self._remove_stuck(all_running)
 
             self.logger.info("Removing outdated jobs...")
-            self._remove_outdated(days=30)
+            self._remove_outdated(days=outdated_days)
 
             self.logger.info("Launching missing jobs...")
             done = self._launch_missing(all_running, num_jobs=num_jobs)
