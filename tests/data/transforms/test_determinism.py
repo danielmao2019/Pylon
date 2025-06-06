@@ -60,29 +60,40 @@ def run(tmpdir) -> None:
                 'transforms': [
                     # 2D transforms
                     {
-                        'op': RandomRotation(range=(-45, 45)),
-                        'input_names': ['image'],
+                        'op': {
+                            'class': RandomRotation,
+                            'args': {'range': (-45, 45)},
+                        },
+                        'input_names': [('inputs', 'image')],
                     },
                     {
-                        'op': RandomCrop(size=(32, 32)),
-                        'input_names': ['image'],
+                        'op': {
+                            'class': RandomCrop,
+                            'args': {'size': (32, 32)},
+                        },
+                        'input_names': [('inputs', 'image')],
                     },
                     # 3D transforms
                     {
-                        'op': RandomRigidTransform(rot_mag=45.0, trans_mag=0.5),
-                        'input_names': ['point_cloud'],
+                        'op': {
+                            'class': Shuffle,
+                            'args': {},
+                        },
+                        'input_names': [('inputs', 'point_cloud')],
                     },
                     {
-                        'op': Shuffle(),
-                        'input_names': ['point_cloud'],
+                        'op': {
+                            'class': UniformPosNoise,
+                            'args': {'min': -0.01, 'max': 0.01},
+                        },
+                        'input_names': [('inputs', 'point_cloud')],
                     },
                     {
-                        'op': UniformPosNoise(min_noise=-0.01, max_noise=0.01),
-                        'input_names': ['point_cloud'],
-                    },
-                    {
-                        'op': Scale(scale_factor=0.5),
-                        'input_names': ['point_cloud'],
+                        'op': {
+                            'class': Scale,
+                            'args': {'scale_factor': 0.5},
+                        },
+                        'input_names': [('inputs', 'point_cloud')],
                     },
                 ],
             },
