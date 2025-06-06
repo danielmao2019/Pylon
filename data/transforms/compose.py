@@ -63,6 +63,12 @@ class Compose(BaseTransform):
         # assign to class attribute
         self.transforms = parsed_transforms
 
+    def set_seed(self, seed: Any) -> None:
+        """Set the seed for all component transforms."""
+        for transform in self.transforms:
+            if hasattr(transform["op"], 'set_seed'):
+                transform["op"].set_seed(seed)
+
     @staticmethod
     def _process_names(names: Union[Tuple[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:
         if isinstance(names, tuple):

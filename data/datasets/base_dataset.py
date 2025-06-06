@@ -242,6 +242,12 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         """
         raise NotImplementedError("[ERROR] _load_datapoint not implemented for abstract base class.")
 
+    def set_base_seed(self, seed: Any) -> None:
+        """Set the base seed for the dataset."""
+        if not isinstance(seed, int):
+            seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
+        self.base_seed = seed
+
     def __getitem__(self, idx: int) -> Dict[str, Dict[str, Any]]:
         # Try to get raw datapoint from cache first
         raw_datapoint = None
@@ -260,6 +266,10 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             # Cache the raw datapoint
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
+
+        # Set seed for transforms based on base_seed and idx
+        assert hasattr(self, 'base_seed'), f"{self.base_seed=}"
+        self.transforms.set_seed((self.base_seed, idx))
 
         # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
         transformed_datapoint = self.transforms(raw_datapoint)

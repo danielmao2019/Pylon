@@ -30,6 +30,7 @@ class RandomCrop(BaseTransform):
         self.size = size
         self.resize = resize
         self.interpolation = interpolation
+        self.generator = random.Random()
 
     def __call__(self, *args) -> Union[torch.Tensor, List[torch.Tensor]]:
         """
@@ -56,9 +57,9 @@ class RandomCrop(BaseTransform):
         if crop_width > img_width or crop_height > img_height:
             raise ValueError(f"Crop size {self.size} exceeds tensor dimensions {img_width, img_height}.")
 
-        # Sample a random top-left corner for cropping
-        x_start = random.randint(0, img_width - crop_width)
-        y_start = random.randint(0, img_height - crop_height)
+        # Sample a random top-left corner for cropping using the generator
+        x_start = self.generator.randint(0, img_width - crop_width)
+        y_start = self.generator.randint(0, img_height - crop_height)
 
         # Apply the Crop transform to all inputs
         transform = Crop(loc=(x_start, y_start), size=self.size, resize=self.resize, interpolation=self.interpolation)
