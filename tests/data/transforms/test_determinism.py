@@ -104,7 +104,7 @@ def run(tmpdir) -> None:
     train_seeds = [42, 43]
     for epoch, seed in enumerate(train_seeds):
         dataset.set_base_seed(seed)
-        for batch_idx, batch in enumerate(dataloader): 
+        for batch_idx, batch in enumerate(dataloader):
             torch.save(batch, os.path.join(tmpdir, f'epoch_{epoch}_batch_{batch_idx}.pt'))
 
 
