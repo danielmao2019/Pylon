@@ -35,12 +35,13 @@ class RandomRotation(BaseTransform):
 
         self.choices = choices
         self.range = range
+        self.generator = random.Random()
 
     def __call__(self, *args) -> Union[torch.Tensor, List[torch.Tensor]]:
         if self.choices is not None:
-            angle = random.choice(self.choices)
+            angle = self.generator.choice(self.choices)
         else:
-            angle = random.randint(self.range[0], self.range[1] - 1)  # Right exclusive range
+            angle = self.generator.randint(self.range[0], self.range[1] - 1)  # Right exclusive range
         angle = float(angle)
         transform = Rotation(angle)
         result = [transform(arg) for arg in args]

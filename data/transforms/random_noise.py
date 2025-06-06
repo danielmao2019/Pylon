@@ -13,9 +13,10 @@ class RandomNoise(BaseTransform):
             std (float): Standard deviation of the noise to add. Default: 0.1
         """
         self.std = std
+        self.generator = torch.Generator()
 
     def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
         # Generate random noise with the same shape as the input
-        noise = torch.randn_like(tensor) * self.std
+        noise = torch.randn_like(tensor, generator=self.generator) * self.std
         # Add the noise to the input
         return tensor + noise
