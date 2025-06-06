@@ -17,7 +17,7 @@ class BaseRandomDataset(BaseDataset):
         **kwargs,
     ) -> None:
         # init num examples
-        assert type(num_examples) == int, f"{type(num_examples)=}"
+        assert isinstance(num_examples, int), f"{type(num_examples)=}"
         assert num_examples >= 0, f"{num_examples=}"
         self.num_examples = num_examples
         # init gen func config

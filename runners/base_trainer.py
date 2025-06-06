@@ -95,10 +95,24 @@ class BaseTrainer(ABC):
         # Get training seeds
         assert 'train_seeds' in self.config.keys()
         train_seeds = self.config['train_seeds']
-        assert type(train_seeds) == list, f"{type(train_seeds)=}"
-        assert all(type(seed) == int for seed in train_seeds), f"{train_seeds=}"
+        assert isinstance(train_seeds, list), f"{type(train_seeds)=}"
+        assert all(isinstance(seed, int) for seed in train_seeds), f"{train_seeds=}"
         assert len(train_seeds) == self.tot_epochs, f"{len(train_seeds)=}, {self.tot_epochs=}"
         self.train_seeds = train_seeds
+
+        # Get validation seeds
+        assert 'val_seeds' in self.config.keys()
+        val_seeds = self.config['val_seeds']
+        assert isinstance(val_seeds, list), f"{type(val_seeds)=}"
+        assert all(isinstance(seed, int) for seed in val_seeds), f"{val_seeds=}"
+        assert len(val_seeds) == self.tot_epochs, f"{len(val_seeds)=}, {self.tot_epochs=}"
+        self.val_seeds = val_seeds
+
+        # Get test seed
+        assert 'test_seed' in self.config.keys()
+        test_seed = self.config['test_seed']
+        assert isinstance(test_seed, int), f"{type(test_seed)=}"
+        self.test_seed = test_seed
 
         # Set init seed
         assert 'init_seed' in self.config.keys()
@@ -306,11 +320,9 @@ class BaseTrainer(ABC):
             return
         # init time
         start_time = time.time()
-        # do training loop
-        self.model.train()
-        self.criterion.reset_buffer()
-        self.optimizer.reset_buffer()
-        self.logger.train()
+        # before training loop
+        self._before_train_loop()
+        # training loop
 
         for idx, dp in enumerate(self.train_dataloader):
             self._train_step(dp=dp)
@@ -319,6 +331,13 @@ class BaseTrainer(ABC):
         self._after_train_loop_()
         # log time
         self.logger.info(f"Training epoch time: {round(time.time() - start_time, 2)} seconds.")
+
+    def _before_train_loop(self) -> None:
+        self.model.train()
+        self.criterion.reset_buffer()
+        self.optimizer.reset_buffer()
+        self.logger.train()
+        self.train_dataloader.dataset.set_base_seed(self.train_seeds[self.cum_epochs])
 
     def _save_checkpoint_(self, output_path: str) -> None:
         r"""Default checkpoint saving method. Override to save more.
@@ -360,10 +379,9 @@ class BaseTrainer(ABC):
             return
         # init time
         start_time = time.time()
-        # do validation loop
-        self.model.eval()
-        self.metric.reset_buffer()
-        self.logger.eval()
+        # before validation loop
+        self._before_val_loop()
+        # validation loop
 
         if self.eval_n_jobs == 1:
             self.logger.info("Running validation sequentially...")
@@ -383,6 +401,12 @@ class BaseTrainer(ABC):
         self._after_val_loop_()
         # log time
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
+
+    def _before_val_loop(self) -> None:
+        self.model.eval()
+        self.metric.reset_buffer()
+        self.logger.eval()
+        self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
 
     def _find_best_checkpoint_(self) -> str:
         r"""
@@ -479,9 +503,7 @@ class BaseTrainer(ABC):
         start_time = time.time()
         # before test loop
         best_checkpoint: str = self._before_test_loop_()
-        # do test loop
-        self.model.eval()
-        self.metric.reset_buffer()
+        # test loop
         for idx, dp in enumerate(self.test_dataloader):
             self._eval_step(dp=dp, flush_prefix=f"Test epoch [Iteration {idx}/{len(self.test_dataloader)}].")
         # after test loop
@@ -493,6 +515,9 @@ class BaseTrainer(ABC):
         checkpoint_filepath = self._find_best_checkpoint_()
         checkpoint = torch.load(checkpoint_filepath)
         self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.model.eval()
+        self.metric.reset_buffer()
+        self.test_dataloader.dataset.set_base_seed(self.test_seed)
         return checkpoint_filepath
 
     def _after_test_loop_(self, best_checkpoint: str) -> None:
