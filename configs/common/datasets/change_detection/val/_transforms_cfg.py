@@ -9,12 +9,18 @@ def transforms_cfg(
 ) -> dict:
     if first == "RandomCrop":
         first_transform = (
-            data.transforms.vision_2d.RandomCrop(size=size, resize=resize, interpolation=None),
+            {
+                'class': data.transforms.vision_2d.RandomCrop,
+                'args': {'size': size, 'resize': resize, 'interpolation': None},
+            },
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )
     elif first == "ResizeMaps":
         first_transform = (
-            data.transforms.vision_2d.ResizeMaps(size=size, interpolation=None),
+            {
+                'class': data.transforms.vision_2d.ResizeMaps,
+                'args': {'size': size, 'interpolation': None},
+            },
             [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
         )
     else:

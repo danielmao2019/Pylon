@@ -16,7 +16,10 @@ data_cfg = {
                 'args': {
                     'transforms': [
                         (
-                            data.transforms.vision_3d.RandomRigidTransform(rot_mag=45.0, trans_mag=0.5),
+                            {
+                                'class': data.transforms.vision_3d.RandomRigidTransform,
+                                'args': {'rot_mag': 45.0, 'trans_mag': 0.5},
+                            },
                             [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
                         ),
                     ],
