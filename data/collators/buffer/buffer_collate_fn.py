@@ -89,29 +89,22 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
 
 
 def buffer_collate_fn(list_data, config, neighborhood_limits):
-    batched_points_list = []
-    batched_lengths_list = []
-    batched_features_list = []
     assert len(list_data) == 1
-    list_data = list_data[0]
+    data = list_data[0]  # Get the single item directly
 
-    s_pts, t_pts = list_data['inputs']['src_pc_fds']['pos'], list_data['inputs']['tgt_pc_fds']['pos']
-    relt_pose = list_data['labels']['transform']
-    s_kpt, t_kpt = list_data['inputs']['src_pc_sds'], list_data['inputs']['tgt_pc_sds']
+    # Unpack data
+    s_pts, t_pts = data['inputs']['src_pc_fds']['pos'], data['inputs']['tgt_pc_fds']['pos']
+    relt_pose = data['labels']['transform']
+    s_kpt, t_kpt = data['inputs']['src_pc_sds'], data['inputs']['tgt_pc_sds']
     src_kpt = s_kpt['pos']
     tgt_kpt = t_kpt['pos']
     src_f = s_kpt['normals']
     tgt_f = t_kpt['normals']
-    batched_points_list.append(src_kpt)
-    batched_points_list.append(tgt_kpt)
-    batched_features_list.append(src_f)
-    batched_features_list.append(tgt_f)
-    batched_lengths_list.append(len(src_kpt))
-    batched_lengths_list.append(len(tgt_kpt))
 
-    batched_points = torch.cat(batched_points_list, dim=0)
-    batched_features = torch.cat(batched_features_list, dim=0)
-    batched_lengths = torch.tensor(batched_lengths_list, dtype=torch.int64, device=batched_points.device)
+    # Prepare batched data
+    batched_points = torch.cat([src_kpt, tgt_kpt], dim=0)
+    batched_features = torch.cat([src_f, tgt_f], dim=0)
+    batched_lengths = torch.tensor([len(src_kpt), len(tgt_kpt)], dtype=torch.int64, device=batched_points.device)
 
     # Convert architecture to pcr_collator format
     architecture = []
@@ -161,6 +154,6 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
 
     return {
         'inputs': dict_inputs,
-        'labels': list_data['labels'],
-        'meta_info': list_data['meta_info'],
+        'labels': data['labels'],
+        'meta_info': data['meta_info'],
     }

@@ -40,12 +40,14 @@ def geotransformer_collate_fn(
     # Main logic
     batch_size = len(data_dicts)
     assert batch_size == 1
-    device = data_dicts[0]['inputs']['src_pc']['pos'].device
+    data = data_dicts[0]  # Get the single item directly
+    device = data['inputs']['src_pc']['pos'].device
 
-    feats = torch.cat([dd['inputs']['tgt_pc']['feat'] for dd in data_dicts] + [dd['inputs']['src_pc']['feat'] for dd in data_dicts], dim=0)
-    points_list = [dd['inputs']['tgt_pc']['pos'] for dd in data_dicts] + [dd['inputs']['src_pc']['pos'] for dd in data_dicts]
-    lengths = torch.tensor([points.shape[0] for points in points_list], dtype=torch.long, device=device)
-    points = torch.cat(points_list, dim=0)
+    # Prepare batched data
+    feats = torch.cat([data['inputs']['tgt_pc']['feat'], data['inputs']['src_pc']['feat']], dim=0)
+    points = torch.cat([data['inputs']['tgt_pc']['pos'], data['inputs']['src_pc']['pos']], dim=0)
+    lengths = torch.tensor([len(data['inputs']['tgt_pc']['pos']), len(data['inputs']['src_pc']['pos'])], 
+                         dtype=torch.long, device=device)
 
     # Define architecture for pcr_collator
     architecture = []
@@ -93,20 +95,20 @@ def geotransformer_collate_fn(
         'subsampling': collated_data['downsamples'],  # Map downsamples to subsampling
         'upsampling': collated_data['upsamples'],  # Map upsamples to upsampling
         'features': feats,
-        'transform': data_dicts[0]['labels']['transform']
+        'transform': data['labels']['transform']
     }
 
     # Prepare meta info
     meta_info = {
-        key: [d['meta_info'][key] for d in data_dicts]
-        for key in data_dicts[0]['meta_info']
+        key: [data['meta_info'][key]]
+        for key in data['meta_info']
     }
     meta_info['batch_size'] = batch_size
 
     return {
         'inputs': inputs_dict,
         'labels': {
-            'transform': torch.stack([d['labels']['transform'] for d in data_dicts], dim=0),
+            'transform': data['labels']['transform'].unsqueeze(0),  # Add batch dimension
         },
         'meta_info': meta_info,
     }

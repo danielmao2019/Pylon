@@ -80,34 +80,25 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
         return torch.from_numpy(neighbors).to(device)
 
 def overlappredator_collate_fn(list_data, config, neighborhood_limits):
-    batched_points_list = []
-    batched_features_list = []
-    batched_lengths_list = []
     assert len(list_data) == 1
+    data = list_data[0]  # Get the single item directly
 
-    for ind, dp in enumerate(list_data):
-        # unpack
-        src_pcd = dp['inputs']['src_pc']['pos']
-        tgt_pcd = dp['inputs']['tgt_pc']['pos']
-        src_feats = dp['inputs']['src_pc']['feat']
-        tgt_feats = dp['inputs']['tgt_pc']['feat']
-        rot = dp['labels']['transform'][:3, :3]
-        trans = dp['labels']['transform'][:3, 3]
-        matching_inds = dp['inputs']['correspondences']
-        src_pcd_raw = dp['inputs']['src_pc']['pos']
-        tgt_pcd_raw = dp['inputs']['tgt_pc']['pos']
-        sample = None
+    # Unpack data
+    src_pcd = data['inputs']['src_pc']['pos']
+    tgt_pcd = data['inputs']['tgt_pc']['pos']
+    src_feats = data['inputs']['src_pc']['feat']
+    tgt_feats = data['inputs']['tgt_pc']['feat']
+    rot = data['labels']['transform'][:3, :3]
+    trans = data['labels']['transform'][:3, 3]
+    matching_inds = data['inputs']['correspondences']
+    src_pcd_raw = data['inputs']['src_pc']['pos']
+    tgt_pcd_raw = data['inputs']['tgt_pc']['pos']
+    sample = None
 
-        batched_points_list.append(src_pcd)
-        batched_points_list.append(tgt_pcd)
-        batched_features_list.append(src_feats)
-        batched_features_list.append(tgt_feats)
-        batched_lengths_list.append(len(src_pcd))
-        batched_lengths_list.append(len(tgt_pcd))
-
-    batched_features = torch.cat(batched_features_list, dim=0)
-    batched_points = torch.cat(batched_points_list, dim=0)
-    batched_lengths = torch.tensor(batched_lengths_list, dtype=torch.int64, device=batched_points.device)
+    # Prepare batched data
+    batched_points = torch.cat([src_pcd, tgt_pcd], dim=0)
+    batched_features = torch.cat([src_feats, tgt_feats], dim=0)
+    batched_lengths = torch.tensor([len(src_pcd), len(tgt_pcd)], dtype=torch.int64, device=batched_points.device)
 
     # Convert config.architecture to pcr_collator format
     architecture = []
