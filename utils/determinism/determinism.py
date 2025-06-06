@@ -41,4 +41,4 @@ def set_random_states(states: Dict[str, Any]) -> None:
     """
     random.setstate(states['python'])
     numpy.random.set_state(states['numpy'])
-    torch.set_rng_state(states['torch']) 
+    torch.set_rng_state(states['torch'])
