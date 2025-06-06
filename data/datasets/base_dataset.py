@@ -48,16 +48,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self._init_split(split=split)
         self._init_indices(indices=indices)
         self._init_transforms(transforms_cfg=transforms_cfg)
-
-        # Initialize cache
-        if use_cache:
-            self.cache = DatasetCache(
-                max_memory_percent=max_cache_memory_percent,
-                enable_validation=True
-            )
-        else:
-            self.cache = None
-
+        self._init_cache(use_cache=use_cache, max_cache_memory_percent=max_cache_memory_percent)
         self._init_device(device)
 
         # sanity check
@@ -196,10 +187,22 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             }
         self.transforms = build_from_config(transforms_cfg)
 
+    def _init_cache(self, use_cache: bool, max_cache_memory_percent: float) -> None:
+        assert isinstance(use_cache, bool), f"{type(use_cache)=}"
+        assert isinstance(max_cache_memory_percent, float), f"{type(max_cache_memory_percent)=}"
+        assert 0.0 <= max_cache_memory_percent <= 100.0, f"{max_cache_memory_percent=}"
+        if use_cache:
+            self.cache = DatasetCache(
+                max_memory_percent=max_cache_memory_percent,
+                enable_validation=True,
+            )
+        else:
+            self.cache = None
+
     def _init_device(self, device: Union[str, torch.device]) -> None:
-        if type(device) == str:
+        if isinstance(device, str):
             device = torch.device(device)
-        assert type(device) == torch.device, f"{type(device)=}"
+        assert isinstance(device, torch.device), f"{type(device)=}"
         self.device = device
 
     def _sanity_check(self) -> None:
