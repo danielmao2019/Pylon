@@ -95,12 +95,7 @@ def test_transform_determinism():
 
     # Create dataloader
     batch_size = 2
-    dataloader = torch.utils.data.DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,  # No shuffling to maintain order
-        num_workers=0,  # Single process for determinism
-    )
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=0)
 
     # Define training seeds for each epoch
     train_seeds = [42, 43]  # Two different seeds for two epochs
@@ -128,22 +123,11 @@ def test_transform_determinism():
                 # Load batches from both runs
                 batch1 = torch.load(os.path.join(tmpdir1, f'epoch_{epoch}_batch_{batch_idx}.pt'))
                 batch2 = torch.load(os.path.join(tmpdir2, f'epoch_{epoch}_batch_{batch_idx}.pt'))
-
-                # Compare all tensors in the batch
-                for key in batch1.keys():
-                    if isinstance(batch1[key], dict):
-                        for subkey in batch1[key].keys():
-                            if isinstance(batch1[key][subkey], torch.Tensor):
-                                assert torch.allclose(
-                                    batch1[key][subkey],
-                                    batch2[key][subkey],
-                                    rtol=1e-5,
-                                    atol=1e-5,
-                                ), f"Batches differ in {key}.{subkey} at epoch {epoch}, batch {batch_idx}"
-                    elif isinstance(batch1[key], torch.Tensor):
-                        assert torch.allclose(
-                            batch1[key],
-                            batch2[key],
-                            rtol=1e-5,
-                            atol=1e-5,
-                        ), f"Batches differ in {key} at epoch {epoch}, batch {batch_idx}"
+                assert batch1.keys() == batch2.keys() == {'inputs', 'labels', 'meta_info'}
+                assert batch1['inputs'].keys() == batch2['inputs'].keys() == {'image', 'point_cloud'}
+                assert batch1['labels'].keys() == batch2['labels'].keys() == {'label'}
+                assert batch1['meta_info'].keys() == batch2['meta_info'].keys() == {'idx'}
+                assert torch.allclose(batch1['inputs']['image'], batch2['inputs']['image'])
+                assert torch.allclose(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud'])
+                assert torch.allclose(batch1['labels']['label'], batch2['labels']['label'])
+                assert torch.allclose(batch1['meta_info']['idx'], batch2['meta_info']['idx'])
