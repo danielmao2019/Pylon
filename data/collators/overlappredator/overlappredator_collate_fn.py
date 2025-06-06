@@ -79,11 +79,8 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
     else:
         return torch.from_numpy(neighbors).to(device)
 
-def overlappredator_collate_fn(list_data, config, neighborhood_limits):
-    assert len(list_data) == 1
-    data = list_data[0]  # Get the single item directly
-
-    # Unpack data
+def unpack_overlappredator_data(data):
+    """Unpack data to get points and features."""
     src_pcd = data['inputs']['src_pc']['pos']
     tgt_pcd = data['inputs']['tgt_pc']['pos']
     src_feats = data['inputs']['src_pc']['feat']
@@ -100,7 +97,23 @@ def overlappredator_collate_fn(list_data, config, neighborhood_limits):
     batched_features = torch.cat([src_feats, tgt_feats], dim=0)
     batched_lengths = torch.tensor([len(src_pcd), len(tgt_pcd)], dtype=torch.int64, device=batched_points.device)
 
-    # Convert config.architecture to pcr_collator format
+    return {
+        'points': batched_points,
+        'features': batched_features,
+        'lengths': batched_lengths,
+        'rot': rot,
+        'trans': trans,
+        'correspondences': matching_inds,
+        'src_pcd_raw': src_pcd_raw,
+        'tgt_pcd_raw': tgt_pcd_raw,
+        'sample': sample,
+        'src_pcd': src_pcd,
+        'tgt_pcd': tgt_pcd,
+    }
+
+
+def create_overlappredator_architecture(config, neighborhood_limits):
+    """Create architecture for pcr_collator."""
     architecture = []
     r_normal = config.first_subsampling_dl * config.conv_radius
     layer = 0
@@ -129,37 +142,55 @@ def overlappredator_collate_fn(list_data, config, neighborhood_limits):
             r_normal *= 2
             layer += 1
 
+    return architecture
+
+
+def pack_overlappredator_results(collated_data, unpacked_data):
+    """Pack pcr_collator results into overlappredator format."""
+    return {
+        'points': collated_data['points'],
+        'neighbors': collated_data['neighbors'],
+        'pools': collated_data['downsamples'],  # Map downsamples to pools
+        'upsamples': collated_data['upsamples'],
+        'features': unpacked_data['features'].float(),
+        'stack_lengths': collated_data['lengths'],  # Map lengths to stack_lengths
+        'rot': unpacked_data['rot'],
+        'trans': unpacked_data['trans'],
+        'correspondences': unpacked_data['correspondences'],
+        'src_pcd_raw': unpacked_data['src_pcd_raw'],
+        'tgt_pcd_raw': unpacked_data['tgt_pcd_raw'],
+        'sample': unpacked_data['sample'],
+    }
+
+
+def overlappredator_collate_fn(list_data, config, neighborhood_limits):
+    assert len(list_data) == 1
+    data = list_data[0]  # Get the single item directly
+
+    # Unpack data
+    unpacked_data = unpack_overlappredator_data(data)
+
+    # Create architecture
+    architecture = create_overlappredator_architecture(config, neighborhood_limits)
+
     # Call pcr_collator
     collated_data = pcr_collate_fn(
-        batched_points, batched_points,  # Use same points for src and tgt
+        unpacked_data['points'], unpacked_data['points'],  # Use same points for src and tgt
         architecture,
         downsample_fn=batch_grid_subsampling_kpconv,
         neighbor_fn=batch_neighbors_kpconv,
     )
 
-    # Map keys to match original format
-    inputs = {
-        'points': collated_data['points'],
-        'neighbors': collated_data['neighbors'],
-        'pools': collated_data['downsamples'],  # Map downsamples to pools
-        'upsamples': collated_data['upsamples'],
-        'features': batched_features.float(),
-        'stack_lengths': collated_data['lengths'],  # Map lengths to stack_lengths
-        'rot': rot,
-        'trans': trans,
-        'correspondences': matching_inds,
-        'src_pcd_raw': src_pcd_raw,
-        'tgt_pcd_raw': tgt_pcd_raw,
-        'sample': sample,
-    }
+    # Pack results
+    inputs = pack_overlappredator_results(collated_data, unpacked_data)
 
     # Prepare labels
     labels = {
-        'src_pc': src_pcd,
-        'tgt_pc': tgt_pcd,
-        'correspondences': matching_inds,
-        'rot': rot,
-        'trans': trans,
+        'src_pc': unpacked_data['src_pcd'],
+        'tgt_pc': unpacked_data['tgt_pcd'],
+        'correspondences': unpacked_data['correspondences'],
+        'rot': unpacked_data['rot'],
+        'trans': unpacked_data['trans'],
     }
 
     return {'inputs': inputs, 'labels': labels, 'meta_info': {}}

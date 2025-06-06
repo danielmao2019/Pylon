@@ -5,6 +5,88 @@ from data.collators.geotransformer.radius_search import radius_search
 from data.collators.pcr_collator import pcr_collate_fn
 
 
+def unpack_geotransformer_data(data):
+    """Unpack data to get points and features."""
+    device = data['inputs']['src_pc']['pos'].device
+
+    # Prepare batched data
+    feats = torch.cat([data['inputs']['tgt_pc']['feat'], data['inputs']['src_pc']['feat']], dim=0)
+    points = torch.cat([data['inputs']['tgt_pc']['pos'], data['inputs']['src_pc']['pos']], dim=0)
+    lengths = torch.tensor([len(data['inputs']['tgt_pc']['pos']), len(data['inputs']['src_pc']['pos'])], 
+                         dtype=torch.long, device=device)
+
+    return {
+        'points': points,
+        'features': feats,
+        'lengths': lengths,
+        'transform': data['labels']['transform'],
+        'meta_info': data['meta_info'],
+    }
+
+
+def create_geotransformer_architecture(num_stages, voxel_size, search_radius, neighbor_limits):
+    """Create architecture for pcr_collator."""
+    architecture = []
+    current_voxel_size = voxel_size
+    current_radius = search_radius
+    
+    for i in range(num_stages):
+        # Add conv block
+        architecture.append({
+            'type': 'conv',
+            'radius': current_radius,
+            'sample_dl': current_voxel_size,
+            'neighborhood_limit': neighbor_limits[i]
+        })
+        
+        # Add pool block if not last stage
+        if i < num_stages - 1:
+            architecture.append({
+                'type': 'pool',
+                'radius': current_radius,
+                'sample_dl': current_voxel_size * 2,  # Double the voxel size for pooling
+                'neighborhood_limit': neighbor_limits[i]
+            })
+        
+        current_voxel_size *= 2
+        current_radius *= 2
+
+    return architecture
+
+
+def pack_geotransformer_results(collated_data, unpacked_data, batch_size):
+    """Pack pcr_collator results into geotransformer format."""
+    # Remove last elements from downsamples and upsamples
+    collated_data['downsamples'] = collated_data['downsamples'][:-1]
+    collated_data['upsamples'] = collated_data['upsamples'][:-1]
+
+    # Map keys to match original format
+    inputs_dict = {
+        'points': collated_data['points'],
+        'lengths': collated_data['lengths'],
+        'neighbors': collated_data['neighbors'],
+        'subsampling': collated_data['downsamples'],  # Map downsamples to subsampling
+        'upsampling': collated_data['upsamples'],  # Map upsamples to upsampling
+        'features': unpacked_data['features'],
+        'transform': unpacked_data['transform']
+    }
+
+    # Prepare meta info
+    meta_info = {
+        key: [unpacked_data['meta_info'][key]]
+        for key in unpacked_data['meta_info']
+    }
+    meta_info['batch_size'] = batch_size
+
+    return {
+        'inputs': inputs_dict,
+        'labels': {
+            'transform': unpacked_data['transform'].unsqueeze(0),  # Add batch dimension
+        },
+        'meta_info': meta_info,
+    }
+
+
 def geotransformer_collate_fn(
     data_dicts, num_stages, voxel_size, search_radius, neighbor_limits, precompute_data=True
 ) -> Dict[str, Dict[str, Any]]:
@@ -41,74 +123,20 @@ def geotransformer_collate_fn(
     batch_size = len(data_dicts)
     assert batch_size == 1
     data = data_dicts[0]  # Get the single item directly
-    device = data['inputs']['src_pc']['pos'].device
 
-    # Prepare batched data
-    feats = torch.cat([data['inputs']['tgt_pc']['feat'], data['inputs']['src_pc']['feat']], dim=0)
-    points = torch.cat([data['inputs']['tgt_pc']['pos'], data['inputs']['src_pc']['pos']], dim=0)
-    lengths = torch.tensor([len(data['inputs']['tgt_pc']['pos']), len(data['inputs']['src_pc']['pos'])], 
-                         dtype=torch.long, device=device)
+    # Unpack data
+    unpacked_data = unpack_geotransformer_data(data)
 
-    # Define architecture for pcr_collator
-    architecture = []
-    current_voxel_size = voxel_size
-    current_radius = search_radius
-    
-    for i in range(num_stages):
-        # Add conv block
-        architecture.append({
-            'type': 'conv',
-            'radius': current_radius,
-            'sample_dl': current_voxel_size,
-            'neighborhood_limit': neighbor_limits[i]
-        })
-        
-        # Add pool block if not last stage
-        if i < num_stages - 1:
-            architecture.append({
-                'type': 'pool',
-                'radius': current_radius,
-                'sample_dl': current_voxel_size * 2,  # Double the voxel size for pooling
-                'neighborhood_limit': neighbor_limits[i]
-            })
-        
-        current_voxel_size *= 2
-        current_radius *= 2
+    # Create architecture
+    architecture = create_geotransformer_architecture(num_stages, voxel_size, search_radius, neighbor_limits)
 
     # Call pcr_collator
     collated_data = pcr_collate_fn(
-        points, points,  # Use same points for src and tgt since we're doing self-neighborhood
+        unpacked_data['points'], unpacked_data['points'],  # Use same points for src and tgt since we're doing self-neighborhood
         architecture,
         downsample_fn=grid_subsample,
         neighbor_fn=radius_search,
     )
 
-    # Remove last elements from downsamples and upsamples
-    collated_data['downsamples'] = collated_data['downsamples'][:-1]
-    collated_data['upsamples'] = collated_data['upsamples'][:-1]
-
-    # Map keys to match original format
-    inputs_dict = {
-        'points': collated_data['points'],
-        'lengths': collated_data['lengths'],
-        'neighbors': collated_data['neighbors'],
-        'subsampling': collated_data['downsamples'],  # Map downsamples to subsampling
-        'upsampling': collated_data['upsamples'],  # Map upsamples to upsampling
-        'features': feats,
-        'transform': data['labels']['transform']
-    }
-
-    # Prepare meta info
-    meta_info = {
-        key: [data['meta_info'][key]]
-        for key in data['meta_info']
-    }
-    meta_info['batch_size'] = batch_size
-
-    return {
-        'inputs': inputs_dict,
-        'labels': {
-            'transform': data['labels']['transform'].unsqueeze(0),  # Add batch dimension
-        },
-        'meta_info': meta_info,
-    }
+    # Pack results
+    return pack_geotransformer_results(collated_data, unpacked_data, batch_size)
