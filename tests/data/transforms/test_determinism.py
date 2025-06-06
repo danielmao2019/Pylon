@@ -124,6 +124,7 @@ def test_transform_determinism():
         assert batch1['labels'].keys() == batch2['labels'].keys() == {'label'}
         assert batch1['meta_info'].keys() == batch2['meta_info'].keys() == {'idx'}
         assert torch.allclose(batch1['inputs']['image'], batch2['inputs']['image'])
-        assert torch.allclose(batch1['inputs']['point_cloud'], batch2['inputs']['point_cloud'])
+        assert torch.allclose(batch1['inputs']['point_cloud']['pos'], batch2['inputs']['point_cloud']['pos'])
+        assert torch.allclose(batch1['inputs']['point_cloud']['features'], batch2['inputs']['point_cloud']['features'])
         assert torch.allclose(batch1['labels']['label'], batch2['labels']['label'])
         assert torch.allclose(batch1['meta_info']['idx'], batch2['meta_info']['idx'])
