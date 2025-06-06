@@ -63,6 +63,12 @@ class Compose(BaseTransform):
         # assign to class attribute
         self.transforms = parsed_transforms
 
+    def set_seed(self, seed: Any) -> None:
+        """Set the seed for all component transforms."""
+        for transform in self.transforms:
+            assert hasattr(transform["op"], 'set_seed'), f"{transform['op']=}"
+            transform["op"].set_seed(seed)
+
     @staticmethod
     def _process_names(names: Union[Tuple[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:
         if isinstance(names, tuple):
@@ -78,8 +84,8 @@ class Compose(BaseTransform):
         r"""This method overrides parent `__call__` method.
         """
         # input checks
-        assert type(datapoint) == dict, f"{type(datapoint)=}"
-        assert set(datapoint.keys()) == set(['inputs', 'labels', 'meta_info']), f"{datapoint.keys()=}"
+        assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+        assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}, f"{datapoint.keys()=}"
 
         # Create a deep copy of the input datapoint to avoid in-place modification
         datapoint = copy.deepcopy(datapoint)

@@ -37,6 +37,7 @@ class RandomRigidTransform(BaseTransform):
         self.trans_mag = trans_mag
         self.method = method
         self.num_axis = num_axis
+        self.generator = torch.Generator()
 
     def _sample_rotation_Rodrigues(self, device: torch.device) -> torch.Tensor:
         """
@@ -51,11 +52,11 @@ class RandomRigidTransform(BaseTransform):
         rot_mag_rad = np.radians(self.rot_mag)
 
         # Generate a random axis of rotation
-        axis = torch.randn(3, device=device)
+        axis = torch.randn(3, device=device, generator=self.generator)
         axis = axis / torch.norm(axis)  # Normalize to unit vector
 
         # Generate random angle within the specified range
-        angle = torch.empty(1, device=device).uniform_(-rot_mag_rad, rot_mag_rad)
+        angle = torch.rand(1, device=device, generator=self.generator) * (2 * rot_mag_rad) - rot_mag_rad
 
         # Create rotation matrix using axis-angle representation (Rodrigues' formula)
         K = torch.tensor([[0, -axis[2], axis[1]],
@@ -79,7 +80,7 @@ class RandomRigidTransform(BaseTransform):
             return torch.eye(3, device=device)
 
         rot_mag_rad = np.radians(self.rot_mag)
-        angles = torch.empty(3, device=device).uniform_(-rot_mag_rad, rot_mag_rad)
+        angles = torch.rand(3, device=device, generator=self.generator) * (2 * rot_mag_rad) - rot_mag_rad
 
         # Create rotation matrices for each axis
         Rx = torch.tensor([[1, 0, 0],
@@ -116,11 +117,11 @@ class RandomRigidTransform(BaseTransform):
 
         # Generate random translation
         # Generate random direction (unit vector)
-        trans_dir = torch.randn(3, device=device)
+        trans_dir = torch.randn(3, device=device, generator=self.generator)
         trans_dir = trans_dir / torch.norm(trans_dir)
 
         # Generate random magnitude within limit
-        trans_mag = torch.empty(1, device=device).uniform_(0, self.trans_mag)
+        trans_mag = torch.rand(1, device=device, generator=self.generator) * self.trans_mag
 
         # Compute final translation vector
         trans = trans_dir * trans_mag
