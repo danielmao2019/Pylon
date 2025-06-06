@@ -36,9 +36,13 @@ def _generate_train_seeds(
         if len(epochs) == 1:
             init_seed: int = random.randint(0, ub)
             train_seeds: List[int] = [random.randint(0, ub) for _ in range(epochs[0])]
+            val_seeds: List[int] = [random.randint(0, ub) for _ in range(epochs[0])]
+            test_seed: int = random.randint(0, ub)
             config += f"# seeds\n"
             config += f"config['init_seed'] = {init_seed}\n"
             config += f"config['train_seeds'] = [" + ", ".join(list(map(str, train_seeds))) + "]\n"
+            config += f"config['val_seeds'] = [" + ", ".join(list(map(str, val_seeds))) + "]\n"
+            config += f"config['test_seed'] = {test_seed}\n"
             config += '\n'
             if base_work_dir is not None:
                 config += f"# work dir\n"
@@ -49,10 +53,17 @@ def _generate_train_seeds(
                 [random.randint(0, ub) for _ in range(num_epochs)]
                 for num_epochs in epochs
             ]
+            val_seeds_multi_stage: List[List[int]] = [
+                [random.randint(0, ub) for _ in range(num_epochs)]
+                for num_epochs in epochs
+            ]
+            test_seed_multi_stage: List[int] = [random.randint(0, ub) for _ in range(len(epochs))]
             config += f"# seeds\n"
             for idx_stage in range(len(epochs)):
                 config += f"config[{idx_stage}]['init_seed'] = {init_seed_multi_stage[idx_stage]}\n"
                 config += f"config[{idx_stage}]['train_seeds'] = [" + ", ".join(list(map(str, train_seeds_multi_stage[idx_stage]))) + "]\n"
+                config += f"config[{idx_stage}]['val_seeds'] = [" + ", ".join(list(map(str, val_seeds_multi_stage[idx_stage]))) + "]\n"
+                config += f"config[{idx_stage}]['test_seed'] = {test_seed_multi_stage[idx_stage]}\n"
             config += '\n'
             if base_work_dir is not None:
                 config += f"# work dir\n"

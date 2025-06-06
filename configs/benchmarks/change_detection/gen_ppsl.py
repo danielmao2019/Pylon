@@ -2,7 +2,7 @@ from typing import List
 import os
 import sys
 sys.path.append("../../..")
-import utils
+from utils.automation.configs import generate_seeds
 os.chdir("../../..")
 
 
@@ -36,7 +36,7 @@ def main() -> None:
     config += '\n'
     # add seeds
     relpath = os.path.join("benchmarks", "change_detection", "ppsl")
-    seeded_configs: List[str] = utils.automation.configs.generate_seeds(
+    seeded_configs: List[str] = generate_seeds(
         template_config=config, base_seed=relpath,
     )
     # save to disk

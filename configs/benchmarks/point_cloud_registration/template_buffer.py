@@ -42,6 +42,8 @@ config = [
     # seeds
     'init_seed': None,
     'train_seeds': None,
+    'val_seeds': None,
+    'test_seed': None,
     # dataset config
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_data_cfg['train_dataloader']),
@@ -72,6 +74,8 @@ config = [
     # seeds
     'init_seed': None,
     'train_seeds': None,
+    'val_seeds': None,
+    'test_seed': None,
     # dataset config
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_data_cfg['train_dataloader']),
@@ -102,6 +106,8 @@ config = [
     # seeds
     'init_seed': None,
     'train_seeds': None,
+    'val_seeds': None,
+    'test_seed': None,
     # dataset config
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_data_cfg['train_dataloader']),
@@ -132,6 +138,8 @@ config = [
     # seeds
     'init_seed': None,
     'train_seeds': None,
+    'val_seeds': None,
+    'test_seed': None,
     # dataset config
     'train_dataset': copy.deepcopy(train_data_cfg['train_dataset']),
     'train_dataloader': copy.deepcopy(train_data_cfg['train_dataloader']),
