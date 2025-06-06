@@ -27,7 +27,7 @@ def set_seed(seed: Any):
 def get_random_states() -> Dict[str, Any]:
     """Get current states of all random number generators."""
     return {
-        'python': random.getstate(),
+        'random': random.getstate(),
         'numpy': numpy.random.get_state(),
         'torch': torch.get_rng_state(),
     }
@@ -39,6 +39,6 @@ def set_random_states(states: Dict[str, Any]) -> None:
     Args:
         states: Dictionary containing states for each random number generator.
     """
-    random.setstate(states['python'])
+    random.setstate(states['random'])
     numpy.random.set_state(states['numpy'])
     torch.set_rng_state(states['torch'])
