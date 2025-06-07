@@ -148,6 +148,7 @@ def create_buffer_architecture(config, neighborhood_limits):
         layer += 1
         layer_blocks = []
 
+    assert len(architecture) == len(neighborhood_limits)
     return architecture
 
 

@@ -124,7 +124,7 @@ def test_buffer_collator():
     # Create dummy data and config
     list_data = create_dummy_buffer_data()
     config = DummyConfig()
-    neighborhood_limits = [16, 16, 16, 16, 16]
+    neighborhood_limits = [16, 16, 16]
     
     # Get results from both implementations
     result_gt = buffer_collate_fn_gt(list_data, config, neighborhood_limits)
