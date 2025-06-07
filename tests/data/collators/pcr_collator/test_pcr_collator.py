@@ -203,6 +203,9 @@ def test_overlappredator_collator():
             for idx, (gt_item, new_item) in enumerate(zip(result_gt['inputs'][key], result_new['inputs'][key])):
                 assert gt_item.shape == new_item.shape, f"{key=}, {idx=}"
                 assert torch.allclose(gt_item, new_item), f"{key=}, {idx=}"
+        elif key == 'sample':
+            assert result_gt['inputs'][key] is None
+            assert result_new['inputs'][key] is None
         else:
             assert torch.allclose(result_gt['inputs'][key], result_new['inputs'][key])
     
