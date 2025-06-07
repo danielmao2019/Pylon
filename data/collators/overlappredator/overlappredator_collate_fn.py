@@ -94,12 +94,12 @@ def unpack_overlappredator_data(data):
     sample = None
 
     # Prepare batched data
-    batched_points = torch.cat([src_pcd, tgt_pcd], dim=0)
     batched_features = torch.cat([src_feats, tgt_feats], dim=0)
-    batched_lengths = torch.tensor([len(src_pcd), len(tgt_pcd)], dtype=torch.int64, device=batched_points.device)
+    batched_lengths = torch.tensor([len(src_pcd), len(tgt_pcd)], dtype=torch.int64, device=batched_features.device)
 
     return {
-        'points': batched_points,
+        'src_points': src_pcd,
+        'tgt_points': tgt_pcd,
         'features': batched_features,
         'lengths': batched_lengths,
         'rot': rot,
@@ -107,9 +107,9 @@ def unpack_overlappredator_data(data):
         'correspondences': matching_inds,
         'src_pcd_raw': src_pcd_raw,
         'tgt_pcd_raw': tgt_pcd_raw,
-        'sample': sample,
         'src_pcd': src_pcd,
         'tgt_pcd': tgt_pcd,
+        'sample': sample,
     }
 
 
@@ -193,8 +193,9 @@ def overlappredator_collate_fn(list_data, config, neighborhood_limits):
 
     # Call pcr_collator
     collated_data = pcr_collate_fn(
-        unpacked_data['points'], unpacked_data['points'],  # Use same points for src and tgt
-        architecture,
+        src_points=unpacked_data['tgt_points'],
+        tgt_points=unpacked_data['src_points'],
+        architecture=architecture,
         downsample_fn=batch_grid_subsampling_kpconv,
         neighbor_fn=batch_neighbors_kpconv,
     )
