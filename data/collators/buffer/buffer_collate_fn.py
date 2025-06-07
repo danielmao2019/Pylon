@@ -6,7 +6,7 @@ from data.collators.pcr_collator import pcr_collate_fn
 from models.point_cloud_registration.buffer.point_learner import architecture as _architecture
 
 
-def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0):
+def batch_grid_subsampling_kpconv(points, batches_len, sampleDl, features=None, labels=None, max_p=0, verbose=0):
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """

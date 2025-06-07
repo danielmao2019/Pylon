@@ -41,7 +41,7 @@ def create_geotransformer_architecture(num_stages, voxel_size, search_radius, ne
             'downsample_radius': current_radius,
             'downsample_neighborhood_limit': neighbor_limits[i],
             'upsample_radius': 2 * current_radius,
-            'upsample_neighborhood_limit': neighbor_limits[i+1],
+            'upsample_neighborhood_limit': neighbor_limits[i+1] if i < num_stages - 1 else 0,
         })
         current_voxel_size *= 2
         current_radius *= 2
