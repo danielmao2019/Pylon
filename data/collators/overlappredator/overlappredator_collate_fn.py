@@ -117,6 +117,7 @@ def create_overlappredator_architecture(config, neighborhood_limits):
     """Create architecture for pcr_collator."""
     architecture = []
     r_normal = config.first_subsampling_dl * config.conv_radius
+    layer_blocks = []
     layer = 0
 
     for block_i, block in enumerate(config.architecture):
