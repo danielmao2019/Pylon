@@ -2,9 +2,9 @@ import torch
 from data.collators.buffer.buffer_collate_fn import buffer_collate_fn
 from data.collators.geotransformer.geotransformer_collate_fn import geotransformer_collate_fn
 from data.collators.overlappredator.overlappredator_collate_fn import overlappredator_collate_fn
-from tests.data.collators.pcr_collator.buffer_collator_gt import buffer_collate_fn_gt
-from tests.data.collators.pcr_collator.geotransformer_collator_gt import geotransformer_collate_fn_gt
-from tests.data.collators.pcr_collator.overlappredator_collator_gt import overlappredator_collate_fn_gt
+from .buffer_collator_gt import buffer_collate_fn_gt
+from .geotransformer_collator_gt import geotransformer_collate_fn_gt
+from .overlappredator_collator_gt import overlappredator_collate_fn_gt
 
 
 def create_dummy_buffer_data():
