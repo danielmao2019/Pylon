@@ -193,8 +193,8 @@ def overlappredator_collate_fn(list_data, config, neighborhood_limits):
 
     # Call pcr_collator
     collated_data = pcr_collate_fn(
-        src_points=unpacked_data['tgt_points'],
-        tgt_points=unpacked_data['src_points'],
+        src_points=unpacked_data['src_points'],
+        tgt_points=unpacked_data['tgt_points'],
         architecture=architecture,
         downsample_fn=batch_grid_subsampling_kpconv,
         neighbor_fn=batch_neighbors_kpconv,
