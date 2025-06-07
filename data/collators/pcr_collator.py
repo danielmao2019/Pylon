@@ -9,7 +9,7 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
     assert isinstance(architecture, list)
     assert all(isinstance(block, dict) for block in architecture)
     assert all(block.keys() == {
-        'neighbor', 'neighbor_radius',
+        'neighbor', 'neighbor_radius', 'neighbor_neighborhood_limit',
         'downsample', 'sample_dl',
         'downsample_radius', 'downsample_neighborhood_limit',
         'upsample_radius', 'upsample_neighborhood_limit',
