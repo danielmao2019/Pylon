@@ -34,10 +34,14 @@ def create_geotransformer_architecture(num_stages, voxel_size, search_radius, ne
     for i in range(num_stages):
         architecture.append({
             'neighbor': True,
+            'neighbor_radius': current_radius,
+            'neighbor_neighborhood_limit': neighbor_limits[i],
             'downsample': True,
-            'radius': current_radius,
             'sample_dl': current_voxel_size,
-            'neighborhood_limit': neighbor_limits[i]
+            'downsample_radius': current_radius,
+            'downsample_neighborhood_limit': neighbor_limits[i],
+            'upsample_radius': 2 * current_radius,
+            'upsample_neighborhood_limit': neighbor_limits[i+1],
         })
         current_voxel_size *= 2
         current_radius *= 2

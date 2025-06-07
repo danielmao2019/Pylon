@@ -138,10 +138,14 @@ def create_buffer_architecture(config, neighborhood_limits):
         # Add block to architecture
         architecture.append({
             'neighbor': layer_blocks,
+            'neighbor_radius': r_normal,
+            'neighbor_neighborhood_limit': neighborhood_limits[layer],
             'downsample': 'pool' in block or 'strided' in block,
-            'radius': r_normal,
-            'sample_dl': 2 * r_normal / config.point.conv_radius if 'pool' in block or 'strided' in block else r_normal,
-            'neighborhood_limit': neighborhood_limits[layer]
+            'sample_dl': 2 * r_normal / config.point.conv_radius,
+            'downsample_radius': r_normal,
+            'downsample_neighborhood_limit': neighborhood_limits[layer],
+            'upsample_radius': 2 * r_normal,
+            'upsample_neighborhood_limit': neighborhood_limits[layer],
         })
 
         r_normal *= 2

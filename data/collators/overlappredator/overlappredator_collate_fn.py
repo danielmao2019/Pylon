@@ -124,24 +124,40 @@ def create_overlappredator_architecture(config, neighborhood_limits):
         if 'global' in block or 'upsample' in block:
             break
 
-        # Handle deformable blocks
-        if 'deformable' in block:
-            radius = r_normal * config.deform_radius / config.conv_radius
+        # Get all blocks of the layer
+        if not ('pool' in block or 'strided' in block):
+            layer_blocks += [block]
+            if block_i < len(config.architecture) - 1 and not ('upsample' in config.architecture[block_i + 1]):
+                continue
+
+        # Define neighbor radius
+        if any('deformable' in blk for blk in layer_blocks):
+            neighbor_radius = r_normal * config.deform_radius / config.conv_radius
         else:
-            radius = r_normal
+            neighbor_radius = r_normal
+
+        # Define downsample radius
+        if 'deformable' in block:
+            downsample_radius = r_normal * config.deform_radius / config.conv_radius
+        else:
+            downsample_radius = r_normal
 
         # Add block to architecture
         architecture.append({
-            'type': block,
-            'radius': radius,
-            'sample_dl': 2 * r_normal / config.conv_radius if 'pool' in block or 'strided' in block else r_normal,
-            'neighborhood_limit': neighborhood_limits[layer]
+            'neighbor': layer_blocks,
+            'neighbor_radius': neighbor_radius,
+            'neighbor_neighborhood_limit': neighborhood_limits[layer],
+            'downsample': 'pool' in block or 'strided' in block,
+            'sample_dl': 2 * r_normal / config.conv_radius,
+            'downsample_radius': downsample_radius,
+            'downsample_neighborhood_limit': neighborhood_limits[layer],
+            'upsample_radius': 2 * downsample_radius,
+            'upsample_neighborhood_limit': neighborhood_limits[layer],
         })
 
-        # Update radius for next layer
-        if 'pool' in block or 'strided' in block:
-            r_normal *= 2
-            layer += 1
+        r_normal *= 2
+        layer += 1
+        layer_blocks = []
 
     return architecture
 

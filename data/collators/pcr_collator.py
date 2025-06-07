@@ -8,7 +8,12 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
     assert src_points.shape[0] == tgt_points.shape[0]
     assert isinstance(architecture, list)
     assert all(isinstance(block, dict) for block in architecture)
-    assert all(block.keys() == {'neighbor', 'downsample', 'radius', 'sample_dl', 'neighborhood_limit'} for block in architecture)
+    assert all(block.keys() == {
+        'neighbor', 'neighbor_radius',
+        'downsample', 'sample_dl',
+        'downsample_radius', 'downsample_neighborhood_limit',
+        'upsample_radius', 'upsample_neighborhood_limit',
+    } for block in architecture)
     assert isinstance(downsample_fn, Callable)
     assert isinstance(neighbor_fn, Callable)
 
@@ -31,7 +36,7 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
         if block['neighbor']:
             neighbor_indices = neighbor_fn(
                 batched_points, batched_points, batched_lengths, batched_lengths,
-                block['radius'], block['neighborhood_limit'],
+                block['neighbor_radius'], block['neighbor_neighborhood_limit'],
             )
         else:
             neighbor_indices = torch.zeros((0, 1), dtype=torch.int64)
@@ -48,11 +53,11 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
             )
             downsample_indices = neighbor_fn(
                 downsample_points, batched_points, downsample_lengths, batched_lengths,
-                block['radius'], block['neighborhood_limit'],
+                block['downsample_radius'], block['downsample_neighborhood_limit'],
             )
             upsample_indices = neighbor_fn(
                 batched_points, downsample_points, batched_lengths, downsample_lengths,
-                2 * block['radius'], block['neighborhood_limit'],
+                block['upsample_radius'], block['upsample_neighborhood_limit'],
             )
         else:
             downsample_points = torch.zeros((0, 3), dtype=torch.float32)
