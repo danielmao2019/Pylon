@@ -8,7 +8,7 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
     assert src_points.shape[0] == tgt_points.shape[0]
     assert isinstance(architecture, list)
     assert all(isinstance(block, dict) for block in architecture)
-    assert all(block.keys() == {'type', 'radius', 'sample_dl', 'neighborhood_limit'} for block in architecture)
+    assert all(block.keys() == {'neighbor', 'downsample', 'radius', 'sample_dl', 'neighborhood_limit'} for block in architecture)
     assert isinstance(downsample_fn, Callable)
     assert isinstance(neighbor_fn, Callable)
 
@@ -22,26 +22,13 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
     input_downsamples = []
     input_upsamples = []
 
-    for block_i, block in enumerate(architecture):
-        # Stop when meeting a global pooling or upsampling
-        if 'global' in block['type'] or 'upsample' in block['type']:
-            break
-
-        # Check if the current block is a pooling or strided operation
-        is_pooling_or_strided = 'pool' in block['type'] or 'strided' in block['type']
-
-        # If the current block is not a pooling or strided operation, add it to the layer blocks
-        if not is_pooling_or_strided:
-            # Check if the next block is not an upsampling operation
-            if block_i < len(architecture) - 1 and not ('upsample' in architecture[block_i + 1]['type']):
-                continue
-
+    for block in architecture:
         # *****************************
         # Convolution neighbors indices
         # *****************************
 
         # Compute neighbor indices for convolution
-        if not is_pooling_or_strided:
+        if block['neighbor']:
             neighbor_indices = neighbor_fn(
                 batched_points, batched_points, batched_lengths, batched_lengths,
                 block['radius'], block['neighborhood_limit'],
@@ -54,7 +41,7 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
         # *************************
 
         # If the current block is a pooling operation, compute downsampling and upsampling indices
-        if is_pooling_or_strided:
+        if block['downsample']:
             downsample_points, downsample_lengths = downsample_fn(
                 batched_points, batched_lengths,
                 sampleDl=block['sample_dl'],

@@ -3,6 +3,7 @@ import numpy as np
 import data.collators.buffer.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
 import data.collators.buffer.cpp_wrappers.cpp_neighbors.radius_neighbors as cpp_neighbors
 from data.collators.pcr_collator import pcr_collate_fn
+from models.point_cloud_registration.buffer.point_learner import architecture as _architecture
 
 
 def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0):
@@ -104,7 +105,8 @@ def unpack_buffer_data(data):
     batched_lengths = torch.tensor([len(src_kpt), len(tgt_kpt)], dtype=torch.int64, device=batched_points.device)
 
     return {
-        'points': batched_points,
+        'src_points': src_kpt,
+        'tgt_points': tgt_kpt,
         'features': batched_features,
         'lengths': batched_lengths,
         'src_pcd_raw': s_pts,
@@ -119,25 +121,32 @@ def create_buffer_architecture(config, neighborhood_limits):
     """Create architecture for pcr_collator."""
     architecture = []
     r_normal = config.data.voxel_size_0 * config.point.conv_radius
+    layer_blocks = []
     layer = 0
 
-    for block_i, block in enumerate(architecture):
+    for block_i, block in enumerate(_architecture):
         # Stop when meeting a global pooling or upsampling
         if 'global' in block or 'upsample' in block:
             break
 
+        # Get all blocks of the layer
+        if not ('pool' in block or 'strided' in block):
+            layer_blocks += [block]
+            if block_i < len(_architecture) - 1 and not ('upsample' in _architecture[block_i + 1]):
+                continue
+
         # Add block to architecture
         architecture.append({
-            'type': block,
+            'neighbor': layer_blocks,
+            'downsample': 'pool' in block or 'strided' in block,
             'radius': r_normal,
             'sample_dl': 2 * r_normal / config.point.conv_radius if 'pool' in block or 'strided' in block else r_normal,
             'neighborhood_limit': neighborhood_limits[layer]
         })
 
-        # Update radius for next layer
-        if 'pool' in block or 'strided' in block:
-            r_normal *= 2
-            layer += 1
+        r_normal *= 2
+        layer += 1
+        layer_blocks = []
 
     return architecture
 
@@ -171,8 +180,9 @@ def buffer_collate_fn(list_data, config, neighborhood_limits):
 
     # Call pcr_collator
     collated_data = pcr_collate_fn(
-        unpacked_data['points'], unpacked_data['points'],  # Use same points for src and tgt
-        architecture,
+        src_points=unpacked_data['src_points'],
+        tgt_points=unpacked_data['tgt_points'],
+        architecture=architecture,
         downsample_fn=batch_grid_subsampling_kpconv,
         neighbor_fn=batch_neighbors_kpconv,
     )

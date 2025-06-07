@@ -137,9 +137,10 @@ def test_buffer_collator():
     # Compare each key in inputs
     for key in result_gt['inputs']:
         if isinstance(result_gt['inputs'][key], list):
-            assert len(result_gt['inputs'][key]) == len(result_new['inputs'][key])
-            for gt_item, new_item in zip(result_gt['inputs'][key], result_new['inputs'][key]):
-                assert torch.allclose(gt_item, new_item)
+            assert len(result_gt['inputs'][key]) == len(result_new['inputs'][key]) == 3, f"{key=}"
+            for idx, (gt_item, new_item) in enumerate(zip(result_gt['inputs'][key], result_new['inputs'][key])):
+                assert gt_item.shape == new_item.shape, f"{key=}, {idx=}"
+                assert torch.allclose(gt_item, new_item), f"{key=}, {idx=}"
         else:
             assert torch.allclose(result_gt['inputs'][key], result_new['inputs'][key])
     
