@@ -4,7 +4,7 @@ import data.collators.overlappredator.cpp_wrappers.cpp_neighbors.radius_neighbor
 from data.collators.pcr_collator import pcr_collate_fn
 
 
-def batch_grid_subsampling_kpconv(points, batches_len, features=None, labels=None, sampleDl=0.1, max_p=0, verbose=0, random_grid_orient=True):
+def batch_grid_subsampling_kpconv(points, batches_len, sampleDl, features=None, labels=None, max_p=0, verbose=0, random_grid_orient=True):
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
