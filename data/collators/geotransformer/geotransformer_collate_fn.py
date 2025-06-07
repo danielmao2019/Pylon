@@ -31,23 +31,13 @@ def create_geotransformer_architecture(num_stages, voxel_size, search_radius, ne
     current_radius = search_radius
     
     for i in range(num_stages):
-        # Add conv block
         architecture.append({
-            'type': 'conv',
+            'neighbor': True,
+            'downsample': i < num_stages - 1,
             'radius': current_radius,
             'sample_dl': current_voxel_size,
             'neighborhood_limit': neighbor_limits[i]
         })
-        
-        # Add pool block if not last stage
-        if i < num_stages - 1:
-            architecture.append({
-                'type': 'pool',
-                'radius': current_radius,
-                'sample_dl': current_voxel_size * 2,  # Double the voxel size for pooling
-                'neighborhood_limit': neighbor_limits[i]
-            })
-        
         current_voxel_size *= 2
         current_radius *= 2
 

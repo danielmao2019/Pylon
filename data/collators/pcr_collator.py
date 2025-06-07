@@ -44,7 +44,7 @@ def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], d
         if block['downsample']:
             downsample_points, downsample_lengths = downsample_fn(
                 batched_points, batched_lengths,
-                sampleDl=block['sample_dl'],
+                block['sample_dl'],
             )
             downsample_indices = neighbor_fn(
                 downsample_points, batched_points, downsample_lengths, batched_lengths,
