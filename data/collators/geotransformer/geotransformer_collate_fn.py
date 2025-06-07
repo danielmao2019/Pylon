@@ -108,8 +108,9 @@ def geotransformer_collate_fn(
 
     # Call pcr_collator
     collated_data = pcr_collate_fn(
-        unpacked_data['points'], unpacked_data['points'],  # Use same points for src and tgt since we're doing self-neighborhood
-        architecture,
+        src_points=unpacked_data['src_points'],
+        tgt_points=unpacked_data['tgt_points'],
+        architecture=architecture,
         downsample_fn=grid_subsample,
         neighbor_fn=radius_search,
     )
