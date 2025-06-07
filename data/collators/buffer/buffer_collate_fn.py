@@ -91,28 +91,28 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
 
 def unpack_buffer_data(data):
     """Unpack data to get points and features."""
-    s_pts, t_pts = data['inputs']['src_pc_fds']['pos'], data['inputs']['tgt_pc_fds']['pos']
+    src_fds_points = data['inputs']['src_pc_fds']['pos']
+    tgt_fds_points = data['inputs']['tgt_pc_fds']['pos']
+    src_sds_points = data['inputs']['src_pc_sds']['pos']
+    tgt_sds_points = data['inputs']['tgt_pc_sds']['pos']
+    src_features = data['inputs']['src_pc_sds']['normals']
+    tgt_features = data['inputs']['tgt_pc_sds']['normals']
     relt_pose = data['labels']['transform']
-    s_kpt, t_kpt = data['inputs']['src_pc_sds'], data['inputs']['tgt_pc_sds']
-    src_kpt = s_kpt['pos']
-    tgt_kpt = t_kpt['pos']
-    src_f = s_kpt['normals']
-    tgt_f = t_kpt['normals']
 
     # Prepare batched data
-    batched_points = torch.cat([src_kpt, tgt_kpt], dim=0)
-    batched_features = torch.cat([src_f, tgt_f], dim=0)
-    batched_lengths = torch.tensor([len(src_kpt), len(tgt_kpt)], dtype=torch.int64, device=batched_points.device)
+    batched_points = torch.cat([src_sds_points, tgt_sds_points], dim=0)
+    batched_features = torch.cat([src_features, tgt_features], dim=0)
+    batched_lengths = torch.tensor([len(src_sds_points), len(tgt_sds_points)], dtype=torch.int64, device=batched_points.device)
 
     return {
-        'src_points': src_kpt,
-        'tgt_points': tgt_kpt,
-        'features': batched_features,
+        'src_points': src_sds_points,
+        'tgt_points': tgt_sds_points,
         'lengths': batched_lengths,
-        'src_pcd_raw': s_pts,
-        'tgt_pcd_raw': t_pts,
-        'src_pcd': src_kpt,
-        'tgt_pcd': tgt_kpt,
+        'features': batched_features,
+        'src_pcd_raw': src_fds_points,
+        'tgt_pcd_raw': tgt_fds_points,
+        'src_pcd': src_sds_points,
+        'tgt_pcd': tgt_sds_points,
         'relt_pose': relt_pose,
     }
 
@@ -156,11 +156,11 @@ def pack_buffer_results(collated_data, unpacked_data):
     """Pack pcr_collator results into buffer format."""
     return {
         'points': collated_data['points'],
+        'stack_lengths': collated_data['lengths'],  # Map lengths to stack_lengths
         'neighbors': collated_data['neighbors'],
         'pools': collated_data['downsamples'],  # Map downsamples to pools
         'upsamples': collated_data['upsamples'],
         'features': unpacked_data['features'].float(),
-        'stack_lengths': collated_data['lengths'],  # Map lengths to stack_lengths
         'src_pcd_raw': unpacked_data['src_pcd_raw'],
         'tgt_pcd_raw': unpacked_data['tgt_pcd_raw'],
         'src_pcd': unpacked_data['src_pcd'],

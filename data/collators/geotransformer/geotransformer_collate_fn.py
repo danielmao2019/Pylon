@@ -10,13 +10,14 @@ def unpack_geotransformer_data(data):
     device = data['inputs']['src_pc']['pos'].device
 
     # Prepare batched data
+    src_points = data['inputs']['src_pc']['pos']
+    tgt_points = data['inputs']['tgt_pc']['pos']
     feats = torch.cat([data['inputs']['tgt_pc']['feat'], data['inputs']['src_pc']['feat']], dim=0)
-    points = torch.cat([data['inputs']['tgt_pc']['pos'], data['inputs']['src_pc']['pos']], dim=0)
-    lengths = torch.tensor([len(data['inputs']['tgt_pc']['pos']), len(data['inputs']['src_pc']['pos'])], 
-                         dtype=torch.long, device=device)
+    lengths = torch.tensor([len(src_points), len(tgt_points)], dtype=torch.long, device=device)
 
     return {
-        'points': points,
+        'src_points': src_points,
+        'tgt_points': tgt_points,
         'features': feats,
         'lengths': lengths,
         'transform': data['labels']['transform'],
