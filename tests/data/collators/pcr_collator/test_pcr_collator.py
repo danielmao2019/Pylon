@@ -1,5 +1,4 @@
 import torch
-import pytest
 from data.collators.buffer.buffer_collate_fn import buffer_collate_fn
 from data.collators.geotransformer.geotransformer_collate_fn import geotransformer_collate_fn
 from data.collators.overlappredator.overlappredator_collate_fn import overlappredator_collate_fn
