@@ -34,7 +34,7 @@ def create_geotransformer_architecture(num_stages, voxel_size, search_radius, ne
     for i in range(num_stages):
         architecture.append({
             'neighbor': True,
-            'downsample': i < num_stages - 1,
+            'downsample': True,
             'radius': current_radius,
             'sample_dl': current_voxel_size,
             'neighborhood_limit': neighbor_limits[i]
@@ -90,6 +90,7 @@ def geotransformer_collate_fn(
         'data_dicts must contain the keys inputs, labels, meta_info'
     assert isinstance(num_stages, int), 'num_stages must be an integer'
     assert isinstance(voxel_size, (int, float)), 'voxel_size must be a float'
+    voxel_size /= 2  # keep consistent with the original implementation
     assert isinstance(search_radius, (int, float)), 'search_radius must be a float'
     assert isinstance(neighbor_limits, list), f'neighbor_limits must be a list. Got {type(neighbor_limits)}.'
     assert all(isinstance(limit, int) for limit in neighbor_limits), 'neighbor_limits must be a list of integers'
@@ -108,8 +109,8 @@ def geotransformer_collate_fn(
 
     # Call pcr_collator
     collated_data = pcr_collate_fn(
-        src_points=unpacked_data['src_points'],
-        tgt_points=unpacked_data['tgt_points'],
+        src_points=unpacked_data['tgt_points'],
+        tgt_points=unpacked_data['src_points'],
         architecture=architecture,
         downsample_fn=grid_subsample,
         neighbor_fn=radius_search,
