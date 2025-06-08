@@ -6,7 +6,7 @@ from agents.viewer.backend import get_progress
 from utils.monitor.gpu_monitor import GPUMonitor
 
 
-def register_callbacks(app, config_files: List[str], expected_files: List[str], epochs: int, gpu_monitor: GPUMonitor):
+def register_callbacks(app, config_files: List[str], expected_files: List[str], epochs: int, gpu_monitor: GPUMonitor, user_names: Dict[str, str]):
     """Register callbacks for the dashboard.
     
     Args:

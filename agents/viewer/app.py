@@ -19,7 +19,7 @@ class AgentsViewerApp:
         self._init_gpu_monitor(gpu_pool)
         self.app = dash.Dash(__name__)
         self.app.layout = create_layout(config_files, expected_files, epochs, self.gpu_monitor, user_names)
-        register_callbacks(self.app, config_files, expected_files, epochs, self.gpu_monitor)
+        register_callbacks(self.app, config_files, expected_files, epochs, self.gpu_monitor, user_names)
 
     def _init_gpu_monitor(self, gpu_pool: List[Tuple[str, List[int]]]) -> None:
         gpus = [
