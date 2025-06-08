@@ -3,6 +3,7 @@ import dash
 from .layout import create_layout, initialize_monitor
 from .callback import register_callbacks
 
+
 def create_app(config_files: List[str], expected_files: List[str], epochs: int, gpu_pool: List[Tuple[str, List[int]]]) -> dash.Dash:
     """Create the Dash application.
     
