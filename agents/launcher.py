@@ -211,6 +211,5 @@ class Launcher(BaseAgent):
             if done:
                 self.logger.info("All done.")
 
-            self.logger.info("")
-
+            self.logger.info(f"Sleeping for {self.sleep_time} seconds...")
             time.sleep(self.sleep_time)
