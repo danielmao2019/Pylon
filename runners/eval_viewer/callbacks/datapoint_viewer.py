@@ -77,18 +77,15 @@ def register_datapoint_viewer_callbacks(
             run_idx = None
             datapoint_idx = int(index_parts[0])
             current_dataset = dataset  # Use the dataset built from dataset_cfg
-            collate_fn = None  # No collate function for overlaid view
+            datapoint = current_dataset[datapoint_idx]
         else:
-            # Individual score map button click - use run-specific dataset and collate function
+            # Individual score map button click - use run-specific dataset and dataloader
             run_idx = int(index_parts[0])
             datapoint_idx = int(index_parts[1])
             run_info = list(log_dir_infos.values())[run_idx]
             current_dataset = build_from_config(run_info.dataset_cfg)
-            collate_fn = build_from_config(run_info.collate_fn_cfg)
-
-        # Load and process datapoint
-        datapoint = current_dataset[datapoint_idx]
-        if collate_fn is not None:
+            dataloader = build_from_config(run_info.dataloader_cfg)
+            collate_fn = dataloader.collate_fn
             datapoint = collate_fn([datapoint])  # Apply collate function to single datapoint
 
         # Get the appropriate display function
