@@ -1,4 +1,5 @@
-from typing import List
+from typing import List, Optional
+import numpy as np
 from dash import html, dcc
 
 
@@ -80,6 +81,94 @@ def create_color_bar(min_score: float, max_score: float) -> html.Div:
             ], style={'display': 'flex', 'flexDirection': 'column', 'justifyContent': 'space-between'})
         ], style={'display': 'flex', 'alignItems': 'center'})
     ], style={'marginLeft': '10px'})
+
+
+def create_button_grid(
+    num_datapoints: int,
+    score_map: np.ndarray,
+    button_type: str,
+    run_idx: int = None,
+    min_score: Optional[float] = None,
+    max_score: Optional[float] = None,
+) -> html.Div:
+    """Create a button grid from a score map.
+
+    Args:
+        num_datapoints: Number of datapoints in the dataset
+        score_map: Score map array of shape (H, W)
+        button_type: Type of button ('overlaid-grid-button' for overlaid, 'individual-grid-button' for individual)
+        run_idx: Index of the run (only needed for individual buttons)
+        min_score: Global minimum score for color scaling (if None, use local min)
+        max_score: Global maximum score for color scaling (if None, use local max)
+
+    Returns:
+        Button grid as an HTML div
+    """
+    side_length = score_map.shape[0]
+
+    # Use global min/max if provided, otherwise use local min/max
+    if min_score is None:
+        min_score = np.nanmin(score_map)
+    if max_score is None:
+        max_score = np.nanmax(score_map)
+
+    buttons = []
+    for row in range(side_length):
+        for col in range(side_length):
+            idx = row * side_length + col
+            if idx >= num_datapoints:
+                # This is a padding position - no button at all
+                buttons.append(html.Div(style={
+                    'width': '20px',
+                    'height': '20px',
+                    'padding': '0',
+                    'margin': '0',
+                }))
+                continue
+
+            value = score_map[row, col]
+            button_id = {'type': button_type, 'index': f'{run_idx}-{idx}' if run_idx is not None else str(idx)}
+
+            if np.isnan(value):
+                # This is a NaN score - show gray button
+                button = html.Button(
+                    '',
+                    id=button_id,
+                    style={
+                        'width': '20px',
+                        'height': '20px',
+                        'padding': '0',
+                        'margin': '0',
+                        'border': 'none',
+                        'backgroundColor': '#f0f0f0',  # Light gray for NaN values
+                        'cursor': 'not-allowed'  # Show that these buttons are not clickable
+                    }
+                )
+            else:
+                # This is a valid score - show colored button
+                color = get_color_for_score(value, min_score, max_score)
+                button = html.Button(
+                    '',
+                    id=button_id,
+                    style={
+                        'width': '20px',
+                        'height': '20px',
+                        'padding': '0',
+                        'margin': '0',
+                        'border': 'none',
+                        'backgroundColor': color,
+                        'cursor': 'pointer'
+                    }
+                )
+            buttons.append(button)
+
+    return html.Div(buttons, style={
+        'display': 'grid',
+        'gridTemplateColumns': f'repeat({side_length}, 20px)',
+        'gap': '1px',
+        'width': 'fit-content',
+        'margin': '0 auto'
+    })
 
 
 def create_individual_score_maps_layout(run_names: List[str]) -> html.Div:
