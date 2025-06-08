@@ -59,7 +59,7 @@ def get_run_status(
             status = 'outdated'
         else:
             status = 'finished'
-    elif (not is_running_status) and (work_dir in gpu_running_work_dirs):
+    elif work_dir in gpu_running_work_dirs:
         status = 'stuck'
     else:
         status = 'failed'

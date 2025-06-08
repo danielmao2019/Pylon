@@ -13,10 +13,10 @@ class AgentsViewerApp:
         config_files: List[str],
         expected_files: List[str],
         epochs: int,
-        sleep_time: int,
-        outdated_days: int,
-        gpu_pool: List[Tuple[str, List[int]]],
-        user_names: Dict[str, str],
+        sleep_time: int = 180,
+        outdated_days: int = 120,
+        gpu_pool: List[Tuple[str, List[int]]] = [],
+        user_names: Dict[str, str] = {},
     ) -> None:
         self._init_gpu_monitor(gpu_pool)
         self.app = dash.Dash(__name__)
