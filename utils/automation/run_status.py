@@ -166,8 +166,8 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> int:
 
 def parse_config(cmd: str) -> str:
     """Extract config filepath from command string."""
-    assert 'python' in cmd
-    assert '--config-filepath' in cmd
+    assert 'python' in cmd, f"{cmd=}"
+    assert '--config-filepath' in cmd, f"{cmd=}"
     parts = cmd.split(' ')
     for idx, part in enumerate(parts):
         if part == "--config-filepath":
