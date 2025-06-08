@@ -14,11 +14,12 @@ class AgentsViewerApp:
         expected_files: List[str],
         epochs: int,
         gpu_pool: List[Tuple[str, List[int]]],
+        user_names: Dict[str, str],
     ) -> None:
         self._init_gpu_monitor(gpu_pool)
         self.app = dash.Dash(__name__)
-        self.app.layout = create_layout(config_files, expected_files, epochs)
-        register_callbacks(self.app, config_files, expected_files, epochs)
+        self.app.layout = create_layout(config_files, expected_files, epochs, self.gpu_monitor, user_names)
+        register_callbacks(self.app, config_files, expected_files, epochs, self.gpu_monitor)
 
     def _init_gpu_monitor(self, gpu_pool: List[Tuple[str, List[int]]]) -> None:
         gpus = [

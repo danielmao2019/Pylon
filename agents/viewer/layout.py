@@ -1,19 +1,15 @@
 from typing import List, Dict, Any
 import dash
 from dash import dcc, html, dash_table
-from project.user_names import user_names
 from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 from agents.viewer.backend import get_progress
 
 
-def generate_table_data() -> List[Dict[str, Any]]:
+def generate_table_data(gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> List[Dict[str, Any]]:
     """Generate table data from the GPU monitor status."""
-    if monitor is None:
-        return []
-        
     table_data = []
-    for gpu in monitor.gpus:
+    for gpu in gpu_monitor.gpus:
         if not gpu['processes']:
             table_data.append({
                 "Server": gpu['server'],
@@ -59,7 +55,7 @@ def generate_table_style(table_data):
     return styles
 
 
-def create_layout(config_files: List[str], expected_files: List[str], epochs: int) -> html.Div:
+def create_layout(config_files: List[str], expected_files: List[str], epochs: int, gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> html.Div:
     """Create the dashboard layout.
     
     Args:
@@ -74,7 +70,7 @@ def create_layout(config_files: List[str], expected_files: List[str], epochs: in
     
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     initial_progress = f"Progress: {get_progress(config_files, expected_files, epochs)}%"
-    initial_data = generate_table_data()
+    initial_data = generate_table_data(gpu_monitor, user_names)
     initial_style = generate_table_style(initial_data)
 
     return html.Div([
