@@ -35,6 +35,12 @@ class GPUMonitor:
         # Get current GPU info
         current_info = get_gpu_info(gpu['server'], gpu['index'])
 
+        # Update processes
+        gpu['processes'] = current_info['processes']
+
+        # Update max memory
+        gpu['max_memory'] = current_info['max_memory']
+
         # Update rolling windows
         gpu['memory_window'].append(current_info['current_memory'])
         gpu['util_window'].append(current_info['current_util'])
@@ -56,9 +62,6 @@ class GPUMonitor:
             'max': max(gpu['util_window']),
             'avg': sum(gpu['util_window']) / len(gpu['util_window'])
         }
-
-        # Update processes
-        gpu['processes'] = current_info['processes']
 
     def check(self) -> Dict:
         """Returns current status of all GPUs without rolling windows"""
