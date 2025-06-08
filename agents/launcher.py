@@ -6,7 +6,8 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.monitor.gpu_status import GPUStatus
+from utils.automation.run_status import has_failed, has_stuck, has_outdated
+from utils.monitor.gpu_status import GPUStatus, find_running
 from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
 
@@ -19,7 +20,7 @@ class Launcher(BaseAgent):
         expected_files: List[str],
         project_dir: str,
         conda_env: str,
-        gpu_pool: List[Tuple[str, List[int]]],  # Changed from servers
+        gpu_pool: List[Tuple[str, List[int]]],
         log_path: str,
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
