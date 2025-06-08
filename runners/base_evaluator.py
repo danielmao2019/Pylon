@@ -140,7 +140,6 @@ class BaseEvaluator:
 
         # Log GPU stats if available
         if self.gpu_monitor is not None:
-            self.gpu_monitor.update()
             self.gpu_monitor.log_stats(self.logger)
 
         # Log time
