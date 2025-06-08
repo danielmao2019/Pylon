@@ -144,7 +144,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         max_score = max(np.nanmax(score_map) for score_map in score_maps)
 
         # Create button grids and color bars in parallel
-        results = []
+        results = [None] * len(score_maps)  # Pre-allocate list to maintain order
         with ThreadPoolExecutor() as executor:
             # Submit all tasks
             future_to_idx = {
@@ -157,6 +157,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
             # Collect results in order
             for future in as_completed(future_to_idx):
                 run_idx, grid_and_bar = future.result()
-                results.extend(grid_and_bar)
+                results[run_idx] = grid_and_bar  # Place results in correct position
         
-        return results
+        # Flatten the results list
+        return [item for sublist in results for item in sublist]
