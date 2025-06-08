@@ -10,7 +10,7 @@ from dash.dependencies import Input, Output
 from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import get_session_progress, has_stuck, has_failed, has_outdated, parse_config, find_running
-from utils.monitor.gpu_status import GPUInfo
+from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
 from concurrent.futures import ThreadPoolExecutor
@@ -47,7 +47,7 @@ class Launcher(BaseAgent):
         
         # Initialize GPU objects from pool
         self.gpus = [
-            GPUInfo(
+            GPUStatus(
                 server=server,
                 index=idx,
                 max_memory=0,  # Will be populated by monitor
