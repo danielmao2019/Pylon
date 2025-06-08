@@ -3,7 +3,6 @@ import datetime
 from dash import Input, Output
 from agents.viewer.layout import generate_table_data, generate_table_style
 from agents.viewer.backend import get_progress
-from utils.automation.run_status import get_all_run_status
 from utils.monitor.gpu_monitor import GPUMonitor
 
 
