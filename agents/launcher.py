@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import os
 import time
 import random
@@ -9,8 +9,9 @@ from dash import dcc, html, dash_table
 from dash.dependencies import Input, Output
 from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.automation.run_status import get_session_progress, has_stuck, has_failed, has_outdated, parse_config
-from utils.monitor.gpu_status import get_server_status, get_all_p, find_running
+from utils.automation.run_status import get_session_progress, has_stuck, has_failed, has_outdated, parse_config, find_running
+from utils.monitor.gpu_status import GPUInfo
+from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
 from concurrent.futures import ThreadPoolExecutor
 
@@ -23,7 +24,7 @@ class Launcher(BaseAgent):
         expected_files: List[str],
         project_dir: str,
         conda_env: str,
-        servers: List[str],
+        gpu_pool: List[Tuple[str, List[int]]],  # Changed from servers
         log_path: str,
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
@@ -32,65 +33,38 @@ class Launcher(BaseAgent):
         r"""
         Args:
             config_files (List[str]): the set of experiments to take care of.
-            servers (List[str]): a list of setup servers.
+            gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
             expected_files (List[str]): the expected files under a work dir to check for.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
         """
         super(Launcher, self).__init__(config_files=config_files, expected_files=expected_files)
         self.project_dir = project_dir
         self.conda_env = conda_env
-        self.servers = servers
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
         self.logger = TextLogger(filepath=log_path)
-        self._init_status()
-
-    def _init_status(self) -> None:
-        self.status = {}
-        threading.Thread(target=self._get_status, daemon=True).start()
-        self.logger.info("Waiting for status initialization...")
-        while set(self.status.keys()) != set(self.servers):
-            time.sleep(1)
-        self.logger.info("Status initialized.")
-
-    def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
-        while True:
-            def process_server(server):
-                # initialize
-                if server not in self.status:
-                    self.status[server] = []
-                # retrieve
-                try:
-                    server_status = get_server_status(server)
-                except Exception as e:
-                    self.logger.error(f"{server=}, {e}")
-                    return
-                # collect
-                if not self.status[server]:
-                    self.status[server] = [{
-                        'processes': None,
-                        'util': {
-                            'fmem': [],
-                            'fmem_avg': None,
-                            'util': [],
-                            'util_avg': None,
-                        },
-                    } for _ in range(len(server_status))]
-                for idx, gpu_status in enumerate(server_status):
-                    self.status[server][idx]['processes'] = gpu_status['processes']
-                    self.status[server][idx]['util']['fmem'].append(gpu_status['util']['fmem'])
-                    if len(self.status[server][idx]['util']['fmem']) > window_size:
-                        self.status[server][idx]['util']['fmem'] = self.status[server][idx]['util']['fmem'][-window_size:]
-                    self.status[server][idx]['util']['fmem_avg'] = sum(self.status[server][idx]['util']['fmem']) / len(self.status[server][idx]['util']['fmem'])
-                    self.status[server][idx]['util']['util'].append(gpu_status['util']['util'])
-                    if len(self.status[server][idx]['util']['util']) > window_size:
-                        self.status[server][idx]['util']['util'] = self.status[server][idx]['util']['util'][-window_size:]
-                    self.status[server][idx]['util']['util_avg'] = sum(self.status[server][idx]['util']['util']) / len(self.status[server][idx]['util']['util'])
-
-            with ThreadPoolExecutor() as executor:
-                list(executor.map(process_server, self.servers))
-            time.sleep(interval)
+        
+        # Initialize GPU objects from pool
+        self.gpus = [
+            GPUInfo(
+                server=server,
+                index=idx,
+                max_memory=0,  # Will be populated by monitor
+                processes=[],
+                window_size=10,
+                memory_window=[],
+                util_window=[],
+                memory_stats={'min': None, 'max': None, 'avg': None},
+                util_stats={'min': None, 'max': None, 'avg': None}
+            )
+            for server, indices in gpu_pool
+            for idx in indices
+        ]
+        
+        # Initialize monitor
+        self.monitor = GPUMonitor(self.gpus)
+        self.monitor.start()
 
     # ====================================================================================================
     # dashboard
@@ -248,47 +222,40 @@ class Launcher(BaseAgent):
                 gpu_index (int): index of GPU on the server.
             }
         """
-        def process_server(server):
-            idle_gpus = []
-            server_status = self.status[server]
-            for idx, gpu_status in enumerate(server_status):
-                if (
-                    gpu_status['util']['util_avg'] < 50 and
-                    gpu_status['util']['fmem_avg'] > 12 * 1024 and
-                    len(gpu_status['processes']) < num_jobs
-                ):
-                    idle_gpus.append({
-                        'server': server,
-                        'gpu_index': idx,
-                    })
-            return idle_gpus
-
-        with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_server, self.servers))
-        return [gpu for server_gpus in results for gpu in server_gpus]
+        idle_gpus = []
+        for gpu in self.gpus:
+            if (
+                gpu['util_stats']['avg'] < 50 and
+                gpu['memory_stats']['avg'] > 12 * 1024 and
+                len(gpu['processes']) < num_jobs
+            ):
+                idle_gpus.append({
+                    'server': gpu['server'],
+                    'gpu_index': gpu['index'],
+                })
+        return idle_gpus
 
     def _remove_stuck(self, all_running: List[Dict[str, Any]]) -> None:
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
 
-        def process_server(server):
-            server_stuck_info = {}
-            server_pids = get_all_p(server)
-            for pid in server_pids:
+        def process_gpu(gpu):
+            gpu_stuck_info = {}
+            for proc in gpu['processes']:
                 try:
-                    cfg = parse_config(server_pids[pid]['cmd'])
+                    cfg = parse_config(proc['cmd'])
                     if cfg in stuck_cfgs:
-                        server_stuck_info[cfg] = (server, pid)
+                        gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
                 except:
                     pass
-            return server_stuck_info
+            return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_server, self.servers))
+            results = list(executor.map(process_gpu, self.gpus))
 
-        # Combine all server results into a single dictionary
+        # Combine all GPU results into a single dictionary
         stuck_cfgs_info = {}
-        for server_info in results:
-            stuck_cfgs_info.update(server_info)
+        for gpu_info in results:
+            stuck_cfgs_info.update(gpu_info)
 
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
@@ -354,9 +321,10 @@ class Launcher(BaseAgent):
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
+            servers = list(set([gpu['server'] for gpu in self.gpus]))
             with ThreadPoolExecutor() as executor:
-                results = list(executor.map(find_running, self.servers))
-            all_running = [process for server_running in results for process in server_running]
+                results = list(executor.map(find_running, servers))
+                all_running = [run for server_runs in results for run in server_runs]
 
             self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_running)
