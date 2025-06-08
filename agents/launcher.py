@@ -7,8 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import RunStatus, get_all_run_status, parse_config
-from utils.monitor.gpu_status import GPUStatus
-from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
 
 
@@ -18,57 +16,43 @@ class Launcher(BaseAgent):
         self,
         config_files: List[str],
         expected_files: List[str],
-        project_dir: str,
-        conda_env: str,
-        gpu_pool: List[Tuple[str, List[int]]],
-        log_path: str,
         epochs: int = 100,
-        sleep_time: Optional[int] = 180,
+        sleep_time: int = 180,
         outdated_days: int = 120,
+        gpu_pool: List[Tuple[str, List[int]]] = [],
+        user_names: Dict[str, str] = {},
+        log_path: str = "",
+        project_dir: str = "",
+        conda_env: str = "",
         keep_tmux: Optional[bool] = False,
     ) -> None:
         r"""
         Args:
             config_files (List[str]): the set of experiments to take care of.
             expected_files (List[str]): the expected files under a work dir to check for.
-            project_dir (str): the project directory.
-            conda_env (str): the conda environment to use.
-            gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
-            log_path (str): the path to the log file.
             epochs (int): the number of epochs to run.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
             outdated_days (int): the number of days to wait to consider a run outdated.
+            gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
+            user_names (Dict[str, str]): the user names for the servers.
+            log_path (str): the path to the log file.
+            project_dir (str): the project directory.
+            conda_env (str): the conda environment to use.
             keep_tmux (Optional[bool]): whether to keep the tmux session alive.
         """
-        super(Launcher, self).__init__(config_files=config_files, expected_files=expected_files)
+        super(Launcher, self).__init__(
+            config_files=config_files,
+            expected_files=expected_files,
+            epochs=epochs,
+            sleep_time=sleep_time,
+            outdated_days=outdated_days,
+            gpu_pool=gpu_pool,
+            user_names=user_names,
+        )
         self.project_dir = project_dir
         self.conda_env = conda_env
-        self.epochs = epochs
-        self.sleep_time = sleep_time
-        self.outdated_days = outdated_days
         self.keep_tmux = keep_tmux
         self.logger = TextLogger(filepath=log_path)
-
-        # Initialize GPU objects from pool
-        self.gpus = [
-            GPUStatus(
-                server=server,
-                index=idx,
-                max_memory=0,  # Will be populated by monitor
-                processes=[],
-                window_size=10,
-                memory_window=[],
-                util_window=[],
-                memory_stats={'min': None, 'max': None, 'avg': None},
-                util_stats={'min': None, 'max': None, 'avg': None}
-            )
-            for server, indices in gpu_pool
-            for idx in indices
-        ]
-
-        # Initialize monitor
-        self.monitor = GPUMonitor(self.gpus)
-        self.monitor.start()
 
     # ====================================================================================================
     # experiment management

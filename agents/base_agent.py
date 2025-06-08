@@ -10,7 +10,7 @@ class BaseAgent(ABC):
         self,
         config_files: List[str],
         expected_files: List[str],
-        epochs: int,
+        epochs: int = 100,
         sleep_time: int = 180,
         outdated_days: int = 120,
         gpu_pool: List[Tuple[str, List[int]]] = [],
@@ -25,7 +25,7 @@ class BaseAgent(ABC):
         self.user_names = user_names
 
     def _init_gpu_monitor(self, gpu_pool: List[Tuple[str, List[int]]]) -> None:
-        gpus = [
+        self.gpus = [
             GPUStatus(
                 server=server,
                 index=idx,
@@ -40,6 +40,6 @@ class BaseAgent(ABC):
             for server, indices in gpu_pool
             for idx in indices
         ]
-        self.gpu_monitor = GPUMonitor(gpus)
+        self.gpu_monitor = GPUMonitor(self.gpus)
         self.gpu_monitor.start()
         self.servers = [server for server, _ in gpu_pool]
