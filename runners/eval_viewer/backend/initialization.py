@@ -5,7 +5,6 @@ import json
 import numpy as np
 import pickle
 from pathlib import Path
-from data.collators.base_collator import BaseCollator
 from data.viewer.managers.registry import get_dataset_type, DatasetType, CONFIG_DIRS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
@@ -23,7 +22,7 @@ class LogDirInfo(NamedTuple):
     dataset_class: str
     dataset_type: DatasetType  # 2d_change_detection, 3d_change_detection, point_cloud_registration, etc.
     dataset_cfg: Dict[str, Any]
-    collate_fn_cfg: Dict[str, Any]
+    dataloader_cfg: Dict[str, Any]
 
 
 def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray, float]:
@@ -229,7 +228,7 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
         log_dir: Path to log directory
 
     Returns:
-        Tuple of (dataset_class, dataset_type, dataset_cfg, collate_fn_cfg)
+        Tuple of (dataset_class, dataset_type, dataset_cfg, dataloader_cfg)
 
     Raises:
         ValueError: If config file not found or invalid
@@ -247,11 +246,10 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
     spec.loader.exec_module(module)
     config = module.config
 
-    # Extract dataset and collate function configs
+    # Extract dataset and dataloader configs
     dataset_cfg = config['val_dataset']
     dataloader_cfg = config['val_dataloader']
-    collate_fn_cfg = dataloader_cfg.get('collate_fn', {'class': BaseCollator, 'args': {}})
-    return dataset_class, dataset_type, dataset_cfg, collate_fn_cfg
+    return dataset_class, dataset_type, dataset_cfg, dataloader_cfg
 
 
 def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo:
@@ -285,7 +283,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     # Extract information from source files
     epoch_dirs = get_epoch_dirs(log_dir)
     metric_names, num_datapoints, score_map, aggregated_scores = get_score_map(epoch_dirs)
-    dataset_class, dataset_type, dataset_cfg, collate_fn_cfg = get_data_info(log_dir)
+    dataset_class, dataset_type, dataset_cfg, dataloader_cfg = get_data_info(log_dir)
 
     # Create LogDirInfo object
     info = LogDirInfo(
@@ -297,7 +295,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         dataset_class=dataset_class,
         dataset_type=dataset_type,
         dataset_cfg=dataset_cfg,
-        collate_fn_cfg=collate_fn_cfg,
+        dataloader_cfg=dataloader_cfg,
     )
 
     # Save to cache
