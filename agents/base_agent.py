@@ -42,3 +42,4 @@ class BaseAgent(ABC):
         ]
         self.gpu_monitor = GPUMonitor(gpus)
         self.gpu_monitor.start()
+        self.servers = [server for server, _ in gpu_pool]
