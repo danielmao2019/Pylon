@@ -127,9 +127,9 @@ class GPUStatus(TypedDict):
 
 def get_gpu_memory(server: str, gpu_index: int) -> int:
     """Get total memory for a specific GPU"""
-    cmd = ['ssh', server, 'nvidia-smi', 
+    cmd = ['ssh', server, 'nvidia-smi',
            '--query-gpu=memory.total',
-           '--format=csv,noheader,nounits', 
+           '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
     output = subprocess.check_output(cmd).decode().strip()
     return int(output)
@@ -137,9 +137,9 @@ def get_gpu_memory(server: str, gpu_index: int) -> int:
 
 def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
     """Get current memory and utilization for a specific GPU"""
-    cmd = ['ssh', server, 'nvidia-smi', 
+    cmd = ['ssh', server, 'nvidia-smi',
            '--query-gpu=memory.used,utilization.gpu',
-           '--format=csv,noheader,nounits', 
+           '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
     output = subprocess.check_output(cmd).decode().strip()
     memory_used, gpu_util = map(int, output.split(', '))
@@ -149,11 +149,11 @@ def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
 def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     """Get list of PIDs running on a specific GPU"""
     # Get GPU UUID
-    uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid', 
+    uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid',
                 '--format=csv,noheader', f'--id={gpu_index}']
     uuid_output = subprocess.check_output(uuid_cmd).decode().strip()
     gpu_uuid = uuid_output.split(', ')[1]
-    
+
     # Get PIDs for this UUID
     pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
                 '--format=csv,noheader']
@@ -171,12 +171,12 @@ def get_gpu_info(server: str, gpu_index: int) -> Dict:
     # Get basic GPU info
     max_memory = get_gpu_memory(server, gpu_index)
     util_info = get_gpu_utilization(server, gpu_index)
-    
+
     # Get process info
     gpu_pids = get_gpu_processes(server, gpu_index)
     all_processes = get_all_processes(server)
     processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
-    
+
     return {
         'server': server,
         'index': gpu_index,

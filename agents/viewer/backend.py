@@ -1,21 +1,31 @@
-from typing import List, Dict, Any
-import os
-import json
-import glob
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from utils.automation.cfg_log_conversion import get_work_dir
-from utils.automation.run_status import get_session_progress
+from typing import List
+from utils.automation.run_status import get_all_run_status
 
 
-def get_progress(config_files: List[str], expected_files: List[str], epochs: int) -> float:
-    """Get the progress of all config files in parallel."""
-    def process_config(config_file: str) -> int:
-        work_dir = get_work_dir(config_file)
-        cur_epochs = get_session_progress(work_dir=work_dir, expected_files=expected_files, epochs=epochs)
-        return int(cur_epochs / epochs * 100)
+def get_progress(
+    config_files: List[str],
+    expected_files: List[str],
+    epochs: int,
+    sleep_time: int,
+    outdated_days: int,
+    servers: List[str],
+) -> float:
+    """
+    Args:
+        config_files: List of config file paths
+        expected_files: List of expected file patterns
+        epochs: Total number of epochs
+        sleep_time: Time to wait for the status to update
+        outdated_days: Number of days to consider a run outdated
+        servers: List of servers
+    """
+    assert isinstance(config_files, list)
+    assert isinstance(expected_files, list)
+    assert isinstance(epochs, int)
+    assert isinstance(sleep_time, int)
+    assert isinstance(outdated_days, int)
+    assert isinstance(servers, list)
 
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(process_config, config_files))
-    
-    # Calculate average progress
-    return round(sum(results) / len(results), 2)
+    all_run_status = get_all_run_status(config_files, expected_files, epochs, sleep_time, outdated_days, servers)
+    all_run_progress = [run.progress for run in all_run_status]
+    return round(sum(all_run_progress) / len(all_run_progress), 2)

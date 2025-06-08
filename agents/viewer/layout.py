@@ -1,7 +1,6 @@
 from typing import List, Dict, Any
-import dash
 from dash import dcc, html, dash_table
-from utils.monitor.gpu_status import GPUStatus
+from utils.automation.run_status import RunStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 from agents.viewer.backend import get_progress
 
@@ -55,21 +54,44 @@ def generate_table_style(table_data):
     return styles
 
 
-def create_layout(config_files: List[str], expected_files: List[str], epochs: int, gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> html.Div:
+def create_layout(
+    config_files: List[str],
+    expected_files: List[str],
+    epochs: int,
+    sleep_time: int,
+    outdated_days: int,
+    servers: List[str],
+    gpu_monitor: GPUMonitor,
+    user_names: Dict[str, str],
+) -> html.Div:
     """Create the dashboard layout.
     
     Args:
         config_files: List of config file paths
         expected_files: List of expected file patterns
         epochs: Total number of epochs
+        sleep_time: Time to wait for the status to update
+        outdated_days: Number of days to consider a run outdated
+        servers: List of servers
+        gpu_monitor: GPUMonitor object
+        user_names: Dict of user names
         
     Returns:
         html.Div: The dashboard layout
     """
+    assert isinstance(config_files, list)
+    assert isinstance(expected_files, list)
+    assert isinstance(epochs, int)
+    assert isinstance(sleep_time, int)
+    assert isinstance(outdated_days, int)
+    assert isinstance(servers, list)
+    assert isinstance(gpu_monitor, GPUMonitor)
+    assert isinstance(user_names, dict)
+
     import datetime
     
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    initial_progress = f"Progress: {get_progress(config_files, expected_files, epochs)}%"
+    initial_progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, servers)}%"
     initial_data = generate_table_data(gpu_monitor, user_names)
     initial_style = generate_table_style(initial_data)
 
