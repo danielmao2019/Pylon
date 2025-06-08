@@ -80,6 +80,8 @@ class Launcher(BaseAgent):
         def process_gpu(gpu):
             gpu_stuck_info = {}
             for proc in gpu['processes']:
+                if proc['user'] != gpu['server'].split('@')[0]:
+                    continue
                 cfg = parse_config(proc['cmd'])
                 if cfg in stuck_cfgs:
                     gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
