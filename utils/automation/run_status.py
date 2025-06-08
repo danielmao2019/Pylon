@@ -80,6 +80,22 @@ def get_all_run_status(
     outdated_days: int = 30,
     servers: List[str] = [],
 ) -> List[RunStatus]:
+    """
+    Args:
+        config_files: List of config file paths
+        expected_files: List of expected file patterns
+        epochs: Total number of epochs
+        sleep_time: Time to wait for the status to update
+        outdated_days: Number of days to consider a run outdated
+        servers: List of servers
+    """
+    assert isinstance(config_files, list)
+    assert isinstance(expected_files, list)
+    assert isinstance(epochs, int)
+    assert isinstance(sleep_time, int)
+    assert isinstance(outdated_days, int)
+    assert isinstance(servers, list)
+
     with ThreadPoolExecutor() as executor:
         results = list(executor.map(find_running, servers))
     all_running = [run for server_runs in results for run in server_runs]
