@@ -79,6 +79,15 @@ def create_layout(
     Returns:
         html.Div: The dashboard layout
     """
+    assert isinstance(config_files, list)
+    assert isinstance(expected_files, list)
+    assert isinstance(epochs, int)
+    assert isinstance(sleep_time, int)
+    assert isinstance(outdated_days, int)
+    assert isinstance(servers, list)
+    assert isinstance(gpu_monitor, GPUMonitor)
+    assert isinstance(user_names, dict)
+
     import datetime
     
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
