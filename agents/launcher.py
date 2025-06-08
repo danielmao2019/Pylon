@@ -1,18 +1,14 @@
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import os
 import time
 import random
-import threading
 import subprocess
-import dash
-from dash import dcc, html, dash_table
-from dash.dependencies import Input, Output
+from concurrent.futures import ThreadPoolExecutor
 from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.automation.run_status import get_session_progress, has_stuck, has_failed, has_outdated, parse_config
-from utils.monitor.gpu_status import get_server_status, get_all_p, find_running
+from utils.monitor.gpu_status import GPUStatus
+from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
-from concurrent.futures import ThreadPoolExecutor
 
 
 class Launcher(BaseAgent):
@@ -23,7 +19,7 @@ class Launcher(BaseAgent):
         expected_files: List[str],
         project_dir: str,
         conda_env: str,
-        servers: List[str],
+        gpu_pool: List[Tuple[str, List[int]]],  # Changed from servers
         log_path: str,
         epochs: int = 100,
         sleep_time: Optional[int] = 180,
@@ -32,189 +28,38 @@ class Launcher(BaseAgent):
         r"""
         Args:
             config_files (List[str]): the set of experiments to take care of.
-            servers (List[str]): a list of setup servers.
+            gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
             expected_files (List[str]): the expected files under a work dir to check for.
             sleep_time (int): the time in seconds to wait to determine if a sessions is still running.
         """
         super(Launcher, self).__init__(config_files=config_files, expected_files=expected_files)
         self.project_dir = project_dir
         self.conda_env = conda_env
-        self.servers = servers
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
         self.logger = TextLogger(filepath=log_path)
-        self._init_status()
-
-    def _init_status(self) -> None:
-        self.status = {}
-        threading.Thread(target=self._get_status, daemon=True).start()
-        self.logger.info("Waiting for status initialization...")
-        while set(self.status.keys()) != set(self.servers):
-            time.sleep(1)
-        self.logger.info("Status initialized.")
-
-    def _get_status(self, interval: Optional[int] = 2, window_size: Optional[int] = 10) -> None:
-        while True:
-            def process_server(server):
-                # initialize
-                if server not in self.status:
-                    self.status[server] = []
-                # retrieve
-                try:
-                    server_status = get_server_status(server)
-                except Exception as e:
-                    self.logger.error(f"{server=}, {e}")
-                    return
-                # collect
-                if not self.status[server]:
-                    self.status[server] = [{
-                        'processes': None,
-                        'util': {
-                            'fmem': [],
-                            'fmem_avg': None,
-                            'util': [],
-                            'util_avg': None,
-                        },
-                    } for _ in range(len(server_status))]
-                for idx, gpu_status in enumerate(server_status):
-                    self.status[server][idx]['processes'] = gpu_status['processes']
-                    self.status[server][idx]['util']['fmem'].append(gpu_status['util']['fmem'])
-                    if len(self.status[server][idx]['util']['fmem']) > window_size:
-                        self.status[server][idx]['util']['fmem'] = self.status[server][idx]['util']['fmem'][-window_size:]
-                    self.status[server][idx]['util']['fmem_avg'] = sum(self.status[server][idx]['util']['fmem']) / len(self.status[server][idx]['util']['fmem'])
-                    self.status[server][idx]['util']['util'].append(gpu_status['util']['util'])
-                    if len(self.status[server][idx]['util']['util']) > window_size:
-                        self.status[server][idx]['util']['util'] = self.status[server][idx]['util']['util'][-window_size:]
-                    self.status[server][idx]['util']['util_avg'] = sum(self.status[server][idx]['util']['util']) / len(self.status[server][idx]['util']['util'])
-
-            with ThreadPoolExecutor() as executor:
-                list(executor.map(process_server, self.servers))
-            time.sleep(interval)
-
-    # ====================================================================================================
-    # dashboard
-    # ====================================================================================================
-
-    def _get_progress(self) -> float:
-        result: int = 0
-        for config_file in self.config_files:
-            work_dir = get_work_dir(config_file)
-            cur_epochs = get_session_progress(work_dir=work_dir, expected_files=self.expected_files, epochs=self.epochs)
-            percentage = int(cur_epochs / self.epochs * 100)
-            result += percentage
-        result: float = round(result / len(self.config_files), 2)
-        return result
-
-    def launch_dashboard(self, port: Optional[int] = 8050) -> None:
-        """Launches the dashboard to display server status."""
-
-        import datetime  # For displaying the last update timestamp
-        from project.user_names import user_names
-
-        # Initialize Dash app
-        app = dash.Dash(__name__)
-
-        # Helper function to generate table data from `self.status`
-        def generate_table_data(status: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-            table_data = []
-            for server, gpus in status.items():
-                for idx, gpu_info in enumerate(gpus):
-                    if not gpu_info['processes']:
-                        table_data.append({
-                            "Server": server,
-                            "GPU Index": idx,
-                            "GPU Utilization": f"{gpu_info['util']['util_avg']:.2f}%",
-                            "Free Memory": f"{gpu_info['util']['fmem_avg']:.2f} MiB",
-                            "User": None,
-                            "PID": None,
-                            "Start": None,
-                            "CMD": None,
-                        })
-                    else:
-                        for proc in sorted(gpu_info['processes'], key=lambda x: x['user']):
-                            table_data.append({
-                                "Server": server,
-                                "GPU Index": idx,
-                                "GPU Utilization": f"{gpu_info['util']['util_avg']:.2f}%",
-                                "Free Memory": f"{gpu_info['util']['fmem_avg']:.2f} MiB",
-                                "User": user_names.get(proc['user'], proc['user']),
-                                "PID": proc['pid'],
-                                "Start": proc['start'],
-                                "CMD": proc['cmd'],
-                            })
-            return table_data
-
-        # Generate alternating row styles based on server
-        def generate_table_style(table_data):
-            styles = []
-            color_map = {'color_1': 'white', 'color_2': 'lightblue'}
-            last_server = None
-            current_color = 'color_2'
-
-            for i, row in enumerate(table_data):
-                if row['Server'] != last_server:
-                    current_color = 'color_1' if current_color == 'color_2' else 'color_2'
-                    last_server = row['Server']
-
-                styles.append({
-                    'if': {'row_index': i},
-                    'backgroundColor': color_map[current_color]
-                })
-
-            return styles
-
-        initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        initial_progress = f"Progress: {self._get_progress()}%"
-        initial_data = generate_table_data(self.status)
-        initial_style = generate_table_style(initial_data)
-
-        # Layout of the Dash app
-        app.layout = html.Div([
-            html.H1("Server GPU Status Dashboard"),
-            html.Div(id='last-update', children=initial_last_update, style={'marginTop': '10px'}),  # Display the last update timestamp
-            html.Div(id='progress', children=initial_progress, style={'marginTop': '10px'}),  # New Div for progress
-            dcc.Interval(id='interval-component', interval=2*1000, n_intervals=0),  # Update every 2 seconds
-            dash_table.DataTable(
-                id='status-table',
-                columns=[
-                    {"name": "Server", "id": "Server"},
-                    {"name": "GPU Index", "id": "GPU Index"},
-                    {"name": "GPU Utilization", "id": "GPU Utilization"},
-                    {"name": "Free Memory", "id": "Free Memory"},
-                    {"name": "User", "id": "User"},
-                    {"name": "PID", "id": "PID"},
-                    {"name": "Start", "id": "Start"},
-                    {"name": "CMD", "id": "CMD"},
-                ],
-                data=initial_data,
-                merge_duplicate_headers=True,
-                style_cell={'textAlign': 'left', 'padding': '10px'},
-                style_header={'backgroundColor': 'rgb(230, 230, 230)', 'fontWeight': 'bold'},
-                style_data={'whiteSpace': 'normal', 'height': 'auto'},
-                style_data_conditional=initial_style,
+        
+        # Initialize GPU objects from pool
+        self.gpus = [
+            GPUStatus(
+                server=server,
+                index=idx,
+                max_memory=0,  # Will be populated by monitor
+                processes=[],
+                window_size=10,
+                memory_window=[],
+                util_window=[],
+                memory_stats={'min': None, 'max': None, 'avg': None},
+                util_stats={'min': None, 'max': None, 'avg': None}
             )
-        ])
-
-        # Callback to update table data, timestamp, and progress
-        @app.callback(
-            [
-                Output('last-update', 'children'),
-                Output('progress', 'children'),
-                Output('status-table', 'data'),
-                Output('status-table', 'style_data_conditional'),
-            ],
-            Input('interval-component', 'n_intervals')
-        )
-        def update_table(n_intervals):
-            last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-            progress = f"Progress: {self._get_progress()}%"  # Retrieve progress percentage
-            table_data = generate_table_data(self.status)
-            table_style = generate_table_style(table_data)
-            return last_update, progress, table_data, table_style
-
-        # Run app
-        app.run(debug=True, port=port)
+            for server, indices in gpu_pool
+            for idx in indices
+        ]
+        
+        # Initialize monitor
+        self.monitor = GPUMonitor(self.gpus)
+        self.monitor.start()
 
     # ====================================================================================================
     # experiment management
@@ -248,47 +93,40 @@ class Launcher(BaseAgent):
                 gpu_index (int): index of GPU on the server.
             }
         """
-        def process_server(server):
-            idle_gpus = []
-            server_status = self.status[server]
-            for idx, gpu_status in enumerate(server_status):
-                if (
-                    gpu_status['util']['util_avg'] < 50 and
-                    gpu_status['util']['fmem_avg'] > 12 * 1024 and
-                    len(gpu_status['processes']) < num_jobs
-                ):
-                    idle_gpus.append({
-                        'server': server,
-                        'gpu_index': idx,
-                    })
-            return idle_gpus
-
-        with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_server, self.servers))
-        return [gpu for server_gpus in results for gpu in server_gpus]
+        idle_gpus = []
+        for gpu in self.gpus:
+            if (
+                gpu['util_stats']['avg'] < 50 and
+                gpu['memory_stats']['avg'] > 12 * 1024 and
+                len(gpu['processes']) < num_jobs
+            ):
+                idle_gpus.append({
+                    'server': gpu['server'],
+                    'gpu_index': gpu['index'],
+                })
+        return idle_gpus
 
     def _remove_stuck(self, all_running: List[Dict[str, Any]]) -> None:
         stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
 
-        def process_server(server):
-            server_stuck_info = {}
-            server_pids = get_all_p(server)
-            for pid in server_pids:
+        def process_gpu(gpu):
+            gpu_stuck_info = {}
+            for proc in gpu['processes']:
                 try:
-                    cfg = parse_config(server_pids[pid]['cmd'])
+                    cfg = parse_config(proc['cmd'])
                     if cfg in stuck_cfgs:
-                        server_stuck_info[cfg] = (server, pid)
+                        gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
                 except:
                     pass
-            return server_stuck_info
+            return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_server, self.servers))
+            results = list(executor.map(process_gpu, self.gpus))
 
-        # Combine all server results into a single dictionary
+        # Combine all GPU results into a single dictionary
         stuck_cfgs_info = {}
-        for server_info in results:
-            stuck_cfgs_info.update(server_info)
+        for gpu_info in results:
+            stuck_cfgs_info.update(gpu_info)
 
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
@@ -354,9 +192,10 @@ class Launcher(BaseAgent):
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
+            servers = list(set([gpu['server'] for gpu in self.gpus]))
             with ThreadPoolExecutor() as executor:
-                results = list(executor.map(find_running, self.servers))
-            all_running = [process for server_running in results for process in server_running]
+                results = list(executor.map(find_running, servers))
+                all_running = [run for server_runs in results for run in server_runs]
 
             self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_running)

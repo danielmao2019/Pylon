@@ -13,6 +13,7 @@ import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
+from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
@@ -84,7 +85,28 @@ class BaseTrainer(ABC):
 
         # Initialize GPU monitor
         if torch.cuda.is_available():
-            self.gpu_monitor = GPUMonitor()
+            # Get physical device index
+            device_index = torch.cuda.current_device()
+            cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
+            if cuda_visible_devices:
+                visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
+                physical_device_index = visible_devices[device_index]
+            else:
+                physical_device_index = device_index
+
+            gpu = GPUStatus(
+                server='localhost',  # or get from environment
+                index=physical_device_index,
+                max_memory=0,
+                processes=[],
+                window_size=10,
+                memory_window=[],
+                util_window=[],
+                memory_stats={'min': None, 'max': None, 'avg': None},
+                util_stats={'min': None, 'max': None, 'avg': None}
+            )
+            self.gpu_monitor = GPUMonitor([gpu])
+            self.gpu_monitor.start()
         else:
             self.gpu_monitor = None
 

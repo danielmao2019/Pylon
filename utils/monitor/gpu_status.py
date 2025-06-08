@@ -1,5 +1,6 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, TypedDict, Optional
 import subprocess
+from utils.monitor.process_info import ProcessInfo, get_all_processes
 
 
 def _build_mapping(output: str) -> Dict[str, List[str]]:
@@ -110,3 +111,77 @@ def find_running(server: str) -> List[Dict[str, Any]]:
                 'command': command
             })
     return all_running
+
+
+class GPUStatus(TypedDict):
+    server: str
+    index: int
+    max_memory: int
+    processes: List[ProcessInfo]
+    window_size: int
+    memory_window: List[int]
+    util_window: List[int]
+    memory_stats: dict[str, Optional[float]]
+    util_stats: dict[str, Optional[float]]
+
+
+def get_gpu_memory(server: str, gpu_index: int) -> int:
+    """Get total memory for a specific GPU"""
+    cmd = ['ssh', server, 'nvidia-smi', 
+           '--query-gpu=memory.total',
+           '--format=csv,noheader,nounits', 
+           f'--id={gpu_index}']
+    output = subprocess.check_output(cmd).decode().strip()
+    return int(output)
+
+
+def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
+    """Get current memory and utilization for a specific GPU"""
+    cmd = ['ssh', server, 'nvidia-smi', 
+           '--query-gpu=memory.used,utilization.gpu',
+           '--format=csv,noheader,nounits', 
+           f'--id={gpu_index}']
+    output = subprocess.check_output(cmd).decode().strip()
+    memory_used, gpu_util = map(int, output.split(', '))
+    return {'memory': memory_used, 'util': gpu_util}
+
+
+def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
+    """Get list of PIDs running on a specific GPU"""
+    # Get GPU UUID
+    uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid', 
+                '--format=csv,noheader', f'--id={gpu_index}']
+    uuid_output = subprocess.check_output(uuid_cmd).decode().strip()
+    gpu_uuid = uuid_output.split(', ')[1]
+    
+    # Get PIDs for this UUID
+    pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
+                '--format=csv,noheader']
+    pids_output = subprocess.check_output(pids_cmd).decode().strip()
+    pids = []
+    for line in pids_output.splitlines():
+        uuid, pid = line.split(', ')
+        if uuid == gpu_uuid:
+            pids.append(pid)
+    return pids
+
+
+def get_gpu_info(server: str, gpu_index: int) -> Dict:
+    """Get all information for a specific GPU"""
+    # Get basic GPU info
+    max_memory = get_gpu_memory(server, gpu_index)
+    util_info = get_gpu_utilization(server, gpu_index)
+    
+    # Get process info
+    gpu_pids = get_gpu_processes(server, gpu_index)
+    all_processes = get_all_processes(server)
+    processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
+    
+    return {
+        'server': server,
+        'index': gpu_index,
+        'max_memory': max_memory,
+        'processes': processes,
+        'current_memory': util_info['memory'],
+        'current_util': util_info['util']
+    }

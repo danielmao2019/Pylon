@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from runners.eval_viewer.backend.initialization import LogDirInfo
 from runners.eval_viewer.backend.visualization import create_aggregated_scores_plot, create_overlaid_score_map
-from runners.eval_viewer.layouts.main_layout import create_button_grid, create_color_bar
+from runners.eval_viewer.layout.main_layout import create_button_grid, create_color_bar
 
 
 def get_color_for_score(score: float, min_score: float, max_score: float) -> str:
