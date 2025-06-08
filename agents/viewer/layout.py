@@ -1,7 +1,6 @@
 from typing import List, Dict, Any
-import dash
 from dash import dcc, html, dash_table
-from utils.monitor.gpu_status import GPUStatus
+from utils.automation.run_status import RunStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 from agents.viewer.backend import get_progress
 
@@ -55,13 +54,13 @@ def generate_table_style(table_data):
     return styles
 
 
-def create_layout(config_files: List[str], expected_files: List[str], epochs: int, gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> html.Div:
+def create_layout(all_run_status: List[RunStatus], gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> html.Div:
     """Create the dashboard layout.
     
     Args:
-        config_files: List of config file paths
-        expected_files: List of expected file patterns
-        epochs: Total number of epochs
+        all_run_status: List of RunStatus objects
+        gpu_monitor: GPUMonitor object
+        user_names: Dict of user names
         
     Returns:
         html.Div: The dashboard layout
@@ -69,7 +68,7 @@ def create_layout(config_files: List[str], expected_files: List[str], epochs: in
     import datetime
     
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    initial_progress = f"Progress: {get_progress(config_files, expected_files, epochs)}%"
+    initial_progress = f"Progress: {get_progress(all_run_status)}%"
     initial_data = generate_table_data(gpu_monitor, user_names)
     initial_style = generate_table_style(initial_data)
 
