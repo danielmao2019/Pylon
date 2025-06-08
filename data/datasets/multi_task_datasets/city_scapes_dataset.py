@@ -9,7 +9,12 @@ import utils
 
 
 class CityScapesDataset(BaseDataset):
-    __doc__ = r"""Reference: https://github.com/SamsungLabs/MTL/blob/master/code/data/datasets/cityscapes.py
+    __doc__ = r"""Reference:
+
+    For implementation of dataset class:
+        https://github.com/SamsungLabs/MTL/blob/master/code/data/datasets/cityscapes.py
+    For definition of labels:
+        https://github.com/mcordts/cityscapesScripts/blob/master/cityscapesscripts/helpers/labels.py
 
     Download:
         images: https://www.cityscapes-dataset.com/file-handling/?packageID=3
