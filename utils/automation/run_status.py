@@ -76,9 +76,9 @@ def get_all_run_status(
     config_files: List[str],
     expected_files: List[str],
     epochs: int,
-    servers: List[str],
     sleep_time: int = 86400,
-    outdated_days: int = 30
+    outdated_days: int = 30,
+    servers: List[str] = [],
 ) -> List[RunStatus]:
     with ThreadPoolExecutor() as executor:
         results = list(executor.map(find_running, servers))

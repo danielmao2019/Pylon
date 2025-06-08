@@ -12,9 +12,9 @@ def register_callbacks(
     config_files: List[str],
     expected_files: List[str],
     epochs: int,
-    servers: List[str],
     sleep_time: int,
     outdated_days: int,
+    servers: List[str],
     gpu_monitor: GPUMonitor,
     user_names: Dict[str, str],
 ) -> None:
@@ -25,9 +25,9 @@ def register_callbacks(
         config_files: List of config file paths
         expected_files: List of expected file patterns
         epochs: Total number of epochs
-        servers: List of servers
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
+        servers: List of servers
         gpu_monitor: GPUMonitor object
         user_names: Dict of user names
     """
@@ -42,8 +42,7 @@ def register_callbacks(
     )
     def update_table(n_intervals):
         last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        all_run_status = get_all_run_status(config_files, expected_files, epochs, servers, sleep_time, outdated_days)
-        progress = f"Progress: {get_progress(all_run_status)}%"
+        progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, servers)}%"
         table_data = generate_table_data(gpu_monitor, user_names)
         table_style = generate_table_style(table_data)
         return last_update, progress, table_data, table_style
