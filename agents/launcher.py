@@ -6,7 +6,7 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from agents import BaseAgent
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.automation.run_status import RunStatus, get_all_run_status
+from utils.automation.run_status import RunStatus, get_all_run_status, parse_config
 from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
@@ -75,17 +75,14 @@ class Launcher(BaseAgent):
     # ====================================================================================================
 
     def _remove_stuck(self, all_running_status: List[RunStatus]) -> None:
-        stuck_cfgs = list(filter(lambda x: has_stuck(get_work_dir(x), all_running), self.config_files))
+        stuck_cfgs = [run.config for run in all_running_status if run.status == 'stuck']
 
         def process_gpu(gpu):
             gpu_stuck_info = {}
             for proc in gpu['processes']:
-                try:
-                    cfg = parse_config(proc['cmd'])
-                    if cfg in stuck_cfgs:
-                        gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
-                except:
-                    pass
+                cfg = parse_config(proc['cmd'])
+                if cfg in stuck_cfgs:
+                    gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
@@ -102,10 +99,10 @@ class Launcher(BaseAgent):
             subprocess.check_output(cmd)
 
     def _remove_outdated(self, all_running_status: List[RunStatus]) -> None:
-        outdated_cfgs = list(filter(lambda x: x.status == 'outdated', all_running_status))
-        self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {outdated_cfgs}")
-        for cfg in outdated_cfgs:
-            os.system(f"rm -rf {get_work_dir(cfg)}")
+        outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
+        self.logger.info(f"The following runs has not been updated in the last {self.outdated_days} days and will be removed: {[run.work_dir for run in outdated_runs]}")
+        with ThreadPoolExecutor() as executor:
+            list(executor.map(lambda x: os.system(f"rm -rf {x.work_dir}"), outdated_runs))
 
     def _find_missing_runs(self, all_running_status: List[RunStatus]) -> List[str]:
         r"""
