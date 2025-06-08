@@ -284,8 +284,6 @@ class BaseTrainer(ABC):
 
         # Log GPU stats if available
         if self.gpu_monitor is not None:
-            self.gpu_monitor.update()
-            # Pass the logger to log_stats
             self.gpu_monitor.log_stats(self.logger)
 
         # log time
@@ -313,8 +311,6 @@ class BaseTrainer(ABC):
 
         # Log GPU stats if available
         if self.gpu_monitor is not None:
-            self.gpu_monitor.update()
-            # Pass the logger to log_stats
             self.gpu_monitor.log_stats(self.logger)
 
         # Log time
