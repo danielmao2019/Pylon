@@ -1,4 +1,4 @@
-from typing import Tuple, List, Optional
+from typing import Tuple, List, Dict, Optional
 import dash
 from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
