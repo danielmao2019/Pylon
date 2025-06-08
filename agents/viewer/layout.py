@@ -4,35 +4,8 @@ from dash import dcc, html, dash_table
 from project.user_names import user_names
 from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
-from .backend import get_progress
+from agents.viewer.backend import get_progress
 
-# Global monitor instance
-monitor = None
-
-def initialize_monitor(gpu_pool: List[tuple[str, List[int]]]) -> None:
-    """Initialize the GPU monitor with the given GPU pool.
-    
-    Args:
-        gpu_pool: List of (server, gpu_indices) tuples
-    """
-    global monitor
-    gpus = [
-        GPUStatus(
-            server=server,
-            index=idx,
-            max_memory=0,  # Will be populated by monitor
-            processes=[],
-            window_size=10,
-            memory_window=[],
-            util_window=[],
-            memory_stats={'min': None, 'max': None, 'avg': None},
-            util_stats={'min': None, 'max': None, 'avg': None}
-        )
-        for server, indices in gpu_pool
-        for idx in indices
-    ]
-    monitor = GPUMonitor(gpus)
-    monitor.start()
 
 def generate_table_data() -> List[Dict[str, Any]]:
     """Generate table data from the GPU monitor status."""
@@ -66,6 +39,7 @@ def generate_table_data() -> List[Dict[str, Any]]:
                 })
     return table_data
 
+
 def generate_table_style(table_data):
     styles = []
     color_map = {'color_1': 'white', 'color_2': 'lightblue'}
@@ -83,6 +57,7 @@ def generate_table_style(table_data):
         })
 
     return styles
+
 
 def create_layout(config_files: List[str], expected_files: List[str], epochs: int) -> html.Div:
     """Create the dashboard layout.
