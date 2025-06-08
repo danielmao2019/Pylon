@@ -7,7 +7,7 @@ import sys
 sys.path.append(project_root)
 os.chdir(project_root)
 
-from runners.eval_viewer.layouts.main_layout import create_layout
+from runners.eval_viewer.layout.main_layout import create_layout
 from runners.eval_viewer.callbacks.update_plots import register_callbacks
 from runners.eval_viewer.callbacks.datapoint_viewer import register_datapoint_viewer_callbacks
 from runners.eval_viewer.backend.initialization import initialize_log_dirs
