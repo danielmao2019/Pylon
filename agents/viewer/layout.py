@@ -30,7 +30,7 @@ def generate_table_data(gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> 
                     "Free Memory": f"{gpu['memory_stats']['avg']:.2f} MiB",
                     "User": user_names.get(proc['user'], proc['user']),
                     "PID": proc['pid'],
-                    "Start": proc['start'],
+                    "Start": proc['start_time'],
                     "CMD": proc['cmd'],
                 })
     return table_data
