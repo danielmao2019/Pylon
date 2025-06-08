@@ -40,7 +40,7 @@ class Launcher(BaseAgent):
         self.sleep_time = sleep_time
         self.keep_tmux = keep_tmux
         self.logger = TextLogger(filepath=log_path)
-        
+
         # Initialize GPU objects from pool
         self.gpus = [
             GPUStatus(
@@ -57,7 +57,7 @@ class Launcher(BaseAgent):
             for server, indices in gpu_pool
             for idx in indices
         ]
-        
+
         # Initialize monitor
         self.monitor = GPUMonitor(self.gpus)
         self.monitor.start()

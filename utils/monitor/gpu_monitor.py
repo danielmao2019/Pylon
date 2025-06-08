@@ -4,10 +4,11 @@ from utils.monitor.gpu_status import GPUStatus, get_gpu_info
 
 
 class GPUMonitor:
+
     def __init__(self, gpus: List[GPUStatus]):
         self.gpus = gpus
         self.monitor_thread: Optional[threading.Thread] = None
-        
+
     def start(self):
         """Starts background monitoring thread that continuously updates GPU info"""
         def monitor_loop():
@@ -15,17 +16,17 @@ class GPUMonitor:
                 for gpu in self.gpus:
                     # Get current GPU info
                     current_info = get_gpu_info(gpu['server'], gpu['index'])
-                    
+
                     # Update rolling windows
                     gpu['memory_window'].append(current_info['current_memory'])
                     gpu['util_window'].append(current_info['current_util'])
-                    
+
                     # Trim windows if needed
                     if len(gpu['memory_window']) > gpu['window_size']:
                         gpu['memory_window'] = gpu['memory_window'][-gpu['window_size']:]
                     if len(gpu['util_window']) > gpu['window_size']:
                         gpu['util_window'] = gpu['util_window'][-gpu['window_size']:]
-                    
+
                     # Update stats
                     gpu['memory_stats'] = {
                         'min': min(gpu['memory_window']),
@@ -37,13 +38,13 @@ class GPUMonitor:
                         'max': max(gpu['util_window']),
                         'avg': sum(gpu['util_window']) / len(gpu['util_window'])
                     }
-                    
+
                     # Update processes
                     gpu['processes'] = current_info['processes']
-                
+
         self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
         self.monitor_thread.start()
-        
+
     def check(self) -> Dict:
         """Returns current status of all GPUs without rolling windows"""
         return {
@@ -60,7 +61,7 @@ class GPUMonitor:
             }
             for gpu in self.gpus
         }
-        
+
     def log_stats(self, logger):
         """Logs status of all monitored GPUs"""
         stats = self.check()
