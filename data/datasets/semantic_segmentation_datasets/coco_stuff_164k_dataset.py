@@ -92,6 +92,8 @@ class COCOStuff164KDataset(BaseDataset):
         )
         if self.semantic_granularity == 'coarse':
             for cls in label.unique().tolist():
+                if cls == 255:
+                    continue
                 label[label == cls] = self.FINE_TO_COARSE[cls]
         labels = {'label': label}
         meta_info = {
