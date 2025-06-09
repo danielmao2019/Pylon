@@ -80,12 +80,16 @@ class COCOStuff164KDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        inputs = {
-            'image': load_image(
-                filepath=self.annotations[idx]['image_filepath'],
-                dtype=torch.float32, sub=None, div=255.0,
-            ),
-        }
+        # Load image
+        image = load_image(
+            filepath=self.annotations[idx]['image_filepath'],
+            dtype=torch.float32, sub=None, div=255.0,
+        )
+        if image.ndim == 2:
+            image = image.unsqueeze(0).repeat(3, 1, 1)
+        inputs = {'image': image}
+
+        # Load label
         label = load_image(
             filepath=self.annotations[idx]['label_filepath'],
             dtype=torch.int64, sub=None, div=None,
@@ -96,6 +100,8 @@ class COCOStuff164KDataset(BaseDataset):
                     continue
                 label[label == cls] = self.FINE_TO_COARSE[cls]
         labels = {'label': label}
+
+        # Load meta info
         meta_info = {
             'idx': idx,
             'image_filepath': os.path.relpath(path=self.annotations[idx]['image_filepath'], start=self.data_root),
