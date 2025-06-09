@@ -29,10 +29,10 @@ class COCOStuff164KDataset(BaseDataset):
             rmdir COCO
     """
 
-    SPLIT_OPTIONS = ['train', 'val']
+    SPLIT_OPTIONS = ['train2017', 'val2017']
     DATASET_SIZE = {
-        'train': None,
-        'val': None,
+        'train2017': None,
+        'val2017': None,
     }
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['label']
