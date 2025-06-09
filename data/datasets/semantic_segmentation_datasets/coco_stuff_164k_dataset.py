@@ -5,7 +5,7 @@ from data.datasets.base_dataset import BaseDataset
 from utils.io import load_image
 
 
-class COCOStuff164K(BaseDataset):
+class COCOStuff164KDataset(BaseDataset):
     __doc__ = r"""Reference:
 
     Download:
@@ -67,7 +67,7 @@ class COCOStuff164K(BaseDataset):
         else:
             self.NUM_CLASSES = self.NUM_CLASSES_C
         self.semantic_granularity = semantic_granularity
-        super(COCOStuff164K, self).__init__(*args, **kwargs)
+        super(COCOStuff164KDataset, self).__init__(*args, **kwargs)
 
     def _init_annotations(self) -> None:
         with open(os.path.join(self.data_root, 'curated', self.split, "Coco164kFull_Stuff_Coarse.txt" ), mode='r') as f:
