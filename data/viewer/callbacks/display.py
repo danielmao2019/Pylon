@@ -3,6 +3,7 @@ from dash import Input, Output, State, callback_context, html
 from dash.exceptions import PreventUpdate
 import logging
 from typing import Dict, List, Optional, Union
+from data.viewer.layout.display.display_semseg import display_semseg_datapoint
 from data.viewer.layout.display.display_2d import display_2dcd_datapoint
 from data.viewer.layout.display.display_3d import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
@@ -13,9 +14,10 @@ logger = logging.getLogger(__name__)
 
 # Mapping of dataset types to their display functions
 DISPLAY_FUNCTIONS = {
+    'semseg': display_semseg_datapoint,
     '2dcd': display_2dcd_datapoint,
     '3dcd': display_3dcd_datapoint,
-    'pcr': display_pcr_datapoint
+    'pcr': display_pcr_datapoint,
 }
 
 @callback(

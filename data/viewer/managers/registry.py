@@ -8,10 +8,11 @@ import os
 
 
 # Dataset type definitions
-DatasetType = Literal['2dcd', '3dcd', 'pcr']
+DatasetType = Literal['semseg', '2dcd', '3dcd', 'pcr']
 
 # Dataset groupings
 DATASET_GROUPS = {
+    'semseg': ['coco_stuff_164k'],
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3dcd': ['urb3dcd', 'slpccd'],
     'pcr': ['synth_pcr', 'real_pcr', 'kitti'],
@@ -19,6 +20,7 @@ DATASET_GROUPS = {
 
 repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
 CONFIG_DIRS = {
+    'semseg': os.path.join(repo_root, 'configs/common/datasets/semantic_segmentation/train'),
     '2dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
     '3dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
     'pcr': os.path.join(repo_root, 'configs/common/datasets/point_cloud_registration/train'),
@@ -26,6 +28,12 @@ CONFIG_DIRS = {
 
 # Dataset format specifications by type
 DATASET_FORMATS = {
+    'semseg': {
+        'input_format': {
+            'image': ['image']
+        },
+        'label_format': ['label']
+    },
     '2dcd': {
         'input_format': {
             'image': ['img_1', 'img_2']
@@ -44,7 +52,7 @@ DATASET_FORMATS = {
             'optional': ['correspondences']
         },
         'label_format': ['transform']
-    }
+    },
 }
 
 
