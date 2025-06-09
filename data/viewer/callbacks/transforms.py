@@ -47,9 +47,9 @@ def apply_transforms(
 
     # Display the transformed datapoint
     if dataset_type == 'semseg':
-        display = display_semseg_datapoint(datapoint)
+        display = display_semseg_datapoint(datapoint, class_names=dataset_info['class_labels'])
     elif dataset_type == '2dcd':
-        display = display_2dcd_datapoint(datapoint, class_names=dataset_info['class_labels'])
+        display = display_2dcd_datapoint(datapoint)
     elif dataset_type == '3dcd':
         display = display_3dcd_datapoint(datapoint, class_names=dataset_info['class_labels'])
     elif dataset_type == 'pcr':
