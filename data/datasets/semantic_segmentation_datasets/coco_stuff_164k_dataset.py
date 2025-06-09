@@ -70,10 +70,10 @@ class COCOStuff164KDataset(BaseDataset):
         assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
         if semantic_granularity == 'fine':
             self.NUM_CLASSES = self.NUM_CLASSES_F
-            self.CLASS_DIST = self.CLASS_DIST_F
+            # self.CLASS_DIST = self.CLASS_DIST_F
         else:
             self.NUM_CLASSES = self.NUM_CLASSES_C
-            self.CLASS_DIST = self.CLASS_DIST_C
+            # self.CLASS_DIST = self.CLASS_DIST_C
         self.semantic_granularity = semantic_granularity
         super(COCOStuff164KDataset, self).__init__(*args, **kwargs)
 
