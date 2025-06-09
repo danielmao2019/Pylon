@@ -30,7 +30,7 @@ def test_coco_stuff_164k(semantic_granularity: str):
         assert isinstance(labels['label'], torch.Tensor), f"{type(labels['label'])=}"
         assert labels['label'].ndim == 2, f"{labels['label'].shape=}"
         assert labels['label'].dtype == torch.int64, f"{labels['label'].dtype=}"
-        assert labels['label'].min() >= 0 and labels['label'].max() < dataset.NUM_CLASSES, f"{labels['label'].min()=}, {labels['label'].max()=}"
+        assert set(labels['label'].unique().tolist()).issubset(set(range(dataset.NUM_CLASSES)) | {255}), f"{sorted(set(labels['label'].unique().tolist()))=}"
         assert labels['label'].shape == inputs['image'].shape[-2:], f"{labels['label'].shape=}, {inputs['image'].shape[-2:]=}"
         # Validate meta_info
         meta_info = datapoint['meta_info']
