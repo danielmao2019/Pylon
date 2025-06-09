@@ -10,6 +10,7 @@ from data.datasets.projection_dataset_wrapper import ProjectionDatasetWrapper
 from data.datasets.torchvision_datasets.mnist import MNISTDataset
 
 # Semantic Segmentation datasets
+from data.datasets.semantic_segmentation_datasets.coco_stuff_164k_dataset import COCOStuff164KDataset
 from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
 
 # GAN datasets
@@ -52,6 +53,7 @@ __all__ = (
     # torchvision datasets
     'MNISTDataset',
     # Semantic Segmentation datasets
+    'COCOStuff164KDataset',
     'WHU_BD_Dataset',
     # GAN datasets
     'GANDataset',

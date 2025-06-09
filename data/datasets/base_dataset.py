@@ -27,6 +27,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         split: Optional[Union[str, Tuple[float, ...]]] = None,
         indices: Optional[Union[List[int], Dict[str, List[int]]]] = None,
         transforms_cfg: Optional[Dict[str, Any]] = None,
+        base_seed: int = 0,
         use_cache: Optional[bool] = True,
         max_cache_memory_percent: float = 80.0,
         device: Optional[Union[torch.device, str]] = torch.device('cuda'),
@@ -48,6 +49,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self._init_split(split=split)
         self._init_indices(indices=indices)
         self._init_transforms(transforms_cfg=transforms_cfg)
+        self.set_base_seed(base_seed)
         self._init_cache(use_cache=use_cache, max_cache_memory_percent=max_cache_memory_percent)
         self._init_device(device)
 
