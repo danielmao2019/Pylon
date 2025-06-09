@@ -58,6 +58,9 @@ class COCOStuff164KDataset(BaseDataset):
     }
     NUM_CLASSES_F = 182
     NUM_CLASSES_C = 27
+    CLASS_DIST_F = {
+        'val2017': [11195127, 9907815, 17189410, 36561968, 8836380, 8239119, 7322358, 40896716, 9794099, 92281688, 4902096, 43674612, 11600056, 30663420, 10336468, 68164096, 33637472, 24677688, 110483952, 13564671, 59488260, 150636768, 147733440, 101698048, 19848822, 20906462, 49600044],
+    }
 
     def __init__(self, semantic_granularity: str = 'coarse', *args, **kwargs) -> None:
         assert isinstance(semantic_granularity, str), f"{type(semantic_granularity)=}"
