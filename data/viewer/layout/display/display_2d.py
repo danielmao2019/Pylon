@@ -1,15 +1,15 @@
 """UI components for displaying dataset items."""
+from typing import Dict, List, Optional, Union, Any
+import random
+import numpy as np
+import torch
 from dash import dcc, html
 import plotly.express as px
-import torch
-import numpy as np
-import random
-from typing import Dict, List, Optional, Union, Any
-from data.viewer.utils.dataset_utils import format_value
 import plotly.graph_objects as go
+from data.viewer.utils.dataset_utils import format_value
 
 
-def display_2d_datapoint(datapoint: Dict[str, Any]) -> html.Div:
+def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     """
     Display a 2D image datapoint with all relevant information.
 

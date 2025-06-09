@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from data.viewer.utils.dataset_utils import format_value
 
 
-def display_3d_datapoint(
+def display_3dcd_datapoint(
     datapoint: Dict[str, Any],
     point_size: float = 2,
     point_opacity: float = 0.8,
