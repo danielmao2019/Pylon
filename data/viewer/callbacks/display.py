@@ -93,14 +93,14 @@ def update_datapoint(
     Also handles 3D point cloud visualization settings.
     """
     logger.info(f"Display update callback triggered - Dataset info: {dataset_info}, Index: {datapoint_idx}")
-    
+
     if dataset_info is None or dataset_info == {}:
         logger.warning("No dataset info available")
         return [html.Div("No dataset loaded.")]
 
     dataset_name: str = dataset_info.get('name', 'unknown')
     logger.info(f"Attempting to get dataset: {dataset_name}")
-    
+
     # Get datapoint from manager through registry
     datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx)
 
@@ -108,19 +108,20 @@ def update_datapoint(
     dataset_type = dataset_info.get('type')
     if dataset_type is None:
         raise ValueError("Dataset type not available")
-        
+
     logger.info(f"Dataset type: {dataset_type}")
 
     # Get class labels if available
-    class_labels: Dict[int, str] = dataset_info.get('class_labels', {})
-    logger.info(f"Class labels available: {bool(class_labels)}")
-        
+    if dataset_type in ['semseg', '3dcd']:
+        assert 'class_labels' in dataset_info, f"{dataset_info.keys()=}"
+        class_labels: Dict[int, str] = dataset_info['class_labels']
+
     # Get the appropriate display function
     display_func = DISPLAY_FUNCTIONS.get(dataset_type)
     if display_func is None:
         logger.error(f"No display function found for dataset type: {dataset_type}")
         return [html.Div(f"Error: Unsupported dataset type: {dataset_type}")]
-        
+
     # Call the display function with appropriate parameters
     logger.info(f"Creating {dataset_type} display")
     if dataset_type == 'semseg':
@@ -131,6 +132,6 @@ def update_datapoint(
         display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state)
     else:  # 2dcd
         display = display_func(datapoint)
-        
+
     logger.info("Display created successfully")
     return [display]
