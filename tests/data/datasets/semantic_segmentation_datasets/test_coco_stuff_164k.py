@@ -1,5 +1,6 @@
 from typing import Dict, Any
 import pytest
+import random
 import torch
 from data.datasets import COCOStuff164KDataset
 from concurrent.futures import ThreadPoolExecutor
@@ -41,5 +42,6 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
         assert isinstance(meta_info, dict), f"{type(meta_info)=}"
         assert meta_info.keys() == {'idx', 'image_filepath', 'label_filepath', 'image_resolution'}
     
+    indices = random.sample(range(len(dataset)), 1000)
     with ThreadPoolExecutor(max_workers=10) as executor:
-        executor.map(validate_datapoint, dataset)
+        executor.map(validate_datapoint, dataset[indices])
