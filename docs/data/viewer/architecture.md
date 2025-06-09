@@ -12,17 +12,17 @@ graph TD
     A --> C[DatasetManager]
     A --> D[CallbackRegistry]
     A --> E[UI Components]
-    
+
     B --> F[State History]
     B --> G[Event System]
-    
+
     C --> H[Dataset Cache]
     C --> I[Lazy Loading]
     C --> J[Preloading]
-    
+
     D --> K[Callback Groups]
     D --> L[Dependency Management]
-    
+
     E --> M[Controls]
     E --> N[Display]
 ```
@@ -36,7 +36,7 @@ sequenceDiagram
     participant Callbacks
     participant State
     participant Dataset
-    
+
     User->>UI: Interact with controls
     UI->>Callbacks: Trigger callback
     Callbacks->>State: Update state
@@ -207,4 +207,4 @@ The architecture is designed to be extensible:
 3. **UI Customization**
    - Theme support
    - Layout customization
-   - Component replacement 
+   - Component replacement
