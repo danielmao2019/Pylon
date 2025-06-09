@@ -82,11 +82,11 @@ def display_semseg_datapoint(
     assert isinstance(datapoint, dict), f"{datapoint=}"
     assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}, f"{datapoint.keys()=}"
     assert 'image' in datapoint['inputs'], f"{datapoint['inputs'].keys()=}"
-    assert 'segmentation_map' in datapoint['labels'], f"{datapoint['labels'].keys()=}"
+    assert 'label' in datapoint['labels'], f"{datapoint['labels'].keys()=}"
 
     # Get the image and segmentation map
     image: torch.Tensor = datapoint['inputs']['image']
-    seg_map: torch.Tensor = datapoint['labels']['segmentation_map']
+    seg_map: torch.Tensor = datapoint['labels']['label']
 
     # Get number of classes from segmentation map
     num_classes = int(seg_map.max().item()) + 1

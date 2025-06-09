@@ -123,7 +123,9 @@ def update_datapoint(
         
     # Call the display function with appropriate parameters
     logger.info(f"Creating {dataset_type} display")
-    if dataset_type == 'pcr':
+    if dataset_type == 'semseg':
+        display = display_func(datapoint, class_labels)
+    elif dataset_type == 'pcr':
         display = display_func(datapoint, point_size, point_opacity, camera_state, radius)
     elif dataset_type == '3dcd':
         display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state)
