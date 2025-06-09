@@ -1,6 +1,8 @@
+from typing import Dict, Any
 import pytest
 import torch
 from data.datasets import COCOStuff164KDataset
+from concurrent.futures import ThreadPoolExecutor
 
 
 @pytest.mark.parametrize('semantic_granularity', ['fine', 'coarse'])
@@ -12,7 +14,8 @@ def test_coco_stuff_164k(semantic_granularity: str):
     )
     assert dataset.semantic_granularity == semantic_granularity, f"{dataset.semantic_granularity=}, {semantic_granularity=}"
     assert dataset.NUM_CLASSES == 182 if semantic_granularity == 'fine' else 27, f"{dataset.NUM_CLASSES=}, {semantic_granularity=}"
-    for datapoint in dataset:
+
+    def validate_datapoint(datapoint: Dict[str, Dict[str, Any]]):
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
         # Validate inputs
@@ -36,3 +39,6 @@ def test_coco_stuff_164k(semantic_granularity: str):
         meta_info = datapoint['meta_info']
         assert isinstance(meta_info, dict), f"{type(meta_info)=}"
         assert meta_info.keys() == {'idx', 'image_filepath', 'label_filepath', 'image_resolution'}
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(validate_datapoint, dataset)
