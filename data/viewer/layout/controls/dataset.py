@@ -1,8 +1,9 @@
 """Utility functions for the dataset viewer."""
+from typing import Dict, Any
 from dash import dcc, html
 
 
-def create_dataset_selector(available_datasets):
+def create_dataset_selector(available_datasets: Dict[str, Any]) -> html.Div:
     """
     Create a dataset selector dropdown.
 

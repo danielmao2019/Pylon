@@ -258,7 +258,7 @@ class ViewerState:
             length: Number of datapoints in the dataset
             class_labels: Dictionary mapping class indices to labels
             transforms: List of transform info dictionaries
-            dataset_type: Type of the dataset (2d_change_detection, 3d_change_detection, point_cloud_registration)
+            dataset_type: Type of the dataset (2dcd, 3dcd, pcr, etc.)
         """
         # Create new dataset info
         new_info = DatasetInfo(

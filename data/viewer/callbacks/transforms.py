@@ -2,8 +2,9 @@
 from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State, ALL, html
 from dash.exceptions import PreventUpdate
-from data.viewer.layout.display.display_2d import display_2d_datapoint
-from data.viewer.layout.display.display_3d import display_3d_datapoint
+from data.viewer.layout.display.display_semseg import display_semseg_datapoint
+from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
+from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.callbacks.registry import callback, registry
@@ -45,12 +46,14 @@ def apply_transforms(
     dataset_type = dataset_info['type']
 
     # Display the transformed datapoint
-    if dataset_type == '3d_change_detection':
-        display = display_3d_datapoint(datapoint, class_names=dataset_info['class_labels'])
-    elif dataset_type == 'point_cloud_registration':
+    if dataset_type == 'semseg':
+        display = display_semseg_datapoint(datapoint, class_names=dataset_info['class_labels'])
+    elif dataset_type == '2dcd':
+        display = display_2dcd_datapoint(datapoint)
+    elif dataset_type == '3dcd':
+        display = display_3dcd_datapoint(datapoint, class_names=dataset_info['class_labels'])
+    elif dataset_type == 'pcr':
         display = display_pcr_datapoint(datapoint)
-    elif dataset_type == '2d_change_detection':
-        display = display_2d_datapoint(datapoint, class_names=dataset_info['class_labels'])
     else:
         raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
