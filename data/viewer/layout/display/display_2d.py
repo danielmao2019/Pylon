@@ -87,6 +87,55 @@ def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     ])
 
 
+def get_2d_stats(img: torch.Tensor, change_map: Optional[torch.Tensor] = None) -> Dict[str, Any]:
+    """Get statistical information about a 2D image.
+
+    Args:
+        img: Image tensor of shape (C, H, W)
+        change_map: Optional tensor with change classes for each pixel
+
+    Returns:
+        Dictionary with image statistics
+    """
+    if not isinstance(img, torch.Tensor):
+        return {}
+
+    # Basic stats
+    img_np: np.ndarray = img.detach().cpu().numpy()
+    stats: Dict[str, Any] = {
+        "Shape": f"{img_np.shape}",
+        "Min Value": f"{img_np.min():.4f}",
+        "Max Value": f"{img_np.max():.4f}",
+        "Mean Value": f"{img_np.mean():.4f}",
+        "Std Dev": f"{img_np.std():.4f}"
+    }
+
+    # Add change map statistics if provided
+    if change_map is not None:
+        if change_map.dim() > 2 and change_map.shape[0] > 1:
+            # Multi-class change map
+            change_classes: torch.Tensor = torch.argmax(change_map, dim=0)
+            num_classes: int = change_map.shape[0]
+            class_distribution: Dict[int, float] = {
+                i: float((change_classes == i).sum()) / change_classes.numel() * 100
+                for i in range(num_classes)
+            }
+            stats["Number of Classes"] = num_classes
+            stats["Class Distribution"] = {
+                f"Class {i}": f"{pct:.2f}%"
+                for i, pct in class_distribution.items()
+            }
+        else:
+            # Binary change map
+            changes: torch.Tensor = change_map[0] if change_map.dim() > 2 else change_map
+            percent_changed: float = float((changes > 0.5).sum()) / changes.numel() * 100
+            stats["Changed Pixels"] = f"{percent_changed:.2f}%"
+            stats["Change Min"] = f"{float(changes.min()):.4f}"
+            stats["Change Max"] = f"{float(changes.max()):.4f}"
+
+    return stats
+
+
 def tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable image."""
     assert isinstance(tensor, torch.Tensor), f"{tensor=}"
@@ -145,52 +194,3 @@ def create_2d_figure(tensor: torch.Tensor, title: str = "Image", colorscale: str
     )
 
     return fig
-
-
-def get_2d_stats(img: torch.Tensor, change_map: Optional[torch.Tensor] = None) -> Dict[str, Any]:
-    """Get statistical information about a 2D image.
-
-    Args:
-        img: Image tensor of shape (C, H, W)
-        change_map: Optional tensor with change classes for each pixel
-
-    Returns:
-        Dictionary with image statistics
-    """
-    if not isinstance(img, torch.Tensor):
-        return {}
-
-    # Basic stats
-    img_np: np.ndarray = img.detach().cpu().numpy()
-    stats: Dict[str, Any] = {
-        "Shape": f"{img_np.shape}",
-        "Min Value": f"{img_np.min():.4f}",
-        "Max Value": f"{img_np.max():.4f}",
-        "Mean Value": f"{img_np.mean():.4f}",
-        "Std Dev": f"{img_np.std():.4f}"
-    }
-
-    # Add change map statistics if provided
-    if change_map is not None:
-        if change_map.dim() > 2 and change_map.shape[0] > 1:
-            # Multi-class change map
-            change_classes: torch.Tensor = torch.argmax(change_map, dim=0)
-            num_classes: int = change_map.shape[0]
-            class_distribution: Dict[int, float] = {
-                i: float((change_classes == i).sum()) / change_classes.numel() * 100
-                for i in range(num_classes)
-            }
-            stats["Number of Classes"] = num_classes
-            stats["Class Distribution"] = {
-                f"Class {i}": f"{pct:.2f}%"
-                for i, pct in class_distribution.items()
-            }
-        else:
-            # Binary change map
-            changes: torch.Tensor = change_map[0] if change_map.dim() > 2 else change_map
-            percent_changed: float = float((changes > 0.5).sum()) / changes.numel() * 100
-            stats["Changed Pixels"] = f"{percent_changed:.2f}%"
-            stats["Change Min"] = f"{float(changes.min()):.4f}"
-            stats["Change Max"] = f"{float(changes.max()):.4f}"
-
-    return stats

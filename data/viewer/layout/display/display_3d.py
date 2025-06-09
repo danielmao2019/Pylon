@@ -123,13 +123,6 @@ def display_3dcd_datapoint(
     ])
 
 
-def tensor_to_point_cloud(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
-    """Convert a PyTorch tensor to a displayable point cloud."""
-    if isinstance(tensor, torch.Tensor):
-        return tensor.cpu().numpy()
-    return tensor
-
-
 def get_3d_stats(
     pc: torch.Tensor,
     change_map: Optional[torch.Tensor] = None,
@@ -178,6 +171,13 @@ def get_3d_stats(
         stats_items.append(html.Ul(class_list_items))
 
     return html.Ul(stats_items)
+
+
+def tensor_to_point_cloud(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
+    """Convert a PyTorch tensor to a displayable point cloud."""
+    if isinstance(tensor, torch.Tensor):
+        return tensor.cpu().numpy()
+    return tensor
 
 
 def create_3d_figure(
