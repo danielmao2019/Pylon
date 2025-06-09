@@ -91,7 +91,7 @@ class COCOStuff164KDataset(BaseDataset):
             dtype=torch.int64, sub=None, div=None,
         )
         if self.semantic_granularity == 'coarse':
-            for cls in label.unique():
+            for cls in label.unique().tolist():
                 label[label == cls] = self.FINE_TO_COARSE[cls]
         labels = {'label': label}
         meta_info = {
