@@ -69,7 +69,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             self.split_percentages = split
         else:
             self.split = split
-        if hasattr(self, 'CLASS_DIST') and type(self.CLASS_DIST) == dict:
+        if hasattr(self, 'CLASS_DIST') and isinstance(self.CLASS_DIST, dict):
             assert set(self.CLASS_DIST.keys()) == set(self.SPLIT_OPTIONS)
             assert all(type(x) == list for x in self.CLASS_DIST.values())
             self.CLASS_DIST = self.CLASS_DIST[self.split]
