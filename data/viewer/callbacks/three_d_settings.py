@@ -1,17 +1,12 @@
 """3D settings-related callbacks for the viewer."""
-from typing import Dict, List, Optional, Union, Literal
-from dash import Input, Output, State, html
+from typing import Dict, List, Optional, Union
+from dash import Input, Output, html
 from dash.exceptions import PreventUpdate
-from data.viewer.states.viewer_state import ViewerEvent
-from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.callbacks.registry import callback, registry
 
 
-# Dataset type definitions
-DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
-
-# 3D dataset types
-THREE_D_DATASET_TYPES = ['3d_change_detection', 'point_cloud_registration']
+# Dataset types that use 3D visualization
+THREE_D_DATASET_TYPES = ['3dcd', 'pcr']
 
 @callback(
     outputs=[
@@ -32,41 +27,33 @@ def update_3d_settings(
     if selected_setting is None and setting_params is None:
         raise PreventUpdate
 
-    try:
-        # Get current dataset info
-        dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
-        if not dataset_info:
-            return [
-                html.Div("No dataset loaded."),
-                registry.viewer.state.get_state()['3d_settings']
-            ]
-            
-        assert 'type' in dataset_info, f"{dataset_info.keys()=}"
-        dataset_type = dataset_info.get('type')
-
-        if dataset_type not in THREE_D_DATASET_TYPES:
-            return [
-                html.Div("3D settings are only available for 3D datasets."),
-                registry.viewer.state.get_state()['3d_settings']
-            ]
-
-        # Update state with new 3D settings
-        registry.viewer.state.update_3d_settings(selected_setting, setting_params)
-
-        # Create updated 3D settings section
-        settings_section: html.Div = create_3d_settings_section()
-
+    # Get current dataset info
+    dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
+    if not dataset_info:
         return [
-            settings_section,
+            html.Div("No dataset loaded."),
+            registry.viewer.state.get_state()['3d_settings']
+        ]
+        
+    assert 'type' in dataset_info, f"{dataset_info.keys()=}"
+    dataset_type = dataset_info.get('type')
+
+    if dataset_type not in THREE_D_DATASET_TYPES:
+        return [
+            html.Div("3D settings are only available for 3D datasets."),
             registry.viewer.state.get_state()['3d_settings']
         ]
 
-    except Exception as e:
-        error_message: html.Div = html.Div([
-            html.H3("Error Updating 3D Settings", style={'color': 'red'}),
-            html.P(str(e))
-        ])
-        return [error_message, registry.viewer.state.get_state()['3d_settings']]
+    # Update state with new 3D settings
+    registry.viewer.state.update_3d_settings(selected_setting, setting_params)
+
+    # Create updated 3D settings section
+    settings_section: html.Div = create_3d_settings_section()
+
+    return [
+        settings_section,
+        registry.viewer.state.get_state()['3d_settings']
+    ]
 
 
 @callback(
@@ -96,7 +83,7 @@ def update_view_controls(
         view_controls_style = {'display': 'block'}
         
         # Show PCR controls only for PCR datasets
-        if dataset_type == 'point_cloud_registration':
+        if dataset_type == 'pcr':
             pcr_controls_style = {'display': 'block'}
     
     return [view_controls_style, pcr_controls_style]

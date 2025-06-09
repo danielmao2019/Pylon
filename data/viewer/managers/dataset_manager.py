@@ -38,14 +38,6 @@ class DatasetManager:
         # Store configurations for easy access
         self._configs = self.loader.configs
 
-    def get_available_datasets(self) -> List[str]:
-        """Get list of available datasets.
-
-        Returns:
-            List of dataset names
-        """
-        return list(self._configs.keys())
-
     def load_dataset(self, dataset_name: str) -> Dict[str, Any]:
         """Load a dataset and return its information.
 
@@ -113,22 +105,16 @@ class DatasetManager:
             }
             or None if loading fails
         """
-        dataset = self._datasets.get(dataset_name)
-        if dataset is None:
-            return None
+        dataset = self._datasets[dataset_name]
+        assert dataset is not None, f"Dataset not loaded: {dataset_name}"
+        inputs, labels, meta_info = dataset._load_datapoint(index)
+        return {
+            'inputs': inputs,
+            'labels': labels,
+            'meta_info': meta_info
+        }
 
-        try:
-            inputs, labels, meta_info = dataset._load_datapoint(index)
-            return {
-                'inputs': inputs,
-                'labels': labels,
-                'meta_info': meta_info
-            }
-        except Exception as e:
-            self.logger.error(f"Error loading datapoint {index} from dataset {dataset_name}: {str(e)}")
-            return None
-
-    def get_datapoint(self, dataset_name: str, index: int, transform_indices: Optional[List[int]] = None) -> Optional[Dict[str, Dict[str, Any]]]:
+    def get_datapoint(self, dataset_name: str, index: int, transform_indices: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:
         """Get datapoint with optional transforms applied.
 
         Args:
@@ -151,11 +137,12 @@ class DatasetManager:
 
         # Load raw datapoint
         datapoint = self._load_raw_datapoint(dataset_name, index)
+        assert datapoint is not None, f"Datapoint is None. {dataset_name=}, {index=}, {transform_indices=}"
 
         # Apply transforms if specified
         if transform_indices:
             datapoint = self.transform_manager.apply_transforms(datapoint, transform_indices)
-
+        assert datapoint is not None, f"Datapoint is None. {dataset_name=}, {index=}, {transform_indices=}"
         # Cache and return
         if cache is not None:
             cache.put(cache_key, datapoint)

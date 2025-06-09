@@ -17,6 +17,8 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
     assert dataset.semantic_granularity == semantic_granularity, f"{dataset.semantic_granularity=}, {semantic_granularity=}"
     assert dataset.NUM_CLASSES == 182 if semantic_granularity == 'fine' else 27, f"{dataset.NUM_CLASSES=}, {semantic_granularity=}"
 
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
+
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
@@ -38,11 +40,15 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
         assert labels['label'].dtype == torch.int64, f"{labels['label'].dtype=}"
         assert set(labels['label'].unique().tolist()).issubset(set(range(dataset.NUM_CLASSES)) | {255}), f"{sorted(set(labels['label'].unique().tolist()))=}"
         assert labels['label'].shape == inputs['image'].shape[-2:], f"{labels['label'].shape=}, {inputs['image'].shape[-2:]=}"
+        for cls in range(dataset.NUM_CLASSES):
+            class_dist[cls] += torch.sum(labels['label'] == cls)
         # Validate meta_info
         meta_info = datapoint['meta_info']
         assert isinstance(meta_info, dict), f"{type(meta_info)=}"
         assert meta_info.keys() == {'idx', 'image_filepath', 'label_filepath', 'image_resolution'}
 
-    indices = random.sample(range(len(dataset)), 100)
-    with ThreadPoolExecutor() as executor:
-        executor.map(validate_datapoint, indices)
+    indices = range(len(dataset))
+    for idx in indices:
+        validate_datapoint(idx)
+    with open(f"class_dist_{split}_{semantic_granularity}.txt", "w") as f:
+        f.write(f"{class_dist.tolist()}\n")

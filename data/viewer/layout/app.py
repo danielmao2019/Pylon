@@ -1,11 +1,12 @@
 """App layout components for the dataset viewer."""
+from typing import Dict, Any
 from dash import dcc, html
 from data.viewer.layout.controls.dataset import create_dataset_selector, create_reload_button
 from data.viewer.layout.controls.navigation import create_navigation_controls
 from data.viewer.layout.controls.controls_3d import create_3d_controls
 
 
-def create_app_layout(available_datasets):
+def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
     """Create the main application layout.
     
     Args:

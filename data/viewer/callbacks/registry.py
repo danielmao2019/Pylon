@@ -5,7 +5,7 @@ It allows for better organization and dependency management of callbacks.
 """
 from typing import Dict, Any, List, Callable, Optional, TypeVar, Union
 from functools import wraps
-from dash import Input, Output, State, ALL
+from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 
 # Type variables for generic typing

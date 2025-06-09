@@ -7,8 +7,9 @@ import numpy as np
 
 from runners.eval_viewer.backend.initialization import LogDirInfo
 from data.viewer.managers.registry import DatasetType
-from data.viewer.layout.display.display_2d import display_2d_datapoint
-from data.viewer.layout.display.display_3d import display_3d_datapoint
+from data.viewer.layout.display.display_semseg import display_semseg_datapoint
+from data.viewer.layout.display.display_2dcd import display_2d_datapoint
+from data.viewer.layout.display.display_3dcd import display_3d_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from utils.builders.builder import build_from_config
 
@@ -17,9 +18,10 @@ logger = logging.getLogger(__name__)
 
 # Mapping of dataset types to their display functions
 DISPLAY_FUNCTIONS = {
-    '2d_change_detection': display_2d_datapoint,
-    '3d_change_detection': display_3d_datapoint,
-    'point_cloud_registration': display_pcr_datapoint
+    'semseg': display_semseg_datapoint,
+    '2dcd': display_2d_datapoint,
+    '3dcd': display_3d_datapoint,
+    'pcr': display_pcr_datapoint
 }
 
 

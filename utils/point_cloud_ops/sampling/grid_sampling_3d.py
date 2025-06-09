@@ -109,6 +109,21 @@ def group_data(
             counts[cluster[i]] += 1
         result_dict['pos'] = summed / counts.unsqueeze(1)
 
+    # Handle features (continuous data)
+    if 'feat' in data_dict:
+        feat = data_dict['feat']
+        if mode == "last":
+            result_dict['feat'] = feat[unique_pos_indices]
+        else:  # mode == "mean"
+            num_clusters = cluster.max().item() + 1
+            summed = torch.zeros((num_clusters, feat.size(1)),
+                              dtype=feat.dtype, device=feat.device)
+            counts = torch.zeros(num_clusters, dtype=torch.float, device=feat.device)
+            for i in range(feat.size(0)):
+                summed[cluster[i]] += feat[i]
+                counts[cluster[i]] += 1
+            result_dict['feat'] = summed / counts.unsqueeze(1)
+
     # Handle change map (categorical data)
     if 'change_map' in data_dict:
         change_map = data_dict['change_map']
