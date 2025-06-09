@@ -5,11 +5,12 @@ from data.datasets import COCOStuff164KDataset
 from concurrent.futures import ThreadPoolExecutor
 
 
+@pytest.mark.parametrize('split', ['train2017', 'val2017'])
 @pytest.mark.parametrize('semantic_granularity', ['fine', 'coarse'])
-def test_coco_stuff_164k(semantic_granularity: str):
+def test_coco_stuff_164k(split: str, semantic_granularity: str):
     dataset = COCOStuff164KDataset(
         data_root='./data/datasets/soft_links/COCOStuff164K',
-        split='train2017',
+        split=split,
         semantic_granularity=semantic_granularity,
     )
     assert dataset.semantic_granularity == semantic_granularity, f"{dataset.semantic_granularity=}, {semantic_granularity=}"
