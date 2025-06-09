@@ -17,7 +17,8 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
     assert dataset.semantic_granularity == semantic_granularity, f"{dataset.semantic_granularity=}, {semantic_granularity=}"
     assert dataset.NUM_CLASSES == 182 if semantic_granularity == 'fine' else 27, f"{dataset.NUM_CLASSES=}, {semantic_granularity=}"
 
-    def validate_datapoint(datapoint: Dict[str, Dict[str, Any]]):
+    def validate_datapoint(idx: int) -> None:
+        datapoint = dataset[idx]
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
         # Validate inputs
@@ -41,7 +42,7 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
         meta_info = datapoint['meta_info']
         assert isinstance(meta_info, dict), f"{type(meta_info)=}"
         assert meta_info.keys() == {'idx', 'image_filepath', 'label_filepath', 'image_resolution'}
-    
+
     indices = random.sample(range(len(dataset)), 1000)
-    with ThreadPoolExecutor(max_workers=10) as executor:
-        executor.map(validate_datapoint, dataset[indices])
+    with ThreadPoolExecutor() as executor:
+        executor.map(validate_datapoint, indices)
