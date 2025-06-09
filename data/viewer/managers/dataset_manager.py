@@ -38,14 +38,6 @@ class DatasetManager:
         # Store configurations for easy access
         self._configs = self.loader.configs
 
-    def get_available_datasets(self) -> List[str]:
-        """Get list of available datasets.
-
-        Returns:
-            List of dataset names
-        """
-        return list(self._configs.keys())
-
     def load_dataset(self, dataset_name: str) -> Dict[str, Any]:
         """Load a dataset and return its information.
 
