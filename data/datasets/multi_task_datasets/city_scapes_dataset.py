@@ -1,9 +1,7 @@
 from typing import Tuple, List, Dict, Any, Optional
 import os
 import glob
-import random
 import torch
-import matplotlib.pyplot as plt
 from data.datasets import BaseDataset
 import utils
 
@@ -106,8 +104,8 @@ class CityScapesDataset(BaseDataset):
     # initialization methods
     # ====================================================================================================
 
-    def __init__(self, semantic_granularity: Optional[str] = 'coarse', *args, **kwargs) -> None:
-        assert type(semantic_granularity) == str, f"{type(semantic_granularity)=}"
+    def __init__(self, semantic_granularity: str = 'coarse', *args, **kwargs) -> None:
+        assert isinstance(semantic_granularity, str), f"{type(semantic_granularity)=}"
         assert semantic_granularity in ['fine', 'coarse'], f"{semantic_granularity=}"
         if semantic_granularity == 'fine':
             self.CLASS_MAP = self.CLASS_MAP_F
