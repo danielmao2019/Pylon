@@ -15,8 +15,6 @@ def get_all_processes(server: str) -> Dict[str, ProcessInfo]:
     lines = subprocess.check_output(cmd).decode().splitlines()
     result = {}
     for line in lines:
-        if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
-            continue
         parts = line.strip().split()
         result[parts[0]] = {
             'pid': parts[0],
