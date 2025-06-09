@@ -20,7 +20,7 @@ def test_coco_stuff_164k(semantic_granularity: str):
         assert isinstance(inputs, dict), f"{type(inputs)=}"
         assert inputs.keys() == {'image'}
         assert isinstance(inputs['image'], torch.Tensor), f"{type(inputs['image'])=}"
-        assert inputs['image'].shape[0] == 3, f"{inputs['image'].shape=}"
+        assert inputs['image'].ndim == 3 and inputs['image'].shape[0] == 3, f"{inputs['image'].shape=}"
         assert inputs['image'].dtype == torch.float32, f"{inputs['image'].dtype=}"
         assert inputs['image'].min() >= 0.0 and inputs['image'].max() <= 1.0, f"{inputs['image'].min()=}, {inputs['image'].max()=}"
         # Validate labels
