@@ -15,26 +15,6 @@ def _build_mapping(output: str) -> Dict[str, List[str]]:
     return result
 
 
-def _get_index2util(server: str) -> List[Dict[str, int]]:
-    fmem_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,memory.free', '--format=csv,noheader,nounits']
-    util_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,utilization.gpu', '--format=csv,noheader,nounits']
-    fmem_out: Dict[str, List[str]] = _build_mapping(subprocess.check_output(fmem_cmd))
-    util_out: Dict[str, List[str]] = _build_mapping(subprocess.check_output(util_cmd))
-    index2fmem: List[int] = []
-    index2util: List[int] = []
-    for index in fmem_out:
-        assert len(fmem_out[index]) == 1
-        index2fmem.append(int(fmem_out[index][0]))
-    for index in util_out:
-        assert len(util_out[index]) == 1
-        index2util.append(int(util_out[index][0]))
-    result: List[Dict[str, int]] = [{
-        'fmem': fmem,
-        'util': util,
-    } for fmem, util in zip(index2fmem, index2util)]
-    return result
-
-
 def get_index2pids(server: str) -> List[List[str]]:
     index2gpu_uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader']
     gpu_uuid2pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader']
@@ -49,33 +29,11 @@ def get_index2pids(server: str) -> List[List[str]]:
     return result
 
 
-def get_all_p(server: str) -> Dict[str, Dict[str, str]]:
-    cmd = ['ssh', server, "ps", "-eo", "pid=,user=,lstart=,cmd="]
-    lines = subprocess.check_output(cmd).decode().splitlines()
-    result: Dict[str, Dict[str, str]] = {}
-    for line in lines:
-        if "from multiprocessing.spawn import spawn_main; spawn_main" in line:
-            continue
-        parts = line.strip().split()
-        result[parts[0]] = {'pid': parts[0], 'user': parts[1], 'start': ' '.join(parts[2:7]), 'cmd': ' '.join(parts[7:])}
-    return result
-
-
-def get_server_status(server: str) -> List[Dict[str, Any]]:
-    index2pids = get_index2pids(server)
-    all_p = get_all_p(server)
-    index2util = _get_index2util(server)
-    result: List[Dict[str, Any]] = [{
-        'processes': [all_p[pid] for pid in pids if pid in all_p],
-        'util': util,
-    } for pids, util in zip(index2pids, index2util)]
-    return result
-
-
 def get_user_pids(server: str) -> List[str]:
     cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-o', 'pid=']
     result: List[str] = subprocess.check_output(cmd).decode().splitlines()
-    return list(map(lambda x: x.strip(), result))
+    result = list(map(lambda x: x.strip(), result))
+    return result
 
 
 def find_running(server: str) -> List[Dict[str, Any]]:
@@ -101,9 +59,9 @@ def find_running(server: str) -> List[Dict[str, Any]]:
                 command = subprocess.check_output(cmd).decode().splitlines()
             except:
                 continue
-            assert len(command) == 1, f"{command=}, {pid=}"
+            assert len(command) == 1, f"{command=}, {pid=}, {server=}"
             command = command[0].strip()
-            if "from multiprocessing.spawn import spawn_main; spawn_main" in command:
+            if 'python main.py --config-filepath' not in command:
                 continue
             all_running.append({
                 'server': server,

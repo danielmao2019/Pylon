@@ -66,6 +66,8 @@ class Launcher(BaseAgent):
             for proc in gpu['processes']:
                 if proc['user'] != gpu['server'].split('@')[0]:
                     continue
+                if 'python main.py --config-filepath' not in proc['cmd']:
+                    continue
                 cfg = parse_config(proc['cmd'])
                 if cfg in stuck_cfgs:
                     gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
