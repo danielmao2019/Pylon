@@ -1,19 +1,14 @@
 """Dataset viewer module for visualizing datasets."""
-import dash
-import os
-import logging
 from typing import Optional
+import os
 from pathlib import Path
-
-# Import layout modules
+import dash
 from data.viewer.layout.app import create_app_layout
-
-# Import callback modules
 from data.viewer.callbacks import registry
-
-# Import state management
 from data.viewer.states import ViewerState
 from data.viewer.managers.dataset_manager import DatasetManager
+
+import logging
 
 
 class DatasetViewer:

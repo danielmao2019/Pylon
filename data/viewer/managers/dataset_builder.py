@@ -14,7 +14,7 @@ class DatasetBuilder:
 
         Args:
             config_dir: Optional directory containing dataset configurations
-            dataset_types: Optional list of dataset types to load (e.g., ['2dcd', '3dcd''pcr'])
+            dataset_types: Optional list of dataset types to load (e.g., ['2dcd', '3dcd', 'pcr'])
         """
         self.logger = logging.getLogger(__name__)
 
@@ -69,7 +69,7 @@ class DatasetBuilder:
         """
         dataset_type = get_dataset_type(dataset_name)
         config_key = f"{dataset_type}/{dataset_name}"
-        assert config_key in self.configs, f"Config not found for dataset: {config_key}"
+        assert config_key in self.configs, f"Config not found for dataset: {config_key}. {dataset_type=}, {dataset_name=}"
         return self.configs[config_key]
 
     def build_dataset(self, dataset_name: str) -> Optional[Any]:
