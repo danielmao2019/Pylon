@@ -31,8 +31,8 @@ class COCOStuff164KDataset(BaseDataset):
 
     SPLIT_OPTIONS = ['train2017', 'val2017']
     DATASET_SIZE = {
-        'train2017': None,
-        'val2017': None,
+        'train2017': 97702,
+        'val2017': 4172,
     }
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['label']
