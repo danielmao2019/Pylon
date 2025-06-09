@@ -3,9 +3,9 @@ from data.datasets import COCOStuff164KDataset
 from criteria.vision_2d import SemanticSegmentationCriterion
 
 
-class_dist = torch.Tensor(COCOStuff164KDataset.CLASS_DIST['train']).to(torch.float32)
-num_classes = COCOStuff164KDataset.NUM_CLASSES
-class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
+# class_dist = torch.Tensor(COCOStuff164KDataset.CLASS_DIST['train']).to(torch.float32)
+# num_classes = COCOStuff164KDataset.NUM_CLASSES
+# class_weights = num_classes * (1/class_dist) / torch.sum(1/class_dist)
 
 data_cfg = {
     'train_dataset': {
@@ -26,7 +26,7 @@ data_cfg = {
     'criterion': {
         'class': SemanticSegmentationCriterion,
         'args': {
-            'class_weights': tuple(class_weights.tolist()),
+            # 'class_weights': tuple(class_weights.tolist()),
         },
     },
 }
