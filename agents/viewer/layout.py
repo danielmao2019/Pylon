@@ -1,6 +1,5 @@
 from typing import List, Dict, Any
 from dash import dcc, html, dash_table
-from utils.automation.run_status import RunStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 from agents.viewer.backend import get_progress
 
@@ -14,7 +13,7 @@ def generate_table_data(gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> 
                 "Server": gpu['server'],
                 "GPU Index": gpu['index'],
                 "GPU Utilization": f"{gpu['util_stats']['avg']:.2f}%" if gpu['util_stats']['avg'] is not None else "N/A",
-                "Free Memory": f"{gpu['memory_stats']['avg']:.2f} MiB" if gpu['memory_stats']['avg'] is not None else "N/A",
+                "Free Memory": f"{int(gpu['max_memory'] - gpu['memory_stats']['avg'])} MiB" if gpu['memory_stats']['avg'] is not None else f"{int(gpu['max_memory'])} MiB",
                 "User": None,
                 "PID": None,
                 "Start": None,
@@ -26,7 +25,7 @@ def generate_table_data(gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> 
                     "Server": gpu['server'],
                     "GPU Index": gpu['index'],
                     "GPU Utilization": f"{gpu['util_stats']['avg']:.2f}%" if gpu['util_stats']['avg'] is not None else "N/A",
-                    "Free Memory": f"{gpu['memory_stats']['avg']:.2f} MiB" if gpu['memory_stats']['avg'] is not None else "N/A",
+                    "Free Memory": f"{int(gpu['max_memory'] - gpu['memory_stats']['avg'])} MiB" if gpu['memory_stats']['avg'] is not None else f"{int(gpu['max_memory'])} MiB",
                     "User": user_names.get(proc['user'], proc['user']),
                     "PID": proc['pid'],
                     "Start": proc['start_time'],
