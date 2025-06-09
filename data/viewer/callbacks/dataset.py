@@ -25,11 +25,11 @@ logger = logging.getLogger(__name__)
     inputs=[Input('dataset-dropdown', 'value')],
     group="dataset"
 )
-def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int, html.Div]]:
+def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, html.Div]]:
     """Load a selected dataset and reset the datapoint slider."""
-    logger.info(f"Dataset loading callback triggered with dataset: {dataset_name}")
+    logger.info(f"Dataset loading callback triggered with dataset: {dataset_key}")
 
-    if dataset_name is None:
+    if dataset_key is None:
         logger.info("No dataset selected")
         registry.viewer.state.reset()
         return [
@@ -44,7 +44,8 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
         ]
 
     # Load dataset using dataset manager
-    logger.info(f"Attempting to load dataset: {dataset_name}")
+    dataset_name = dataset_key.split('/')[-1]
+    logger.info(f"Attempting to load dataset: {dataset_key}")
     dataset_info = registry.viewer.dataset_manager.load_dataset(dataset_name)
 
     # Determine dataset type using registry
@@ -71,7 +72,7 @@ def load_dataset(dataset_name: Optional[str]) -> List[Union[Dict[str, Any], int,
         marks[dataset_info['length'] - 1] = str(dataset_info['length'] - 1)
 
     # Get initial message
-    initial_message = html.Div(f"Dataset '{dataset_name}' loaded successfully with {dataset_info['length']} datapoints. Use the slider to navigate.")
+    initial_message = html.Div(f"Dataset '{dataset_key}' loaded successfully with {dataset_info['length']} datapoints. Use the slider to navigate.")
     logger.info("Dataset loaded successfully, returning updated UI components")
 
     return [
