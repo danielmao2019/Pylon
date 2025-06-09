@@ -45,11 +45,11 @@ def apply_transforms(
     dataset_type = dataset_info['type']
 
     # Display the transformed datapoint
-    if dataset_type == '3d_change_detection':
+    if dataset_type == '3dcd':
         display = display_3d_datapoint(datapoint, class_names=dataset_info['class_labels'])
-    elif dataset_type == 'point_cloud_registration':
+    elif dataset_type == 'pcr':
         display = display_pcr_datapoint(datapoint)
-    elif dataset_type == '2d_change_detection':
+    elif dataset_type == '2dcd':
         display = display_2d_datapoint(datapoint, class_names=dataset_info['class_labels'])
     else:
         raise ValueError(f"Unsupported dataset type: {dataset_type}")

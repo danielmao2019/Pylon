@@ -14,7 +14,7 @@ class DatasetBuilder:
 
         Args:
             config_dir: Optional directory containing dataset configurations
-            dataset_types: Optional list of dataset types to load (e.g., ['2d_change_detection', 'point_cloud_registration'])
+            dataset_types: Optional list of dataset types to load (e.g., ['2dcd', '3dcd''pcr'])
         """
         self.logger = logging.getLogger(__name__)
 

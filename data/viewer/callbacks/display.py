@@ -2,7 +2,7 @@
 from dash import Input, Output, State, callback_context, html
 from dash.exceptions import PreventUpdate
 import logging
-from typing import Dict, List, Optional, Union, Literal
+from typing import Dict, List, Optional, Union
 from data.viewer.layout.display.display_2d import display_2dcd_datapoint
 from data.viewer.layout.display.display_3d import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
@@ -10,9 +10,6 @@ from data.viewer.callbacks.registry import callback, registry
 
 
 logger = logging.getLogger(__name__)
-
-# Dataset type definitions
-DatasetType = Literal['2dcd', '3dcd', 'pcr']
 
 # Mapping of dataset types to their display functions
 DISPLAY_FUNCTIONS = {

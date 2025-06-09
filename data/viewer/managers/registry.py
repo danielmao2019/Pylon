@@ -8,37 +8,37 @@ import os
 
 
 # Dataset type definitions
-DatasetType = Literal['2d_change_detection', '3d_change_detection', 'point_cloud_registration']
+DatasetType = Literal['2dcd', '3dcd', 'pcr']
 
 # Dataset groupings
 DATASET_GROUPS = {
-    '2d_change_detection': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
-    '3d_change_detection': ['urb3dcd', 'slpccd'],
-    'point_cloud_registration': ['synth_pcr', 'real_pcr', 'kitti'],
+    '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
+    '3dcd': ['urb3dcd', 'slpccd'],
+    'pcr': ['synth_pcr', 'real_pcr', 'kitti'],
 }
 
 repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
 CONFIG_DIRS = {
-    '2d_change_detection': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
-    '3d_change_detection': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
-    'point_cloud_registration': os.path.join(repo_root, 'configs/common/datasets/point_cloud_registration/train'),
+    '2dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
+    '3dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
+    'pcr': os.path.join(repo_root, 'configs/common/datasets/point_cloud_registration/train'),
 }
 
 # Dataset format specifications by type
 DATASET_FORMATS = {
-    '2d_change_detection': {
+    '2dcd': {
         'input_format': {
             'image': ['img_1', 'img_2']
         },
         'label_format': ['change_map']
     },
-    '3d_change_detection': {
+    '3dcd': {
         'input_format': {
             'point_cloud': ['pc_1', 'pc_2']
         },
         'label_format': ['change_map']
     },
-    'point_cloud_registration': {
+    'pcr': {
         'input_format': {
             'point_cloud': ['src_pc', 'tgt_pc'],
             'optional': ['correspondences']
@@ -55,7 +55,7 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
         dataset_name: Name of the dataset
 
     Returns:
-        Dataset type (2d_change_detection, 3d_change_detection, or point_cloud_registration)
+        Dataset type (2dcd, 3dcd, pcr, etc.)
 
     Raises:
         ValueError: If the dataset type cannot be determined
