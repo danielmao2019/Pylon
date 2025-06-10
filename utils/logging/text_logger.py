@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Any
 import logging
 import sys
 import threading
@@ -58,23 +58,27 @@ class TextLogger(BaseLogger):
     # logging methods
     # ====================================================================================================
 
+    def _process_write(self, data: Any) -> None:
+        """Process a write operation."""
+        if isinstance(data, str):
+            # Handle buffer flush
+            self.core_logger.info(data)
+        elif isinstance(data, tuple):
+            msg_type, content = data
+            if msg_type == "INFO":
+                self.core_logger.info(content)
+            elif msg_type == "WARNING":
+                self.core_logger.warning(content)
+            elif msg_type == "ERROR":
+                self.core_logger.error(content)
+            elif msg_type == "PAGE_BREAK":
+                self.core_logger.info("")
+                self.core_logger.info('=' * 100)
+                self.core_logger.info('=' * 100)
+                self.core_logger.info("")
+
     def flush(self, prefix: Optional[str] = "") -> None:
         with self._buffer_lock:
             string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
             self.core_logger.info(string)
             self.buffer = {}
-
-    def info(self, string: str) -> None:
-        self.core_logger.info(string)
-
-    def warning(self, string: str) -> None:
-        self.core_logger.warning(string)
-
-    def error(self, string: str) -> None:
-        self.core_logger.error(string)
-
-    def page_break(self):
-        self.core_logger.info("")
-        self.core_logger.info('=' * 100)
-        self.core_logger.info('=' * 100)
-        self.core_logger.info("")
