@@ -23,19 +23,23 @@ class BaseLogger(ABC):
         self._write_queue = queue.Queue()
         self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
         self._write_thread.start()
+        self._shutdown_event = threading.Event()
 
         # Create log file if filepath is provided
         if self.filepath is not None:
             with open(self.filepath, 'w') as f:
                 f.write("")
 
+    def __del__(self) -> None:
+        """Cleanup when the logger is garbage collected."""
+        self._shutdown_event.set()  # Signal write thread to stop when queue is empty
+        self._write_thread.join()
+
     def _write_worker(self) -> None:
         """Background thread to handle write operations."""
-        while True:
+        while not self._shutdown_event.is_set():
             try:
                 data = self._write_queue.get()
-                if data is None:  # Shutdown signal
-                    break
                 self._process_write(data)
                 self._write_queue.task_done()
             except Exception as e:
@@ -94,8 +98,3 @@ class BaseLogger(ABC):
     def page_break(self) -> None:
         """Add a page break to the log."""
         self._write_queue.put(("PAGE_BREAK", None))
-
-    def shutdown(self) -> None:
-        """Shutdown the logger and wait for all messages to be processed."""
-        self._write_queue.put(None)  # Signal write thread to stop
-        self._write_thread.join()
