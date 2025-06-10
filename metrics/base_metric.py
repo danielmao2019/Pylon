@@ -2,7 +2,7 @@ from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
 import threading
 import queue
-from utils.io.json import serialize_tensor
+from utils.ops.apply import apply_tensor_op
 
 
 class BaseMetric(ABC):
@@ -30,7 +30,7 @@ class BaseMetric(ABC):
             try:
                 data = self._buffer_queue.get()
                 with self._buffer_lock:
-                    self.buffer.append(serialize_tensor(data))
+                    self.buffer.append(apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=data))
                 self._buffer_queue.task_done()
             except Exception as e:
                 print(f"Buffer worker error: {e}")
