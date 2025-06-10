@@ -79,7 +79,7 @@ def display_pcr_datapoint_single(
 
     # 3. Union of transformed source and target
     union_pc = torch.cat([src_pc_transformed, tgt_pc], dim=0)
-    
+
     # Create colors for union (red for source, blue for target)
     src_colors = torch.ones((len(src_pc_transformed), 3), device=src_pc_transformed.device)
     src_colors[:, 0] = 1.0  # Red for source
@@ -92,7 +92,7 @@ def display_pcr_datapoint_single(
     tgt_colors[:, 2] = 1.0
 
     union_colors = torch.cat([src_colors, tgt_colors], dim=0)
-    
+
     figures.append(create_3d_figure(
         union_pc,
         colors=union_colors,
@@ -147,20 +147,20 @@ def display_pcr_datapoint_single(
     # Compute rotation angle and translation magnitude
     rotation_matrix = transform[:3, :3]
     translation_vector = transform[:3, 3]
-    
+
     # Compute rotation angle using the trace of the rotation matrix
     trace = torch.trace(rotation_matrix)
     rotation_angle = torch.acos((trace - 1) / 2) * 180 / np.pi  # Convert to degrees
-    
+
     # Compute translation magnitude
     translation_magnitude = torch.norm(translation_vector)
-    
+
     # Format the transformation matrix as a string
     transform_str = "Transform Matrix:\n"
     for i in range(4):
         row = [f"{transform[i, j]:.4f}" for j in range(4)]
         transform_str += "  ".join(row) + "\n"
-    
+
     # Create a grid layout for the four figures
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
@@ -207,11 +207,11 @@ def display_pcr_datapoint_single(
 
 def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
     """Split concatenated points into source and target using lengths.
-    
+
     Args:
         points: Concatenated points tensor [src_points, tgt_points]
         lengths: Lengths tensor indicating split point
-        
+
     Returns:
         Tuple of (source_points, target_points)
     """
@@ -242,12 +242,12 @@ def display_pcr_datapoint_batched(
     """
     inputs = datapoint['inputs']
     figures = []
-    
+
     # Process each level in the hierarchy
     for level in range(len(inputs['points'])):
         # Split points into source and target
         src_points, tgt_points = split_points_by_lengths(inputs['points'][level], inputs['lengths'][level])
-        
+
         # For top level (level 0), show union and symmetric difference
         if level == 0:
             # Source point cloud
@@ -258,7 +258,7 @@ def display_pcr_datapoint_batched(
                 opacity=point_opacity,
                 camera_state=camera_state
             ))
-            
+
             # Target point cloud
             figures.append(create_3d_figure(
                 tgt_points,
@@ -267,7 +267,7 @@ def display_pcr_datapoint_batched(
                 opacity=point_opacity,
                 camera_state=camera_state
             ))
-            
+
             # Union of source and target
             union_pc = torch.cat([src_points, tgt_points], dim=0)
             src_colors = torch.ones((len(src_points), 3), device=src_points.device)
@@ -275,7 +275,7 @@ def display_pcr_datapoint_batched(
             tgt_colors = torch.ones((len(tgt_points), 3), device=tgt_points.device)
             tgt_colors[:, 2] = 1.0  # Blue for target
             union_colors = torch.cat([src_colors, tgt_colors], dim=0)
-            
+
             figures.append(create_3d_figure(
                 union_pc,
                 colors=union_colors,
@@ -285,7 +285,7 @@ def display_pcr_datapoint_batched(
                 camera_state=camera_state,
                 colorscale=None
             ))
-            
+
             # Symmetric difference
             src_indices, tgt_indices = pc_symmetric_difference(src_points, tgt_points, radius)
             if len(src_indices) > 0 or len(tgt_indices) > 0:
@@ -297,7 +297,7 @@ def display_pcr_datapoint_batched(
                 tgt_colors = torch.ones((len(tgt_indices), 3), device=tgt_diff.device)
                 tgt_colors[:, 2] = 1.0
                 sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
-                
+
                 figures.append(create_3d_figure(
                     sym_diff_pc,
                     colors=sym_diff_colors,
@@ -324,7 +324,7 @@ def display_pcr_datapoint_batched(
                 opacity=point_opacity,
                 camera_state=camera_state
             ))
-            
+
             figures.append(create_3d_figure(
                 tgt_points,
                 title=f"Target Point Cloud (Level {level})",
@@ -332,7 +332,7 @@ def display_pcr_datapoint_batched(
                 opacity=point_opacity,
                 camera_state=camera_state
             ))
-    
+
     # Create grid layout
     grid_items = []
     for i, fig in enumerate(figures):
@@ -345,7 +345,7 @@ def display_pcr_datapoint_batched(
                 )
             ], style={'width': '50%', 'display': 'inline-block'})
         )
-    
+
     return html.Div([
         html.H3("Point Cloud Registration Visualization (Hierarchical)"),
         html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'})
@@ -372,7 +372,7 @@ def display_pcr_datapoint(
         html.Div containing the visualization
     """
     inputs = datapoint['inputs']
-    
+
     # Check if we have hierarchical data (from collators)
     if 'points' in inputs and 'lengths' in inputs:
         return display_pcr_datapoint_batched(
