@@ -17,32 +17,20 @@ class BaseLogger(ABC):
         Args:
             filepath: Optional filepath to write logs to
         """
-        self._buffer_lock = threading.Lock()
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.buffer = {}
-        self._write_queue = queue.Queue()
+        self._buffer_lock = threading.Lock()
         self._buffer_queue = queue.Queue()
-        self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
         self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
-        self._write_thread.start()
         self._buffer_thread.start()
+        self._write_queue = queue.Queue()
+        self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
+        self._write_thread.start()
 
         # Create log file if filepath is provided
         if self.filepath is not None:
             with open(self.filepath, 'w') as f:
                 f.write("")
-
-    def _write_worker(self) -> None:
-        """Background thread to handle write operations."""
-        while True:
-            try:
-                data = self._write_queue.get()
-                if data is None:  # Shutdown signal
-                    break
-                self._process_write(data)
-                self._write_queue.task_done()
-            except Exception as e:
-                print(f"Write worker error: {e}")
 
     def _buffer_worker(self) -> None:
         """Background thread to handle buffer updates."""
@@ -56,6 +44,18 @@ class BaseLogger(ABC):
                 self._buffer_queue.task_done()
             except Exception as e:
                 print(f"Buffer worker error: {e}")
+
+    def _write_worker(self) -> None:
+        """Background thread to handle write operations."""
+        while True:
+            try:
+                data = self._write_queue.get()
+                if data is None:  # Shutdown signal
+                    break
+                self._process_write(data)
+                self._write_queue.task_done()
+            except Exception as e:
+                print(f"Write worker error: {e}")
 
     @abstractmethod
     def _process_write(self, data: Any) -> None:
