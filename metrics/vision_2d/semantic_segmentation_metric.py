@@ -117,7 +117,7 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         assert len(self.buffer) != 0
 
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
-        
+
         # Initialize result structure
         result: Dict[str, Dict[str, torch.Tensor]] = {
             "aggregated": {},

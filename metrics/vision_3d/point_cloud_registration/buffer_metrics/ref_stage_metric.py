@@ -4,7 +4,7 @@ from metrics.wrappers import SingleTaskMetric
 
 
 class BUFFER_RefStageMetric(SingleTaskMetric):
-    
+
     def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         assert isinstance(y_pred, dict)
         assert y_pred.keys() == {'src_ref', 'tgt_ref', 'src_s', 'tgt_s'}, f"{y_pred.keys()=}"

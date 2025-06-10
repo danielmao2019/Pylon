@@ -70,21 +70,26 @@ def test_semantic_segmentation_metric_call(y_pred, y_true, expected_output):
 def test_semantic_segmentation_metric_summarize(y_preds, y_trues):
     """Tests semantic segmentation metric summarization across multiple datapoints."""
     metric = SemanticSegmentationMetric(num_classes=3)
-    
+
     # Compute scores for each datapoint
     for y_pred, y_true in zip(y_preds, y_trues):
         metric(y_pred, y_true)
-    
+
     # Summarize results
     result = metric.summarize()
-    
+
     # Check structure
     assert result.keys() == {'aggregated', 'per_datapoint'}
-    assert result['aggregated'].keys() == result['per_datapoint'].keys() == {
+    expected_keys = {
         'class_IoU', 'mean_IoU',
         'class_tp', 'class_tn', 'class_fp', 'class_fn',
         'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
         'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
     }
-    for key in result['per_datapoint']:
+    assert result['aggregated'].keys() == expected_keys
+    for key in expected_keys:
+        assert isinstance(result['aggregated'][key], torch.Tensor)
+    assert result['per_datapoint'].keys() == expected_keys
+    for key in expected_keys:
+        assert isinstance(result['per_datapoint'][key], list)
         assert len(result['per_datapoint'][key]) == len(y_preds)

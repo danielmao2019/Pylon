@@ -5,7 +5,7 @@ from criteria.vision_3d.point_cloud_registration.buffer_criteria.desc_loss impor
 
 
 class BUFFER_KeyptStageMetric(SingleTaskMetric):
-    
+
     def __init__(self, **kwargs) -> None:
         super(BUFFER_KeyptStageMetric, self).__init__(**kwargs)
         self.desc_loss = ContrastiveLoss()
