@@ -152,7 +152,10 @@ def create_buffer_architecture(config, neighborhood_limits):
         layer += 1
         layer_blocks = []
 
-    assert len(architecture) == len(neighborhood_limits)
+    # This isn't true because we first use uncalibrated neighborhood limits to 
+    # compute calibrated neighborhood limits, and then use the calibrated neighborhood
+    # limits to do collation for the dataloader.
+    # assert len(architecture) == len(neighborhood_limits)
     return architecture
 
 

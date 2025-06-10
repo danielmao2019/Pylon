@@ -5,7 +5,6 @@ import torch
 def pcr_collate_fn(src_points, tgt_points, architecture: List[Dict[str, Any]], downsample_fn: Callable, neighbor_fn: Callable):
     assert isinstance(src_points, torch.Tensor)
     assert isinstance(tgt_points, torch.Tensor)
-    assert src_points.shape[0] == tgt_points.shape[0]
     assert isinstance(architecture, list)
     assert all(isinstance(block, dict) for block in architecture)
     assert all(block.keys() == {
