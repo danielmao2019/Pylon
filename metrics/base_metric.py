@@ -15,7 +15,7 @@ class BaseMetric(ABC):
         self._buffer_lock = threading.Lock()
         self._buffer_queue = queue.Queue()
         self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
-        self._reset_buffer()
+        self.reset_buffer()
         self._buffer_thread.start()
 
     def reset_buffer(self) -> None:
