@@ -1,8 +1,7 @@
 from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
-import os
 import threading
-from queue import Queue
+import queue
 from utils.input_checks import check_write_file
 from utils.io import serialize_tensor
 
@@ -21,8 +20,8 @@ class BaseLogger(ABC):
         self._buffer_lock = threading.Lock()
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.buffer = {}
-        self._write_queue = Queue()
-        self._buffer_queue = Queue()
+        self._write_queue = queue.Queue()
+        self._buffer_queue = queue.Queue()
         self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
         self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
         self._write_thread.start()
