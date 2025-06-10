@@ -15,7 +15,7 @@ import torch
             [1, 2, 0],
             [2, 0, 2]]], dtype=torch.int64),
         {
-            'IoU': torch.tensor([0/4, 1/3, 3/7], dtype=torch.float32),
+            'class_IoU': torch.tensor([0/4, 1/3, 3/7], dtype=torch.float32),
             'class_tp': torch.tensor([0, 1, 3], dtype=torch.int64),
             'class_tn': torch.tensor([5, 6, 2], dtype=torch.int64),
             'class_fp': torch.tensor([2, 2, 1], dtype=torch.int64),
@@ -25,11 +25,11 @@ import torch
 ])
 def test_semantic_segmentation_metric_call(y_pred, y_true, expected_output):
     """Tests IoU computation for multiple classes."""
-    metric = SemanticSegmentationMetric(num_classes=len(expected_output['IoU']))
+    metric = SemanticSegmentationMetric(num_classes=len(expected_output['class_IoU']))
     score: Dict[str, torch.Tensor] = metric(y_pred, y_true)
     # check IoU computation
-    iou = score['IoU']
-    expected_iou = expected_output['IoU']
+    iou = score['class_IoU']
+    expected_iou = expected_output['class_IoU']
     if torch.isnan(expected_iou).any():
         for i, val in enumerate(expected_iou):
             if torch.isnan(val):
