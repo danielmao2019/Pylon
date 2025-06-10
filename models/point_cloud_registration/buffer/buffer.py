@@ -297,7 +297,7 @@ class BUFFER(nn.Module):
             angle_axis = torch.zeros_like(ss_kpts)
             angle_axis[:, -1] = 1
             angle_axis = angle_axis * angle[:, None]
-            azi_R = Convert.angle_axis_to_rotation_matrix(angle_axis)
+            azi_R = Convert.axis_angle_to_rotation_matrix(angle_axis)
             R = tt_R @ azi_R @ ss_R.transpose(-1, -2)
             t = tt_kpts - (R @ ss_kpts.unsqueeze(-1)).squeeze()
 
