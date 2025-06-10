@@ -246,7 +246,9 @@ def display_pcr_datapoint_batched(
     # Process each level in the hierarchy
     for level in range(len(inputs['points'])):
         # Split points into source and target
-        src_points, tgt_points = split_points_by_lengths(inputs['points'][level], inputs['lengths'][level])
+        src_points, tgt_points = split_points_by_lengths(
+            inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
+        )
 
         # For top level (level 0), show union and symmetric difference
         if level == 0:
@@ -256,7 +258,7 @@ def display_pcr_datapoint_batched(
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
                 opacity=point_opacity,
-                camera_state=camera_state
+                camera_state=camera_state,
             ))
 
             # Target point cloud
@@ -265,7 +267,7 @@ def display_pcr_datapoint_batched(
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
                 opacity=point_opacity,
-                camera_state=camera_state
+                camera_state=camera_state,
             ))
 
             # Union of source and target
@@ -374,13 +376,13 @@ def display_pcr_datapoint(
     inputs = datapoint['inputs']
 
     # Check if we have hierarchical data (from collators)
-    if 'points' in inputs and 'lengths' in inputs:
+    if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
         return display_pcr_datapoint_batched(
             datapoint,
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            radius=radius
+            radius=radius,
         )
     else:
         return display_pcr_datapoint_single(
@@ -388,7 +390,7 @@ def display_pcr_datapoint(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            radius=radius
+            radius=radius,
         )
 
 
