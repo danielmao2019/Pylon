@@ -1,8 +1,9 @@
-from typing import Any, Optional
+from typing import Tuple, Optional, Any
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
 from utils.logging.base_logger import BaseLogger
+from utils.io.json import serialize_tensor
 
 
 class ScreenLogger(BaseLogger):
@@ -47,67 +48,83 @@ class ScreenLogger(BaseLogger):
         self.history = []
         self.score_columns = []  # Reset score columns
 
-    def flush(self, prefix: str) -> None:
-        """
-        Flush the buffer to the screen and optionally to the log file.
+    def _process_write(self, data: Tuple[str, Any]) -> None:
+        """Process a write operation."""
+        msg_type, content = data
+        if msg_type == "INFO":
+            if self.filepath:
+                with open(self.filepath, 'a') as f:
+                    f.write(f"INFO: {content}\n")
+            self.console.print(f"[green]INFO:[/green] {content}")
+        elif msg_type == "WARNING":
+            if self.filepath:
+                with open(self.filepath, 'a') as f:
+                    f.write(f"WARNING: {content}\n")
+            self.console.print(f"[yellow]WARNING:[/yellow] {content}")
+        elif msg_type == "ERROR":
+            if self.filepath:
+                with open(self.filepath, 'a') as f:
+                    f.write(f"ERROR: {content}\n")
+            self.console.print(f"[red]ERROR:[/red] {content}")
+        elif msg_type == "PAGE_BREAK":
+            if self.filepath:
+                with open(self.filepath, 'a') as f:
+                    f.write("\n" + "=" * 80 + "\n\n")
+            self.console.print("\n" + "=" * 80 + "\n")
+        elif msg_type == "UPDATE_BUFFER":
+            with self._buffer_lock:
+                self.buffer.update(serialize_tensor(content))
+        elif msg_type == "FLUSH":
+            with self._buffer_lock:
+                # Store the prefix as iteration info
+                self.buffer['iteration_info'] = content
 
-        Args:
-            prefix: Optional prefix to display before the data
-        """
-        assert isinstance(prefix, str), "prefix must be a string"
+                # Add current iteration to history
+                self.history.append(self.buffer.copy())
+                if len(self.history) > self.max_iterations:
+                    self.history.pop(0)
 
-        # Store the prefix as iteration info
-        self.buffer['iteration_info'] = prefix
+                # Update column names based on buffer contents
+                if self.layout == "train":
+                    for key in self.buffer.keys():
+                        if key.startswith("loss_"):
+                            if key not in self.loss_columns:
+                                self.loss_columns.append(key)
+                else:  # eval layout
+                    for key in self.buffer.keys():
+                        if key.startswith("score_"):
+                            if key not in self.score_columns:
+                                self.score_columns.append(key)
 
-        # Add current iteration to history
-        self.history.append(self.buffer.copy())
-        if len(self.history) > self.max_iterations:
-            self.history.pop(0)
+                # Start the display if this is the first iteration
+                if not self.display_started and self.history:
+                    self._start_display()
+                    self.display_started = True
 
-        # Update column names based on buffer contents
-        if self.layout == "train":
-            for key in self.buffer.keys():
-                if key.startswith("loss_"):
-                    if key not in self.loss_columns:
-                        self.loss_columns.append(key)
-        else:  # eval layout
-            for key in self.buffer.keys():
-                if key.startswith("score_"):
-                    if key not in self.score_columns:
-                        self.score_columns.append(key)
+                # Create table and update display
+                table = self._create_table()
+                self._add_rows_to_table(table)
+                if self.live is not None:
+                    self.live.update(table)
+                else:
+                    self.console.print(table)
 
-        # Start the display if this is the first iteration
-        if not self.display_started and self.history:
-            self._start_display()
-            self.display_started = True
+                # Write to log file
+                if self.filepath:
+                    string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+                    with open(self.filepath, 'a') as f:
+                        f.write(string + "\n")
 
-        # Display the data
-        self._display()
-
-        # Write to log file if filepath is provided
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                if prefix:
-                    f.write(f"{prefix} ")
-                for key, value in self.buffer.items():
-                    f.write(f"{key}={value} ")
-                f.write("\n")
-
-        # Clear the buffer
-        self.buffer = {}
+                # Clear the buffer
+                self.buffer = {}
 
     def _start_display(self):
         """Start the live display when the first iteration begins."""
-        # Start the live display with an empty string
         self.live = Live("", refresh_per_second=4, auto_refresh=True)
         self.live.start()
 
-    def _display(self) -> None:
-        """Display the current buffer and history."""
-        # Create a table for the training progress
-        table = self._create_table()
-
-        # Add rows for each iteration in history
+    def _add_rows_to_table(self, table: Table) -> None:
+        """Add rows to the table based on history."""
         for data in self.history:
             if self.layout == "train":
                 # Get all loss values
@@ -138,13 +155,6 @@ class ScreenLogger(BaseLogger):
                     self._format_value(data.get("memory_max", "-")),
                     self._format_value(data.get("util_avg", "-"))
                 )
-
-        # Update the live display
-        if self.live is not None:
-            self.live.update(table)
-        else:
-            # Fallback if live display is not available
-            self.console.print(table)
 
     def _create_table(self) -> Table:
         """Create a table based on the current layout."""
@@ -218,53 +228,6 @@ class ScreenLogger(BaseLogger):
         if isinstance(value, (int, float)):
             return f"{value:.2f}"
         return str(value)
-
-    def info(self, message: str) -> None:
-        """
-        Log an info message.
-
-        Args:
-            message: The message to log
-        """
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write(f"INFO: {message}\n")
-
-        self.console.print(f"[green]INFO:[/green] {message}")
-
-    def warning(self, message: str) -> None:
-        """
-        Log a warning message.
-
-        Args:
-            message: The message to log
-        """
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write(f"WARNING: {message}\n")
-
-        self.console.print(f"[yellow]WARNING:[/yellow] {message}")
-
-    def error(self, message: str) -> None:
-        """
-        Log an error message.
-
-        Args:
-            message: The message to log
-        """
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write(f"ERROR: {message}\n")
-
-        self.console.print(f"[red]ERROR:[/red] {message}")
-
-    def page_break(self) -> None:
-        """Add a page break to the log."""
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write("\n" + "=" * 80 + "\n\n")
-
-        self.console.print("\n" + "=" * 80 + "\n")
 
     def __del__(self):
         """Clean up the live display when the logger is destroyed."""

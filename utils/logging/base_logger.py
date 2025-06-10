@@ -1,15 +1,15 @@
-from typing import Dict, Any, Optional
+from typing import Tuple, Dict, Optional, Any
 from abc import ABC, abstractmethod
-import os
 import threading
+import queue
 from utils.input_checks import check_write_file
-from utils.io import serialize_tensor
 
 
 class BaseLogger(ABC):
     """
-    Base class for loggers that provides common functionality.
+    Base class for all loggers.
     """
+
     def __init__(self, filepath: Optional[str] = None) -> None:
         """
         Initialize the base logger.
@@ -17,15 +17,27 @@ class BaseLogger(ABC):
         Args:
             filepath: Optional filepath to write logs to
         """
-        self._buffer_lock = threading.Lock()
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.buffer = {}
+        self._buffer_lock = threading.Lock()
+        self._write_queue = queue.Queue()
+        self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
+        self._write_thread.start()
 
-        # Create log file if filepath is provided
-        if self.filepath:
-            os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
-            with open(self.filepath, 'w') as f:
-                f.write("")
+    def _write_worker(self) -> None:
+        """Background thread to handle write operations."""
+        while True:
+            try:
+                data = self._write_queue.get()
+                self._process_write(data)
+                self._write_queue.task_done()
+            except Exception as e:
+                print(f"Write worker error: {e}")
+
+    @abstractmethod
+    def _process_write(self, data: Tuple[str, Any]) -> None:
+        """Process a write operation."""
+        pass
 
     def update_buffer(self, data: Dict[str, Any]) -> None:
         """
@@ -34,10 +46,8 @@ class BaseLogger(ABC):
         Args:
             data: Dictionary of data to update the buffer with
         """
-        with self._buffer_lock:
-            self.buffer.update(serialize_tensor(data))
+        self._write_queue.put(("UPDATE_BUFFER", data))
 
-    @abstractmethod
     def flush(self, prefix: Optional[str] = "") -> None:
         """
         Flush the buffer to the output.
@@ -45,9 +55,8 @@ class BaseLogger(ABC):
         Args:
             prefix: Optional prefix to display before the data
         """
-        pass
+        self._write_queue.put(("FLUSH", prefix))
 
-    @abstractmethod
     def info(self, message: str) -> None:
         """
         Log an info message.
@@ -55,9 +64,8 @@ class BaseLogger(ABC):
         Args:
             message: The message to log
         """
-        pass
+        self._write_queue.put(("INFO", message))
 
-    @abstractmethod
     def warning(self, message: str) -> None:
         """
         Log a warning message.
@@ -65,9 +73,8 @@ class BaseLogger(ABC):
         Args:
             message: The message to log
         """
-        pass
+        self._write_queue.put(("WARNING", message))
 
-    @abstractmethod
     def error(self, message: str) -> None:
         """
         Log an error message.
@@ -75,11 +82,8 @@ class BaseLogger(ABC):
         Args:
             message: The message to log
         """
-        pass
+        self._write_queue.put(("ERROR", message))
 
-    @abstractmethod
     def page_break(self) -> None:
-        """
-        Add a page break to the log.
-        """
-        pass
+        """Add a page break to the log."""
+        self._write_queue.put(("PAGE_BREAK", None))
