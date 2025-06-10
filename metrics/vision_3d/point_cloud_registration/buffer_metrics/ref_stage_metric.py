@@ -1,6 +1,7 @@
 from typing import Dict, Any
 import torch
 from metrics.wrappers import SingleTaskMetric
+from utils.ops.apply import apply_tensor_op
 
 
 class BUFFER_RefStageMetric(SingleTaskMetric):
@@ -19,5 +20,6 @@ class BUFFER_RefStageMetric(SingleTaskMetric):
         scores = {
             'ref_error': err,
         }
+        scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
         self.buffer.append(scores)
         return scores

@@ -1,14 +1,15 @@
 from typing import Dict, Tuple
+from easydict import EasyDict
 import torch
 from models.point_cloud_registration.geotransformer.transformation import apply_transform
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.ops import apply_tensor_op
+from utils.ops.apply import apply_tensor_op
 
 
 class GeoTransformerMetric(SingleTaskMetric):
+
     def __init__(self, **cfg):
-        from easydict import EasyDict
         cfg = EasyDict(cfg)
         super(GeoTransformerMetric, self).__init__()
         self.acceptance_overlap = cfg.acceptance_overlap
