@@ -3,42 +3,6 @@ import numpy as np
 import plotly.graph_objects as go
 
 
-def create_aggregated_scores_plot(epoch_scores: List[np.ndarray], log_dirs: List[str], metric_name: str) -> go.Figure:
-    """
-    Creates a line plot showing aggregated scores over epochs for each run.
-
-    Args:
-        epoch_scores: List of dictionaries containing aggregated scores for each epoch
-        log_dirs: List of log directory paths
-        metric_name: Name of the metric to plot
-
-    Returns:
-        fig: Plotly figure object
-    """
-    assert isinstance(epoch_scores, list)
-    assert all(isinstance(scores, np.ndarray) for scores in epoch_scores)
-
-    fig = go.Figure()
-
-    for scores, log_dir in zip(epoch_scores, log_dirs):
-        fig.add_trace(go.Scatter(
-            x=list(range(len(scores))),
-            y=scores,
-            name=log_dir.split('/')[-1],
-            mode='lines+markers'
-        ))
-
-    fig.update_layout(
-        title=f"Aggregated {metric_name} Over Time",
-        xaxis_title="Epoch",
-        yaxis_title="Score",
-        showlegend=True,
-        margin=dict(l=0, r=0, t=30, b=0),
-    )
-
-    return fig
-
-
 def create_score_map(scores: List[float]) -> np.ndarray:
     """
     Creates a square matrix from a list of scores.
@@ -77,3 +41,26 @@ def create_overlaid_score_map(score_maps: List[np.ndarray]) -> np.ndarray:
     aggregated = np.sum(binary_maps, axis=0)
     normalized = aggregated / len(score_maps)
     return normalized
+
+
+def get_color_for_score(score: float, min_score: float, max_score: float) -> str:
+    """Convert a score to a color using a red-yellow-green colormap."""
+    if np.isnan(score):
+        return '#808080'  # Gray for NaN values
+
+    # Normalize score to [0, 1]
+    normalized = (score - min_score) / (max_score - min_score)
+
+    # Create color gradient from red (0) to yellow (0.5) to green (1)
+    if normalized < 0.5:
+        # Red to Yellow
+        r = 1.0
+        g = normalized * 2
+        b = 0.0
+    else:
+        # Yellow to Green
+        r = 2 * (1 - normalized)
+        g = 1.0
+        b = 0.0
+
+    return f'rgb({int(r*255)}, {int(g*255)}, {int(b*255)})'

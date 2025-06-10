@@ -2,13 +2,18 @@
 
 ## Overview
 
-The Dataset Viewer is a powerful tool for visualizing and exploring datasets. It provides an interactive web interface built with Dash that allows users to:
+The Dataset Viewer is a powerful tool for visualizing and exploring various types of computer vision datasets. It provides an interactive web interface built with Dash that allows users to:
 
 - Browse and select datasets
 - Navigate through dataset items
 - Apply transforms to data
-- Visualize 2D and 3D data
+- Visualize different types of data:
+  - 2D Change Detection (before/after images with change maps)
+  - 3D Change Detection (point cloud pairs with change maps)
+  - Point Cloud Registration (source/target point clouds with transformations)
+  - Semantic Segmentation (images with segmentation masks)
 - Customize visualization settings
+- View dataset statistics and metadata
 
 ## Quick Start
 
@@ -27,6 +32,7 @@ The viewer is built with a modular architecture:
 ```
 data/viewer/
 ├── viewer.py              # Main viewer class
+├── cli.py                # Command-line interface
 ├── states/               # State management
 │   ├── __init__.py
 │   └── viewer_state.py   # Viewer state class
@@ -35,23 +41,30 @@ data/viewer/
 │   ├── registry.py      # Callback registry
 │   ├── dataset.py       # Dataset callbacks
 │   ├── display.py       # Display callbacks
-│   └── transforms.py    # Transform callbacks
+│   ├── navigation.py    # Navigation callbacks
+│   ├── transforms.py    # Transform callbacks
+│   └── three_d_settings.py  # 3D visualization settings
 ├── layout/              # UI components
 │   ├── __init__.py
-│   ├── controls/        # Control components
-│   └── display/         # Display components
-└── managers/            # Data management
+│   ├── app.py          # Main app layout
+│   ├── controls/       # Control components
+│   └── display/        # Display components
+└── managers/           # Data management
     ├── __init__.py
-    └── dataset_manager.py  # Dataset manager
+    ├── dataset_manager.py  # Dataset manager
+    ├── dataset_cache.py    # Caching system
+    ├── transform_manager.py # Transform management
+    └── registry.py         # Dataset type registry
 ```
 
 ### Key Components
 
 1. **DatasetViewer**: Main class that initializes and runs the viewer
-2. **ViewerState**: Manages application state and history
-3. **DatasetManager**: Handles dataset loading and caching
+2. **ViewerState**: Manages application state, history, and events
+3. **DatasetManager**: Handles dataset loading, caching, and operations
 4. **CallbackRegistry**: Manages callback registration and dependencies
 5. **UI Components**: Modular components for controls and display
+6. **TransformManager**: Handles data transformations and preprocessing
 
 ## API Reference
 
@@ -60,15 +73,15 @@ data/viewer/
 ```python
 class DatasetViewer:
     """Dataset viewer class for visualization of datasets."""
-    
+
     def __init__(self, log_level: str = "INFO", log_file: Optional[str] = None):
         """Initialize the dataset viewer.
-        
+
         Args:
             log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             log_file: Optional path to log file
         """
-        
+
     def run(self, debug: bool = False, host: str = "0.0.0.0", port: int = 8050) -> None:
         """Run the viewer application."""
 ```
@@ -78,16 +91,19 @@ class DatasetViewer:
 ```python
 class ViewerState:
     """Manages the viewer's state and configuration."""
-    
-    def update_dataset_info(self, name: str, length: int, class_labels: Dict[int, str], 
-                          is_3d: bool, available_transforms: List[str] = None) -> None:
+
+    def update_dataset_info(self, name: str, length: int, class_labels: Dict[int, str],
+                          transforms: List[Dict[str, Any]] = None, dataset_type: str = None) -> None:
         """Update the current dataset information."""
-        
+
     def update_index(self, index: int) -> None:
         """Update the current datapoint index."""
-        
-    def update_transforms(self, transforms: Dict[str, bool]) -> None:
+
+    def update_transforms(self, transforms: List[Dict[str, Any]]) -> None:
         """Update the transform settings."""
+
+    def update_3d_settings(self, point_size: float, point_opacity: float) -> None:
+        """Update 3D visualization settings."""
 ```
 
 ### DatasetManager
@@ -95,12 +111,12 @@ class ViewerState:
 ```python
 class DatasetManager:
     """Manages dataset loading, caching, and operations."""
-    
-    def load_dataset(self, dataset_name: str) -> Tuple[bool, str, Dict[str, Any]]:
-        """Load a dataset."""
-        
-    def get_datapoint(self, dataset_name: str, index: int) -> Optional[Any]:
-        """Get a datapoint from the dataset."""
+
+    def load_dataset(self, dataset_name: str) -> Dict[str, Any]:
+        """Load a dataset and return its information."""
+
+    def get_datapoint(self, dataset_name: str, index: int, transform_indices: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:
+        """Get a datapoint with optional transforms applied."""
 ```
 
 ## Examples
@@ -121,24 +137,33 @@ viewer.run(
 )
 ```
 
-### Custom Transforms
+### Command Line Usage
 
-```python
-from data.viewer import DatasetViewer
-from data.viewer.callbacks.registry import callback
-
-# Create viewer
-viewer = DatasetViewer()
-
-# Register custom transform
-@callback(
-    outputs=Output('datapoint-display', 'children'),
-    inputs=[Input('transform-checkbox', 'value')],
-    group='transforms'
-)
-def apply_custom_transform(transform_enabled):
-    if transform_enabled:
-        # Apply custom transform
-        return transformed_data
-    return original_data
+```bash
+# Run the viewer from command line
+python -m data.viewer.cli --debug --host localhost --port 8050
 ```
+
+### Dataset Types
+
+The viewer supports several dataset types:
+
+1. **2D Change Detection (2dcd)**
+   - Before/after images
+   - Change maps
+   - Examples: Air Change, CDD, LEVIR-CD, OSCD, SYSU-CD
+
+2. **3D Change Detection (3dcd)**
+   - Point cloud pairs
+   - Change maps
+   - Examples: Urb3DCD, SLPCCD
+
+3. **Point Cloud Registration (pcr)**
+   - Source/target point clouds
+   - Transformations
+   - Examples: Synth PCR, Real PCR, KITTI
+
+4. **Semantic Segmentation (semseg)**
+   - Images with segmentation masks
+   - Class labels
+   - Example: COCO Stuff 164K
