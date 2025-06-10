@@ -2,6 +2,8 @@ from typing import Any, Optional
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
+import asyncio
+import aiofiles
 from utils.logging.base_logger import BaseLogger
 
 
@@ -34,6 +36,7 @@ class ScreenLogger(BaseLogger):
         self.layout = layout
         self.loss_columns = []  # Store loss column names
         self.score_columns = []  # Store score column names
+        self._display_lock = asyncio.Lock()  # Lock for display updates
 
     def train(self) -> None:
         """Switch to training mode and reset history."""
@@ -47,7 +50,46 @@ class ScreenLogger(BaseLogger):
         self.history = []
         self.score_columns = []  # Reset score columns
 
-    def flush(self, prefix: str) -> None:
+    async def _process_write(self, data: Any) -> None:
+        """Process a write operation."""
+        if isinstance(data, str):
+            # Handle buffer flush
+            if self.filepath:
+                async with aiofiles.open(self.filepath, 'a') as f:
+                    await f.write(data + "\n")
+            self.console.print(data)
+        elif isinstance(data, tuple):
+            msg_type, content = data
+            if msg_type == "INFO":
+                if self.filepath:
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write(f"INFO: {content}\n")
+                self.console.print(f"[green]INFO:[/green] {content}")
+            elif msg_type == "WARNING":
+                if self.filepath:
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write(f"WARNING: {content}\n")
+                self.console.print(f"[yellow]WARNING:[/yellow] {content}")
+            elif msg_type == "ERROR":
+                if self.filepath:
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write(f"ERROR: {content}\n")
+                self.console.print(f"[red]ERROR:[/red] {content}")
+            elif msg_type == "PAGE_BREAK":
+                if self.filepath:
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write("\n" + "=" * 80 + "\n\n")
+                self.console.print("\n" + "=" * 80 + "\n")
+            elif msg_type == "UPDATE_DISPLAY":
+                # Handle table display update
+                table = content
+                async with self._display_lock:
+                    if self.live is not None:
+                        self.live.update(table)
+                    else:
+                        self.console.print(table)
+
+    async def flush(self, prefix: str) -> None:
         """
         Flush the buffer to the screen and optionally to the log file.
 
@@ -81,33 +123,26 @@ class ScreenLogger(BaseLogger):
             self._start_display()
             self.display_started = True
 
-        # Display the data
-        self._display()
+        # Create table and send to write worker
+        table = self._create_table()
+        self._add_rows_to_table(table)
+        await self._write_queue.put(("UPDATE_DISPLAY", table))
 
-        # Write to log file if filepath is provided
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                if prefix:
-                    f.write(f"{prefix} ")
-                for key, value in self.buffer.items():
-                    f.write(f"{key}={value} ")
-                f.write("\n")
+        # Write to log file
+        log_data = f"{prefix} " if prefix else ""
+        log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())
+        await self._write_queue.put(log_data)
 
         # Clear the buffer
         self.buffer = {}
 
     def _start_display(self):
         """Start the live display when the first iteration begins."""
-        # Start the live display with an empty string
         self.live = Live("", refresh_per_second=4, auto_refresh=True)
         self.live.start()
 
-    def _display(self) -> None:
-        """Display the current buffer and history."""
-        # Create a table for the training progress
-        table = self._create_table()
-
-        # Add rows for each iteration in history
+    def _add_rows_to_table(self, table: Table) -> None:
+        """Add rows to the table based on history."""
         for data in self.history:
             if self.layout == "train":
                 # Get all loss values
@@ -138,13 +173,6 @@ class ScreenLogger(BaseLogger):
                     self._format_value(data.get("memory_max", "-")),
                     self._format_value(data.get("util_avg", "-"))
                 )
-
-        # Update the live display
-        if self.live is not None:
-            self.live.update(table)
-        else:
-            # Fallback if live display is not available
-            self.console.print(table)
 
     def _create_table(self) -> Table:
         """Create a table based on the current layout."""
@@ -219,52 +247,36 @@ class ScreenLogger(BaseLogger):
             return f"{value:.2f}"
         return str(value)
 
-    def info(self, message: str) -> None:
+    async def info(self, message: str) -> None:
         """
         Log an info message.
 
         Args:
             message: The message to log
         """
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write(f"INFO: {message}\n")
+        await self._write_queue.put(("INFO", message))
 
-        self.console.print(f"[green]INFO:[/green] {message}")
-
-    def warning(self, message: str) -> None:
+    async def warning(self, message: str) -> None:
         """
         Log a warning message.
 
         Args:
             message: The message to log
         """
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write(f"WARNING: {message}\n")
+        await self._write_queue.put(("WARNING", message))
 
-        self.console.print(f"[yellow]WARNING:[/yellow] {message}")
-
-    def error(self, message: str) -> None:
+    async def error(self, message: str) -> None:
         """
         Log an error message.
 
         Args:
             message: The message to log
         """
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write(f"ERROR: {message}\n")
+        await self._write_queue.put(("ERROR", message))
 
-        self.console.print(f"[red]ERROR:[/red] {message}")
-
-    def page_break(self) -> None:
+    async def page_break(self) -> None:
         """Add a page break to the log."""
-        if self.filepath:
-            with open(self.filepath, 'a') as f:
-                f.write("\n" + "=" * 80 + "\n\n")
-
-        self.console.print("\n" + "=" * 80 + "\n")
+        await self._write_queue.put(("PAGE_BREAK", None))
 
     def __del__(self):
         """Clean up the live display when the logger is destroyed."""

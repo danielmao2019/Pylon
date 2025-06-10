@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional
 from abc import ABC, abstractmethod
 import os
 import threading
+import asyncio
 from utils.input_checks import check_write_file
 from utils.io import serialize_tensor
 
@@ -20,12 +21,26 @@ class BaseLogger(ABC):
         self._buffer_lock = threading.Lock()
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.buffer = {}
+        self._write_queue = asyncio.Queue()
+        self._write_worker = asyncio.create_task(self._write_worker_task())
 
         # Create log file if filepath is provided
         if self.filepath:
             os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
             with open(self.filepath, 'w') as f:
                 f.write("")
+
+    async def _write_worker_task(self) -> None:
+        """Background task to process write operations."""
+        while True:
+            data = await self._write_queue.get()
+            await self._process_write(data)
+            self._write_queue.task_done()
+
+    @abstractmethod
+    async def _process_write(self, data: Any) -> None:
+        """Process a write operation."""
+        pass
 
     def update_buffer(self, data: Dict[str, Any]) -> None:
         """
@@ -38,7 +53,7 @@ class BaseLogger(ABC):
             self.buffer.update(serialize_tensor(data))
 
     @abstractmethod
-    def flush(self, prefix: Optional[str] = "") -> None:
+    async def flush(self, prefix: Optional[str] = "") -> None:
         """
         Flush the buffer to the output.
 
@@ -48,7 +63,7 @@ class BaseLogger(ABC):
         pass
 
     @abstractmethod
-    def info(self, message: str) -> None:
+    async def info(self, message: str) -> None:
         """
         Log an info message.
 
@@ -58,7 +73,7 @@ class BaseLogger(ABC):
         pass
 
     @abstractmethod
-    def warning(self, message: str) -> None:
+    async def warning(self, message: str) -> None:
         """
         Log a warning message.
 
@@ -68,7 +83,7 @@ class BaseLogger(ABC):
         pass
 
     @abstractmethod
-    def error(self, message: str) -> None:
+    async def error(self, message: str) -> None:
         """
         Log an error message.
 
@@ -78,8 +93,17 @@ class BaseLogger(ABC):
         pass
 
     @abstractmethod
-    def page_break(self) -> None:
+    async def page_break(self) -> None:
         """
         Add a page break to the log.
         """
         pass
+
+    async def shutdown(self) -> None:
+        """Shutdown the logger and wait for all messages to be processed."""
+        await self._write_queue.join()
+        self._write_worker.cancel()
+        try:
+            await self._write_worker
+        except asyncio.CancelledError:
+            pass
