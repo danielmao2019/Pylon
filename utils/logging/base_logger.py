@@ -24,11 +24,6 @@ class BaseLogger(ABC):
         self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
         self._write_thread.start()
 
-        # Create log file if filepath is provided
-        if self.filepath is not None:
-            with open(self.filepath, 'w') as f:
-                f.write("")
-
     def _write_worker(self) -> None:
         """Background thread to handle write operations."""
         while True:
