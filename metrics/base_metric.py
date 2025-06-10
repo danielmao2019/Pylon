@@ -12,16 +12,16 @@ class BaseMetric(ABC):
 
     def __init__(self) -> None:
         """Initialize the base metric."""
-        self.buffer = []
         self._buffer_lock = threading.Lock()
         self._buffer_queue = queue.Queue()
         self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
+        self._reset_buffer()
         self._buffer_thread.start()
 
     def reset_buffer(self) -> None:
         """Reset the buffer."""
-        assert not self._buffer_thread.is_alive(), "Buffer thread is still running when resetting buffer"
         assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
+        assert not self._buffer_thread.is_alive(), "Buffer thread is still running when resetting buffer"
         with self._buffer_lock:
             self.buffer = []
 
