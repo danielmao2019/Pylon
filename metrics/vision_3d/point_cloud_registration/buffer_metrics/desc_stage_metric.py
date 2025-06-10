@@ -2,7 +2,6 @@ from typing import Dict, Any
 import torch
 from metrics.wrappers import SingleTaskMetric
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.desc_loss import ContrastiveLoss, cdist
-from utils.ops.apply import apply_tensor_op
 
 
 class BUFFER_DescStageMetric(SingleTaskMetric):
@@ -21,6 +20,5 @@ class BUFFER_DescStageMetric(SingleTaskMetric):
             'desc_acc': accuracy,
             'eqv_acc': eqv_acc,
         }
-        scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
-        self.buffer.append(scores)
+        self.add_to_buffer(scores)
         return scores

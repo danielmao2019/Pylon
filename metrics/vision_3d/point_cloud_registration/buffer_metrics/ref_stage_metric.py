@@ -1,11 +1,10 @@
 from typing import Dict, Any
 import torch
 from metrics.wrappers import SingleTaskMetric
-from utils.ops.apply import apply_tensor_op
 
 
 class BUFFER_RefStageMetric(SingleTaskMetric):
-    
+
     def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         assert isinstance(y_pred, dict)
         assert y_pred.keys() == {'src_ref', 'tgt_ref', 'src_s', 'tgt_s'}, f"{y_pred.keys()=}"
@@ -20,6 +19,5 @@ class BUFFER_RefStageMetric(SingleTaskMetric):
         scores = {
             'ref_error': err,
         }
-        scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
-        self.buffer.append(scores)
+        self.add_to_buffer(scores)
         return scores
