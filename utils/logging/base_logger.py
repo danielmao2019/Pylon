@@ -22,12 +22,14 @@ class BaseLogger(ABC):
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.buffer = {}
         self._write_queue = Queue()
+        self._buffer_queue = Queue()
         self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
+        self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
         self._write_thread.start()
+        self._buffer_thread.start()
 
         # Create log file if filepath is provided
-        if self.filepath:
-            os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
+        if self.filepath is not None:
             with open(self.filepath, 'w') as f:
                 f.write("")
 
@@ -43,6 +45,19 @@ class BaseLogger(ABC):
             except Exception as e:
                 print(f"Write worker error: {e}")
 
+    def _buffer_worker(self) -> None:
+        """Background thread to handle buffer updates."""
+        while True:
+            try:
+                data = self._buffer_queue.get()
+                if data is None:  # Shutdown signal
+                    break
+                with self._buffer_lock:
+                    self.buffer.update(serialize_tensor(data))
+                self._buffer_queue.task_done()
+            except Exception as e:
+                print(f"Buffer worker error: {e}")
+
     @abstractmethod
     def _process_write(self, data: Any) -> None:
         """Process a write operation."""
@@ -55,8 +70,7 @@ class BaseLogger(ABC):
         Args:
             data: Dictionary of data to update the buffer with
         """
-        with self._buffer_lock:
-            self.buffer.update(serialize_tensor(data))
+        self._buffer_queue.put(data)
 
     @abstractmethod
     def flush(self, prefix: Optional[str] = "") -> None:
@@ -101,5 +115,13 @@ class BaseLogger(ABC):
 
     def shutdown(self) -> None:
         """Shutdown the logger and wait for all messages to be processed."""
-        self._write_queue.put(None)  # Signal write thread to stop
+        # Wait for all buffer updates to complete
+        self._buffer_queue.join()
+        # Signal buffer thread to stop
+        self._buffer_queue.put(None)
+        # Wait for buffer thread to stop
+        self._buffer_thread.join()
+        # Signal write thread to stop
+        self._write_queue.put(None)
+        # Wait for write thread to stop
         self._write_thread.join()

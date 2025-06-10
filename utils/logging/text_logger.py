@@ -78,6 +78,8 @@ class TextLogger(BaseLogger):
                 self.core_logger.info("")
 
     def flush(self, prefix: Optional[str] = "") -> None:
+        # Wait for all buffer updates to complete
+        self._buffer_queue.join()
         with self._buffer_lock:
             string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
             self.core_logger.info(string)

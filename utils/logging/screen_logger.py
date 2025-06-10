@@ -95,8 +95,11 @@ class ScreenLogger(BaseLogger):
         """
         assert isinstance(prefix, str), "prefix must be a string"
 
-        # Store the prefix as iteration info
+        # Wait for all buffer updates to complete
+        self._buffer_queue.join()
+
         with self._buffer_lock:
+            # Store the prefix as iteration info
             self.buffer['iteration_info'] = prefix
 
             # Add current iteration to history
