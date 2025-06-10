@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Tuple, Dict, Optional, Any
 from abc import ABC, abstractmethod
 import threading
 import queue
@@ -58,7 +58,7 @@ class BaseLogger(ABC):
                 print(f"Write worker error: {e}")
 
     @abstractmethod
-    def _process_write(self, data: Any) -> None:
+    def _process_write(self, data: Tuple[str, Any]) -> None:
         """Process a write operation."""
         pass
 
