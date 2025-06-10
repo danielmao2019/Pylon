@@ -85,9 +85,7 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         return score
 
     @staticmethod
-    def _summarize(buffer: List[Dict[str, torch.Tensor]], num_classes) -> Dict[str, torch.Tensor]:
-        num_datapoints = len(buffer)
-        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(buffer)
+    def _summarize(buffer: Dict[str, List[torch.Tensor]], num_datapoints: int, num_classes: int) -> Dict[str, torch.Tensor]:
         result: Dict[str, torch.Tensor] = {}
         # summarize IoU
         iou = torch.stack(buffer['class_IoU'], dim=0)
@@ -120,17 +118,9 @@ class SemanticSegmentationMetric(SingleTaskMetric):
 
         # Initialize result structure
         result: Dict[str, Dict[str, torch.Tensor]] = {
-            "aggregated": {},
-            "per_datapoint": {},
+            "aggregated": self._summarize(buffer, len(self.buffer), self.num_classes),
+            "per_datapoint": buffer,
         }
-
-        # First compute per-datapoint scores
-        for key in buffer:
-            key_scores = torch.stack(buffer[key], dim=0)
-            result["per_datapoint"][key] = key_scores
-
-        # Compute aggregated metrics
-        result["aggregated"] = self._summarize(self.buffer, self.num_classes)
 
         # save to disk
         if output_path is not None:

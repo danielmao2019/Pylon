@@ -38,38 +38,31 @@ class ChangeStarMetric(SingleTaskMetric):
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
+        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
+        buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
+            key1: transpose_buffer(buffer[key1])
+            for key1 in buffer.keys()
+        }
+
         # get aggregated summary
-        buffer1: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
         aggregated_result: Dict[str, Dict[str, torch.Tensor]] = {
             'change': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                buffer=buffer1['change'], num_classes=2,
+                buffer=buffer['change'], num_datapoints=len(self.buffer), num_classes=2,
         )}
-        if len(buffer1) == 3:
+        if len(buffer) == 3:
             aggregated_result.update({
                 'semantic_1': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                    buffer=buffer1['semantic_1'], num_classes=5,
+                    buffer=buffer['semantic_1'], num_datapoints=len(self.buffer), num_classes=5,
                 ),
                 'semantic_2': metrics.vision_2d.SemanticSegmentationMetric._summarize(
-                    buffer=buffer1['semantic_2'], num_classes=5,
+                    buffer=buffer['semantic_2'], num_datapoints=len(self.buffer), num_classes=5,
                 ),
             })
-
-        # get per-datapoint summary
-        buffer2: Dict[str, Dict[str, List[torch.Tensor]]] = {
-            key1: transpose_buffer(buffer1[key1])
-            for key1 in buffer1.keys()
-        }
-        per_datapoint_result: Dict[str, Dict[str, torch.Tensor]] = {
-            key1: {
-                key2: torch.stack(buffer2[key1][key2], dim=0)
-                for key2 in buffer2[key1].keys()
-            } for key1 in buffer2.keys()
-        }
 
         # define final result
         result: Dict[str, Dict[str, torch.Tensor]] = {
             "aggregated": aggregated_result,
-            "per_datapoint": per_datapoint_result,
+            "per_datapoint": buffer,
         }
 
         # save to disk

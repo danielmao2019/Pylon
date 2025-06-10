@@ -115,15 +115,12 @@ class ConfusionMatrix(SingleTaskMetric):
         # summarize scores
         result: Dict[str, Dict[str, torch.Tensor]] = {
             "aggregated": {},
-            "per_datapoint": {
-                key: torch.stack(buffer[key], dim=0)
-                for key in buffer
-            },
+            "per_datapoint": buffer,
         }
 
         # Compute aggregated confusion matrix
         agg_cm = {
-            key: result["per_datapoint"][key].sum(dim=0)
+            key: torch.stack(buffer[key], dim=0).sum(dim=0)
             for key in ['class_tp', 'class_tn', 'class_fp', 'class_fn']
         }
         agg_scores = self._cm2score(agg_cm)

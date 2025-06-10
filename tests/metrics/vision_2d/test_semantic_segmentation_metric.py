@@ -91,5 +91,5 @@ def test_semantic_segmentation_metric_summarize(y_preds, y_trues):
         assert isinstance(result['aggregated'][key], torch.Tensor)
     assert result['per_datapoint'].keys() == expected_keys
     for key in expected_keys:
-        assert isinstance(result['per_datapoint'][key], list)
+        assert isinstance(result['per_datapoint'][key], list), f"{key=}, {result['per_datapoint'][key]=}"
         assert len(result['per_datapoint'][key]) == len(y_preds)
