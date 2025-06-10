@@ -1,9 +1,10 @@
 from typing import List, Dict, Union
 import torch
-from metrics import BaseMetric
-from utils.input_checks import check_write_file
-from utils.ops import apply_tensor_op, transpose_buffer
-from utils.io import save_json
+from metrics.base_metric import BaseMetric
+from utils.input_checks.str_types import check_write_file
+from utils.ops.apply import apply_tensor_op
+from utils.ops.dict_as_tensor import transpose_buffer
+from utils.io.json import save_json
 
 
 class SingleTaskMetric(BaseMetric):

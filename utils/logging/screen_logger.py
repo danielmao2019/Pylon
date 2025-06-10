@@ -115,7 +115,7 @@ class ScreenLogger(BaseLogger):
                     loss_values = [self._format_value(data.get(col, "-")) for col in self.loss_columns]
                 else:
                     loss_values = [self._format_value(data.get("loss", "-"))]
-                
+
                 table.add_row(
                     data.get("iteration_info", "-"),
                     self._format_value(data.get("learning_rate")),
@@ -130,7 +130,7 @@ class ScreenLogger(BaseLogger):
                     score_values = [self._format_value(data.get(col, "-")) for col in self.score_columns]
                 else:
                     score_values = [self._format_value(data.get("score", "-"))]
-                
+
                 table.add_row(
                     data.get("iteration_info", "-"),
                     *score_values,  # Unpack score values

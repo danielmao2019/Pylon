@@ -2,7 +2,7 @@ from typing import Any
 import os
 import json
 import jsbeautifier
-from utils.ops import apply_tensor_op
+from utils.ops.apply import apply_tensor_op
 
 
 def serialize_tensor(obj: Any):

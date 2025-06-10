@@ -58,10 +58,6 @@ class TextLogger(BaseLogger):
     # logging methods
     # ====================================================================================================
 
-    def update_buffer(self, data: dict) -> None:
-        with self._buffer_lock:
-            self.buffer.update(serialize_tensor(data))
-
     def flush(self, prefix: Optional[str] = "") -> None:
         with self._buffer_lock:
             string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
