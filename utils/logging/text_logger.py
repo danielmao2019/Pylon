@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 import logging
 import sys
 import threading
@@ -58,38 +58,23 @@ class TextLogger(BaseLogger):
     # logging methods
     # ====================================================================================================
 
-    async def _process_write(self, data: Any) -> None:
-        """Process a write operation."""
-        if isinstance(data, str):
-            self.core_logger.info(data)
-        elif isinstance(data, tuple):
-            msg_type, content = data
-            if msg_type == "INFO":
-                self.core_logger.info(content)
-            elif msg_type == "WARNING":
-                self.core_logger.warning(content)
-            elif msg_type == "ERROR":
-                self.core_logger.error(content)
-            elif msg_type == "PAGE_BREAK":
-                self.core_logger.info("")
-                self.core_logger.info('=' * 100)
-                self.core_logger.info('=' * 100)
-                self.core_logger.info("")
-
-    async def flush(self, prefix: Optional[str] = "") -> None:
+    def flush(self, prefix: Optional[str] = "") -> None:
         with self._buffer_lock:
             string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
-            await self._write_queue.put(string)
+            self.core_logger.info(string)
             self.buffer = {}
 
-    async def info(self, string: str) -> None:
-        await self._write_queue.put(("INFO", string))
+    def info(self, string: str) -> None:
+        self.core_logger.info(string)
 
-    async def warning(self, string: str) -> None:
-        await self._write_queue.put(("WARNING", string))
+    def warning(self, string: str) -> None:
+        self.core_logger.warning(string)
 
-    async def error(self, string: str) -> None:
-        await self._write_queue.put(("ERROR", string))
+    def error(self, string: str) -> None:
+        self.core_logger.error(string)
 
-    async def page_break(self) -> None:
-        await self._write_queue.put(("PAGE_BREAK", None))
+    def page_break(self):
+        self.core_logger.info("")
+        self.core_logger.info('=' * 100)
+        self.core_logger.info('=' * 100)
+        self.core_logger.info("")
