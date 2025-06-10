@@ -88,6 +88,7 @@ def register_datapoint_viewer_callbacks(
             current_dataset = build_from_config(run_info.dataset_cfg)
             dataloader = build_from_config(run_info.dataloader_cfg, dataset=current_dataset)
             collate_fn = dataloader.collate_fn
+            datapoint = current_dataset[datapoint_idx]
             datapoint = collate_fn([datapoint])  # Apply collate function to single datapoint
 
         # Get the appropriate display function
