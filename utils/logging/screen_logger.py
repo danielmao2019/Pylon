@@ -123,7 +123,7 @@ class ScreenLogger(BaseLogger):
         table = self._create_table()
         self._add_rows_to_table(table)
         await self._write_queue.put(("UPDATE_DISPLAY", table))
-        
+
         # Write to log file
         log_data = f"{prefix} " if prefix else ""
         log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())

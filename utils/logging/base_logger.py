@@ -21,13 +21,13 @@ class BaseLogger(ABC):
         self._buffer_lock = threading.Lock()
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.buffer = {}
-        
+
         # Create log file if filepath is provided
         if self.filepath:
             os.makedirs(os.path.dirname(self.filepath), exist_ok=True)
             with open(self.filepath, 'w') as f:
                 f.write("")
-        
+
         # Initialize async queue and worker
         self._write_queue = asyncio.Queue()
         self._write_worker = None
