@@ -71,7 +71,6 @@ class BaseLogger(ABC):
         """
         self._buffer_queue.put(data)
 
-    @abstractmethod
     def flush(self, prefix: Optional[str] = "") -> None:
         """
         Flush the buffer to the output.
@@ -79,7 +78,7 @@ class BaseLogger(ABC):
         Args:
             prefix: Optional prefix to display before the data
         """
-        pass
+        self._write_queue.put(("FLUSH", prefix))
 
     def info(self, message: str) -> None:
         """

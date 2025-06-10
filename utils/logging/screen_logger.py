@@ -49,92 +49,73 @@ class ScreenLogger(BaseLogger):
 
     def _process_write(self, data: Any) -> None:
         """Process a write operation."""
-        if isinstance(data, str):
-            # Handle buffer flush
+        msg_type, content = data
+        if msg_type == "INFO":
             if self.filepath:
                 with open(self.filepath, 'a') as f:
-                    f.write(data + "\n")
-            self.console.print(data)
-        elif isinstance(data, tuple):
-            msg_type, content = data
-            if msg_type == "INFO":
-                if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write(f"INFO: {content}\n")
-                self.console.print(f"[green]INFO:[/green] {content}")
-            elif msg_type == "WARNING":
-                if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write(f"WARNING: {content}\n")
-                self.console.print(f"[yellow]WARNING:[/yellow] {content}")
-            elif msg_type == "ERROR":
-                if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write(f"ERROR: {content}\n")
-                self.console.print(f"[red]ERROR:[/red] {content}")
-            elif msg_type == "PAGE_BREAK":
-                if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write("\n" + "=" * 80 + "\n\n")
-                self.console.print("\n" + "=" * 80 + "\n")
-            elif msg_type == "UPDATE_DISPLAY":
-                # Handle table display update
-                table = content
+                    f.write(f"INFO: {content}\n")
+            self.console.print(f"[green]INFO:[/green] {content}")
+        elif msg_type == "WARNING":
+            if self.filepath:
+                with open(self.filepath, 'a') as f:
+                    f.write(f"WARNING: {content}\n")
+            self.console.print(f"[yellow]WARNING:[/yellow] {content}")
+        elif msg_type == "ERROR":
+            if self.filepath:
+                with open(self.filepath, 'a') as f:
+                    f.write(f"ERROR: {content}\n")
+            self.console.print(f"[red]ERROR:[/red] {content}")
+        elif msg_type == "PAGE_BREAK":
+            if self.filepath:
+                with open(self.filepath, 'a') as f:
+                    f.write("\n" + "=" * 80 + "\n\n")
+            self.console.print("\n" + "=" * 80 + "\n")
+        elif msg_type == "FLUSH":
+            # Wait for all buffer updates to complete
+            self._buffer_queue.join()
+            with self._buffer_lock:
+                # Store the prefix as iteration info
+                self.buffer['iteration_info'] = content
+
+                # Add current iteration to history
+                self.history.append(self.buffer.copy())
+                if len(self.history) > self.max_iterations:
+                    self.history.pop(0)
+
+                # Update column names based on buffer contents
+                if self.layout == "train":
+                    for key in self.buffer.keys():
+                        if key.startswith("loss_"):
+                            if key not in self.loss_columns:
+                                self.loss_columns.append(key)
+                else:  # eval layout
+                    for key in self.buffer.keys():
+                        if key.startswith("score_"):
+                            if key not in self.score_columns:
+                                self.score_columns.append(key)
+
+                # Start the display if this is the first iteration
+                if not self.display_started and self.history:
+                    self._start_display()
+                    self.display_started = True
+
+                # Create table and send to write worker
+                table = self._create_table()
+                self._add_rows_to_table(table)
                 if self.live is not None:
                     self.live.update(table)
                 else:
                     self.console.print(table)
 
-    def flush(self, prefix: str) -> None:
-        """
-        Flush the buffer to the screen and optionally to the log file.
+                # Write to log file
+                if self.filepath:
+                    log_data = f"{content} " if content else ""
+                    log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())
+                    with open(self.filepath, 'a') as f:
+                        f.write(log_data + "\n")
 
-        Args:
-            prefix: Optional prefix to display before the data
-        """
-        assert isinstance(prefix, str), "prefix must be a string"
-
-        # Wait for all buffer updates to complete
-        self._buffer_queue.join()
-
-        with self._buffer_lock:
-            # Store the prefix as iteration info
-            self.buffer['iteration_info'] = prefix
-
-            # Add current iteration to history
-            self.history.append(self.buffer.copy())
-            if len(self.history) > self.max_iterations:
-                self.history.pop(0)
-
-            # Update column names based on buffer contents
-            if self.layout == "train":
-                for key in self.buffer.keys():
-                    if key.startswith("loss_"):
-                        if key not in self.loss_columns:
-                            self.loss_columns.append(key)
-            else:  # eval layout
-                for key in self.buffer.keys():
-                    if key.startswith("score_"):
-                        if key not in self.score_columns:
-                            self.score_columns.append(key)
-
-            # Start the display if this is the first iteration
-            if not self.display_started and self.history:
-                self._start_display()
-                self.display_started = True
-
-            # Create table and send to write worker
-            table = self._create_table()
-            self._add_rows_to_table(table)
-            self._write_queue.put(("UPDATE_DISPLAY", table))
-
-            # Write to log file
-            log_data = f"{prefix} " if prefix else ""
-            log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())
-            self._write_queue.put(log_data)
-
-            # Clear the buffer
-            self.buffer = {}
+                # Clear the buffer
+                self.buffer = {}
 
     def _start_display(self):
         """Start the live display when the first iteration begins."""

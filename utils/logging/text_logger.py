@@ -56,28 +56,22 @@ class TextLogger(BaseLogger):
 
     def _process_write(self, data: Any) -> None:
         """Process a write operation."""
-        if isinstance(data, str):
-            # Handle buffer flush
-            self.core_logger.info(data)
-        elif isinstance(data, tuple):
-            msg_type, content = data
-            if msg_type == "INFO":
-                self.core_logger.info(content)
-            elif msg_type == "WARNING":
-                self.core_logger.warning(content)
-            elif msg_type == "ERROR":
-                self.core_logger.error(content)
-            elif msg_type == "PAGE_BREAK":
-                self.core_logger.info("")
-                self.core_logger.info('=' * 100)
-                self.core_logger.info('=' * 100)
-                self.core_logger.info("")
-
-    def flush(self, prefix: Optional[str] = "") -> None:
-        # Wait for all buffer updates to complete
-        self._buffer_queue.join()
-
-        with self._buffer_lock:
-            string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
-            self.core_logger.info(string)
-            self.buffer = {}
+        msg_type, content = data
+        if msg_type == "INFO":
+            self.core_logger.info(content)
+        elif msg_type == "WARNING":
+            self.core_logger.warning(content)
+        elif msg_type == "ERROR":
+            self.core_logger.error(content)
+        elif msg_type == "PAGE_BREAK":
+            self.core_logger.info("")
+            self.core_logger.info('=' * 100)
+            self.core_logger.info('=' * 100)
+            self.core_logger.info("")
+        elif msg_type == "FLUSH":
+            # Wait for all buffer updates to complete
+            self._buffer_queue.join()
+            with self._buffer_lock:
+                string = content + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+                self.core_logger.info(string)
+                self.buffer = {}
