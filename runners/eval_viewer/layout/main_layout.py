@@ -1,6 +1,7 @@
 from typing import List, Optional
 import numpy as np
 from dash import html, dcc
+from runners.eval_viewer.backend.visualization import get_color_for_score
 
 
 def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:

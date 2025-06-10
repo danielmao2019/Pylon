@@ -8,8 +8,8 @@ import numpy as np
 from runners.eval_viewer.backend.initialization import LogDirInfo
 from data.viewer.managers.registry import DatasetType
 from data.viewer.layout.display.display_semseg import display_semseg_datapoint
-from data.viewer.layout.display.display_2dcd import display_2d_datapoint
-from data.viewer.layout.display.display_3dcd import display_3d_datapoint
+from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
+from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from utils.builders.builder import build_from_config
 
@@ -19,9 +19,9 @@ logger = logging.getLogger(__name__)
 # Mapping of dataset types to their display functions
 DISPLAY_FUNCTIONS = {
     'semseg': display_semseg_datapoint,
-    '2dcd': display_2d_datapoint,
-    '3dcd': display_3d_datapoint,
-    'pcr': display_pcr_datapoint
+    '2dcd': display_2dcd_datapoint,
+    '3dcd': display_3dcd_datapoint,
+    'pcr': display_pcr_datapoint,
 }
 
 
@@ -86,8 +86,9 @@ def register_datapoint_viewer_callbacks(
             datapoint_idx = int(index_parts[1])
             run_info = list(log_dir_infos.values())[run_idx]
             current_dataset = build_from_config(run_info.dataset_cfg)
-            dataloader = build_from_config(run_info.dataloader_cfg)
+            dataloader = build_from_config(run_info.dataloader_cfg, dataset=current_dataset)
             collate_fn = dataloader.collate_fn
+            datapoint = current_dataset[datapoint_idx]
             datapoint = collate_fn([datapoint])  # Apply collate function to single datapoint
 
         # Get the appropriate display function
