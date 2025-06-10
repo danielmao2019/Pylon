@@ -2,7 +2,6 @@ from typing import List, Dict, Union
 import torch
 from metrics.base_metric import BaseMetric
 from utils.input_checks.str_types import check_write_file
-from utils.ops.apply import apply_tensor_op
 from utils.ops.dict_as_tensor import transpose_buffer
 from utils.io.json import save_json
 
@@ -34,15 +33,16 @@ class SingleTaskMetric(BaseMetric):
         assert type(score) == dict, f"{type(score)=}"
         assert all([isinstance(k, str) for k in score.keys()])
         assert all([isinstance(v, torch.Tensor) for v in score.values()])
-        score = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=score)
-        # log score
-        self.buffer.append(score)
+        self.add_to_buffer(score)
         return score
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         r"""This method averages scores across all data points in buffer.
         """
+        self._buffer_queue.join()  # Wait for all items to be processed
+        assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
+
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
         # summarize scores
         result: Dict[str, Dict[str, torch.Tensor]] = {

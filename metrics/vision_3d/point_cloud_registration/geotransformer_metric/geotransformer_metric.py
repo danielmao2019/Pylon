@@ -1,10 +1,9 @@
-from typing import Dict, Tuple
+from typing import Tuple, Dict
 from easydict import EasyDict
 import torch
 from models.point_cloud_registration.geotransformer.transformation import apply_transform
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.ops.apply import apply_tensor_op
 
 
 class GeoTransformerMetric(SingleTaskMetric):
@@ -81,7 +80,5 @@ class GeoTransformerMetric(SingleTaskMetric):
             'RMSE': rmse,
             'RR': recall,
         }
-        score = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=score)
-        # log score
-        self.buffer.append(score)
+        self.add_to_buffer(score)
         return score

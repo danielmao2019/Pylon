@@ -106,20 +106,21 @@ class ConfusionMatrix(SingleTaskMetric):
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
+        """Summarize the metric."""
+        self._buffer_queue.join()  # Wait for all items to be processed
+        assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
+
         buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
         # summarize scores
         result: Dict[str, Dict[str, torch.Tensor]] = {
             "aggregated": {},
-            "per_datapoint": {
-                key: torch.stack(buffer[key], dim=0)
-                for key in buffer
-            },
+            "per_datapoint": buffer,
         }
 
         # Compute aggregated confusion matrix
         agg_cm = {
-            key: result["per_datapoint"][key].sum(dim=0)
+            key: torch.stack(buffer[key], dim=0).sum(dim=0)
             for key in ['class_tp', 'class_tn', 'class_fp', 'class_fn']
         }
         agg_scores = self._cm2score(agg_cm)
