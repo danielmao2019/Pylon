@@ -265,10 +265,6 @@ class BaseTrainer(ABC):
         # init time
         start_time = time.time()
 
-        # Start GPU monitoring if available
-        if self.gpu_monitor is not None:
-            self.gpu_monitor.start()
-
         # do computation
         dp['outputs'] = self.model(dp['inputs'])
         dp['losses'] = self.criterion(y_pred=dp['outputs'], y_true=dp['labels'])
@@ -297,10 +293,6 @@ class BaseTrainer(ABC):
         """
         # init time
         start_time = time.time()
-
-        # Start GPU monitoring if available
-        if self.gpu_monitor is not None:
-            self.gpu_monitor.start()
 
         # do computation
         dp['outputs'] = self.model(dp['inputs'])
