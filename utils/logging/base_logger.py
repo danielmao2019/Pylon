@@ -3,13 +3,13 @@ from abc import ABC, abstractmethod
 import threading
 import queue
 from utils.input_checks import check_write_file
-from utils.io import serialize_tensor
 
 
 class BaseLogger(ABC):
     """
-    Base class for loggers that provides common functionality.
+    Base class for all loggers.
     """
+
     def __init__(self, filepath: Optional[str] = None) -> None:
         """
         Initialize the base logger.
@@ -20,9 +20,6 @@ class BaseLogger(ABC):
         self.filepath = check_write_file(filepath) if filepath is not None else None
         self.buffer = {}
         self._buffer_lock = threading.Lock()
-        self._buffer_queue = queue.Queue()
-        self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
-        self._buffer_thread.start()
         self._write_queue = queue.Queue()
         self._write_thread = threading.Thread(target=self._write_worker, daemon=True)
         self._write_thread.start()
@@ -31,19 +28,6 @@ class BaseLogger(ABC):
         if self.filepath is not None:
             with open(self.filepath, 'w') as f:
                 f.write("")
-
-    def _buffer_worker(self) -> None:
-        """Background thread to handle buffer updates."""
-        while True:
-            try:
-                data = self._buffer_queue.get()
-                if data is None:  # Shutdown signal
-                    break
-                with self._buffer_lock:
-                    self.buffer.update(serialize_tensor(data))
-                self._buffer_queue.task_done()
-            except Exception as e:
-                print(f"Buffer worker error: {e}")
 
     def _write_worker(self) -> None:
         """Background thread to handle write operations."""
@@ -69,7 +53,7 @@ class BaseLogger(ABC):
         Args:
             data: Dictionary of data to update the buffer with
         """
-        self._buffer_queue.put(data)
+        self._write_queue.put(("UPDATE_BUFFER", data))
 
     def flush(self, prefix: Optional[str] = "") -> None:
         """
@@ -113,13 +97,5 @@ class BaseLogger(ABC):
 
     def shutdown(self) -> None:
         """Shutdown the logger and wait for all messages to be processed."""
-        # Wait for all buffer updates to complete
-        self._buffer_queue.join()
-        # Signal buffer thread to stop
-        self._buffer_queue.put(None)
-        # Wait for buffer thread to stop
-        self._buffer_thread.join()
-        # Signal write thread to stop
-        self._write_queue.put(None)
-        # Wait for write thread to stop
+        self._write_queue.put(None)  # Signal write thread to stop
         self._write_thread.join()

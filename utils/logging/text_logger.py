@@ -2,6 +2,7 @@ from typing import Tuple, Optional, Any
 import logging
 import sys
 from utils.logging.base_logger import BaseLogger
+from utils.io.json import serialize_tensor
 
 
 class TextLogger(BaseLogger):
@@ -68,9 +69,10 @@ class TextLogger(BaseLogger):
             self.core_logger.info('=' * 100)
             self.core_logger.info('=' * 100)
             self.core_logger.info("")
+        elif msg_type == "UPDATE_BUFFER":
+            with self._buffer_lock:
+                self.buffer.update(serialize_tensor(content))
         elif msg_type == "FLUSH":
-            # Wait for all buffer updates to complete
-            self._buffer_queue.join()
             with self._buffer_lock:
                 string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
                 self.core_logger.info(string)

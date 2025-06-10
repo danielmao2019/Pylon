@@ -3,6 +3,7 @@ from rich.console import Console
 from rich.table import Table
 from rich.live import Live
 from utils.logging.base_logger import BaseLogger
+from utils.io.json import serialize_tensor
 
 
 class ScreenLogger(BaseLogger):
@@ -70,9 +71,10 @@ class ScreenLogger(BaseLogger):
                 with open(self.filepath, 'a') as f:
                     f.write("\n" + "=" * 80 + "\n\n")
             self.console.print("\n" + "=" * 80 + "\n")
+        elif msg_type == "UPDATE_BUFFER":
+            with self._buffer_lock:
+                self.buffer.update(serialize_tensor(content))
         elif msg_type == "FLUSH":
-            # Wait for all buffer updates to complete
-            self._buffer_queue.join()
             with self._buffer_lock:
                 # Store the prefix as iteration info
                 self.buffer['iteration_info'] = content
@@ -99,7 +101,7 @@ class ScreenLogger(BaseLogger):
                     self._start_display()
                     self.display_started = True
 
-                # Create table and send to write worker
+                # Create table and update display
                 table = self._create_table()
                 self._add_rows_to_table(table)
                 if self.live is not None:
