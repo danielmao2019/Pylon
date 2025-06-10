@@ -1,5 +1,6 @@
 from typing import Any
 from copy import deepcopy
+import easydict as edict
 import torch
 
 
@@ -31,7 +32,9 @@ def build_from_config(config: Any, **kwargs) -> Any:
         config (Any): A config dict for building objects or any built object.
         kwargs: keyword arguments only used for building objects from `config`.
     """
-    if type(config) == dict and set(config.keys()) == {'class', 'args'}:
+    if isinstance(config, edict.EasyDict):
+        return config
+    if isinstance(config, dict) and config.keys() == {'class', 'args'}:
         # Create a deep copy to avoid modifying input, but preserve parameters
         config_copy = deepcopy_without_params(config)
         
