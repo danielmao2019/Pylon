@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Tuple, Optional, Any
 import logging
 import sys
 from utils.logging.base_logger import BaseLogger
@@ -54,7 +54,7 @@ class TextLogger(BaseLogger):
     # logging methods
     # ====================================================================================================
 
-    def _process_write(self, data: Any) -> None:
+    def _process_write(self, data: Tuple[str, Any]) -> None:
         """Process a write operation."""
         msg_type, content = data
         if msg_type == "INFO":
@@ -72,6 +72,6 @@ class TextLogger(BaseLogger):
             # Wait for all buffer updates to complete
             self._buffer_queue.join()
             with self._buffer_lock:
-                string = content + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
+                string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
                 self.core_logger.info(string)
                 self.buffer = {}

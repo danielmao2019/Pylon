@@ -109,10 +109,9 @@ class ScreenLogger(BaseLogger):
 
                 # Write to log file
                 if self.filepath:
-                    log_data = f"{content} " if content else ""
-                    log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())
+                    string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
                     with open(self.filepath, 'a') as f:
-                        f.write(log_data + "\n")
+                        f.write(string + "\n")
 
                 # Clear the buffer
                 self.buffer = {}
