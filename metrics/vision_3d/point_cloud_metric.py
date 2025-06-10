@@ -1,5 +1,5 @@
 import torch
-from typing import Dict, Tuple
+from typing import Tuple
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 

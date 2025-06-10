@@ -21,12 +21,12 @@ class GPUMonitor:
             while True:
                 # Create a list to store futures
                 futures = []
-                
+
                 # Submit monitoring tasks for each GPU
                 for gpu in self.gpus:
                     future = self.executor.submit(self._update_gpu_info, gpu)
                     futures.append(future)
-                
+
                 # Wait for all futures to complete
                 for future in futures:
                     future.result()
