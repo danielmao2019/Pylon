@@ -114,6 +114,5 @@ class OverlapPredatorMetric(SingleTaskMetric):
         recall = self.get_recall(coords_dist, feats_dist)
         stats['recall'] = recall
 
-        score = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=stats)
-        self.buffer.append(score)
+        self.add_to_buffer(stats)
         return stats

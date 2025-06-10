@@ -4,8 +4,8 @@ import metrics
 import metrics
 from metrics.wrappers import SingleTaskMetric
 from utils.input_checks import check_write_file
-from utils.io import save_json
-from utils.ops import apply_tensor_op, transpose_buffer
+from utils.io.json import save_json
+from utils.ops.dict_as_tensor import transpose_buffer
 
 
 class ChangeStarMetric(SingleTaskMetric):
@@ -29,8 +29,7 @@ class ChangeStarMetric(SingleTaskMetric):
             scores = {
                 'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change_map']),
             }
-        scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
-        self.buffer.append(scores)
+        self.add_to_buffer(scores)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:

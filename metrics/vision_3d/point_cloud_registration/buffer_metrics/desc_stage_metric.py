@@ -21,6 +21,5 @@ class BUFFER_DescStageMetric(SingleTaskMetric):
             'desc_acc': accuracy,
             'eqv_acc': eqv_acc,
         }
-        scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
-        self.buffer.append(scores)
+        self.add_to_buffer(scores)
         return scores

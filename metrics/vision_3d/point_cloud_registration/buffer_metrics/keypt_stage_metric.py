@@ -17,6 +17,5 @@ class BUFFER_KeyptStageMetric(SingleTaskMetric):
         scores = {
             'desc_acc': accuracy,
         }
-        scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
-        self.buffer.append(scores)
+        self.add_to_buffer(scores)
         return scores

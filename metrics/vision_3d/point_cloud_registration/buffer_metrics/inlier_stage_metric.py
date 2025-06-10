@@ -16,6 +16,5 @@ class BUFFER_InlierStageMetric(SingleTaskMetric):
         scores = {
             'match_loss': match_loss,
         }
-        scores = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=scores)
-        self.buffer.append(scores)
+        self.add_to_buffer(scores)
         return scores
