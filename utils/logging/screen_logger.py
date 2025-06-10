@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Tuple, Optional, Any
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
@@ -47,7 +47,7 @@ class ScreenLogger(BaseLogger):
         self.history = []
         self.score_columns = []  # Reset score columns
 
-    def _process_write(self, data: Any) -> None:
+    def _process_write(self, data: Tuple[str, Any]) -> None:
         """Process a write operation."""
         msg_type, content = data
         if msg_type == "INFO":
