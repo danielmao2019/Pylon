@@ -33,6 +33,10 @@ class ChangeStarMetric(SingleTaskMetric):
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
+        """Summarize the metric."""
+        self._buffer_thread.join()  # Wait for buffer thread to finish processing all queued items
+        assert not self._buffer_thread.is_alive(), "Buffer thread is still running when summarizing"
+        assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
         # get aggregated summary

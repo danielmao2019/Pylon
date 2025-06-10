@@ -136,7 +136,12 @@ class ObjectDetectionMetric(SingleTaskMetric):
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
+        """Summarize the metric."""
+        self._buffer_thread.join()  # Wait for buffer thread to finish processing all queued items
+        assert not self._buffer_thread.is_alive(), "Buffer thread is still running when summarizing"
+        assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
+
         buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
         buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
             key1: transpose_buffer(buffer[key1]) for key1 in buffer.keys()
