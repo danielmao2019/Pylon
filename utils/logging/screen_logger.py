@@ -36,6 +36,8 @@ class ScreenLogger(BaseLogger):
         self.loss_columns = []  # Store loss column names
         self.score_columns = []  # Store score column names
         self._display_lock = threading.Lock()  # Lock for display updates
+        self._history_lock = threading.Lock()  # Lock for history access
+        self._column_lock = threading.Lock()   # Lock for column lists access
 
     def train(self) -> None:
         """Switch to training mode and reset history."""
@@ -98,42 +100,45 @@ class ScreenLogger(BaseLogger):
         assert isinstance(prefix, str), "prefix must be a string"
 
         # Store the prefix as iteration info
-        self.buffer['iteration_info'] = prefix
+        with self._buffer_lock:
+            self.buffer['iteration_info'] = prefix
 
-        # Add current iteration to history
-        self.history.append(self.buffer.copy())
-        if len(self.history) > self.max_iterations:
-            self.history.pop(0)
+            # Add current iteration to history
+            with self._history_lock:
+                self.history.append(self.buffer.copy())
+                if len(self.history) > self.max_iterations:
+                    self.history.pop(0)
 
-        # Update column names based on buffer contents
-        if self.layout == "train":
-            for key in self.buffer.keys():
-                if key.startswith("loss_"):
-                    if key not in self.loss_columns:
-                        self.loss_columns.append(key)
-        else:  # eval layout
-            for key in self.buffer.keys():
-                if key.startswith("score_"):
-                    if key not in self.score_columns:
-                        self.score_columns.append(key)
+            # Update column names based on buffer contents
+            with self._column_lock:
+                if self.layout == "train":
+                    for key in self.buffer.keys():
+                        if key.startswith("loss_"):
+                            if key not in self.loss_columns:
+                                self.loss_columns.append(key)
+                else:  # eval layout
+                    for key in self.buffer.keys():
+                        if key.startswith("score_"):
+                            if key not in self.score_columns:
+                                self.score_columns.append(key)
 
-        # Start the display if this is the first iteration
-        if not self.display_started and self.history:
-            self._start_display()
-            self.display_started = True
+            # Start the display if this is the first iteration
+            if not self.display_started and self.history:
+                self._start_display()
+                self.display_started = True
 
-        # Create table and send to write worker
-        table = self._create_table()
-        self._add_rows_to_table(table)
-        self._write_queue.put(("UPDATE_DISPLAY", table))
+            # Create table and send to write worker
+            table = self._create_table()
+            self._add_rows_to_table(table)
+            self._write_queue.put(("UPDATE_DISPLAY", table))
 
-        # Write to log file
-        log_data = f"{prefix} " if prefix else ""
-        log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())
-        self._write_queue.put(log_data)
+            # Write to log file
+            log_data = f"{prefix} " if prefix else ""
+            log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())
+            self._write_queue.put(log_data)
 
-        # Clear the buffer
-        self.buffer = {}
+            # Clear the buffer
+            self.buffer = {}
 
     def _start_display(self):
         """Start the live display when the first iteration begins."""
@@ -142,11 +147,17 @@ class ScreenLogger(BaseLogger):
 
     def _add_rows_to_table(self, table: Table) -> None:
         """Add rows to the table based on history."""
-        for data in self.history:
+        with self._history_lock:
+            history_copy = self.history.copy()
+        with self._column_lock:
+            loss_columns_copy = self.loss_columns.copy()
+            score_columns_copy = self.score_columns.copy()
+
+        for data in history_copy:
             if self.layout == "train":
                 # Get all loss values
-                if self.loss_columns:
-                    loss_values = [self._format_value(data.get(col, "-")) for col in self.loss_columns]
+                if loss_columns_copy:
+                    loss_values = [self._format_value(data.get(col, "-")) for col in loss_columns_copy]
                 else:
                     loss_values = [self._format_value(data.get("loss", "-"))]
 
@@ -160,8 +171,8 @@ class ScreenLogger(BaseLogger):
                 )
             else:  # eval layout
                 # Get all score values
-                if self.score_columns:
-                    score_values = [self._format_value(data.get(col, "-")) for col in self.score_columns]
+                if score_columns_copy:
+                    score_values = [self._format_value(data.get(col, "-")) for col in score_columns_copy]
                 else:
                     score_values = [self._format_value(data.get("score", "-"))]
 
