@@ -21,7 +21,7 @@ DISPLAY_FUNCTIONS = {
     'semseg': display_semseg_datapoint,
     '2dcd': display_2dcd_datapoint,
     '3dcd': display_3dcd_datapoint,
-    'pcr': display_pcr_datapoint
+    'pcr': display_pcr_datapoint,
 }
 
 
