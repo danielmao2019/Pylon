@@ -2,7 +2,6 @@ from typing import Any, Optional
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
-import asyncio
 from utils.logging.base_logger import BaseLogger
 
 
@@ -78,6 +77,13 @@ class ScreenLogger(BaseLogger):
                     with open(self.filepath, 'a') as f:
                         f.write("\n" + "=" * 80 + "\n\n")
                 self.console.print("\n" + "=" * 80 + "\n")
+            elif msg_type == "UPDATE_DISPLAY":
+                # Handle table display update
+                table = content
+                if self.live is not None:
+                    self.live.update(table)
+                else:
+                    self.console.print(table)
 
     async def flush(self, prefix: str) -> None:
         """
@@ -113,20 +119,15 @@ class ScreenLogger(BaseLogger):
             self._start_display()
             self.display_started = True
 
-        # Create and display the table
+        # Create table and send to write worker
         table = self._create_table()
         self._add_rows_to_table(table)
+        await self._write_queue.put(("UPDATE_DISPLAY", table))
         
-        # Write to log file and update display
+        # Write to log file
         log_data = f"{prefix} " if prefix else ""
         log_data += " ".join(f"{key}={value}" for key, value in self.buffer.items())
         await self._write_queue.put(log_data)
-        
-        # Update the live display
-        if self.live is not None:
-            self.live.update(table)
-        else:
-            self.console.print(table)
 
         # Clear the buffer
         self.buffer = {}
