@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Dict
+from typing import Any, Optional
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
@@ -15,7 +15,7 @@ class ScreenLogger(BaseLogger):
         max_iterations: int = 10,
         filepath: Optional[str] = None,
         layout: str = None,
-    ):
+    ) -> None:
         """
         Initialize the screen logger.
 
@@ -40,14 +40,12 @@ class ScreenLogger(BaseLogger):
         self.layout = "train"
         self.history = []
         self.loss_columns = []  # Reset loss columns
-        self.flush("Starting training epoch")
 
     def eval(self) -> None:
         """Switch to evaluation mode and reset history."""
         self.layout = "eval"
         self.history = []
         self.score_columns = []  # Reset score columns
-        self.flush("Starting validation epoch")
 
     def flush(self, prefix: str) -> None:
         """
@@ -57,30 +55,31 @@ class ScreenLogger(BaseLogger):
             prefix: Optional prefix to display before the data
         """
         assert isinstance(prefix, str), "prefix must be a string"
+
+        # Store the prefix as iteration info
+        self.buffer['iteration_info'] = prefix
+
         # Add current iteration to history
-        if self.buffer:
-            # Store the prefix as iteration info
-            self.buffer['iteration_info'] = prefix
-            self.history.append(self.buffer.copy())
-            if len(self.history) > self.max_iterations:
-                self.history.pop(0)
+        self.history.append(self.buffer.copy())
+        if len(self.history) > self.max_iterations:
+            self.history.pop(0)
 
-            # Update column names based on buffer contents
-            if self.layout == "train":
-                for key in self.buffer.keys():
-                    if key.startswith("loss_"):
-                        if key not in self.loss_columns:
-                            self.loss_columns.append(key)
-            else:  # eval layout
-                for key in self.buffer.keys():
-                    if key.startswith("score_"):
-                        if key not in self.score_columns:
-                            self.score_columns.append(key)
+        # Update column names based on buffer contents
+        if self.layout == "train":
+            for key in self.buffer.keys():
+                if key.startswith("loss_"):
+                    if key not in self.loss_columns:
+                        self.loss_columns.append(key)
+        else:  # eval layout
+            for key in self.buffer.keys():
+                if key.startswith("score_"):
+                    if key not in self.score_columns:
+                        self.score_columns.append(key)
 
-            # Start the display if this is the first iteration
-            if not self.display_started and self.history:
-                self._start_display()
-                self.display_started = True
+        # Start the display if this is the first iteration
+        if not self.display_started and self.history:
+            self._start_display()
+            self.display_started = True
 
         # Display the data
         self._display()
@@ -103,9 +102,6 @@ class ScreenLogger(BaseLogger):
         self.live = Live("", refresh_per_second=4, auto_refresh=True)
         self.live.start()
 
-        # Update with the first table immediately
-        self._display()
-
     def _display(self) -> None:
         """Display the current buffer and history."""
         # Create a table for the training progress
@@ -125,8 +121,8 @@ class ScreenLogger(BaseLogger):
                     self._format_value(data.get("learning_rate")),
                     *loss_values,  # Unpack loss values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(data.get("max_memory", "-")),
-                    self._format_value(data.get("current_util", "-"))
+                    self._format_value(data.get("memory_max", "-")),
+                    self._format_value(data.get("util_avg", "-"))
                 )
             else:  # eval layout
                 # Get all score values
@@ -139,8 +135,8 @@ class ScreenLogger(BaseLogger):
                     data.get("iteration_info", "-"),
                     *score_values,  # Unpack score values
                     self._format_value(data.get("iteration_time")),
-                    self._format_value(data.get("max_memory", "-")),
-                    self._format_value(data.get("current_util", "-"))
+                    self._format_value(data.get("memory_max", "-")),
+                    self._format_value(data.get("util_avg", "-"))
                 )
 
         # Update the live display

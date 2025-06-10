@@ -11,6 +11,10 @@ class GPUMonitor:
         self.monitor_thread: Optional[threading.Thread] = None
         self.executor = ThreadPoolExecutor(max_workers=len(gpus))
 
+        # Do one update first
+        for gpu in self.gpus:
+            self._update_gpu_info(gpu)
+
     def start(self):
         """Starts background monitoring thread that continuously updates GPU info"""
         def monitor_loop():
@@ -83,4 +87,6 @@ class GPUMonitor:
     def log_stats(self, logger):
         """Logs status of all monitored GPUs"""
         stats = self.check()
+        assert len(stats) == 1, "Only support single GPU training for now."
+        stats = list(stats.values())[0]
         logger.update_buffer(stats)
