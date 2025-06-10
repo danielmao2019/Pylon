@@ -79,22 +79,12 @@ def test_semantic_segmentation_metric_summarize(y_preds, y_trues):
     result = metric.summarize()
     
     # Check structure
-    assert set(result.keys()) == {'aggregated', 'per_datapoint'}
-    
-    # Check aggregated structure
-    expected_aggregated_keys = {
+    assert result.keys() == {'aggregated', 'per_datapoint'}
+    assert result['aggregated'].keys() == result['per_datapoint'].keys() == {
         'class_IoU', 'mean_IoU',
         'class_tp', 'class_tn', 'class_fp', 'class_fn',
         'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
         'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
     }
-    assert set(result['aggregated'].keys()) == expected_aggregated_keys
-    
-    # Check per_datapoint structure
-    expected_per_datapoint_keys = {
-        'IoU',
-        'class_tp', 'class_tn', 'class_fp', 'class_fn',
-        'class_accuracy', 'class_precision', 'class_recall', 'class_f1',
-        'accuracy', 'mean_precision', 'mean_recall', 'mean_f1',
-    }
-    assert set(result['per_datapoint'].keys()) == expected_per_datapoint_keys
+    for key in result['per_datapoint']:
+        assert len(result['per_datapoint'][key]) == len(y_preds)
