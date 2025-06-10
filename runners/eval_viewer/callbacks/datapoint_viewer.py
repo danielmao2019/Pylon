@@ -86,7 +86,7 @@ def register_datapoint_viewer_callbacks(
             datapoint_idx = int(index_parts[1])
             run_info = list(log_dir_infos.values())[run_idx]
             current_dataset = build_from_config(run_info.dataset_cfg)
-            dataloader = build_from_config(run_info.dataloader_cfg)
+            dataloader = build_from_config(run_info.dataloader_cfg, dataset=current_dataset)
             collate_fn = dataloader.collate_fn
             datapoint = collate_fn([datapoint])  # Apply collate function to single datapoint
 
