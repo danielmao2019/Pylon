@@ -17,14 +17,15 @@ graph TD
     B --> G[Event System]
 
     C --> H[Dataset Cache]
-    C --> I[Lazy Loading]
-    C --> J[Preloading]
+    C --> I[Transform Manager]
+    C --> J[Dataset Registry]
 
     D --> K[Callback Groups]
     D --> L[Dependency Management]
 
     E --> M[Controls]
     E --> N[Display]
+    E --> O[3D Settings]
 ```
 
 ## Data Flow
@@ -36,12 +37,14 @@ sequenceDiagram
     participant Callbacks
     participant State
     participant Dataset
+    participant Transforms
 
     User->>UI: Interact with controls
     UI->>Callbacks: Trigger callback
     Callbacks->>State: Update state
     State->>Dataset: Request data
-    Dataset->>State: Return data
+    Dataset->>Transforms: Apply transforms
+    Transforms->>State: Return transformed data
     State->>UI: Update display
 ```
 
@@ -54,6 +57,8 @@ The main application class that coordinates all components:
 - Initializes and manages all subsystems
 - Creates and configures the Dash application
 - Handles high-level application flow
+- Manages logging and configuration
+- Provides CLI interface
 
 ### 2. ViewerState
 
@@ -63,17 +68,34 @@ Manages application state and history:
 - Maintains undo/redo history
 - Emits events for state changes
 - Validates state updates
+- Manages 3D visualization settings
+- Handles transform state
 
 ### 3. DatasetManager
 
 Handles dataset operations:
 
 - Loads and caches datasets
-- Implements lazy loading
-- Manages preloading of adjacent items
+- Manages dataset configurations
 - Handles dataset transforms
+- Provides dataset information
+- Supports multiple dataset types:
+  - 2D Change Detection
+  - 3D Change Detection
+  - Point Cloud Registration
+  - Semantic Segmentation
 
-### 4. CallbackRegistry
+### 4. TransformManager
+
+Manages data transformations:
+
+- Registers and manages transforms
+- Applies transforms to datapoints
+- Handles transform configurations
+- Supports transform chaining
+- Validates transform parameters
+
+### 5. CallbackRegistry
 
 Manages callback registration and dependencies:
 
@@ -81,13 +103,22 @@ Manages callback registration and dependencies:
 - Groups related callbacks
 - Manages callback dependencies
 - Handles error reporting
+- Supports callback chaining
 
-### 5. UI Components
+### 6. UI Components
 
 Modular components for the user interface:
 
-- Controls (dataset selector, navigation, transforms)
-- Display components (2D/3D visualization)
+- Controls:
+  - Dataset selector
+  - Navigation controls
+  - Transform controls
+  - 3D visualization settings
+- Display components:
+  - 2D image visualization
+  - 3D point cloud visualization
+  - Statistics display
+  - Metadata display
 - Layout management
 - Responsive design
 
@@ -109,8 +140,9 @@ The dataset caching system implements:
 
 - LRU (Least Recently Used) caching
 - Memory usage limits
-- Thread-safe operations
+- Transform-aware caching
 - Automatic cache cleanup
+- Cache statistics tracking
 
 ## Event System
 
@@ -124,6 +156,13 @@ graph TD
     D --> E[UI Updates]
 ```
 
+Event Types:
+- DATASET_CHANGED
+- INDEX_CHANGED
+- TRANSFORMS_CHANGED
+- SETTINGS_CHANGED
+- STATE_CHANGED
+
 ## Error Handling
 
 The viewer implements a comprehensive error handling system:
@@ -132,30 +171,29 @@ The viewer implements a comprehensive error handling system:
 - Logging at multiple levels
 - User-friendly error messages
 - Graceful degradation
+- State recovery mechanisms
 
 ## Performance Considerations
 
 The architecture includes several performance optimizations:
 
-1. **Lazy Loading**
-   - Datasets are loaded on demand
-   - Items are cached for quick access
-   - Memory usage is monitored and managed
-
-2. **Preloading**
-   - Adjacent items are preloaded
-   - Background loading for smooth navigation
-   - Configurable preload window
-
-3. **Caching**
+1. **Caching**
    - LRU cache with size limits
    - Memory-aware caching
-   - Thread-safe operations
+   - Transform-aware caching
+   - Cache statistics tracking
 
-4. **UI Optimization**
+2. **Data Loading**
+   - Efficient dataset loading
+   - Transform caching
+   - Memory usage monitoring
+   - Resource cleanup
+
+3. **UI Optimization**
    - Efficient rendering
    - Debounced updates
-   - Virtual scrolling for large datasets
+   - Responsive layout
+   - 3D visualization optimization
 
 ## Security
 
@@ -165,11 +203,13 @@ The architecture includes security considerations:
    - All user inputs are validated
    - Dataset paths are sanitized
    - Transform parameters are checked
+   - State updates are validated
 
 2. **Resource Management**
    - Memory limits for caching
    - File handle management
    - Network request limits
+   - Resource cleanup
 
 ## Testing
 
@@ -179,32 +219,29 @@ The architecture supports comprehensive testing:
    - Component-level testing
    - State management testing
    - Cache system testing
+   - Transform testing
 
 2. **Integration Tests**
    - Component interaction testing
    - End-to-end testing
    - Performance testing
-
-3. **UI Tests**
-   - Component rendering tests
-   - User interaction tests
-   - Responsive design tests
+   - UI testing
 
 ## Future Considerations
 
 The architecture is designed to be extensible:
 
-1. **Plugin System**
-   - Support for custom visualizations
-   - Custom transform plugins
-   - Dataset type extensions
+1. **Dataset Support**
+   - New dataset type integration
+   - Custom dataset formats
+   - Dataset preprocessing
 
-2. **API Extensions**
-   - REST API support
-   - WebSocket integration
+2. **Visualization**
+   - Custom visualization plugins
+   - Advanced 3D features
+   - Interactive analysis tools
+
+3. **Integration**
    - External tool integration
-
-3. **UI Customization**
-   - Theme support
-   - Layout customization
-   - Component replacement
+   - API support
+   - Batch processing
