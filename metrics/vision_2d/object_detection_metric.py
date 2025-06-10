@@ -1,6 +1,6 @@
 """Implementation largely based on https://github.com/facebookresearch/detectron2/blob/main/detectron2/evaluation/coco_evaluation.py.
 """
-from typing import Tuple, List, Dict, Any
+from typing import Tuple, List, Dict
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.object_detection import pairwise_iou
@@ -137,8 +137,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         """Summarize the metric."""
-        self._buffer_thread.join()  # Wait for buffer thread to finish processing all queued items
-        assert not self._buffer_thread.is_alive(), "Buffer thread is still running when summarizing"
+        self._buffer_queue.join()  # Wait for all items to be processed
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
