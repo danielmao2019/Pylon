@@ -1,91 +1,98 @@
-from typing import Optional, Any
+from typing import Any, Optional
 import logging
-import sys
 from utils.logging.base_logger import BaseLogger
 
 
 class TextLogger(BaseLogger):
     """
-    A text-based logger that writes to both a file and the console.
+    A logger that writes to both a file and the console.
+    Uses Python's built-in logging module.
     """
+    def __init__(self, filepath: str = None) -> None:
+        """
+        Initialize the text logger.
 
-    formatter = logging.Formatter(
-        fmt=f"[%(levelname)s] %(asctime)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    # A more complete version of formatter
-    # formatter = logging.Formatter(
-    #     fmt=f"%(levelname)s %(asctime)s (%(relativeCreated)d) %(pathname)s F%(funcName)s L%(lineno)s - %(message)s",
-    #     datefmt="%Y-%m-%d %H:%M:%S",
-    # )
-
-    # ====================================================================================================
-    # init methods
-    # ====================================================================================================
-
-    def __init__(self, filepath: Optional[str] = None) -> None:
+        Args:
+            filepath: Optional filepath to write logs to
+        """
         super(TextLogger, self).__init__(filepath=filepath)
         self._init_core_logger_()
-        if not self.core_logger.handlers:
-            self._init_file_handler_()
-            self._init_stream_handler_()
 
     def _init_core_logger_(self) -> None:
-        self.core_logger = logging.getLogger(name=self.filepath)
-        self.core_logger.setLevel(level=logging.INFO)
-        self.core_logger.propagate = True
+        """Initialize the core logger."""
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
 
-    def _init_file_handler_(self) -> None:
-        if self.filepath is None:
-            return
-        f_handler = logging.FileHandler(filename=self.filepath)
-        f_handler.setFormatter(self.formatter)
-        f_handler.setLevel(level=logging.INFO)
-        self.core_logger.addHandler(f_handler)
+        # Create console handler
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_formatter = logging.Formatter('%(message)s')
+        console_handler.setFormatter(console_formatter)
+        self.logger.addHandler(console_handler)
 
-    def _init_stream_handler_(self) -> None:
-        s_handler = logging.StreamHandler(stream=sys.stdout)
-        s_handler.setFormatter(self.formatter)
-        s_handler.setLevel(level=logging.INFO)
-        self.core_logger.addHandler(s_handler)
-
-    # ====================================================================================================
-    # logging methods
-    # ====================================================================================================
+        # Create file handler if filepath is provided
+        if self.filepath:
+            file_handler = logging.FileHandler(self.filepath)
+            file_handler.setLevel(logging.INFO)
+            file_formatter = logging.Formatter('%(message)s')
+            file_handler.setFormatter(file_formatter)
+            self.logger.addHandler(file_handler)
 
     async def _process_write(self, data: Any) -> None:
         """Process a write operation."""
         if isinstance(data, str):
-            self.core_logger.info(data)
+            # Handle buffer flush
+            self.logger.info(data)
         elif isinstance(data, tuple):
             msg_type, content = data
             if msg_type == "INFO":
-                self.core_logger.info(content)
+                self.logger.info(content)
             elif msg_type == "WARNING":
-                self.core_logger.warning(content)
+                self.logger.warning(content)
             elif msg_type == "ERROR":
-                self.core_logger.error(content)
+                self.logger.error(content)
             elif msg_type == "PAGE_BREAK":
-                self.core_logger.info("")
-                self.core_logger.info('=' * 100)
-                self.core_logger.info('=' * 100)
-                self.core_logger.info("")
+                self.logger.info("\n" + "=" * 80 + "\n")
 
     async def flush(self, prefix: Optional[str] = "") -> None:
+        """
+        Flush the buffer to the log file and console.
+
+        Args:
+            prefix: Optional prefix to display before the data
+        """
         with self._buffer_lock:
             string = prefix + ' ' + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
             await self._write_queue.put(string)
             self.buffer = {}
 
-    async def info(self, string: str) -> None:
-        await self._write_queue.put(("INFO", string))
+    async def info(self, message: str) -> None:
+        """
+        Log an info message.
 
-    async def warning(self, string: str) -> None:
-        await self._write_queue.put(("WARNING", string))
+        Args:
+            message: The message to log
+        """
+        await self._write_queue.put(("INFO", message))
 
-    async def error(self, string: str) -> None:
-        await self._write_queue.put(("ERROR", string))
+    async def warning(self, message: str) -> None:
+        """
+        Log a warning message.
+
+        Args:
+            message: The message to log
+        """
+        await self._write_queue.put(("WARNING", message))
+
+    async def error(self, message: str) -> None:
+        """
+        Log an error message.
+
+        Args:
+            message: The message to log
+        """
+        await self._write_queue.put(("ERROR", message))
 
     async def page_break(self) -> None:
+        """Add a page break to the log."""
         await self._write_queue.put(("PAGE_BREAK", None))

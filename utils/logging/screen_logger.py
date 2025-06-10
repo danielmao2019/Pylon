@@ -2,6 +2,8 @@ from typing import Any, Optional
 from rich.console import Console
 from rich.table import Table
 from rich.live import Live
+import aiofiles
+import asyncio
 from utils.logging.base_logger import BaseLogger
 
 
@@ -34,6 +36,7 @@ class ScreenLogger(BaseLogger):
         self.layout = layout
         self.loss_columns = []  # Store loss column names
         self.score_columns = []  # Store score column names
+        self._display_lock = asyncio.Lock()  # Lock for display updates
 
     def train(self) -> None:
         """Switch to training mode and reset history."""
@@ -52,38 +55,39 @@ class ScreenLogger(BaseLogger):
         if isinstance(data, str):
             # Handle buffer flush
             if self.filepath:
-                with open(self.filepath, 'a') as f:
-                    f.write(data + "\n")
+                async with aiofiles.open(self.filepath, 'a') as f:
+                    await f.write(data + "\n")
             self.console.print(data)
         elif isinstance(data, tuple):
             msg_type, content = data
             if msg_type == "INFO":
                 if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write(f"INFO: {content}\n")
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write(f"INFO: {content}\n")
                 self.console.print(f"[green]INFO:[/green] {content}")
             elif msg_type == "WARNING":
                 if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write(f"WARNING: {content}\n")
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write(f"WARNING: {content}\n")
                 self.console.print(f"[yellow]WARNING:[/yellow] {content}")
             elif msg_type == "ERROR":
                 if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write(f"ERROR: {content}\n")
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write(f"ERROR: {content}\n")
                 self.console.print(f"[red]ERROR:[/red] {content}")
             elif msg_type == "PAGE_BREAK":
                 if self.filepath:
-                    with open(self.filepath, 'a') as f:
-                        f.write("\n" + "=" * 80 + "\n\n")
+                    async with aiofiles.open(self.filepath, 'a') as f:
+                        await f.write("\n" + "=" * 80 + "\n\n")
                 self.console.print("\n" + "=" * 80 + "\n")
             elif msg_type == "UPDATE_DISPLAY":
                 # Handle table display update
                 table = content
-                if self.live is not None:
-                    self.live.update(table)
-                else:
-                    self.console.print(table)
+                async with self._display_lock:
+                    if self.live is not None:
+                        self.live.update(table)
+                    else:
+                        self.console.print(table)
 
     async def flush(self, prefix: str) -> None:
         """
