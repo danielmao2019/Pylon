@@ -2,7 +2,6 @@ from typing import Dict, Any
 import torch
 from metrics.wrappers import SingleTaskMetric
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.desc_loss import ContrastiveLoss, cdist
-from utils.ops.apply import apply_tensor_op
 
 
 class BUFFER_KeyptStageMetric(SingleTaskMetric):

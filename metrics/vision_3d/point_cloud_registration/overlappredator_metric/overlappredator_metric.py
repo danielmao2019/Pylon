@@ -5,7 +5,6 @@ import numpy as np
 from sklearn.metrics import precision_recall_fscore_support
 from models.point_cloud_registration.overlappredator.utils import square_distance
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.ops.apply import apply_tensor_op
 
 
 class OverlapPredatorMetric(SingleTaskMetric):
