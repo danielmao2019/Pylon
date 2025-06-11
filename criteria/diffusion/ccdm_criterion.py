@@ -62,6 +62,5 @@ class CCDMCriterion(BaseCriterion):
             reduction='mean',
         )
         assert not loss.isnan(), f"{y_pred.min()=}, {y_pred.max()=}, {prob_xtm1_given_xt_x0.min()=}, {prob_xtm1_given_xt_x0.max()=}"
-        assert loss.ndim == 0, f"{loss.shape=}"
-        self.buffer.append(loss)
+        self.add_to_buffer(loss)
         return loss

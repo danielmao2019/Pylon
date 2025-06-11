@@ -42,6 +42,7 @@ class BaseCriterion(torch.nn.Module, ABC):
             assert isinstance(self.buffer, list)
             assert isinstance(value, torch.Tensor), f"{type(value)=}"
             assert value.numel() == 1 and value.ndim == 0, f"{value.shape=}"
+            assert torch.isfinite(value) and not torch.isnan(value), f"{value=}"
             self._buffer_queue.put(value)
         else:
             assert not hasattr(self, 'buffer')
