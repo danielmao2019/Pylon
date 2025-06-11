@@ -41,6 +41,9 @@ def test_call_with_list_input(criterion, sample_tensors, sample_tensor):
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
 
+    # Wait for the buffer queue to be empty
+    criterion._buffer_queue.join()
+
     # Check that loss is in the buffer
     assert len(criterion.buffer) == 1
     assert criterion.buffer[0].equal(loss.detach().cpu())
