@@ -73,7 +73,8 @@ class FineMatchingLoss(nn.Module):
 
 
 class GeoTransformerCriterion(SingleTaskCriterion):
-    def __init__(self, **cfg):
+
+    def __init__(self, **cfg) -> None:
         cfg = EasyDict(cfg)
         super(GeoTransformerCriterion, self).__init__()
         self.coarse_loss = CoarseMatchingLoss(cfg)
