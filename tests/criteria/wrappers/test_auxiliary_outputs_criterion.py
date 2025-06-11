@@ -10,8 +10,9 @@ def criterion_cfg(dummy_criterion):
     return {
         'class': PyTorchCriterionWrapper,
         'args': {
-            'criterion': dummy_criterion
-        }
+            'criterion': dummy_criterion,
+            'use_buffer': False,
+        },
     }
 
 
