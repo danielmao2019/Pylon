@@ -11,7 +11,9 @@ class ProcessInfo(TypedDict):
 
 def get_all_processes(server: str) -> Dict[str, ProcessInfo]:
     """Get information for all processes on a server"""
-    cmd = ['ssh', server, "ps", "-eo", "pid=,user=,lstart=,cmd="]
+    cmd = ["ps", "-eo", "pid=,user=,lstart=,cmd="]
+    if server != 'localhost':
+        cmd = ['ssh', server] + cmd
     lines = subprocess.check_output(cmd).decode().splitlines()
     result = {}
     for line in lines:
