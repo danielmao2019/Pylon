@@ -387,12 +387,12 @@ class BaseTrainer(ABC):
         if not (self.val_dataloader and self.model):
             self.logger.info("Skipped validation epoch.")
             return
-        # init time
-        start_time = time.time()
-        # before validation loop
-        self._before_val_loop()
-        # validation loop
 
+        # before validation loop
+        start_time = time.time()
+        self._before_val_loop()
+
+        # validation loop
         if self.eval_n_jobs == 1:
             self.logger.info("Running validation sequentially...")
             for idx, dp in enumerate(self.val_dataloader):
@@ -409,7 +409,6 @@ class BaseTrainer(ABC):
 
         # after validation loop
         self._after_val_loop_()
-        # log time
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
     def _before_val_loop(self) -> None:
