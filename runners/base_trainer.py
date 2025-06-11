@@ -328,18 +328,18 @@ class BaseTrainer(ABC):
             self.logger.info(f"Found trained checkpoint at {os.path.join(self.work_dir, f'epoch_{self.cum_epochs}', 'checkpoint.pt')}.")
             self.logger.info(f"Skipping training epoch {self.cum_epochs}.")
             return
-        # init time
-        start_time = time.time()
-        # before training loop
-        self._before_train_loop()
-        # training loop
 
+        # before training loop
+        start_time = time.time()
+        self._before_train_loop()
+
+        # training loop
         for idx, dp in enumerate(self.train_dataloader):
             self._train_step(dp=dp)
             self.logger.flush(prefix=f"Training [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.train_dataloader)}].")
+
         # after training loop
         self._after_train_loop_()
-        # log time
         self.logger.info(f"Training epoch time: {round(time.time() - start_time, 2)} seconds.")
 
     def _before_train_loop(self) -> None:
