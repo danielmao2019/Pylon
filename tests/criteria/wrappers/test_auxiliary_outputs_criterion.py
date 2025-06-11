@@ -115,6 +115,7 @@ def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
 
     # Compute loss on CPU
     cpu_loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 1
 
     # Step 2: Move to GPU
@@ -128,6 +129,7 @@ def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
 
     # Compute loss on GPU
     gpu_loss = criterion(y_pred=gpu_tensors, y_true=gpu_target)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 2
 
     # Step 3: Move back to CPU
@@ -139,6 +141,7 @@ def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
 
     # Compute loss on CPU again
     cpu_loss2 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 3
 
     # Check that all losses are equivalent
