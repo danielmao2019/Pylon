@@ -1,9 +1,7 @@
 import numpy as np
 import torch
-import numbers
 import torch.nn as nn
 import torch.nn.functional as F
-from sklearn.neighbors import KDTree
 from sklearn.metrics import precision_recall_fscore_support
 
 

@@ -106,10 +106,11 @@ def test_buffer_behavior(criteria_cfg, sample_tensor):
 
     # Test update
     y_true = torch.randn_like(sample_tensor)
-    loss1 = criterion(y_pred=sample_tensor, y_true=y_true)
+    loss = criterion(y_pred=sample_tensor, y_true=y_true)
+    criterion._buffer_queue.join()
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
-    assert criterion.buffer[0].equal(loss1.detach().cpu())
+    assert criterion.buffer[0].equal(loss.detach().cpu())
     for component_criterion in criterion.criteria:
         assert component_criterion.use_buffer is False
         assert not hasattr(component_criterion, 'buffer')
@@ -141,6 +142,7 @@ def test_device_transfer(criteria_cfg, sample_tensor):
     # Compute loss on CPU
     y_true = torch.randn_like(sample_tensor)
     cpu_loss = criterion(y_pred=sample_tensor, y_true=y_true)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 1
 
     # Step 2: Move to GPU
@@ -155,6 +157,7 @@ def test_device_transfer(criteria_cfg, sample_tensor):
 
     # Compute loss on GPU
     gpu_loss = criterion(y_pred=gpu_input, y_true=gpu_target)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 2
 
     # Step 3: Move back to CPU
@@ -167,6 +170,7 @@ def test_device_transfer(criteria_cfg, sample_tensor):
 
     # Compute loss on CPU again
     cpu_loss2 = criterion(y_pred=sample_tensor, y_true=y_true)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 3
 
     # Check that all losses are equivalent

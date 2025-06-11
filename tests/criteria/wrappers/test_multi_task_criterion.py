@@ -64,6 +64,7 @@ def test_reset_buffer(criterion, sample_multi_task_tensors):
 
     # Check that each task criterion's buffer has been reset
     for task_criterion in criterion.task_criteria.values():
+        task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 1
 
     # Reset the buffer
@@ -90,6 +91,7 @@ def test_call(criterion, sample_multi_task_tensors):
 
     # Check that each task criterion's buffer has been updated
     for task_criterion in criterion.task_criteria.values():
+        task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 1
 
 
@@ -103,16 +105,16 @@ def test_summarize(criterion, sample_multi_task_tensors, tmp_path):
     result = criterion.summarize(output_path=str(output_path))
 
     # Check that result is a dictionary with the correct keys
-    assert isinstance(result, dict)
-    assert set(result.keys()) == {'task1', 'task2'}
+    assert isinstance(result, dict), f"{type(result)=}"
+    assert set(result.keys()) == {'task1', 'task2'}, f"{result.keys()=}"
 
     # Check that each result is a tensor
     for tensor in result.values():
-        assert isinstance(tensor, torch.Tensor)
-        assert tensor.ndim == 1
+        assert isinstance(tensor, torch.Tensor), f"{type(tensor)=}"
+        assert tensor.ndim == 1, f"{tensor.shape=}"
 
     # Check that the output file exists
-    assert output_path.exists()
+    assert output_path.exists(), f"{output_path=}"
 
 
 def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
@@ -133,6 +135,7 @@ def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
     # Compute loss on CPU
     cpu_losses = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
     for task_criterion in criterion.task_criteria.values():
+        task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 1
 
     # Step 2: Move to GPU
@@ -142,12 +145,13 @@ def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
     # Check GPU state
     for task_criterion in criterion.task_criteria.values():
         assert task_criterion.criterion.class_weights.is_cuda
-    for task_criterion in criterion.task_criteria.values():
+        task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 1
 
     # Compute loss on GPU
     gpu_losses = criterion(y_pred=gpu_tensors, y_true=gpu_tensors)
     for task_criterion in criterion.task_criteria.values():
+        task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 2
 
     # Step 3: Move back to CPU
@@ -156,12 +160,13 @@ def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
     # Check CPU state
     for task_criterion in criterion.task_criteria.values():
         assert not task_criterion.criterion.class_weights.is_cuda
-    for task_criterion in criterion.task_criteria.values():
+        task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 2
 
     # Compute loss on CPU again
     cpu_losses2 = criterion(y_pred=sample_multi_task_tensors, y_true=sample_multi_task_tensors)
     for task_criterion in criterion.task_criteria.values():
+        task_criterion._buffer_queue.join()
         assert len(task_criterion.buffer) == 3
 
     # Check that all losses are equivalent

@@ -32,9 +32,11 @@ class SingleTaskCriterion(BaseCriterion):
     def summarize(self, output_path: Optional[str] = None) -> torch.Tensor:
         r"""This method stacks loss trajectory across all data points in buffer.
         """
-        if not self.use_buffer or self.buffer is None:
-            raise ValueError("Buffer is disabled for this criterion")
+        self._buffer_queue.join()  # Wait for all items to be processed
+        assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
+        assert self.use_buffer and hasattr(self, 'buffer') and self.buffer is not None
         assert len(self.buffer) != 0
+
         # summarize losses
         result = torch.stack(self.buffer, dim=0)
         assert result.ndim == 1, f"{result.shape=}"
