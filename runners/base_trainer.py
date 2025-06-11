@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 import copy
 import os
 import glob
-import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import json
@@ -368,33 +367,21 @@ class BaseTrainer(ABC):
         # initialize epoch root directory
         epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
         os.makedirs(epoch_root, exist_ok=True)
-
-        # Create a background thread for saving criterion buffer
-        def save_criterion_buffer():
-            self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
-            _ = torch.load(os.path.join(epoch_root, "training_losses.pt"))
-
-        # Start the background thread
-        criterion_thread = threading.Thread(target=save_criterion_buffer)
-        criterion_thread.start()
-
+        # save criterion buffer to disk
+        self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
+        _ = torch.load(os.path.join(epoch_root, "training_losses.pt"))
         # save optimizer buffer to disk
         self.optimizer.summarize(output_path=os.path.join(epoch_root, "optimizer_buffer.json"))
         with open(os.path.join(epoch_root, "optimizer_buffer.json"), mode='r') as f:
             _ = json.load(f)
-
         # save checkpoint to disk
         latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
         self._save_checkpoint_(output_path=latest_checkpoint)
-
         # set latest checkpoint
         soft_link: str = os.path.join(self.work_dir, "checkpoint_latest.pt")
         if os.path.islink(soft_link):
             os.system(' '.join(["rm", soft_link]))
         os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
-
-        # Wait for criterion buffer save to complete before proceeding
-        criterion_thread.join()
 
     def _val_epoch_(self) -> None:
         if not (self.val_dataloader and self.model):
