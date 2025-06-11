@@ -16,8 +16,11 @@ def _build_mapping(output: str) -> Dict[str, List[str]]:
 
 
 def get_index2pids(server: str) -> List[List[str]]:
-    index2gpu_uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader']
-    gpu_uuid2pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader']
+    index2gpu_uuid_cmd = ['nvidia-smi', '--query-gpu=index,gpu_uuid', '--format=csv,noheader']
+    gpu_uuid2pids_cmd = ['nvidia-smi', '--query-compute-apps=gpu_uuid,pid', '--format=csv,noheader']
+    if server != 'localhost':
+        index2gpu_uuid_cmd = ['ssh', server] + index2gpu_uuid_cmd
+        gpu_uuid2pids_cmd = ['ssh', server] + gpu_uuid2pids_cmd
     index2gpu_uuid: Dict[str, List[str]] = _build_mapping(subprocess.check_output(index2gpu_uuid_cmd))
     gpu_uuid2pids: Dict[str, List[str]] = _build_mapping(subprocess.check_output(gpu_uuid2pids_cmd))
     num_gpus = len(index2gpu_uuid)
@@ -30,7 +33,9 @@ def get_index2pids(server: str) -> List[List[str]]:
 
 
 def get_user_pids(server: str) -> List[str]:
-    cmd = ['ssh', server, 'ps', '-u', server.split('@')[0], '-o', 'pid=']
+    cmd = ['ps', '-u', server.split('@')[0], '-o', 'pid=']
+    if server != 'localhost':
+        cmd = ['ssh', server] + cmd
     result: List[str] = subprocess.check_output(cmd).decode().splitlines()
     result = list(map(lambda x: x.strip(), result))
     return result
@@ -54,7 +59,9 @@ def find_running(server: str) -> List[Dict[str, Any]]:
         for pid in gpu_pids[gpu_index]:
             if pid not in user_pids:
                 continue
-            cmd = ['ssh', server, 'ps', '-p', pid, '-o', 'cmd=']
+            cmd = ['ps', '-p', pid, '-o', 'cmd=']
+            if server != 'localhost':
+                cmd = ['ssh', server] + cmd
             try:
                 command = subprocess.check_output(cmd).decode().splitlines()
             except:
@@ -85,20 +92,24 @@ class GPUStatus(TypedDict):
 
 def get_gpu_memory(server: str, gpu_index: int) -> int:
     """Get total memory for a specific GPU"""
-    cmd = ['ssh', server, 'nvidia-smi',
+    cmd = ['nvidia-smi',
            '--query-gpu=memory.total',
            '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
+    if server != 'localhost':
+        cmd = ['ssh', server] + cmd
     output = subprocess.check_output(cmd).decode().strip()
     return int(output)
 
 
 def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
     """Get current memory and utilization for a specific GPU"""
-    cmd = ['ssh', server, 'nvidia-smi',
+    cmd = ['nvidia-smi',
            '--query-gpu=memory.used,utilization.gpu',
            '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
+    if server != 'localhost':
+        cmd = ['ssh', server] + cmd
     output = subprocess.check_output(cmd).decode().strip()
     memory_used, gpu_util = map(int, output.split(', '))
     return {'memory': memory_used, 'util': gpu_util}
@@ -107,14 +118,18 @@ def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
 def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     """Get list of PIDs running on a specific GPU"""
     # Get GPU UUID
-    uuid_cmd = ['ssh', server, 'nvidia-smi', '--query-gpu=index,gpu_uuid',
+    uuid_cmd = ['nvidia-smi', '--query-gpu=index,gpu_uuid',
                 '--format=csv,noheader', f'--id={gpu_index}']
+    if server != 'localhost':
+        uuid_cmd = ['ssh', server] + uuid_cmd
     uuid_output = subprocess.check_output(uuid_cmd).decode().strip()
     gpu_uuid = uuid_output.split(', ')[1]
 
     # Get PIDs for this UUID
-    pids_cmd = ['ssh', server, 'nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
+    pids_cmd = ['nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
                 '--format=csv,noheader']
+    if server != 'localhost':
+        pids_cmd = ['ssh', server] + pids_cmd
     pids_output = subprocess.check_output(pids_cmd).decode().strip()
     pids = []
     for line in pids_output.splitlines():
