@@ -36,13 +36,11 @@ def test_call_with_list_input(criterion, sample_tensors, sample_tensor):
     """Test calling the criterion with a list of predictions."""
     # Compute loss
     loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
 
     # Check that loss is a scalar tensor
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
-
-    # Wait for the buffer queue to be empty
-    criterion._buffer_queue.join()
 
     # Check that loss is in the buffer
     assert len(criterion.buffer) == 1
@@ -85,10 +83,11 @@ def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
     assert not hasattr(criterion.criterion, 'buffer')
 
     # Test update
-    loss1 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
-    assert criterion.buffer[0].equal(loss1.detach().cpu())
+    assert criterion.buffer[0].equal(loss.detach().cpu())
     assert criterion.criterion.use_buffer is False
     assert not hasattr(criterion.criterion, 'buffer')
 
