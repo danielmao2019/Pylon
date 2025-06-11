@@ -115,9 +115,9 @@ class Launcher(BaseAgent):
         idle_gpus = []
         for gpu in self.gpus:
             if (
-                gpu['util_stats']['avg'] < 50 and
-                (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
-                # len(gpu['processes']) < num_jobs
+                gpu['util_stats']['avg'] < 50
+                and (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
+                and len(list(filter(lambda x: 'python main.py --config-filepath' in x['cmd'], gpu['processes']))) < num_jobs
             ):
                 idle_gpus.append({
                     'server': gpu['server'],
