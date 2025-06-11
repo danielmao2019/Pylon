@@ -1,8 +1,5 @@
-from typing import Any, Dict, List, Tuple, Union
-import itertools
-import numpy as np
+from typing import Dict, Any
 import torch
-from torch import nn
 import torch.nn.functional as F
 from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d.change_detection.cdmaskformer_criterion.criterion import SetCriterion
@@ -10,6 +7,7 @@ from criteria.vision_2d.change_detection.cdmaskformer_criterion.matcher import H
 
 
 class CDMaskFormerCriterion(SingleTaskCriterion):
+
     def __init__(
         self,
         class_weight=2.0,
@@ -19,7 +17,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
         dec_layers = 10,
         num_classes = 1,
         device = torch.device("cuda"),
-    ):
+    ) -> None:
         super(CDMaskFormerCriterion, self).__init__()
         self.class_weight = class_weight
         self.dice_weight = dice_weight
@@ -54,7 +52,7 @@ class CDMaskFormerCriterion(SingleTaskCriterion):
             device=device,
         )
 
-    def __call__(self, y_pred, y_true):
+    def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, Any]) -> torch.Tensor:
         assert isinstance(y_pred, dict)
         assert y_pred.keys() == {'pred_logits', 'pred_masks', 'aux_outputs'}
         assert isinstance(y_true, dict)

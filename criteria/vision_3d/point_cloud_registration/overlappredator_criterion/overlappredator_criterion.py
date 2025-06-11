@@ -11,7 +11,7 @@ class OverlapPredatorCriterion(SingleTaskCriterion):
     """
     We evaluate both contrastive loss and circle loss
     """
-    def __init__(self, **configs):
+    def __init__(self, **configs) -> None:
         from easydict import EasyDict
         configs = EasyDict(configs)
 

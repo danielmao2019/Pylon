@@ -10,8 +10,9 @@ def criterion_cfg(dummy_criterion):
     return {
         'class': PyTorchCriterionWrapper,
         'args': {
-            'criterion': dummy_criterion
-        }
+            'criterion': dummy_criterion,
+            'use_buffer': False,
+        },
     }
 
 
@@ -35,6 +36,7 @@ def test_call_with_list_input(criterion, sample_tensors, sample_tensor):
     """Test calling the criterion with a list of predictions."""
     # Compute loss
     loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
 
     # Check that loss is a scalar tensor
     assert isinstance(loss, torch.Tensor)
@@ -81,10 +83,11 @@ def test_buffer_behavior(criterion_cfg, sample_tensors, sample_tensor):
     assert not hasattr(criterion.criterion, 'buffer')
 
     # Test update
-    loss1 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
     assert criterion.use_buffer is True
     assert hasattr(criterion, 'buffer') and len(criterion.buffer) == 1
-    assert criterion.buffer[0].equal(loss1.detach().cpu())
+    assert criterion.buffer[0].equal(loss.detach().cpu())
     assert criterion.criterion.use_buffer is False
     assert not hasattr(criterion.criterion, 'buffer')
 
@@ -112,6 +115,7 @@ def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
 
     # Compute loss on CPU
     cpu_loss = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 1
 
     # Step 2: Move to GPU
@@ -125,6 +129,7 @@ def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
 
     # Compute loss on GPU
     gpu_loss = criterion(y_pred=gpu_tensors, y_true=gpu_target)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 2
 
     # Step 3: Move back to CPU
@@ -136,6 +141,7 @@ def test_device_transfer(criterion_cfg, sample_tensors, sample_tensor):
 
     # Compute loss on CPU again
     cpu_loss2 = criterion(y_pred=sample_tensors, y_true=sample_tensor)
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 3
 
     # Check that all losses are equivalent
