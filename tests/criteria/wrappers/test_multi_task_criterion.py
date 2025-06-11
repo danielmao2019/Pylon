@@ -105,16 +105,16 @@ def test_summarize(criterion, sample_multi_task_tensors, tmp_path):
     result = criterion.summarize(output_path=str(output_path))
 
     # Check that result is a dictionary with the correct keys
-    assert isinstance(result, dict)
-    assert set(result.keys()) == {'task1', 'task2'}
+    assert isinstance(result, dict), f"{type(result)=}"
+    assert set(result.keys()) == {'task1', 'task2'}, f"{result.keys()=}"
 
     # Check that each result is a tensor
     for tensor in result.values():
-        assert isinstance(tensor, torch.Tensor)
-        assert tensor.ndim == 1
+        assert isinstance(tensor, torch.Tensor), f"{type(tensor)=}"
+        assert tensor.ndim == 1, f"{tensor.shape=}"
 
     # Check that the output file exists
-    assert output_path.exists()
+    assert output_path.exists(), f"{output_path=}"
 
 
 def test_device_transfer(criterion_cfgs, sample_multi_task_tensors):
