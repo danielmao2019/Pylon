@@ -49,21 +49,21 @@ if __name__ == "__main__":
         if args.profile:
             profiler = cProfile.Profile()
             profiler.enable()
-            
+
             # Run the training
             config['runner'](config=config).run()
-            
+
             profiler.disable()
-            
+
             # Save profile results with config index only if multiple configs
             profile_suffix = f"_{config_idx}" if len(config_list) > 1 else ""
             profile_path = os.path.join(config['work_dir'], f'run_profile{profile_suffix}.prof')
             stats = pstats.Stats(profiler)
             stats.sort_stats(SortKey.CUMULATIVE)
-            
+
             # Save the raw profile data
             stats.dump_stats(profile_path)
-            
+
             # Save a human-readable summary
             summary_path = os.path.join(config['work_dir'], f'run_profile{profile_suffix}_summary.txt')
             with open(summary_path, 'w') as f:
