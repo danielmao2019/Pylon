@@ -442,21 +442,6 @@ class BaseTrainer(ABC):
         self.logger.eval()
         self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
 
-    def _find_best_checkpoint_(self) -> str:
-        r"""
-        Returns:
-            best_checkpoint (str): the filepath to the checkpoint with the highest validation score.
-        """
-        avg_scores: List[Tuple[str, Any]] = []
-        for epoch_dir in sorted(glob.glob(os.path.join(self.work_dir, "epoch_*"))):
-            with open(os.path.join(epoch_dir, "validation_scores.json"), mode='r') as f:
-                scores: Dict[str, float] = json.load(f)
-            avg_scores.append((epoch_dir, scores))
-        best_epoch_dir: str = max(avg_scores, key=lambda x: x[1]['reduced'])[0]
-        best_checkpoint: str = os.path.join(best_epoch_dir, "checkpoint.pt")
-        assert os.path.isfile(best_checkpoint), f"{best_checkpoint=}"
-        return best_checkpoint
-
     def _after_val_loop_(self) -> None:
         if self.work_dir is None:
             return
@@ -491,6 +476,21 @@ class BaseTrainer(ABC):
         # Start after-val operations in a separate thread
         self.after_val_thread = threading.Thread(target=after_val_ops)
         self.after_val_thread.start()
+
+    def _find_best_checkpoint_(self) -> str:
+        r"""
+        Returns:
+            best_checkpoint (str): the filepath to the checkpoint with the highest validation score.
+        """
+        avg_scores: List[Tuple[str, Any]] = []
+        for epoch_dir in sorted(glob.glob(os.path.join(self.work_dir, "epoch_*"))):
+            with open(os.path.join(epoch_dir, "validation_scores.json"), mode='r') as f:
+                scores: Dict[str, float] = json.load(f)
+            avg_scores.append((epoch_dir, scores))
+        best_epoch_dir: str = max(avg_scores, key=lambda x: x[1]['reduced'])[0]
+        best_checkpoint: str = os.path.join(best_epoch_dir, "checkpoint.pt")
+        assert os.path.isfile(best_checkpoint), f"{best_checkpoint=}"
+        return best_checkpoint
 
     def _clean_checkpoints(self, latest_checkpoint: str, best_checkpoint: Optional[str] = None) -> None:
         """Clean up old checkpoints based on the configured checkpoint method.
