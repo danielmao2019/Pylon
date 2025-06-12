@@ -8,6 +8,7 @@ import time
 import json
 import jsbeautifier
 import torch
+import threading
 import criteria
 import utils
 from utils.builders import build_from_config
@@ -38,6 +39,11 @@ class BaseTrainer(ABC):
         self._init_work_dir()
         self._init_tot_epochs()
         torch.autograd.set_detect_anomaly(True)
+
+        # Initialize threading-related attributes
+        self.after_train_thread = None
+        self.after_val_thread = None
+        self.buffer_lock = threading.Lock()
 
     # ====================================================================================================
     # ====================================================================================================
@@ -329,6 +335,10 @@ class BaseTrainer(ABC):
             self.logger.info(f"Skipping training epoch {self.cum_epochs}.")
             return
 
+        # Wait for previous after-train operations to complete
+        if self.after_train_thread and self.after_train_thread.is_alive():
+            self.after_train_thread.join()
+
         # before training loop
         start_time = time.time()
         self._before_train_loop()
@@ -364,29 +374,44 @@ class BaseTrainer(ABC):
     def _after_train_loop_(self) -> None:
         if self.work_dir is None:
             return
-        # initialize epoch root directory
-        epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
-        os.makedirs(epoch_root, exist_ok=True)
-        # save criterion buffer to disk
-        self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
-        _ = torch.load(os.path.join(epoch_root, "training_losses.pt"))
-        # save optimizer buffer to disk
-        self.optimizer.summarize(output_path=os.path.join(epoch_root, "optimizer_buffer.json"))
-        with open(os.path.join(epoch_root, "optimizer_buffer.json"), mode='r') as f:
-            _ = json.load(f)
-        # save checkpoint to disk
-        latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
-        self._save_checkpoint_(output_path=latest_checkpoint)
-        # set latest checkpoint
-        soft_link: str = os.path.join(self.work_dir, "checkpoint_latest.pt")
-        if os.path.islink(soft_link):
-            os.system(' '.join(["rm", soft_link]))
-        os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
+
+        def after_train_ops():
+            # initialize epoch root directory
+            epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
+            os.makedirs(epoch_root, exist_ok=True)
+
+            # save criterion buffer to disk
+            with self.buffer_lock:
+                self.criterion.summarize(output_path=os.path.join(epoch_root, "training_losses.pt"))
+            _ = torch.load(os.path.join(epoch_root, "training_losses.pt"))
+
+            # save optimizer buffer to disk
+            self.optimizer.summarize(output_path=os.path.join(epoch_root, "optimizer_buffer.json"))
+            with open(os.path.join(epoch_root, "optimizer_buffer.json"), mode='r') as f:
+                _ = json.load(f)
+
+            # save checkpoint to disk
+            latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
+            self._save_checkpoint_(output_path=latest_checkpoint)
+
+            # set latest checkpoint
+            soft_link: str = os.path.join(self.work_dir, "checkpoint_latest.pt")
+            if os.path.islink(soft_link):
+                os.system(' '.join(["rm", soft_link]))
+            os.system(' '.join(["ln", "-s", os.path.relpath(path=latest_checkpoint, start=self.work_dir), soft_link]))
+
+        # Start after-train operations in a separate thread
+        self.after_train_thread = threading.Thread(target=after_train_ops)
+        self.after_train_thread.start()
 
     def _val_epoch_(self) -> None:
         if not (self.val_dataloader and self.model):
             self.logger.info("Skipped validation epoch.")
             return
+
+        # Wait for previous after-val operations to complete
+        if self.after_val_thread and self.after_val_thread.is_alive():
+            self.after_val_thread.join()
 
         # before validation loop
         start_time = time.time()
@@ -435,69 +460,79 @@ class BaseTrainer(ABC):
     def _after_val_loop_(self) -> None:
         if self.work_dir is None:
             return
-        # initialize epoch root directory
-        epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
-        os.makedirs(epoch_root, exist_ok=True)
-        # save validation scores to disk
-        self.metric.summarize(output_path=os.path.join(epoch_root, "validation_scores.json"))
-        with open(os.path.join(epoch_root, "validation_scores.json"), mode='r') as f:
-            _ = json.load(f)
-        # set best checkpoint
-        try:
-            best_checkpoint: str = self._find_best_checkpoint_()
-            soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
-            if os.path.isfile(soft_link):
-                os.system(' '.join(["rm", soft_link]))
-            os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
-        except:
-            best_checkpoint = None
-        # cleanup checkpoints
-        checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-        if best_checkpoint is not None:
-            checkpoints.remove(best_checkpoint)
-        latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
-        if latest_checkpoint in checkpoints:
-            checkpoints.remove(latest_checkpoint)
 
-        # Handle different checkpoint methods
-        checkpoint_method = self.config.get('checkpoint_method', 'latest')
-        if checkpoint_method == 'all':
-            # Keep all checkpoints
-            return
-        elif checkpoint_method == 'latest':
-            # Keep only the latest checkpoint
-            for checkpoint in checkpoints:
-                assert checkpoint.endswith("checkpoint.pt")
-                epoch_dir = os.path.dirname(checkpoint)
-                assert os.path.basename(epoch_dir).startswith("epoch_")
-                epoch = int(os.path.basename(epoch_dir).split('_')[1])
-                # remove only if next epoch has finished
-                if check_epoch_finished(
-                    epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
-                    expected_files=self.expected_files,
-                ):
-                    os.system(' '.join(["rm", "-f", checkpoint]))
-        else:
-            # Handle interval-based checkpointing
-            assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
-            assert checkpoint_method > 0, "checkpoint_method interval must be positive"
+        def after_val_ops():
+            # initialize epoch root directory
+            epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
+            os.makedirs(epoch_root, exist_ok=True)
 
-            for checkpoint in checkpoints:
-                assert checkpoint.endswith("checkpoint.pt")
-                epoch_dir = os.path.dirname(checkpoint)
-                assert os.path.basename(epoch_dir).startswith("epoch_")
-                epoch = int(os.path.basename(epoch_dir).split('_')[1])
+            # save validation scores to disk
+            with self.buffer_lock:
+                self.metric.summarize(output_path=os.path.join(epoch_root, "validation_scores.json"))
+            with open(os.path.join(epoch_root, "validation_scores.json"), mode='r') as f:
+                _ = json.load(f)
 
-                # Keep checkpoints at the specified interval
-                if epoch % checkpoint_method == checkpoint_method - 1:
-                    continue
+            # set best checkpoint
+            try:
+                best_checkpoint: str = self._find_best_checkpoint_()
+                soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
+                if os.path.isfile(soft_link):
+                    os.system(' '.join(["rm", soft_link]))
+                os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
+            except:
+                best_checkpoint = None
 
-                # remove only if next epoch has finished
-                if check_epoch_finished(
-                    epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
-                    expected_files=self.expected_files,
-                ):
-                    os.system(' '.join(["rm", "-f", checkpoint]))
+            # cleanup checkpoints
+            checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
+            if best_checkpoint is not None:
+                checkpoints.remove(best_checkpoint)
+            latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
+            if latest_checkpoint in checkpoints:
+                checkpoints.remove(latest_checkpoint)
+
+            # Handle different checkpoint methods
+            checkpoint_method = self.config.get('checkpoint_method', 'latest')
+            if checkpoint_method == 'all':
+                # Keep all checkpoints
+                return
+            elif checkpoint_method == 'latest':
+                # Keep only the latest checkpoint
+                for checkpoint in checkpoints:
+                    assert checkpoint.endswith("checkpoint.pt")
+                    epoch_dir = os.path.dirname(checkpoint)
+                    assert os.path.basename(epoch_dir).startswith("epoch_")
+                    epoch = int(os.path.basename(epoch_dir).split('_')[1])
+                    # remove only if next epoch has finished
+                    if check_epoch_finished(
+                        epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
+                        expected_files=self.expected_files,
+                    ):
+                        os.system(' '.join(["rm", "-f", checkpoint]))
+            else:
+                # Handle interval-based checkpointing
+                assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
+                assert checkpoint_method > 0, "checkpoint_method interval must be positive"
+
+                for checkpoint in checkpoints:
+                    assert checkpoint.endswith("checkpoint.pt")
+                    epoch_dir = os.path.dirname(checkpoint)
+                    assert os.path.basename(epoch_dir).startswith("epoch_")
+                    epoch = int(os.path.basename(epoch_dir).split('_')[1])
+
+                    # Keep checkpoints at the specified interval
+                    if epoch % checkpoint_method == checkpoint_method - 1:
+                        continue
+
+                    # remove only if next epoch has finished
+                    if check_epoch_finished(
+                        epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
+                        expected_files=self.expected_files,
+                    ):
+                        os.system(' '.join(["rm", "-f", checkpoint]))
+
+        # Start after-val operations in a separate thread
+        self.after_val_thread = threading.Thread(target=after_val_ops)
+        self.after_val_thread.start()
 
     # ====================================================================================================
     # test epoch
@@ -570,5 +605,12 @@ class BaseTrainer(ABC):
             self._val_epoch_()
             self.logger.page_break()
             self.cum_epochs = idx + 1
+
+        # Wait for any remaining after-loop operations to complete before testing
+        if self.after_train_thread and self.after_train_thread.is_alive():
+            self.after_train_thread.join()
+        if self.after_val_thread and self.after_val_thread.is_alive():
+            self.after_val_thread.join()
+
         # test epoch
         self._test_epoch_()
