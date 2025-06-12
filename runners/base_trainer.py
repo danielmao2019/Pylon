@@ -528,9 +528,10 @@ class BaseTrainer(ABC):
 
         # Remove all checkpoints except the ones we want to keep
         existing_checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-        for checkpoint in existing_checkpoints:
+
+        def clean_single_checkpoint(checkpoint: str) -> None:
             if checkpoint in keep_checkpoints:
-                continue
+                return
 
             assert checkpoint.endswith("checkpoint.pt")
             epoch_dir = os.path.dirname(checkpoint)
@@ -543,6 +544,9 @@ class BaseTrainer(ABC):
                 expected_files=self.expected_files,
             ):
                 os.system(' '.join(["rm", "-f", checkpoint]))
+
+        with ThreadPoolExecutor() as executor:
+            list(executor.map(clean_single_checkpoint, existing_checkpoints))
 
     # ====================================================================================================
     # test epoch
