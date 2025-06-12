@@ -4,23 +4,13 @@ import glob
 import time
 import torch
 import threading
-from runners import SupervisedSingleTaskTrainer
+from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.builders import build_from_config
 from utils.io import save_json
 from utils.automation.run_status import check_epoch_finished
 
 
 class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
-
-    def __init__(
-        self,
-        config: dict,
-        device: Optional[torch.device] = torch.device('cuda'),
-    ) -> None:
-        super().__init__(config, device)
-        # Initialize threading-related attributes
-        self.after_val_thread = None
-        self.buffer_lock = threading.Lock()
 
     def _init_dataloaders_(self):
         self.logger.info("Initializing dataloaders...")
