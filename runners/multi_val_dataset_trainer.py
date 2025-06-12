@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Optional
 import os
 import glob
 import time
 import torch
-from runners import SupervisedSingleTaskTrainer
+import threading
+from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from utils.builders import build_from_config
 from utils.io import save_json
 from utils.automation.run_status import check_epoch_finished
@@ -52,10 +53,16 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
         if not (self.val_dataloaders and self.model):
             self.logger.info("Skipped validation epoch.")
             return
+
+        # Wait for previous after-val operations to complete
+        if self.after_val_thread and self.after_val_thread.is_alive():
+            self.after_val_thread.join()
+
         # init time
         start_time = time.time()
-        # do validation loop
-        self.model.eval()
+        self._before_val_loop_()
+
+        # validation loop
         results = {}
         for val_dataloader in self.val_dataloaders:
             self.metric.reset_buffer()
@@ -63,46 +70,48 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
                 self._eval_step_(dp=dp)
                 self.logger.flush(prefix=f"Validation on {val_dataloader.dataset.__class__.__name__} [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(val_dataloader)}].")
             results[val_dataloader.dataset.__class__.__name__] = self.metric.summarize(output_path=None)
+
         # after validation loop
         self._after_val_loop_(results)
-        # log time
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
-    def _find_best_checkpoint_(self) -> str:
-        raise NotImplementedError("Don't know how to compare checkpoints for MultiValDatasetTrainer yet.")
+    def _before_val_loop_(self) -> None:
+        self.model.eval()
+        self.logger.eval()
+        for val_dataloader in self.val_dataloaders:
+            val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
 
     def _after_val_loop_(self, results: dict) -> None:
         if self.work_dir is None:
             return
-        # initialize epoch root directory
-        epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
-        os.makedirs(epoch_root, exist_ok=True)
-        # save validation scores to disk
-        save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
-        # set best checkpoint
-        try:
-            best_checkpoint: str = self._find_best_checkpoint_()
-            soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
-            if os.path.isfile(soft_link):
-                os.system(' '.join(["rm", soft_link]))
-            os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
-        except:
-            best_checkpoint = None
-        # cleanup checkpoints
-        checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-        if best_checkpoint is not None:
-            checkpoints.remove(best_checkpoint)
-        latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
-        if latest_checkpoint in checkpoints:
-            checkpoints.remove(latest_checkpoint)
-        for checkpoint in checkpoints:
-            assert checkpoint.endswith("checkpoint.pt")
-            epoch_dir = os.path.dirname(checkpoint)
-            assert os.path.basename(epoch_dir).startswith("epoch_")
-            epoch = int(os.path.basename(epoch_dir).split('_')[1])
-            # remove only if next epoch has finished
-            if check_epoch_finished(
-                epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
-                expected_files=self.expected_files,
-            ):
-                os.system(' '.join(["rm", "-f", checkpoint]))
+
+        def after_val_ops():
+            # initialize epoch root directory
+            epoch_root: str = os.path.join(self.work_dir, f"epoch_{self.cum_epochs}")
+            os.makedirs(epoch_root, exist_ok=True)
+
+            # save validation scores to disk
+            save_json(obj=results, filepath=os.path.join(epoch_root, "validation_scores.json"))
+
+            # set best checkpoint
+            try:
+                best_checkpoint: str = self._find_best_checkpoint_()
+                soft_link: str = os.path.join(self.work_dir, "checkpoint_best.pt")
+                if os.path.isfile(soft_link):
+                    os.system(' '.join(["rm", soft_link]))
+                os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
+            except:
+                best_checkpoint = None
+
+            # cleanup checkpoints using the helper method
+            self._clean_checkpoints(
+                latest_checkpoint=os.path.join(epoch_root, "checkpoint.pt"),
+                best_checkpoint=best_checkpoint,
+            )
+
+        # Start after-val operations in a separate thread
+        self.after_val_thread = threading.Thread(target=after_val_ops)
+        self.after_val_thread.start()
+
+    def _find_best_checkpoint_(self) -> str:
+        raise NotImplementedError("Don't know how to compare checkpoints for MultiValDatasetTrainer yet.")

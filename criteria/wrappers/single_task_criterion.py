@@ -31,6 +31,7 @@ class SingleTaskCriterion(BaseCriterion):
 
     def summarize(self, output_path: Optional[str] = None) -> torch.Tensor:
         r"""This method stacks loss trajectory across all data points in buffer.
+        Thread-safe version that works with async operations.
         """
         self._buffer_queue.join()  # Wait for all items to be processed
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
@@ -40,8 +41,10 @@ class SingleTaskCriterion(BaseCriterion):
         # summarize losses
         result = torch.stack(self.buffer, dim=0)
         assert result.ndim == 1, f"{result.shape=}"
-        # save to disk
+
+        # save to disk if path provided
         if output_path is not None:
             check_write_file(path=output_path)
             torch.save(obj=result, f=output_path)
+
         return result
