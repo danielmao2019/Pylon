@@ -70,8 +70,9 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
 
         # init time
         start_time = time.time()
-        # do validation loop
-        self.model.eval()
+        self._before_val_loop_()
+
+        # validation loop
         results = {}
         for val_dataloader in self.val_dataloaders:
             self.metric.reset_buffer()
@@ -79,13 +80,16 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
                 self._eval_step_(dp=dp)
                 self.logger.flush(prefix=f"Validation on {val_dataloader.dataset.__class__.__name__} [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(val_dataloader)}].")
             results[val_dataloader.dataset.__class__.__name__] = self.metric.summarize(output_path=None)
+
         # after validation loop
         self._after_val_loop_(results)
-        # log time
         self.logger.info(f"Validation epoch time: {round(time.time() - start_time, 2)} seconds.")
 
-    def _find_best_checkpoint_(self) -> str:
-        raise NotImplementedError("Don't know how to compare checkpoints for MultiValDatasetTrainer yet.")
+    def _before_val_loop_(self) -> None:
+        self.model.eval()
+        self.logger.eval()
+        for val_dataloader in self.val_dataloaders:
+            val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
 
     def _after_val_loop_(self, results: dict) -> None:
         if self.work_dir is None:
@@ -110,8 +114,14 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
                 best_checkpoint = None
 
             # cleanup checkpoints using the helper method
-            self._clean_checkpoints(epoch_root, best_checkpoint)
+            self._clean_checkpoints(
+                latest_checkpoint=os.path.join(epoch_root, "checkpoint.pt"),
+                best_checkpoint=best_checkpoint,
+            )
 
         # Start after-val operations in a separate thread
         self.after_val_thread = threading.Thread(target=after_val_ops)
         self.after_val_thread.start()
+
+    def _find_best_checkpoint_(self) -> str:
+        raise NotImplementedError("Don't know how to compare checkpoints for MultiValDatasetTrainer yet.")
