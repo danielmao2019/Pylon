@@ -483,33 +483,32 @@ class BaseTrainer(ABC):
                 best_checkpoint = None
 
             # cleanup checkpoints
-            self._clean_checkpoints(epoch_root, best_checkpoint)
+            self._clean_checkpoints(
+                latest_checkpoint=os.path.join(epoch_root, "checkpoint.pt"),
+                best_checkpoint=best_checkpoint,
+            )
 
         # Start after-val operations in a separate thread
         self.after_val_thread = threading.Thread(target=after_val_ops)
         self.after_val_thread.start()
 
-    def _clean_checkpoints(self, epoch_root: str, best_checkpoint: Optional[str] = None) -> None:
+    def _clean_checkpoints(self, latest_checkpoint: str, best_checkpoint: Optional[str] = None) -> None:
         """Clean up old checkpoints based on the configured checkpoint method.
-        
+
         Args:
-            epoch_root (str): Path to the current epoch's directory
+            latest_checkpoint (str): Path to the latest checkpoint
             best_checkpoint (Optional[str]): Path to the best checkpoint if available
         """
-        # Get all checkpoints
-        checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-        latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
-        
         # Determine which checkpoints to keep based on the checkpoint method
-        checkpoints_to_keep: List[str] = []
-        
-        # Always keep the latest checkpoint
-        checkpoints_to_keep.append(latest_checkpoint)
-        
-        # Always keep the best checkpoint if available
+        keep_checkpoints: List[str] = []
+
+        # Keep the latest checkpoint
+        keep_checkpoints.append(latest_checkpoint)
+
+        # Keep the best checkpoint if available
         if best_checkpoint is not None:
-            checkpoints_to_keep.append(best_checkpoint)
-            
+            keep_checkpoints.append(best_checkpoint)
+
         checkpoint_method = self.config.get('checkpoint_method', 'latest')
         if checkpoint_method == 'all':
             # Keep all checkpoints
@@ -521,27 +520,23 @@ class BaseTrainer(ABC):
             # Handle interval-based checkpointing
             assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
             assert checkpoint_method > 0, "checkpoint_method interval must be positive"
-            
-            for checkpoint in checkpoints:
-                assert checkpoint.endswith("checkpoint.pt")
-                epoch_dir = os.path.dirname(checkpoint)
-                assert os.path.basename(epoch_dir).startswith("epoch_")
-                epoch = int(os.path.basename(epoch_dir).split('_')[1])
-                
-                # Keep checkpoints at the specified interval
-                if epoch % checkpoint_method == checkpoint_method - 1:
-                    checkpoints_to_keep.append(checkpoint)
+            keep_indices = list(range(checkpoint_method-1, self.tot_epochs, checkpoint_method))
+            keep_checkpoints.extend(list(map(
+                lambda x: os.path.join(self.work_dir, f"epoch_{x}", "checkpoint.pt"),
+                keep_indices,
+            )))
 
         # Remove all checkpoints except the ones we want to keep
-        for checkpoint in checkpoints:
-            if checkpoint in checkpoints_to_keep:
+        existing_checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
+        for checkpoint in existing_checkpoints:
+            if checkpoint in keep_checkpoints:
                 continue
-                
+
             assert checkpoint.endswith("checkpoint.pt")
             epoch_dir = os.path.dirname(checkpoint)
             assert os.path.basename(epoch_dir).startswith("epoch_")
             epoch = int(os.path.basename(epoch_dir).split('_')[1])
-            
+
             # remove only if next epoch has finished
             if check_epoch_finished(
                 epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
