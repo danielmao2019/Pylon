@@ -109,24 +109,8 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
             except:
                 best_checkpoint = None
 
-            # cleanup checkpoints
-            checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-            if best_checkpoint is not None:
-                checkpoints.remove(best_checkpoint)
-            latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
-            if latest_checkpoint in checkpoints:
-                checkpoints.remove(latest_checkpoint)
-            for checkpoint in checkpoints:
-                assert checkpoint.endswith("checkpoint.pt")
-                epoch_dir = os.path.dirname(checkpoint)
-                assert os.path.basename(epoch_dir).startswith("epoch_")
-                epoch = int(os.path.basename(epoch_dir).split('_')[1])
-                # remove only if next epoch has finished
-                if check_epoch_finished(
-                    epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
-                    expected_files=self.expected_files,
-                ):
-                    os.system(' '.join(["rm", "-f", checkpoint]))
+            # cleanup checkpoints using the helper method
+            self._clean_checkpoints(epoch_root, best_checkpoint)
 
         # Start after-val operations in a separate thread
         self.after_val_thread = threading.Thread(target=after_val_ops)

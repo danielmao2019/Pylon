@@ -483,56 +483,68 @@ class BaseTrainer(ABC):
                 best_checkpoint = None
 
             # cleanup checkpoints
-            checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
-            if best_checkpoint is not None:
-                checkpoints.remove(best_checkpoint)
-            latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
-            if latest_checkpoint in checkpoints:
-                checkpoints.remove(latest_checkpoint)
-
-            # Handle different checkpoint methods
-            checkpoint_method = self.config.get('checkpoint_method', 'latest')
-            if checkpoint_method == 'all':
-                # Keep all checkpoints
-                return
-            elif checkpoint_method == 'latest':
-                # Keep only the latest checkpoint
-                for checkpoint in checkpoints:
-                    assert checkpoint.endswith("checkpoint.pt")
-                    epoch_dir = os.path.dirname(checkpoint)
-                    assert os.path.basename(epoch_dir).startswith("epoch_")
-                    epoch = int(os.path.basename(epoch_dir).split('_')[1])
-                    # remove only if next epoch has finished
-                    if check_epoch_finished(
-                        epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
-                        expected_files=self.expected_files,
-                    ):
-                        os.system(' '.join(["rm", "-f", checkpoint]))
-            else:
-                # Handle interval-based checkpointing
-                assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
-                assert checkpoint_method > 0, "checkpoint_method interval must be positive"
-
-                for checkpoint in checkpoints:
-                    assert checkpoint.endswith("checkpoint.pt")
-                    epoch_dir = os.path.dirname(checkpoint)
-                    assert os.path.basename(epoch_dir).startswith("epoch_")
-                    epoch = int(os.path.basename(epoch_dir).split('_')[1])
-
-                    # Keep checkpoints at the specified interval
-                    if epoch % checkpoint_method == checkpoint_method - 1:
-                        continue
-
-                    # remove only if next epoch has finished
-                    if check_epoch_finished(
-                        epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
-                        expected_files=self.expected_files,
-                    ):
-                        os.system(' '.join(["rm", "-f", checkpoint]))
+            self._clean_checkpoints(epoch_root, best_checkpoint)
 
         # Start after-val operations in a separate thread
         self.after_val_thread = threading.Thread(target=after_val_ops)
         self.after_val_thread.start()
+
+    def _clean_checkpoints(self, epoch_root: str, best_checkpoint: Optional[str] = None) -> None:
+        """Clean up old checkpoints based on the configured checkpoint method.
+
+        Args:
+            epoch_root (str): Path to the current epoch's directory
+            best_checkpoint (Optional[str]): Path to the best checkpoint if available
+        """
+        # Get all checkpoints
+        checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
+
+        # Remove best and latest checkpoints from cleanup list
+        if best_checkpoint is not None:
+            checkpoints.remove(best_checkpoint)
+        latest_checkpoint = os.path.join(epoch_root, "checkpoint.pt")
+        if latest_checkpoint in checkpoints:
+            checkpoints.remove(latest_checkpoint)
+
+        # Handle different checkpoint methods
+        checkpoint_method = self.config.get('checkpoint_method', 'latest')
+        if checkpoint_method == 'all':
+            # Keep all checkpoints
+            return
+        elif checkpoint_method == 'latest':
+            # Keep only the latest checkpoint
+            for checkpoint in checkpoints:
+                assert checkpoint.endswith("checkpoint.pt")
+                epoch_dir = os.path.dirname(checkpoint)
+                assert os.path.basename(epoch_dir).startswith("epoch_")
+                epoch = int(os.path.basename(epoch_dir).split('_')[1])
+                # remove only if next epoch has finished
+                if check_epoch_finished(
+                    epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
+                    expected_files=self.expected_files,
+                ):
+                    os.system(' '.join(["rm", "-f", checkpoint]))
+        else:
+            # Handle interval-based checkpointing
+            assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
+            assert checkpoint_method > 0, "checkpoint_method interval must be positive"
+
+            for checkpoint in checkpoints:
+                assert checkpoint.endswith("checkpoint.pt")
+                epoch_dir = os.path.dirname(checkpoint)
+                assert os.path.basename(epoch_dir).startswith("epoch_")
+                epoch = int(os.path.basename(epoch_dir).split('_')[1])
+
+                # Keep checkpoints at the specified interval
+                if epoch % checkpoint_method == checkpoint_method - 1:
+                    continue
+
+                # remove only if next epoch has finished
+                if check_epoch_finished(
+                    epoch_dir=os.path.join(os.path.dirname(epoch_dir), f"epoch_{epoch+1}"),
+                    expected_files=self.expected_files,
+                ):
+                    os.system(' '.join(["rm", "-f", checkpoint]))
 
     # ====================================================================================================
     # test epoch
