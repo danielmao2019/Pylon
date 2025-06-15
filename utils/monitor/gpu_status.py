@@ -86,7 +86,7 @@ def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
 
     try:
         return _find_running()
-    except TimeoutError:
+    except:
         return []
 
 
@@ -185,7 +185,7 @@ def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
 
     try:
         return _get_gpu_info()
-    except TimeoutError:
+    except:
         return {
             'server': server,
             'index': gpu_index,
