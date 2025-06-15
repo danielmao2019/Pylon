@@ -113,7 +113,7 @@ class BUFFER(nn.Module):
 
     def forward(self, data_source):
         ret_val = self.forward_train(data_source)
-        if self.eval:
+        if not self.training:
             ret_val.update(self.forward_eval(data_source))
         return ret_val
 
