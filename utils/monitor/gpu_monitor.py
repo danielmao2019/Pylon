@@ -6,10 +6,11 @@ from utils.monitor.gpu_status import GPUStatus, get_gpu_info
 
 class GPUMonitor:
 
-    def __init__(self, gpus: List[GPUStatus]):
+    def __init__(self, gpus: List[GPUStatus], timeout: int = 5):
         self.gpus = gpus
         self.monitor_thread: Optional[threading.Thread] = None
         self.executor = ThreadPoolExecutor(max_workers=len(gpus))
+        self.timeout = timeout
 
         # Do one update first
         for gpu in self.gpus:
@@ -37,7 +38,7 @@ class GPUMonitor:
     def _update_gpu_info(self, gpu):
         """Updates information for a single GPU"""
         # Get current GPU info
-        current_info = get_gpu_info(gpu['server'], gpu['index'])
+        current_info = get_gpu_info(gpu['server'], gpu['index'], timeout=self.timeout)
 
         # Update connection status
         gpu['connected'] = current_info['success']

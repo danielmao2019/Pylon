@@ -21,6 +21,7 @@ class Launcher(BaseAgent):
         outdated_days: int = 120,
         gpu_pool: List[Tuple[str, List[int]]] = [],
         user_names: Dict[str, str] = {},
+        timeout: int = 5,
         log_path: str = "",
         project_dir: str = "",
         conda_env: str = "",
@@ -35,6 +36,7 @@ class Launcher(BaseAgent):
             outdated_days (int): the number of days to wait to consider a run outdated.
             gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
             user_names (Dict[str, str]): the user names for the servers.
+            timeout (int): the timeout for the GPU monitor.
             log_path (str): the path to the log file.
             project_dir (str): the project directory.
             conda_env (str): the conda environment to use.
@@ -48,6 +50,7 @@ class Launcher(BaseAgent):
             outdated_days=outdated_days,
             gpu_pool=gpu_pool,
             user_names=user_names,
+            timeout=timeout,
         )
         self.project_dir = project_dir
         self.conda_env = conda_env
