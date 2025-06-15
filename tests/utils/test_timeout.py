@@ -15,7 +15,7 @@ def test_timeout_failure():
     with pytest.raises(TimeoutError) as exc_info:
         with timeout(0.1, "test_failure"):
             time.sleep(0.2)  # Should exceed 0.1 second timeout
-    
+
     assert "test_failure" in str(exc_info.value)
     assert "timed out after 0.1 seconds" in str(exc_info.value)
 
@@ -25,7 +25,7 @@ def test_timeout_with_exception():
     with pytest.raises(ValueError) as exc_info:
         with timeout(2, "test_exception"):
             raise ValueError("Test exception")
-    
+
     assert str(exc_info.value) == "Test exception"
 
 
@@ -35,7 +35,7 @@ def test_timeout_nested():
         with timeout(2, "outer"):
             with timeout(0.1, "inner"):
                 time.sleep(0.2)  # Should trigger inner timeout
-    
+
     assert "inner" in str(exc_info.value)
     assert "timed out after 0.1 seconds" in str(exc_info.value)
 
@@ -43,13 +43,13 @@ def test_timeout_nested():
 def test_timeout_cleanup():
     """Test that resources are properly cleaned up after timeout."""
     start_threads = threading.active_count()
-    
+
     with pytest.raises(TimeoutError):
         with timeout(0.1, "test_cleanup"):
             time.sleep(0.2)
-    
+
     # Allow a small amount of time for cleanup
     time.sleep(0.1)
-    
+
     # Check that we haven't leaked threads
-    assert threading.active_count() <= start_threads + 1  # +1 for the main thread 
+    assert threading.active_count() <= start_threads + 1  # +1 for the main thread
