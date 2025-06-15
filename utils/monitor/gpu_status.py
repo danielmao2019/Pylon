@@ -42,7 +42,6 @@ def get_user_pids(server: str) -> List[str]:
     return result
 
 
-@with_timeout(seconds=5)
 def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
     r"""This function finds all GPU processes launched by the user.
 
@@ -58,7 +57,8 @@ def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
             command (str): the command this GPU is running by the user.
         }
     """
-    try:
+    @with_timeout(seconds=timeout)
+    def _find_running():
         all_running: List[Dict[str, Any]] = []
         gpu_pids = get_index2pids(server)
         user_pids = get_user_pids(server)
@@ -83,9 +83,10 @@ def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
                     'command': command
                 })
         return all_running
+
+    try:
+        return _find_running()
     except TimeoutError:
-        return []
-    except Exception:
         return []
 
 
@@ -150,7 +151,6 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     return pids
 
 
-@with_timeout(seconds=5)
 def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
     """Get all information for a specific GPU
 
@@ -162,7 +162,8 @@ def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
     Returns:
         Dict containing GPU info with an additional 'success' field indicating if the query succeeded
     """
-    try:
+    @with_timeout(seconds=timeout)
+    def _get_gpu_info():
         # Get basic GPU info
         max_memory = get_gpu_memory(server, gpu_index)
         util_info = get_gpu_utilization(server, gpu_index)
@@ -181,6 +182,9 @@ def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
             'current_util': util_info['util'],
             'success': True,
         }
+
+    try:
+        return _get_gpu_info()
     except TimeoutError:
         return {
             'server': server,
