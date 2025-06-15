@@ -12,6 +12,15 @@ class BUFFER_DescStageMetric(SingleTaskMetric):
         self.class_loss = torch.nn.CrossEntropyLoss()
 
     def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+        assert isinstance(y_pred, dict), f"{type(y_pred)=}"
+        assert y_pred.keys() == {
+            'src_kpt', 'tgt_kpt', 'src_des', 'tgt_des', 'equi_score', 'gt_label',
+        } | {
+            'pose', 'src_axis', 'tgt_axis',
+        }, f"{y_pred.keys()=}"
+        assert isinstance(y_true, dict), f"{type(y_true)=}"
+        assert y_true.keys() == {'transform'}, f"{y_true.keys()=}"
+
         tgt_kpt, src_des, tgt_des = y_pred['tgt_kpt'], y_pred['src_des'], y_pred['tgt_des']
         _, _, accuracy = self.desc_loss(src_des, tgt_des, cdist(tgt_kpt, tgt_kpt))
         pre_label = torch.argmax(y_pred['equi_score'], dim=1)
