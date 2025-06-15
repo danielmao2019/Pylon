@@ -72,7 +72,7 @@ class GeoTransformerMetric(SingleTaskMetric):
         c_precision = self.evaluate_coarse(y_pred)
         f_precision = self.evaluate_fine(y_pred, y_true)
         rre, rte, rmse, recall = self.evaluate_registration(y_pred, y_true)
-        score: Dict[str, torch.Tensor] = {
+        scores: Dict[str, torch.Tensor] = {
             'PIR': c_precision,
             'IR': f_precision,
             'RRE': rre,
@@ -80,5 +80,5 @@ class GeoTransformerMetric(SingleTaskMetric):
             'RMSE': rmse,
             'RR': recall,
         }
-        self.add_to_buffer(score)
-        return score
+        self.add_to_buffer(scores)
+        return scores
