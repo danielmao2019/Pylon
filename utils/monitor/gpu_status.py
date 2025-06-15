@@ -90,7 +90,7 @@ class GPUStatus(TypedDict):
     util_stats: dict[str, Optional[float]]
 
 
-def get_gpu_memory(server: str, gpu_index: int) -> int:
+def get_gpu_memory(server: str, gpu_index: int, timeout: int = 5) -> int:
     """Get total memory for a specific GPU"""
     cmd = ['nvidia-smi',
            '--query-gpu=memory.total',
@@ -98,11 +98,11 @@ def get_gpu_memory(server: str, gpu_index: int) -> int:
            f'--id={gpu_index}']
     if server != 'localhost':
         cmd = ['ssh', server] + cmd
-    output = subprocess.check_output(cmd).decode().strip()
+    output = subprocess.check_output(cmd, timeout=timeout).decode().strip()
     return int(output)
 
 
-def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
+def get_gpu_utilization(server: str, gpu_index: int, timeout: int = 5) -> Dict[str, int]:
     """Get current memory and utilization for a specific GPU"""
     cmd = ['nvidia-smi',
            '--query-gpu=memory.used,utilization.gpu',
@@ -110,19 +110,19 @@ def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
            f'--id={gpu_index}']
     if server != 'localhost':
         cmd = ['ssh', server] + cmd
-    output = subprocess.check_output(cmd).decode().strip()
+    output = subprocess.check_output(cmd, timeout=timeout).decode().strip()
     memory_used, gpu_util = map(int, output.split(', '))
     return {'memory': memory_used, 'util': gpu_util}
 
 
-def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
+def get_gpu_processes(server: str, gpu_index: int, timeout: int = 5) -> List[str]:
     """Get list of PIDs running on a specific GPU"""
     # Get GPU UUID
     uuid_cmd = ['nvidia-smi', '--query-gpu=index,gpu_uuid',
                 '--format=csv,noheader', f'--id={gpu_index}']
     if server != 'localhost':
         uuid_cmd = ['ssh', server] + uuid_cmd
-    uuid_output = subprocess.check_output(uuid_cmd).decode().strip()
+    uuid_output = subprocess.check_output(uuid_cmd, timeout=timeout).decode().strip()
     gpu_uuid = uuid_output.split(', ')[1]
 
     # Get PIDs for this UUID
@@ -130,7 +130,7 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
                 '--format=csv,noheader']
     if server != 'localhost':
         pids_cmd = ['ssh', server] + pids_cmd
-    pids_output = subprocess.check_output(pids_cmd).decode().strip()
+    pids_output = subprocess.check_output(pids_cmd, timeout=timeout).decode().strip()
     pids = []
     for line in pids_output.splitlines():
         uuid, pid = line.split(', ')
@@ -139,22 +139,53 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     return pids
 
 
-def get_gpu_info(server: str, gpu_index: int) -> Dict:
-    """Get all information for a specific GPU"""
-    # Get basic GPU info
-    max_memory = get_gpu_memory(server, gpu_index)
-    util_info = get_gpu_utilization(server, gpu_index)
+def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
+    """Get all information for a specific GPU
 
-    # Get process info
-    gpu_pids = get_gpu_processes(server, gpu_index)
-    all_processes = get_all_processes(server)
-    processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
+    Args:
+        server: The server to query
+        gpu_index: The GPU index to query
+        timeout: Timeout in seconds for GPU queries (default: 5)
 
-    return {
-        'server': server,
-        'index': gpu_index,
-        'max_memory': max_memory,
-        'processes': processes,
-        'current_memory': util_info['memory'],
-        'current_util': util_info['util']
-    }
+    Returns:
+        Dict containing GPU info with an additional 'success' field indicating if the query succeeded
+    """
+    try:
+        # Get basic GPU info
+        max_memory = get_gpu_memory(server, gpu_index, timeout)
+        util_info = get_gpu_utilization(server, gpu_index, timeout)
+
+        # Get process info
+        gpu_pids = get_gpu_processes(server, gpu_index, timeout)
+        all_processes = get_all_processes(server)
+        processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
+
+        return {
+            'server': server,
+            'index': gpu_index,
+            'max_memory': max_memory,
+            'processes': processes,
+            'current_memory': util_info['memory'],
+            'current_util': util_info['util'],
+            'success': True,
+        }
+    except subprocess.TimeoutExpired:
+        return {
+            'server': server,
+            'index': gpu_index,
+            'max_memory': None,
+            'processes': None,
+            'current_memory': None,
+            'current_util': None,
+            'success': False,
+        }
+    except Exception:
+        return {
+            'server': server,
+            'index': gpu_index,
+            'max_memory': None,
+            'processes': None,
+            'current_memory': None,
+            'current_util': None,
+            'success': False,
+        }

@@ -39,6 +39,19 @@ class GPUMonitor:
         # Get current GPU info
         current_info = get_gpu_info(gpu['server'], gpu['index'])
 
+        # Update connection status
+        gpu['connected'] = current_info['success']
+
+        # If query failed, set all fields to None except server and index
+        if not current_info['success']:
+            gpu['max_memory'] = None
+            gpu['processes'] = None
+            gpu['memory_window'] = None
+            gpu['util_window'] = None
+            gpu['memory_stats'] = None
+            gpu['util_stats'] = None
+            return
+
         # Update processes
         gpu['processes'] = current_info['processes']
 

@@ -8,6 +8,10 @@ def generate_table_data(gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> 
     """Generate table data from the GPU monitor status."""
     table_data = []
     for gpu in gpu_monitor.gpus:
+        # Skip disconnected GPUs
+        if not gpu['connected']:
+            continue
+            
         if not gpu['processes']:
             table_data.append({
                 "Server": gpu['server'],

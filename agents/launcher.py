@@ -114,6 +114,10 @@ class Launcher(BaseAgent):
         """
         idle_gpus = []
         for gpu in self.gpus:
+            # Skip disconnected GPUs
+            if not gpu['connected']:
+                continue
+                
             if (
                 gpu['util_stats']['avg'] < 50
                 and (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
