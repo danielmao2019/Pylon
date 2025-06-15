@@ -113,9 +113,11 @@ class Launcher(BaseAgent):
             }
         """
         idle_gpus = []
+        disconnected = {}
         for gpu in self.gpus:
             # Skip disconnected GPUs
             if not gpu['connected']:
+                disconnected[gpu['server']] = disconnected.get(gpu['server'], []) + [gpu['index']]
                 continue
 
             if (
@@ -127,6 +129,7 @@ class Launcher(BaseAgent):
                     'server': gpu['server'],
                     'gpu_index': gpu['index'],
                 })
+        self.logger.warning(f"Disconnected GPUs: {disconnected}")
         return idle_gpus
 
     def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:
