@@ -480,11 +480,8 @@ class BasePCRDataset(BaseDataset):
         Each scene pair has its own directory (scene_pair_X) with voxel files (voxel_Y.pt).
         """
         # Get voxel data
-        annotation = self.annotations[idx]
-
-        # If annotations are filepaths, load the data
-        if isinstance(annotation, str):
-            annotation = torch.load(annotation)
+        assert isinstance(self.annotations[idx], str), f"{self.annotations[idx]=}"
+        annotation = torch.load(self.annotations[idx])
 
         # Extract data from voxel_data
         src_points = annotation['src_points']
@@ -549,11 +546,11 @@ class BasePCRDataset(BaseDataset):
         inputs = {
             'src_pc': {
                 'pos': src_points,
-                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32),
+                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32, device=self.device),
             },
             'tgt_pc': {
                 'pos': tgt_points,
-                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
+                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32, device=self.device),
             },
             'correspondences': correspondences,
         }
