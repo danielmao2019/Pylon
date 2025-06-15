@@ -1,24 +1,23 @@
 from typing import List, Dict, Any, TypedDict, Optional
 import subprocess
-import signal
+import threading
 from contextlib import contextmanager
 from utils.monitor.process_info import ProcessInfo, get_all_processes
 
 
 @contextmanager
 def Timeout(seconds, func_name: str):
-    def handler(signum, frame):
+    timer = None
+    def timeout_handler():
         raise TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
-
-    # Set the signal handler and a timer
-    signal.signal(signal.SIGALRM, handler)
-    signal.alarm(seconds)
-
+    
     try:
+        timer = threading.Timer(seconds, timeout_handler)
+        timer.start()
         yield
     finally:
-        # Disable the alarm
-        signal.alarm(0)
+        if timer is not None:
+            timer.cancel()
 
 
 def _build_mapping(output: str) -> Dict[str, List[str]]:
