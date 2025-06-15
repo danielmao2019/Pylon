@@ -93,12 +93,13 @@ class GPUMonitor:
                 'server': gpu['server'],
                 'index': gpu['index'],
                 'max_memory': gpu['max_memory'],
-                'memory_min': gpu['memory_stats']['min'],
-                'memory_max': gpu['memory_stats']['max'],
-                'memory_avg': gpu['memory_stats']['avg'],
-                'util_min': gpu['util_stats']['min'],
-                'util_max': gpu['util_stats']['max'],
-                'util_avg': gpu['util_stats']['avg'],
+                'memory_min': gpu['memory_stats']['min'] if gpu['memory_stats'] is not None else None,
+                'memory_max': gpu['memory_stats']['max'] if gpu['memory_stats'] is not None else None,
+                'memory_avg': gpu['memory_stats']['avg'] if gpu['memory_stats'] is not None else None,
+                'util_min': gpu['util_stats']['min'] if gpu['util_stats'] is not None else None,
+                'util_max': gpu['util_stats']['max'] if gpu['util_stats'] is not None else None,
+                'util_avg': gpu['util_stats']['avg'] if gpu['util_stats'] is not None else None,
+                'connected': gpu['connected'],
             }
             for gpu in self.gpus
         }
