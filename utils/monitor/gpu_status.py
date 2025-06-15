@@ -6,7 +6,7 @@ from utils.monitor.process_info import ProcessInfo, get_all_processes
 
 
 @contextmanager
-def timeout(seconds, func_name: str):
+def Timeout(seconds, func_name: str):
     def handler(signum, frame):
         raise TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
 
@@ -75,7 +75,7 @@ def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
         }
     """
     try:
-        with timeout(timeout, "find_running"):
+        with Timeout(timeout, "find_running"):
             all_running: List[Dict[str, Any]] = []
             gpu_pids = get_index2pids(server)
             user_pids = get_user_pids(server)
@@ -179,7 +179,7 @@ def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
         Dict containing GPU info with an additional 'success' field indicating if the query succeeded
     """
     try:
-        with timeout(timeout, "get_gpu_info"):
+        with Timeout(timeout, "get_gpu_info"):
             # Get basic GPU info
             max_memory = get_gpu_memory(server, gpu_index)
             util_info = get_gpu_utilization(server, gpu_index)
@@ -199,16 +199,6 @@ def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
                 'success': True,
             }
     except TimeoutError:
-        return {
-            'server': server,
-            'index': gpu_index,
-            'max_memory': None,
-            'processes': None,
-            'current_memory': None,
-            'current_util': None,
-            'success': False,
-        }
-    except Exception:
         return {
             'server': server,
             'index': gpu_index,
