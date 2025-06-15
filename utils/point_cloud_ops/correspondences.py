@@ -18,6 +18,9 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
     Returns:
         torch.Tensor: Correspondence indices [K, 2] where K is number of correspondences
     """
+    assert src_points.device == ref_points.device, f"{src_points.device=}, {ref_points.device=}"
+    device = src_points.device
+
     # Convert to numpy for scipy operations
     ref_points = ref_points.cpu().numpy()
     src_points = src_points.cpu().numpy()
@@ -39,7 +42,7 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
         for j in indices
     ], dtype=np.int64)
 
-    return torch.from_numpy(corr_indices)
+    return torch.tensor(corr_indices, dtype=torch.int64, device=device)
 
 
 def get_correspondences_v2(
