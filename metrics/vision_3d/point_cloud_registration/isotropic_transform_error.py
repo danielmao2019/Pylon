@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict
 import torch
 import numpy as np
 from metrics.wrappers.single_task_metric import SingleTaskMetric
@@ -63,36 +63,27 @@ class IsotropicTransformError(SingleTaskMetric):
         rte = torch.linalg.norm(gt_translations - translations, dim=-1)
         return rte
 
-    def _compute_score(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Compute rotation and translation errors.
 
         Args:
-            y_pred: Dictionary containing predicted transformation matrix
-                Required key: 'transform' (4x4 tensor)
-            y_true: Dictionary containing ground truth transformation matrix
-                Required key: 'transform' (4x4 tensor)
+            y_pred: Predicted transformation matrix (4x4 tensor)
+            y_true: Ground truth transformation matrix (4x4 tensor)
 
         Returns:
             Dictionary containing:
-                - 'rotation_error': Relative rotation error in degrees
-                - 'translation_error': Relative translation error
+                - 'RRE': Relative rotation error in degrees
+                - 'RTE': Relative translation error
         """
         # Input validation
-        assert isinstance(y_pred, dict), f"Expected dict for y_pred, got {type(y_pred)}"
-        assert isinstance(y_true, dict), f"Expected dict for y_true, got {type(y_true)}"
-        assert y_pred.keys() == {'transform'}, f"Missing 'transform' key in y_pred: {y_pred.keys()}"
-        assert y_true.keys() == {'transform'}, f"Missing 'transform' key in y_true: {y_true.keys()}"
-
-        gt_transforms = y_true['transform']
-        transforms = y_pred['transform']
-
-        # Validate shapes
-        assert gt_transforms.shape[-2:] == (4, 4), f"Expected transform shape (*, 4, 4), got {gt_transforms.shape}"
-        assert transforms.shape[-2:] == (4, 4), f"Expected transform shape (*, 4, 4), got {transforms.shape}"
+        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor for y_pred, got {type(y_pred)}"
+        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor for y_true, got {type(y_true)}"
+        assert y_pred.shape[-2:] == (4, 4), f"Expected transform shape (*, 4, 4), got {y_pred.shape}"
+        assert y_true.shape[-2:] == (4, 4), f"Expected transform shape (*, 4, 4), got {y_true.shape}"
 
         # Extract rotation and translation from transformation matrices
-        gt_rotations, gt_translations = self._get_rotation_translation(gt_transforms)
-        rotations, translations = self._get_rotation_translation(transforms)
+        gt_rotations, gt_translations = self._get_rotation_translation(y_true)
+        rotations, translations = self._get_rotation_translation(y_pred)
 
         # Compute errors
         rotation_error = self._compute_rotation_error(gt_rotations, rotations)
