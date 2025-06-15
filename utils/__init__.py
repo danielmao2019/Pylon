@@ -14,6 +14,7 @@ from utils import ops
 from utils import point_cloud_ops
 
 from utils import gradients
+from utils import timeout
 
 from utils import object_detection
 from utils import semantic_segmentation
@@ -33,6 +34,7 @@ __all__ = (
     'point_cloud_ops',
 
     'gradients',
+    'timeout',
 
     'object_detection',
     'semantic_segmentation',

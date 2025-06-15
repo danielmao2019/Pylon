@@ -8,6 +8,10 @@ def generate_table_data(gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> 
     """Generate table data from the GPU monitor status."""
     table_data = []
     for gpu in gpu_monitor.gpus:
+        # Skip disconnected GPUs
+        if not gpu['connected']:
+            continue
+
         if not gpu['processes']:
             table_data.append({
                 "Server": gpu['server'],
@@ -64,7 +68,7 @@ def create_layout(
     user_names: Dict[str, str],
 ) -> html.Div:
     """Create the dashboard layout.
-    
+
     Args:
         config_files: List of config file paths
         expected_files: List of expected file patterns
@@ -74,7 +78,7 @@ def create_layout(
         servers: List of servers
         gpu_monitor: GPUMonitor object
         user_names: Dict of user names
-        
+
     Returns:
         html.Div: The dashboard layout
     """
@@ -88,7 +92,7 @@ def create_layout(
     assert isinstance(user_names, dict)
 
     import datetime
-    
+
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     initial_progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, servers)}%"
     initial_data = generate_table_data(gpu_monitor, user_names)
