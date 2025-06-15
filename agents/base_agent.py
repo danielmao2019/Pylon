@@ -15,16 +15,17 @@ class BaseAgent(ABC):
         outdated_days: int = 120,
         gpu_pool: List[Tuple[str, List[int]]] = [],
         user_names: Dict[str, str] = {},
+        timeout: int = 5,
     ) -> None:
         self.config_files = config_files
         self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
-        self._init_gpu_monitor(gpu_pool)
+        self._init_gpu_monitor(gpu_pool, timeout)
         self.user_names = user_names
 
-    def _init_gpu_monitor(self, gpu_pool: List[Tuple[str, List[int]]]) -> None:
+    def _init_gpu_monitor(self, gpu_pool: List[Tuple[str, List[int]]], timeout: int) -> None:
         self.gpus = [
             GPUStatus(
                 server=server,
@@ -40,6 +41,6 @@ class BaseAgent(ABC):
             for server, indices in gpu_pool
             for idx in indices
         ]
-        self.gpu_monitor = GPUMonitor(self.gpus)
+        self.gpu_monitor = GPUMonitor(self.gpus, timeout=timeout)
         self.gpu_monitor.start()
         self.servers = [server for server, _ in gpu_pool]
