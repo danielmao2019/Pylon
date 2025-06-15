@@ -53,3 +53,16 @@ def test_timeout_cleanup():
 
     # Check that we haven't leaked threads
     assert threading.active_count() <= start_threads + 1  # +1 for the main thread
+
+
+def test_timeout_interrupts_main_thread():
+    """Test that the timeout actually interrupts the main thread."""
+    start_time = time.time()
+    
+    with pytest.raises(TimeoutError):
+        with Timeout(0.1, "test_interrupt"):
+            while True:  # This should be interrupted
+                time.sleep(0.01)
+    
+    # Verify that we didn't wait too long
+    assert time.time() - start_time < 0.2  # Should be interrupted well before 0.2 seconds
