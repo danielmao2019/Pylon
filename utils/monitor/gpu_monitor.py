@@ -78,12 +78,12 @@ class GPUMonitor:
         gpu['memory_stats'] = {
             'min': min(gpu['memory_window']),
             'max': max(gpu['memory_window']),
-            'avg': sum(gpu['memory_window']) / len(gpu['memory_window'])
+            'avg': sum(gpu['memory_window']) / len(gpu['memory_window']),
         }
         gpu['util_stats'] = {
             'min': min(gpu['util_window']),
             'max': max(gpu['util_window']),
-            'avg': sum(gpu['util_window']) / len(gpu['util_window'])
+            'avg': sum(gpu['util_window']) / len(gpu['util_window']),
         }
 
     def check(self) -> Dict:
@@ -98,7 +98,7 @@ class GPUMonitor:
                 'memory_avg': gpu['memory_stats']['avg'],
                 'util_min': gpu['util_stats']['min'],
                 'util_max': gpu['util_stats']['max'],
-                'util_avg': gpu['util_stats']['avg']
+                'util_avg': gpu['util_stats']['avg'],
             }
             for gpu in self.gpus
         }
