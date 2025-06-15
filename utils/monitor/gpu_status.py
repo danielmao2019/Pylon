@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, TypedDict, Optional
 import subprocess
 from utils.monitor.process_info import ProcessInfo, get_all_processes
-from utils.timeout import timeout as Timeout
+from utils.timeout import Timeout
 
 
 def _build_mapping(output: str) -> Dict[str, List[str]]:

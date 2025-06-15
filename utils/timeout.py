@@ -4,8 +4,9 @@ from contextlib import contextmanager
 
 
 @contextmanager
-def timeout(seconds: int, func_name: str):
+def Timeout(seconds: int, func_name: str):
     """A context manager that implements a timeout mechanism using threads.
+    This is a wrapper around the contextlib.contextmanager decorator.
 
     Args:
         seconds: Number of seconds before timeout
