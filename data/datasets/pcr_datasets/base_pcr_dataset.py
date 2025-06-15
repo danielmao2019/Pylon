@@ -481,7 +481,7 @@ class BasePCRDataset(BaseDataset):
         """
         # Get voxel data
         assert isinstance(self.annotations[idx], str), f"{self.annotations[idx]=}"
-        annotation = torch.load(self.annotations[idx])
+        annotation = torch.load(self.annotations[idx], map_location=self.device)
 
         # Extract data from voxel_data
         src_points = annotation['src_points']
