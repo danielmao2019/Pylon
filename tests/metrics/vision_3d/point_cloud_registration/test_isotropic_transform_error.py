@@ -149,3 +149,39 @@ def test_invalid_inputs(metric, y_pred, y_true):
     """Test invalid inputs."""
     with pytest.raises(AssertionError):
         metric(y_pred=y_pred, y_true=y_true)
+
+
+@pytest.mark.parametrize("angle_gt,angle_pred,trans_gt,trans_pred", [
+    (45, 50, [1.0, 2.0, 3.0], [1.1, 2.1, 3.1]),  # Small differences
+    (0, 90, [0.0, 0.0, 0.0], [1.0, 1.0, 1.0]),    # Large differences
+    (180, 180, [1.0, 1.0, 1.0], [1.0, 1.0, 1.0]), # No differences
+    (30, -30, [-1.0, -2.0, -3.0], [1.0, 2.0, 3.0]), # Opposite transformations
+])
+def test_implementation_equivalence(metric, angle_gt, angle_pred, trans_gt, trans_pred):
+    """Test that the IsotropicTransformError class produces the same results as the functional implementation."""
+    from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
+
+    # Create test transformation matrices
+    rot_gt = create_rotation_matrix(angle_gt, 'z')
+    trans_gt = torch.tensor(trans_gt, dtype=torch.float32)
+    transform_gt = create_transform_matrix(rot_gt, trans_gt)
+
+    # Create predicted transformation
+    rot_pred = create_rotation_matrix(angle_pred, 'z')
+    trans_pred = torch.tensor(trans_pred, dtype=torch.float32)
+    transform_pred = create_transform_matrix(rot_pred, trans_pred)
+
+    # Compute errors using both implementations
+    class_scores = metric(
+        y_pred={'transform': transform_pred.unsqueeze(0)},
+        y_true={'transform': transform_gt.unsqueeze(0)}
+    )
+    func_rre, func_rte = isotropic_transform_error(
+        gt_transforms=transform_gt.unsqueeze(0),
+        transforms=transform_pred.unsqueeze(0),
+        reduction='none'
+    )
+
+    # Check that results are equivalent
+    assert torch.allclose(class_scores['RRE'], func_rre, atol=1e-5)
+    assert torch.allclose(class_scores['RTE'], func_rte, atol=1e-5)

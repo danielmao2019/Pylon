@@ -14,5 +14,5 @@ class RandomSelect:
         check_point_cloud(pc)
         num_points = pc['pos'].shape[0]
         num_points_to_select = int(num_points * self.percentage)
-        indices = torch.randperm(num_points)[:num_points_to_select]
+        indices = torch.randperm(num_points, device=pc['pos'].device)[:num_points_to_select]
         return Select(indices)(pc)
