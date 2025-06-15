@@ -58,6 +58,12 @@ class GPUMonitor:
         # Update max memory
         gpu['max_memory'] = current_info['max_memory']
 
+        # Initialize windows if they are None (GPU just reconnected)
+        if gpu['memory_window'] is None:
+            gpu['memory_window'] = []
+        if gpu['util_window'] is None:
+            gpu['util_window'] = []
+
         # Update rolling windows
         gpu['memory_window'].append(current_info['current_memory'])
         gpu['util_window'].append(current_info['current_util'])
