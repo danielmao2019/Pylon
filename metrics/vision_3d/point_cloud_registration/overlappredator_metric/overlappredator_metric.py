@@ -108,10 +108,8 @@ class OverlapPredatorMetric(SingleTaskMetric):
         tgt_pcd = y_true['tgt_pc']
         assert isinstance(src_pcd, torch.Tensor), f"{type(src_pcd)=}"
         assert isinstance(tgt_pcd, torch.Tensor), f"{type(tgt_pcd)=}"
-
         assert len(y_pred['feats_f']) == len(src_pcd) + len(tgt_pcd), \
             f"{y_pred['feats_f'].shape=}, {src_pcd.shape=}, {tgt_pcd.shape=}"
-
         src_feats = y_pred['feats_f'][:len(src_pcd)]
         tgt_feats = y_pred['feats_f'][len(src_pcd):]
         correspondence = y_true['correspondence']
@@ -126,10 +124,16 @@ class OverlapPredatorMetric(SingleTaskMetric):
         tgt_idx = list(set(correspondence[:,1].int().tolist()))
 
         # Compute all metrics
-        stats = {}
-        stats.update(self._compute_overlap_metrics(scores_overlap, src_idx, tgt_idx, src_pcd, tgt_pcd))
-        stats.update(self._compute_saliency_metrics(scores_saliency, src_idx, tgt_idx, src_pcd, tgt_pcd, src_feats, tgt_feats))
-        stats['recall'] = self._compute_feature_recall(correspondence, src_pcd, tgt_pcd, src_feats, tgt_feats)
+        scores = {}
+        scores.update(self._compute_overlap_metrics(
+            scores_overlap, src_idx, tgt_idx, src_pcd, tgt_pcd,
+        ))
+        scores.update(self._compute_saliency_metrics(
+            scores_saliency, src_idx, tgt_idx, src_pcd, tgt_pcd, src_feats, tgt_feats,
+        ))
+        scores['recall'] = self._compute_feature_recall(
+            correspondence, src_pcd, tgt_pcd, src_feats, tgt_feats,
+        )
 
-        self.add_to_buffer(stats)
-        return stats
+        self.add_to_buffer(scores)
+        return scores
