@@ -1,51 +1,58 @@
 import threading
 import time
-from contextlib import contextmanager
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from functools import wraps
+from typing import TypeVar, Callable, Any
 
+T = TypeVar('T')
 
-@contextmanager
-def Timeout(seconds: int, func_name: str):
-    """A context manager that implements a timeout mechanism using threads.
-    This is a wrapper around the contextlib.contextmanager decorator.
-
-    Args:
-        seconds: Number of seconds before timeout
-        func_name: Name of the function being timed out (for error message)
-
-    Raises:
-        TimeoutError: If the wrapped code takes longer than the specified timeout
-        Exception: Any exception raised by the wrapped code
+def with_timeout(seconds: float) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """
-    start_time = time.time()
-    timer = None
-    timed_out = False
-
-    def check_timeout():
-        nonlocal timed_out
-        if time.time() - start_time > seconds:
-            timed_out = True
-            return True
-        return False
-
-    def timeout_handler():
-        if not check_timeout():
-            # Reschedule the check
-            timer = threading.Timer(0.1, timeout_handler)
-            timer.start()
-
-    try:
-        # Start periodic checks
-        timer = threading.Timer(0.1, timeout_handler)
-        timer.start()
-        try:
-            yield
-        except Exception as e:
-            # Cancel the timer and re-raise the exception
-            if timer is not None:
-                timer.cancel()
-            raise e
-        if timed_out:
-            raise TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
-    finally:
-        if timer is not None:
-            timer.cancel()
+    Decorator that adds a timeout to a function. If the function takes longer than
+    the specified timeout, it will raise a TimeoutError.
+    
+    Args:
+        seconds: The maximum number of seconds the function is allowed to run
+        
+    Returns:
+        A wrapped function that will raise TimeoutError if it runs too long
+        
+    Example:
+        @with_timeout(seconds=5)
+        def long_running_function():
+            time.sleep(10)  # This will raise TimeoutError after 5 seconds
+    """
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> T:
+            # Create an event to signal completion
+            done = threading.Event()
+            result = []
+            error = []
+            
+            def target():
+                try:
+                    result.append(func(*args, **kwargs))
+                except Exception as e:
+                    error.append(e)
+                finally:
+                    done.set()
+            
+            # Start the function in a separate thread
+            thread = threading.Thread(target=target)
+            thread.daemon = True  # Make sure thread doesn't prevent program exit
+            thread.start()
+            
+            # Wait for either completion or timeout
+            if not done.wait(timeout=seconds):
+                # If we timeout, we can't actually stop the thread, but we can
+                # raise the error to the caller
+                raise TimeoutError(f"Function {func.__name__} timed out after {seconds} seconds")
+            
+            # If we get here, the function completed
+            if error:
+                raise error[0]
+            return result[0]
+            
+        return wrapper
+    return decorator
