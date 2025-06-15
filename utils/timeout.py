@@ -2,6 +2,7 @@ from typing import TypeVar, Callable, Any
 import threading
 from functools import wraps
 
+
 T = TypeVar('T')
 
 def with_timeout(seconds: float) -> Callable[[Callable[..., T]], Callable[..., T]]:
