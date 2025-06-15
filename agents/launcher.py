@@ -63,6 +63,8 @@ class Launcher(BaseAgent):
 
         def process_gpu(gpu):
             gpu_stuck_info = {}
+            if not gpu['connected']:
+                return {}
             for proc in gpu['processes']:
                 if proc['user'] != gpu['server'].split('@')[0]:
                     continue
