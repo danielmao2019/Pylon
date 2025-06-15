@@ -8,13 +8,18 @@ from utils.monitor.process_info import ProcessInfo, get_all_processes
 @contextmanager
 def Timeout(seconds, func_name: str):
     timer = None
+    error = None
+    
     def timeout_handler():
-        raise TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
+        nonlocal error
+        error = TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
     
     try:
         timer = threading.Timer(seconds, timeout_handler)
         timer.start()
         yield
+        if error is not None:
+            raise error
     finally:
         if timer is not None:
             timer.cancel()
