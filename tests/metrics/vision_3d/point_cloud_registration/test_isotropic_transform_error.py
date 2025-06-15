@@ -131,13 +131,21 @@ def test_complete_transform_error(metric, angle_gt, angle_pred, trans_gt, trans_
     assert torch.allclose(scores['RTE'], torch.tensor(expected_rte, dtype=torch.float32), atol=1e-5)
 
 
-@pytest.mark.parametrize("y_pred,y_true,expected_error", [
+@pytest.mark.parametrize("y_pred,y_true", [
     (torch.eye(4), {'transform': torch.eye(4)}),
     ({'transform': torch.eye(4)}, torch.eye(4)),
     ({'wrong_key': torch.eye(4)}, {'transform': torch.eye(4)}),
     ({'transform': torch.eye(4)}, {'wrong_key': torch.eye(4)}),
-    ({'transform': torch.eye(3)}, {'transform': torch.eye(4)}),
 ])
-def test_input_validation(metric, y_pred, y_true):
+def test_input_edge_cases(metric, y_pred, y_true):
     """Test input validation for various edge cases."""
     metric(y_pred=y_pred, y_true=y_true)
+
+
+@pytest.mark.parametrize("y_pred,y_true", [
+    ({'transform': torch.eye(3)}, {'transform': torch.eye(4)}),
+])
+def test_invalid_inputs(metric, y_pred, y_true):
+    """Test invalid inputs."""
+    with pytest.raises(AssertionError):
+        metric(y_pred=y_pred, y_true=y_true)
