@@ -1,7 +1,6 @@
 import threading
-import concurrent.futures
+import time
 from contextlib import contextmanager
-from typing import Any
 
 
 @contextmanager
@@ -15,29 +14,30 @@ def timeout(seconds: int, func_name: str):
     Raises:
         TimeoutError: If the wrapped code takes longer than the specified timeout
     """
-    future = concurrent.futures.Future()
+    start_time = time.time()
+    timer = None
+    timed_out = False
     
-    def target():
-        try:
-            # This will be set to True when the context exits
-            future.set_result(None)
-        except Exception as e:
-            future.set_exception(e)
+    def check_timeout():
+        nonlocal timed_out
+        if time.time() - start_time > seconds:
+            timed_out = True
+            return True
+        return False
     
-    # Create and start the thread
-    thread = threading.Thread(target=target)
-    thread.daemon = True
-    thread.start()
+    def timeout_handler():
+        if not check_timeout():
+            # Reschedule the check
+            timer = threading.Timer(0.1, timeout_handler)
+            timer.start()
     
     try:
+        # Start periodic checks
+        timer = threading.Timer(0.1, timeout_handler)
+        timer.start()
         yield
+        if timed_out:
+            raise TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
     finally:
-        # Signal that we're done
-        if not future.done():
-            future.set_result(None)
-        
-        # Wait for the result with timeout
-        try:
-            future.result(timeout=seconds)
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError(f"Function {func_name} timed out after {seconds} seconds") 
+        if timer is not None:
+            timer.cancel() 
