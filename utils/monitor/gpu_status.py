@@ -5,6 +5,22 @@ from contextlib import contextmanager
 from utils.monitor.process_info import ProcessInfo, get_all_processes
 
 
+@contextmanager
+def timeout(seconds):
+    def handler(signum, frame):
+        raise TimeoutError(f"Function timed out after {seconds} seconds")
+    
+    # Set the signal handler and a timer
+    signal.signal(signal.SIGALRM, handler)
+    signal.alarm(seconds)
+    
+    try:
+        yield
+    finally:
+        # Disable the alarm
+        signal.alarm(0)
+
+
 def _build_mapping(output: str) -> Dict[str, List[str]]:
     lines = output.decode().strip().splitlines()
     assert type(lines) == list
@@ -149,22 +165,6 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
         if uuid == gpu_uuid:
             pids.append(pid)
     return pids
-
-
-@contextmanager
-def timeout(seconds):
-    def handler(signum, frame):
-        raise TimeoutError(f"Function timed out after {seconds} seconds")
-    
-    # Set the signal handler and a timer
-    signal.signal(signal.SIGALRM, handler)
-    signal.alarm(seconds)
-    
-    try:
-        yield
-    finally:
-        # Disable the alarm
-        signal.alarm(0)
 
 
 def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
