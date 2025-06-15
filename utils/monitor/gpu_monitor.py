@@ -13,24 +13,13 @@ class GPUMonitor:
         self.timeout = timeout
 
         # Do one update first
-        for gpu in self.gpus:
-            self._update_gpu_info(gpu)
+        list(self.executor.map(self._update_gpu_info, self.gpus))
 
     def start(self):
         """Starts background monitoring thread that continuously updates GPU info"""
         def monitor_loop():
             while True:
-                # Create a list to store futures
-                futures = []
-
-                # Submit monitoring tasks for each GPU
-                for gpu in self.gpus:
-                    future = self.executor.submit(self._update_gpu_info, gpu)
-                    futures.append(future)
-
-                # Wait for all futures to complete
-                for future in futures:
-                    future.result()
+                list(self.executor.map(self._update_gpu_info, self.gpus))
 
         self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
         self.monitor_thread.start()
