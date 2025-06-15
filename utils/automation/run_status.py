@@ -100,6 +100,7 @@ def get_all_run_status(
         results = list(executor.map(find_running, servers))
     all_running = [run for server_runs in results for run in server_runs]
     all_running_work_dirs = list(map(lambda x: get_work_dir(parse_config(x['command'])), all_running))
+
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
             partial(get_run_status,
@@ -110,6 +111,7 @@ def get_all_run_status(
                 outdated_days=outdated_days,
             ), config_files
         ))
+
     return all_run_status
 
 

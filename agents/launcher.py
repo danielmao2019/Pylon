@@ -21,6 +21,7 @@ class Launcher(BaseAgent):
         outdated_days: int = 120,
         gpu_pool: List[Tuple[str, List[int]]] = [],
         user_names: Dict[str, str] = {},
+        timeout: int = 5,
         log_path: str = "",
         project_dir: str = "",
         conda_env: str = "",
@@ -35,6 +36,7 @@ class Launcher(BaseAgent):
             outdated_days (int): the number of days to wait to consider a run outdated.
             gpu_pool (List[Tuple[str, List[int]]]): list of (server, gpu_indices) tuples.
             user_names (Dict[str, str]): the user names for the servers.
+            timeout (int): the timeout for the GPU monitor.
             log_path (str): the path to the log file.
             project_dir (str): the project directory.
             conda_env (str): the conda environment to use.
@@ -48,6 +50,7 @@ class Launcher(BaseAgent):
             outdated_days=outdated_days,
             gpu_pool=gpu_pool,
             user_names=user_names,
+            timeout=timeout,
         )
         self.project_dir = project_dir
         self.conda_env = conda_env
@@ -63,6 +66,8 @@ class Launcher(BaseAgent):
 
         def process_gpu(gpu):
             gpu_stuck_info = {}
+            if not gpu['connected']:
+                return {}
             for proc in gpu['processes']:
                 if proc['user'] != gpu['server'].split('@')[0]:
                     continue
@@ -113,7 +118,13 @@ class Launcher(BaseAgent):
             }
         """
         idle_gpus = []
+        disconnected = {}
         for gpu in self.gpus:
+            # Skip disconnected GPUs
+            if not gpu['connected']:
+                disconnected[gpu['server']] = disconnected.get(gpu['server'], []) + [gpu['index']]
+                continue
+
             if (
                 gpu['util_stats']['avg'] < 50
                 and (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
@@ -123,6 +134,7 @@ class Launcher(BaseAgent):
                     'server': gpu['server'],
                     'gpu_index': gpu['index'],
                 })
+        self.logger.warning(f"Disconnected GPUs: {disconnected}")
         return idle_gpus
 
     def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:

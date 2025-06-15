@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, TypedDict, Optional
 import subprocess
 from utils.monitor.process_info import ProcessInfo, get_all_processes
+from utils.timeout import with_timeout
 
 
 def _build_mapping(output: str) -> Dict[str, List[str]]:
@@ -41,8 +42,12 @@ def get_user_pids(server: str) -> List[str]:
     return result
 
 
-def find_running(server: str) -> List[Dict[str, Any]]:
+def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
     r"""This function finds all GPU processes launched by the user.
+
+    Args:
+        server: The server to query
+        timeout: Timeout in seconds for the entire query (default: 5)
 
     Returns:
         all_running (List[Dict[str, Any]]): a list of dictionaries with the following fields
@@ -52,30 +57,37 @@ def find_running(server: str) -> List[Dict[str, Any]]:
             command (str): the command this GPU is running by the user.
         }
     """
-    all_running: List[Dict[str, Any]] = []
-    gpu_pids = get_index2pids(server)
-    user_pids = get_user_pids(server)
-    for gpu_index in range(len(gpu_pids)):
-        for pid in gpu_pids[gpu_index]:
-            if pid not in user_pids:
-                continue
-            cmd = ['ps', '-p', pid, '-o', 'cmd=']
-            if server != 'localhost':
-                cmd = ['ssh', server] + cmd
-            try:
-                command = subprocess.check_output(cmd).decode().splitlines()
-            except:
-                continue
-            assert len(command) == 1, f"{command=}, {pid=}, {server=}"
-            command = command[0].strip()
-            if 'python main.py --config-filepath' not in command:
-                continue
-            all_running.append({
-                'server': server,
-                'gpu_index': gpu_index,
-                'command': command
-            })
-    return all_running
+    @with_timeout(seconds=timeout)
+    def _find_running():
+        all_running: List[Dict[str, Any]] = []
+        gpu_pids = get_index2pids(server)
+        user_pids = get_user_pids(server)
+        for gpu_index in range(len(gpu_pids)):
+            for pid in gpu_pids[gpu_index]:
+                if pid not in user_pids:
+                    continue
+                cmd = ['ps', '-p', pid, '-o', 'cmd=']
+                if server != 'localhost':
+                    cmd = ['ssh', server] + cmd
+                try:
+                    command = subprocess.check_output(cmd).decode().splitlines()
+                except:
+                    continue
+                assert len(command) == 1, f"{command=}, {pid=}, {server=}"
+                command = command[0].strip()
+                if 'python main.py --config-filepath' not in command:
+                    continue
+                all_running.append({
+                    'server': server,
+                    'gpu_index': gpu_index,
+                    'command': command
+                })
+        return all_running
+
+    try:
+        return _find_running()
+    except:
+        return []
 
 
 class GPUStatus(TypedDict):
@@ -139,22 +151,47 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     return pids
 
 
-def get_gpu_info(server: str, gpu_index: int) -> Dict:
-    """Get all information for a specific GPU"""
-    # Get basic GPU info
-    max_memory = get_gpu_memory(server, gpu_index)
-    util_info = get_gpu_utilization(server, gpu_index)
+def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
+    """Get all information for a specific GPU
 
-    # Get process info
-    gpu_pids = get_gpu_processes(server, gpu_index)
-    all_processes = get_all_processes(server)
-    processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
+    Args:
+        server: The server to query
+        gpu_index: The GPU index to query
+        timeout: Timeout in seconds for the entire GPU query (default: 5)
 
-    return {
-        'server': server,
-        'index': gpu_index,
-        'max_memory': max_memory,
-        'processes': processes,
-        'current_memory': util_info['memory'],
-        'current_util': util_info['util']
-    }
+    Returns:
+        Dict containing GPU info with an additional 'success' field indicating if the query succeeded
+    """
+    @with_timeout(seconds=timeout)
+    def _get_gpu_info():
+        # Get basic GPU info
+        max_memory = get_gpu_memory(server, gpu_index)
+        util_info = get_gpu_utilization(server, gpu_index)
+
+        # Get process info
+        gpu_pids = get_gpu_processes(server, gpu_index)
+        all_processes = get_all_processes(server)
+        processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
+
+        return {
+            'server': server,
+            'index': gpu_index,
+            'max_memory': max_memory,
+            'processes': processes,
+            'current_memory': util_info['memory'],
+            'current_util': util_info['util'],
+            'success': True,
+        }
+
+    try:
+        return _get_gpu_info()
+    except:
+        return {
+            'server': server,
+            'index': gpu_index,
+            'max_memory': None,
+            'processes': None,
+            'current_memory': None,
+            'current_util': None,
+            'success': False,
+        }
