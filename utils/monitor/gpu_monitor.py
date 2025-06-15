@@ -86,7 +86,7 @@ class GPUMonitor:
             'avg': sum(gpu['util_window']) / len(gpu['util_window']),
         }
 
-    def check(self) -> Dict:
+    def _check(self) -> Dict:
         """Returns current status of all GPUs without rolling windows"""
         return {
             f"{gpu['server']}:{gpu['index']}": {
@@ -106,7 +106,7 @@ class GPUMonitor:
 
     def log_stats(self, logger):
         """Logs status of all monitored GPUs"""
-        stats = self.check()
+        stats = self._check()
         assert len(stats) == 1, "Only support single GPU training for now."
         stats = list(stats.values())[0]
         logger.update_buffer(stats)
