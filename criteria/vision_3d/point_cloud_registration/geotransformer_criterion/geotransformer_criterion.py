@@ -86,5 +86,5 @@ class GeoTransformerCriterion(SingleTaskCriterion):
         coarse_loss = self.coarse_loss(y_pred)
         fine_loss = self.fine_loss(y_pred, y_true)
         loss = self.weight_coarse_loss * coarse_loss + self.weight_fine_loss * fine_loss
-        self.add_to_buffer(loss)
+        self.add_to_buffer(loss, check_validity=False)
         return loss

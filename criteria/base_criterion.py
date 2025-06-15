@@ -36,13 +36,14 @@ class BaseCriterion(torch.nn.Module, ABC):
             except Exception as e:
                 print(f"Buffer worker error: {e}")
 
-    def add_to_buffer(self, value: torch.Tensor) -> None:
+    def add_to_buffer(self, value: torch.Tensor, check_validity: bool = True) -> None:
         if self.use_buffer:
             assert hasattr(self, 'buffer')
             assert isinstance(self.buffer, list)
             assert isinstance(value, torch.Tensor), f"{type(value)=}"
             assert value.numel() == 1 and value.ndim == 0, f"{value.shape=}"
-            assert torch.isfinite(value) and not torch.isnan(value), f"{value=}"
+            if check_validity:
+                assert torch.isfinite(value) and not torch.isnan(value), f"{value=}"
             self._buffer_queue.put(value)
         else:
             assert not hasattr(self, 'buffer')
