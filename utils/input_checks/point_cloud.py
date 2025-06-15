@@ -13,8 +13,8 @@ def check_point_cloud(pc: Dict[str, torch.Tensor]) -> None:
     
     length = pc['pos'].shape[0]
     assert all(pc[key].shape[0] == length for key in pc.keys() if key != 'pos'), \
-        f"{key: pc[key].shape for key in pc.keys()}"
+        f"{{{', '.join(f'{k}: {pc[k].shape}' for k in pc.keys())}}}"
 
     device = pc['pos'].device
     assert all(pc[key].device == device for key in pc.keys() if key != 'pos'), \
-        f"{key: pc[key].device for key in pc.keys()}"
+        f"{{{', '.join(f'{k}: {pc[k].device}' for k in pc.keys())}}}"
