@@ -339,7 +339,7 @@ class BUFFER(nn.Module):
             pose = init_pose
 
         return {
-            'pose': pose,
+            'pose': torch.tensor(pose, device=self.device),
             'src_axis': src_axis,
             'tgt_axis': tgt_axis,
         }
