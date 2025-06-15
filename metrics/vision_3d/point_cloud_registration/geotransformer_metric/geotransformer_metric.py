@@ -2,8 +2,8 @@ from typing import Tuple, Dict
 from easydict import EasyDict
 import torch
 from models.point_cloud_registration.geotransformer.transformation import apply_transform
-from metrics.vision_3d.point_cloud_registration.geotransformer_metric.metrics import isotropic_transform_error
 from metrics.wrappers.single_task_metric import SingleTaskMetric
+from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
 
 
 class GeoTransformerMetric(SingleTaskMetric):
@@ -14,6 +14,7 @@ class GeoTransformerMetric(SingleTaskMetric):
         self.acceptance_overlap = cfg.acceptance_overlap
         self.acceptance_radius = cfg.acceptance_radius
         self.acceptance_rmse = cfg.rmse_threshold
+        self.transform_metric = IsotropicTransformError()
 
     @torch.no_grad()
     def evaluate_coarse(self, y_pred: Dict[str, torch.Tensor]) -> torch.Tensor:
@@ -59,7 +60,13 @@ class GeoTransformerMetric(SingleTaskMetric):
 
         src_points = y_pred['src_points']
 
-        rre, rte = isotropic_transform_error(transform, est_transform)
+        # Use IsotropicTransformError metric
+        transform_scores = self.transform_metric(
+            y_pred={'transform': est_transform.unsqueeze(0)},
+            y_true={'transform': transform.unsqueeze(0)}
+        )
+        rre = transform_scores['RRE']
+        rte = transform_scores['RTE']
 
         realignment_transform = torch.matmul(torch.inverse(transform), est_transform)
         realigned_src_points_f = apply_transform(src_points, realignment_transform)
