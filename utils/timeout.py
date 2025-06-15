@@ -1,6 +1,5 @@
 import threading
-import time
-from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeoutError
+from concurrent.futures import TimeoutError
 from functools import wraps
 from typing import TypeVar, Callable, Any
 
