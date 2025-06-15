@@ -1,28 +1,40 @@
 from typing import List, Dict, Any, TypedDict, Optional
 import subprocess
 import threading
+import concurrent.futures
 from contextlib import contextmanager
 from utils.monitor.process_info import ProcessInfo, get_all_processes
 
 
 @contextmanager
-def Timeout(seconds, func_name: str):
-    timer = None
+def Timeout(seconds: int, func_name: str):
+    """A context manager that implements a timeout mechanism using threads.
+    
+    Args:
+        seconds: Number of seconds before timeout
+        func_name: Name of the function being timed out (for error message)
+    """
+    future = concurrent.futures.Future()
     error = None
     
-    def timeout_handler():
+    def run_with_timeout():
         nonlocal error
-        error = TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
+        try:
+            yield
+            future.set_result(None)
+        except Exception as e:
+            future.set_exception(e)
+    
+    # Create and start the thread
+    thread = threading.Thread(target=run_with_timeout)
+    thread.daemon = True
+    thread.start()
     
     try:
-        timer = threading.Timer(seconds, timeout_handler)
-        timer.start()
-        yield
-        if error is not None:
-            raise error
-    finally:
-        if timer is not None:
-            timer.cancel()
+        # Wait for the result with timeout
+        future.result(timeout=seconds)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError(f"Function {func_name} timed out after {seconds} seconds")
 
 
 def _build_mapping(output: str) -> Dict[str, List[str]]:
