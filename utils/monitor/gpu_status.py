@@ -43,8 +43,12 @@ def get_user_pids(server: str) -> List[str]:
     return result
 
 
-def find_running(server: str) -> List[Dict[str, Any]]:
+def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
     r"""This function finds all GPU processes launched by the user.
+
+    Args:
+        server: The server to query
+        timeout: Timeout in seconds for the entire query (default: 5)
 
     Returns:
         all_running (List[Dict[str, Any]]): a list of dictionaries with the following fields
@@ -54,30 +58,36 @@ def find_running(server: str) -> List[Dict[str, Any]]:
             command (str): the command this GPU is running by the user.
         }
     """
-    all_running: List[Dict[str, Any]] = []
-    gpu_pids = get_index2pids(server)
-    user_pids = get_user_pids(server)
-    for gpu_index in range(len(gpu_pids)):
-        for pid in gpu_pids[gpu_index]:
-            if pid not in user_pids:
-                continue
-            cmd = ['ps', '-p', pid, '-o', 'cmd=']
-            if server != 'localhost':
-                cmd = ['ssh', server] + cmd
-            try:
-                command = subprocess.check_output(cmd).decode().splitlines()
-            except:
-                continue
-            assert len(command) == 1, f"{command=}, {pid=}, {server=}"
-            command = command[0].strip()
-            if 'python main.py --config-filepath' not in command:
-                continue
-            all_running.append({
-                'server': server,
-                'gpu_index': gpu_index,
-                'command': command
-            })
-    return all_running
+    try:
+        with timeout(timeout):
+            all_running: List[Dict[str, Any]] = []
+            gpu_pids = get_index2pids(server)
+            user_pids = get_user_pids(server)
+            for gpu_index in range(len(gpu_pids)):
+                for pid in gpu_pids[gpu_index]:
+                    if pid not in user_pids:
+                        continue
+                    cmd = ['ps', '-p', pid, '-o', 'cmd=']
+                    if server != 'localhost':
+                        cmd = ['ssh', server] + cmd
+                    try:
+                        command = subprocess.check_output(cmd).decode().splitlines()
+                    except:
+                        continue
+                    assert len(command) == 1, f"{command=}, {pid=}, {server=}"
+                    command = command[0].strip()
+                    if 'python main.py --config-filepath' not in command:
+                        continue
+                    all_running.append({
+                        'server': server,
+                        'gpu_index': gpu_index,
+                        'command': command
+                    })
+            return all_running
+    except TimeoutError:
+        return []
+    except Exception:
+        return []
 
 
 class GPUStatus(TypedDict):
