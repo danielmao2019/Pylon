@@ -318,11 +318,16 @@ class BUFFER(nn.Module):
 
             result = o3d.pipelines.registration.registration_ransac_based_on_correspondence(
                 pcd0, pcd1, corr, self.config.match.dist_th,
-                o3d.pipelines.registration.TransformationEstimationPointToPoint(False), 3,
-                [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(self.config.match.similar_th),
-                 o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(self.config.match.dist_th)],
-                o3d.pipelines.registration.RANSACConvergenceCriteria(self.config.match.iter_n,
-                                                                     self.config.match.confidence))
+                estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+                ransac_n=3,
+                checkers=[
+                    o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(self.config.match.similar_th),
+                    o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(self.config.match.dist_th),
+                ],
+                criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(
+                    self.config.match.iter_n, self.config.match.confidence,
+                ),
+            )
 
             init_pose = result.transformation
             if self.config.test.pose_refine is True:
