@@ -20,6 +20,7 @@ class ResizeBBoxes(BaseTransform):
         r"""
         Args:
             boxes (torch.Tensor): Bounding box annotations. Assumed in format (x1, y1, x2, y2).
+            generator (torch.Generator): Unused.
         """
         assert type(bboxes) == torch.Tensor, f"{type(bboxes)=}"
         assert bboxes.dim() == 2 and bboxes.shape[1] == 4, f"{bboxes.shape=}"
