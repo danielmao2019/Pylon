@@ -19,11 +19,16 @@ class ADE20KDataset(BaseDataset):
         LoftUp: Learning a Coordinate-Based Feature Upsampler for Vision Foundation Models
     """
 
+    SPLIT_OPTIONS = ['training', 'validation']
+    INPUT_NAMES = ['image']
+    LABEL_NAMES = ['object_cls_mask', 'object_ins_mask', 'parts_cls_masks', 'parts_ins_masks', 'objects', 'parts', 'amodal_masks']
+    # DATASET_SIZE = {}
+
     def _init_annotations(self) -> None:
         datapoint_ids = sorted(filter(
             lambda x: os.path.isdir(x),
             glob.glob(os.path.join(
-            self.data_root, 'ADE', self.split, "**", "**", "*",
+                self.data_root, 'images', 'ADE', self.split, "**", "**", "*",
         ))))
         self.annotations = list(map(
             lambda x: {
@@ -50,7 +55,11 @@ class ADE20KDataset(BaseDataset):
             **self._load_objects_parts(idx),
             **self._load_amodal_masks(idx),
         }
-        meta_info = self.annotations[idx]
+        meta_info = {
+            'idx': idx,
+            **self.annotations[idx],
+            'image_resolution': tuple(inputs['image'].shape[-2:]),
+        }
         return inputs, labels, meta_info
 
     def _load_object_mask(self, idx: int) -> torch.Tensor:
