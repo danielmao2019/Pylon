@@ -90,29 +90,35 @@ class Compose(BaseTransform):
             input_names = transform["input_names"]
             output_names = transform["output_names"]
 
-            try:
-                # Get input values
-                op_inputs = [datapoint[key_pair[0]][key_pair[1]] for key_pair in input_names]
+            # Get input values
+            op_inputs = [datapoint[key_pair[0]][key_pair[1]] for key_pair in input_names]
 
-                # Apply transform
+            # Try to apply transform with seed first
+            try:
                 if len(op_inputs) == 1:
                     op_outputs = [func(op_inputs[0], seed=seed)]
                 else:
                     op_outputs = func(*op_inputs, seed=seed)
+            except TypeError as e:
+                # If error is about unexpected seed argument, try without seed
+                if "got an unexpected keyword argument 'seed'" in str(e):
+                    if len(op_inputs) == 1:
+                        op_outputs = [func(op_inputs[0])]
+                    else:
+                        op_outputs = func(*op_inputs)
+                else:
+                    raise
 
-                # Ensure outputs is a list
-                if not isinstance(op_outputs, (tuple, list)):
-                    op_outputs = [op_outputs]
+            # Ensure outputs is a list
+            if not isinstance(op_outputs, (tuple, list)):
+                op_outputs = [op_outputs]
 
-                # Validate number of outputs matches output_names
-                assert len(op_outputs) == len(output_names), \
-                    f"Transform {i} produced {len(op_outputs)} outputs but expected {len(output_names)}"
+            # Validate number of outputs matches output_names
+            assert len(op_outputs) == len(output_names), \
+                f"Transform {i} produced {len(op_outputs)} outputs but expected {len(output_names)}"
 
-                # Store outputs
-                for output, key_pair in zip(op_outputs, output_names):
-                    datapoint[key_pair[0]][key_pair[1]] = output
-
-            except Exception as e:
-                raise RuntimeError(f"Attempting to apply self.transforms[{i}] on {input_names}: {e}")
+            # Store outputs
+            for output, key_pair in zip(op_outputs, output_names):
+                datapoint[key_pair[0]][key_pair[1]] = output
 
         return datapoint
