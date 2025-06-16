@@ -291,7 +291,7 @@ def test_compose_none_transforms():
 def test_compose_transform_error_propagation():
     """Test that transform function errors are properly propagated."""
     def failing_transform(x):
-        raise ValueError("Transform failed")
+        raise RuntimeError("Transform failed")
 
     transform = Compose(transforms=[(failing_transform, ('inputs', 'x'))])
     example = {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}}
