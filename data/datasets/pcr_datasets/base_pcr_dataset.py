@@ -35,27 +35,27 @@ def process_voxel_pair(args):
     # Skip if either source or target has too few points
     if len(src_voxel['indices']) < min_points or len(tgt_voxel['indices']) < min_points:
         return None
-        
+
     # Check for flat ground surfaces by analyzing z-coordinate distribution
     def check_flat_surface(pc, indices):
         # Get z coordinates
         z_coords = pc['pos'][indices, 2]
-        
+
         # Create histogram with bin size of 1.0 using PyTorch
         z_min = z_coords.min().item()
         z_max = z_coords.max().item()
         num_bins = int((z_max - z_min) / 1.0) + 1
-        
+
         if num_bins <= 1:
             return True  # If all points are in the same bin, it's a flat surface
-            
+
         # Use torch.histc for efficient histogram calculation
         hist = torch.histc(z_coords, bins=num_bins, min=z_min, max=z_max)
-        
+
         # Check if any bin contains more than 80% of the points
         max_bin_percentage = hist.max() / len(indices)
         return max_bin_percentage > 0.8
-    
+
     # Skip if either source or target is a flat surface
     if check_flat_surface(src_pc, src_voxel['indices']) or check_flat_surface(tgt_pc, tgt_voxel['indices']):
         return None
@@ -480,11 +480,8 @@ class BasePCRDataset(BaseDataset):
         Each scene pair has its own directory (scene_pair_X) with voxel files (voxel_Y.pt).
         """
         # Get voxel data
-        annotation = self.annotations[idx]
-
-        # If annotations are filepaths, load the data
-        if isinstance(annotation, str):
-            annotation = torch.load(annotation)
+        assert isinstance(self.annotations[idx], str), f"{self.annotations[idx]=}"
+        annotation = torch.load(self.annotations[idx], map_location=self.device)
 
         # Extract data from voxel_data
         src_points = annotation['src_points']
@@ -508,12 +505,12 @@ class BasePCRDataset(BaseDataset):
             # Add RGB if available
             if 'src_rgb' in annotation:
                 src_pc_dict['rgb'] = annotation['src_rgb']
-            
+
             # Apply random subsampling
             src_pc_dict = RandomSelect(percentage=self._max_points / len(src_indices))(src_pc_dict)
             src_points = src_pc_dict['pos']
             src_indices = src_pc_dict['indices']
-            
+
             # Update RGB if it was subsampled
             if 'rgb' in src_pc_dict:
                 annotation['src_rgb'] = src_pc_dict['rgb']
@@ -527,12 +524,12 @@ class BasePCRDataset(BaseDataset):
             # Add RGB if available
             if 'tgt_rgb' in annotation:
                 tgt_pc_dict['rgb'] = annotation['tgt_rgb']
-            
+
             # Apply random subsampling
             tgt_pc_dict = RandomSelect(percentage=self._max_points / len(tgt_indices))(tgt_pc_dict)
             tgt_points = tgt_pc_dict['pos']
             tgt_indices = tgt_pc_dict['indices']
-            
+
             # Update RGB if it was subsampled
             if 'rgb' in tgt_pc_dict:
                 annotation['tgt_rgb'] = tgt_pc_dict['rgb']
@@ -549,11 +546,11 @@ class BasePCRDataset(BaseDataset):
         inputs = {
             'src_pc': {
                 'pos': src_points,
-                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32),
+                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32, device=self.device),
             },
             'tgt_pc': {
                 'pos': tgt_points,
-                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
+                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32, device=self.device),
             },
             'correspondences': correspondences,
         }
