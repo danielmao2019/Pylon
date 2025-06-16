@@ -41,7 +41,19 @@ class BaseTransform:
         assert isinstance(args, tuple), f"{type(args)=}"
         assert len(args) > 0, f"{len(args)=}"
         generator = self._get_generator(g_type='torch', seed=seed)
-        if len(args) == 1:
-            return self._call_single(*args, generator=generator)
-        else:
-            return [self._call_single(arg, generator=generator) for arg in args]
+        
+        # Try to call _call_single with generator first
+        try:
+            if len(args) == 1:
+                return self._call_single(*args, generator=generator)
+            else:
+                return [self._call_single(arg, generator=generator) for arg in args]
+        except Exception as e:
+            # If error is about unexpected generator argument, try without generator
+            if "got an unexpected keyword argument 'generator'" in str(e):
+                if len(args) == 1:
+                    return self._call_single(*args)
+                else:
+                    return [self._call_single(arg) for arg in args]
+            else:
+                raise
