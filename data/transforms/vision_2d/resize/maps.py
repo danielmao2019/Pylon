@@ -40,7 +40,7 @@ class ResizeMaps(BaseTransform):
             self.resize_op = None
             self.kwargs = kwargs
 
-    def _call_single_(self, x: torch.Tensor) -> torch.Tensor:
+    def _call_single(self, x: torch.Tensor) -> torch.Tensor:
         """
         Applies the resizing operation to a single tensor.
 

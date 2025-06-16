@@ -1,4 +1,4 @@
-from typing import Tuple, List, Dict, Callable, Union, Any, Optional
+from typing import Tuple, List, Sequence, Dict, Callable, Union, Any, Optional
 import copy
 from data.transforms.base_transform import BaseTransform
 
@@ -63,12 +63,6 @@ class Compose(BaseTransform):
         # assign to class attribute
         self.transforms = parsed_transforms
 
-    def set_seed(self, seed: Any) -> None:
-        """Set the seed for all component transforms."""
-        for transform in self.transforms:
-            assert hasattr(transform["op"], 'set_seed'), f"{transform['op']=}"
-            transform["op"].set_seed(seed)
-
     @staticmethod
     def _process_names(names: Union[Tuple[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:
         if isinstance(names, tuple):
@@ -80,7 +74,31 @@ class Compose(BaseTransform):
         assert all(isinstance(name[1], str) for name in names), f"{type(names[0][1])=}"
         return names
 
-    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    @staticmethod
+    def _call_with_seed(func: Callable, op_inputs: List[Any], seed: Optional[Any] = None) -> Sequence[Any]:
+        # Try to apply transform with seed first
+        try:
+            if len(op_inputs) == 1:
+                op_outputs = [func(op_inputs[0], seed=seed)]
+            else:
+                op_outputs = func(*op_inputs, seed=seed)
+        except Exception as e:
+            # If error is about unexpected seed argument, try without seed
+            if "got an unexpected keyword argument 'seed'" in str(e):
+                if len(op_inputs) == 1:
+                    op_outputs = [func(op_inputs[0])]
+                else:
+                    op_outputs = func(*op_inputs)
+            else:
+                raise
+
+        # Ensure outputs is a list
+        if not isinstance(op_outputs, (tuple, list)):
+            op_outputs = [op_outputs]
+
+        return op_outputs
+
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]], seed: Optional[Any] = None) -> Dict[str, Dict[str, Any]]:
         r"""This method overrides parent `__call__` method.
         """
         # input checks
@@ -96,29 +114,12 @@ class Compose(BaseTransform):
             input_names = transform["input_names"]
             output_names = transform["output_names"]
 
-            try:
-                # Get input values
-                op_inputs = [datapoint[key_pair[0]][key_pair[1]] for key_pair in input_names]
+            op_inputs = [datapoint[key_pair[0]][key_pair[1]] for key_pair in input_names]
+            op_outputs = self._call_with_seed(func, op_inputs, seed)
+            assert len(op_outputs) == len(output_names), \
+                f"Transform {i} produced {len(op_outputs)} outputs but expected {len(output_names)}"
 
-                # Apply transform
-                if len(op_inputs) == 1:
-                    op_outputs = [func(op_inputs[0])]
-                else:
-                    op_outputs = func(*op_inputs)
-
-                # Ensure outputs is a list
-                if not isinstance(op_outputs, (tuple, list)):
-                    op_outputs = [op_outputs]
-
-                # Validate number of outputs matches output_names
-                assert len(op_outputs) == len(output_names), \
-                    f"Transform {i} produced {len(op_outputs)} outputs but expected {len(output_names)}"
-
-                # Store outputs
-                for output, key_pair in zip(op_outputs, output_names):
-                    datapoint[key_pair[0]][key_pair[1]] = output
-
-            except Exception as e:
-                raise RuntimeError(f"Attempting to apply self.transforms[{i}] on {input_names}: {e}")
+            for output, key_pair in zip(op_outputs, output_names):
+                datapoint[key_pair[0]][key_pair[1]] = output
 
         return datapoint

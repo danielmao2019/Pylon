@@ -1,3 +1,4 @@
+from typing import Any
 import torch
 from data.transforms import BaseTransform
 
@@ -13,10 +14,10 @@ class RandomNoise(BaseTransform):
             std (float): Standard deviation of the noise to add. Default: 0.1
         """
         self.std = std
-        self.generator = torch.Generator()
 
-    def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _call_single(self, tensor: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
+        assert tensor.device.type == generator.device.type, f"{tensor.device=}, {generator.device=}"
         # Generate random noise with the same shape as the input
-        noise = torch.randn_like(tensor, generator=self.generator) * self.std
+        noise = torch.randn(size=tensor.shape, dtype=tensor.dtype, device=tensor.device, generator=generator) * self.std
         # Add the noise to the input
         return tensor + noise
