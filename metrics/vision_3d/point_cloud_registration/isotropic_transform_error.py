@@ -87,9 +87,9 @@ class IsotropicTransformError(SingleTaskMetric):
 
         # Compute errors
         rotation_error = self._compute_rotation_error(gt_rotations, rotations)
-        assert rotation_error.numel() == 1, f"Expected single value for RRE, got {rotation_error.numel()}"
+        assert rotation_error.shape == (1,), f"{rotation_error.shape=}"
         translation_error = self._compute_translation_error(gt_translations, translations)
-        assert translation_error.numel() == 1, f"Expected single value for RTE, got {translation_error.numel()}"
+        assert translation_error.shape == (1,), f"{translation_error.shape=}"
 
         return {
             'RRE': rotation_error[0],
