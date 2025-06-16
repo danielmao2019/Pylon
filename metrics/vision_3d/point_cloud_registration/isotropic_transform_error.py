@@ -78,8 +78,8 @@ class IsotropicTransformError(SingleTaskMetric):
         # Input validation
         assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor for y_pred, got {type(y_pred)}"
         assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor for y_true, got {type(y_true)}"
-        assert y_pred.shape[-2:] == (4, 4), f"Expected transform shape (*, 4, 4), got {y_pred.shape}"
-        assert y_true.shape[-2:] == (4, 4), f"Expected transform shape (*, 4, 4), got {y_true.shape}"
+        assert y_pred.shape == (1, 4, 4), f"{y_pred.shape=}"
+        assert y_true.shape == (1, 4, 4), f"{y_true.shape=}"
 
         # Extract rotation and translation from transformation matrices
         gt_rotations, gt_translations = self._get_rotation_translation(y_true)
@@ -92,6 +92,6 @@ class IsotropicTransformError(SingleTaskMetric):
         assert translation_error.numel() == 1, f"Expected single value for RTE, got {translation_error.numel()}"
 
         return {
-            'RRE': rotation_error,
-            'RTE': translation_error
+            'RRE': rotation_error[0],
+            'RTE': translation_error[0],
         }
