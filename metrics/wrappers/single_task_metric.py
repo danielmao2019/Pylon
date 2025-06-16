@@ -53,7 +53,7 @@ class SingleTaskMetric(BaseMetric):
         # For each metric, store both the per-datapoint values and compute the mean
         for key in buffer:
             key_scores = torch.stack(buffer[key], dim=0)
-            assert key_scores.ndim == 1, f"{key_scores.shape=}"
+            assert key_scores.ndim == 1, f"{key=}, {key_scores.shape=}"
             # Store per-datapoint values
             result["per_datapoint"][key] = key_scores
             # Store aggregated value
