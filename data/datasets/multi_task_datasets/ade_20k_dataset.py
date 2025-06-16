@@ -22,10 +22,10 @@ class ADE20KDataset(BaseDataset):
     SPLIT_OPTIONS = ['training', 'validation']
     INPUT_NAMES = ['image']
     LABEL_NAMES = ['object_cls_mask', 'object_ins_mask', 'parts_cls_masks', 'parts_ins_masks', 'objects', 'parts', 'amodal_masks']
-    # DATASET_SIZE = {
-    #     'training': 25574,
-    #     'validation': 2000,
-    # }
+    DATASET_SIZE = {
+        'training': 25574,
+        'validation': 2000,
+    }
 
     def _init_annotations(self) -> None:
         datapoint_ids = sorted(filter(
