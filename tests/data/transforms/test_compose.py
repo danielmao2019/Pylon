@@ -17,13 +17,13 @@ def basic_datapoint():
         None,
         [],
     ),
-    
+
     # Test empty transforms
     (
         [],
         [],
     ),
-    
+
     # Test single-input transform (tuple format)
     (
         [(lambda x: x + 1, ('inputs', 'x'))],
@@ -33,7 +33,7 @@ def basic_datapoint():
             "output_names": [('inputs', 'x')],
         }],
     ),
-    
+
     # Test multi-input transform (tuple format)
     (
         [(lambda x, y: [x + 1, y + 1], [('inputs', 'x'), ('inputs', 'y')])],
@@ -43,7 +43,7 @@ def basic_datapoint():
             "output_names": [('inputs', 'x'), ('inputs', 'y')],
         }],
     ),
-    
+
     # Test dictionary format with same input/output names
     (
         [{
@@ -56,7 +56,7 @@ def basic_datapoint():
             "output_names": [('inputs', 'x')],
         }],
     ),
-    
+
     # Test dictionary format with different input/output names
     (
         [{
@@ -70,7 +70,7 @@ def basic_datapoint():
             "output_names": [('inputs', 'x_processed')],
         }],
     ),
-    
+
     # Test mixed format transforms
     (
         [
@@ -98,20 +98,20 @@ def basic_datapoint():
 def test_compose_init(transforms, expected_parsed):
     """Test that transform configurations are correctly parsed during initialization."""
     compose = Compose(transforms=transforms)
-    
+
     # For each transform, verify the parsed configuration
     assert len(compose.transforms) == len(expected_parsed), \
         f"Expected {len(expected_parsed)} transforms, got {len(compose.transforms)}"
-    
+
     for actual, expected in zip(compose.transforms, expected_parsed):
         # Check that the function is the same
         assert actual["op"].__code__.co_code == expected["op"].__code__.co_code, \
             "Transform function mismatch"
-        
+
         # Check input names
         assert actual["input_names"] == expected["input_names"], \
             f"Input names mismatch: {actual['input_names']} != {expected['input_names']}"
-        
+
         # Check output names
         assert actual["output_names"] == expected["output_names"], \
             f"Output names mismatch: {actual['output_names']} != {expected['output_names']}"
@@ -129,21 +129,21 @@ def test_compose_init(transforms, expected_parsed):
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         {'inputs': {'x': 2}, 'labels': {}, 'meta_info': {}},
     ),
-    
+
     # Multi-input transform tests
     (
         [(lambda x: x + 1, ('inputs', 'x')), (lambda x: x * 2, ('inputs', 'x'))],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         {'inputs': {'x': 4}, 'labels': {}, 'meta_info': {}},
     ),
-    
+
     # Multi-input transform with multiple outputs
     (
         [(lambda x, y: [x + 1, y + 1], [('inputs', 'a'), ('labels', 'b')])],
         {'inputs': {'a': 0}, 'labels': {'b': 0}, 'meta_info': {}},
         {'inputs': {'a': 1}, 'labels': {'b': 1}, 'meta_info': {}},
     ),
-    
+
     # New dictionary format tests
     (
         [{
@@ -154,7 +154,7 @@ def test_compose_init(transforms, expected_parsed):
         {'inputs': {'x': 0}, 'labels': {}, 'meta_info': {}},
         {'inputs': {'x': 0, 'x_processed': 1}, 'labels': {}, 'meta_info': {}},
     ),
-    
+
     # Different input/output names
     (
         [{
@@ -165,7 +165,7 @@ def test_compose_init(transforms, expected_parsed):
         {'inputs': {'x': 5, 'y': 3}, 'labels': {}, 'meta_info': {}},
         {'inputs': {'x': 5, 'y': 3}, 'labels': {'sum': 8, 'diff': 2}, 'meta_info': {}},
     ),
-    
+
     # Mixed old and new format
     (
         [
@@ -179,7 +179,7 @@ def test_compose_init(transforms, expected_parsed):
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
         {'inputs': {'x': 2, 'x_doubled': 4}, 'labels': {}, 'meta_info': {}},
     ),
-    
+
     # Empty transforms
     (
         [],
@@ -202,7 +202,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         AssertionError,
         "idx=0, type(transform)=<class 'int'>",
     ),
-    
+
     # Invalid tuple length
     (
         [(lambda x: x + 1, ('inputs', 'x'), 'extra')],
@@ -210,7 +210,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         AssertionError,
         "idx=0, len(transform)=3",
     ),
-    
+
     # Non-callable function
     (
         [("not_a_function", ('inputs', 'x'))],
@@ -218,7 +218,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         AssertionError,
         "type(func)=<class 'str'>",
     ),
-    
+
     # Invalid input names type
     (
         [(lambda x: x + 1, "not_a_tuple")],
@@ -226,7 +226,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         AssertionError,
         "type(names)=<class 'str'>",
     ),
-    
+
     # Invalid key pair length
     (
         [(lambda x: x + 1, [('inputs', 'x', 'extra')])],
@@ -234,7 +234,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         AssertionError,
         "len(names[0])=3",
     ),
-    
+
     # Invalid key type
     (
         [(lambda x: x + 1, [(123, 'x')])],
@@ -242,7 +242,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         AssertionError,
         "type(names[0][0])=<class 'int'>",
     ),
-    
+
     # Missing dictionary keys
     (
         [{"input_names": ('inputs', 'x')}],  # Missing "op"
@@ -250,7 +250,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         AssertionError,
         "Transform 0 missing 'op' key",
     ),
-    
+
     # Mismatched output count
     (
         [{
@@ -262,7 +262,7 @@ def test_compose_valid_transforms(transforms, example, expected):
         RuntimeError,
         "Transform 0 produced 1 outputs but expected 3",
     ),
-    
+
     # Invalid datapoint structure
     (
         [(lambda x: x + 1, ('inputs', 'x'))],
@@ -292,10 +292,10 @@ def test_compose_transform_error_propagation():
     """Test that transform function errors are properly propagated."""
     def failing_transform(x):
         raise ValueError("Transform failed")
-    
+
     transform = Compose(transforms=[(failing_transform, ('inputs', 'x'))])
     example = {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}}
-    
+
     with pytest.raises(RuntimeError, match="Transform failed"):
         transform(example)
 
@@ -304,8 +304,8 @@ def test_compose_deep_copy():
     """Test that input datapoint is not modified in-place."""
     example = {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}}
     original = {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}}
-    
+
     transform = Compose(transforms=[(lambda x: x + 1, ('inputs', 'x'))])
     transform(example)
-    
+
     assert example == original, "Input datapoint was modified in-place"
