@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from data.transforms.vision_2d.crop.random_crop import RandomCrop
 import torch
 
@@ -46,7 +46,12 @@ def test_random_crop(input_tensor, crop_size, mock_x, mock_y, expected_output):
     """Test RandomCrop with a mocked random.randint to force deterministic cropping."""
     transform = RandomCrop(size=crop_size)
 
-    with patch("random.randint", side_effect=[mock_x, mock_y]):
+    # Create a mock generator
+    mock_generator = MagicMock()
+    mock_generator.randint.side_effect = [mock_x, mock_y]
+
+    # Mock _get_generator to return our mock generator
+    with patch.object(transform, '_get_generator', return_value=mock_generator):
         cropped_tensor = transform(input_tensor)
 
     assert cropped_tensor.shape == expected_output.shape, f"Expected shape {expected_output.shape}, got {cropped_tensor.shape}"

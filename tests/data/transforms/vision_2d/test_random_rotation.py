@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from data.transforms.vision_2d.random_rotation import RandomRotation
 import torch
 
@@ -67,7 +67,15 @@ def test_random_rotation(choices, range_values, mock_degree, input_tensor, expec
     """Test RandomRotation with mocked random selection."""
     transform = RandomRotation(choices=choices, range=range_values)
 
-    with patch("random.choice", return_value=mock_degree) if choices else patch("random.randint", return_value=mock_degree):
+    # Create a mock generator
+    mock_generator = MagicMock()
+    if choices is not None:
+        mock_generator.choice.return_value = mock_degree
+    else:
+        mock_generator.randint.return_value = mock_degree
+
+    # Mock _get_generator to return our mock generator
+    with patch.object(transform, '_get_generator', return_value=mock_generator):
         rotated_tensor = transform(input_tensor)
 
     assert rotated_tensor.shape == expected_output.shape, f"Expected shape {expected_output.shape}, got {rotated_tensor.shape}"

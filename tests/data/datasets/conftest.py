@@ -26,7 +26,7 @@ def SampleDataset():
             torch.manual_seed(self.annotations[idx])
             tensor = torch.randn(3, 32, 32)  # Random noise
             return {'input': tensor}, {'label': self.annotations[idx]}, {}
-    
+
     return _SampleDataset
 
 
@@ -34,7 +34,7 @@ def SampleDataset():
 def random_transforms():
     """Random transforms for testing cache behavior with randomization."""
     noise = RandomNoise(std=0.2)  # Add significant noise for visible effect
-    
+
     return {
         'class': Compose,
         'args': {

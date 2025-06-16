@@ -1,5 +1,4 @@
-from typing import Tuple, List, Union, Optional
-import random
+from typing import Tuple, List, Union, Optional, Any
 import torch
 from data.transforms.base_transform import BaseTransform
 from data.transforms.vision_2d.crop.crop import Crop
@@ -30,14 +29,14 @@ class RandomCrop(BaseTransform):
         self.size = size
         self.resize = resize
         self.interpolation = interpolation
-        self.generator = random.Random()
 
-    def __call__(self, *args) -> Union[torch.Tensor, List[torch.Tensor]]:
+    def __call__(self, *args, seed: Optional[Any] = None) -> Union[torch.Tensor, List[torch.Tensor]]:
         """
         Randomly crops a region from the input tensor(s).
 
         Args:
             *args (torch.Tensor): One or more tensors to apply the random crop.
+            seed (Optional[Any]): The seed to use for the random crop.
 
         Returns:
             Union[torch.Tensor, List[torch.Tensor]]: The cropped tensor(s).
@@ -58,8 +57,9 @@ class RandomCrop(BaseTransform):
             raise ValueError(f"Crop size {self.size} exceeds tensor dimensions {img_width, img_height}.")
 
         # Sample a random top-left corner for cropping using the generator
-        x_start = self.generator.randint(0, img_width - crop_width)
-        y_start = self.generator.randint(0, img_height - crop_height)
+        generator = self._get_generator(g_type='random', seed=seed)
+        x_start = generator.randint(0, img_width - crop_width)
+        y_start = generator.randint(0, img_height - crop_height)
 
         # Apply the Crop transform to all inputs
         transform = Crop(loc=(x_start, y_start), size=self.size, resize=self.resize, interpolation=self.interpolation)
