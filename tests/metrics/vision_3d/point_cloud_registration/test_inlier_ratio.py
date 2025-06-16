@@ -47,7 +47,7 @@ def test_inlier_ratio_with_transform(metric):
     # Test with a non-identity transform
     src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
     tgt_points = torch.tensor([[1.0, 1.0, 1.0], [2.0, 2.0, 2.0], [3.0, 3.0, 3.0]], dtype=torch.float32)
-    
+
     # Translation transform
     transform = torch.eye(4).unsqueeze(0)
     transform[0, :3, 3] = torch.tensor([1.0, 1.0, 1.0])
@@ -66,7 +66,7 @@ def test_inlier_ratio_invalid_inputs(metric):
         src_points = torch.tensor([[0.0, 0.0]], dtype=torch.float32)  # Invalid shape
         tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         transform = torch.eye(4).unsqueeze(0)
-        
+
         y_pred = {'src_points': src_points, 'tgt_points': tgt_points}
         y_true = {'transform': transform}
         metric(y_pred, y_true)
@@ -76,7 +76,7 @@ def test_inlier_ratio_invalid_inputs(metric):
         src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]], dtype=torch.float32)
         tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)  # Different size
         transform = torch.eye(4).unsqueeze(0)
-        
+
         y_pred = {'src_points': src_points, 'tgt_points': tgt_points}
         y_true = {'transform': transform}
         metric(y_pred, y_true)
@@ -86,7 +86,7 @@ def test_inlier_ratio_invalid_inputs(metric):
         src_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         transform = torch.eye(4)  # Missing batch dimension
-        
+
         y_pred = {'src_points': src_points, 'tgt_points': tgt_points}
         y_true = {'transform': transform}
         metric(y_pred, y_true)

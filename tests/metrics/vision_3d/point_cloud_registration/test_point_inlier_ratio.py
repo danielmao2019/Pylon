@@ -17,7 +17,7 @@ def test_point_inlier_ratio_perfect_match(metric):
     # Create point clouds and perfect correspondences
     src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
     tgt_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    
+
     # Perfect correspondences
     pred_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
     gt_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
@@ -38,7 +38,7 @@ def test_point_inlier_ratio_partial_match(metric):
     # Create point clouds with some correct and some incorrect correspondences
     src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
     tgt_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    
+
     # Some correct, some incorrect correspondences
     pred_correspondences = torch.tensor([[0, 0], [1, 2], [2, 1]], dtype=torch.long)
     gt_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
@@ -60,7 +60,7 @@ def test_point_inlier_ratio_no_match(metric):
     # Create point clouds with no matching correspondences
     src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
     tgt_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    
+
     # All incorrect correspondences
     pred_correspondences = torch.tensor([[0, 1], [1, 2], [2, 0]], dtype=torch.long)
     gt_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
@@ -83,7 +83,7 @@ def test_point_inlier_ratio_invalid_inputs(metric):
         src_points = torch.tensor([[0.0, 0.0]], dtype=torch.float32)  # Invalid shape
         tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         correspondences = torch.tensor([[0, 0]], dtype=torch.long)
-        
+
         y_pred = {
             'src_points': src_points,
             'tgt_points': tgt_points,
@@ -97,7 +97,7 @@ def test_point_inlier_ratio_invalid_inputs(metric):
         src_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         correspondences = torch.tensor([[0, 0, 0]], dtype=torch.long)  # Invalid shape
-        
+
         y_pred = {
             'src_points': src_points,
             'tgt_points': tgt_points,
@@ -111,11 +111,11 @@ def test_point_inlier_ratio_invalid_inputs(metric):
         src_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
         correspondences = torch.tensor([[0, 0]], dtype=torch.long)
-        
+
         y_pred = {
             'src_points': src_points,
             'tgt_points': tgt_points,
             # Missing 'correspondences' key
         }
         y_true = {'correspondences': correspondences}
-        metric(y_pred, y_true) 
+        metric(y_pred, y_true)
