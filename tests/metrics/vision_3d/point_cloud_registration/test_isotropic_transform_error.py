@@ -125,17 +125,15 @@ def test_complete_transform_error(metric, angle_gt, angle_pred, trans_gt, trans_
     )
 
     # Check results
-    assert 'RRE' in scores
-    assert 'RTE' in scores
-    assert torch.allclose(scores['RRE'], torch.tensor(expected_rre, dtype=torch.float32), atol=1e-5)
-    assert torch.allclose(scores['RTE'], torch.tensor(expected_rte, dtype=torch.float32), atol=1e-5)
+    assert torch.allclose(scores['rotation_error'], torch.tensor(expected_rre, dtype=torch.float32), atol=1e-5)
+    assert torch.allclose(scores['translation_error'], torch.tensor(expected_rte, dtype=torch.float32), atol=1e-5)
 
 
 @pytest.mark.parametrize("y_pred,y_true", [
-    (torch.eye(4), {'transform': torch.eye(4)}),
-    ({'transform': torch.eye(4)}, torch.eye(4)),
-    ({'wrong_key': torch.eye(4)}, {'transform': torch.eye(4)}),
-    ({'transform': torch.eye(4)}, {'wrong_key': torch.eye(4)}),
+    (torch.eye(4).unsqueeze(0), {'transform': torch.eye(4).unsqueeze(0)}),
+    ({'transform': torch.eye(4).unsqueeze(0)}, torch.eye(4).unsqueeze(0)),
+    ({'wrong_key': torch.eye(4).unsqueeze(0)}, {'transform': torch.eye(4).unsqueeze(0)}),
+    ({'transform': torch.eye(4).unsqueeze(0)}, {'wrong_key': torch.eye(4).unsqueeze(0)}),
 ])
 def test_input_edge_cases(metric, y_pred, y_true):
     """Test input validation for various edge cases."""
@@ -183,5 +181,5 @@ def test_implementation_equivalence(metric, angle_gt, angle_pred, trans_gt, tran
     )
 
     # Check that results are equivalent
-    assert torch.allclose(class_scores['RRE'], func_rre, atol=1e-5)
-    assert torch.allclose(class_scores['RTE'], func_rte, atol=1e-5)
+    assert torch.allclose(class_scores['rotation_error'], func_rre, atol=1e-5)
+    assert torch.allclose(class_scores['translation_error'], func_rte, atol=1e-5)

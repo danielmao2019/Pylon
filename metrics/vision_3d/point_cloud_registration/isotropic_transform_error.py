@@ -92,6 +92,6 @@ class IsotropicTransformError(SingleTaskMetric):
         assert translation_error.shape == (1,), f"{translation_error.shape=}"
 
         return {
-            'RRE': rotation_error[0],
-            'RTE': translation_error[0],
+            'rotation_error': rotation_error[0],
+            'translation_error': translation_error[0],
         }
