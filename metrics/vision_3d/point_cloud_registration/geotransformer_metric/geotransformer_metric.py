@@ -4,6 +4,8 @@ import torch
 from models.point_cloud_registration.geotransformer.transformation import apply_transform
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
+from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
+from metrics.vision_3d.point_cloud_registration.point_inlier_ratio import PointInlierRatio
 
 
 class GeoTransformerMetric(SingleTaskMetric):
@@ -18,35 +20,40 @@ class GeoTransformerMetric(SingleTaskMetric):
 
     @torch.no_grad()
     def evaluate_coarse(self, y_pred: Dict[str, torch.Tensor]) -> torch.Tensor:
-        ref_length_c = y_pred['ref_points_c'].shape[0]
-        src_length_c = y_pred['src_points_c'].shape[0]
+        assert isinstance(y_pred, dict), f"Expected dict for y_pred, got {type(y_pred)}"
+        assert y_pred.keys() >= {'src_points_c', 'tgt_points_c', 'src_node_corr_indices', 'ref_node_corr_indices', 'gt_node_corr_indices', 'gt_node_corr_overlaps'}, f"{y_pred.keys()=}"
+
         gt_node_corr_overlaps = y_pred['gt_node_corr_overlaps']
-        gt_node_corr_indices = y_pred['gt_node_corr_indices']
         masks = torch.gt(gt_node_corr_overlaps, self.acceptance_overlap)
+        gt_node_corr_indices = y_pred['gt_node_corr_indices']
         gt_node_corr_indices = gt_node_corr_indices[masks]
-        gt_ref_node_corr_indices = gt_node_corr_indices[:, 0]
-        gt_src_node_corr_indices = gt_node_corr_indices[:, 1]
-        gt_node_corr_map = torch.zeros(ref_length_c, src_length_c).cuda()
-        gt_node_corr_map[gt_ref_node_corr_indices, gt_src_node_corr_indices] = 1.0
 
-        ref_node_corr_indices = y_pred['ref_node_corr_indices']
-        src_node_corr_indices = y_pred['src_node_corr_indices']
-
-        precision = gt_node_corr_map[ref_node_corr_indices, src_node_corr_indices].mean()
-
-        return precision
+        point_inlier_ratio = PointInlierRatio()(
+            y_pred={
+                'src_points': y_pred['src_points_c'],
+                'tgt_points': y_pred['tgt_points_c'],
+                'correspondences': torch.stack([y_pred['src_node_corr_indices'], y_pred['ref_node_corr_indices']], dim=1),
+            },
+            y_true={
+                'correspondences': gt_node_corr_indices,
+            },
+        )
+        assert point_inlier_ratio.keys() == {'point_inlier_ratio'}, f"{point_inlier_ratio.keys()=}"
+        return point_inlier_ratio['point_inlier_ratio']
 
     @torch.no_grad()
     def evaluate_fine(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
-        transform = y_true['transform']
-        assert transform.shape == (1, 4, 4), f"{transform.shape=}"
-        transform = transform.squeeze(0)
-        ref_corr_points = y_pred['ref_corr_points']
-        src_corr_points = y_pred['src_corr_points']
-        src_corr_points = apply_transform(src_corr_points, transform)
-        corr_distances = torch.linalg.norm(ref_corr_points - src_corr_points, dim=1)
-        precision = torch.lt(corr_distances, self.acceptance_radius).float().mean()
-        return precision
+        inlier_ratio = InlierRatio(threshold=self.acceptance_radius)(
+            y_pred={
+                'src_points': y_pred['src_corr_points'],
+                'tgt_points': y_pred['ref_corr_points'],
+            },
+            y_true={
+                'transform': y_true['transform'],
+            },
+        )
+        assert inlier_ratio.keys() == {'inlier_ratio'}, f"{inlier_ratio.keys()=}"
+        return inlier_ratio['inlier_ratio']
 
     @torch.no_grad()
     def evaluate_registration(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:

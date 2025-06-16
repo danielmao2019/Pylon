@@ -10,7 +10,6 @@ class BUFFER_DescStageMetric(SingleTaskMetric):
     def __init__(self, **kwargs) -> None:
         super(BUFFER_DescStageMetric, self).__init__(**kwargs)
         self.desc_loss = ContrastiveLoss()
-        self.class_loss = torch.nn.CrossEntropyLoss()
         self.isotropic_transform_error = IsotropicTransformError()
 
     def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
