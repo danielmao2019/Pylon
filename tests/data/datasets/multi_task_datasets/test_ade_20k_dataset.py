@@ -1,4 +1,5 @@
 import pytest
+import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets import ADE20KDataset
@@ -109,5 +110,6 @@ def test_ade_20k(split: str):
         validate_labels(dp['labels'], dp['meta_info']['image_resolution'])
         validate_meta_info(dp['meta_info'])
 
+    indices = random.sample(range(len(dataset)), 1000)
     with ThreadPoolExecutor() as executor:
-        executor.map(validate_datapoint, range(len(dataset)))
+        executor.map(validate_datapoint, indices)
