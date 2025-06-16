@@ -99,7 +99,7 @@ class Compose(BaseTransform):
                     op_outputs = [func(op_inputs[0], seed=seed)]
                 else:
                     op_outputs = func(*op_inputs, seed=seed)
-            except TypeError as e:
+            except Exception as e:
                 # If error is about unexpected seed argument, try without seed
                 if "got an unexpected keyword argument 'seed'" in str(e):
                     if len(op_inputs) == 1:
