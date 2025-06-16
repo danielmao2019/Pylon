@@ -36,24 +36,25 @@ class BaseTransform:
         """Apply the transform to a single input."""
         raise NotImplementedError
 
+    def _call_single_with_generator(self, *args, generator: torch.Generator) -> Any:
+        """Apply the transform to a single input with a generator."""
+        # Try to call _call_single with generator first
+        try:
+            return self._call_single(*args, generator=generator)
+        except Exception as e:
+            # If error is about unexpected generator argument, try without generator
+            if "got an unexpected keyword argument 'generator'" in str(e):
+                return self._call_single(*args)
+            else:
+                raise
+
     def __call__(self, *args, seed: Optional[Any] = None) -> Any:
         """Apply the transform to one or more inputs."""
         assert isinstance(args, tuple), f"{type(args)=}"
         assert len(args) > 0, f"{len(args)=}"
         generator = self._get_generator(g_type='torch', seed=seed)
-        
-        # Try to call _call_single with generator first
-        try:
-            if len(args) == 1:
-                return self._call_single(*args, generator=generator)
-            else:
-                return [self._call_single(arg, generator=generator) for arg in args]
-        except Exception as e:
-            # If error is about unexpected generator argument, try without generator
-            if "got an unexpected keyword argument 'generator'" in str(e):
-                if len(args) == 1:
-                    return self._call_single(*args)
-                else:
-                    return [self._call_single(arg) for arg in args]
-            else:
-                raise
+
+        if len(args) == 1:
+            return self._call_single_with_generator(*args, generator=generator)
+        else:
+            return [self._call_single_with_generator(arg, generator=generator) for arg in args]
