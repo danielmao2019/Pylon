@@ -23,12 +23,11 @@ class NormalizeImage(BaseTransform):
         self.to_rgb = to_rgb
         self.depth_norm_type = depth_norm_type
 
-    def _call_single(self, image: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
+    def _call_single(self, image: torch.Tensor) -> torch.Tensor:
         """Call function to normalize images.
 
         Args:
             image (torch.Tensor): The image tensor to normalize.
-            generator (torch.Generator): Unused.
 
         Returns:
             dict: Normalized results, 'img_norm_cfg' key is added into

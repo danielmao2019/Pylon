@@ -13,11 +13,10 @@ class Clamp(BaseTransform):
         self.max_points = max_points
         super(Clamp, self).__init__()
 
-    def _call_single(self, pc: Dict[str, Any], generator: torch.Generator) -> Dict[str, Any]:
+    def _call_single(self, pc: Dict[str, Any]) -> Dict[str, Any]:
         """
         Args:
             pc (Dict[str, Any]): The point cloud to clamp.
-            generator (torch.Generator): Unused.
         """
         check_point_cloud(pc)
         num_points = pc['pos'].shape[0]

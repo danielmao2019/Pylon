@@ -10,13 +10,12 @@ class Rotation(BaseTransform):
         assert isinstance(angle, (int, float)), f"{type(angle)=}"
         self.angle = angle
 
-    def _call_single(self, tensor: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
+    def _call_single(self, tensor: torch.Tensor) -> torch.Tensor:
         """
         Rotates the given tensor by self.angle counterclockwise.
 
         Args:
             tensor (torch.Tensor): A 2D or 3D tensor (CxHxW or HxW).
-            generator (torch.Generator): Unused.
 
         Returns:
             torch.Tensor: Rotated tensor.
