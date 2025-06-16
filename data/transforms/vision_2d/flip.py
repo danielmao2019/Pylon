@@ -8,7 +8,12 @@ class Flip(BaseTransform):
         assert isinstance(axis, int), f"{type(axis)=}"
         self.axis = axis
 
-    def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _call_single(self, tensor: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
+        """
+        Args:
+            tensor (torch.Tensor): The tensor to flip.
+            generator (torch.Generator): Unused.
+        """
         # Ensure self.axis is within the valid range of tensor dimensions
         if not (-tensor.ndim <= self.axis < tensor.ndim):
             raise ValueError(f"Axis {self.axis} is out of bounds for tensor with {tensor.ndim} dimensions")

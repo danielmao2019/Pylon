@@ -12,7 +12,12 @@ class ResizeNormals(BaseTransform):
         assert type(target_size[0]) == type(target_size[1]) == int, f"{type(target_size[0])=}, {type(target_size[1])=}"
         self.target_size = target_size
 
-    def _call_single_(self, normal: torch.Tensor) -> torch.Tensor:
+    def _call_single(self, normal: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
+        """
+        Args:
+            normal (torch.Tensor): The normal tensor to resize.
+            generator (torch.Generator): Unused.
+        """
         assert len(normal.shape) == 3 and normal.shape[0] == 3, f"{normal.shape=}"
         normal = torchvision.transforms.Resize(size=self.target_size, antialias=True)(normal)
         normal = normal / torch.norm(normal, p=2, dim=0, keepdim=True)

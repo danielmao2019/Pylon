@@ -13,7 +13,12 @@ class DownSample(BaseTransform):
         assert voxel_size > 0, f"{voxel_size=}"
         self.voxel_size = float(voxel_size)
 
-    def _call_single_(self, pc: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def _call_single(self, pc: Dict[str, torch.Tensor], generator: torch.Generator) -> Dict[str, torch.Tensor]:
+        """
+        Args:
+            pc (Dict[str, torch.Tensor]): The point cloud to downsample.
+            generator (torch.Generator): Unused.
+        """
         check_point_cloud(pc)
 
         # Convert to Open3D point cloud for downsampling

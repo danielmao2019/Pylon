@@ -16,9 +16,8 @@ class Scale(BaseTransform):
         assert isinstance(scale_factor, (int, float)), f"{type(scale_factor)=}"
         assert scale_factor > 0 and scale_factor < 1, f"{scale_factor=}"
         self.scale_factor = scale_factor
-        self.generator = torch.Generator()
 
-    def __call__(self, pc: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, pc: Dict[str, Any], seed: Optional[Any] = None) -> Dict[str, Any]:
         """
         Scale down point cloud and subsample points proportionally.
 
@@ -52,8 +51,9 @@ class Scale(BaseTransform):
                            f"Would result in 0 points after scaling.")
 
         # Randomly sample points
-        indices = torch.randperm(num_points, generator=self.generator)[:target_points]
-        
+        generator = self._get_generator(g_type='torch', seed=seed)
+        indices = torch.randperm(num_points, generator=generator)[:target_points]
+
         # Create new dictionary with scaled and subsampled values
         result = {}
         for key, value in pc.items():

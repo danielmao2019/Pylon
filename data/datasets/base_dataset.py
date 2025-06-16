@@ -269,12 +269,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
 
-        # Set seed for transforms based on base_seed and idx
-        assert hasattr(self, 'base_seed'), f"{self.base_seed=}"
-        self.transforms.set_seed((self.base_seed, idx))
-
         # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
-        transformed_datapoint = self.transforms(raw_datapoint)
+        assert hasattr(self, 'base_seed')
+        transformed_datapoint = self.transforms(raw_datapoint, seed=(self.base_seed, idx))
 
         # Move to device
         return apply_tensor_op(

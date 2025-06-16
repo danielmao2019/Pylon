@@ -39,12 +39,13 @@ class Crop(BaseTransform):
         else:
             self.resize_op = None
 
-    def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _call_single(self, tensor: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
         """
         Crops a given tensor based on the provided location and resolution.
 
         Args:
             tensor (torch.Tensor): The input tensor to crop. Must have at least 2 spatial dimensions.
+            generator (torch.Generator): Unused.
 
         Returns:
             torch.Tensor: The cropped (and possibly resized) tensor.

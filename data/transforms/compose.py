@@ -63,12 +63,6 @@ class Compose(BaseTransform):
         # assign to class attribute
         self.transforms = parsed_transforms
 
-    def set_seed(self, seed: Any) -> None:
-        """Set the seed for all component transforms."""
-        for transform in self.transforms:
-            assert hasattr(transform["op"], 'set_seed'), f"{transform['op']=}"
-            transform["op"].set_seed(seed)
-
     @staticmethod
     def _process_names(names: Union[Tuple[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:
         if isinstance(names, tuple):
@@ -80,7 +74,7 @@ class Compose(BaseTransform):
         assert all(isinstance(name[1], str) for name in names), f"{type(names[0][1])=}"
         return names
 
-    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]], seed: Optional[Any] = None) -> Dict[str, Dict[str, Any]]:
         r"""This method overrides parent `__call__` method.
         """
         # input checks
@@ -102,9 +96,9 @@ class Compose(BaseTransform):
 
                 # Apply transform
                 if len(op_inputs) == 1:
-                    op_outputs = [func(op_inputs[0])]
+                    op_outputs = [func(op_inputs[0], seed=seed)]
                 else:
-                    op_outputs = func(*op_inputs)
+                    op_outputs = func(*op_inputs, seed=seed)
 
                 # Ensure outputs is a list
                 if not isinstance(op_outputs, (tuple, list)):
