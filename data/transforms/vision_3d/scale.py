@@ -41,6 +41,7 @@ class Scale(BaseTransform):
         # Get points
         points = pc['pos']
         num_points = points.shape[0]
+        device = points.device
 
         # Calculate number of points to keep based on scale factor
         # Since we're scaling in 3D, we need to reduce points by scale_factor^3
@@ -52,7 +53,7 @@ class Scale(BaseTransform):
 
         # Randomly sample points
         generator = self._get_generator(g_type='torch', seed=seed)
-        indices = torch.randperm(num_points, generator=generator)[:target_points]
+        indices = torch.randperm(num_points, device=device, generator=generator)[:target_points]
 
         # Create new dictionary with scaled and subsampled values
         result = {}
