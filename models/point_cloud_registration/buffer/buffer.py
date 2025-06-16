@@ -1,3 +1,4 @@
+from typing import Dict
 from einops import rearrange
 import numpy as np
 import torch
@@ -111,6 +112,12 @@ class BUFFER(nn.Module):
         return lable
 
     def forward(self, data_source):
+        ret_val = self.forward_train(data_source)
+        if not self.training:
+            ret_val.update(self.forward_eval(data_source))
+        return ret_val
+
+    def forward_train(self, data_source) -> Dict[str, torch.Tensor]:
         """
         Input
             - src_pts:    [bs, N, 3]
@@ -121,217 +128,221 @@ class BUFFER(nn.Module):
         Output:
             -
         """
-
         src_pts, tgt_pts = data_source['src_pcd'], data_source['tgt_pcd']
         src_pcd_raw, tgt_pcd_raw = data_source['src_pcd_raw'], data_source['tgt_pcd_raw']
         len_src_f = data_source['stack_lengths'][0][0]
 
-        if self.config.stage != 'test':
+        # find positive correspondences
+        gt_trans = data_source['relt_pose']
+        match_inds = self.get_matching_indices(src_pts, tgt_pts, gt_trans, self.config.data.voxel_size_0)
 
-            # find positive correspondences
-            gt_trans = data_source['relt_pose']
-            match_inds = self.get_matching_indices(src_pts, tgt_pts, gt_trans, self.config.data.voxel_size_0)
+        #######################
+        # training ref axis
+        #######################
+        axis, eps, branch = self.Ref(data_source)
 
-            #######################
-            # training ref axis
-            #######################
-            axis, eps, branch = self.Ref(data_source)
+        # split into src and tgt
+        src_axis = axis[:len_src_f]
+        tgt_axis = axis[len_src_f:]
+        src_s = eps[:len_src_f]
+        tgt_s = eps[len_src_f:]
 
-            # split into src and tgt
-            src_axis = axis[:len_src_f]
-            tgt_axis = axis[len_src_f:]
-            src_s = eps[:len_src_f]
-            tgt_s = eps[len_src_f:]
+        # normalized and oriented axis
+        src_axis = F.normalize(src_axis, p=2, dim=1)
+        tgt_axis = F.normalize(tgt_axis, p=2, dim=1)
+        mask = (torch.sum(-src_axis * src_pts, dim=1) < 0).float().unsqueeze(1)
+        src_axis = src_axis * (1 - mask) - src_axis * mask
+        mask = (torch.sum(-tgt_axis * tgt_pts, dim=1) < 0).float().unsqueeze(1)
+        tgt_axis = tgt_axis * (1 - mask) - tgt_axis * mask
 
-            # normalized and oriented axis
-            src_axis = F.normalize(src_axis, p=2, dim=1)
-            tgt_axis = F.normalize(tgt_axis, p=2, dim=1)
-            mask = (torch.sum(-src_axis * src_pts, dim=1) < 0).float().unsqueeze(1)
-            src_axis = src_axis * (1 - mask) - src_axis * mask
-            mask = (torch.sum(-tgt_axis * tgt_pts, dim=1) < 0).float().unsqueeze(1)
-            tgt_axis = tgt_axis * (1 - mask) - tgt_axis * mask
+        src_axis = src_axis[match_inds[:, 0]]
+        src_s = src_s[match_inds[:, 0]]
+        tgt_axis = tgt_axis[match_inds[:, 1]]
+        tgt_s = tgt_s[match_inds[:, 1]]
 
-            src_axis = src_axis[match_inds[:, 0]]
-            src_s = src_s[match_inds[:, 0]]
-            tgt_axis = tgt_axis[match_inds[:, 1]]
-            tgt_s = tgt_s[match_inds[:, 1]]
+        if self.config.stage == 'Ref':
+            return {
+                'src_ref': src_axis,
+                'tgt_ref': tgt_axis,
+                'src_s': src_s,
+                'tgt_s': tgt_s,
+            }
 
-            if self.config.stage == 'Ref':
-                return {'src_ref': src_axis,
-                        'tgt_ref': tgt_axis,
-                        'src_s': src_s,
-                        'tgt_s': tgt_s,
-                        }
+        # randomly sample some positive pairs to speed up the training
+        if match_inds.shape[0] > self.config.train.pos_num:
+            rand_ind = np.random.choice(range(match_inds.shape[0]), self.config.train.pos_num, replace=False)
+            match_inds = match_inds[rand_ind]
+            src_axis = src_axis[rand_ind]
+            tgt_axis = tgt_axis[rand_ind]
+        src_kpt = src_pts[match_inds[:, 0]]
+        tgt_kpt = tgt_pts[match_inds[:, 1]]
 
-            # randomly sample some positive pairs to speed up the training
-            if match_inds.shape[0] > self.config.train.pos_num:
-                rand_ind = np.random.choice(range(match_inds.shape[0]), self.config.train.pos_num, replace=False)
-                match_inds = match_inds[rand_ind]
-                src_axis = src_axis[rand_ind]
-                tgt_axis = tgt_axis[rand_ind]
-            src_kpt = src_pts[match_inds[:, 0]]
-            tgt_kpt = tgt_pts[match_inds[:, 1]]
-
-            #######################
-            # training descriptor
-            #######################
-            # calculate feature descriptor
-            src = self.Desc(src_pcd_raw[None], src_kpt[None], src_axis[None])
-            if self.config.stage == 'Inlier':
-                # SO(2) augmentation
-                tgt = self.Desc(tgt_pcd_raw[None], tgt_kpt[None], tgt_axis[None], True)
-            else:
-                tgt = self.Desc(tgt_pcd_raw[None], tgt_kpt[None], tgt_axis[None])
-
-            if self.config.stage == 'Desc':
-                # calc matching score of equivariant feature maps
-                equi_score = self.equi_match(src['equi'], tgt['equi'])
-
-                # calculate gt lable in SO(2)
-                lable = self.cal_so2_gt(src, tgt, gt_trans)
-
-                return {'src_kpt': src_kpt,
-                        'tgt_kpt': tgt_kpt,
-                        'src_des': src['desc'],
-                        'tgt_des': tgt['desc'],
-                        'equi_score': equi_score,
-                        'gt_label': lable,
-                        }
-
-            #######################
-            # training detector
-            #######################
-            if self.config.stage == 'Keypt':
-                det_score = self.Keypt(data_source, branch)
-
-                src_s, tgt_s = det_score[:len_src_f], det_score[len_src_f:]
-                src_s, tgt_s = src_s[match_inds[:, 0]], tgt_s[match_inds[:, 1]]
-
-                return {'src_kpt': src_kpt,
-                        'src_s': src_s,
-                        'tgt_s': tgt_s,
-                        'src_des': src['desc'],
-                        'tgt_des': tgt['desc'],
-                        }
-
-            #######################
-            # training matching
-            #######################
-            # predict index of SO(2) rotation
-            # only consider part of elements along the elevation to speed up
-            pred_ind = self.Inlier(src['equi'][:, :, 1:self.config.patch.ele_n - 1],
-                                   tgt['equi'][:, :, 1:self.config.patch.ele_n - 1])
-            # calculate gt lable in SO(2)
-            lable = self.cal_so2_gt(src, tgt, gt_trans, False, aug_rotation=tgt['aug_rotation'])
-
-            if self.config.stage == 'Inlier':
-                return {'pred_ind': pred_ind,
-                        'gt_ind': lable,
-                        }
-
+        #######################
+        # training descriptor
+        #######################
+        # calculate feature descriptor
+        src = self.Desc(src_pcd_raw[None], src_kpt[None], src_axis[None])
+        if self.config.stage == 'Inlier':
+            # SO(2) augmentation
+            tgt = self.Desc(tgt_pcd_raw[None], tgt_kpt[None], tgt_axis[None], True)
         else:
-            #######################
-            # inference
-            ######################
-            src_pts, tgt_pts = data_source['src_pcd'], data_source['tgt_pcd']
-            src_pcd_raw, tgt_pcd_raw = data_source['src_pcd_raw'], data_source['tgt_pcd_raw']
-            len_src_f = data_source['stack_lengths'][0][0]
-            gt_trans = data_source['relt_pose']
+            tgt = self.Desc(tgt_pcd_raw[None], tgt_kpt[None], tgt_axis[None])
 
-            axis, eps, branch = self.Ref(data_source)
-            src_axis, tgt_axis = axis[:len_src_f], axis[len_src_f:]
+        if self.config.stage == 'Desc':
+            # calc matching score of equivariant feature maps
+            equi_score = self.equi_match(src['equi'], tgt['equi'])
 
-            # normalized and oriented axis
-            src_axis = F.normalize(src_axis, p=2, dim=1)
-            tgt_axis = F.normalize(tgt_axis, p=2, dim=1)
-            mask = (torch.sum(-src_axis * src_pts, dim=1) < 0).float().unsqueeze(1)
-            src_axis = src_axis * (1 - mask) - src_axis * mask
-            mask = (torch.sum(-tgt_axis * tgt_pts, dim=1) < 0).float().unsqueeze(1)
-            tgt_axis = tgt_axis * (1 - mask) - tgt_axis * mask
+            # calculate gt lable in SO(2)
+            lable = self.cal_so2_gt(src, tgt, gt_trans)
 
+            return {
+                'src_kpt': src_kpt,
+                'tgt_kpt': tgt_kpt,
+                'src_des': src['desc'],
+                'tgt_des': tgt['desc'],
+                'equi_score': equi_score,
+                'gt_label': lable,
+            }
+
+        #######################
+        # training detector
+        #######################
+        if self.config.stage == 'Keypt':
             det_score = self.Keypt(data_source, branch)
+
             src_s, tgt_s = det_score[:len_src_f], det_score[len_src_f:]
+            src_s, tgt_s = src_s[match_inds[:, 0]], tgt_s[match_inds[:, 1]]
 
-            # select keypts by detection scores
-            src_s, tgt_s = src_s[:, 0], tgt_s[:, 0]
-            s_det_idx, t_det_idx = torch.where(src_s > self.config.point.keypts_th), torch.where(
-                tgt_s > self.config.point.keypts_th)
-            src_pts, tgt_pts = src_pts[s_det_idx[0]], tgt_pts[t_det_idx[0]]
-            s_axis, t_axis = src_axis[s_det_idx[0]], tgt_axis[t_det_idx[0]]
-            
-            # fps
-            s_pts_flipped, t_pts_flipped = src_pts[None].transpose(1, 2).contiguous(), tgt_pts[None].transpose(1,
-                                                                                                               2).contiguous()
-            s_axis_flipped, t_axis_flipped = s_axis[None].transpose(1, 2).contiguous(), t_axis[None].transpose(1,
-                                                                                                               2).contiguous()
-            s_fps_idx = pnt2.furthest_point_sample(src_pts[None], self.config.point.num_keypts)
-            t_fps_idx = pnt2.furthest_point_sample(tgt_pts[None], self.config.point.num_keypts)
-            kpts1 = pnt2.gather_operation(s_pts_flipped, s_fps_idx).transpose(1, 2).contiguous()
-            kpts2 = pnt2.gather_operation(t_pts_flipped, t_fps_idx).transpose(1, 2).contiguous()
-            k_axis1 = pnt2.gather_operation(s_axis_flipped, s_fps_idx).transpose(1, 2).contiguous()
-            k_axis2 = pnt2.gather_operation(t_axis_flipped, t_fps_idx).transpose(1, 2).contiguous()
+            return {
+                'src_kpt': src_kpt,
+                'src_s': src_s,
+                'tgt_s': tgt_s,
+                'src_des': src['desc'],
+                'tgt_des': tgt['desc'],
+            }
 
-            # calculate descriptor
-            src = self.Desc(src_pcd_raw[None], kpts1, k_axis1)
-            tgt = self.Desc(tgt_pcd_raw[None], kpts2, k_axis2)
-            src_des, src_equi, s_rand_axis, s_R, s_patches = src['desc'], src['equi'], src['rand_axis'], src['R'], src[
-                'patches']
-            tgt_des, tgt_equi, t_rand_axis, t_R, t_patches = tgt['desc'], tgt['equi'], tgt['rand_axis'], tgt['R'], tgt[
-                'patches']
+        #######################
+        # training matching
+        #######################
+        # predict index of SO(2) rotation
+        # only consider part of elements along the elevation to speed up
+        pred_ind = self.Inlier(src['equi'][:, :, 1:self.config.patch.ele_n - 1],
+                                tgt['equi'][:, :, 1:self.config.patch.ele_n - 1])
+        # calculate gt lable in SO(2)
+        lable = self.cal_so2_gt(src, tgt, gt_trans, False, aug_rotation=tgt['aug_rotation'])
 
-            # use equivariant feature maps
-            # mutual_matching
-            s_mids, t_mids = self.mutual_matching(src_des, tgt_des)
-            ss_kpts = kpts1[0, s_mids]
-            ss_equi = src_equi[s_mids]
-            ss_R = s_R[s_mids]
-            tt_kpts = kpts2[0, t_mids]
-            tt_equi = tgt_equi[t_mids]
-            tt_R = t_R[t_mids]
+        if self.config.stage == 'Inlier':
+            return {
+                'pred_ind': pred_ind,
+                'gt_ind': lable,
+            }
 
-            ind = self.Inlier(ss_equi[:, :, 1:self.config.patch.ele_n - 1],
-                              tt_equi[:, :, 1:self.config.patch.ele_n - 1])
+    def forward_eval(self, data_source) -> Dict[str, torch.Tensor]:
+        src_pts, tgt_pts = data_source['src_pcd'], data_source['tgt_pcd']
+        src_pcd_raw, tgt_pcd_raw = data_source['src_pcd_raw'], data_source['tgt_pcd_raw']
+        len_src_f = data_source['stack_lengths'][0][0]
 
-            # recover pose
-            angle = ind * 2 * np.pi / self.config.patch.azi_n + 1e-6
-            angle_axis = torch.zeros_like(ss_kpts)
-            angle_axis[:, -1] = 1
-            angle_axis = angle_axis * angle[:, None]
-            azi_R = Convert.axis_angle_to_rotation_matrix(angle_axis)
-            R = tt_R @ azi_R @ ss_R.transpose(-1, -2)
-            t = tt_kpts - (R @ ss_kpts.unsqueeze(-1)).squeeze()
+        axis, eps, branch = self.Ref(data_source)
+        src_axis, tgt_axis = axis[:len_src_f], axis[len_src_f:]
 
-            # find the best R, t
-            tss_kpts = ss_kpts[None] @ R.transpose(-1, -2) + t[:, None]
-            diffs = torch.sqrt(torch.sum((tss_kpts - tt_kpts[None]) ** 2, dim=-1))
-            thr = torch.sqrt(
-                torch.sum(ss_kpts ** 2, dim=-1)) * np.pi / self.config.patch.azi_n * self.config.match.inlier_th
-            sign = diffs < thr[None]
-            inlier_num = torch.sum(sign, dim=-1)
-            best_ind = torch.argmax(inlier_num)
-            inlier_ind = torch.where(sign[best_ind] == True)[0].detach().cpu().numpy()
+        # normalized and oriented axis
+        src_axis = F.normalize(src_axis, p=2, dim=1)
+        tgt_axis = F.normalize(tgt_axis, p=2, dim=1)
+        mask = (torch.sum(-src_axis * src_pts, dim=1) < 0).float().unsqueeze(1)
+        src_axis = src_axis * (1 - mask) - src_axis * mask
+        mask = (torch.sum(-tgt_axis * tgt_pts, dim=1) < 0).float().unsqueeze(1)
+        tgt_axis = tgt_axis * (1 - mask) - tgt_axis * mask
 
-            # use RANSAC to calculate pose
-            pcd0 = make_open3d_point_cloud(ss_kpts.detach().cpu().numpy(), [1, 0.706, 0])
-            pcd1 = make_open3d_point_cloud(tt_kpts.detach().cpu().numpy(), [0, 0.651, 0.929])
-            corr = o3d.utility.Vector2iVector(np.array([inlier_ind, inlier_ind]).T)
+        det_score = self.Keypt(data_source, branch)
+        src_s, tgt_s = det_score[:len_src_f], det_score[len_src_f:]
 
-            result = o3d.pipelines.registration.registration_ransac_based_on_correspondence(
-                pcd0, pcd1, corr, self.config.match.dist_th,
-                o3d.pipelines.registration.TransformationEstimationPointToPoint(False), 3,
-                [o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(self.config.match.similar_th),
-                 o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(self.config.match.dist_th)],
-                o3d.pipelines.registration.RANSACConvergenceCriteria(self.config.match.iter_n,
-                                                                     self.config.match.confidence))
+        # select keypts by detection scores
+        src_s, tgt_s = src_s[:, 0], tgt_s[:, 0]
+        s_det_idx, t_det_idx = torch.where(src_s > self.config.point.keypts_th), torch.where(
+            tgt_s > self.config.point.keypts_th)
+        src_pts, tgt_pts = src_pts[s_det_idx[0]], tgt_pts[t_det_idx[0]]
+        s_axis, t_axis = src_axis[s_det_idx[0]], tgt_axis[t_det_idx[0]]
+        
+        # fps
+        s_pts_flipped = src_pts[None].transpose(1, 2).contiguous()
+        t_pts_flipped = tgt_pts[None].transpose(1, 2).contiguous()
+        s_axis_flipped = s_axis[None].transpose(1, 2).contiguous()
+        t_axis_flipped = t_axis[None].transpose(1, 2).contiguous()
+        s_fps_idx = pnt2.furthest_point_sample(src_pts[None], self.config.point.num_keypts)
+        t_fps_idx = pnt2.furthest_point_sample(tgt_pts[None], self.config.point.num_keypts)
+        kpts1 = pnt2.gather_operation(s_pts_flipped, s_fps_idx).transpose(1, 2).contiguous()
+        kpts2 = pnt2.gather_operation(t_pts_flipped, t_fps_idx).transpose(1, 2).contiguous()
+        k_axis1 = pnt2.gather_operation(s_axis_flipped, s_fps_idx).transpose(1, 2).contiguous()
+        k_axis2 = pnt2.gather_operation(t_axis_flipped, t_fps_idx).transpose(1, 2).contiguous()
 
-            init_pose = result.transformation
-            if self.config.test.pose_refine is True:
-                pose = self.post_refinement(torch.FloatTensor(init_pose[None]).cuda(), ss_kpts[None], tt_kpts[None])
-                pose = pose[0].detach().cpu().numpy()
-            else:
-                pose = init_pose
+        # calculate descriptor
+        src = self.Desc(src_pcd_raw[None], kpts1, k_axis1)
+        tgt = self.Desc(tgt_pcd_raw[None], kpts2, k_axis2)
+        src_des, src_equi, s_R = src['desc'], src['equi'], src['R']
+        tgt_des, tgt_equi, t_R = tgt['desc'], tgt['equi'], tgt['R']
 
-            return pose, src_axis, tgt_axis
+        # use equivariant feature maps
+        # mutual_matching
+        s_mids, t_mids = self.mutual_matching(src_des, tgt_des)
+        ss_kpts = kpts1[0, s_mids]
+        ss_equi = src_equi[s_mids]
+        ss_R = s_R[s_mids]
+        tt_kpts = kpts2[0, t_mids]
+        tt_equi = tgt_equi[t_mids]
+        tt_R = t_R[t_mids]
+
+        ind = self.Inlier(ss_equi[:, :, 1:self.config.patch.ele_n - 1],
+                            tt_equi[:, :, 1:self.config.patch.ele_n - 1])
+
+        # recover pose
+        angle = ind * 2 * np.pi / self.config.patch.azi_n + 1e-6
+        angle_axis = torch.zeros_like(ss_kpts)
+        angle_axis[:, -1] = 1
+        angle_axis = angle_axis * angle[:, None]
+        azi_R = Convert.axis_angle_to_rotation_matrix(angle_axis)
+        R = tt_R @ azi_R @ ss_R.transpose(-1, -2)
+        t = tt_kpts - (R @ ss_kpts.unsqueeze(-1)).squeeze()
+
+        # find the best R, t
+        tss_kpts = ss_kpts[None] @ R.transpose(-1, -2) + t[:, None]
+        diffs = torch.sqrt(torch.sum((tss_kpts - tt_kpts[None]) ** 2, dim=-1))
+        thr = torch.sqrt(
+            torch.sum(ss_kpts ** 2, dim=-1)) * np.pi / self.config.patch.azi_n * self.config.match.inlier_th
+        sign = diffs < thr[None]
+        inlier_num = torch.sum(sign, dim=-1)
+        best_ind = torch.argmax(inlier_num)
+        inlier_ind = torch.where(sign[best_ind] == True)[0].detach().cpu().numpy()
+
+        # use RANSAC to calculate pose
+        pcd0 = make_open3d_point_cloud(ss_kpts.detach().cpu().numpy(), [1, 0.706, 0])
+        pcd1 = make_open3d_point_cloud(tt_kpts.detach().cpu().numpy(), [0, 0.651, 0.929])
+        corr = o3d.utility.Vector2iVector(np.array([inlier_ind, inlier_ind]).T)
+
+        result = o3d.pipelines.registration.registration_ransac_based_on_correspondence(
+            pcd0, pcd1, corr, self.config.match.dist_th,
+            estimation_method=o3d.pipelines.registration.TransformationEstimationPointToPoint(False),
+            ransac_n=3,
+            checkers=[
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnEdgeLength(self.config.match.similar_th),
+                o3d.pipelines.registration.CorrespondenceCheckerBasedOnDistance(self.config.match.dist_th),
+            ],
+            criteria=o3d.pipelines.registration.RANSACConvergenceCriteria(
+                self.config.match.iter_n, self.config.match.confidence,
+            ),
+        )
+
+        init_pose = result.transformation
+        if self.config.test.pose_refine is True:
+            pose = self.post_refinement(torch.FloatTensor(init_pose[None]).cuda(), ss_kpts[None], tt_kpts[None])
+            pose = pose[0].detach().cpu().numpy()
+        else:
+            pose = init_pose
+
+        return {
+            'pose': torch.tensor(pose, dtype=torch.float32, device=axis.device),
+            'src_axis': src_axis,
+            'tgt_axis': tgt_axis,
+        }
 
     def mutual_matching(self, src_des, tgt_des):
         """
