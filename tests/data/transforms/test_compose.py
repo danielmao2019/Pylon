@@ -259,7 +259,7 @@ def test_compose_valid_transforms(transforms, example, expected):
             "output_names": [('inputs', 'x1'), ('inputs', 'x2'), ('inputs', 'x3')]  # Expects 3 outputs
         }],
         {'inputs': {'x': 1}, 'labels': {}, 'meta_info': {}},
-        RuntimeError,
+        AssertionError,
         "Transform 0 produced 1 outputs but expected 3",
     ),
 
