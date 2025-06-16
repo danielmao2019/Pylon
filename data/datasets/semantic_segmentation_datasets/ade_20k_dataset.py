@@ -31,6 +31,7 @@ class ADE20KDataset(BaseDataset):
                 'object_mask_filepath': x + "_seg.png",
                 'parts_masks_filepaths': sorted(glob.glob(x + "_parts_*.png")),
                 'attr_filepath': x + ".json",
+                'amodal_masks_filepaths': sorted(glob.glob(os.path.join(x, f"instance_\d{{3}}_{x}.png")))
             }, datapoint_ids
         ))
 
@@ -47,6 +48,7 @@ class ADE20KDataset(BaseDataset):
             **self._load_object_mask(idx),
             **self._load_parts_masks(idx),
             **self._load_objects_parts(idx),
+            **self._load_amodal_masks(idx),
         }
         meta_info = self.annotations[idx]
         return inputs, labels, meta_info
@@ -130,4 +132,17 @@ class ADE20KDataset(BaseDataset):
         return {
             'objects': objects,
             'parts': parts,
+        }
+
+    def _load_amodal_masks(self, idx: int) -> Dict[str, torch.Tensor]:
+        filepaths = self.annotations[idx]['amodal_masks_filepaths']
+        amodal_masks = []
+        for filepath in filepaths:
+            amodal_mask = load_image(
+                filepath=filepath, dtype=torch.int64,
+                sub=None, div=None,
+            )
+            amodal_masks.append(amodal_mask)
+        return {
+            'amodal_masks': amodal_masks,
         }
