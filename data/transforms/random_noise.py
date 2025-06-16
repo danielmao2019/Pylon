@@ -17,6 +17,6 @@ class RandomNoise(BaseTransform):
 
     def _call_single(self, tensor: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
         # Generate random noise with the same shape as the input
-        noise = torch.randn_like(tensor, generator=generator) * self.std
+        noise = torch.randn(size=tensor.shape, dtype=tensor.dtype, device=tensor.device, generator=generator) * self.std
         # Add the noise to the input
         return tensor + noise
