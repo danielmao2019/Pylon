@@ -39,7 +39,7 @@ class Crop(BaseTransform):
         else:
             self.resize_op = None
 
-    def _call_single_(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _call_single(self, tensor: torch.Tensor) -> torch.Tensor:
         """
         Crops a given tensor based on the provided location and resolution.
 

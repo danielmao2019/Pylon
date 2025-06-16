@@ -1,6 +1,6 @@
-from typing import Dict, Any, Tuple, Optional
-import torch
+from typing import Tuple, Dict, Optional, Any
 import numpy as np
+import torch
 from data.transforms.base_transform import BaseTransform
 from utils.point_cloud_ops import apply_transform
 
@@ -37,9 +37,8 @@ class RandomRigidTransform(BaseTransform):
         self.trans_mag = trans_mag
         self.method = method
         self.num_axis = num_axis
-        self.generator = torch.Generator()
 
-    def _sample_rotation_Rodrigues(self, device: torch.device) -> torch.Tensor:
+    def _sample_rotation_Rodrigues(self, device: torch.device, generator: torch.Generator) -> torch.Tensor:
         """
         Sample a random rotation using Rodrigues' formula.
 
@@ -52,11 +51,11 @@ class RandomRigidTransform(BaseTransform):
         rot_mag_rad = np.radians(self.rot_mag)
 
         # Generate a random axis of rotation
-        axis = torch.randn(3, device=device, generator=self.generator)
+        axis = torch.randn(3, device=device, generator=generator)
         axis = axis / torch.norm(axis)  # Normalize to unit vector
 
         # Generate random angle within the specified range
-        angle = torch.rand(1, device=device, generator=self.generator) * (2 * rot_mag_rad) - rot_mag_rad
+        angle = torch.rand(1, device=device, generator=generator) * (2 * rot_mag_rad) - rot_mag_rad
 
         # Create rotation matrix using axis-angle representation (Rodrigues' formula)
         K = torch.tensor([[0, -axis[2], axis[1]],
@@ -66,7 +65,7 @@ class RandomRigidTransform(BaseTransform):
 
         return R
 
-    def _sample_rotation_Euler(self, device: torch.device) -> torch.Tensor:
+    def _sample_rotation_Euler(self, device: torch.device, generator: torch.Generator) -> torch.Tensor:
         """
         Sample a random rotation using Euler angles.
 
@@ -80,7 +79,7 @@ class RandomRigidTransform(BaseTransform):
             return torch.eye(3, device=device)
 
         rot_mag_rad = np.radians(self.rot_mag)
-        angles = torch.rand(3, device=device, generator=self.generator) * (2 * rot_mag_rad) - rot_mag_rad
+        angles = torch.rand(3, device=device, generator=generator) * (2 * rot_mag_rad) - rot_mag_rad
 
         # Create rotation matrices for each axis
         Rx = torch.tensor([[1, 0, 0],
@@ -99,7 +98,7 @@ class RandomRigidTransform(BaseTransform):
             return Rz
         return Rx @ Ry @ Rz
 
-    def _sample_rigid_transform(self, device: torch.device) -> torch.Tensor:
+    def _sample_rigid_transform(self, device: torch.device, generator: torch.Generator) -> torch.Tensor:
         """
         Sample a random rigid transformation.
 
@@ -111,17 +110,17 @@ class RandomRigidTransform(BaseTransform):
         """
         # Generate rotation matrix using the specified method
         if self.method == 'Rodrigues':
-            R = self._sample_rotation_Rodrigues(device)
+            R = self._sample_rotation_Rodrigues(device, generator)
         else:  # method == 'Euler'
-            R = self._sample_rotation_Euler(device)
+            R = self._sample_rotation_Euler(device, generator)
 
         # Generate random translation
         # Generate random direction (unit vector)
-        trans_dir = torch.randn(3, device=device, generator=self.generator)
+        trans_dir = torch.randn(3, device=device, generator=generator)
         trans_dir = trans_dir / torch.norm(trans_dir)
 
         # Generate random magnitude within limit
-        trans_mag = torch.rand(1, device=device, generator=self.generator) * self.trans_mag
+        trans_mag = torch.rand(1, device=device, generator=generator) * self.trans_mag
 
         # Compute final translation vector
         trans = trans_dir * trans_mag
@@ -138,6 +137,7 @@ class RandomRigidTransform(BaseTransform):
         src_pc: Dict[str, Any],
         tgt_pc: Dict[str, Any],
         transform: torch.Tensor,
+        seed: Optional[Any] = None,
     ) -> Tuple[Dict[str, Any], Dict[str, Any], torch.Tensor]:
         """
         Apply random rigid transformation to the source point cloud and adjust the transformation matrix.
@@ -146,6 +146,7 @@ class RandomRigidTransform(BaseTransform):
             src_pc: Source point cloud dictionary containing 'pos' key
             tgt_pc: Target point cloud dictionary containing 'pos' key
             transform: Original transformation matrix from source to target, shape (4, 4)
+            seed: The seed to use for the random rigid transform.
 
         Returns:
             A tuple containing:
@@ -169,7 +170,8 @@ class RandomRigidTransform(BaseTransform):
         assert transform.dtype == torch.float32, f"{transform.dtype=}"
 
         # Sample a random transformation
-        random_transform = self._sample_rigid_transform(transform.device)
+        generator = self._get_generator(g_type='torch', seed=seed)
+        random_transform = self._sample_rigid_transform(transform.device, generator)
 
         # Create a new dictionary with the same references to non-pos fields
         new_src_pc = src_pc.copy()

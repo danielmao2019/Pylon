@@ -40,7 +40,7 @@ class BaseRandomDataset(BaseDataset):
                 assert isinstance(config[key1][key2][1], dict), f"{type(config[key1][key2][1])=}"
         self.gen_func_config = config
 
-    def _init_generator_(self, initial_seed: Optional[int]) -> None:
+    def _init_generator(self, initial_seed: Optional[int]) -> None:
         self.generator = torch.Generator()
         if initial_seed is not None:
             self.generator.manual_seed(initial_seed)
@@ -69,7 +69,7 @@ class BaseRandomDataset(BaseDataset):
         if not (
             hasattr(self, 'initial_seed') and hasattr(self, 'generator')
         ):
-            self._init_generator_(initial_seed=self.initial_seed)
+            self._init_generator(initial_seed=self.initial_seed)
         seed = self.initial_seed + idx
         self.generator.manual_seed(seed)
         inputs, labels = tuple({

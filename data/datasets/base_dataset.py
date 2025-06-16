@@ -180,7 +180,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self.annotations = [self.annotations[idx % len(self.annotations)] for idx in self.indices]
 
     def _init_transforms(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
-        if transforms_cfg is None:
+        if transforms_cfg is None or transforms_cfg == {}:
             transforms_cfg = {
                 'class': Compose,
                 'args': {
@@ -269,18 +269,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
 
-        # Set seed for transforms based on base_seed and idx
-        assert hasattr(self, 'base_seed'), f"{self.base_seed=}"
-        self.transforms.set_seed((self.base_seed, idx))
-
-        # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
-        transformed_datapoint = self.transforms(raw_datapoint)
-
-        # Move to device
-        return apply_tensor_op(
-            func=lambda x: x.to(self.device),
-            inputs=transformed_datapoint
-        )
+        datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=raw_datapoint)
+        transformed_datapoint = self.transforms(datapoint, seed=(self.base_seed, idx))
+        return transformed_datapoint
 
     def get_cache_stats(self) -> Optional[Dict[str, Any]]:
         """Get cache statistics if caching is enabled."""

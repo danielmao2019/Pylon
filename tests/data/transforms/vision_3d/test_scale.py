@@ -8,9 +8,9 @@ def sample_pc():
     """Create a sample point cloud dictionary for testing."""
     num_points = 1000
     return {
-        'pos': torch.randn(num_points, 3),
-        'feat': torch.randn(num_points, 4),
-        'normal': torch.randn(num_points, 3),
+        'pos': torch.randn(size=(num_points, 3), device='cuda'),
+        'feat': torch.randn(size=(num_points, 4), device='cuda'),
+        'normal': torch.randn(size=(num_points, 3), device='cuda'),
     }
 
 
@@ -37,11 +37,10 @@ def test_scale_call(sample_pc):
     """Test Scale transform call with valid input."""    
     # Use a larger scale factor (0.5) that will result in 125 points (0.5^3 * 1000)
     scale = Scale(scale_factor=0.5)
-    torch.manual_seed(42)
-    result = scale(sample_pc)
+    result = scale(sample_pc, seed=42)
 
     # Check if all keys are preserved
-    assert set(result.keys()) == set(sample_pc.keys())
+    assert result.keys() == sample_pc.keys()
 
     # Check if shapes are consistent
     expected_num_points = int(sample_pc['pos'].shape[0] * (0.5 ** 3))
@@ -51,7 +50,7 @@ def test_scale_call(sample_pc):
 
     # Get expected indices for deterministic comparison
     torch.manual_seed(42)
-    indices = torch.randperm(sample_pc['pos'].shape[0])[:expected_num_points]
+    indices = torch.randperm(sample_pc['pos'].shape[0], device=sample_pc['pos'].device)[:expected_num_points]
 
     # Check if XYZ coordinates are scaled
     assert torch.allclose(result['pos'], sample_pc['pos'][indices] * 0.5)
@@ -90,15 +89,13 @@ def test_scale_deterministic():
     """Test if Scale transform produces consistent results with same input."""
     scale = Scale(scale_factor=0.1)
     pc = {
-        'pos': torch.randn(1000, 3),
-        'feat': torch.randn(1000, 4),
+        'pos': torch.randn(size=(1000, 3), device='cuda'),
+        'feat': torch.randn(size=(1000, 4), device='cuda'),
     }
 
     # Run transform twice
-    torch.manual_seed(42)
-    result1 = scale(pc)
-    torch.manual_seed(42)
-    result2 = scale(pc)
+    result1 = scale(pc, seed=42)
+    result2 = scale(pc, seed=42)
 
     # Results should be identical
     assert torch.allclose(result1['pos'], result2['pos'])

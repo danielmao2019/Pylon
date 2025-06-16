@@ -145,8 +145,9 @@ def test_transform_randomness_preserved(SampleDataset, random_transforms):
     """Test that transforms remain random even with cached data."""
     dataset = SampleDataset(split='train', indices=list(range(5)), use_cache=True, transforms_cfg=random_transforms)
 
-    # Multiple accesses to same index should give different results
+    dataset.set_base_seed(0)
     first_access = dataset[0]
+    dataset.set_base_seed(1)
     second_access = dataset[0]
 
     # Data should be different due to random transforms
@@ -159,16 +160,17 @@ def test_transform_randomness_preserved(SampleDataset, random_transforms):
 def test_transform_randomness_in_dataloader(SampleDataset, random_transforms):
     """Test that transform randomness works through DataLoader."""
     dataset = SampleDataset(split='train', indices=list(range(10)), use_cache=True, transforms_cfg=random_transforms)
-    loader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
+    dataloader = DataLoader(dataset, batch_size=2, shuffle=False, num_workers=0)
 
     # Run two epochs and collect results
+    dataloader.dataset.set_base_seed(0)
     epoch1_data = []
-    epoch2_data = []
-
-    for batch in loader:
+    for batch in dataloader:
         epoch1_data.append(batch['inputs']['input'].clone())
 
-    for batch in loader:
+    dataloader.dataset.set_base_seed(1)
+    epoch2_data = []
+    for batch in dataloader:
         epoch2_data.append(batch['inputs']['input'].clone())
 
     # Compare corresponding batches between epochs

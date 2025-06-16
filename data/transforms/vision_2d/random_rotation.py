@@ -1,4 +1,4 @@
-from typing import Tuple, List, Union, Optional
+from typing import Tuple, List, Union, Optional, Any
 import random
 import torch
 from data.transforms.base_transform import BaseTransform
@@ -35,13 +35,13 @@ class RandomRotation(BaseTransform):
 
         self.choices = choices
         self.range = range
-        self.generator = random.Random()
 
-    def __call__(self, *args) -> Union[torch.Tensor, List[torch.Tensor]]:
+    def __call__(self, *args, seed: Optional[Any] = None) -> Union[torch.Tensor, List[torch.Tensor]]:
+        generator = self._get_generator(g_type='random', seed=seed)
         if self.choices is not None:
-            angle = self.generator.choice(self.choices)
+            angle = generator.choice(self.choices)
         else:
-            angle = self.generator.randint(self.range[0], self.range[1] - 1)  # Right exclusive range
+            angle = generator.randint(self.range[0], self.range[1] - 1)  # Right exclusive range
         angle = float(angle)
         transform = Rotation(angle)
         result = [transform(arg) for arg in args]

@@ -16,7 +16,7 @@ class ResizeBBoxes(BaseTransform):
         assert type(scale_factor[0]) == type(scale_factor[1]) == float, f"{type(scale_factor[0])=}, {type(scale_factor[1])=}"
         self.scale_factor = scale_factor
 
-    def _call_single_(self, bboxes: torch.Tensor) -> torch.Tensor:
+    def _call_single(self, bboxes: torch.Tensor) -> torch.Tensor:
         r"""
         Args:
             boxes (torch.Tensor): Bounding box annotations. Assumed in format (x1, y1, x2, y2).
