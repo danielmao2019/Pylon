@@ -180,7 +180,7 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         self.annotations = [self.annotations[idx % len(self.annotations)] for idx in self.indices]
 
     def _init_transforms(self, transforms_cfg: Optional[Dict[str, Any]]) -> None:
-        if transforms_cfg is None:
+        if transforms_cfg is None or transforms_cfg == {}:
             transforms_cfg = {
                 'class': Compose,
                 'args': {
