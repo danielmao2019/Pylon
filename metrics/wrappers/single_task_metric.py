@@ -35,8 +35,6 @@ class SingleTaskMetric(BaseMetric):
             f"{{{', '.join([f'{k}: {type(k)}' for k in scores.keys()])}}}"
         assert all([isinstance(v, torch.Tensor) for v in scores.values()]), \
             f"{{{', '.join([f'{k}: {type(v)}' for k, v in scores.items()])}}}"
-        assert all([v.ndim == 0 for v in scores.values()]), \
-            f"{{{', '.join([f'{k}: {v.shape}' for k, v in scores.items()])}}}"
         self.add_to_buffer(scores)
         return scores
 
