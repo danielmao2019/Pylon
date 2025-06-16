@@ -100,7 +100,6 @@ def test_ade_20k(split: str):
         split=split,
     )
     assert dataset.split == split, f"{dataset.split=}, {split=}"
-    print(f"{len(dataset)=}")
 
     def validate_datapoint(idx: int) -> None:
         dp = dataset[idx]
