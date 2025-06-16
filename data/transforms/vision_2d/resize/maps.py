@@ -50,7 +50,6 @@ class ResizeMaps(BaseTransform):
 
         Args:
             x (torch.Tensor): Input tensor.
-            generator (torch.Generator): Unused.
 
         Returns:
             torch.Tensor: Resized tensor.

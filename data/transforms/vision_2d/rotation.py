@@ -16,7 +16,6 @@ class Rotation(BaseTransform):
 
         Args:
             tensor (torch.Tensor): A 2D or 3D tensor (CxHxW or HxW).
-            generator (torch.Generator): Unused.
 
         Returns:
             torch.Tensor: Rotated tensor.

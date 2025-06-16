@@ -45,7 +45,6 @@ class Crop(BaseTransform):
 
         Args:
             tensor (torch.Tensor): The input tensor to crop. Must have at least 2 spatial dimensions.
-            generator (torch.Generator): Unused.
 
         Returns:
             torch.Tensor: The cropped (and possibly resized) tensor.
