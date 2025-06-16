@@ -269,15 +269,9 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
             if self.cache is not None:
                 self.cache.put(idx, raw_datapoint)
 
-        # Apply transforms to the raw datapoint (whether from cache or freshly loaded)
-        assert hasattr(self, 'base_seed')
-        transformed_datapoint = self.transforms(raw_datapoint, seed=(self.base_seed, idx))
-
-        # Move to device
-        return apply_tensor_op(
-            func=lambda x: x.to(self.device),
-            inputs=transformed_datapoint
-        )
+        datapoint = apply_tensor_op(func=lambda x: x.to(self.device), inputs=raw_datapoint)
+        transformed_datapoint = self.transforms(datapoint, seed=(self.base_seed, idx))
+        return transformed_datapoint
 
     def get_cache_stats(self) -> Optional[Dict[str, Any]]:
         """Get cache statistics if caching is enabled."""
