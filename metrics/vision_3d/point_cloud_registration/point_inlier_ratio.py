@@ -5,6 +5,8 @@ from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 class PointInlierRatio(SingleTaskMetric):
 
+    DIRECTION = +1  # Higher is better
+
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         assert isinstance(y_pred, dict), f"Expected dict for y_pred, got {type(y_pred)}"
         assert y_pred.keys() == {'src_points', 'tgt_points', 'correspondences'}, f"{y_pred.keys()=}"

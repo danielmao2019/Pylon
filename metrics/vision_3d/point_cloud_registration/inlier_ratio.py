@@ -13,7 +13,7 @@ class InlierRatio(SingleTaskMetric):
     the target point cloud.
     """
 
-    DIRECTION = 1  # Higher is better
+    DIRECTION = +1  # Higher is better
 
     def __init__(self, threshold: float) -> None:
         """
