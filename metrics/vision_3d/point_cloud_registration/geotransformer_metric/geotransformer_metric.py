@@ -72,8 +72,8 @@ class GeoTransformerMetric(SingleTaskMetric):
             y_pred={'transform': est_transform.unsqueeze(0)},
             y_true={'transform': transform.unsqueeze(0)}
         )
-        rre = transform_scores['RRE']
-        rte = transform_scores['RTE']
+        rre = transform_scores['rotation_error']
+        rte = transform_scores['translation_error']
 
         realignment_transform = torch.matmul(torch.inverse(transform), est_transform)
         realigned_src_points_f = apply_transform(src_points, realignment_transform)
