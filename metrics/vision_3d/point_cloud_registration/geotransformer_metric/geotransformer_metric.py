@@ -21,7 +21,7 @@ class GeoTransformerMetric(SingleTaskMetric):
     @torch.no_grad()
     def evaluate_coarse(self, y_pred: Dict[str, torch.Tensor]) -> torch.Tensor:
         assert isinstance(y_pred, dict), f"Expected dict for y_pred, got {type(y_pred)}"
-        assert y_pred.keys() >= {'src_points_c', 'tgt_points_c', 'src_node_corr_indices', 'ref_node_corr_indices', 'gt_node_corr_indices', 'gt_node_corr_overlaps'}, f"{y_pred.keys()=}"
+        assert y_pred.keys() >= {'src_points_c', 'ref_points_c', 'src_node_corr_indices', 'ref_node_corr_indices', 'gt_node_corr_indices', 'gt_node_corr_overlaps'}, f"{y_pred.keys()=}"
 
         gt_node_corr_overlaps = y_pred['gt_node_corr_overlaps']
         masks = torch.gt(gt_node_corr_overlaps, self.acceptance_overlap)
@@ -31,7 +31,7 @@ class GeoTransformerMetric(SingleTaskMetric):
         point_inlier_ratio = PointInlierRatio()(
             y_pred={
                 'src_points': y_pred['src_points_c'],
-                'tgt_points': y_pred['tgt_points_c'],
+                'tgt_points': y_pred['ref_points_c'],
                 'correspondences': torch.stack([y_pred['src_node_corr_indices'], y_pred['ref_node_corr_indices']], dim=1),
             },
             y_true={
