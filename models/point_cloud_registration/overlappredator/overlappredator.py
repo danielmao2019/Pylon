@@ -1,8 +1,7 @@
-from typing import Dict
 import numpy as np
 import torch.nn.functional as F
-from .blocks import *
-from .gcn import GCN
+from models.point_cloud_registration.overlappredator.blocks import *
+from models.point_cloud_registration.overlappredator.gcn import GCN
 
 
 class OverlapPredator(nn.Module):
