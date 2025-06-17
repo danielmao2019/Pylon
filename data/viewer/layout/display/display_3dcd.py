@@ -29,22 +29,22 @@ def display_3dcd_datapoint(
     assert 'pc_1' in inputs and 'pc_2' in inputs, "Point cloud 1 (pc_1) and point cloud 2 (pc_2) must be present in the inputs"
     assert isinstance(inputs['pc_1'], dict) and isinstance(inputs['pc_2'], dict), "Point clouds must be dictionaries"
 
-    pc_1 = inputs['pc_1']['pos']  # First point cloud
-    pc_2 = inputs['pc_2']['pos']  # Second point cloud
+    points_1 = inputs['pc_1']['pos']  # First point cloud
+    points_2 = inputs['pc_2']['pos']  # Second point cloud
     change_map = datapoint['labels']['change_map']
 
     # Get stats for point clouds
-    pc_1_stats_children = get_point_cloud_stats(pc_1, class_names=class_names)
-    pc_2_stats_children = get_point_cloud_stats(pc_2, class_names=class_names)
-    change_stats_children = get_point_cloud_stats(pc_1, change_map, class_names=class_names)
+    pc_1_stats_children = get_point_cloud_stats(points_1, class_names=class_names)
+    pc_2_stats_children = get_point_cloud_stats(points_2, class_names=class_names)
+    change_stats_children = get_point_cloud_stats(points_1, change_map, class_names=class_names)
 
     # Create figures for point clouds
-    points_list = [pc_1, pc_2]
+    points_list = [points_1, points_2]
     labels_list = [None, None]
 
     # For change map visualization, we'll use pc_1 with colors from change_map
     if change_map is not None:
-        points_list.append(pc_1)
+        points_list.append(points_2)
         labels_list.append(change_map.float())  # Convert to float for proper coloring
 
     titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
