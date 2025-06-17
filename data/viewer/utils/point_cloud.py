@@ -19,7 +19,6 @@ def create_point_cloud_figure(
     title: str = "Point Cloud",
     point_size: float = 2,
     point_opacity: float = 0.8,
-    colorbar_title: str = "Class",
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure.
@@ -30,7 +29,6 @@ def create_point_cloud_figure(
         title: Title for the figure
         point_size: Size of the points
         point_opacity: Opacity of the points
-        colorbar_title: Title for the colorbar
         camera_state: Optional dictionary containing camera position state
 
     Returns:
@@ -53,7 +51,6 @@ def create_point_cloud_figure(
     )
     if colors is not None:
         scatter3d_kwargs['marker']['color'] = colors
-        scatter3d_kwargs['marker']['colorbar'] = dict(title=colorbar_title, thickness=15, len=0.6, x=1.02, xanchor="left", xpad=10)
         scatter3d_kwargs['text'] = [f"Point {i}<br>Value: {c}" for i, c in enumerate(colors)]
     else:
         scatter3d_kwargs['marker']['color'] = 'steelblue'

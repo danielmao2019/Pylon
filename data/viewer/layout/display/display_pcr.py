@@ -54,7 +54,7 @@ def display_pcr_datapoint_single(
 
     # 1. Source point cloud (original)
     figures.append(create_point_cloud_figure(
-        src_pc,
+        points=src_pc,
         colors=src_rgb,
         title="Source Point Cloud",
         point_size=point_size,
@@ -64,7 +64,7 @@ def display_pcr_datapoint_single(
 
     # 2. Target point cloud
     figures.append(create_point_cloud_figure(
-        tgt_pc,
+        points=tgt_pc,
         colors=tgt_rgb,
         title="Target Point Cloud",
         point_size=point_size,
@@ -236,7 +236,7 @@ def display_pcr_datapoint_batched(
         if level == 0:
             # Source point cloud
             figures.append(create_point_cloud_figure(
-                src_points,
+                points=src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
                 point_opacity=point_opacity,
@@ -245,7 +245,7 @@ def display_pcr_datapoint_batched(
 
             # Target point cloud
             figures.append(create_point_cloud_figure(
-                tgt_points,
+                points=tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
                 point_opacity=point_opacity,
@@ -261,7 +261,7 @@ def display_pcr_datapoint_batched(
             union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
             figures.append(create_point_cloud_figure(
-                union_pc,
+                points=union_pc,
                 colors=union_colors,
                 title=f"Union (Level {level})",
                 point_size=point_size,
@@ -282,7 +282,7 @@ def display_pcr_datapoint_batched(
                 sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
                 figures.append(create_point_cloud_figure(
-                    sym_diff_pc,
+                    points=sym_diff_pc,
                     colors=sym_diff_colors,
                     title=f"Symmetric Difference (Level {level})",
                     point_size=point_size,
@@ -300,7 +300,7 @@ def display_pcr_datapoint_batched(
         else:
             # For lower levels, only show source and target
             figures.append(create_point_cloud_figure(
-                src_points,
+                points=src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
                 point_opacity=point_opacity,
@@ -308,7 +308,7 @@ def display_pcr_datapoint_batched(
             ))
 
             figures.append(create_point_cloud_figure(
-                tgt_points,
+                points=tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
                 point_opacity=point_opacity,

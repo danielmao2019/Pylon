@@ -53,7 +53,7 @@ def display_3dcd_datapoint(
     figures = []
     for i, (pc, color, title) in enumerate(zip(point_clouds, colors, titles)):
         fig = create_point_cloud_figure(
-            pc,
+            points=pc,
             colors=color,
             title=title,
             point_size=point_size,
