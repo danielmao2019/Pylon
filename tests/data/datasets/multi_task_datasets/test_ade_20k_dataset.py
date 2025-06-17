@@ -1,3 +1,4 @@
+from typing import Tuple
 import pytest
 import random
 import torch
@@ -14,7 +15,7 @@ def validate_inputs(inputs: dict) -> None:
     assert inputs['image'].min() >= 0.0 and inputs['image'].max() <= 1.0, f"{inputs['image'].min()=}, {inputs['image'].max()=}"
 
 
-def validate_labels(labels: dict, image_resolution: tuple) -> None:
+def validate_labels(labels: dict, image_resolution: Tuple[int, int]) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert labels.keys() == {'object_cls_mask', 'object_ins_mask', 'parts_cls_masks', 'parts_ins_masks', 'objects', 'parts', 'amodal_masks'}
 
