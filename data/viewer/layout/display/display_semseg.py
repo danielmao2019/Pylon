@@ -4,18 +4,18 @@ import torch
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.image import create_2d_figure, get_2d_stats
-from data.viewer.utils.semseg import generate_unique_colors, create_semseg_figure, get_semseg_stats
+from data.viewer.utils.semseg import get_colors_for_classes, create_semseg_figure, get_semseg_stats
 
 
 def display_semseg_datapoint(
     datapoint: Dict[str, Any],
-    class_names: Optional[Dict[int, str]] = None
+    class_names: Optional[Dict[Any, str]] = None
 ) -> html.Div:
     """Display a semantic segmentation datapoint with all relevant information.
 
     Args:
         datapoint: Dictionary containing inputs, labels, and meta_info
-        class_names: Optional dictionary mapping class indices to names
+        class_names: Optional dictionary mapping class identifiers to names
 
     Returns:
         html.Div containing the visualization
@@ -30,9 +30,9 @@ def display_semseg_datapoint(
     image: torch.Tensor = datapoint['inputs']['image']
     seg_map: torch.Tensor = datapoint['labels']['label']
 
-    # Get number of classes from segmentation map
-    num_classes = int(seg_map.max().item()) + 1
-    colors = generate_unique_colors(num_classes)
+    # Get unique class IDs from segmentation map
+    unique_classes = torch.unique(seg_map).tolist()
+    colors = get_colors_for_classes(unique_classes)
 
     # Create the figures
     fig_components: List[html.Div] = [

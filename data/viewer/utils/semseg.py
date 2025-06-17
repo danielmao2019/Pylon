@@ -8,60 +8,66 @@ import plotly.graph_objects as go
 from .image import tensor_to_image
 
 
-def generate_unique_colors(num_classes: int) -> List[str]:
-    """Generate a list of unique colors for class visualization.
-
+def get_color_for_class(class_id: Any) -> str:
+    """Generate a deterministic color for any hashable class identifier.
+    
     Args:
-        num_classes: Number of classes to generate colors for
+        class_id: Any hashable object (int, str, tuple, etc.) representing a class
+        
+    Returns:
+        Hex color code
+    """
+    # Get a hash value for the class_id
+    # Use abs() to ensure positive values and % 360 to get a hue value
+    hue = abs(hash(class_id)) % 360
+    
+    # Convert hue to RGB using HSL color space
+    # We'll use fixed saturation and lightness for better visibility
+    saturation = 0.8
+    lightness = 0.5
+    
+    # Convert HSL to RGB
+    h = hue / 360.0
+    s = saturation
+    l = lightness
+    
+    if s == 0:
+        r = g = b = l
+    else:
+        def hue_to_rgb(p, q, t):
+            if t < 0:
+                t += 1
+            if t > 1:
+                t -= 1
+            if t < 1/6:
+                return p + (q - p) * 6 * t
+            if t < 1/2:
+                return q
+            if t < 2/3:
+                return p + (q - p) * (2/3 - t) * 6
+            return p
+            
+        q = l * (1 + s) if l < 0.5 else l + s - l * s
+        p = 2 * l - q
+        
+        r = hue_to_rgb(p, q, h + 1/3)
+        g = hue_to_rgb(p, q, h)
+        b = hue_to_rgb(p, q, h - 1/3)
+    
+    # Convert to hex
+    return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
 
+
+def get_colors_for_classes(class_ids: List[Any]) -> List[str]:
+    """Generate deterministic colors for a list of class identifiers.
+    
+    Args:
+        class_ids: List of hashable objects representing classes
+        
     Returns:
         List of hex color codes
     """
-    # Use a fixed seed for reproducibility
-    random.seed(42)
-
-    # Generate colors using HSV color space for better distribution
-    colors = []
-    for i in range(num_classes):
-        # Use golden ratio to get well-distributed hues
-        hue = (i * 0.618033988749895) % 1.0
-        # Use high saturation and value for better visibility
-        saturation = 0.8
-        value = 0.9
-
-        # Convert HSV to RGB
-        h = hue
-        s = saturation
-        v = value
-
-        if s == 0.0:
-            r, g, b = v, v, v
-        else:
-            h *= 6.0
-            i = int(h)
-            f = h - i
-            p = v * (1.0 - s)
-            q = v * (1.0 - s * f)
-            t = v * (1.0 - s * (1.0 - f))
-
-            if i == 0:
-                r, g, b = v, t, p
-            elif i == 1:
-                r, g, b = q, v, p
-            elif i == 2:
-                r, g, b = p, v, t
-            elif i == 3:
-                r, g, b = p, q, v
-            elif i == 4:
-                r, g, b = t, p, v
-            else:
-                r, g, b = v, p, q
-
-        # Convert to hex
-        hex_color = f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
-        colors.append(hex_color)
-
-    return colors
+    return [get_color_for_class(class_id) for class_id in class_ids]
 
 
 def tensor_to_semseg(tensor: torch.Tensor) -> np.ndarray:
