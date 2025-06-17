@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-def get_color_for_class(class_id: Any) -> str:
+def get_color(idx: Any) -> str:
     """Generate a deterministic color for any hashable class identifier.
 
     Args:
@@ -17,7 +17,7 @@ def get_color_for_class(class_id: Any) -> str:
     """
     # Get a hash value for the class_id
     # Use abs() to ensure positive values and % 360 to get a hue value
-    hue = abs(hash(class_id)) % 360
+    hue = abs(hash(idx)) % 360
 
     # Convert hue to RGB using HSL color space
     # We'll use fixed saturation and lightness for better visibility
@@ -56,26 +56,14 @@ def get_color_for_class(class_id: Any) -> str:
     return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
 
 
-def get_colors_for_classes(class_ids: List[Any]) -> List[str]:
-    """Generate deterministic colors for a list of class identifiers.
-
-    Args:
-        class_ids: List of hashable objects representing classes
-
-    Returns:
-        List of hex color codes
-    """
-    return [get_color_for_class(class_id) for class_id in class_ids]
-
-
-def tensor_to_semseg(tensor: torch.Tensor, class_ids: Optional[List[Any]] = None) -> np.ndarray:
+def tensor_to_semseg(tensor: torch.Tensor, indices: Optional[List[Any]] = None) -> np.ndarray:
     """Convert a segmentation tensor to a colored RGB image.
 
     Args:
         tensor: Can be one of:
             - Semantic segmentation tensor of shape (H, W) or (1, H, W) with class indices
             - List of binary masks of shape (N, H, W) where N is number of instances
-        class_ids: Optional list of class identifiers. If None, will use unique values in tensor
+        indices: Optional list of class identifiers. If None, will use unique values in tensor
             or indices for binary masks.
 
     Returns:
@@ -83,26 +71,26 @@ def tensor_to_semseg(tensor: torch.Tensor, class_ids: Optional[List[Any]] = None
     """
     if tensor.dim() == 3 and tensor.shape[0] > 1:
         # Handle list of binary masks
-        if class_ids is None:
-            class_ids = list(range(tensor.shape[0]))
+        if indices is None:
+            indices = list(range(tensor.shape[0]))
         # Convert to semantic segmentation by taking argmax
         tensor = torch.argmax(tensor, dim=0)
     elif tensor.dim() == 3:
         tensor = tensor.squeeze(0)
 
     # Get unique classes if not provided
-    if class_ids is None:
-        class_ids = torch.unique(tensor).tolist()
+    if indices is None:
+        indices = torch.unique(tensor).tolist()
 
     # Generate colors for each class
-    colors = get_colors_for_classes(class_ids)
+    colors = [get_color(idx) for idx in indices]
 
     # Create colored segmentation map
     seg_np = tensor.cpu().numpy()
     colored_map = np.zeros((*seg_np.shape, 3), dtype=np.uint8)
 
-    for class_idx, color in zip(class_ids, colors):
-        mask = seg_np == class_idx
+    for idx, color in zip(indices, colors):
+        mask = seg_np == idx
         r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
         colored_map[mask] = [r, g, b]
 
@@ -112,7 +100,7 @@ def tensor_to_semseg(tensor: torch.Tensor, class_ids: Optional[List[Any]] = None
 def create_semseg_figure(
     seg_map: torch.Tensor,
     class_ids: Optional[List[Any]] = None,
-    title: str = "Segmentation Map"
+    title: str = "Segmentation Map",
 ) -> go.Figure:
     """Create a segmentation map figure.
 
