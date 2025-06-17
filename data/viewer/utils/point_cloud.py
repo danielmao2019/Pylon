@@ -21,7 +21,7 @@ def create_point_cloud_figure(
     point_size: float = 2,
     opacity: float = 0.8,
     colorbar_title: str = "Class",
-    camera_state: Optional[Dict[str, Any]] = None
+    camera_state: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure.
 
