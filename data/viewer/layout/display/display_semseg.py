@@ -4,7 +4,7 @@ import torch
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.image import create_2d_figure, get_2d_stats
-from data.viewer.utils.semseg import create_semseg_figure, get_semseg_stats
+from data.viewer.utils.segmentation import create_semseg_figure, get_semseg_stats
 
 
 def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
