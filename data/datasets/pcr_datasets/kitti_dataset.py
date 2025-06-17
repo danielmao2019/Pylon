@@ -23,6 +23,10 @@ def make_open3d_point_cloud(xyz, color=None):
 
 class KITTIDataset(BaseDataset):
     """KITTI dataset for point cloud registration.
+
+    Paper:
+        Are we ready for autonomous driving? The KITTI vision benchmark suite
+        https://ieeexplore.ieee.org/document/6248074
     """
 
     SPLIT_OPTIONS = ['train', 'val', 'test']
