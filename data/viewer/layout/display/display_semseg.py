@@ -4,7 +4,7 @@ import torch
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.image import create_2d_figure, get_2d_stats
-from data.viewer.utils.segmentation import create_semseg_figure, get_semseg_stats
+from data.viewer.utils.segmentation import create_segmentation_figure, get_segmentation_stats
 
 
 def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
@@ -38,7 +38,7 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
         ], style={'width': '50%', 'display': 'inline-block'}),
 
         html.Div([
-            dcc.Graph(figure=create_semseg_figure(seg, title="Segmentation Map"))
+            dcc.Graph(figure=create_segmentation_figure(seg, title="Segmentation Map"))
         ], style={'width': '50%', 'display': 'inline-block'})
     ]
 
@@ -51,7 +51,7 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
 
         html.Div([
             html.H4("Segmentation Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_semseg_stats(seg).items()])
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_segmentation_stats(seg).items()])
         ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'})
     ]
 

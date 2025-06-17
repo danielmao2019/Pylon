@@ -60,7 +60,7 @@ def get_color(idx: Any) -> str:
     return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
 
 
-def tensor_to_semseg(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarray:
+def segmentation_to_numpy(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarray:
     """Convert a segmentation representation to a colored RGB image.
 
     Args:
@@ -103,7 +103,7 @@ def tensor_to_semseg(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarray:
     return colored_map
 
 
-def create_semseg_figure(
+def create_segmentation_figure(
     seg: Union[torch.Tensor, Dict[str, Any]],
     title: str = "Segmentation Map",
 ) -> go.Figure:
@@ -114,7 +114,7 @@ def create_semseg_figure(
         title: Figure title
     """
     # Convert segmentation map to RGB
-    colored_map = tensor_to_semseg(seg)
+    colored_map = segmentation_to_numpy(seg)
 
     # Create figure
     fig = px.imshow(
@@ -131,7 +131,7 @@ def create_semseg_figure(
     return fig
 
 
-def get_semseg_stats(
+def get_segmentation_stats(
     seg: Union[torch.Tensor, Dict[str, Any]]
 ) -> Dict[str, Any]:
     """Get statistical information about a segmentation map.
