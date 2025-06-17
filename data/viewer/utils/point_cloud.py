@@ -41,8 +41,10 @@ def create_point_cloud_figure(
     points = point_cloud_to_numpy(points)
     if colors is not None:
         colors = point_cloud_to_numpy(colors)
-        assert points.shape == colors.shape, f"{points.shape=}, {colors.shape=}"
+        assert colors.shape == points.shape, f"{colors.shape=}, {points.shape=}"
     elif labels is not None:
+        labels = point_cloud_to_numpy(labels)
+        assert labels.shape == points.shape[:-1], f"{labels.shape=}, {points.shape=}"
         unique_labels = torch.unique(labels)
         unique_colors = [get_color(label) for label in unique_labels]
         colors = np.zeros((len(points), 3))
