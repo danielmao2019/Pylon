@@ -49,9 +49,6 @@ def display_pcr_datapoint_single(
     # Apply transform to source point cloud
     src_pc_transformed = apply_transform(src_pc, transform)
 
-    # Compute symmetric difference
-    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
-
     # Create the four point cloud views
     figures = []
 
@@ -78,23 +75,17 @@ def display_pcr_datapoint_single(
     ))
 
     # 3. Union of transformed source and target
-    union_pc = torch.cat([src_pc_transformed, tgt_pc], dim=0)
+    union_points = torch.cat([src_pc_transformed, tgt_pc], dim=0)
 
     # Create colors for union (red for source, blue for target)
-    src_colors = torch.ones((len(src_pc_transformed), 3), device=src_pc_transformed.device)
+    src_colors = torch.zeros((len(src_pc_transformed), 3), device=src_pc_transformed.device)
     src_colors[:, 0] = 1.0  # Red for source
-    src_colors[:, 1] = 0.0
-    src_colors[:, 2] = 0.0
-
-    tgt_colors = torch.ones((len(tgt_pc), 3), device=tgt_pc.device)
-    tgt_colors[:, 0] = 0.0  # Blue for target
-    tgt_colors[:, 1] = 0.0
-    tgt_colors[:, 2] = 1.0
-
+    tgt_colors = torch.zeros((len(tgt_pc), 3), device=tgt_pc.device)
+    tgt_colors[:, 2] = 1.0  # Blue for target
     union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
     figures.append(create_point_cloud_figure(
-        union_pc,
+        points=union_points,
         colors=union_colors,
         title="Union (Transformed Source + Target)",
         point_size=point_size,
@@ -104,29 +95,24 @@ def display_pcr_datapoint_single(
     ))
 
     # 4. Symmetric difference
+    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
     if len(src_indices) > 0 or len(tgt_indices) > 0:
         # Extract points in symmetric difference
         src_diff = src_pc_transformed[src_indices]
         tgt_diff = tgt_pc[tgt_indices]
 
         # Combine the points
-        sym_diff_pc = torch.cat([src_diff, tgt_diff], dim=0)
+        sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
 
         # Create colors for symmetric difference (red for source, blue for target)
-        src_colors = torch.ones((len(src_indices), 3), device=src_diff.device)
+        src_colors = torch.zeros((len(src_indices), 3), device=src_diff.device)
         src_colors[:, 0] = 1.0  # Red for source
-        src_colors[:, 1] = 0.0
-        src_colors[:, 2] = 0.0
-
-        tgt_colors = torch.ones((len(tgt_indices), 3), device=tgt_diff.device)
-        tgt_colors[:, 0] = 0.0  # Blue for target
-        tgt_colors[:, 1] = 0.0
-        tgt_colors[:, 2] = 1.0
-
+        tgt_colors = torch.zeros((len(tgt_indices), 3), device=tgt_diff.device)
+        tgt_colors[:, 2] = 1.0  # Blue for target
         sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
         figures.append(create_point_cloud_figure(
-            sym_diff_pc,
+            points=sym_diff_points,
             colors=sym_diff_colors,
             title="Symmetric Difference",
             point_size=point_size,
