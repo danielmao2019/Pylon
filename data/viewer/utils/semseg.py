@@ -5,7 +5,6 @@ import numpy as np
 import torch
 import plotly.express as px
 import plotly.graph_objects as go
-from data.viewer.utils.image import tensor_to_image
 
 
 def get_color_for_class(class_id: Any) -> str:
