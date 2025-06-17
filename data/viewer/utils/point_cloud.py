@@ -14,7 +14,7 @@ def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
 
 
 def create_point_cloud_figure(
-    pc_data: Union[torch.Tensor, np.ndarray],
+    points: Union[torch.Tensor, np.ndarray],
     colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
     title: str = "Point Cloud",
     colorscale: str = 'Viridis',
@@ -26,7 +26,7 @@ def create_point_cloud_figure(
     """Create a 3D point cloud visualization figure.
 
     Args:
-        pc_data: Numpy array of shape (N, 3) containing XYZ coordinates
+        points: Numpy array of shape (N, 3) containing XYZ coordinates
         colors: Optional numpy array of shape (N,) containing color values
         title: Title for the figure
         colorscale: Colorscale to use for the point cloud
@@ -39,17 +39,10 @@ def create_point_cloud_figure(
         Plotly Figure object
     """
     # Convert input data to numpy arrays
-    pc_data = point_cloud_to_numpy(pc_data)
+    points = point_cloud_to_numpy(points)
     if colors is not None:
         colors = point_cloud_to_numpy(colors)
-
-    # Subsample large point clouds if necessary for better performance
-    max_points = 100000  # Adjust based on performance needs
-    if pc_data.shape[0] > max_points:
-        indices = np.random.choice(pc_data.shape[0], max_points, replace=False)
-        pc_data = pc_data[indices]
-        if colors is not None:
-            colors = colors[indices]
+    assert points.shape == colors.shape, f"{points.shape=}, {colors.shape=}"
 
     # Create figure
     fig = go.Figure()
@@ -57,9 +50,9 @@ def create_point_cloud_figure(
     # Add point cloud
     if colors is not None:
         fig.add_trace(go.Scatter3d(
-            x=pc_data[:, 0],
-            y=pc_data[:, 1],
-            z=pc_data[:, 2],
+            x=points[:, 0],
+            y=points[:, 1],
+            z=points[:, 2],
             mode='markers',
             marker=dict(
                 size=point_size,
@@ -80,23 +73,23 @@ def create_point_cloud_figure(
         ))
     else:
         fig.add_trace(go.Scatter3d(
-            x=pc_data[:, 0],
-            y=pc_data[:, 1],
-            z=pc_data[:, 2],
+            x=points[:, 0],
+            y=points[:, 1],
+            z=points[:, 2],
             mode='markers',
             marker=dict(
                 size=point_size,
                 color='steelblue',
                 opacity=opacity
             ),
-            text=[f"Point {i}" for i in range(len(pc_data))],
+            text=[f"Point {i}" for i in range(len(points))],
             hoverinfo='text'
         ))
 
     # Calculate bounding box
-    x_range = [pc_data[:, 0].min(), pc_data[:, 0].max()]
-    y_range = [pc_data[:, 1].min(), pc_data[:, 1].max()]
-    z_range = [pc_data[:, 2].min(), pc_data[:, 2].max()]
+    x_range = [points[:, 0].min(), points[:, 0].max()]
+    y_range = [points[:, 1].min(), points[:, 1].max()]
+    z_range = [points[:, 2].min(), points[:, 2].max()]
 
     # Set layout
     camera = camera_state if camera_state else {
