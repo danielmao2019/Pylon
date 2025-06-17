@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Tuple, Dict, Any
 import pytest
 import random
 import torch
@@ -15,14 +15,14 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
     assert inputs['image'].min() >= 0.0 and inputs['image'].max() <= 1.0, f"{inputs['image'].min()=}, {inputs['image'].max()=}"
 
 
-def validate_labels(labels: Dict[str, Any]) -> None:
+def validate_labels(labels: Dict[str, Any], num_classes: int, image_resolution: Tuple[int, int]) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert labels.keys() == {'label'}
     assert isinstance(labels['label'], torch.Tensor), f"{type(labels['label'])=}"
     assert labels['label'].ndim == 2, f"{labels['label'].shape=}"
     assert labels['label'].dtype == torch.int64, f"{labels['label'].dtype=}"
-    assert set(labels['label'].unique().tolist()).issubset(set(range(dataset.NUM_CLASSES)) | {255}), f"{sorted(set(labels['label'].unique().tolist()))=}"
-    assert labels['label'].shape == inputs['image'].shape[-2:], f"{labels['label'].shape=}, {inputs['image'].shape[-2:]=}"
+    assert set(labels['label'].unique().tolist()).issubset(set(range(num_classes)) | {255}), f"{sorted(set(labels['label'].unique().tolist()))=}"
+    assert labels['label'].shape == image_resolution, f"{labels['label'].shape=}, {image_resolution=}"
 
 
 def validate_meta_info(meta_info: Dict[str, Any]) -> None:
@@ -46,7 +46,7 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
         validate_inputs(datapoint['inputs'])
-        validate_labels(datapoint['labels'])
+        validate_labels(datapoint['labels'], dataset.NUM_CLASSES, datapoint['inputs']['image'].shape[-2:])
         validate_meta_info(datapoint['meta_info'])
 
     indices = random.sample(range(len(dataset)), 1000)
