@@ -4,18 +4,16 @@ import torch
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.image import create_2d_figure, get_2d_stats
-from data.viewer.utils.semseg import get_colors_for_classes, create_semseg_figure, get_semseg_stats
+from data.viewer.utils.semseg import create_semseg_figure, get_semseg_stats
 
 
 def display_semseg_datapoint(
     datapoint: Dict[str, Any],
-    class_names: Optional[Dict[Any, str]] = None
 ) -> html.Div:
     """Display a semantic segmentation datapoint with all relevant information.
 
     Args:
         datapoint: Dictionary containing inputs, labels, and meta_info
-        class_names: Optional dictionary mapping class identifiers to names
 
     Returns:
         html.Div containing the visualization
@@ -30,10 +28,6 @@ def display_semseg_datapoint(
     image: torch.Tensor = datapoint['inputs']['image']
     seg_map: torch.Tensor = datapoint['labels']['label']
 
-    # Get unique class IDs from segmentation map
-    unique_classes = torch.unique(seg_map).tolist()
-    colors = get_colors_for_classes(unique_classes)
-
     # Create the figures
     fig_components: List[html.Div] = [
         html.Div([
@@ -41,7 +35,7 @@ def display_semseg_datapoint(
         ], style={'width': '50%', 'display': 'inline-block'}),
 
         html.Div([
-            dcc.Graph(figure=create_semseg_figure(seg_map, colors, class_names, title="Segmentation Map"))
+            dcc.Graph(figure=create_semseg_figure(seg_map, title="Segmentation Map"))
         ], style={'width': '50%', 'display': 'inline-block'})
     ]
 
@@ -54,7 +48,7 @@ def display_semseg_datapoint(
 
         html.Div([
             html.H4("Segmentation Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_semseg_stats(seg_map, class_names).items()])
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_semseg_stats(seg_map).items()])
         ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'})
     ]
 
