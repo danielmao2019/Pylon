@@ -57,8 +57,7 @@ def display_3dcd_datapoint(
             colors=color,
             title=title,
             point_size=point_size,
-            opacity=point_opacity,
-            colorscale='Reds' if i == 2 else 'Viridis',
+            point_opacity=point_opacity,
             camera_state=camera_state
         )
         figures.append(fig)

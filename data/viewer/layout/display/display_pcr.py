@@ -58,9 +58,8 @@ def display_pcr_datapoint_single(
         colors=src_rgb,
         title="Source Point Cloud",
         point_size=point_size,
-        opacity=point_opacity,
+        point_opacity=point_opacity,
         camera_state=camera_state,
-        colorscale=None if src_rgb is not None else 'Viridis'
     ))
 
     # 2. Target point cloud
@@ -69,9 +68,8 @@ def display_pcr_datapoint_single(
         colors=tgt_rgb,
         title="Target Point Cloud",
         point_size=point_size,
-        opacity=point_opacity,
+        point_opacity=point_opacity,
         camera_state=camera_state,
-        colorscale=None if tgt_rgb is not None else 'Viridis'
     ))
 
     # 3. Union of transformed source and target
@@ -89,9 +87,8 @@ def display_pcr_datapoint_single(
         colors=union_colors,
         title="Union (Transformed Source + Target)",
         point_size=point_size,
-        opacity=point_opacity,
+        point_opacity=point_opacity,
         camera_state=camera_state,
-        colorscale=None  # Use custom colors
     ))
 
     # 4. Symmetric difference
@@ -116,9 +113,8 @@ def display_pcr_datapoint_single(
             colors=sym_diff_colors,
             title="Symmetric Difference",
             point_size=point_size,
-            opacity=point_opacity,
+            point_opacity=point_opacity,
             camera_state=camera_state,
-            colorscale=None  # Use custom colors
         ))
     else:
         # If no symmetric difference, show empty point cloud
@@ -126,7 +122,7 @@ def display_pcr_datapoint_single(
             torch.zeros((1, 3), device=src_pc.device),
             title="Symmetric Difference (Empty)",
             point_size=point_size,
-            opacity=point_opacity,
+            point_opacity=point_opacity,
             camera_state=camera_state
         ))
 
@@ -243,7 +239,7 @@ def display_pcr_datapoint_batched(
                 src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state,
             ))
 
@@ -252,7 +248,7 @@ def display_pcr_datapoint_batched(
                 tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state,
             ))
 
@@ -269,9 +265,8 @@ def display_pcr_datapoint_batched(
                 colors=union_colors,
                 title=f"Union (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state,
-                colorscale=None
             ))
 
             # Symmetric difference
@@ -291,16 +286,15 @@ def display_pcr_datapoint_batched(
                     colors=sym_diff_colors,
                     title=f"Symmetric Difference (Level {level})",
                     point_size=point_size,
-                    opacity=point_opacity,
+                    point_opacity=point_opacity,
                     camera_state=camera_state,
-                    colorscale=None
                 ))
             else:
                 figures.append(create_point_cloud_figure(
                     torch.zeros((1, 3), device=src_points.device),
                     title=f"Symmetric Difference (Empty) (Level {level})",
                     point_size=point_size,
-                    opacity=point_opacity,
+                    point_opacity=point_opacity,
                     camera_state=camera_state
                 ))
         else:
@@ -309,7 +303,7 @@ def display_pcr_datapoint_batched(
                 src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state
             ))
 
@@ -317,7 +311,7 @@ def display_pcr_datapoint_batched(
                 tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state
             ))
 

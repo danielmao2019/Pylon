@@ -17,9 +17,8 @@ def create_point_cloud_figure(
     points: Union[torch.Tensor, np.ndarray],
     colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
     title: str = "Point Cloud",
-    colorscale: str = 'Viridis',
     point_size: float = 2,
-    opacity: float = 0.8,
+    point_opacity: float = 0.8,
     colorbar_title: str = "Class",
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
@@ -29,9 +28,8 @@ def create_point_cloud_figure(
         points: Numpy array of shape (N, 3) containing XYZ coordinates
         colors: Optional numpy array of shape (N,) containing color values
         title: Title for the figure
-        colorscale: Colorscale to use for the point cloud
         point_size: Size of the points
-        opacity: Opacity of the points
+        point_opacity: Opacity of the points
         colorbar_title: Title for the colorbar
         camera_state: Optional dictionary containing camera position state
 
@@ -42,7 +40,7 @@ def create_point_cloud_figure(
     points = point_cloud_to_numpy(points)
     if colors is not None:
         colors = point_cloud_to_numpy(colors)
-    assert points.shape == colors.shape, f"{points.shape=}, {colors.shape=}"
+        assert points.shape == colors.shape, f"{points.shape=}, {colors.shape=}"
 
     # Add point cloud
     scatter3d_kwargs = dict(
@@ -50,12 +48,11 @@ def create_point_cloud_figure(
         y=points[:, 1],
         z=points[:, 2],
         mode='markers',
-        marker=dict(size=point_size, opacity=opacity),
+        marker=dict(size=point_size, opacity=point_opacity),
         hoverinfo='text',
     )
     if colors is not None:
         scatter3d_kwargs['marker']['color'] = colors
-        scatter3d_kwargs['marker']['colorscale'] = colorscale
         scatter3d_kwargs['marker']['colorbar'] = dict(title=colorbar_title, thickness=15, len=0.6, x=1.02, xanchor="left", xpad=10)
         scatter3d_kwargs['text'] = [f"Point {i}<br>Value: {c}" for i, c in enumerate(colors)]
     else:
