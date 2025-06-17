@@ -4,6 +4,7 @@ import numpy as np
 import torch
 from dash import html
 import plotly.graph_objects as go
+from data.viewer.utils.segmentation import get_color
 
 
 def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
@@ -16,6 +17,7 @@ def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
 def create_point_cloud_figure(
     points: Union[torch.Tensor, np.ndarray],
     colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    labels: Optional[Union[torch.Tensor, np.ndarray]] = None,
     title: str = "Point Cloud",
     point_size: float = 2,
     point_opacity: float = 0.8,
@@ -25,7 +27,8 @@ def create_point_cloud_figure(
 
     Args:
         points: Numpy array of shape (N, 3) containing XYZ coordinates
-        colors: Optional numpy array of shape (N,) containing color values
+        colors: Optional numpy array of shape (N, 3) containing RGB color values
+        labels: Optional numpy array of shape (N,) containing labels
         title: Title for the figure
         point_size: Size of the points
         point_opacity: Opacity of the points
@@ -39,6 +42,14 @@ def create_point_cloud_figure(
     if colors is not None:
         colors = point_cloud_to_numpy(colors)
         assert points.shape == colors.shape, f"{points.shape=}, {colors.shape=}"
+    elif labels is not None:
+        unique_labels = torch.unique(labels)
+        unique_colors = [get_color(label) for label in unique_labels]
+        colors = np.zeros((len(points), 3))
+        for label, color in zip(unique_labels, unique_colors):
+            mask = labels == label
+            r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
+            colors[mask, :] = np.array([r, g, b], dtype=np.uint8)
 
     # Add point cloud
     scatter3d_kwargs = dict(

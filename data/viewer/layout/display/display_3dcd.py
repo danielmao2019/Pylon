@@ -39,26 +39,26 @@ def display_3dcd_datapoint(
     change_stats_children = get_point_cloud_stats(pc_1, change_map, class_names=class_names)
 
     # Create figures for point clouds
-    point_clouds = [pc_1, pc_2]
-    colors = [None, None]
+    points_list = [pc_1, pc_2]
+    labels_list = [None, None]
 
     # For change map visualization, we'll use pc_1 with colors from change_map
     if change_map is not None:
-        point_clouds.append(pc_1)
-        colors.append(change_map.float())  # Convert to float for proper coloring
+        points_list.append(pc_1)
+        labels_list.append(change_map.float())  # Convert to float for proper coloring
 
     titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
 
     # Create figures
     figures = []
-    for i, (pc, color, title) in enumerate(zip(point_clouds, colors, titles)):
+    for points, labels, title in zip(points_list, labels_list, titles):
         fig = create_point_cloud_figure(
-            points=pc,
-            colors=color,
+            points=points,
+            labels=labels,
             title=title,
             point_size=point_size,
             point_opacity=point_opacity,
-            camera_state=camera_state
+            camera_state=camera_state,
         )
         figures.append(fig)
 
