@@ -126,14 +126,14 @@ def create_3d_figure(
 
 
 def get_3d_stats(
-    pc: torch.Tensor,
+    points: torch.Tensor,
     change_map: Optional[torch.Tensor] = None,
     class_names: Optional[Dict[int, str]] = None
 ) -> html.Ul:
     """Get statistical information about a point cloud.
 
     Args:
-        pc: Point cloud tensor of shape (N, 3+)
+        points: Point cloud tensor of shape (N, 3+)
         change_map: Optional tensor with change classes for each point
         class_names: Optional dictionary mapping class IDs to class names
 
@@ -141,14 +141,14 @@ def get_3d_stats(
         List of html components with point cloud statistics
     """
     # Basic stats
-    pc_np = pc.detach().cpu().numpy()
+    points_np = points.detach().cpu().numpy()
     stats_items = [
-        html.Li(f"Total Points: {len(pc_np)}"),
-        html.Li(f"Dimensions: {pc_np.shape[1]}"),
-        html.Li(f"X Range: [{pc_np[:, 0].min():.2f}, {pc_np[:, 0].max():.2f}]"),
-        html.Li(f"Y Range: [{pc_np[:, 1].min():.2f}, {pc_np[:, 1].max():.2f}]"),
-        html.Li(f"Z Range: [{pc_np[:, 2].min():.2f}, {pc_np[:, 2].max():.2f}]"),
-        html.Li(f"Center: [{pc_np[:, 0].mean():.2f}, {pc_np[:, 1].mean():.2f}, {pc_np[:, 2].mean():.2f}]")
+        html.Li(f"Total Points: {len(points_np)}"),
+        html.Li(f"Dimensions: {points_np.shape[1]}"),
+        html.Li(f"X Range: [{points_np[:, 0].min():.2f}, {points_np[:, 0].max():.2f}]"),
+        html.Li(f"Y Range: [{points_np[:, 1].min():.2f}, {points_np[:, 1].max():.2f}]"),
+        html.Li(f"Z Range: [{points_np[:, 2].min():.2f}, {points_np[:, 2].max():.2f}]"),
+        html.Li(f"Center: [{points_np[:, 0].mean():.2f}, {points_np[:, 1].mean():.2f}, {points_np[:, 2].mean():.2f}]")
     ]
 
     # Add class distribution if change_map is provided

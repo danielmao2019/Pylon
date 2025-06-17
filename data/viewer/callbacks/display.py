@@ -125,7 +125,7 @@ def update_datapoint(
     # Call the display function with appropriate parameters
     logger.info(f"Creating {dataset_type} display")
     if dataset_type == 'semseg':
-        display = display_func(datapoint, class_labels)
+        display = display_func(datapoint)
     elif dataset_type == '2dcd':
         display = display_func(datapoint)
     elif dataset_type == '3dcd':
