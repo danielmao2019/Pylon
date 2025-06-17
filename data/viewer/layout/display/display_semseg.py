@@ -1,5 +1,5 @@
 """UI components for displaying semantic segmentation dataset items."""
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Union, Any
 import torch
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
@@ -7,13 +7,16 @@ from data.viewer.utils.image import create_2d_figure, get_2d_stats
 from data.viewer.utils.semseg import create_semseg_figure, get_semseg_stats
 
 
-def display_semseg_datapoint(
-    datapoint: Dict[str, Any],
-) -> html.Div:
+def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     """Display a semantic segmentation datapoint with all relevant information.
 
     Args:
-        datapoint: Dictionary containing inputs, labels, and meta_info
+        datapoint: Dictionary containing inputs, labels, and meta_info.
+            The labels should contain either:
+            - A tensor of shape (H, W) with class indices
+            - A dict with keys:
+                - "masks": List[torch.Tensor] of binary masks
+                - "indices": List[Any] of corresponding indices
 
     Returns:
         html.Div containing the visualization
@@ -26,7 +29,7 @@ def display_semseg_datapoint(
 
     # Get the image and segmentation map
     image: torch.Tensor = datapoint['inputs']['image']
-    seg_map: torch.Tensor = datapoint['labels']['label']
+    seg: Union[torch.Tensor, Dict[str, Any]] = datapoint['labels']['label']
 
     # Create the figures
     fig_components: List[html.Div] = [
@@ -35,7 +38,7 @@ def display_semseg_datapoint(
         ], style={'width': '50%', 'display': 'inline-block'}),
 
         html.Div([
-            dcc.Graph(figure=create_semseg_figure(seg_map, title="Segmentation Map"))
+            dcc.Graph(figure=create_semseg_figure(seg, title="Segmentation Map"))
         ], style={'width': '50%', 'display': 'inline-block'})
     ]
 
@@ -48,7 +51,7 @@ def display_semseg_datapoint(
 
         html.Div([
             html.H4("Segmentation Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_semseg_stats(seg_map).items()])
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_semseg_stats(seg).items()])
         ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'})
     ]
 

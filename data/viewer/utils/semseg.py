@@ -1,5 +1,5 @@
 """Utility functions for semantic segmentation visualization."""
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 import numpy as np
 import torch
 import plotly.express as px
@@ -10,7 +10,7 @@ def get_color(idx: Any) -> str:
     """Generate a deterministic color for any hashable class identifier.
 
     Args:
-        class_id: Any hashable object (int, str, tuple, etc.) representing a class
+        idx: Any hashable object (int, str, tuple, etc.)
 
     Returns:
         Hex color code
@@ -56,33 +56,35 @@ def get_color(idx: Any) -> str:
     return f'#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}'
 
 
-def tensor_to_semseg(tensor: torch.Tensor, indices: Optional[List[Any]] = None) -> np.ndarray:
-    """Convert a segmentation tensor to a colored RGB image.
+def tensor_to_semseg(seg: Union[torch.Tensor, Dict[str, Any]]) -> np.ndarray:
+    """Convert a segmentation representation to a colored RGB image.
 
     Args:
-        tensor: Can be one of:
-            - Semantic segmentation tensor of shape (H, W) or (1, H, W) with class indices
-            - List of binary masks of shape (N, H, W) where N is number of instances
-        indices: Optional list of class identifiers. If None, will use unique values in tensor
-            or indices for binary masks.
+        seg: Can be one of:
+            - 2D tensor of shape (H, W) with class indices
+            - Dict with keys:
+                - "masks": List[torch.Tensor] of binary masks
+                - "indices": List[Any] of corresponding indices
 
     Returns:
         Numpy array of shape (H, W, 3) with RGB colors
     """
-    if tensor.dim() == 3 and tensor.shape[0] > 1:
-        # Handle list of binary masks
-        if indices is None:
-            indices = list(range(tensor.shape[0]))
-        # Convert to semantic segmentation by taking argmax
-        tensor = torch.argmax(tensor, dim=0)
-    elif tensor.dim() == 3:
-        tensor = tensor.squeeze(0)
+    if isinstance(seg, dict):
+        # Handle dict format with masks and indices
+        masks = seg["masks"]
+        indices = seg["indices"]
 
-    # Get unique classes if not provided
-    if indices is None:
+        # Stack masks and take argmax
+        stacked_masks = torch.stack(masks)
+        tensor = torch.argmax(stacked_masks, dim=0)
+    else:
+        # Handle tensor format
+        if seg.dim() == 3:
+            seg = seg.squeeze(0)
+        tensor = seg
         indices = torch.unique(tensor).tolist()
 
-    # Generate colors for each class
+    # Generate colors for each index
     colors = [get_color(idx) for idx in indices]
 
     # Create colored segmentation map
@@ -98,19 +100,17 @@ def tensor_to_semseg(tensor: torch.Tensor, indices: Optional[List[Any]] = None) 
 
 
 def create_semseg_figure(
-    seg_map: torch.Tensor,
-    class_ids: Optional[List[Any]] = None,
+    seg: Union[torch.Tensor, Dict[str, Any]],
     title: str = "Segmentation Map",
 ) -> go.Figure:
     """Create a segmentation map figure.
 
     Args:
-        seg_map: Segmentation tensor (see tensor_to_semseg for supported formats)
-        class_ids: Optional list of class identifiers
+        seg: Segmentation representation (see tensor_to_semseg for supported formats)
         title: Figure title
     """
     # Convert segmentation map to RGB
-    colored_map = tensor_to_semseg(seg_map, class_ids)
+    colored_map = tensor_to_semseg(seg)
 
     # Create figure
     fig = px.imshow(
@@ -128,34 +128,37 @@ def create_semseg_figure(
 
 
 def get_semseg_stats(
-    seg_map: torch.Tensor,
-    class_ids: Optional[List[Any]] = None
+    seg: Union[torch.Tensor, Dict[str, Any]]
 ) -> Dict[str, Any]:
-    """Get statistical information about a segmentation map."""
-    if not isinstance(seg_map, torch.Tensor):
-        return {}
+    """Get statistical information about a segmentation map.
 
-    # Convert to numpy and get unique classes
-    if seg_map.dim() == 3 and seg_map.shape[0] > 1:
-        # Handle list of binary masks
-        if class_ids is None:
-            class_ids = list(range(seg_map.shape[0]))
-        seg_np = torch.argmax(seg_map, dim=0).cpu().numpy()
+    Args:
+        seg: Segmentation representation (see tensor_to_semseg for supported formats)
+    """
+    if isinstance(seg, dict):
+        # Handle dict format with masks and indices
+        masks = seg["masks"]
+        indices = seg["indices"]
+        # Stack masks and take argmax
+        stacked_masks = torch.stack(masks)
+        seg_np = torch.argmax(stacked_masks, dim=0).cpu().numpy()
     else:
-        seg_np = tensor_to_semseg(seg_map, class_ids)[..., 0]  # Just use one channel for stats
-        if class_ids is None:
-            class_ids = torch.unique(seg_map).tolist()
+        # Handle tensor format
+        if seg.dim() == 3:
+            seg = seg.squeeze(0)
+        seg_np = seg.cpu().numpy()
+        indices = torch.unique(seg).tolist()
 
     stats = {
         "Shape": f"{seg_np.shape}",
-        "Number of Classes": len(class_ids),
+        "Number of Classes": len(indices),
         "Class Distribution": {}
     }
 
     # Calculate class distribution
-    for class_idx in class_ids:
-        class_pixels = (seg_np == class_idx).sum()
+    for idx in indices:
+        class_pixels = (seg_np == idx).sum()
         class_percentage = (class_pixels / seg_np.size) * 100
-        stats["Class Distribution"][str(class_idx)] = f"{class_percentage:.2f}%"
+        stats["Class Distribution"][str(idx)] = f"{class_percentage:.2f}%"
 
     return stats
