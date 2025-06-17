@@ -44,47 +44,25 @@ def create_point_cloud_figure(
         colors = point_cloud_to_numpy(colors)
     assert points.shape == colors.shape, f"{points.shape=}, {colors.shape=}"
 
-    # Create figure
-    fig = go.Figure()
-
     # Add point cloud
+    scatter3d_kwargs = dict(
+        x=points[:, 0],
+        y=points[:, 1],
+        z=points[:, 2],
+        mode='markers',
+        marker=dict(size=point_size, opacity=opacity),
+        hoverinfo='text',
+    )
     if colors is not None:
-        fig.add_trace(go.Scatter3d(
-            x=points[:, 0],
-            y=points[:, 1],
-            z=points[:, 2],
-            mode='markers',
-            marker=dict(
-                size=point_size,
-                color=colors,
-                colorscale=colorscale,
-                opacity=opacity,
-                colorbar=dict(
-                    title=colorbar_title,
-                    thickness=15,
-                    len=0.6,
-                    x=1.02,
-                    xanchor="left",
-                    xpad=10
-                )
-            ),
-            text=[f"Point {i}<br>Value: {c}" for i, c in enumerate(colors)],
-            hoverinfo='text'
-        ))
+        scatter3d_kwargs['marker']['color'] = colors
+        scatter3d_kwargs['marker']['colorscale'] = colorscale
+        scatter3d_kwargs['marker']['colorbar'] = dict(title=colorbar_title, thickness=15, len=0.6, x=1.02, xanchor="left", xpad=10)
+        scatter3d_kwargs['text'] = [f"Point {i}<br>Value: {c}" for i, c in enumerate(colors)]
     else:
-        fig.add_trace(go.Scatter3d(
-            x=points[:, 0],
-            y=points[:, 1],
-            z=points[:, 2],
-            mode='markers',
-            marker=dict(
-                size=point_size,
-                color='steelblue',
-                opacity=opacity
-            ),
-            text=[f"Point {i}" for i in range(len(points))],
-            hoverinfo='text'
-        ))
+        scatter3d_kwargs['marker']['color'] = 'steelblue'
+        scatter3d_kwargs['text'] = [f"Point {i}" for i in range(len(points))]
+    fig = go.Figure()
+    fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
 
     # Calculate bounding box
     x_range = [points[:, 0].min(), points[:, 0].max()]
