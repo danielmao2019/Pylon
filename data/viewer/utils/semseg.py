@@ -18,16 +18,16 @@ def get_color(idx: Any) -> str:
     # Convert non-integer indices to integers using hash
     if not isinstance(idx, int):
         idx = abs(hash(idx))
-    
+
     # Use golden ratio to get well-distributed hues
     # This ensures colors are visually distinct even for consecutive indices
     golden_ratio = 0.618033988749895
     hue = (idx * golden_ratio) % 1.0
-    
+
     # Use high saturation and value for better visibility
     saturation = 0.8
     lightness = 0.6  # Increased from 0.5 for better visibility
-    
+
     # Convert HSL to RGB
     h = hue
     s = saturation
