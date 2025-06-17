@@ -45,7 +45,6 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
         datapoint = dataset[idx]
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
-
         validate_inputs(datapoint['inputs'])
         validate_labels(datapoint['labels'])
         validate_meta_info(datapoint['meta_info'])
