@@ -1,11 +1,11 @@
 """UI components for displaying point cloud registration dataset items."""
-from typing import Tuple, Dict, Optional, Union, Any
+from typing import Tuple, Dict, Optional, Any
 import numpy as np
 import torch
 from dash import dcc, html
-import plotly.graph_objects as go
 from utils.point_cloud_ops import apply_transform
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
+from data.viewer.utils.point_cloud import create_point_cloud_figure
 
 
 def display_pcr_datapoint_single(
@@ -49,98 +49,80 @@ def display_pcr_datapoint_single(
     # Apply transform to source point cloud
     src_pc_transformed = apply_transform(src_pc, transform)
 
-    # Compute symmetric difference
-    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
-
     # Create the four point cloud views
     figures = []
 
     # 1. Source point cloud (original)
-    figures.append(create_3d_figure(
-        src_pc,
+    figures.append(create_point_cloud_figure(
+        points=src_pc,
         colors=src_rgb,
         title="Source Point Cloud",
         point_size=point_size,
-        opacity=point_opacity,
+        point_opacity=point_opacity,
         camera_state=camera_state,
-        colorscale=None if src_rgb is not None else 'Viridis'
     ))
 
     # 2. Target point cloud
-    figures.append(create_3d_figure(
-        tgt_pc,
+    figures.append(create_point_cloud_figure(
+        points=tgt_pc,
         colors=tgt_rgb,
         title="Target Point Cloud",
         point_size=point_size,
-        opacity=point_opacity,
+        point_opacity=point_opacity,
         camera_state=camera_state,
-        colorscale=None if tgt_rgb is not None else 'Viridis'
     ))
 
     # 3. Union of transformed source and target
-    union_pc = torch.cat([src_pc_transformed, tgt_pc], dim=0)
+    union_points = torch.cat([src_pc_transformed, tgt_pc], dim=0)
 
     # Create colors for union (red for source, blue for target)
-    src_colors = torch.ones((len(src_pc_transformed), 3), device=src_pc_transformed.device)
+    src_colors = torch.zeros((len(src_pc_transformed), 3), device=src_pc_transformed.device)
     src_colors[:, 0] = 1.0  # Red for source
-    src_colors[:, 1] = 0.0
-    src_colors[:, 2] = 0.0
-
-    tgt_colors = torch.ones((len(tgt_pc), 3), device=tgt_pc.device)
-    tgt_colors[:, 0] = 0.0  # Blue for target
-    tgt_colors[:, 1] = 0.0
-    tgt_colors[:, 2] = 1.0
-
+    tgt_colors = torch.zeros((len(tgt_pc), 3), device=tgt_pc.device)
+    tgt_colors[:, 2] = 1.0  # Blue for target
     union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-    figures.append(create_3d_figure(
-        union_pc,
+    figures.append(create_point_cloud_figure(
+        points=union_points,
         colors=union_colors,
         title="Union (Transformed Source + Target)",
         point_size=point_size,
-        opacity=point_opacity,
+        point_opacity=point_opacity,
         camera_state=camera_state,
-        colorscale=None  # Use custom colors
     ))
 
     # 4. Symmetric difference
+    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
     if len(src_indices) > 0 or len(tgt_indices) > 0:
         # Extract points in symmetric difference
         src_diff = src_pc_transformed[src_indices]
         tgt_diff = tgt_pc[tgt_indices]
 
         # Combine the points
-        sym_diff_pc = torch.cat([src_diff, tgt_diff], dim=0)
+        sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
 
         # Create colors for symmetric difference (red for source, blue for target)
-        src_colors = torch.ones((len(src_indices), 3), device=src_diff.device)
+        src_colors = torch.zeros((len(src_indices), 3), device=src_diff.device)
         src_colors[:, 0] = 1.0  # Red for source
-        src_colors[:, 1] = 0.0
-        src_colors[:, 2] = 0.0
-
-        tgt_colors = torch.ones((len(tgt_indices), 3), device=tgt_diff.device)
-        tgt_colors[:, 0] = 0.0  # Blue for target
-        tgt_colors[:, 1] = 0.0
-        tgt_colors[:, 2] = 1.0
-
+        tgt_colors = torch.zeros((len(tgt_indices), 3), device=tgt_diff.device)
+        tgt_colors[:, 2] = 1.0  # Blue for target
         sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-        figures.append(create_3d_figure(
-            sym_diff_pc,
+        figures.append(create_point_cloud_figure(
+            points=sym_diff_points,
             colors=sym_diff_colors,
             title="Symmetric Difference",
             point_size=point_size,
-            opacity=point_opacity,
+            point_opacity=point_opacity,
             camera_state=camera_state,
-            colorscale=None  # Use custom colors
         ))
     else:
         # If no symmetric difference, show empty point cloud
-        figures.append(create_3d_figure(
+        figures.append(create_point_cloud_figure(
             torch.zeros((1, 3), device=src_pc.device),
             title="Symmetric Difference (Empty)",
             point_size=point_size,
-            opacity=point_opacity,
+            point_opacity=point_opacity,
             camera_state=camera_state
         ))
 
@@ -253,20 +235,20 @@ def display_pcr_datapoint_batched(
         # For top level (level 0), show union and symmetric difference
         if level == 0:
             # Source point cloud
-            figures.append(create_3d_figure(
-                src_points,
+            figures.append(create_point_cloud_figure(
+                points=src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state,
             ))
 
             # Target point cloud
-            figures.append(create_3d_figure(
-                tgt_points,
+            figures.append(create_point_cloud_figure(
+                points=tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state,
             ))
 
@@ -278,14 +260,13 @@ def display_pcr_datapoint_batched(
             tgt_colors[:, 2] = 1.0  # Blue for target
             union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-            figures.append(create_3d_figure(
-                union_pc,
+            figures.append(create_point_cloud_figure(
+                points=union_pc,
                 colors=union_colors,
                 title=f"Union (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state,
-                colorscale=None
             ))
 
             # Symmetric difference
@@ -300,38 +281,37 @@ def display_pcr_datapoint_batched(
                 tgt_colors[:, 2] = 1.0
                 sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-                figures.append(create_3d_figure(
-                    sym_diff_pc,
+                figures.append(create_point_cloud_figure(
+                    points=sym_diff_pc,
                     colors=sym_diff_colors,
                     title=f"Symmetric Difference (Level {level})",
                     point_size=point_size,
-                    opacity=point_opacity,
+                    point_opacity=point_opacity,
                     camera_state=camera_state,
-                    colorscale=None
                 ))
             else:
-                figures.append(create_3d_figure(
+                figures.append(create_point_cloud_figure(
                     torch.zeros((1, 3), device=src_points.device),
                     title=f"Symmetric Difference (Empty) (Level {level})",
                     point_size=point_size,
-                    opacity=point_opacity,
+                    point_opacity=point_opacity,
                     camera_state=camera_state
                 ))
         else:
             # For lower levels, only show source and target
-            figures.append(create_3d_figure(
-                src_points,
+            figures.append(create_point_cloud_figure(
+                points=src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state
             ))
 
-            figures.append(create_3d_figure(
-                tgt_points,
+            figures.append(create_point_cloud_figure(
+                points=tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
-                opacity=point_opacity,
+                point_opacity=point_opacity,
                 camera_state=camera_state
             ))
 
@@ -392,77 +372,3 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             radius=radius,
         )
-
-
-def tensor_to_point_cloud(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
-    """Convert a tensor to a numpy array for point cloud visualization."""
-    if isinstance(tensor, torch.Tensor):
-        return tensor.detach().cpu().numpy()
-    return tensor
-
-
-def create_3d_figure(
-    pc_data: Union[torch.Tensor, np.ndarray],
-    colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    title: str = "Point Cloud",
-    colorscale: Optional[str] = 'Viridis',
-    point_size: float = 2,
-    opacity: float = 0.8,
-    colorbar_title: str = "Class",
-    camera_state: Optional[Dict[str, Any]] = None
-) -> go.Figure:
-    """Create a 3D figure for point cloud visualization."""
-    # Convert to numpy if needed
-    pc_np = tensor_to_point_cloud(pc_data)
-
-    # Create the figure
-    fig = go.Figure()
-
-    # Add the point cloud scatter plot
-    scatter_kwargs = {
-        'x': pc_np[:, 0],
-        'y': pc_np[:, 1],
-        'z': pc_np[:, 2],
-        'mode': 'markers',
-        'marker': {
-            'size': point_size,
-            'opacity': opacity,
-        },
-        'name': title
-    }
-
-    # Add colors if provided
-    if colors is not None:
-        colors_np = tensor_to_point_cloud(colors)
-
-        # Check if colors are RGB (3 channels) or single values
-        if colors_np.shape[1] == 3:
-            # RGB colors
-            scatter_kwargs['marker']['color'] = colors_np
-        else:
-            # Single values for colorscale
-            scatter_kwargs['marker']['color'] = colors_np.flatten()
-            scatter_kwargs['marker']['colorscale'] = colorscale
-            scatter_kwargs['marker']['colorbar'] = {'title': colorbar_title}
-
-    fig.add_trace(go.Scatter3d(**scatter_kwargs))
-
-    # Set the camera state if provided
-    if camera_state:
-        fig.update_layout(
-            scene_camera=camera_state
-        )
-
-    # Set the layout
-    fig.update_layout(
-        title=title,
-        scene=dict(
-            aspectmode='data',
-            xaxis_title='X',
-            yaxis_title='Y',
-            zaxis_title='Z'
-        ),
-        margin=dict(l=0, r=0, b=0, t=30)
-    )
-
-    return fig
