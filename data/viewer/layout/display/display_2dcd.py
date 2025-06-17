@@ -1,9 +1,9 @@
 """UI components for displaying dataset items."""
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Union, Any
 import torch
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
-from data.viewer.utils.image import tensor_to_image, create_2d_figure, get_2d_stats
+from data.viewer.utils.image import create_image_figure, get_image_stats
 
 
 def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
@@ -30,15 +30,15 @@ def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     # Create the figures using helper function
     fig_components: List[html.Div] = [
         html.Div([
-            dcc.Graph(figure=create_2d_figure(img_1, title="Image 1"))
+            dcc.Graph(figure=create_image_figure(img_1, title="Image 1"))
         ], style={'width': '33%', 'display': 'inline-block'}),
 
         html.Div([
-            dcc.Graph(figure=create_2d_figure(img_2, title="Image 2"))
+            dcc.Graph(figure=create_image_figure(img_2, title="Image 2"))
         ], style={'width': '33%', 'display': 'inline-block'}),
 
         html.Div([
-            dcc.Graph(figure=create_2d_figure(change_map, title="Change Map", colorscale="Viridis"))
+            dcc.Graph(figure=create_image_figure(change_map, title="Change Map", colorscale="Viridis"))
         ], style={'width': '33%', 'display': 'inline-block'})
     ]
 
@@ -46,17 +46,17 @@ def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     stats_components: List[html.Div] = [
         html.Div([
             html.H4("Image 1 Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_1).items()])
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_image_stats(img_1).items()])
         ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
 
         html.Div([
             html.H4("Image 2 Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_2).items()])
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_image_stats(img_2).items()])
         ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
 
         html.Div([
             html.H4("Change Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(img_1, change_map).items()])
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_image_stats(img_1, change_map).items()])
         ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'})
     ]
 

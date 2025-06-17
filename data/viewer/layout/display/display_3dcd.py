@@ -1,9 +1,8 @@
 """UI components for displaying dataset items."""
-from typing import Dict, Optional, Union, Any
-import torch
+from typing import Dict, Optional, Any
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
-from data.viewer.utils.point_cloud import tensor_to_point_cloud, create_3d_figure, get_3d_stats
+from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
 
 
 def display_3dcd_datapoint(
@@ -35,9 +34,9 @@ def display_3dcd_datapoint(
     change_map = datapoint['labels']['change_map']
 
     # Get stats for point clouds
-    pc_1_stats_children = get_3d_stats(pc_1, class_names=class_names)
-    pc_2_stats_children = get_3d_stats(pc_2, class_names=class_names)
-    change_stats_children = get_3d_stats(pc_1, change_map, class_names=class_names)
+    pc_1_stats_children = get_point_cloud_stats(pc_1, class_names=class_names)
+    pc_2_stats_children = get_point_cloud_stats(pc_2, class_names=class_names)
+    change_stats_children = get_point_cloud_stats(pc_1, change_map, class_names=class_names)
 
     # Create figures for point clouds
     point_clouds = [pc_1, pc_2]
@@ -53,7 +52,7 @@ def display_3dcd_datapoint(
     # Create figures
     figures = []
     for i, (pc, color, title) in enumerate(zip(point_clouds, colors, titles)):
-        fig = create_3d_figure(
+        fig = create_point_cloud_figure(
             pc,
             colors=color,
             title=title,

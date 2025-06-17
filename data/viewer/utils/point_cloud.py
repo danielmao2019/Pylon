@@ -6,14 +6,14 @@ from dash import html
 import plotly.graph_objects as go
 
 
-def tensor_to_point_cloud(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
+def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable point cloud."""
-    if isinstance(tensor, torch.Tensor):
-        return tensor.cpu().numpy()
-    return tensor
+    if isinstance(points, torch.Tensor):
+        return points.cpu().numpy()
+    return points
 
 
-def create_3d_figure(
+def create_point_cloud_figure(
     pc_data: Union[torch.Tensor, np.ndarray],
     colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
     title: str = "Point Cloud",
@@ -39,9 +39,9 @@ def create_3d_figure(
         Plotly Figure object
     """
     # Convert input data to numpy arrays
-    pc_data = tensor_to_point_cloud(pc_data)
+    pc_data = point_cloud_to_numpy(pc_data)
     if colors is not None:
-        colors = tensor_to_point_cloud(colors)
+        colors = point_cloud_to_numpy(colors)
 
     # Subsample large point clouds if necessary for better performance
     max_points = 100000  # Adjust based on performance needs
@@ -125,7 +125,7 @@ def create_3d_figure(
     return fig
 
 
-def get_3d_stats(
+def get_point_cloud_stats(
     points: torch.Tensor,
     change_map: Optional[torch.Tensor] = None,
     class_names: Optional[Dict[int, str]] = None

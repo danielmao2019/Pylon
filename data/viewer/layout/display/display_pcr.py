@@ -1,11 +1,11 @@
 """UI components for displaying point cloud registration dataset items."""
-from typing import Tuple, Dict, Optional, Union, Any
+from typing import Tuple, Dict, Optional, Any
 import numpy as np
 import torch
 from dash import dcc, html
 from utils.point_cloud_ops import apply_transform
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
-from data.viewer.utils.point_cloud import tensor_to_point_cloud, create_3d_figure, get_3d_stats
+from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
 
 
 def display_pcr_datapoint_single(
@@ -56,7 +56,7 @@ def display_pcr_datapoint_single(
     figures = []
 
     # 1. Source point cloud (original)
-    figures.append(create_3d_figure(
+    figures.append(create_point_cloud_figure(
         src_pc,
         colors=src_rgb,
         title="Source Point Cloud",
@@ -67,7 +67,7 @@ def display_pcr_datapoint_single(
     ))
 
     # 2. Target point cloud
-    figures.append(create_3d_figure(
+    figures.append(create_point_cloud_figure(
         tgt_pc,
         colors=tgt_rgb,
         title="Target Point Cloud",
@@ -93,7 +93,7 @@ def display_pcr_datapoint_single(
 
     union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-    figures.append(create_3d_figure(
+    figures.append(create_point_cloud_figure(
         union_pc,
         colors=union_colors,
         title="Union (Transformed Source + Target)",
@@ -125,7 +125,7 @@ def display_pcr_datapoint_single(
 
         sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-        figures.append(create_3d_figure(
+        figures.append(create_point_cloud_figure(
             sym_diff_pc,
             colors=sym_diff_colors,
             title="Symmetric Difference",
@@ -136,7 +136,7 @@ def display_pcr_datapoint_single(
         ))
     else:
         # If no symmetric difference, show empty point cloud
-        figures.append(create_3d_figure(
+        figures.append(create_point_cloud_figure(
             torch.zeros((1, 3), device=src_pc.device),
             title="Symmetric Difference (Empty)",
             point_size=point_size,
@@ -253,7 +253,7 @@ def display_pcr_datapoint_batched(
         # For top level (level 0), show union and symmetric difference
         if level == 0:
             # Source point cloud
-            figures.append(create_3d_figure(
+            figures.append(create_point_cloud_figure(
                 src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
@@ -262,7 +262,7 @@ def display_pcr_datapoint_batched(
             ))
 
             # Target point cloud
-            figures.append(create_3d_figure(
+            figures.append(create_point_cloud_figure(
                 tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
@@ -278,7 +278,7 @@ def display_pcr_datapoint_batched(
             tgt_colors[:, 2] = 1.0  # Blue for target
             union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-            figures.append(create_3d_figure(
+            figures.append(create_point_cloud_figure(
                 union_pc,
                 colors=union_colors,
                 title=f"Union (Level {level})",
@@ -300,7 +300,7 @@ def display_pcr_datapoint_batched(
                 tgt_colors[:, 2] = 1.0
                 sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-                figures.append(create_3d_figure(
+                figures.append(create_point_cloud_figure(
                     sym_diff_pc,
                     colors=sym_diff_colors,
                     title=f"Symmetric Difference (Level {level})",
@@ -310,7 +310,7 @@ def display_pcr_datapoint_batched(
                     colorscale=None
                 ))
             else:
-                figures.append(create_3d_figure(
+                figures.append(create_point_cloud_figure(
                     torch.zeros((1, 3), device=src_points.device),
                     title=f"Symmetric Difference (Empty) (Level {level})",
                     point_size=point_size,
@@ -319,7 +319,7 @@ def display_pcr_datapoint_batched(
                 ))
         else:
             # For lower levels, only show source and target
-            figures.append(create_3d_figure(
+            figures.append(create_point_cloud_figure(
                 src_points,
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
@@ -327,7 +327,7 @@ def display_pcr_datapoint_batched(
                 camera_state=camera_state
             ))
 
-            figures.append(create_3d_figure(
+            figures.append(create_point_cloud_figure(
                 tgt_points,
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,

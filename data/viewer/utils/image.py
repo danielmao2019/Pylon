@@ -7,16 +7,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 
-def tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
+def image_to_numpy(image: torch.Tensor) -> np.ndarray:
     """Convert a PyTorch tensor to a displayable image."""
-    assert isinstance(tensor, torch.Tensor), f"{tensor=}"
-    if tensor.ndim == 4:
-        assert tensor.shape[0] == 1, f"{tensor.shape=}"
-        tensor = tensor.squeeze(0)
-    if tensor.ndim == 3:
-        tensor = tensor.squeeze(0)
+    assert isinstance(image, torch.Tensor), f"{image=}"
+    if image.ndim == 4:
+        assert image.shape[0] == 1, f"{image.shape=}"
+        image = image.squeeze(0)
+    if image.ndim == 3:
+        image = image.squeeze(0)
 
-    img: np.ndarray = tensor.cpu().numpy()
+    img: np.ndarray = image.cpu().numpy()
 
     # Handle normalization with zero division check
     img_min = img.min()
@@ -37,7 +37,7 @@ def tensor_to_image(tensor: torch.Tensor) -> np.ndarray:
         raise ValueError("Unsupported tensor shape for image conversion")
 
 
-def create_2d_figure(tensor: torch.Tensor, title: str = "Image", colorscale: str = "Viridis") -> go.Figure:
+def create_image_figure(image: torch.Tensor, title: str = "Image", colorscale: str = "Viridis") -> go.Figure:
     """Create a 2D image figure with standard formatting.
 
     Args:
@@ -48,7 +48,7 @@ def create_2d_figure(tensor: torch.Tensor, title: str = "Image", colorscale: str
     Returns:
         Plotly Figure object
     """
-    img: np.ndarray = tensor_to_image(tensor)
+    img: np.ndarray = image_to_numpy(image)
 
     fig = px.imshow(
         img,
@@ -67,7 +67,7 @@ def create_2d_figure(tensor: torch.Tensor, title: str = "Image", colorscale: str
     return fig
 
 
-def get_2d_stats(img: torch.Tensor, change_map: Optional[torch.Tensor] = None) -> Dict[str, Any]:
+def get_image_stats(image: torch.Tensor, change_map: Optional[torch.Tensor] = None) -> Dict[str, Any]:
     """Get statistical information about a 2D image.
 
     Args:
@@ -77,11 +77,11 @@ def get_2d_stats(img: torch.Tensor, change_map: Optional[torch.Tensor] = None) -
     Returns:
         Dictionary with image statistics
     """
-    if not isinstance(img, torch.Tensor):
+    if not isinstance(image, torch.Tensor):
         return {}
 
     # Basic stats
-    img_np: np.ndarray = img.detach().cpu().numpy()
+    img_np: np.ndarray = image.detach().cpu().numpy()
     stats: Dict[str, Any] = {
         "Shape": f"{img_np.shape}",
         "Min Value": f"{img_np.min():.4f}",

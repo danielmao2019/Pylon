@@ -3,7 +3,7 @@ from typing import Dict, List, Union, Any
 import torch
 from dash import dcc, html
 from data.viewer.utils.dataset_utils import format_value
-from data.viewer.utils.image import create_2d_figure, get_2d_stats
+from data.viewer.utils.image import create_image_figure, get_image_stats
 from data.viewer.utils.segmentation import create_segmentation_figure, get_segmentation_stats
 
 
@@ -34,7 +34,7 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     # Create the figures
     fig_components: List[html.Div] = [
         html.Div([
-            dcc.Graph(figure=create_2d_figure(image, title="Image"))
+            dcc.Graph(figure=create_image_figure(image, title="Image"))
         ], style={'width': '50%', 'display': 'inline-block'}),
 
         html.Div([
@@ -46,7 +46,7 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     stats_components: List[html.Div] = [
         html.Div([
             html.H4("Image Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_2d_stats(image).items()])
+            html.Ul([html.Li(f"{k}: {v}") for k, v in get_image_stats(image).items()])
         ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
 
         html.Div([
