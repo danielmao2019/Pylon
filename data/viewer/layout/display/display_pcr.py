@@ -5,7 +5,7 @@ import torch
 from dash import dcc, html
 from utils.point_cloud_ops import apply_transform
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
-from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
+from data.viewer.utils.point_cloud import create_point_cloud_figure
 
 
 def display_pcr_datapoint_single(
