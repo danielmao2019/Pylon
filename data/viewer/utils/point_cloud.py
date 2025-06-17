@@ -47,7 +47,7 @@ def create_point_cloud_figure(
         assert labels.shape == points.shape[:-1], f"{labels.shape=}, {points.shape=}"
         unique_labels = np.unique(labels)
         unique_colors = [get_color(label) for label in unique_labels]
-        colors = np.zeros((len(points), 3))
+        colors = np.zeros((len(points), 3), dtype=np.uint8)
         for label, color in zip(unique_labels, unique_colors):
             mask = labels == label
             r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
