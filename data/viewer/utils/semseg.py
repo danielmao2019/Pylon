@@ -1,6 +1,5 @@
 """Utility functions for semantic segmentation visualization."""
 from typing import Dict, List, Optional, Any
-import random
 import numpy as np
 import torch
 import plotly.express as px
