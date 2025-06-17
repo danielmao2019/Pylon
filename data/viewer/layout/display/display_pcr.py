@@ -3,9 +3,9 @@ from typing import Tuple, Dict, Optional, Union, Any
 import numpy as np
 import torch
 from dash import dcc, html
-import plotly.graph_objects as go
 from utils.point_cloud_ops import apply_transform
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
+from data.viewer.utils.point_cloud import tensor_to_point_cloud, create_3d_figure, get_3d_stats
 
 
 def display_pcr_datapoint_single(
@@ -392,77 +392,3 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             radius=radius,
         )
-
-
-def tensor_to_point_cloud(tensor: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
-    """Convert a tensor to a numpy array for point cloud visualization."""
-    if isinstance(tensor, torch.Tensor):
-        return tensor.detach().cpu().numpy()
-    return tensor
-
-
-def create_3d_figure(
-    pc_data: Union[torch.Tensor, np.ndarray],
-    colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    title: str = "Point Cloud",
-    colorscale: Optional[str] = 'Viridis',
-    point_size: float = 2,
-    opacity: float = 0.8,
-    colorbar_title: str = "Class",
-    camera_state: Optional[Dict[str, Any]] = None
-) -> go.Figure:
-    """Create a 3D figure for point cloud visualization."""
-    # Convert to numpy if needed
-    pc_np = tensor_to_point_cloud(pc_data)
-
-    # Create the figure
-    fig = go.Figure()
-
-    # Add the point cloud scatter plot
-    scatter_kwargs = {
-        'x': pc_np[:, 0],
-        'y': pc_np[:, 1],
-        'z': pc_np[:, 2],
-        'mode': 'markers',
-        'marker': {
-            'size': point_size,
-            'opacity': opacity,
-        },
-        'name': title
-    }
-
-    # Add colors if provided
-    if colors is not None:
-        colors_np = tensor_to_point_cloud(colors)
-
-        # Check if colors are RGB (3 channels) or single values
-        if colors_np.shape[1] == 3:
-            # RGB colors
-            scatter_kwargs['marker']['color'] = colors_np
-        else:
-            # Single values for colorscale
-            scatter_kwargs['marker']['color'] = colors_np.flatten()
-            scatter_kwargs['marker']['colorscale'] = colorscale
-            scatter_kwargs['marker']['colorbar'] = {'title': colorbar_title}
-
-    fig.add_trace(go.Scatter3d(**scatter_kwargs))
-
-    # Set the camera state if provided
-    if camera_state:
-        fig.update_layout(
-            scene_camera=camera_state
-        )
-
-    # Set the layout
-    fig.update_layout(
-        title=title,
-        scene=dict(
-            aspectmode='data',
-            xaxis_title='X',
-            yaxis_title='Y',
-            zaxis_title='Z'
-        ),
-        margin=dict(l=0, r=0, b=0, t=30)
-    )
-
-    return fig
