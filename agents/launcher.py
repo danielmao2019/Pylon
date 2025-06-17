@@ -174,7 +174,7 @@ class Launcher(BaseAgent):
                 ]),
             ])
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
-            cmd = f"tmux new-session -d \"{cmd}\""
+            cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
             cmd = f"ssh {gpu['server']} '{cmd}'"
             self.logger.info(cmd)
             os.system(cmd)
