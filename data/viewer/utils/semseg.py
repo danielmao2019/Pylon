@@ -1,5 +1,5 @@
 """Utility functions for semantic segmentation visualization."""
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, Union, Any
 import numpy as np
 import torch
 import plotly.express as px
@@ -17,7 +17,9 @@ def get_color(idx: Any) -> str:
     """
     # Get a hash value for the class_id
     # Use abs() to ensure positive values and % 360 to get a hue value
-    hue = abs(hash(idx)) % 360
+    if not type(idx) == int:
+        idx = abs(hash(idx))
+    hue = idx % 360
 
     # Convert hue to RGB using HSL color space
     # We'll use fixed saturation and lightness for better visibility
