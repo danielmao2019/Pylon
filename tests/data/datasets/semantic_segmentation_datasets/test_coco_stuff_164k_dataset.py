@@ -2,8 +2,8 @@ from typing import Dict, Any
 import pytest
 import random
 import torch
-from data.datasets import COCOStuff164KDataset
 from concurrent.futures import ThreadPoolExecutor
+from data.datasets import COCOStuff164KDataset
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
