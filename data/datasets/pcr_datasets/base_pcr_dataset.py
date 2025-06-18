@@ -536,10 +536,10 @@ class BasePCRDataset(BaseDataset):
 
         # Find correspondences between source and target point clouds
         correspondences = get_correspondences(
-            src_points,
-            tgt_points,
-            transform,
-            self.matching_radius
+            src_points=src_points,
+            tgt_points=tgt_points,
+            transform=transform,
+            radius=self.matching_radius,
         )
 
         # Initialize inputs with position and feature
