@@ -127,6 +127,9 @@ def create_correspondence_visualization(
     Returns:
         Plotly figure showing the correspondence visualization
     """
+    src_points_np = src_points.cpu().numpy()
+    tgt_points_np = tgt_points.cpu().numpy()
+
     # Find correspondences based on radius
     correspondences = get_correspondences(src_points, tgt_points, None, radius)
 
