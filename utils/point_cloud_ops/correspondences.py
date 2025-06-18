@@ -6,7 +6,7 @@ import open3d as o3d
 from utils.point_cloud_ops.apply_transform import apply_transform
 
 
-def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, transform: torch.Tensor, matching_radius: float) -> torch.Tensor:
+def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, transform: torch.Tensor, matching_radius: float) -> torch.Tensor:
     """Find correspondences between two point clouds within a matching radius.
 
     Args:
@@ -18,11 +18,11 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
     Returns:
         torch.Tensor: Correspondence indices [K, 2] where K is number of correspondences
     """
-    assert src_points.device == ref_points.device, f"{src_points.device=}, {ref_points.device=}"
+    assert src_points.device == tgt_points.device, f"{src_points.device=}, {tgt_points.device=}"
     device = src_points.device
 
     # Convert to numpy for scipy operations
-    ref_points = ref_points.cpu().numpy()
+    tgt_points = tgt_points.cpu().numpy()
     src_points = src_points.cpu().numpy()
     transform = transform.cpu().numpy()
 
@@ -33,7 +33,7 @@ def get_correspondences(ref_points: torch.Tensor, src_points: torch.Tensor, tran
     src_tree = cKDTree(src_points)
 
     # Find correspondences within radius
-    indices_list = src_tree.query_ball_point(ref_points, matching_radius)
+    indices_list = src_tree.query_ball_point(tgt_points, matching_radius)
 
     # Create correspondence pairs
     corr_indices = np.array([
