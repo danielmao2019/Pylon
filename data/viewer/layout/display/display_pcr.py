@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from dash import dcc, html
 import plotly.graph_objects as go
-from utils.point_cloud_ops import apply_transform
+from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from data.viewer.utils.point_cloud import create_point_cloud_figure
 
@@ -127,17 +127,8 @@ def create_correspondence_visualization(
     Returns:
         Plotly figure showing the correspondence visualization
     """
-    # Convert to numpy if needed
-    src_points_np = src_points.cpu().numpy()
-    tgt_points_np = tgt_points.cpu().numpy()
-
     # Find correspondences based on radius
-    correspondences = []
-    for i, src_point in enumerate(src_points_np):
-        distances = np.linalg.norm(tgt_points_np - src_point, axis=1)
-        matches = np.where(distances < radius)[0]
-        for match in matches:
-            correspondences.append((i, match))
+    correspondences = get_correspondences(src_points, tgt_points, None, radius)
 
     # Create figure with both point clouds
     corr_fig = create_point_cloud_figure(
