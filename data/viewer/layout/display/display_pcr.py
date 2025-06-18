@@ -17,14 +17,14 @@ def create_union_visualization(
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
-    
+
     Args:
         src_pc_transformed: Transformed source point cloud
         tgt_pc: Target point cloud
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
-        
+
     Returns:
         Plotly figure showing the union visualization
     """
@@ -57,7 +57,7 @@ def create_symmetric_difference_visualization(
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
-    
+
     Args:
         src_pc_transformed: Transformed source point cloud
         tgt_pc: Target point cloud
@@ -65,13 +65,13 @@ def create_symmetric_difference_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
-        
+
     Returns:
         Plotly figure showing the symmetric difference visualization
     """
     # Find points in symmetric difference
     src_indices, tgt_indices = pc_symmetric_difference(src_points, tgt_points, radius)
-    
+
     if len(src_indices) > 0 or len(tgt_indices) > 0:
         # Extract points in symmetric difference
         src_diff = src_points[src_indices]
@@ -115,7 +115,7 @@ def create_correspondence_visualization(
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> go.Figure:
     """Create a visualization of correspondences between transformed source and target point clouds.
-    
+
     Args:
         src_pc_transformed: Transformed source point cloud
         tgt_pc: Target point cloud
@@ -123,14 +123,14 @@ def create_correspondence_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
-        
+
     Returns:
         Plotly figure showing the correspondence visualization
     """
     # Convert to numpy if needed
     src_points_np = src_points.cpu().numpy()
     tgt_points_np = tgt_points.cpu().numpy()
-    
+
     # Find correspondences based on radius
     correspondences = []
     for i, src_point in enumerate(src_points_np):
@@ -138,7 +138,7 @@ def create_correspondence_visualization(
         matches = np.where(distances < radius)[0]
         for match in matches:
             correspondences.append((i, match))
-    
+
     # Create figure with both point clouds
     corr_fig = create_point_cloud_figure(
         points=src_points,
@@ -147,7 +147,7 @@ def create_correspondence_visualization(
         point_opacity=point_opacity,
         camera_state=camera_state
     )
-    
+
     # Add target points
     corr_fig.add_trace(go.Scatter3d(
         x=tgt_points_np[:, 0],
@@ -157,12 +157,12 @@ def create_correspondence_visualization(
         marker=dict(size=point_size, color='red', opacity=point_opacity),
         name='Target Points'
     ))
-    
+
     # Add correspondence lines
     for src_idx, tgt_idx in correspondences:
         src_point = src_points_np[src_idx]
         tgt_point = tgt_points_np[tgt_idx]
-        
+
         corr_fig.add_trace(go.Scatter3d(
             x=[src_point[0], tgt_point[0]],
             y=[src_point[1], tgt_point[1]],
@@ -171,7 +171,7 @@ def create_correspondence_visualization(
             line=dict(color='gray', width=1),
             showlegend=False
         ))
-    
+
     return corr_fig
 
 
