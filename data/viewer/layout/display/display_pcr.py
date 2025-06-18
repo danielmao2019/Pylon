@@ -167,8 +167,8 @@ def create_correspondence_visualization(
             showlegend=False
         ))
 
-    if len(correspondence_traces) > 1000:
-        correspondence_traces = random.sample(correspondence_traces, 1000)
+    if len(correspondence_traces) > 10:
+        correspondence_traces = random.sample(correspondence_traces, 10)
 
     # Add all correspondence traces at once
     if correspondence_traces:
