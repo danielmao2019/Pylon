@@ -432,17 +432,18 @@ def display_pcr_datapoint_batched(
             sym_diff_fig.update_layout(title=f"Symmetric Difference (Level {level})")
             figures.append(sym_diff_fig)
 
-            # Correspondence visualization
-            corr_fig = create_correspondence_visualization(
-                src_points,
-                tgt_points,
-                radius=corr_radius,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-            )
-            corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
-            figures.append(corr_fig)
+            # TODO: Add correspondence visualization
+            # # Correspondence visualization
+            # corr_fig = create_correspondence_visualization(
+            #     src_points,
+            #     tgt_points,
+            #     radius=corr_radius,
+            #     point_size=point_size,
+            #     point_opacity=point_opacity,
+            #     camera_state=camera_state,
+            # )
+            # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
+            # figures.append(corr_fig)
         else:
             # For lower levels, only show source and target
             figures.append(create_point_cloud_figure(
