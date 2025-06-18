@@ -1,5 +1,5 @@
 """UI components for displaying point cloud registration dataset items."""
-from typing import Tuple, Dict, Optional, Any, List
+from typing import Tuple, Dict, Optional, Any
 import numpy as np
 import torch
 from dash import dcc, html
@@ -10,8 +10,8 @@ from data.viewer.utils.point_cloud import create_point_cloud_figure
 
 
 def create_union_visualization(
-    src_pc_transformed: torch.Tensor,
-    tgt_pc: torch.Tensor,
+    src_points: torch.Tensor,
+    tgt_points: torch.Tensor,
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
@@ -29,12 +29,12 @@ def create_union_visualization(
         Plotly figure showing the union visualization
     """
     # Combine points
-    union_points = torch.cat([src_pc_transformed, tgt_pc], dim=0)
+    union_points = torch.cat([src_points, tgt_points], dim=0)
 
     # Create colors for union (red for source, blue for target)
-    src_colors = torch.zeros((len(src_pc_transformed), 3), device=src_pc_transformed.device)
+    src_colors = torch.zeros((len(src_points), 3), device=src_points.device)
     src_colors[:, 0] = 1.0  # Red for source
-    tgt_colors = torch.zeros((len(tgt_pc), 3), device=tgt_pc.device)
+    tgt_colors = torch.zeros((len(tgt_points), 3), device=tgt_points.device)
     tgt_colors[:, 2] = 1.0  # Blue for target
     union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
@@ -49,8 +49,8 @@ def create_union_visualization(
 
 
 def create_symmetric_difference_visualization(
-    src_pc_transformed: torch.Tensor,
-    tgt_pc: torch.Tensor,
+    src_points: torch.Tensor,
+    tgt_points: torch.Tensor,
     radius: float = 0.05,
     point_size: float = 2,
     point_opacity: float = 0.8,
@@ -70,12 +70,12 @@ def create_symmetric_difference_visualization(
         Plotly figure showing the symmetric difference visualization
     """
     # Find points in symmetric difference
-    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
+    src_indices, tgt_indices = pc_symmetric_difference(src_points, tgt_points, radius)
     
     if len(src_indices) > 0 or len(tgt_indices) > 0:
         # Extract points in symmetric difference
-        src_diff = src_pc_transformed[src_indices]
-        tgt_diff = tgt_pc[tgt_indices]
+        src_diff = src_points[src_indices]
+        tgt_diff = tgt_points[tgt_indices]
 
         # Combine the points
         sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
@@ -98,7 +98,7 @@ def create_symmetric_difference_visualization(
     else:
         # If no symmetric difference, show empty point cloud
         return create_point_cloud_figure(
-            torch.zeros((1, 3), device=src_pc_transformed.device),
+            torch.zeros((1, 3), device=src_points.device),
             title="Symmetric Difference (Empty)",
             point_size=point_size,
             point_opacity=point_opacity,
@@ -107,9 +107,9 @@ def create_symmetric_difference_visualization(
 
 
 def create_correspondence_visualization(
-    src_pc_transformed: torch.Tensor,
-    tgt_pc: torch.Tensor,
-    correspondence_radius: float = 0.1,
+    src_points: torch.Tensor,
+    tgt_points: torch.Tensor,
+    radius: float = 0.1,
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
@@ -128,20 +128,20 @@ def create_correspondence_visualization(
         Plotly figure showing the correspondence visualization
     """
     # Convert to numpy if needed
-    src_points_np = src_pc_transformed.cpu().numpy()
-    tgt_points_np = tgt_pc.cpu().numpy()
+    src_points_np = src_points.cpu().numpy()
+    tgt_points_np = tgt_points.cpu().numpy()
     
     # Find correspondences based on radius
     correspondences = []
     for i, src_point in enumerate(src_points_np):
         distances = np.linalg.norm(tgt_points_np - src_point, axis=1)
-        matches = np.where(distances < correspondence_radius)[0]
+        matches = np.where(distances < radius)[0]
         for match in matches:
             correspondences.append((i, match))
     
     # Create figure with both point clouds
     corr_fig = create_point_cloud_figure(
-        points=src_pc_transformed,
+        points=src_points,
         title="Point Cloud Correspondences",
         point_size=point_size,
         point_opacity=point_opacity,
@@ -180,8 +180,8 @@ def display_pcr_datapoint_single(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    radius: float = 0.05,
-    correspondence_radius: float = 0.1
+    sym_diff_radius: float = 0.05,
+    corr_radius: float = 0.1
 ) -> html.Div:
     """Display a single point cloud registration datapoint.
 
@@ -190,8 +190,8 @@ def display_pcr_datapoint_single(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
-        radius: Radius for computing symmetric difference
-        correspondence_radius: Radius for finding correspondences between point clouds
+        sym_diff_radius: Radius for computing symmetric difference
+        corr_radius: Radius for finding correspondences between point clouds
 
     Returns:
         html.Div containing the visualization
@@ -254,7 +254,7 @@ def display_pcr_datapoint_single(
     figures.append(create_symmetric_difference_visualization(
         src_pc_transformed,
         tgt_pc,
-        radius=radius,
+        radius=sym_diff_radius,
         point_size=point_size,
         point_opacity=point_opacity,
         camera_state=camera_state,
@@ -264,7 +264,7 @@ def display_pcr_datapoint_single(
     figures.append(create_correspondence_visualization(
         src_pc_transformed,
         tgt_pc,
-        correspondence_radius=correspondence_radius,
+        radius=corr_radius,
         point_size=point_size,
         point_opacity=point_opacity,
         camera_state=camera_state,
@@ -359,8 +359,8 @@ def display_pcr_datapoint_batched(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    radius: float = 0.05,
-    correspondence_radius: float = 0.1
+    sym_diff_radius: float = 0.05,
+    corr_radius: float = 0.1
 ) -> html.Div:
     """Display a batched point cloud registration datapoint.
 
@@ -369,8 +369,8 @@ def display_pcr_datapoint_batched(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
-        radius: Radius for computing symmetric difference
-        correspondence_radius: Radius for finding correspondences between point clouds
+        sym_diff_radius: Radius for computing symmetric difference
+        corr_radius: Radius for finding correspondences between point clouds
 
     Returns:
         html.Div containing the visualization
@@ -420,7 +420,7 @@ def display_pcr_datapoint_batched(
             sym_diff_fig = create_symmetric_difference_visualization(
                 src_points,
                 tgt_points,
-                radius=radius,
+                radius=sym_diff_radius,
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
@@ -432,7 +432,7 @@ def display_pcr_datapoint_batched(
             corr_fig = create_correspondence_visualization(
                 src_points,
                 tgt_points,
-                correspondence_radius=correspondence_radius,
+                radius=corr_radius,
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
@@ -482,7 +482,7 @@ def display_pcr_datapoint(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
-    correspondence_radius: float = 0.1
+    corr_radius: float = 0.1
 ) -> html.Div:
     """Display a point cloud registration datapoint.
 
@@ -492,7 +492,7 @@ def display_pcr_datapoint(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
-        correspondence_radius: Radius for finding correspondences between point clouds
+        corr_radius: Radius for finding correspondences between point clouds
 
     Returns:
         html.Div containing the visualization
@@ -506,8 +506,8 @@ def display_pcr_datapoint(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            radius=sym_diff_radius,
-            correspondence_radius=correspondence_radius,
+            sym_diff_radius=sym_diff_radius,
+            corr_radius=corr_radius,
         )
     else:
         return display_pcr_datapoint_single(
@@ -515,6 +515,6 @@ def display_pcr_datapoint(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            radius=sym_diff_radius,
-            correspondence_radius=correspondence_radius,
+            sym_diff_radius=sym_diff_radius,
+            corr_radius=corr_radius,
         )
