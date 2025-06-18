@@ -1,11 +1,178 @@
 """UI components for displaying point cloud registration dataset items."""
-from typing import Tuple, Dict, Optional, Any
+from typing import Tuple, Dict, Optional, Any, List
 import numpy as np
 import torch
 from dash import dcc, html
+import plotly.graph_objects as go
 from utils.point_cloud_ops import apply_transform
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from data.viewer.utils.point_cloud import create_point_cloud_figure
+
+
+def create_union_visualization(
+    src_pc_transformed: torch.Tensor,
+    tgt_pc: torch.Tensor,
+    point_size: float = 2,
+    point_opacity: float = 0.8,
+    camera_state: Optional[Dict[str, Any]] = None,
+) -> go.Figure:
+    """Create a visualization of the union of transformed source and target point clouds.
+    
+    Args:
+        src_pc_transformed: Transformed source point cloud
+        tgt_pc: Target point cloud
+        point_size: Size of points in visualization
+        point_opacity: Opacity of points in visualization
+        camera_state: Optional dictionary containing camera position state
+        
+    Returns:
+        Plotly figure showing the union visualization
+    """
+    # Combine points
+    union_points = torch.cat([src_pc_transformed, tgt_pc], dim=0)
+
+    # Create colors for union (red for source, blue for target)
+    src_colors = torch.zeros((len(src_pc_transformed), 3), device=src_pc_transformed.device)
+    src_colors[:, 0] = 1.0  # Red for source
+    tgt_colors = torch.zeros((len(tgt_pc), 3), device=tgt_pc.device)
+    tgt_colors[:, 2] = 1.0  # Blue for target
+    union_colors = torch.cat([src_colors, tgt_colors], dim=0)
+
+    return create_point_cloud_figure(
+        points=union_points,
+        colors=union_colors,
+        title="Union (Transformed Source + Target)",
+        point_size=point_size,
+        point_opacity=point_opacity,
+        camera_state=camera_state,
+    )
+
+
+def create_symmetric_difference_visualization(
+    src_pc_transformed: torch.Tensor,
+    tgt_pc: torch.Tensor,
+    radius: float = 0.05,
+    point_size: float = 2,
+    point_opacity: float = 0.8,
+    camera_state: Optional[Dict[str, Any]] = None,
+) -> go.Figure:
+    """Create a visualization of the symmetric difference between transformed source and target point clouds.
+    
+    Args:
+        src_pc_transformed: Transformed source point cloud
+        tgt_pc: Target point cloud
+        radius: Radius for computing symmetric difference
+        point_size: Size of points in visualization
+        point_opacity: Opacity of points in visualization
+        camera_state: Optional dictionary containing camera position state
+        
+    Returns:
+        Plotly figure showing the symmetric difference visualization
+    """
+    # Find points in symmetric difference
+    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
+    
+    if len(src_indices) > 0 or len(tgt_indices) > 0:
+        # Extract points in symmetric difference
+        src_diff = src_pc_transformed[src_indices]
+        tgt_diff = tgt_pc[tgt_indices]
+
+        # Combine the points
+        sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
+
+        # Create colors for symmetric difference (red for source, blue for target)
+        src_colors = torch.zeros((len(src_indices), 3), device=src_diff.device)
+        src_colors[:, 0] = 1.0  # Red for source
+        tgt_colors = torch.zeros((len(tgt_indices), 3), device=tgt_diff.device)
+        tgt_colors[:, 2] = 1.0  # Blue for target
+        sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
+
+        return create_point_cloud_figure(
+            points=sym_diff_points,
+            colors=sym_diff_colors,
+            title="Symmetric Difference",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+        )
+    else:
+        # If no symmetric difference, show empty point cloud
+        return create_point_cloud_figure(
+            torch.zeros((1, 3), device=src_pc_transformed.device),
+            title="Symmetric Difference (Empty)",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state
+        )
+
+
+def create_correspondence_visualization(
+    src_pc_transformed: torch.Tensor,
+    tgt_pc: torch.Tensor,
+    correspondence_radius: float = 0.1,
+    point_size: float = 2,
+    point_opacity: float = 0.8,
+    camera_state: Optional[Dict[str, Any]] = None,
+) -> go.Figure:
+    """Create a visualization of correspondences between transformed source and target point clouds.
+    
+    Args:
+        src_pc_transformed: Transformed source point cloud
+        tgt_pc: Target point cloud
+        correspondence_radius: Radius for finding correspondences
+        point_size: Size of points in visualization
+        point_opacity: Opacity of points in visualization
+        camera_state: Optional dictionary containing camera position state
+        
+    Returns:
+        Plotly figure showing the correspondence visualization
+    """
+    # Convert to numpy if needed
+    src_points_np = src_pc_transformed.cpu().numpy()
+    tgt_points_np = tgt_pc.cpu().numpy()
+    
+    # Find correspondences based on radius
+    correspondences = []
+    for i, src_point in enumerate(src_points_np):
+        distances = np.linalg.norm(tgt_points_np - src_point, axis=1)
+        matches = np.where(distances < correspondence_radius)[0]
+        for match in matches:
+            correspondences.append((i, match))
+    
+    # Create figure with both point clouds
+    corr_fig = create_point_cloud_figure(
+        points=src_pc_transformed,
+        title="Point Cloud Correspondences",
+        point_size=point_size,
+        point_opacity=point_opacity,
+        camera_state=camera_state
+    )
+    
+    # Add target points
+    corr_fig.add_trace(go.Scatter3d(
+        x=tgt_points_np[:, 0],
+        y=tgt_points_np[:, 1],
+        z=tgt_points_np[:, 2],
+        mode='markers',
+        marker=dict(size=point_size, color='red', opacity=point_opacity),
+        name='Target Points'
+    ))
+    
+    # Add correspondence lines
+    for src_idx, tgt_idx in correspondences:
+        src_point = src_points_np[src_idx]
+        tgt_point = tgt_points_np[tgt_idx]
+        
+        corr_fig.add_trace(go.Scatter3d(
+            x=[src_point[0], tgt_point[0]],
+            y=[src_point[1], tgt_point[1]],
+            z=[src_point[2], tgt_point[2]],
+            mode='lines',
+            line=dict(color='gray', width=1),
+            showlegend=False
+        ))
+    
+    return corr_fig
 
 
 def display_pcr_datapoint_single(
@@ -74,107 +241,34 @@ def display_pcr_datapoint_single(
         camera_state=camera_state,
     ))
 
-    # 3. Union of transformed source and target
-    union_points = torch.cat([src_pc_transformed, tgt_pc], dim=0)
-
-    # Create colors for union (red for source, blue for target)
-    src_colors = torch.zeros((len(src_pc_transformed), 3), device=src_pc_transformed.device)
-    src_colors[:, 0] = 1.0  # Red for source
-    tgt_colors = torch.zeros((len(tgt_pc), 3), device=tgt_pc.device)
-    tgt_colors[:, 2] = 1.0  # Blue for target
-    union_colors = torch.cat([src_colors, tgt_colors], dim=0)
-
-    figures.append(create_point_cloud_figure(
-        points=union_points,
-        colors=union_colors,
-        title="Union (Transformed Source + Target)",
+    # 3. Union visualization
+    figures.append(create_union_visualization(
+        src_pc_transformed,
+        tgt_pc,
         point_size=point_size,
         point_opacity=point_opacity,
         camera_state=camera_state,
     ))
 
-    # 4. Symmetric difference
-    src_indices, tgt_indices = pc_symmetric_difference(src_pc_transformed, tgt_pc, radius)
-    if len(src_indices) > 0 or len(tgt_indices) > 0:
-        # Extract points in symmetric difference
-        src_diff = src_pc_transformed[src_indices]
-        tgt_diff = tgt_pc[tgt_indices]
-
-        # Combine the points
-        sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
-
-        # Create colors for symmetric difference (red for source, blue for target)
-        src_colors = torch.zeros((len(src_indices), 3), device=src_diff.device)
-        src_colors[:, 0] = 1.0  # Red for source
-        tgt_colors = torch.zeros((len(tgt_indices), 3), device=tgt_diff.device)
-        tgt_colors[:, 2] = 1.0  # Blue for target
-        sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
-
-        figures.append(create_point_cloud_figure(
-            points=sym_diff_points,
-            colors=sym_diff_colors,
-            title="Symmetric Difference",
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state,
-        ))
-    else:
-        # If no symmetric difference, show empty point cloud
-        figures.append(create_point_cloud_figure(
-            torch.zeros((1, 3), device=src_pc.device),
-            title="Symmetric Difference (Empty)",
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state
-        ))
-
-    # 5. Correspondence visualization
-    # Convert to numpy if needed
-    src_points_np = src_pc_transformed.cpu().numpy()
-    tgt_points_np = tgt_pc.cpu().numpy()
-    
-    # Find correspondences based on radius
-    correspondences = []
-    for i, src_point in enumerate(src_points_np):
-        distances = np.linalg.norm(tgt_points_np - src_point, axis=1)
-        matches = np.where(distances < correspondence_radius)[0]
-        for match in matches:
-            correspondences.append((i, match))
-    
-    # Create figure with both point clouds
-    corr_fig = create_point_cloud_figure(
-        points=src_pc_transformed,
-        title="Point Cloud Correspondences",
+    # 4. Symmetric difference visualization
+    figures.append(create_symmetric_difference_visualization(
+        src_pc_transformed,
+        tgt_pc,
+        radius=radius,
         point_size=point_size,
         point_opacity=point_opacity,
-        camera_state=camera_state
-    )
-    
-    # Add target points
-    corr_fig.add_trace(go.Scatter3d(
-        x=tgt_points_np[:, 0],
-        y=tgt_points_np[:, 1],
-        z=tgt_points_np[:, 2],
-        mode='markers',
-        marker=dict(size=point_size, color='red', opacity=point_opacity),
-        name='Target Points'
+        camera_state=camera_state,
     ))
-    
-    # Add correspondence lines
-    for src_idx, tgt_idx in correspondences:
-        src_point = src_points_np[src_idx]
-        tgt_point = tgt_points_np[tgt_idx]
-        
-        corr_fig.add_trace(go.Scatter3d(
-            x=[src_point[0], tgt_point[0]],
-            y=[src_point[1], tgt_point[1]],
-            z=[src_point[2], tgt_point[2]],
-            mode='lines',
-            line=dict(color='gray', width=1),
-            showlegend=False
-        ))
-    
-    figures.append(corr_fig)
+
+    # 5. Correspondence visualization
+    figures.append(create_correspondence_visualization(
+        src_pc_transformed,
+        tgt_pc,
+        correspondence_radius=correspondence_radius,
+        point_size=point_size,
+        point_opacity=point_opacity,
+        camera_state=camera_state,
+    ))
 
     # Compute rotation angle and translation magnitude
     rotation_matrix = transform[:3, :3]
