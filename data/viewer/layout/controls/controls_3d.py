@@ -2,21 +2,22 @@
 from dash import dcc, html
 
 
-def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, radius=0.05):
+def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_radius=0.05, corr_radius=0.1):
     """
     Create 3D visualization controls.
-    
+
     Args:
         visible: Whether the controls should be visible
         point_size: Initial point size
         point_opacity: Initial point opacity
-        radius: Initial radius for symmetric difference computation
-        
+        sym_diff_radius: Initial radius for symmetric difference computation
+        corr_radius: Initial radius for correspondence visualization
+
     Returns:
         html.Div containing 3D controls
     """
     style = {'display': 'block' if visible else 'none', 'margin-top': '20px'}
-    
+
     return html.Div([
         html.H3("3D View Controls", style={'margin-top': '0'}),
 
@@ -39,16 +40,28 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, radius=0.
             marks={i/10: str(i/10) for i in range(1, 11, 2)},
             step=0.1
         ),
-        
-        # Radius slider for symmetric difference computation
+
+        # PCR-specific controls
         html.Div([
+            # Radius slider for symmetric difference computation
             html.Label("Symmetric Difference Radius", style={'margin-top': '20px'}),
             dcc.Slider(
                 id='radius-slider',
-                min=0.01,
-                max=0.5,
-                value=radius,
-                marks={i/10: str(i/10) for i in range(1, 6)},
+                min=0.0,
+                max=1.0,
+                value=sym_diff_radius,
+                marks={i/10: str(i/10) for i in range(0, 11, 2)},
+                step=0.01
+            ),
+
+            # Correspondence radius slider
+            html.Label("Correspondence Radius", style={'margin-top': '20px'}),
+            dcc.Slider(
+                id='correspondence-radius-slider',
+                min=0.0,
+                max=1.0,
+                value=corr_radius,
+                marks={i/10: str(i/10) for i in range(0, 11, 2)},
                 step=0.01
             ),
         ], id='pcr-controls', style={'display': 'none'}),  # Hidden by default, shown only for PCR datasets

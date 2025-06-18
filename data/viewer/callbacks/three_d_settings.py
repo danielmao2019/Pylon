@@ -34,7 +34,7 @@ def update_3d_settings(
             html.Div("No dataset loaded."),
             registry.viewer.state.get_state()['3d_settings']
         ]
-        
+
     assert 'type' in dataset_info, f"{dataset_info.keys()=}"
     dataset_type = dataset_info.get('type')
 
@@ -62,7 +62,7 @@ def update_3d_settings(
         Output('pcr-controls', 'style')
     ],
     inputs=[Input('dataset-info', 'data')],
-    group="display"
+    group="display",
 )
 def update_view_controls(
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
@@ -70,20 +70,20 @@ def update_view_controls(
     """Update the visibility of 3D view controls based on dataset type."""
     if dataset_info is None or not dataset_info:
         return [{'display': 'none'}, {'display': 'none'}]
-    
+
     assert 'type' in dataset_info, f"{dataset_info.keys()=}"
     dataset_type = dataset_info.get('type')
-    
+
     # Default styles
     view_controls_style = {'display': 'none'}
     pcr_controls_style = {'display': 'none'}
-    
+
     # Show 3D controls for 3D datasets
     if dataset_type in THREE_D_DATASET_TYPES:
         view_controls_style = {'display': 'block'}
-        
+
         # Show PCR controls only for PCR datasets
         if dataset_type == 'pcr':
             pcr_controls_style = {'display': 'block'}
-    
+
     return [view_controls_style, pcr_controls_style]
