@@ -13,7 +13,8 @@ def display_pcr_datapoint_single(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    radius: float = 0.05
+    radius: float = 0.05,
+    correspondence_radius: float = 0.1
 ) -> html.Div:
     """Display a single point cloud registration datapoint.
 
@@ -23,6 +24,7 @@ def display_pcr_datapoint_single(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         radius: Radius for computing symmetric difference
+        correspondence_radius: Radius for finding correspondences between point clouds
 
     Returns:
         html.Div containing the visualization
@@ -49,7 +51,7 @@ def display_pcr_datapoint_single(
     # Apply transform to source point cloud
     src_pc_transformed = apply_transform(src_pc, transform)
 
-    # Create the four point cloud views
+    # Create the five point cloud views
     figures = []
 
     # 1. Source point cloud (original)
@@ -126,6 +128,54 @@ def display_pcr_datapoint_single(
             camera_state=camera_state
         ))
 
+    # 5. Correspondence visualization
+    # Convert to numpy if needed
+    src_points_np = src_pc_transformed.cpu().numpy()
+    tgt_points_np = tgt_pc.cpu().numpy()
+    
+    # Find correspondences based on radius
+    correspondences = []
+    for i, src_point in enumerate(src_points_np):
+        distances = np.linalg.norm(tgt_points_np - src_point, axis=1)
+        matches = np.where(distances < correspondence_radius)[0]
+        for match in matches:
+            correspondences.append((i, match))
+    
+    # Create figure with both point clouds
+    corr_fig = create_point_cloud_figure(
+        points=src_pc_transformed,
+        title="Point Cloud Correspondences",
+        point_size=point_size,
+        point_opacity=point_opacity,
+        camera_state=camera_state
+    )
+    
+    # Add target points
+    corr_fig.add_trace(go.Scatter3d(
+        x=tgt_points_np[:, 0],
+        y=tgt_points_np[:, 1],
+        z=tgt_points_np[:, 2],
+        mode='markers',
+        marker=dict(size=point_size, color='red', opacity=point_opacity),
+        name='Target Points'
+    ))
+    
+    # Add correspondence lines
+    for src_idx, tgt_idx in correspondences:
+        src_point = src_points_np[src_idx]
+        tgt_point = tgt_points_np[tgt_idx]
+        
+        corr_fig.add_trace(go.Scatter3d(
+            x=[src_point[0], tgt_point[0]],
+            y=[src_point[1], tgt_point[1]],
+            z=[src_point[2], tgt_point[2]],
+            mode='lines',
+            line=dict(color='gray', width=1),
+            showlegend=False
+        ))
+    
+    figures.append(corr_fig)
+
     # Compute rotation angle and translation magnitude
     rotation_matrix = transform[:3, :3]
     translation_vector = transform[:3, 3]
@@ -143,7 +193,7 @@ def display_pcr_datapoint_single(
         row = [f"{transform[i, j]:.4f}" for j in range(4)]
         transform_str += "  ".join(row) + "\n"
 
-    # Create a grid layout for the four figures
+    # Create a grid layout for the five figures
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
         html.Div([
@@ -172,6 +222,13 @@ def display_pcr_datapoint_single(
                 dcc.Graph(
                     id={'type': 'point-cloud-graph', 'index': 3},
                     figure=figures[3],
+                    style={'height': '400px'}
+                )
+            ], style={'width': '50%', 'display': 'inline-block'}),
+            html.Div([
+                dcc.Graph(
+                    id={'type': 'point-cloud-graph', 'index': 4},
+                    figure=figures[4],
                     style={'height': '400px'}
                 )
             ], style={'width': '50%', 'display': 'inline-block'})
@@ -339,7 +396,8 @@ def display_pcr_datapoint(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    radius: float = 0.05
+    radius: float = 0.05,
+    correspondence_radius: float = 0.1
 ) -> html.Div:
     """Display a point cloud registration datapoint.
 
@@ -349,6 +407,7 @@ def display_pcr_datapoint(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         radius: Radius for computing symmetric difference
+        correspondence_radius: Radius for finding correspondences between point clouds
 
     Returns:
         html.Div containing the visualization
@@ -371,4 +430,5 @@ def display_pcr_datapoint(
             point_opacity=point_opacity,
             camera_state=camera_state,
             radius=radius,
+            correspondence_radius=correspondence_radius,
         )
