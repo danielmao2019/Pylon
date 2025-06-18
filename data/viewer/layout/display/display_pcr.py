@@ -1,5 +1,6 @@
 """UI components for displaying point cloud registration dataset items."""
 from typing import Tuple, Dict, Optional, Any
+import random
 import numpy as np
 import torch
 from dash import dcc, html
@@ -165,6 +166,9 @@ def create_correspondence_visualization(
             line=dict(color='gray', width=1),
             showlegend=False
         ))
+
+    if len(correspondence_traces) > 1000:
+        correspondence_traces = random.sample(correspondence_traces, 1000)
 
     # Add all correspondence traces at once
     if correspondence_traces:
