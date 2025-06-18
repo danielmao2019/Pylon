@@ -10,8 +10,8 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
     """Find correspondences between two point clouds within a matching radius.
 
     Args:
-        src_points (torch.Tensor): Source point cloud [N, 3]
-        tgt_points (torch.Tensor): Target point cloud [M, 3]
+        src_points (torch.Tensor): Source point cloud [M, 3]
+        tgt_points (torch.Tensor): Target point cloud [N, 3]
         transform (torch.Tensor): Transformation matrix from source to target [4, 4]
         radius (float): Maximum distance threshold for correspondence matching
 
