@@ -294,42 +294,14 @@ def display_pcr_datapoint_single(
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
         html.Div([
-            html.Div([
+            # Create grid items using a for loop
+            *[html.Div([
                 dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 0},
-                    figure=figures[0],
+                    id={'type': 'point-cloud-graph', 'index': i},
+                    figure=fig,
                     style={'height': '400px'}
                 )
-            ], style={'width': '50%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 1},
-                    figure=figures[1],
-                    style={'height': '400px'}
-                )
-            ], style={'width': '50%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 2},
-                    figure=figures[2],
-                    style={'height': '400px'}
-                )
-            ], style={'width': '50%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 3},
-                    figure=figures[3],
-                    style={'height': '400px'}
-                )
-            ], style={'width': '50%', 'display': 'inline-block'}),
-            # TODO: Add correspondence visualization
-            # html.Div([
-            #     dcc.Graph(
-            #         id={'type': 'point-cloud-graph', 'index': 4},
-            #         figure=figures[4],
-            #         style={'height': '400px'}
-            #     )
-            # ], style={'width': '50%', 'display': 'inline-block'})
+            ], style={'width': '50%', 'display': 'inline-block'}) for i, fig in enumerate(figures)]
         ], style={'display': 'flex', 'flex-wrap': 'wrap'}),
 
         # Display transform information
