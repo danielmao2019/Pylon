@@ -481,7 +481,7 @@ def display_pcr_datapoint(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    radius: float = 0.05,
+    sym_diff_radius: float = 0.05,
     correspondence_radius: float = 0.1
 ) -> html.Div:
     """Display a point cloud registration datapoint.
@@ -491,7 +491,7 @@ def display_pcr_datapoint(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
-        radius: Radius for computing symmetric difference
+        sym_diff_radius: Radius for computing symmetric difference
         correspondence_radius: Radius for finding correspondences between point clouds
 
     Returns:
@@ -506,7 +506,7 @@ def display_pcr_datapoint(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            radius=radius,
+            radius=sym_diff_radius,
             correspondence_radius=correspondence_radius,
         )
     else:
@@ -515,6 +515,6 @@ def display_pcr_datapoint(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            radius=radius,
+            radius=sym_diff_radius,
             correspondence_radius=correspondence_radius,
         )
