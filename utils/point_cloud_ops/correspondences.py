@@ -6,14 +6,14 @@ import open3d as o3d
 from utils.point_cloud_ops.apply_transform import apply_transform
 
 
-def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, transform: torch.Tensor, matching_radius: float) -> torch.Tensor:
+def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, transform: torch.Tensor, radius: float) -> torch.Tensor:
     """Find correspondences between two point clouds within a matching radius.
 
     Args:
-        ref_points (torch.Tensor): Reference point cloud [N, 3]
-        src_points (torch.Tensor): Source point cloud [M, 3]
-        transform (torch.Tensor): Transformation matrix from source to reference [4, 4]
-        matching_radius (float): Maximum distance threshold for correspondence matching
+        src_points (torch.Tensor): Source point cloud [N, 3]
+        tgt_points (torch.Tensor): Target point cloud [M, 3]
+        transform (torch.Tensor): Transformation matrix from source to target [4, 4]
+        radius (float): Maximum distance threshold for correspondence matching
 
     Returns:
         torch.Tensor: Correspondence indices [K, 2] where K is number of correspondences
@@ -33,7 +33,7 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
     src_tree = cKDTree(src_points)
 
     # Find correspondences within radius
-    indices_list = src_tree.query_ball_point(tgt_points, matching_radius)
+    indices_list = src_tree.query_ball_point(tgt_points, radius)
 
     # Create correspondence pairs
     corr_indices = np.array([
