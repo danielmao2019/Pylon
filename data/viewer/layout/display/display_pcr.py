@@ -152,12 +152,12 @@ def create_correspondence_visualization(
         name='Target Points'
     ))
 
-    # Add correspondence lines
+    # Create list of correspondence line traces
+    correspondence_traces = []
     for src_idx, tgt_idx in correspondences:
         src_point = src_points_np[src_idx]
         tgt_point = tgt_points_np[tgt_idx]
-
-        corr_fig.add_trace(go.Scatter3d(
+        correspondence_traces.append(go.Scatter3d(
             x=[src_point[0], tgt_point[0]],
             y=[src_point[1], tgt_point[1]],
             z=[src_point[2], tgt_point[2]],
@@ -165,6 +165,10 @@ def create_correspondence_visualization(
             line=dict(color='gray', width=1),
             showlegend=False
         ))
+
+    # Add all correspondence traces at once
+    if correspondence_traces:
+        corr_fig.add_traces(correspondence_traces)
 
     return corr_fig
 
