@@ -40,8 +40,8 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
     # Create correspondence pairs
     corr_indices = np.array([
         (i, j)
-        for i, indices in enumerate(indices_list)
-        for j in indices
+        for j, indices in enumerate(indices_list)
+        for i in indices
     ], dtype=np.int64)
 
     return torch.tensor(corr_indices, dtype=torch.int64, device=device)
