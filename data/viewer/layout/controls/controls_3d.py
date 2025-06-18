@@ -2,7 +2,7 @@
 from dash import dcc, html
 
 
-def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, radius=0.05, correspondence_radius=0.1):
+def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_radius=0.05, corr_radius=0.1):
     """
     Create 3D visualization controls.
 
@@ -10,8 +10,8 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, radius=0.
         visible: Whether the controls should be visible
         point_size: Initial point size
         point_opacity: Initial point opacity
-        radius: Initial radius for symmetric difference computation
-        correspondence_radius: Initial radius for correspondence visualization
+        sym_diff_radius: Initial radius for symmetric difference computation
+        corr_radius: Initial radius for correspondence visualization
 
     Returns:
         html.Div containing 3D controls
@@ -49,7 +49,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, radius=0.
                 id='radius-slider',
                 min=0.0,
                 max=1.0,
-                value=radius,
+                value=sym_diff_radius,
                 marks={i/10: str(i/10) for i in range(0, 11, 2)},
                 step=0.01
             ),
@@ -60,7 +60,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, radius=0.
                 id='correspondence-radius-slider',
                 min=0.0,
                 max=1.0,
-                value=correspondence_radius,
+                value=corr_radius,
                 marks={i/10: str(i/10) for i in range(0, 11, 2)},
                 step=0.01
             ),
