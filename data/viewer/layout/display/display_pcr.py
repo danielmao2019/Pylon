@@ -359,7 +359,8 @@ def display_pcr_datapoint_batched(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    radius: float = 0.05
+    radius: float = 0.05,
+    correspondence_radius: float = 0.1
 ) -> html.Div:
     """Display a batched point cloud registration datapoint.
 
@@ -369,6 +370,7 @@ def display_pcr_datapoint_batched(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         radius: Radius for computing symmetric difference
+        correspondence_radius: Radius for finding correspondences between point clouds
 
     Returns:
         html.Div containing the visualization
@@ -383,7 +385,7 @@ def display_pcr_datapoint_batched(
             inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
         )
 
-        # For top level (level 0), show union and symmetric difference
+        # For top level (level 0), show all visualizations
         if level == 0:
             # Source point cloud
             figures.append(create_point_cloud_figure(
@@ -403,51 +405,40 @@ def display_pcr_datapoint_batched(
                 camera_state=camera_state,
             ))
 
-            # Union of source and target
-            union_pc = torch.cat([src_points, tgt_points], dim=0)
-            src_colors = torch.ones((len(src_points), 3), device=src_points.device)
-            src_colors[:, 0] = 1.0  # Red for source
-            tgt_colors = torch.ones((len(tgt_points), 3), device=tgt_points.device)
-            tgt_colors[:, 2] = 1.0  # Blue for target
-            union_colors = torch.cat([src_colors, tgt_colors], dim=0)
-
-            figures.append(create_point_cloud_figure(
-                points=union_pc,
-                colors=union_colors,
-                title=f"Union (Level {level})",
+            # Union visualization
+            union_fig = create_union_visualization(
+                src_points,
+                tgt_points,
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
-            ))
+            )
+            union_fig.update_layout(title=f"Union (Level {level})")
+            figures.append(union_fig)
 
-            # Symmetric difference
-            src_indices, tgt_indices = pc_symmetric_difference(src_points, tgt_points, radius)
-            if len(src_indices) > 0 or len(tgt_indices) > 0:
-                src_diff = src_points[src_indices]
-                tgt_diff = tgt_points[tgt_indices]
-                sym_diff_pc = torch.cat([src_diff, tgt_diff], dim=0)
-                src_colors = torch.ones((len(src_indices), 3), device=src_diff.device)
-                src_colors[:, 0] = 1.0
-                tgt_colors = torch.ones((len(tgt_indices), 3), device=tgt_diff.device)
-                tgt_colors[:, 2] = 1.0
-                sym_diff_colors = torch.cat([src_colors, tgt_colors], dim=0)
+            # Symmetric difference visualization
+            sym_diff_fig = create_symmetric_difference_visualization(
+                src_points,
+                tgt_points,
+                radius=radius,
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+            )
+            sym_diff_fig.update_layout(title=f"Symmetric Difference (Level {level})")
+            figures.append(sym_diff_fig)
 
-                figures.append(create_point_cloud_figure(
-                    points=sym_diff_pc,
-                    colors=sym_diff_colors,
-                    title=f"Symmetric Difference (Level {level})",
-                    point_size=point_size,
-                    point_opacity=point_opacity,
-                    camera_state=camera_state,
-                ))
-            else:
-                figures.append(create_point_cloud_figure(
-                    torch.zeros((1, 3), device=src_points.device),
-                    title=f"Symmetric Difference (Empty) (Level {level})",
-                    point_size=point_size,
-                    point_opacity=point_opacity,
-                    camera_state=camera_state
-                ))
+            # Correspondence visualization
+            corr_fig = create_correspondence_visualization(
+                src_points,
+                tgt_points,
+                correspondence_radius=correspondence_radius,
+                point_size=point_size,
+                point_opacity=point_opacity,
+                camera_state=camera_state,
+            )
+            corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
+            figures.append(corr_fig)
         else:
             # For lower levels, only show source and target
             figures.append(create_point_cloud_figure(
@@ -516,6 +507,7 @@ def display_pcr_datapoint(
             point_opacity=point_opacity,
             camera_state=camera_state,
             radius=radius,
+            correspondence_radius=correspondence_radius,
         )
     else:
         return display_pcr_datapoint_single(
