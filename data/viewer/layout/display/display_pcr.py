@@ -262,15 +262,16 @@ def display_pcr_datapoint_single(
         camera_state=camera_state,
     ))
 
-    # 5. Correspondence visualization
-    figures.append(create_correspondence_visualization(
-        src_pc_transformed,
-        tgt_pc,
-        radius=corr_radius,
-        point_size=point_size,
-        point_opacity=point_opacity,
-        camera_state=camera_state,
-    ))
+    # TODO: Add correspondence visualization
+    # # 5. Correspondence visualization
+    # figures.append(create_correspondence_visualization(
+    #     src_pc_transformed,
+    #     tgt_pc,
+    #     radius=corr_radius,
+    #     point_size=point_size,
+    #     point_opacity=point_opacity,
+    #     camera_state=camera_state,
+    # ))
 
     # Compute rotation angle and translation magnitude
     rotation_matrix = transform[:3, :3]
@@ -321,13 +322,14 @@ def display_pcr_datapoint_single(
                     style={'height': '400px'}
                 )
             ], style={'width': '50%', 'display': 'inline-block'}),
-            html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': 4},
-                    figure=figures[4],
-                    style={'height': '400px'}
-                )
-            ], style={'width': '50%', 'display': 'inline-block'})
+            # TODO: Add correspondence visualization
+            # html.Div([
+            #     dcc.Graph(
+            #         id={'type': 'point-cloud-graph', 'index': 4},
+            #         figure=figures[4],
+            #         style={'height': '400px'}
+            #     )
+            # ], style={'width': '50%', 'display': 'inline-block'})
         ], style={'display': 'flex', 'flex-wrap': 'wrap'}),
 
         # Display transform information
