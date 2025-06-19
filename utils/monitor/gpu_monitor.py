@@ -176,6 +176,14 @@ class GPUMonitor:
             for gpu in server_gpus
         }
 
+    @property
+    def gpus(self) -> List[GPUStatus]:
+        """Get all GPUs"""
+        return [
+            gpu for server_gpus in self.gpus_by_server.values() for gpu in server_gpus
+        ]
+
+    @property
     def connected_gpus(self) -> List[GPUStatus]:
         """Get all connected GPUs"""
         return [
@@ -183,6 +191,7 @@ class GPUMonitor:
             if gpu['connected']
         ]
 
+    @property
     def disconnected_gpus(self) -> Dict[str, List[int]]:
         """Get all disconnected GPUs"""
         return {
