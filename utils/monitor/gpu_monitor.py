@@ -99,14 +99,14 @@ class GPUMonitor:
 
     def _update_single_server(self, server: str) -> None:
         """Update all GPUs on a single server using batched queries"""
-        indices = [gpu['index'] for gpu in self.gpus_by_server[server]]
+        gpu_indices = [gpu['index'] for gpu in self.gpus_by_server[server]]
 
         # Get batched GPU info for all GPUs on this server
-        server_gpus_info = get_server_gpus_info(server, indices, self.ssh_pool, timeout=self.timeout)
+        server_gpus_info = get_server_gpus_info(server, gpu_indices, self.ssh_pool, timeout=self.timeout)
 
         # Update each GPU with the batched results
-        for idx in indices:
-            self._update_single_gpu(self.gpus_by_server[server][idx], server_gpus_info[idx])
+        for gpu in self.gpus_by_server[server]:
+            self._update_single_gpu(gpu, server_gpus_info[gpu['index']])
 
     def _update_single_gpu(self, gpu_status: GPUStatus, gpu_info: Dict[str, Any]) -> None:
         """Update a single GPU with the provided info"""
