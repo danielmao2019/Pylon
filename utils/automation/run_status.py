@@ -96,10 +96,8 @@ def get_all_run_status(
     assert isinstance(outdated_days, int)
     assert isinstance(gpu_monitor, GPUMonitor)
 
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(find_running, servers))
-    all_running = [run for server_runs in results for run in server_runs]
-    all_running_work_dirs = list(map(lambda x: get_work_dir(parse_config(x['command'])), all_running))
+    all_running_commands = gpu_monitor.get_all_running_commands()
+    all_running_work_dirs = list(map(lambda x: get_work_dir(parse_config(x)), all_running_commands))
 
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
@@ -113,6 +111,17 @@ def get_all_run_status(
         ))
 
     return all_run_status
+
+
+def parse_config(cmd: str) -> str:
+    """Extract config filepath from command string."""
+    assert 'python' in cmd, f"{cmd=}"
+    assert '--config-filepath' in cmd, f"{cmd=}"
+    parts = cmd.split(' ')
+    for idx, part in enumerate(parts):
+        if part == "--config-filepath":
+            return parts[idx+1]
+    assert 0
 
 
 def get_log_last_update(work_dir: str) -> Optional[float]:
@@ -164,17 +173,6 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> int:
             break
         idx += 1
     return idx
-
-
-def parse_config(cmd: str) -> str:
-    """Extract config filepath from command string."""
-    assert 'python' in cmd, f"{cmd=}"
-    assert '--config-filepath' in cmd, f"{cmd=}"
-    parts = cmd.split(' ')
-    for idx, part in enumerate(parts):
-        if part == "--config-filepath":
-            return parts[idx+1]
-    assert 0
 
 
 def check_file_loadable(filepath: str) -> bool:

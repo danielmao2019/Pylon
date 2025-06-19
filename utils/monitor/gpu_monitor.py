@@ -174,6 +174,18 @@ class GPUMonitor:
             for gpu in all_gpus
         }
 
+    def get_all_running_commands(self) -> List[str]:
+        """Get all running commands on all servers"""
+        all_gpus = [
+            gpu for server_gpus in self.gpus_by_server.values() for gpu in server_gpus
+            if gpu['connected']
+        ]
+        all_processes = [
+            process for gpu in all_gpus for process in gpu['processes']
+            if process['cmd'].startswith('python main.py --config-filepath')
+        ]
+        return all_processes
+
     def log_stats(self, logger):
         """Logs status of all monitored GPUs"""
         stats = self._check()
