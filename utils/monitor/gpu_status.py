@@ -139,24 +139,60 @@ def get_gpu_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -
     return results
 
 
-def get_gpu_processes(server: str, gpu_index: int, pool: SSHConnectionPool) -> List[str]:
-    """Get list of PIDs running on a specific GPU"""
-    # Get GPU UUID
+def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, List[str]]:
+    """Get list of PIDs running on multiple GPUs in a single batch operation.
+    
+    Args:
+        server: The server to query
+        indices: List of GPU indices to query
+        pool: SSH connection pool instance
+    
+    Returns:
+        Dict mapping GPU index to list of PIDs
+    """
+    if not indices:
+        return {}
+    
+    # Get GPU UUIDs for all requested indices
+    gpu_list = ','.join(map(str, indices))
     uuid_cmd = ['nvidia-smi', '--query-gpu=index,gpu_uuid',
-                '--format=csv,noheader', f'--id={gpu_index}']
+                '--format=csv,noheader', f'--id={gpu_list}']
     uuid_output = pool.execute(server, uuid_cmd)
-    gpu_uuid = uuid_output.split(', ')[1]
-
-    # Get PIDs for this UUID
+    
+    # Build mapping from GPU index to UUID
+    index_to_uuid = {}
+    for line in uuid_output.splitlines():
+        parts = line.split(', ')
+        if len(parts) == 2:
+            gpu_idx = int(parts[0])
+            gpu_uuid = parts[1]
+            index_to_uuid[gpu_idx] = gpu_uuid
+    
+    # Get all compute apps (PIDs) for all GPUs
     pids_cmd = ['nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
                 '--format=csv,noheader']
     pids_output = pool.execute(server, pids_cmd)
-    pids = []
+    
+    # Build mapping from UUID to PIDs
+    uuid_to_pids = {}
     for line in pids_output.splitlines():
-        uuid, pid = line.split(', ')
-        if uuid == gpu_uuid:
-            pids.append(pid)
-    return pids
+        parts = line.split(', ')
+        if len(parts) == 2:
+            uuid, pid = parts[0], parts[1]
+            if uuid not in uuid_to_pids:
+                uuid_to_pids[uuid] = []
+            uuid_to_pids[uuid].append(pid)
+    
+    # Map GPU indices to PIDs
+    results = {}
+    for gpu_idx in indices:
+        if gpu_idx in index_to_uuid:
+            uuid = index_to_uuid[gpu_idx]
+            results[gpu_idx] = uuid_to_pids.get(uuid, [])
+        else:
+            results[gpu_idx] = []
+    
+    return results
 
 
 def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConnectionPool, timeout: int = 10) -> Dict[int, Dict]:
@@ -180,15 +216,18 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
         # Get memory and utilization for all GPUs in batch
         gpu_mem_util = get_gpu_mem_util(server, gpu_indices, pool)
         
+        # Get process info for all GPUs in batch
+        gpu_pids = get_gpu_processes(server, gpu_indices, pool)
+        all_processes = get_all_processes(server, pool)
+        
         # Process each GPU
         for gpu_idx in gpu_indices:
             if gpu_idx in gpu_mem_util:
                 mem_util_data = gpu_mem_util[gpu_idx]
                 
-                # Get process info for this GPU
-                gpu_pids = get_gpu_processes(server, gpu_idx, pool)
-                all_processes = get_all_processes(server, pool)
-                processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
+                # Get processes for this GPU
+                pids = gpu_pids.get(gpu_idx, [])
+                processes = [all_processes[pid] for pid in pids if pid in all_processes]
                 
                 results[gpu_idx] = {
                     'server': server,
