@@ -68,6 +68,7 @@ class BaseEvaluator:
         # Initialize GPU monitor
         if torch.cuda.is_available():
             self.gpu_monitor = GPUMonitor()
+            self.gpu_monitor.start()
         else:
             self.gpu_monitor = None
 
@@ -126,10 +127,6 @@ class BaseEvaluator:
         """
         # init time
         start_time = time.time()
-
-        # Start GPU monitoring if available
-        if self.gpu_monitor is not None:
-            self.gpu_monitor.start()
 
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])
