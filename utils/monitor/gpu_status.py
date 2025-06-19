@@ -152,7 +152,7 @@ def get_gpu_info(server: str, gpu_indices: List[int], pool: SSHConnectionPool, t
                 'current_memory': gpu_mem_util[gpu_idx]['memory'],
                 'current_util': gpu_mem_util[gpu_idx]['util'],
                 'processes': gpu_processes[gpu_idx],
-                'success': True,
+                'connected': True,
             }
 
         return results
@@ -170,7 +170,7 @@ def get_gpu_info(server: str, gpu_indices: List[int], pool: SSHConnectionPool, t
                 'current_memory': None,
                 'current_util': None,
                 'processes': None,
-                'success': False,
+                'connected': False,
             }
             for gpu_idx in gpu_indices
         }
