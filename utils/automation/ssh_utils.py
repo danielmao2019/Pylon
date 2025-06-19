@@ -28,7 +28,7 @@ def get_ssh_cmd(server: str, command: List[str]) -> List[str]:
         return ssh_options + ["'"] + command + ["'"]
 
 
-def _safe_check_output(cmd: List[str], server: str, operation: str) -> Optional[str]:
+def safe_check_output(cmd: List[str], server: str, operation: str) -> Optional[str]:
     """Safely execute subprocess.check_output with error reporting
 
     Args:

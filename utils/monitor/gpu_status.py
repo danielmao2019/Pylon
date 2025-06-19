@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, TypedDict, Optional
 from utils.monitor.process_info import ProcessInfo, get_all_processes
-from utils.automation.ssh_utils import get_ssh_cmd, _safe_check_output
+from utils.automation.ssh_utils import get_ssh_cmd, safe_check_output
 from utils.timeout import with_timeout
 
 
@@ -23,8 +23,8 @@ def get_index2pids(server: str) -> List[List[str]]:
     index2gpu_uuid_cmd = get_ssh_cmd(server, index2gpu_uuid_cmd)
     gpu_uuid2pids_cmd = get_ssh_cmd(server, gpu_uuid2pids_cmd)
 
-    index2gpu_uuid_output = _safe_check_output(index2gpu_uuid_cmd, server, "GPU index to UUID mapping")
-    gpu_uuid2pids_output = _safe_check_output(gpu_uuid2pids_cmd, server, "GPU UUID to PIDs mapping")
+    index2gpu_uuid_output = safe_check_output(index2gpu_uuid_cmd, server, "GPU index to UUID mapping")
+    gpu_uuid2pids_output = safe_check_output(gpu_uuid2pids_cmd, server, "GPU UUID to PIDs mapping")
 
     if index2gpu_uuid_output is None or gpu_uuid2pids_output is None:
         return []
@@ -44,7 +44,7 @@ def get_index2pids(server: str) -> List[List[str]]:
 def get_user_pids(server: str) -> List[str]:
     cmd = ['ps', '-u', server.split('@')[0], '-o', 'pid=']
     cmd = get_ssh_cmd(server, cmd)
-    result = _safe_check_output(cmd, server, "user PIDs query")
+    result = safe_check_output(cmd, server, "user PIDs query")
     if result is None:
         return []
     return [line.strip() for line in result.splitlines()]
@@ -77,7 +77,7 @@ def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
                     continue
                 cmd = ['ps', '-p', pid, '-o', 'cmd=']
                 cmd = get_ssh_cmd(server, cmd)
-                command = _safe_check_output(cmd, server, f"process command query for PID {pid}")
+                command = safe_check_output(cmd, server, f"process command query for PID {pid}")
                 if command is None:
                     continue
                 command_lines = command.splitlines()
@@ -118,7 +118,7 @@ def get_gpu_memory(server: str, gpu_index: int) -> Optional[int]:
            '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
     cmd = get_ssh_cmd(server, cmd)
-    output = _safe_check_output(cmd, server, f"GPU {gpu_index} memory query")
+    output = safe_check_output(cmd, server, f"GPU {gpu_index} memory query")
     if output is None:
         return None
     return int(output)
@@ -131,7 +131,7 @@ def get_gpu_utilization(server: str, gpu_index: int) -> Optional[Dict[str, int]]
            '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
     cmd = get_ssh_cmd(server, cmd)
-    output = _safe_check_output(cmd, server, f"GPU {gpu_index} utilization query")
+    output = safe_check_output(cmd, server, f"GPU {gpu_index} utilization query")
     if output is None:
         return None
     memory_used, gpu_util = map(int, output.split(', '))
@@ -144,7 +144,7 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     uuid_cmd = ['nvidia-smi', '--query-gpu=index,gpu_uuid',
                 '--format=csv,noheader', f'--id={gpu_index}']
     uuid_cmd = get_ssh_cmd(server, uuid_cmd)
-    uuid_output = _safe_check_output(uuid_cmd, server, f"GPU {gpu_index} UUID query")
+    uuid_output = safe_check_output(uuid_cmd, server, f"GPU {gpu_index} UUID query")
     if uuid_output is None:
         return []
     gpu_uuid = uuid_output.split(', ')[1]
@@ -153,7 +153,7 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     pids_cmd = ['nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
                 '--format=csv,noheader']
     pids_cmd = get_ssh_cmd(server, pids_cmd)
-    pids_output = _safe_check_output(pids_cmd, server, f"GPU {gpu_index} PIDs query")
+    pids_output = safe_check_output(pids_cmd, server, f"GPU {gpu_index} PIDs query")
     if pids_output is None:
         return []
     pids = []

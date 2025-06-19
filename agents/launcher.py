@@ -7,7 +7,7 @@ from agents.base_agent import BaseAgent
 from utils.logging import TextLogger
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import RunStatus, get_all_run_status, parse_config
-from utils.automation.ssh_utils import get_ssh_cmd, _safe_check_output
+from utils.automation.ssh_utils import get_ssh_cmd, safe_check_output
 
 
 class Launcher(BaseAgent):
@@ -89,7 +89,7 @@ class Launcher(BaseAgent):
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
             cmd = get_ssh_cmd(server, ['kill', '-9', pid])
-            result = _safe_check_output(cmd, server, f"kill process {pid}")
+            result = safe_check_output(cmd, server, f"kill process {pid}")
             if result is not None:
                 self.logger.info(f"Successfully killed process {pid} on server {server}")
             else:
@@ -185,7 +185,7 @@ class Launcher(BaseAgent):
             full_cmd = ' '.join(ssh_cmd)
             self.logger.info(f"Launching job on server {gpu['server']}, GPU {gpu['gpu_index']}: {full_cmd}")
 
-            result = _safe_check_output(ssh_cmd, gpu['server'], f"launch job on GPU {gpu['gpu_index']}")
+            result = safe_check_output(ssh_cmd, gpu['server'], f"launch job on GPU {gpu['gpu_index']}")
             if result is not None:
                 self.logger.info(f"Successfully launched job on server {gpu['server']}, GPU {gpu['gpu_index']}")
             else:

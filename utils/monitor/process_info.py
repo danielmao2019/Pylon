@@ -1,5 +1,5 @@
 from typing import Dict, TypedDict
-from utils.automation.ssh_utils import get_ssh_cmd, _safe_check_output
+from utils.automation.ssh_utils import get_ssh_cmd, safe_check_output
 
 
 class ProcessInfo(TypedDict):
@@ -13,7 +13,7 @@ def get_all_processes(server: str) -> Dict[str, ProcessInfo]:
     """Get information for all processes on a server"""
     cmd = ["ps", "-eo", "pid=,user=,lstart=,cmd="]
     cmd = get_ssh_cmd(server, cmd)
-    result = _safe_check_output(cmd, server, "process list query")
+    result = safe_check_output(cmd, server, "process list query")
     if result is None:
         return {}
     
