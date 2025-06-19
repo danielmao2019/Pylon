@@ -159,10 +159,6 @@ class GPUMonitor:
 
     def _check(self) -> Dict:
         """Returns current status of all GPUs without rolling windows"""
-        all_gpus = []
-        for server_gpus in self.gpus_by_server.values():
-            all_gpus.extend(server_gpus)
-
         return {
             f"{gpu['server']}:{gpu['index']}": {
                 'server': gpu['server'],
@@ -176,7 +172,8 @@ class GPUMonitor:
                 'util_avg': gpu['util_stats']['avg'] if gpu['util_stats'] is not None else None,
                 'connected': gpu['connected'],
             }
-            for gpu in all_gpus
+            for server_gpus in self.gpus_by_server.values()
+            for gpu in server_gpus
         }
 
     def connected_gpus(self) -> List[GPUStatus]:
