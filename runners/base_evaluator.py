@@ -68,17 +68,8 @@ class BaseEvaluator:
 
         # Initialize GPU monitor
         if torch.cuda.is_available():
-            # Get physical device index
-            device_index = torch.cuda.current_device()
-            cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
-            if cuda_visible_devices:
-                visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
-                physical_device_index = visible_devices[device_index]
-            else:
-                physical_device_index = device_index
-
             # Create GPU monitor with localhost GPU organized by server
-            gpu_indices_by_server = {'localhost': [physical_device_index]}
+            gpu_indices_by_server = {'localhost': 'localhost'}
             self.gpu_monitor = GPUMonitor(gpu_indices_by_server, _ssh_pool)
         else:
             self.gpu_monitor = None

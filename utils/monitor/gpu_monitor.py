@@ -1,18 +1,20 @@
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Union
 import threading
 from concurrent.futures import ThreadPoolExecutor
+import torch
+import os
 from utils.monitor.gpu_status import GPUStatus, get_gpu_info
 from utils.automation.ssh_utils import SSHConnectionPool
 
 
 class GPUMonitor:
 
-    def __init__(self, gpu_indices_by_server: Dict[str, List[int]], ssh_pool: SSHConnectionPool, timeout: int = 5):
+    def __init__(self, gpu_indices_by_server: Dict[str, Union[List[int], str]], ssh_pool: SSHConnectionPool, timeout: int = 5):
         """
         Initialize GPU monitor with GPU indices organized by server.
 
         Args:
-            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices
+            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices or 'localhost'
             ssh_pool: SSH connection pool instance (required)
             timeout: SSH command timeout in seconds
         """
@@ -26,18 +28,36 @@ class GPUMonitor:
         # Do one update first
         self._update_gpu_info_batched()
 
-    def _init_gpu_status(self, gpu_indices_by_server: Dict[str, List[int]]) -> Dict[str, List[GPUStatus]]:
+    def _init_gpu_status(self, gpu_indices_by_server: Dict[str, Union[List[int], str]]) -> Dict[str, List[GPUStatus]]:
         """Initialize GPUStatus objects from GPU indices organized by server.
 
         Args:
-            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices
+            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices or 'localhost'
 
         Returns:
             Dictionary mapping server names to lists of GPUStatus objects
         """
         gpus_by_server = {}
 
-        for server, indices in gpu_indices_by_server.items():
+        for server, indices_or_localhost in gpu_indices_by_server.items():
+            if indices_or_localhost == 'localhost':
+                # Handle localhost case - get physical GPU index
+                if torch.cuda.is_available():
+                    device_index = torch.cuda.current_device()
+                    cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
+                    if cuda_visible_devices:
+                        visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
+                        physical_device_index = visible_devices[device_index]
+                    else:
+                        physical_device_index = device_index
+                    indices = [physical_device_index]
+                else:
+                    # No CUDA available, skip this server
+                    continue
+            else:
+                # Regular list of indices
+                indices = indices_or_localhost
+
             server_gpus = []
             for gpu_idx in indices:
                 gpu_status: GPUStatus = {
