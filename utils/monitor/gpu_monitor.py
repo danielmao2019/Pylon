@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from utils.monitor.gpu_status import GPUStatus, get_all_gpu_info_batched
+from utils.monitor.gpu_status import GPUStatus, get_gpu_info
 from utils.automation.ssh_utils import SSHConnectionPool
 
 
@@ -10,7 +10,7 @@ class GPUMonitor:
     def __init__(self, gpus_by_server: Dict[str, List[GPUStatus]], timeout: int = 5, ssh_pool: Optional[SSHConnectionPool] = None):
         """
         Initialize GPU monitor with GPUs organized by server.
-        
+
         Args:
             gpus_by_server: Dictionary mapping server names to lists of GPUStatus objects
             timeout: SSH command timeout in seconds
@@ -19,7 +19,7 @@ class GPUMonitor:
         self.gpus_by_server = gpus_by_server
         self.monitor_thread: Optional[threading.Thread] = None
         self.timeout = timeout
-        
+
         # Use provided SSH pool or create a new one
         self.ssh_pool = ssh_pool if ssh_pool is not None else SSHConnectionPool()
 
@@ -44,7 +44,7 @@ class GPUMonitor:
                 executor.submit(self._update_server_gpus, server, gpus): server
                 for server, gpus in self.gpus_by_server.items()
             }
-            
+
             # Collect results
             for future in future_to_server:
                 try:
@@ -56,11 +56,11 @@ class GPUMonitor:
     def _update_server_gpus(self, server: str, server_gpus: List[GPUStatus]):
         """Update all GPUs on a single server using batched queries"""
         gpu_indices = [gpu['index'] for gpu in server_gpus]
-        
+
         try:
             # Get batched GPU info for all GPUs on this server
-            batch_results = get_all_gpu_info_batched(server, gpu_indices, self.ssh_pool, timeout=self.timeout)
-            
+            batch_results = get_gpu_info(server, gpu_indices, self.ssh_pool, timeout=self.timeout)
+
             # Update each GPU with the batched results
             for gpu in server_gpus:
                 gpu_idx = gpu['index']
@@ -70,7 +70,7 @@ class GPUMonitor:
                 else:
                     # Mark GPU as failed if not in batch results
                     self._mark_gpu_failed(gpu)
-                    
+
         except Exception as e:
             print(f"ERROR: Failed to update server {server} GPUs {gpu_indices}: {e}")
             # Mark all GPUs as failed
@@ -136,7 +136,7 @@ class GPUMonitor:
         all_gpus = []
         for server_gpus in self.gpus_by_server.values():
             all_gpus.extend(server_gpus)
-            
+
         return {
             f"{gpu['server']}:{gpu['index']}": {
                 'server': gpu['server'],

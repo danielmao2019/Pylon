@@ -118,7 +118,7 @@ def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) 
     return results
 
 
-def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConnectionPool, timeout: int = 10) -> Dict[int, Dict]:
+def get_gpu_info(server: str, gpu_indices: List[int], pool: SSHConnectionPool, timeout: int = 10) -> Dict[int, Dict]:
     """Get information for multiple GPUs on a server in a single batch operation.
 
     This reduces SSH connection overhead by batching multiple GPU queries.
@@ -133,7 +133,7 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
         Dict mapping GPU index to GPU info dictionary
     """
     @with_timeout(seconds=timeout)
-    def _get_all_gpu_info_batched():
+    def _get_gpu_info():
         results = {}
 
         # Get memory and utilization for all GPUs in batch
@@ -158,7 +158,7 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
         return results
 
     try:
-        return _get_all_gpu_info_batched()
+        return _get_gpu_info()
     except Exception as e:
         print(f"ERROR: Failed to get batch GPU info for server {server}, GPUs {gpu_indices}: {e}")
         # Return failed results for all requested GPUs
