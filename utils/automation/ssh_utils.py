@@ -191,23 +191,6 @@ class SSHConnectionPool:
             return True
         except Exception:
             return False
-    
-    def get_stats(self) -> Dict[str, Dict[str, int]]:
-        """
-        Get statistics about the SSH connection pool.
-        
-        Returns:
-            Dictionary with pool statistics per server
-        """
-        stats = {}
-        for server in self._pools.keys():
-            pool = self._pools[server]
-            stats[server] = {
-                'pool_size': pool.qsize(),
-                'max_connections': self.max_connections_per_server,
-                'active_connections': self._active_connections.get(server, 0)
-            }
-        return stats
 
 
 class SSHCommandError(Exception):
@@ -217,7 +200,6 @@ class SSHCommandError(Exception):
 
 # Global connection pool instance
 _ssh_pool = SSHConnectionPool()
-
 
 
 def test_ssh_connection(server: str, timeout: int = 10) -> bool:
@@ -232,13 +214,3 @@ def test_ssh_connection(server: str, timeout: int = 10) -> bool:
         True if connection successful, False otherwise
     """
     return _ssh_pool.test_connection(server, timeout)
-
-
-def get_ssh_pool_stats() -> Dict[str, Dict[str, int]]:
-    """
-    Get statistics about the SSH connection pool.
-    
-    Returns:
-        Dictionary with pool statistics per server
-    """
-    return _ssh_pool.get_stats()
