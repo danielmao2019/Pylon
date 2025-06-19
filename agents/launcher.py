@@ -170,6 +170,7 @@ class Launcher(BaseAgent):
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
             tmux_cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
 
+            self.logger.info(f"Executing command on {gpu['server']}: {tmux_cmd}")
             self.ssh_pool.execute(gpu['server'], [tmux_cmd])
 
         for gpu, run in zip(gpu_pool, missing_runs):
