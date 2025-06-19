@@ -1,6 +1,6 @@
 from typing import List, Dict, Any, TypedDict, Optional
 from utils.monitor.process_info import ProcessInfo, get_all_processes
-from utils.automation.ssh_utils import SSHConnectionPool, SSHCommandError
+from utils.automation.ssh_utils import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
@@ -135,6 +135,7 @@ def get_gpu_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -
                 'util': gpu_util,
                 'max_memory': max_memory
             }
+    assert results.keys() == set(indices), f"{results.keys()=}, {indices=}"
     
     return results
 
@@ -196,7 +197,8 @@ def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) 
             results[gpu_idx] = processes
         else:
             results[gpu_idx] = []
-    
+    assert results.keys() == set(indices), f"{results.keys()=}, {indices=}"
+
     return results
 
 
@@ -224,34 +226,18 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
         # Get process info for all GPUs in batch
         gpu_processes = get_gpu_processes(server, gpu_indices, pool)
         
-        # Process each GPU
+        # Merge query results
         for gpu_idx in gpu_indices:
-            if gpu_idx in gpu_mem_util:
-                mem_util_data = gpu_mem_util[gpu_idx]
-                
-                # Get processes for this GPU
-                processes = gpu_processes.get(gpu_idx, [])
-                
-                results[gpu_idx] = {
-                    'server': server,
-                    'index': gpu_idx,
-                    'max_memory': mem_util_data['max_memory'],
-                    'processes': processes,
-                    'current_memory': mem_util_data['memory'],
-                    'current_util': mem_util_data['util'],
-                    'success': True,
-                }
-            else:
-                # Handle case where GPU data wasn't returned
-                results[gpu_idx] = {
-                    'server': server,
-                    'index': gpu_idx,
-                    'max_memory': None,
-                    'processes': None,
-                    'current_memory': None,
-                    'current_util': None,
-                    'success': False,
-                }
+            # Get processes for this GPU
+            results[gpu_idx] = {
+                'server': server,
+                'index': gpu_idx,
+                'max_memory': gpu_mem_util[gpu_idx]['max_memory'],
+                'current_memory': gpu_mem_util[gpu_idx]['memory'],
+                'current_util': gpu_mem_util[gpu_idx]['util'],
+                'processes': gpu_processes[gpu_idx],
+                'success': True,
+            }
         
         return results
 
@@ -265,15 +251,10 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
                 'server': server,
                 'index': gpu_idx,
                 'max_memory': None,
-                'processes': None,
                 'current_memory': None,
                 'current_util': None,
+                'processes': None,
                 'success': False,
             }
             for gpu_idx in gpu_indices
         }
-
-
-def get_ssh_pool_status(pool: SSHConnectionPool) -> Dict[str, Dict[str, int]]:
-    """Get SSH connection pool status for monitoring purposes."""
-    return pool.get_stats()
