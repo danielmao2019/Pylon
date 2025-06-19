@@ -133,6 +133,12 @@ def get_server_gpus_info(server: str, gpu_indices: List[int], pool: SSHConnectio
     Returns:
         Dict mapping GPU index to GPU info dictionary
     """
+    assert isinstance(server, str), f"{server=}"
+    assert isinstance(gpu_indices, list), f"{gpu_indices=}"
+    assert all(isinstance(idx, int) for idx in gpu_indices), f"{gpu_indices=}"
+    assert isinstance(pool, SSHConnectionPool), f"{pool=}"
+    assert isinstance(timeout, int), f"{timeout=}"
+
     @with_timeout(seconds=timeout)
     def _get_server_gpus_info():
         results = {}
