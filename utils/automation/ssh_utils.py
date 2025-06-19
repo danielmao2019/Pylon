@@ -3,6 +3,58 @@ import subprocess
 import threading
 from contextlib import contextmanager
 import queue
+import time
+
+
+class SSHConnection:
+    """Represents an active SSH connection that can execute commands."""
+    
+    def __init__(self, server: str, ssh_options: List[str]):
+        self.server = server
+        self.ssh_options = ssh_options
+        self.process = None
+        self.last_used = time.time()
+        
+    def connect(self):
+        """Establish the SSH connection."""
+        cmd = ['ssh'] + self.ssh_options + [self.server]
+        self.process = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        # Test the connection
+        self.execute(['echo', 'connection_test'])
+        
+    def execute(self, command: List[str]) -> str:
+        """Execute a command through this SSH connection."""
+        if self.process is None or self.process.poll() is not None:
+            raise Exception("SSH connection is not active")
+            
+        # Send command to SSH process
+        command_str = ' '.join(command) + '\n'
+        stdout, stderr = self.process.communicate(input=command_str, timeout=30)
+        
+        if self.process.returncode != 0:
+            raise Exception(f"SSH command failed: {stderr}")
+            
+        self.last_used = time.time()
+        return stdout.strip()
+        
+    def close(self):
+        """Close the SSH connection."""
+        if self.process:
+            try:
+                self.process.terminate()
+                self.process.wait(timeout=5)
+            except:
+                try:
+                    self.process.kill()
+                except:
+                    pass
+            self.process = None
 
 
 class SSHConnectionPool:
@@ -77,31 +129,8 @@ class SSHConnectionPool:
         # For remote servers, use connection pool
         with self._get_connection(server) as connection:
             try:
-                # Build full SSH command
-                ssh_cmd = ['ssh'] + self.ssh_options + [server] + command
-
-                result = subprocess.run(
-                    ssh_cmd,
-                    capture_output=True,
-                    text=True,
-                    timeout=self.command_timeout
-                )
-
-                if result.returncode != 0:
-                    error_msg = f"SSH command failed on {server}"
-                    if result.stderr:
-                        error_msg += f": {result.stderr.strip()}"
-                    if result.stdout:
-                        error_msg += f" (stdout: {result.stdout.strip()})"
-                    raise SSHCommandError(error_msg)
-
-                return result.stdout.strip()
-
-            except subprocess.TimeoutExpired:
-                raise SSHCommandError(f"SSH command timed out on {server} after {self.command_timeout}s")
+                return connection.execute(command)
             except Exception as e:
-                if isinstance(e, SSHCommandError):
-                    raise
                 raise SSHCommandError(f"SSH command failed on {server}: {str(e)}")
 
     @contextmanager
@@ -114,6 +143,10 @@ class SSHConnectionPool:
         connection = None
         try:
             connection = pool.get_nowait()
+            # Test if connection is still valid
+            if not self._is_connection_valid(connection):
+                connection.close()
+                connection = None
         except queue.Empty:
             pass
 
@@ -126,68 +159,51 @@ class SSHConnectionPool:
                 else:
                     # Wait for a connection to become available
                     connection = pool.get(timeout=self.connection_timeout)
+                    # Test if connection is still valid
+                    if not self._is_connection_valid(connection):
+                        connection.close()
+                        connection = self._create_connection(server)
 
         try:
             yield connection
         finally:
             # Return connection to pool if it's still valid
-            if connection and self._is_connection_valid(connection, server):
+            if connection and self._is_connection_valid(connection):
                 try:
                     pool.put_nowait(connection)
                 except queue.Full:
                     # Pool is full, close the connection
-                    self._close_connection(connection)
+                    connection.close()
                     with connection_lock:
                         self._active_connections[server] -= 1
             else:
                 # Connection is invalid, close it
                 if connection:
-                    self._close_connection(connection)
+                    connection.close()
                 with connection_lock:
                     self._active_connections[server] -= 1
 
-    def _create_connection(self, server: str) -> subprocess.Popen:
+    def _create_connection(self, server: str) -> SSHConnection:
         """Create a new SSH connection."""
-        cmd = ['ssh'] + self.ssh_options + [server, 'bash', '-c', 'echo "connection_test"']
-        return subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        connection = SSHConnection(server, self.ssh_options)
+        connection.connect()
+        return connection
 
-    def _is_connection_valid(self, connection: subprocess.Popen, server: str) -> bool:
+    def _is_connection_valid(self, connection: SSHConnection) -> bool:
         """Check if an SSH connection is still valid."""
-        if connection.poll() is not None:
+        if connection is None or connection.process is None:
+            return False
+            
+        if connection.process.poll() is not None:
+            return False
+
+        # Check if connection is too old (optional)
+        if time.time() - connection.last_used > 300:  # 5 minutes
             return False
 
         # Test the connection with a simple command
         try:
-            test_cmd = ['ssh'] + self.ssh_options + [server, 'echo', 'test']
-            result = subprocess.run(test_cmd, capture_output=True, text=True, timeout=5)
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, Exception):
-            return False
-
-    def _close_connection(self, connection: subprocess.Popen):
-        """Close an SSH connection."""
-        try:
-            connection.terminate()
-            connection.wait(timeout=5)
-        except (subprocess.TimeoutExpired, Exception):
-            try:
-                connection.kill()
-            except Exception:
-                pass
-
-    def test_connection(self, server: str, timeout: int = 10) -> bool:
-        """
-        Test SSH connection to a server.
-
-        Args:
-            server: Server in format user@host
-            timeout: Connection timeout in seconds
-
-        Returns:
-            True if connection successful, False otherwise
-        """
-        try:
-            self.execute(server, ['echo', 'test'])
+            connection.execute(['echo', 'test'])
             return True
         except Exception:
             return False
