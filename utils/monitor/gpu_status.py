@@ -1,12 +1,12 @@
 from typing import List, Dict, Any, TypedDict, Optional
-import subprocess
 from utils.monitor.process_info import ProcessInfo, get_all_processes
 from utils.monitor.ssh_utils import get_ssh_cmd
+from utils.automation.ssh_utils import _safe_check_output
 from utils.timeout import with_timeout
 
 
 def _build_mapping(output: str) -> Dict[str, List[str]]:
-    lines = output.decode().strip().splitlines()
+    lines = output.strip().splitlines()
     assert type(lines) == list
     assert all([type(elem) == str for elem in lines])
     lines = [line.strip().split(", ") for line in lines]
@@ -24,8 +24,15 @@ def get_index2pids(server: str) -> List[List[str]]:
     index2gpu_uuid_cmd = get_ssh_cmd(server, index2gpu_uuid_cmd)
     gpu_uuid2pids_cmd = get_ssh_cmd(server, gpu_uuid2pids_cmd)
 
-    index2gpu_uuid: Dict[str, List[str]] = _build_mapping(subprocess.check_output(index2gpu_uuid_cmd))
-    gpu_uuid2pids: Dict[str, List[str]] = _build_mapping(subprocess.check_output(gpu_uuid2pids_cmd))
+    index2gpu_uuid_output = _safe_check_output(index2gpu_uuid_cmd, server, "GPU index to UUID mapping")
+    gpu_uuid2pids_output = _safe_check_output(gpu_uuid2pids_cmd, server, "GPU UUID to PIDs mapping")
+
+    if index2gpu_uuid_output is None or gpu_uuid2pids_output is None:
+        return []
+
+    index2gpu_uuid: Dict[str, List[str]] = _build_mapping(index2gpu_uuid_output)
+    gpu_uuid2pids: Dict[str, List[str]] = _build_mapping(gpu_uuid2pids_output)
+
     num_gpus = len(index2gpu_uuid)
     result: List[List[str]] = [None] * num_gpus
     for idx in range(num_gpus):
@@ -38,9 +45,10 @@ def get_index2pids(server: str) -> List[List[str]]:
 def get_user_pids(server: str) -> List[str]:
     cmd = ['ps', '-u', server.split('@')[0], '-o', 'pid=']
     cmd = get_ssh_cmd(server, cmd)
-    result: List[str] = subprocess.check_output(cmd).decode().splitlines()
-    result = list(map(lambda x: x.strip(), result))
-    return result
+    result = _safe_check_output(cmd, server, "user PIDs query")
+    if result is None:
+        return []
+    return [line.strip() for line in result.splitlines()]
 
 
 def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
@@ -63,18 +71,19 @@ def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
         all_running: List[Dict[str, Any]] = []
         gpu_pids = get_index2pids(server)
         user_pids = get_user_pids(server)
+
         for gpu_index in range(len(gpu_pids)):
             for pid in gpu_pids[gpu_index]:
                 if pid not in user_pids:
                     continue
                 cmd = ['ps', '-p', pid, '-o', 'cmd=']
                 cmd = get_ssh_cmd(server, cmd)
-                try:
-                    command = subprocess.check_output(cmd).decode().splitlines()
-                except:
+                command = _safe_check_output(cmd, server, f"process command query for PID {pid}")
+                if command is None:
                     continue
-                assert len(command) == 1, f"{command=}, {pid=}, {server=}"
-                command = command[0].strip()
+                command_lines = command.splitlines()
+                assert len(command_lines) == 1, f"{command_lines=}, {pid=}, {server=}"
+                command = command_lines[0].strip()
                 if 'python main.py --config-filepath' not in command:
                     continue
                 all_running.append({
@@ -86,7 +95,8 @@ def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
 
     try:
         return _find_running()
-    except:
+    except Exception as e:
+        print(f"ERROR: Timeout or error finding running processes for server {server}: {e}")
         return []
 
 
@@ -102,25 +112,29 @@ class GPUStatus(TypedDict):
     util_stats: dict[str, Optional[float]]
 
 
-def get_gpu_memory(server: str, gpu_index: int) -> int:
+def get_gpu_memory(server: str, gpu_index: int) -> Optional[int]:
     """Get total memory for a specific GPU"""
     cmd = ['nvidia-smi',
            '--query-gpu=memory.total',
            '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
     cmd = get_ssh_cmd(server, cmd)
-    output = subprocess.check_output(cmd).decode().strip()
+    output = _safe_check_output(cmd, server, f"GPU {gpu_index} memory query")
+    if output is None:
+        return None
     return int(output)
 
 
-def get_gpu_utilization(server: str, gpu_index: int) -> Dict[str, int]:
+def get_gpu_utilization(server: str, gpu_index: int) -> Optional[Dict[str, int]]:
     """Get current memory and utilization for a specific GPU"""
     cmd = ['nvidia-smi',
            '--query-gpu=memory.used,utilization.gpu',
            '--format=csv,noheader,nounits',
            f'--id={gpu_index}']
     cmd = get_ssh_cmd(server, cmd)
-    output = subprocess.check_output(cmd).decode().strip()
+    output = _safe_check_output(cmd, server, f"GPU {gpu_index} utilization query")
+    if output is None:
+        return None
     memory_used, gpu_util = map(int, output.split(', '))
     return {'memory': memory_used, 'util': gpu_util}
 
@@ -131,14 +145,18 @@ def get_gpu_processes(server: str, gpu_index: int) -> List[str]:
     uuid_cmd = ['nvidia-smi', '--query-gpu=index,gpu_uuid',
                 '--format=csv,noheader', f'--id={gpu_index}']
     uuid_cmd = get_ssh_cmd(server, uuid_cmd)
-    uuid_output = subprocess.check_output(uuid_cmd).decode().strip()
+    uuid_output = _safe_check_output(uuid_cmd, server, f"GPU {gpu_index} UUID query")
+    if uuid_output is None:
+        return []
     gpu_uuid = uuid_output.split(', ')[1]
 
     # Get PIDs for this UUID
     pids_cmd = ['nvidia-smi', '--query-compute-apps=gpu_uuid,pid',
                 '--format=csv,noheader']
     pids_cmd = get_ssh_cmd(server, pids_cmd)
-    pids_output = subprocess.check_output(pids_cmd).decode().strip()
+    pids_output = _safe_check_output(pids_cmd, server, f"GPU {gpu_index} PIDs query")
+    if pids_output is None:
+        return []
     pids = []
     for line in pids_output.splitlines():
         uuid, pid = line.split(', ')
@@ -174,14 +192,15 @@ def get_gpu_info(server: str, gpu_index: int, timeout: int = 5) -> Dict:
             'index': gpu_index,
             'max_memory': max_memory,
             'processes': processes,
-            'current_memory': util_info['memory'],
-            'current_util': util_info['util'],
+            'current_memory': util_info['memory'] if util_info else None,
+            'current_util': util_info['util'] if util_info else None,
             'success': True,
         }
 
     try:
         return _get_gpu_info()
-    except:
+    except Exception as e:
+        print(f"ERROR: Failed to get GPU info for server {server}, GPU {gpu_index}: {e}")
         return {
             'server': server,
             'index': gpu_index,

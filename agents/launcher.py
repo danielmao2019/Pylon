@@ -1,14 +1,14 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import os
 import time
-import random
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
+import random
 from agents.base_agent import BaseAgent
 from utils.logging import TextLogger
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import RunStatus, get_all_run_status, parse_config
 from utils.monitor.ssh_utils import get_ssh_cmd
+from utils.automation.ssh_utils import _safe_check_output
 
 
 class Launcher(BaseAgent):
@@ -90,7 +90,11 @@ class Launcher(BaseAgent):
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
             cmd = get_ssh_cmd(server, ['kill', '-9', pid])
-            subprocess.check_output(cmd)
+            result = _safe_check_output(cmd, server, f"kill process {pid}")
+            if result is not None:
+                self.logger.info(f"Successfully killed process {pid} on server {server}")
+            else:
+                self.logger.error(f"Failed to kill process {pid} on server {server}")
 
     def _remove_outdated(self, all_running_status: List[RunStatus]) -> None:
         outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
@@ -175,12 +179,18 @@ class Launcher(BaseAgent):
                 ]),
             ])
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
-            cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
-            # Use the improved SSH command
-            ssh_cmd = get_ssh_cmd(gpu['server'], [cmd])
+            tmux_cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
+
+            # Use bash -c to properly handle the complex command
+            ssh_cmd = get_ssh_cmd(gpu['server'], ['bash', '-c', tmux_cmd])
             full_cmd = ' '.join(ssh_cmd)
-            self.logger.info(full_cmd)
-            os.system(full_cmd)
+            self.logger.info(f"Launching job on server {gpu['server']}, GPU {gpu['gpu_index']}: {full_cmd}")
+
+            result = _safe_check_output(ssh_cmd, gpu['server'], f"launch job on GPU {gpu['gpu_index']}")
+            if result is not None:
+                self.logger.info(f"Successfully launched job on server {gpu['server']}, GPU {gpu['gpu_index']}")
+            else:
+                self.logger.error(f"Failed to launch job on server {gpu['server']}, GPU {gpu['gpu_index']}")
 
         for gpu, run in zip(gpu_pool, missing_runs):
             launch_job(gpu, run)
