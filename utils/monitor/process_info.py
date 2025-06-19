@@ -14,9 +14,7 @@ def get_all_processes(server: str) -> Dict[str, ProcessInfo]:
     cmd = ["ps", "-eo", "pid=,user=,lstart=,cmd="]
     cmd = get_ssh_cmd(server, cmd)
     result = safe_check_output(cmd, server, "process list query")
-    if result is None:
-        return {}
-    
+
     lines = result.splitlines()
     result_dict = {}
     for line in lines:
