@@ -7,24 +7,55 @@ from utils.automation.ssh_utils import SSHConnectionPool
 
 class GPUMonitor:
 
-    def __init__(self, gpus_by_server: Dict[str, List[GPUStatus]], timeout: int = 5, ssh_pool: Optional[SSHConnectionPool] = None):
+    def __init__(self, gpu_indices_by_server: Dict[str, List[int]], ssh_pool: SSHConnectionPool, timeout: int = 5):
         """
-        Initialize GPU monitor with GPUs organized by server.
+        Initialize GPU monitor with GPU indices organized by server.
 
         Args:
-            gpus_by_server: Dictionary mapping server names to lists of GPUStatus objects
+            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices
+            ssh_pool: SSH connection pool instance (required)
             timeout: SSH command timeout in seconds
-            ssh_pool: Optional SSH connection pool instance
         """
-        self.gpus_by_server = gpus_by_server
-        self.monitor_thread: Optional[threading.Thread] = None
+        self.ssh_pool = ssh_pool
         self.timeout = timeout
+        self.monitor_thread: Optional[threading.Thread] = None
 
-        # Use provided SSH pool or create a new one
-        self.ssh_pool = ssh_pool if ssh_pool is not None else SSHConnectionPool()
+        # Initialize GPUStatus objects from indices
+        self.gpus_by_server = self._init_gpu_status(gpu_indices_by_server)
 
         # Do one update first
         self._update_gpu_info_batched()
+
+    def _init_gpu_status(self, gpu_indices_by_server: Dict[str, List[int]]) -> Dict[str, List[GPUStatus]]:
+        """Initialize GPUStatus objects from GPU indices organized by server.
+
+        Args:
+            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices
+
+        Returns:
+            Dictionary mapping server names to lists of GPUStatus objects
+        """
+        gpus_by_server = {}
+
+        for server, indices in gpu_indices_by_server.items():
+            server_gpus = []
+            for gpu_idx in indices:
+                gpu_status: GPUStatus = {
+                    'server': server,
+                    'index': gpu_idx,
+                    'max_memory': None,
+                    'processes': None,
+                    'window_size': 10,  # Default window size
+                    'memory_window': None,
+                    'util_window': None,
+                    'memory_stats': None,
+                    'util_stats': None,
+                    'connected': False,
+                }
+                server_gpus.append(gpu_status)
+            gpus_by_server[server] = server_gpus
+
+        return gpus_by_server
 
     def start(self):
         """Starts background monitoring thread that continuously updates GPU info"""
@@ -69,11 +100,16 @@ class GPUMonitor:
     def _update_single_gpu(self, gpu: GPUStatus, current_info: Dict):
         """Update a single GPU with the provided info"""
         # Update connection status
-        gpu['connected'] = current_info['success']
+        gpu['connected'] = current_info['connected']
 
         # If query failed, set all fields to None except server and index
-        if not current_info['success']:
-            self._mark_gpu_failed(gpu)
+        if not current_info['connected']:
+            gpu['max_memory'] = None
+            gpu['processes'] = None
+            gpu['memory_window'] = None
+            gpu['util_window'] = None
+            gpu['memory_stats'] = None
+            gpu['util_stats'] = None
             return
 
         # Update processes
