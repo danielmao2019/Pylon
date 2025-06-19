@@ -25,7 +25,7 @@ def get_ssh_cmd(server: str, command: List[str]) -> List[str]:
             # '-o', 'StrictHostKeyChecking=no',  # Skip host key verification
             server
         ]
-        return ssh_options + ["'"] + command + ["'"]
+        return ssh_options + command
 
 
 def safe_check_output(cmd: List[str], server: str, operation: str) -> Optional[str]:
