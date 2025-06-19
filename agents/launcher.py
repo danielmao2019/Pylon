@@ -171,7 +171,6 @@ class Launcher(BaseAgent):
             tmux_cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
 
             self.ssh_pool.execute(gpu['server'], [tmux_cmd])
-            self.logger.info(f"Successfully launched job on server {gpu['server']}, GPU {gpu['gpu_index']}")
 
         for gpu, run in zip(gpu_pool, missing_runs):
             launch_job(gpu, run)
