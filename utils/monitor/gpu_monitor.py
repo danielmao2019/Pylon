@@ -171,6 +171,20 @@ class GPUMonitor:
             for gpu in all_gpus
         }
 
+    def connected_gpus(self) -> List[GPUStatus]:
+        """Get all connected GPUs"""
+        return [
+            gpu for server_gpus in self.gpus_by_server.values() for gpu in server_gpus
+            if gpu['connected']
+        ]
+
+    def disconnected_gpus(self) -> Dict[str, List[int]]:
+        """Get all disconnected GPUs"""
+        return {
+            server: [gpu['index'] for gpu in server_gpus if not gpu['connected']]
+            for server, server_gpus in self.gpus_by_server.items()
+        }
+
     def get_all_running_commands(self) -> List[str]:
         """Get all running commands on all servers"""
         all_gpus = [
