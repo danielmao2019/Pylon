@@ -50,12 +50,12 @@ def get_user_pids(server: str) -> List[str]:
     return [line.strip() for line in result.splitlines()]
 
 
-def find_running(server: str, timeout: int = 5) -> List[Dict[str, Any]]:
+def find_running(server: str, timeout: int = 10) -> List[Dict[str, Any]]:
     r"""This function finds all GPU processes launched by the user.
 
     Args:
         server: The server to query
-        timeout: Timeout in seconds for the entire query (default: 5)
+        timeout: Timeout in seconds for the entire query (default: 10)
 
     Returns:
         all_running (List[Dict[str, Any]]): a list of dictionaries with the following fields
