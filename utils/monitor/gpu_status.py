@@ -141,54 +141,6 @@ def get_gpu_processes(server: str, gpu_index: int, pool: SSHConnectionPool) -> L
     return pids
 
 
-def get_gpu_info(server: str, gpu_index: int, pool: SSHConnectionPool, timeout: int = 5) -> Dict:
-    """Get all information for a specific GPU
-
-    Args:
-        server: The server to query
-        gpu_index: The GPU index to query
-        pool: SSH connection pool instance
-        timeout: Timeout in seconds for the entire GPU query (default: 5)
-
-    Returns:
-        Dict containing GPU info with an additional 'success' field indicating if the query succeeded
-    """
-    @with_timeout(seconds=timeout)
-    def _get_gpu_info():
-        # Get basic GPU info
-        max_memory = get_gpu_memory(server, gpu_index, pool)
-        util_info = get_gpu_utilization(server, gpu_index, pool)
-
-        # Get process info
-        gpu_pids = get_gpu_processes(server, gpu_index, pool)
-        all_processes = get_all_processes(server, pool)
-        processes = [all_processes[pid] for pid in gpu_pids if pid in all_processes]
-
-        return {
-            'server': server,
-            'index': gpu_index,
-            'max_memory': max_memory,
-            'processes': processes,
-            'current_memory': util_info['memory'],
-            'current_util': util_info['util'],
-            'success': True,
-        }
-
-    try:
-        return _get_gpu_info()
-    except Exception as e:
-        print(f"ERROR: Failed to get GPU info for server {server}, GPU {gpu_index}: {e}")
-        return {
-            'server': server,
-            'index': gpu_index,
-            'max_memory': None,
-            'processes': None,
-            'current_memory': None,
-            'current_util': None,
-            'success': False,
-        }
-
-
 def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConnectionPool, timeout: int = 10) -> Dict[int, Dict]:
     """Get information for multiple GPUs on a server in a single batch operation.
     
