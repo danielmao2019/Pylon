@@ -90,9 +90,7 @@ class BaseTrainer(ABC):
 
         # Initialize GPU monitor
         if torch.cuda.is_available():
-            # Create GPU monitor with localhost GPU organized by server
-            gpu_indices_by_server = {'localhost': 'localhost'}
-            self.gpu_monitor = GPUMonitor(gpu_indices_by_server)
+            self.gpu_monitor = GPUMonitor()
             self.gpu_monitor.start()
         else:
             self.gpu_monitor = None
