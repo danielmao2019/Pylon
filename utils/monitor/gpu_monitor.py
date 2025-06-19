@@ -57,35 +57,14 @@ class GPUMonitor:
         """Update all GPUs on a single server using batched queries"""
         gpu_indices = [gpu['index'] for gpu in server_gpus]
 
-        try:
-            # Get batched GPU info for all GPUs on this server
-            batch_results = get_gpu_info(server, gpu_indices, self.ssh_pool, timeout=self.timeout)
+        # Get batched GPU info for all GPUs on this server
+        batch_results = get_gpu_info(server, gpu_indices, self.ssh_pool, timeout=self.timeout)
 
-            # Update each GPU with the batched results
-            for gpu in server_gpus:
-                gpu_idx = gpu['index']
-                if gpu_idx in batch_results:
-                    current_info = batch_results[gpu_idx]
-                    self._update_single_gpu(gpu, current_info)
-                else:
-                    # Mark GPU as failed if not in batch results
-                    self._mark_gpu_failed(gpu)
-
-        except Exception as e:
-            print(f"ERROR: Failed to update server {server} GPUs {gpu_indices}: {e}")
-            # Mark all GPUs as failed
-            for gpu in server_gpus:
-                self._mark_gpu_failed(gpu)
-
-    def _mark_gpu_failed(self, gpu: GPUStatus):
-        """Mark a GPU as failed/not connected"""
-        gpu['connected'] = False
-        gpu['max_memory'] = None
-        gpu['processes'] = None
-        gpu['memory_window'] = None
-        gpu['util_window'] = None
-        gpu['memory_stats'] = None
-        gpu['util_stats'] = None
+        # Update each GPU with the batched results
+        for gpu in server_gpus:
+            gpu_idx = gpu['index']
+            current_info = batch_results[gpu_idx]
+            self._update_single_gpu(gpu, current_info)
 
     def _update_single_gpu(self, gpu: GPUStatus, current_info: Dict):
         """Update a single GPU with the provided info"""
