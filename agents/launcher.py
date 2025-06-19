@@ -4,10 +4,11 @@ import time
 import random
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from agents import BaseAgent
+from agents.base_agent import BaseAgent
+from utils.logging import TextLogger
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import RunStatus, get_all_run_status, parse_config
-from utils.logging.text_logger import TextLogger
+from utils.monitor.ssh_utils import get_ssh_cmd
 
 
 class Launcher(BaseAgent):
@@ -88,7 +89,7 @@ class Launcher(BaseAgent):
 
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
-            cmd = ['ssh', server, 'kill', '-9', pid]
+            cmd = get_ssh_cmd(server, ['kill', '-9', pid])
             subprocess.check_output(cmd)
 
     def _remove_outdated(self, all_running_status: List[RunStatus]) -> None:
@@ -175,9 +176,11 @@ class Launcher(BaseAgent):
             ])
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
             cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
-            cmd = f"ssh {gpu['server']} '{cmd}'"
-            self.logger.info(cmd)
-            os.system(cmd)
+            # Use the improved SSH command
+            ssh_cmd = get_ssh_cmd(gpu['server'], [cmd])
+            full_cmd = ' '.join(ssh_cmd)
+            self.logger.info(full_cmd)
+            os.system(full_cmd)
 
         for gpu, run in zip(gpu_pool, missing_runs):
             launch_job(gpu, run)

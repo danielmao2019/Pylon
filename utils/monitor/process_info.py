@@ -1,5 +1,6 @@
 from typing import Dict, TypedDict
 import subprocess
+from utils.monitor.ssh_utils import get_ssh_cmd
 
 
 class ProcessInfo(TypedDict):
@@ -12,8 +13,7 @@ class ProcessInfo(TypedDict):
 def get_all_processes(server: str) -> Dict[str, ProcessInfo]:
     """Get information for all processes on a server"""
     cmd = ["ps", "-eo", "pid=,user=,lstart=,cmd="]
-    if server != 'localhost':
-        cmd = ['ssh', server] + cmd
+    cmd = get_ssh_cmd(server, cmd)
     lines = subprocess.check_output(cmd).decode().splitlines()
     result = {}
     for line in lines:
