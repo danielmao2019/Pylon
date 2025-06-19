@@ -2,12 +2,12 @@ from typing import List, Optional, Literal, NamedTuple
 from functools import partial
 import os
 import glob
-import json
 import time
+from concurrent.futures import ThreadPoolExecutor
+import json
 import torch
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.monitor.gpu_status import find_running
-from concurrent.futures import ThreadPoolExecutor
+from utils.monitor.gpu_monitor import GPUMonitor
 
 
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
@@ -78,7 +78,7 @@ def get_all_run_status(
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
-    servers: List[str] = [],
+    gpu_monitor: GPUMonitor = None,
 ) -> List[RunStatus]:
     """
     Args:
@@ -94,7 +94,7 @@ def get_all_run_status(
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
     assert isinstance(outdated_days, int)
-    assert isinstance(servers, list)
+    assert isinstance(gpu_monitor, GPUMonitor)
 
     with ThreadPoolExecutor() as executor:
         results = list(executor.map(find_running, servers))
