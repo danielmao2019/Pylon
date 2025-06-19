@@ -150,26 +150,3 @@ class GPUMonitor:
         assert len(stats) == 1, "Only support single GPU training for now."
         stats = list(stats.values())[0]
         logger.update_buffer(stats)
-
-    def get_ssh_pool_stats(self) -> Dict[str, Dict[str, int]]:
-        """Get SSH connection pool statistics for monitoring"""
-        return get_ssh_pool_status(self.ssh_pool)
-
-    def get_connection_efficiency_stats(self) -> Dict[str, float]:
-        """Get connection efficiency statistics"""
-        pool_stats = self.get_ssh_pool_stats()
-        efficiency_stats = {}
-        
-        for server, stats in pool_stats.items():
-            if stats['max_connections'] > 0:
-                utilization = stats['active_connections'] / stats['max_connections']
-                pool_usage = stats['pool_size'] / stats['max_connections']
-                efficiency_stats[server] = {
-                    'connection_utilization': utilization,
-                    'pool_usage': pool_usage,
-                    'active_connections': stats['active_connections'],
-                    'pool_size': stats['pool_size'],
-                    'max_connections': stats['max_connections']
-                }
-        
-        return efficiency_stats
