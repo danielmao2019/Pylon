@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from utils.monitor.gpu_status import GPUStatus, get_gpu_info, get_all_gpu_info_batched, get_ssh_pool_status
+from utils.monitor.gpu_status import GPUStatus, get_all_gpu_info_batched, get_ssh_pool_status
 from utils.automation.ssh_utils import SSHConnectionPool
 
 
