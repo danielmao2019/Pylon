@@ -185,9 +185,9 @@ class Launcher(BaseAgent):
                 config_files=self.config_files,
                 expected_files=self.expected_files,
                 epochs=self.epochs,
-                servers=self.gpu_monitor.servers,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
+                gpu_monitor=self.gpu_monitor,
             )
 
             self.logger.info("Removing stuck jobs...")
