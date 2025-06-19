@@ -1,7 +1,6 @@
 from typing import Tuple, List, Dict
 from abc import ABC
 from utils.monitor.gpu_monitor import GPUMonitor
-from utils.automation.ssh_utils import _ssh_pool
 
 
 class BaseAgent(ABC):
@@ -31,6 +30,6 @@ class BaseAgent(ABC):
         for server, indices in gpu_pool:
             gpu_indices_by_server[server] = indices
 
-        self.gpu_monitor = GPUMonitor(gpu_indices_by_server, _ssh_pool, timeout=timeout)
+        self.gpu_monitor = GPUMonitor(gpu_indices_by_server, timeout=timeout)
         self.gpu_monitor.start()
         self.servers = [server for server, _ in gpu_pool]

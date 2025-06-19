@@ -14,7 +14,6 @@ import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
-from utils.automation.ssh_utils import _ssh_pool
 from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
@@ -93,7 +92,7 @@ class BaseTrainer(ABC):
         if torch.cuda.is_available():
             # Create GPU monitor with localhost GPU organized by server
             gpu_indices_by_server = {'localhost': 'localhost'}
-            self.gpu_monitor = GPUMonitor(gpu_indices_by_server, _ssh_pool)
+            self.gpu_monitor = GPUMonitor(gpu_indices_by_server)
             self.gpu_monitor.start()
         else:
             self.gpu_monitor = None

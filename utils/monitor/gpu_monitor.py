@@ -4,29 +4,26 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 import torch
 from utils.monitor.gpu_status import GPUStatus, get_server_gpus_info
-from utils.automation.ssh_utils import SSHConnectionPool
+from utils.automation.ssh_utils import _ssh_pool
 
 
 class GPUMonitor:
 
-    def __init__(self, gpu_indices_by_server: Dict[str, Union[List[int], str]], ssh_pool: SSHConnectionPool, timeout: int = 5):
+    def __init__(self, gpu_indices_by_server: Dict[str, Union[List[int], str]], timeout: int = 5):
         """
         Initialize GPU monitor with GPU indices organized by server.
 
         Args:
             gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices or 'localhost'
-            ssh_pool: SSH connection pool instance (required)
             timeout: SSH command timeout in seconds
         """
-        self.ssh_pool = ssh_pool
+        self.gpus_by_server = self._init_gpu_status(gpu_indices_by_server)
         self.timeout = timeout
+        self.servers = list(self.gpus_by_server.keys())
         self.monitor_thread: Optional[threading.Thread] = None
 
-        # Initialize GPUStatus objects from indices
-        self.gpus_by_server = self._init_gpu_status(gpu_indices_by_server)
-        self.servers = list(self.gpus_by_server.keys())
-
         # Do one update first
+        self.ssh_pool = _ssh_pool
         self._update()
 
     def _init_gpu_status(self, gpu_indices_by_server: Dict[str, Union[List[int], str]]) -> Dict[str, List[GPUStatus]]:
