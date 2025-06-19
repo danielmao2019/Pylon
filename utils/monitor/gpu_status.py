@@ -95,7 +95,7 @@ def find_running(server: str, timeout: int = 10) -> List[Dict[str, Any]]:
     try:
         return _find_running()
     except Exception as e:
-        print(f"ERROR: Timeout or error finding running processes for server {server}: {e}")
+        print(f"ERROR: Failed to find running processes for server {server}: {e}")
         return []
 
 
