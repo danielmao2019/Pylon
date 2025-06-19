@@ -9,7 +9,7 @@ from utils.automation.ssh_utils import _ssh_pool
 
 class GPUMonitor:
 
-    def __init__(self, gpu_indices_by_server: Dict[str, Union[List[int], str]], timeout: int = 5):
+    def __init__(self, gpu_indices_by_server: Dict[str, List[int]], timeout: int = 5):
         """
         Initialize GPU monitor with GPU indices organized by server.
 
@@ -26,7 +26,7 @@ class GPUMonitor:
         self.ssh_pool = _ssh_pool
         self._update()
 
-    def _init_gpu_status(self, gpu_indices_by_server: Dict[str, Union[List[int], str]]) -> Dict[str, List[GPUStatus]]:
+    def _init_gpu_status(self, gpu_indices_by_server: Dict[str, List[int]]) -> Dict[str, List[GPUStatus]]:
         """Initialize GPUStatus objects from GPU indices organized by server.
 
         Args:
