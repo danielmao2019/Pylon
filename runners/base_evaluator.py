@@ -10,9 +10,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import utils
 from utils.builders import build_from_config
+from utils.automation.ssh_utils import _ssh_pool
 from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
-from utils.monitor.gpu_status import GPUStatus
 
 
 class BaseEvaluator:
@@ -77,20 +77,9 @@ class BaseEvaluator:
             else:
                 physical_device_index = device_index
 
-            gpu = GPUStatus(
-                server='localhost',  # or get from environment
-                index=physical_device_index,
-                max_memory=0,
-                processes=[],
-                window_size=10,
-                memory_window=[],
-                util_window=[],
-                memory_stats={'min': None, 'max': None, 'avg': None},
-                util_stats={'min': None, 'max': None, 'avg': None}
-            )
             # Create GPU monitor with localhost GPU organized by server
-            gpus_by_server = {'localhost': [gpu]}
-            self.gpu_monitor = GPUMonitor(gpus_by_server)
+            gpu_indices_by_server = {'localhost': [physical_device_index]}
+            self.gpu_monitor = GPUMonitor(gpu_indices_by_server, _ssh_pool)
         else:
             self.gpu_monitor = None
 

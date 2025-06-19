@@ -1,7 +1,7 @@
 from typing import Tuple, List, Dict
 from abc import ABC
-from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
+from utils.automation.ssh_utils import _ssh_pool
 
 
 class BaseAgent(ABC):
@@ -26,24 +26,11 @@ class BaseAgent(ABC):
         self.user_names = user_names
 
     def _init_gpu_monitor(self, gpu_pool: List[Tuple[str, List[int]]], timeout: int) -> None:
-        # Create GPU status objects organized by server
-        gpus_by_server = {}
+        # Convert gpu_pool format to gpu_indices_by_server format
+        gpu_indices_by_server = {}
         for server, indices in gpu_pool:
-            gpus_by_server[server] = [
-                GPUStatus(
-                    server=server,
-                    index=idx,
-                    max_memory=0,  # Will be populated by monitor
-                    processes=[],
-                    window_size=10,
-                    memory_window=[],
-                    util_window=[],
-                    memory_stats={'min': None, 'max': None, 'avg': None},
-                    util_stats={'min': None, 'max': None, 'avg': None}
-                )
-                for idx in indices
-            ]
+            gpu_indices_by_server[server] = indices
 
-        self.gpu_monitor = GPUMonitor(gpus_by_server, timeout=timeout)
+        self.gpu_monitor = GPUMonitor(gpu_indices_by_server, _ssh_pool, timeout=timeout)
         self.gpu_monitor.start()
         self.servers = [server for server, _ in gpu_pool]
