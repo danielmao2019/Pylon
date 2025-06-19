@@ -91,9 +91,9 @@ class GPUMonitor:
         """Updates information for all GPUs using batched queries per server"""
         with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
             # Use map to update all servers in parallel
-            list(executor.map(self._update_server_gpus, self.servers))
+            list(executor.map(self._update_single_server, self.servers))
 
-    def _update_server_gpus(self, server: str) -> None:
+    def _update_single_server(self, server: str) -> None:
         """Update all GPUs on a single server using batched queries"""
         indices = [gpu['index'] for gpu in self.gpus_by_server[server]]
 
