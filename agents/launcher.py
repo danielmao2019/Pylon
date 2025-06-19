@@ -7,8 +7,7 @@ from agents.base_agent import BaseAgent
 from utils.logging import TextLogger
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import RunStatus, get_all_run_status, parse_config
-from utils.monitor.ssh_utils import get_ssh_cmd
-from utils.automation.ssh_utils import _safe_check_output
+from utils.automation.ssh_utils import get_ssh_cmd, _safe_check_output
 
 
 class Launcher(BaseAgent):

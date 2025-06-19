@@ -1,6 +1,5 @@
 from typing import Dict, TypedDict
-from utils.monitor.ssh_utils import get_ssh_cmd
-from utils.automation.ssh_utils import _safe_check_output
+from utils.automation.ssh_utils import get_ssh_cmd, _safe_check_output
 
 
 class ProcessInfo(TypedDict):
