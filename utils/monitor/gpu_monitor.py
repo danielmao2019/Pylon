@@ -9,12 +9,12 @@ from utils.automation.ssh_utils import _ssh_pool
 
 class GPUMonitor:
 
-    def __init__(self, gpu_indices_by_server: Dict[str, List[int]], timeout: int = 5):
+    def __init__(self, gpu_indices_by_server: Optional[Dict[str, List[int]]] = None, timeout: int = 5):
         """
         Initialize GPU monitor with GPU indices organized by server.
 
         Args:
-            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices or 'localhost'
+            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices, or None for localhost
             timeout: SSH command timeout in seconds
         """
         self.gpus_by_server = self._init_gpu_status(gpu_indices_by_server)
@@ -26,41 +26,31 @@ class GPUMonitor:
         self.ssh_pool = _ssh_pool
         self._update()
 
-    def _init_gpu_status(self, gpu_indices_by_server: Dict[str, List[int]]) -> Dict[str, List[GPUStatus]]:
+    def _init_gpu_status(self, gpu_indices_by_server: Optional[Dict[str, List[int]]]) -> Dict[str, List[GPUStatus]]:
         """Initialize GPUStatus objects from GPU indices organized by server.
 
         Args:
-            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices or 'localhost'
+            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices, or None for localhost
 
         Returns:
             Dictionary mapping server names to lists of GPUStatus objects
         """
         gpus_by_server = {}
-
-        for server, indices_or_localhost in gpu_indices_by_server.items():
-            if indices_or_localhost == 'localhost':
-                # Handle localhost case - get physical GPU index
-                if torch.cuda.is_available():
-                    device_index = torch.cuda.current_device()
-                    cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
-                    if cuda_visible_devices:
-                        visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
-                        physical_device_index = visible_devices[device_index]
-                    else:
-                        physical_device_index = device_index
-                    indices = [physical_device_index]
+        
+        if gpu_indices_by_server is None:
+            # Handle localhost case - get physical GPU index
+            if torch.cuda.is_available():
+                device_index = torch.cuda.current_device()
+                cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
+                if cuda_visible_devices:
+                    visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
+                    physical_device_index = visible_devices[device_index]
                 else:
-                    # No CUDA available, skip this server
-                    continue
-            else:
-                # Regular list of indices
-                indices = indices_or_localhost
-
-            server_gpus = []
-            for gpu_idx in indices:
+                    physical_device_index = device_index
+                
                 gpu_status: GPUStatus = {
-                    'server': server,
-                    'index': gpu_idx,
+                    'server': 'localhost',
+                    'index': physical_device_index,
                     'max_memory': None,
                     'processes': None,
                     'window_size': 10,  # Default window size
@@ -70,9 +60,27 @@ class GPUMonitor:
                     'util_stats': None,
                     'connected': False,
                 }
-                server_gpus.append(gpu_status)
-            gpus_by_server[server] = server_gpus
-
+                gpus_by_server['localhost'] = [gpu_status]
+        else:
+            # Regular dictionary of server -> indices
+            for server, indices in gpu_indices_by_server.items():
+                server_gpus = []
+                for gpu_idx in indices:
+                    gpu_status: GPUStatus = {
+                        'server': server,
+                        'index': gpu_idx,
+                        'max_memory': None,
+                        'processes': None,
+                        'window_size': 10,  # Default window size
+                        'memory_window': None,
+                        'util_window': None,
+                        'memory_stats': None,
+                        'util_stats': None,
+                        'connected': False,
+                    }
+                    server_gpus.append(gpu_status)
+                gpus_by_server[server] = server_gpus
+            
         return gpus_by_server
 
     def start(self):
