@@ -209,7 +209,8 @@ class GPUMonitor:
             process for gpu in all_gpus for process in gpu['processes']
             if process['cmd'].startswith('python main.py --config-filepath')
         ]
-        return all_processes
+        all_running_commands = [process['cmd'] for process in all_processes]
+        return all_running_commands
 
     def log_stats(self, logger):
         """Logs status of all monitored GPUs"""

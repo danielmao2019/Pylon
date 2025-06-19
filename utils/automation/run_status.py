@@ -115,6 +115,7 @@ def get_all_run_status(
 
 def parse_config(cmd: str) -> str:
     """Extract config filepath from command string."""
+    assert isinstance(cmd, str), f"{cmd=}"
     assert 'python' in cmd, f"{cmd=}"
     assert '--config-filepath' in cmd, f"{cmd=}"
     parts = cmd.split(' ')
