@@ -1,7 +1,7 @@
 from typing import List, Dict, Optional
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from utils.monitor.gpu_status import GPUStatus, get_all_gpu_info_batched, get_ssh_pool_status
+from utils.monitor.gpu_status import GPUStatus, get_all_gpu_info_batched
 from utils.automation.ssh_utils import SSHConnectionPool
 
 
@@ -68,14 +68,24 @@ class GPUMonitor:
                     current_info = batch_results[gpu_idx]
                     self._update_single_gpu(gpu, current_info)
                 else:
-                    # Fallback to individual query if not in batch results
-                    self._update_gpu_info(gpu)
+                    # Mark GPU as failed if not in batch results
+                    self._mark_gpu_failed(gpu)
                     
         except Exception as e:
             print(f"ERROR: Failed to update server {server} GPUs {gpu_indices}: {e}")
-            # Fallback to individual queries
+            # Mark all GPUs as failed
             for gpu in server_gpus:
-                self._update_gpu_info(gpu)
+                self._mark_gpu_failed(gpu)
+
+    def _mark_gpu_failed(self, gpu: GPUStatus):
+        """Mark a GPU as failed/not connected"""
+        gpu['connected'] = False
+        gpu['max_memory'] = None
+        gpu['processes'] = None
+        gpu['memory_window'] = None
+        gpu['util_window'] = None
+        gpu['memory_stats'] = None
+        gpu['util_stats'] = None
 
     def _update_single_gpu(self, gpu: GPUStatus, current_info: Dict):
         """Update a single GPU with the provided info"""
@@ -84,12 +94,7 @@ class GPUMonitor:
 
         # If query failed, set all fields to None except server and index
         if not current_info['success']:
-            gpu['max_memory'] = None
-            gpu['processes'] = None
-            gpu['memory_window'] = None
-            gpu['util_window'] = None
-            gpu['memory_stats'] = None
-            gpu['util_stats'] = None
+            self._mark_gpu_failed(gpu)
             return
 
         # Update processes
@@ -128,6 +133,10 @@ class GPUMonitor:
 
     def _check(self) -> Dict:
         """Returns current status of all GPUs without rolling windows"""
+        all_gpus = []
+        for server_gpus in self.gpus_by_server.values():
+            all_gpus.extend(server_gpus)
+            
         return {
             f"{gpu['server']}:{gpu['index']}": {
                 'server': gpu['server'],
@@ -141,7 +150,7 @@ class GPUMonitor:
                 'util_avg': gpu['util_stats']['avg'] if gpu['util_stats'] is not None else None,
                 'connected': gpu['connected'],
             }
-            for gpu in self.gpus
+            for gpu in all_gpus
         }
 
     def log_stats(self, logger):
