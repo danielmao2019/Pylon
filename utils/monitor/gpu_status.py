@@ -139,8 +139,8 @@ def get_gpu_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -
     return results
 
 
-def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, List[str]]:
-    """Get list of PIDs running on multiple GPUs in a single batch operation.
+def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, List[ProcessInfo]]:
+    """Get list of processes running on multiple GPUs in a single batch operation.
     
     Args:
         server: The server to query
@@ -148,7 +148,7 @@ def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) 
         pool: SSH connection pool instance
     
     Returns:
-        Dict mapping GPU index to list of PIDs
+        Dict mapping GPU index to list of ProcessInfo objects
     """
     if not indices:
         return {}
@@ -183,12 +183,17 @@ def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) 
                 uuid_to_pids[uuid] = []
             uuid_to_pids[uuid].append(pid)
     
-    # Map GPU indices to PIDs
+    # Get all process information
+    all_processes = get_all_processes(server, pool)
+    
+    # Map GPU indices to ProcessInfo objects
     results = {}
     for gpu_idx in indices:
         if gpu_idx in index_to_uuid:
             uuid = index_to_uuid[gpu_idx]
-            results[gpu_idx] = uuid_to_pids.get(uuid, [])
+            pids = uuid_to_pids.get(uuid, [])
+            processes = [all_processes[pid] for pid in pids if pid in all_processes]
+            results[gpu_idx] = processes
         else:
             results[gpu_idx] = []
     
@@ -217,8 +222,7 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
         gpu_mem_util = get_gpu_mem_util(server, gpu_indices, pool)
         
         # Get process info for all GPUs in batch
-        gpu_pids = get_gpu_processes(server, gpu_indices, pool)
-        all_processes = get_all_processes(server, pool)
+        gpu_processes = get_gpu_processes(server, gpu_indices, pool)
         
         # Process each GPU
         for gpu_idx in gpu_indices:
@@ -226,8 +230,7 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
                 mem_util_data = gpu_mem_util[gpu_idx]
                 
                 # Get processes for this GPU
-                pids = gpu_pids.get(gpu_idx, [])
-                processes = [all_processes[pid] for pid in pids if pid in all_processes]
+                processes = gpu_processes.get(gpu_idx, [])
                 
                 results[gpu_idx] = {
                     'server': server,
