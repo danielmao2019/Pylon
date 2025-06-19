@@ -194,10 +194,12 @@ class GPUMonitor:
     @property
     def disconnected_gpus(self) -> Dict[str, List[int]]:
         """Get all disconnected GPUs"""
-        return {
-            server: [gpu['index'] for gpu in server_gpus if not gpu['connected']]
-            for server, server_gpus in self.gpus_by_server.items()
-        }
+        result = {}
+        for server, server_gpus in self.gpus_by_server.items():
+            disconnected = [gpu['index'] for gpu in server_gpus if not gpu['connected']]
+            if len(disconnected) > 0:
+                result[server] = disconnected
+        return result
 
     def get_all_running_commands(self) -> List[str]:
         """Get all running commands on all servers"""

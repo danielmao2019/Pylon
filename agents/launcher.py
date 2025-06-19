@@ -80,7 +80,7 @@ class Launcher(BaseAgent):
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_gpu, self.gpu_monitor.connected_gpus()))
+            results = list(executor.map(process_gpu, self.gpu_monitor.connected_gpus))
 
         # Combine all GPU results into a single dictionary
         stuck_cfgs_info = {}
@@ -118,7 +118,7 @@ class Launcher(BaseAgent):
             }
         """
         idle_gpus = []
-        for gpu in self.gpu_monitor.connected_gpus():
+        for gpu in self.gpu_monitor.connected_gpus:
             if (
                 gpu['util_stats']['avg'] < 50
                 and (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
@@ -128,7 +128,7 @@ class Launcher(BaseAgent):
                     'server': gpu['server'],
                     'gpu_index': gpu['index'],
                 })
-        self.logger.warning(f"Disconnected GPUs: {self.gpu_monitor.disconnected_gpus()}")
+        self.logger.warning(f"Disconnected GPUs: {self.gpu_monitor.disconnected_gpus}")
         return idle_gpus
 
     def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:
