@@ -40,7 +40,7 @@ def safe_check_output(cmd: List[str], server: str, operation: str) -> str:
         Command output as string
 
     Raises:
-        subprocess.CalledProcessError: If command fails
+        subprocess.CalledProcessError: If command fails, with enhanced error message
     """
     try:
         result = subprocess.check_output(cmd, stderr=subprocess.PIPE, text=True)
@@ -49,5 +49,8 @@ def safe_check_output(cmd: List[str], server: str, operation: str) -> str:
         error_msg = f"Server {server} failed during {operation}: {e}"
         if e.stderr:
             error_msg += f"\nStderr: {e.stderr}"
-        print(f"ERROR: {error_msg}")
-        raise
+
+        # Create a new exception with the enhanced error message
+        new_exception = subprocess.CalledProcessError(e.returncode, e.cmd, e.stdout, e.stderr)
+        new_exception.args = (error_msg,)
+        raise new_exception
