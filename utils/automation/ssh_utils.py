@@ -6,57 +6,6 @@ import queue
 import time
 
 
-class SSHConnection:
-    """Represents an active SSH connection that can execute commands."""
-    
-    def __init__(self, server: str, ssh_options: List[str]):
-        self.server = server
-        self.ssh_options = ssh_options
-        self.process = None
-        self.last_used = time.time()
-        
-    def connect(self):
-        """Establish the SSH connection."""
-        cmd = ['ssh'] + self.ssh_options + [self.server]
-        self.process = subprocess.Popen(
-            cmd,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
-        )
-        # Test the connection
-        self.execute(['echo', 'connection_test'])
-        
-    def execute(self, command: List[str]) -> str:
-        """Execute a command through this SSH connection."""
-        if self.process is None or self.process.poll() is not None:
-            raise Exception("SSH connection is not active")
-            
-        # Send command to SSH process
-        command_str = ' '.join(command) + '\n'
-        stdout, stderr = self.process.communicate(input=command_str, timeout=30)
-        
-        if self.process.returncode != 0:
-            raise Exception(f"SSH command failed: {stderr}")
-            
-        self.last_used = time.time()
-        return stdout.strip()
-        
-    def close(self):
-        """Close the SSH connection."""
-        if self.process:
-            try:
-                self.process.terminate()
-                self.process.wait(timeout=5)
-            except:
-                try:
-                    self.process.kill()
-                except:
-                    pass
-            self.process = None
-
-
 class SSHConnectionPool:
     """Thread-safe SSH connection pool for reusing connections to reduce overhead."""
 
@@ -126,87 +75,69 @@ class SSHConnectionPool:
             except Exception as e:
                 raise SSHCommandError(f"Local command failed: {str(e)}")
 
-        # For remote servers, use connection pool
-        with self._get_connection(server) as connection:
+        # For remote servers, use connection pool for concurrency control
+        with self._get_connection_slot(server):
             try:
-                return connection.execute(command)
+                # Build full SSH command
+                ssh_cmd = ['ssh'] + self.ssh_options + [server] + command
+
+                result = subprocess.run(
+                    ssh_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.command_timeout
+                )
+
+                if result.returncode != 0:
+                    error_msg = f"SSH command failed on {server}"
+                    if result.stderr:
+                        error_msg += f": {result.stderr.strip()}"
+                    if result.stdout:
+                        error_msg += f" (stdout: {result.stdout.strip()})"
+                    raise SSHCommandError(error_msg)
+
+                return result.stdout.strip()
+
+            except subprocess.TimeoutExpired:
+                raise SSHCommandError(f"SSH command timed out on {server} after {self.command_timeout}s")
             except Exception as e:
+                if isinstance(e, SSHCommandError):
+                    raise
                 raise SSHCommandError(f"SSH command failed on {server}: {str(e)}")
 
     @contextmanager
-    def _get_connection(self, server: str):
-        """Get an SSH connection from the pool or create a new one."""
+    def _get_connection_slot(self, server: str):
+        """Get a connection slot from the pool for concurrency control."""
         pool = self._get_pool(server)
         connection_lock = self._get_connection_lock(server)
 
-        # Try to get an existing connection from the pool
-        connection = None
+        # Try to get a connection slot from the pool
+        connection_slot = None
         try:
-            connection = pool.get_nowait()
-            # Test if connection is still valid
-            if not self._is_connection_valid(connection):
-                connection.close()
-                connection = None
+            connection_slot = pool.get_nowait()
         except queue.Empty:
             pass
 
-        # If no connection in pool, create a new one if under limit
-        if connection is None:
+        # If no slot in pool, create a new one if under limit
+        if connection_slot is None:
             with connection_lock:
                 if self._active_connections[server] < self.max_connections_per_server:
-                    connection = self._create_connection(server)
+                    connection_slot = f"slot_{self._active_connections[server]}"
                     self._active_connections[server] += 1
                 else:
-                    # Wait for a connection to become available
-                    connection = pool.get(timeout=self.connection_timeout)
-                    # Test if connection is still valid
-                    if not self._is_connection_valid(connection):
-                        connection.close()
-                        connection = self._create_connection(server)
+                    # Wait for a connection slot to become available
+                    connection_slot = pool.get(timeout=self.connection_timeout)
 
         try:
-            yield connection
+            yield connection_slot
         finally:
-            # Return connection to pool if it's still valid
-            if connection and self._is_connection_valid(connection):
-                try:
-                    pool.put_nowait(connection)
-                except queue.Full:
-                    # Pool is full, close the connection
-                    connection.close()
-                    with connection_lock:
-                        self._active_connections[server] -= 1
-            else:
-                # Connection is invalid, close it
-                if connection:
-                    connection.close()
+            # Return connection slot to pool
+            try:
+                pool.put_nowait(connection_slot)
+            except queue.Full:
+                # Pool is full, just discard the slot
                 with connection_lock:
                     self._active_connections[server] -= 1
-
-    def _create_connection(self, server: str) -> SSHConnection:
-        """Create a new SSH connection."""
-        connection = SSHConnection(server, self.ssh_options)
-        connection.connect()
-        return connection
-
-    def _is_connection_valid(self, connection: SSHConnection) -> bool:
-        """Check if an SSH connection is still valid."""
-        if connection is None or connection.process is None:
-            return False
-            
-        if connection.process.poll() is not None:
-            return False
-
-        # Check if connection is too old (optional)
-        if time.time() - connection.last_used > 300:  # 5 minutes
-            return False
-
-        # Test the connection with a simple command
-        try:
-            connection.execute(['echo', 'test'])
-            return True
-        except Exception:
-            return False
 
 
 class SSHCommandError(Exception):
