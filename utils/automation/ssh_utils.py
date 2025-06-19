@@ -200,17 +200,3 @@ class SSHCommandError(Exception):
 
 # Global connection pool instance
 _ssh_pool = SSHConnectionPool()
-
-
-def test_ssh_connection(server: str, timeout: int = 10) -> bool:
-    """
-    Test SSH connection to a server.
-    
-    Args:
-        server: Server in format user@host
-        timeout: Connection timeout in seconds
-    
-    Returns:
-        True if connection successful, False otherwise
-    """
-    return _ssh_pool.test_connection(server, timeout)
