@@ -27,7 +27,7 @@ class GPUMonitor:
         self.servers = list(self.gpus_by_server.keys())
 
         # Do one update first
-        self._update_gpu_info_batched()
+        self._update()
 
     def _init_gpu_status(self, gpu_indices_by_server: Dict[str, Union[List[int], str]]) -> Dict[str, List[GPUStatus]]:
         """Initialize GPUStatus objects from GPU indices organized by server.
@@ -82,14 +82,13 @@ class GPUMonitor:
         """Starts background monitoring thread that continuously updates GPU info"""
         def monitor_loop():
             while True:
-                self._update_gpu_info_batched()
+                self._update()
 
         self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
         self.monitor_thread.start()
 
-    def _update_gpu_info_batched(self):
+    def _update(self):
         """Updates information for all GPUs using batched queries per server"""
-        # Use ThreadPoolExecutor to query multiple servers in parallel
         with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
             # Submit batched queries for each server
             future_to_server = {
