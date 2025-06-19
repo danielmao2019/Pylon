@@ -28,7 +28,7 @@ def get_ssh_cmd(server: str, command: List[str]) -> List[str]:
         return ssh_options + command
 
 
-def safe_check_output(cmd: List[str], server: str, operation: str) -> Optional[str]:
+def safe_check_output(cmd: List[str], server: str, operation: str) -> str:
     """Safely execute subprocess.check_output with error reporting
 
     Args:
@@ -37,7 +37,10 @@ def safe_check_output(cmd: List[str], server: str, operation: str) -> Optional[s
         operation: Description of what operation is being performed
 
     Returns:
-        Command output as string, or None if command fails
+        Command output as string
+
+    Raises:
+        subprocess.CalledProcessError: If command fails
     """
     try:
         result = subprocess.check_output(cmd, stderr=subprocess.PIPE, text=True)
@@ -47,4 +50,4 @@ def safe_check_output(cmd: List[str], server: str, operation: str) -> Optional[s
         if e.stderr:
             error_msg += f"\nStderr: {e.stderr}"
         print(f"ERROR: {error_msg}")
-        return None
+        raise
