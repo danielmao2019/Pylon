@@ -89,11 +89,8 @@ class Launcher(BaseAgent):
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
             cmd = get_ssh_cmd(server, ['kill', '-9', pid])
-            result = safe_check_output(cmd, server, f"kill process {pid}")
-            if result is not None:
-                self.logger.info(f"Successfully killed process {pid} on server {server}")
-            else:
-                self.logger.error(f"Failed to kill process {pid} on server {server}")
+            safe_check_output(cmd, server, f"kill process {pid}")
+            self.logger.info(f"Successfully killed process {pid} on server {server}")
 
     def _remove_outdated(self, all_running_status: List[RunStatus]) -> None:
         outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
@@ -184,11 +181,8 @@ class Launcher(BaseAgent):
             full_cmd = ' '.join(ssh_cmd)
             self.logger.info(f"Launching job on server {gpu['server']}, GPU {gpu['gpu_index']}: {full_cmd}")
 
-            result = safe_check_output(ssh_cmd, gpu['server'], f"launch job on GPU {gpu['gpu_index']}")
-            if result is not None:
-                self.logger.info(f"Successfully launched job on server {gpu['server']}, GPU {gpu['gpu_index']}")
-            else:
-                self.logger.error(f"Failed to launch job on server {gpu['server']}, GPU {gpu['gpu_index']}")
+            safe_check_output(ssh_cmd, gpu['server'], f"launch job on GPU {gpu['gpu_index']}")
+            self.logger.info(f"Successfully launched job on server {gpu['server']}, GPU {gpu['gpu_index']}")
 
         for gpu, run in zip(gpu_pool, missing_runs):
             launch_job(gpu, run)
