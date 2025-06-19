@@ -1,9 +1,9 @@
-from typing import List, Dict, Optional, Union
+from typing import List, Dict, Optional, Union, Any
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import torch
 import os
-from utils.monitor.gpu_status import GPUStatus, get_gpu_info
+from utils.monitor.gpu_status import GPUStatus, get_server_gpus_info
 from utils.automation.ssh_utils import SSHConnectionPool
 
 
@@ -24,6 +24,7 @@ class GPUMonitor:
 
         # Initialize GPUStatus objects from indices
         self.gpus_by_server = self._init_gpu_status(gpu_indices_by_server)
+        self.servers = list(self.gpus_by_server.keys())
 
         # Do one update first
         self._update_gpu_info_batched()
@@ -89,11 +90,11 @@ class GPUMonitor:
     def _update_gpu_info_batched(self):
         """Updates information for all GPUs using batched queries per server"""
         # Use ThreadPoolExecutor to query multiple servers in parallel
-        with ThreadPoolExecutor(max_workers=len(self.gpus_by_server)) as executor:
+        with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
             # Submit batched queries for each server
             future_to_server = {
-                executor.submit(self._update_server_gpus, server, gpus): server
-                for server, gpus in self.gpus_by_server.items()
+                executor.submit(self._update_server_gpus, server): server
+                for server in self.servers
             }
 
             # Collect results
@@ -104,66 +105,64 @@ class GPUMonitor:
                     server = future_to_server[future]
                     print(f"ERROR: Failed to update GPUs for server {server}: {e}")
 
-    def _update_server_gpus(self, server: str, server_gpus: List[GPUStatus]):
+    def _update_server_gpus(self, server: str) -> None:
         """Update all GPUs on a single server using batched queries"""
-        gpu_indices = [gpu['index'] for gpu in server_gpus]
+        indices = [gpu['index'] for gpu in self.gpus_by_server[server]]
 
         # Get batched GPU info for all GPUs on this server
-        batch_results = get_gpu_info(server, gpu_indices, self.ssh_pool, timeout=self.timeout)
+        server_gpus_info = get_server_gpus_info(server, indices, self.ssh_pool, timeout=self.timeout)
 
         # Update each GPU with the batched results
-        for gpu in server_gpus:
-            gpu_idx = gpu['index']
-            current_info = batch_results[gpu_idx]
-            self._update_single_gpu(gpu, current_info)
+        for idx in indices:
+            self._update_single_gpu(self.gpus_by_server[server][idx], server_gpus_info[idx])
 
-    def _update_single_gpu(self, gpu: GPUStatus, current_info: Dict):
+    def _update_single_gpu(self, gpu_status: GPUStatus, gpu_info: Dict[str, Any]) -> None:
         """Update a single GPU with the provided info"""
         # Update connection status
-        gpu['connected'] = current_info['connected']
+        gpu_status['connected'] = gpu_info['connected']
 
         # If query failed, set all fields to None except server and index
-        if not current_info['connected']:
-            gpu['max_memory'] = None
-            gpu['processes'] = None
-            gpu['memory_window'] = None
-            gpu['util_window'] = None
-            gpu['memory_stats'] = None
-            gpu['util_stats'] = None
+        if not gpu_info['connected']:
+            gpu_status['max_memory'] = None
+            gpu_status['processes'] = None
+            gpu_status['memory_window'] = None
+            gpu_status['util_window'] = None
+            gpu_status['memory_stats'] = None
+            gpu_status['util_stats'] = None
             return
 
         # Update processes
-        gpu['processes'] = current_info['processes']
+        gpu_status['processes'] = gpu_info['processes']
 
         # Update max memory
-        gpu['max_memory'] = current_info['max_memory']
+        gpu_status['max_memory'] = gpu_info['max_memory']
 
         # Initialize windows if they are None (GPU just reconnected)
-        if gpu['memory_window'] is None:
-            gpu['memory_window'] = []
-        if gpu['util_window'] is None:
-            gpu['util_window'] = []
+        if gpu_status['memory_window'] is None:
+            gpu_status['memory_window'] = []
+        if gpu_status['util_window'] is None:
+            gpu_status['util_window'] = []
 
         # Update rolling windows
-        gpu['memory_window'].append(current_info['current_memory'])
-        gpu['util_window'].append(current_info['current_util'])
+        gpu_status['memory_window'].append(gpu_info['current_memory'])
+        gpu_status['util_window'].append(gpu_info['current_util'])
 
         # Trim windows if needed
-        if len(gpu['memory_window']) > gpu['window_size']:
-            gpu['memory_window'] = gpu['memory_window'][-gpu['window_size']:]
-        if len(gpu['util_window']) > gpu['window_size']:
-            gpu['util_window'] = gpu['util_window'][-gpu['window_size']:]
+        if len(gpu_status['memory_window']) > gpu_status['window_size']:
+            gpu_status['memory_window'] = gpu_status['memory_window'][-gpu_status['window_size']:]
+        if len(gpu_status['util_window']) > gpu_status['window_size']:
+            gpu_status['util_window'] = gpu_status['util_window'][-gpu_status['window_size']:]
 
         # Update stats
-        gpu['memory_stats'] = {
-            'min': min(gpu['memory_window']),
-            'max': max(gpu['memory_window']),
-            'avg': sum(gpu['memory_window']) / len(gpu['memory_window']),
+        gpu_status['memory_stats'] = {
+            'min': min(gpu_status['memory_window']),
+            'max': max(gpu_status['memory_window']),
+            'avg': sum(gpu_status['memory_window']) / len(gpu_status['memory_window']),
         }
-        gpu['util_stats'] = {
-            'min': min(gpu['util_window']),
-            'max': max(gpu['util_window']),
-            'avg': sum(gpu['util_window']) / len(gpu['util_window']),
+        gpu_status['util_stats'] = {
+            'min': min(gpu_status['util_window']),
+            'max': max(gpu_status['util_window']),
+            'avg': sum(gpu_status['util_window']) / len(gpu_status['util_window']),
         }
 
     def _check(self) -> Dict:

@@ -1,4 +1,4 @@
-from typing import List, Dict, TypedDict, Optional
+from typing import List, Dict, TypedDict, Optional, Any
 from utils.monitor.process_info import ProcessInfo, get_all_processes
 from utils.automation.ssh_utils import SSHConnectionPool
 from utils.timeout import with_timeout
@@ -16,7 +16,7 @@ class GPUStatus(TypedDict):
     util_stats: dict[str, Optional[float]]
 
 
-def get_gpu_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, Dict[str, int]]:
+def get_server_gpus_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, Dict[str, int]]:
     """Get memory and utilization for multiple GPUs in a single batch operation.
 
     Args:
@@ -56,7 +56,7 @@ def get_gpu_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -
     return results
 
 
-def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, List[ProcessInfo]]:
+def get_server_gpus_processes(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, List[ProcessInfo]]:
     """Get list of processes running on multiple GPUs in a single batch operation.
 
     Args:
@@ -118,7 +118,7 @@ def get_gpu_processes(server: str, indices: List[int], pool: SSHConnectionPool) 
     return results
 
 
-def get_gpu_info(server: str, gpu_indices: List[int], pool: SSHConnectionPool, timeout: int = 10) -> Dict[int, Dict]:
+def get_server_gpus_info(server: str, gpu_indices: List[int], pool: SSHConnectionPool, timeout: int = 10) -> Dict[int, Dict[str, Any]]:
     """Get information for multiple GPUs on a server in a single batch operation.
 
     This reduces SSH connection overhead by batching multiple GPU queries.
@@ -133,14 +133,14 @@ def get_gpu_info(server: str, gpu_indices: List[int], pool: SSHConnectionPool, t
         Dict mapping GPU index to GPU info dictionary
     """
     @with_timeout(seconds=timeout)
-    def _get_gpu_info():
+    def _get_server_gpus_info():
         results = {}
 
         # Get memory and utilization for all GPUs in batch
-        gpu_mem_util = get_gpu_mem_util(server, gpu_indices, pool)
+        gpu_mem_util = get_server_gpus_mem_util(server, gpu_indices, pool)
 
         # Get process info for all GPUs in batch
-        gpu_processes = get_gpu_processes(server, gpu_indices, pool)
+        gpu_processes = get_server_gpus_processes(server, gpu_indices, pool)
 
         # Merge query results
         for gpu_idx in gpu_indices:
@@ -158,7 +158,7 @@ def get_gpu_info(server: str, gpu_indices: List[int], pool: SSHConnectionPool, t
         return results
 
     try:
-        return _get_gpu_info()
+        return _get_server_gpus_info()
     except Exception as e:
         print(f"ERROR: Failed to get batch GPU info for server {server}, GPUs {gpu_indices}: {e}")
         # Return failed results for all requested GPUs
