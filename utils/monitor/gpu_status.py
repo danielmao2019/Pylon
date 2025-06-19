@@ -14,6 +14,7 @@ class GPUStatus(TypedDict):
     util_window: List[int]
     memory_stats: dict[str, Optional[float]]
     util_stats: dict[str, Optional[float]]
+    connected: bool
 
 
 def get_server_gpus_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, Dict[str, int]]:
