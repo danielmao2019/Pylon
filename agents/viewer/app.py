@@ -22,8 +22,8 @@ class AgentsViewerApp(BaseAgent):
             config_files, expected_files, epochs, sleep_time, outdated_days, gpu_pool, user_names, timeout,
         )
         self.app = dash.Dash(__name__)
-        self.app.layout = create_layout(config_files, expected_files, epochs, sleep_time, outdated_days, self.servers, self.gpu_monitor, user_names)
-        register_callbacks(self.app, config_files, expected_files, epochs, sleep_time, outdated_days, self.servers, self.gpu_monitor, user_names)
+        self.app.layout = create_layout(config_files, expected_files, epochs, sleep_time, outdated_days, self.gpu_monitor, user_names)
+        register_callbacks(self.app, config_files, expected_files, epochs, sleep_time, outdated_days, self.gpu_monitor, user_names)
 
     def run(self, port: Optional[int] = 8050) -> None:
         self.app.run(port=port)

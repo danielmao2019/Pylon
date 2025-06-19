@@ -1,13 +1,13 @@
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import os
 import time
-import random
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from agents import BaseAgent
+import random
+from agents.base_agent import BaseAgent
+from utils.logging import TextLogger
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.automation.run_status import RunStatus, get_all_run_status, parse_config
-from utils.logging.text_logger import TextLogger
+from utils.automation.ssh_utils import _ssh_pool
 
 
 class Launcher(BaseAgent):
@@ -56,6 +56,7 @@ class Launcher(BaseAgent):
         self.conda_env = conda_env
         self.keep_tmux = keep_tmux
         self.logger = TextLogger(filepath=log_path)
+        self.ssh_pool = _ssh_pool
 
     # ====================================================================================================
     # experiment management
@@ -79,7 +80,7 @@ class Launcher(BaseAgent):
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_gpu, self.gpus))
+            results = list(executor.map(process_gpu, self.gpu_monitor.connected_gpus))
 
         # Combine all GPU results into a single dictionary
         stuck_cfgs_info = {}
@@ -88,8 +89,7 @@ class Launcher(BaseAgent):
 
         self.logger.info(f"The following processes will be killed {stuck_cfgs_info}")
         for server, pid in stuck_cfgs_info.values():
-            cmd = ['ssh', server, 'kill', '-9', pid]
-            subprocess.check_output(cmd)
+            self.ssh_pool.execute(server, ['kill', '-9', str(pid)])
 
     def _remove_outdated(self, all_running_status: List[RunStatus]) -> None:
         outdated_runs = list(filter(lambda x: x.status == 'outdated', all_running_status))
@@ -118,13 +118,7 @@ class Launcher(BaseAgent):
             }
         """
         idle_gpus = []
-        disconnected = {}
-        for gpu in self.gpus:
-            # Skip disconnected GPUs
-            if not gpu['connected']:
-                disconnected[gpu['server']] = disconnected.get(gpu['server'], []) + [gpu['index']]
-                continue
-
+        for gpu in self.gpu_monitor.connected_gpus:
             if (
                 gpu['util_stats']['avg'] < 50
                 and (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
@@ -134,7 +128,7 @@ class Launcher(BaseAgent):
                     'server': gpu['server'],
                     'gpu_index': gpu['index'],
                 })
-        self.logger.warning(f"Disconnected GPUs: {disconnected}")
+        self.logger.warning(f"Disconnected GPUs: {self.gpu_monitor.disconnected_gpus}")
         return idle_gpus
 
     def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:
@@ -174,10 +168,9 @@ class Launcher(BaseAgent):
                 ]),
             ])
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
-            cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
-            cmd = f"ssh {gpu['server']} '{cmd}'"
-            self.logger.info(cmd)
-            os.system(cmd)
+            tmux_cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
+
+            self.ssh_pool.execute(gpu['server'], [tmux_cmd])
 
         for gpu, run in zip(gpu_pool, missing_runs):
             launch_job(gpu, run)
@@ -192,9 +185,9 @@ class Launcher(BaseAgent):
                 config_files=self.config_files,
                 expected_files=self.expected_files,
                 epochs=self.epochs,
-                servers=list(set([gpu['server'] for gpu in self.gpus])),
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
+                gpu_monitor=self.gpu_monitor,
             )
 
             self.logger.info("Removing stuck jobs...")

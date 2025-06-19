@@ -2,12 +2,12 @@ from typing import List, Optional, Literal, NamedTuple
 from functools import partial
 import os
 import glob
-import json
 import time
+from concurrent.futures import ThreadPoolExecutor
+import json
 import torch
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.monitor.gpu_status import find_running
-from concurrent.futures import ThreadPoolExecutor
+from utils.monitor.gpu_monitor import GPUMonitor
 
 
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
@@ -78,7 +78,7 @@ def get_all_run_status(
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
-    servers: List[str] = [],
+    gpu_monitor: GPUMonitor = None,
 ) -> List[RunStatus]:
     """
     Args:
@@ -94,12 +94,10 @@ def get_all_run_status(
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
     assert isinstance(outdated_days, int)
-    assert isinstance(servers, list)
+    assert isinstance(gpu_monitor, GPUMonitor)
 
-    with ThreadPoolExecutor() as executor:
-        results = list(executor.map(find_running, servers))
-    all_running = [run for server_runs in results for run in server_runs]
-    all_running_work_dirs = list(map(lambda x: get_work_dir(parse_config(x['command'])), all_running))
+    all_running_commands = gpu_monitor.get_all_running_commands()
+    all_running_work_dirs = list(map(lambda x: get_work_dir(parse_config(x)), all_running_commands))
 
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
@@ -113,6 +111,18 @@ def get_all_run_status(
         ))
 
     return all_run_status
+
+
+def parse_config(cmd: str) -> str:
+    """Extract config filepath from command string."""
+    assert isinstance(cmd, str), f"{cmd=}"
+    assert 'python' in cmd, f"{cmd=}"
+    assert '--config-filepath' in cmd, f"{cmd=}"
+    parts = cmd.split(' ')
+    for idx, part in enumerate(parts):
+        if part == "--config-filepath":
+            return parts[idx+1]
+    assert 0
 
 
 def get_log_last_update(work_dir: str) -> Optional[float]:
@@ -164,17 +174,6 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> int:
             break
         idx += 1
     return idx
-
-
-def parse_config(cmd: str) -> str:
-    """Extract config filepath from command string."""
-    assert 'python' in cmd, f"{cmd=}"
-    assert '--config-filepath' in cmd, f"{cmd=}"
-    parts = cmd.split(' ')
-    for idx, part in enumerate(parts):
-        if part == "--config-filepath":
-            return parts[idx+1]
-    assert 0
 
 
 def check_file_loadable(filepath: str) -> bool:

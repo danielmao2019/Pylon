@@ -1,6 +1,5 @@
 from typing import Tuple, List, Dict
 from abc import ABC
-from utils.monitor.gpu_status import GPUStatus
 from utils.monitor.gpu_monitor import GPUMonitor
 
 
@@ -26,21 +25,11 @@ class BaseAgent(ABC):
         self.user_names = user_names
 
     def _init_gpu_monitor(self, gpu_pool: List[Tuple[str, List[int]]], timeout: int) -> None:
-        self.gpus = [
-            GPUStatus(
-                server=server,
-                index=idx,
-                max_memory=0,  # Will be populated by monitor
-                processes=[],
-                window_size=10,
-                memory_window=[],
-                util_window=[],
-                memory_stats={'min': None, 'max': None, 'avg': None},
-                util_stats={'min': None, 'max': None, 'avg': None}
-            )
-            for server, indices in gpu_pool
-            for idx in indices
-        ]
-        self.gpu_monitor = GPUMonitor(self.gpus, timeout=timeout)
+        # Convert gpu_pool format to gpu_indices_by_server format
+        gpu_indices_by_server = {}
+        for server, indices in gpu_pool:
+            gpu_indices_by_server[server] = indices
+
+        self.gpu_monitor = GPUMonitor(gpu_indices_by_server, timeout=timeout)
         self.gpu_monitor.start()
         self.servers = [server for server, _ in gpu_pool]
