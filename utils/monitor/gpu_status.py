@@ -177,24 +177,13 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
     def _get_all_gpu_info_batched():
         results = {}
         
-        # Batch query for all GPU memory and utilization
-        gpu_list = ','.join(map(str, gpu_indices))
-        batch_cmd = [
-            'nvidia-smi',
-            '--query-gpu=index,memory.total,memory.used,utilization.gpu',
-            '--format=csv,noheader,nounits',
-            f'--id={gpu_list}'
-        ]
-        batch_output = pool.execute(server, batch_cmd)
+        # Get memory and utilization for all GPUs in batch
+        gpu_mem_util = get_gpu_mem_util(server, gpu_indices, pool)
         
-        # Parse batch output
-        for line in batch_output.splitlines():
-            parts = line.split(', ')
-            if len(parts) == 4:
-                gpu_idx = int(parts[0])
-                max_memory = int(parts[1])
-                memory_used = int(parts[2])
-                gpu_util = int(parts[3])
+        # Process each GPU
+        for gpu_idx in gpu_indices:
+            if gpu_idx in gpu_mem_util:
+                mem_util_data = gpu_mem_util[gpu_idx]
                 
                 # Get process info for this GPU
                 gpu_pids = get_gpu_processes(server, gpu_idx, pool)
@@ -204,11 +193,22 @@ def get_all_gpu_info_batched(server: str, gpu_indices: List[int], pool: SSHConne
                 results[gpu_idx] = {
                     'server': server,
                     'index': gpu_idx,
-                    'max_memory': max_memory,
+                    'max_memory': mem_util_data['max_memory'],
                     'processes': processes,
-                    'current_memory': memory_used,
-                    'current_util': gpu_util,
+                    'current_memory': mem_util_data['memory'],
+                    'current_util': mem_util_data['util'],
                     'success': True,
+                }
+            else:
+                # Handle case where GPU data wasn't returned
+                results[gpu_idx] = {
+                    'server': server,
+                    'index': gpu_idx,
+                    'max_memory': None,
+                    'processes': None,
+                    'current_memory': None,
+                    'current_util': None,
+                    'success': False,
                 }
         
         return results
