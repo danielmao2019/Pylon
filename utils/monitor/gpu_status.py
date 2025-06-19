@@ -100,25 +100,43 @@ class GPUStatus(TypedDict):
     util_stats: dict[str, Optional[float]]
 
 
-def get_gpu_memory(server: str, gpu_index: int, pool: SSHConnectionPool) -> int:
-    """Get total memory for a specific GPU"""
+def get_gpu_mem_util(server: str, indices: List[int], pool: SSHConnectionPool) -> Dict[int, Dict[str, int]]:
+    """Get memory and utilization for multiple GPUs in a single batch operation.
+    
+    Args:
+        server: The server to query
+        indices: List of GPU indices to query
+        pool: SSH connection pool instance
+    
+    Returns:
+        Dict mapping GPU index to dict with 'memory' and 'util' keys
+    """
+    if not indices:
+        return {}
+    
+    gpu_list = ','.join(map(str, indices))
     cmd = ['nvidia-smi',
-           '--query-gpu=memory.total',
+           '--query-gpu=index,memory.total,memory.used,utilization.gpu',
            '--format=csv,noheader,nounits',
-           f'--id={gpu_index}']
+           f'--id={gpu_list}']
     output = pool.execute(server, cmd)
-    return int(output)
-
-
-def get_gpu_utilization(server: str, gpu_index: int, pool: SSHConnectionPool) -> Dict[str, int]:
-    """Get current memory and utilization for a specific GPU"""
-    cmd = ['nvidia-smi',
-           '--query-gpu=memory.used,utilization.gpu',
-           '--format=csv,noheader,nounits',
-           f'--id={gpu_index}']
-    output = pool.execute(server, cmd)
-    memory_used, gpu_util = map(int, output.split(', '))
-    return {'memory': memory_used, 'util': gpu_util}
+    
+    results = {}
+    for line in output.splitlines():
+        parts = line.split(', ')
+        if len(parts) == 4:
+            gpu_idx = int(parts[0])
+            max_memory = int(parts[1])
+            memory_used = int(parts[2])
+            gpu_util = int(parts[3])
+            
+            results[gpu_idx] = {
+                'memory': memory_used,
+                'util': gpu_util,
+                'max_memory': max_memory
+            }
+    
+    return results
 
 
 def get_gpu_processes(server: str, gpu_index: int, pool: SSHConnectionPool) -> List[str]:
