@@ -180,8 +180,7 @@ class Launcher(BaseAgent):
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
             tmux_cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
 
-            # Use bash -c to properly handle the complex command
-            ssh_cmd = get_ssh_cmd(gpu['server'], ['bash', '-c', tmux_cmd])
+            ssh_cmd = get_ssh_cmd(gpu['server'], [tmux_cmd])
             full_cmd = ' '.join(ssh_cmd)
             self.logger.info(f"Launching job on server {gpu['server']}, GPU {gpu['gpu_index']}: {full_cmd}")
 
