@@ -1,34 +1,84 @@
 from typing import List, Dict, Optional
 import threading
 from concurrent.futures import ThreadPoolExecutor
-from utils.monitor.gpu_status import GPUStatus, get_gpu_info
+from utils.monitor.gpu_status import GPUStatus, get_gpu_info, get_all_gpu_info_batched, get_ssh_pool_status
+from utils.automation.ssh_utils import SSHConnectionPool
 
 
 class GPUMonitor:
 
-    def __init__(self, gpus: List[GPUStatus], timeout: int = 5):
-        self.gpus = gpus
+    def __init__(self, gpus_by_server: Dict[str, List[GPUStatus]], timeout: int = 5, ssh_pool: Optional[SSHConnectionPool] = None):
+        """
+        Initialize GPU monitor with GPUs organized by server.
+        
+        Args:
+            gpus_by_server: Dictionary mapping server names to lists of GPUStatus objects
+            timeout: SSH command timeout in seconds
+            ssh_pool: Optional SSH connection pool instance
+        """
+        self.gpus_by_server = gpus_by_server
         self.monitor_thread: Optional[threading.Thread] = None
-        self.executor = ThreadPoolExecutor(max_workers=len(gpus))
         self.timeout = timeout
+        
+        # Use provided SSH pool or create a new one
+        self.ssh_pool = ssh_pool if ssh_pool is not None else SSHConnectionPool()
 
         # Do one update first
-        list(self.executor.map(self._update_gpu_info, self.gpus))
+        self._update_gpu_info_batched()
 
     def start(self):
         """Starts background monitoring thread that continuously updates GPU info"""
         def monitor_loop():
             while True:
-                list(self.executor.map(self._update_gpu_info, self.gpus))
+                self._update_gpu_info_batched()
 
         self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
         self.monitor_thread.start()
 
-    def _update_gpu_info(self, gpu):
-        """Updates information for a single GPU"""
-        # Get current GPU info
-        current_info = get_gpu_info(gpu['server'], gpu['index'], timeout=self.timeout)
+    def _update_gpu_info_batched(self):
+        """Updates information for all GPUs using batched queries per server"""
+        # Use ThreadPoolExecutor to query multiple servers in parallel
+        with ThreadPoolExecutor(max_workers=len(self.gpus_by_server)) as executor:
+            # Submit batched queries for each server
+            future_to_server = {
+                executor.submit(self._update_server_gpus, server, gpus): server
+                for server, gpus in self.gpus_by_server.items()
+            }
+            
+            # Collect results
+            for future in future_to_server:
+                try:
+                    future.result(timeout=self.timeout * 2)  # Allow extra time for batched queries
+                except Exception as e:
+                    server = future_to_server[future]
+                    print(f"ERROR: Failed to update GPUs for server {server}: {e}")
 
+    def _update_server_gpus(self, server: str, server_gpus: List[GPUStatus]):
+        """Update all GPUs on a single server using batched queries"""
+        gpu_indices = [gpu['index'] for gpu in server_gpus]
+        
+        try:
+            # Get batched GPU info for all GPUs on this server
+            batch_results = get_all_gpu_info_batched(server, gpu_indices, self.ssh_pool, timeout=self.timeout)
+            
+            # Update each GPU with the batched results
+            for gpu in server_gpus:
+                gpu_idx = gpu['index']
+                if gpu_idx in batch_results:
+                    current_info = batch_results[gpu_idx]
+                    self._update_single_gpu(gpu, current_info)
+                else:
+                    # Fallback to individual query if not in batch results
+                    self._update_gpu_info(gpu)
+                    
+        except Exception as e:
+            print(f"ERROR: Failed to update server {server} GPUs {gpu_indices}: {e}")
+            # Fallback to individual queries
+            for gpu in server_gpus:
+                self._update_gpu_info(gpu)
+
+    def _update_single_gpu(self, gpu: GPUStatus, current_info: Dict):
+        """Update a single GPU with the provided info"""
         # Update connection status
         gpu['connected'] = current_info['success']
 
@@ -100,3 +150,26 @@ class GPUMonitor:
         assert len(stats) == 1, "Only support single GPU training for now."
         stats = list(stats.values())[0]
         logger.update_buffer(stats)
+
+    def get_ssh_pool_stats(self) -> Dict[str, Dict[str, int]]:
+        """Get SSH connection pool statistics for monitoring"""
+        return get_ssh_pool_status(self.ssh_pool)
+
+    def get_connection_efficiency_stats(self) -> Dict[str, float]:
+        """Get connection efficiency statistics"""
+        pool_stats = self.get_ssh_pool_stats()
+        efficiency_stats = {}
+        
+        for server, stats in pool_stats.items():
+            if stats['max_connections'] > 0:
+                utilization = stats['active_connections'] / stats['max_connections']
+                pool_usage = stats['pool_size'] / stats['max_connections']
+                efficiency_stats[server] = {
+                    'connection_utilization': utilization,
+                    'pool_usage': pool_usage,
+                    'active_connections': stats['active_connections'],
+                    'pool_size': stats['pool_size'],
+                    'max_connections': stats['max_connections']
+                }
+        
+        return efficiency_stats

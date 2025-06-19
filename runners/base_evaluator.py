@@ -12,6 +12,7 @@ import utils
 from utils.builders import build_from_config
 from utils.monitor.gpu_monitor import GPUMonitor
 from utils.logging.text_logger import TextLogger
+from utils.monitor.gpu_status import GPUStatus
 
 
 class BaseEvaluator:
@@ -67,7 +68,29 @@ class BaseEvaluator:
 
         # Initialize GPU monitor
         if torch.cuda.is_available():
-            self.gpu_monitor = GPUMonitor()
+            # Get physical device index
+            device_index = torch.cuda.current_device()
+            cuda_visible_devices = os.environ.get('CUDA_VISIBLE_DEVICES')
+            if cuda_visible_devices:
+                visible_devices = [int(d.strip()) for d in cuda_visible_devices.split(',')]
+                physical_device_index = visible_devices[device_index]
+            else:
+                physical_device_index = device_index
+
+            gpu = GPUStatus(
+                server='localhost',  # or get from environment
+                index=physical_device_index,
+                max_memory=0,
+                processes=[],
+                window_size=10,
+                memory_window=[],
+                util_window=[],
+                memory_stats={'min': None, 'max': None, 'avg': None},
+                util_stats={'min': None, 'max': None, 'avg': None}
+            )
+            # Create GPU monitor with localhost GPU organized by server
+            gpus_by_server = {'localhost': [gpu]}
+            self.gpu_monitor = GPUMonitor(gpus_by_server)
         else:
             self.gpu_monitor = None
 

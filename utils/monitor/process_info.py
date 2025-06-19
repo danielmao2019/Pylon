@@ -1,5 +1,5 @@
 from typing import Dict, TypedDict
-from utils.automation.ssh_utils import get_ssh_cmd, safe_check_output
+from utils.automation.ssh_utils import SSHConnectionPool
 
 
 class ProcessInfo(TypedDict):
@@ -9,11 +9,10 @@ class ProcessInfo(TypedDict):
     start_time: str
 
 
-def get_all_processes(server: str) -> Dict[str, ProcessInfo]:
+def get_all_processes(server: str, pool: SSHConnectionPool) -> Dict[str, ProcessInfo]:
     """Get information for all processes on a server"""
     cmd = ["ps", "-eo", "pid=,user=,lstart=,cmd="]
-    cmd = get_ssh_cmd(server, cmd)
-    result = safe_check_output(cmd, server, "process list query")
+    result = pool.execute(server, cmd)
 
     lines = result.splitlines()
     result_dict = {}

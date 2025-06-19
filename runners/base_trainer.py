@@ -111,7 +111,9 @@ class BaseTrainer(ABC):
                 memory_stats={'min': None, 'max': None, 'avg': None},
                 util_stats={'min': None, 'max': None, 'avg': None}
             )
-            self.gpu_monitor = GPUMonitor([gpu])
+            # Create GPU monitor with localhost GPU organized by server
+            gpus_by_server = {'localhost': [gpu]}
+            self.gpu_monitor = GPUMonitor(gpus_by_server)
             self.gpu_monitor.start()
         else:
             self.gpu_monitor = None
