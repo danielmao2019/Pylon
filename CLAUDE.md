@@ -8,7 +8,7 @@
   - [2.2. Training](#22-training)
   - [2.3. Dataset Viewer](#23-dataset-viewer)
   - [2.4. Code Quality](#24-code-quality)
-- [3. Architecture](#3-architecture)
+- [3. Design Ideas](#3-design-ideas)
   - [3.1. Core Design Philosophy](#31-core-design-philosophy)
   - [3.2. Dataset Design Pattern](#32-dataset-design-pattern)
   - [3.3. Asynchronous Buffer Pattern](#33-asynchronous-buffer-pattern)
@@ -88,7 +88,7 @@ isort .
 flake8 .
 ```
 
-## 3. Architecture
+## 3. Design Ideas
 
 ### 3.1. Core Design Philosophy
 Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research:
