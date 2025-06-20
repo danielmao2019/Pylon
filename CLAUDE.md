@@ -19,16 +19,16 @@
   - [3.8. Tensor Type Assumptions](#38-tensor-type-assumptions)
   - [3.9. Key Directories and Components](#39-key-directories-and-components)
   - [3.10. Special Utilities](#310-special-utilities)
-  - [3.11. Testing Philosophy and Patterns](#311-testing-philosophy-and-patterns)
-    - [3.11.1. **Common Test Pattern Taxonomy**](#3111-common-test-pattern-taxonomy)
-    - [3.11.2. **Test Quality Assessment**](#3112-test-quality-assessment)
-    - [3.11.3. **Recommended Test Templates**](#3113-recommended-test-templates)
-    - [3.11.4. **Dummy Data Generation for Tests**](#3114-dummy-data-generation-for-tests)
-  - [3.12. C++ Extensions](#312-c-extensions)
-  - [3.13. Error Handling Philosophy](#313-error-handling-philosophy)
+  - [3.11. C++ Extensions](#311-c-extensions)
+  - [3.12. Error Handling Philosophy](#312-error-handling-philosophy)
 - [4. About Testing](#4-about-testing)
-  - [4.1. Testing Implementation Guidelines](#41-testing-implementation-guidelines)
-  - [4.2. Testing Focus](#42-testing-focus)
+  - [4.1. Testing Philosophy and Patterns](#41-testing-philosophy-and-patterns)
+    - [4.1.1. **Common Test Pattern Taxonomy**](#411-common-test-pattern-taxonomy)
+    - [4.1.2. **Test Quality Assessment**](#412-test-quality-assessment)
+    - [4.1.3. **Recommended Test Templates**](#413-recommended-test-templates)
+    - [4.1.4. **Dummy Data Generation for Tests**](#414-dummy-data-generation-for-tests)
+  - [4.2. Testing Implementation Guidelines](#42-testing-implementation-guidelines)
+  - [4.3. Testing Focus](#43-testing-focus)
 - [5. Code Style Guidelines](#5-code-style-guidelines)
   - [5.1. Import Statement Order](#51-import-statement-order)
   - [5.2. Config vs Source Code Import Patterns](#52-config-vs-source-code-import-patterns)
@@ -227,10 +227,62 @@ Pylon enforces strict tensor type conventions validated by `utils/input_checks/`
 - **State preservation**: Robust checkpoint and resumption handling
 - **Validation**: Extensive configuration and type checking
 
-### 3.11. Testing Philosophy and Patterns
+### 3.11. C++ Extensions
+Some modules require building:
+```bash
+# GeoTransformer
+cd data/collators/geotransformer && python setup.py install && cd ../../..
+
+# Buffer/OverlapPredator  
+cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
+```
+
+### 3.12. Error Handling Philosophy
+**Avoid unnecessary try-except blocks - only use when truly necessary:**
+
+- **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
+- **Let errors propagate naturally** - Python's stack traces show exact error locations
+- **Only use try-except when necessary** for specific functionality, not for general "robustness"
+
+**Examples of necessary try-except usage:**
+```python
+# Example 1: _call_with_seed method - API compatibility for seed parameter
+def _call_with_seed(func, op_inputs, seed=None):
+    try:
+        if len(op_inputs) == 1:
+            op_outputs = [func(op_inputs[0], seed=seed)]
+        else:
+            op_outputs = func(*op_inputs, seed=seed)
+    except Exception as e:
+        if "got an unexpected keyword argument 'seed'" in str(e):
+            if len(op_inputs) == 1:
+                op_outputs = [func(op_inputs[0])]
+            else:
+                op_outputs = func(*op_inputs)
+        else:
+            raise
+
+# Example 2: _call_single_with_generator method - API compatibility for generator parameter
+def _call_single_with_generator(self, *args, generator):
+    try:
+        return self._call_single(*args, generator=generator)
+    except Exception as e:
+        if "got an unexpected keyword argument 'generator'" in str(e):
+            return self._call_single(*args)
+        else:
+            raise
+```
+
+**Key principles:**
+- Use assertions for input validation instead of try-except
+- Prefer explicit checks over catching exceptions
+
+## 4. About Testing
+
+### 4.1. Testing Philosophy and Patterns
 **Comprehensive testing approach with standardized patterns:**
 
-#### 3.11.1. **Common Test Pattern Taxonomy**
+#### 4.1.1. **Common Test Pattern Taxonomy**
 
 1. **Correctness Verification Pattern**
    - Hard-coded inputs with known expected outputs
@@ -281,7 +333,7 @@ Pylon enforces strict tensor type conventions validated by `utils/input_checks/`
    - Multi-process data sharing and synchronization
    - Example: `test_dataset_cache.py` testing concurrent cache access
 
-#### 3.11.2. **Test Quality Assessment**
+#### 4.1.2. **Test Quality Assessment**
 
 **Well-Implemented Examples:**
 - `test_confusion_matrix.py`: Comprehensive parametrized tests with edge cases
@@ -294,7 +346,7 @@ Pylon enforces strict tensor type conventions validated by `utils/input_checks/`
 - Model tests (`test_dsam_net.py`, etc.): Only forward pass, missing gradient/validation testing
 - Transform tests: Limited determinism and edge case coverage
 
-#### 3.11.3. **Recommended Test Templates**
+#### 4.1.3. **Recommended Test Templates**
 
 **For Dataset Classes:**
 ```python
@@ -321,7 +373,7 @@ def test_edge_cases()           # Edge case pattern
 def test_mathematical_properties()  # Random ground truth
 ```
 
-#### 3.11.4. **Dummy Data Generation for Tests**
+#### 4.1.4. **Dummy Data Generation for Tests**
 
 **ALWAYS use the standardized dummy data generators** in `tests/models/utils/dummy_data_generators.py`:
 
@@ -351,59 +403,7 @@ torch.randn(2, 3, 224, 224, dtype=torch.float32)
 torch.randint(0, 10, (2, 224, 224), dtype=torch.int64)
 ```
 
-### 3.12. C++ Extensions
-Some modules require building:
-```bash
-# GeoTransformer
-cd data/collators/geotransformer && python setup.py install && cd ../../..
-
-# Buffer/OverlapPredator  
-cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
-```
-
-### 3.13. Error Handling Philosophy
-**Avoid unnecessary try-except blocks - only use when truly necessary:**
-
-- **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
-- **Let errors propagate naturally** - Python's stack traces show exact error locations
-- **Only use try-except when necessary** for specific functionality, not for general "robustness"
-
-**Examples of necessary try-except usage:**
-```python
-# Example 1: _call_with_seed method - API compatibility for seed parameter
-def _call_with_seed(func, op_inputs, seed=None):
-    try:
-        if len(op_inputs) == 1:
-            op_outputs = [func(op_inputs[0], seed=seed)]
-        else:
-            op_outputs = func(*op_inputs, seed=seed)
-    except Exception as e:
-        if "got an unexpected keyword argument 'seed'" in str(e):
-            if len(op_inputs) == 1:
-                op_outputs = [func(op_inputs[0])]
-            else:
-                op_outputs = func(*op_inputs)
-        else:
-            raise
-
-# Example 2: _call_single_with_generator method - API compatibility for generator parameter
-def _call_single_with_generator(self, *args, generator):
-    try:
-        return self._call_single(*args, generator=generator)
-    except Exception as e:
-        if "got an unexpected keyword argument 'generator'" in str(e):
-            return self._call_single(*args)
-        else:
-            raise
-```
-
-**Key principles:**
-- Use assertions for input validation instead of try-except
-- Prefer explicit checks over catching exceptions
-
-## 4. About Testing
-
-### 4.1. Testing Implementation Guidelines
+### 4.2. Testing Implementation Guidelines
 **CRITICAL: Use pytest functions only - NO test classes:**
 - **Framework**: Use `pytest` with plain functions ONLY
 - **NO test classes**: Never use `class Test*` - always write `def test_*()` functions
@@ -448,7 +448,7 @@ def test_model_different_batch_sizes(batch_size):
     assert output.shape[0] == batch_size
 ```
 
-### 4.2. Testing Focus
+### 4.3. Testing Focus
 **All tests in Pylon are for "your implementation"** - code we've written or integrated:
 - **Base classes and wrappers**: Comprehensive testing with all 9 patterns
 - **Domain-specific models/losses**: Focus on integration and API correctness
