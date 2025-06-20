@@ -30,12 +30,14 @@
   - [5.2. Testing Implementation Guidelines](#52-testing-implementation-guidelines)
   - [5.3. Testing Focus](#53-testing-focus)
 - [6. Code Style Guidelines](#6-code-style-guidelines)
-  - [6.1. Import Statement Order](#61-import-statement-order)
-  - [6.2. Config vs Source Code Import Patterns](#62-config-vs-source-code-import-patterns)
-  - [6.3. Type Annotations](#63-type-annotations)
-  - [6.4. Documentation Strings](#64-documentation-strings)
-  - [6.5. Function and File Organization](#65-function-and-file-organization)
-  - [6.6. Error Handling](#66-error-handling)
+  - [6.1. Import Statements](#61-import-statements)
+    - [6.1.1. Order](#611-order)
+    - [6.1.2. Absolute Imports](#612-absolute-imports)
+    - [6.1.3. Unused Imports](#613-unused-imports)
+  - [6.2. Type Annotations](#62-type-annotations)
+  - [6.3. Documentation Strings](#63-documentation-strings)
+  - [6.4. Function and File Organization](#64-function-and-file-organization)
+  - [6.5. Error Handling](#65-error-handling)
 - [7. Important Implementation Notes](#7-important-implementation-notes)
 
 ----------------------------------------------------------------------------------------------------
@@ -432,7 +434,9 @@ def test_model_different_batch_sizes(batch_size):
 
 ## 6. Code Style Guidelines
 
-### 6.1. Import Statement Order
+### 6.1. Import Statements
+
+#### 6.1.1. Order
 **Always follow this exact order with NO spaces between imports:**
 ```python
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -452,12 +456,16 @@ from utils.builders.builder import build_from_config
 3. External packages (`numpy`, `torch`, `torchvision`, etc.)
 4. Project modules using **full file paths** (not module imports)
 
-### 6.2. Config vs Source Code Import Patterns
+#### 6.1.2. Absolute Imports
 - **Source code**: Use full file paths - `from data.datasets.base_dataset import BaseDataset`
 - **Config files**: Use module imports - `from data.datasets import BaseDataset` (user-friendly)
 - **Note**: Config files are program-generated, so manual editing is rare
 
-### 6.3. Type Annotations
+#### 6.1.3. Unused Imports
+
+Make sure you remove unused imports after coding.
+
+### 6.2. Type Annotations
 **Always include type annotations for function/method arguments and return types:**
 ```python
 def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
@@ -467,7 +475,7 @@ def build_from_config(config: Dict[str, Any], **kwargs: Any) -> Any:
     # implementation
 ```
 
-### 6.4. Documentation Strings
+### 6.3. Documentation Strings
 **Not all functions need docstrings, but when used, follow this pattern:**
 ```python
 def some_function(arg1: int, arg2: str) -> bool:
@@ -482,13 +490,13 @@ def some_function(arg1: int, arg2: str) -> bool:
     """
 ```
 
-### 6.5. Function and File Organization
+### 6.4. Function and File Organization
 **Break down complex code for maintainability:**
 - **Long functions**: Break down using helper functions with clear single responsibilities
 - **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
 - **Test organization**: Group tests by patterns/philosophies rather than single large files
 
-### 6.6. Error Handling
+### 6.5. Error Handling
 **Avoid unnecessary try-except blocks - only use when truly necessary:**
 
 - **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
