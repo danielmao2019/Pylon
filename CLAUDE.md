@@ -26,15 +26,16 @@
     - [3.11.4. **Dummy Data Generation for Tests**](#3114-dummy-data-generation-for-tests)
   - [3.12. C++ Extensions](#312-c-extensions)
   - [3.13. Error Handling Philosophy](#313-error-handling-philosophy)
-- [4. Code Style Guidelines](#4-code-style-guidelines)
-  - [4.1. Import Statement Order](#41-import-statement-order)
-  - [4.2. Config vs Source Code Import Patterns](#42-config-vs-source-code-import-patterns)
-  - [4.3. Type Annotations](#43-type-annotations)
-  - [4.4. Documentation Strings](#44-documentation-strings)
-  - [4.5. Function and File Organization](#45-function-and-file-organization)
-  - [4.6. Testing Implementation Guidelines](#46-testing-implementation-guidelines)
-  - [4.7. Testing Focus](#47-testing-focus)
-- [5. Important Implementation Notes](#5-important-implementation-notes)
+- [4. About Testing](#4-about-testing)
+  - [4.1. Testing Implementation Guidelines](#41-testing-implementation-guidelines)
+  - [4.2. Testing Focus](#42-testing-focus)
+- [5. Code Style Guidelines](#5-code-style-guidelines)
+  - [5.1. Import Statement Order](#51-import-statement-order)
+  - [5.2. Config vs Source Code Import Patterns](#52-config-vs-source-code-import-patterns)
+  - [5.3. Type Annotations](#53-type-annotations)
+  - [5.4. Documentation Strings](#54-documentation-strings)
+  - [5.5. Function and File Organization](#55-function-and-file-organization)
+- [6. Important Implementation Notes](#6-important-implementation-notes)
 
 ----------------------------------------------------------------------------------------------------
 
@@ -400,65 +401,9 @@ def _call_single_with_generator(self, *args, generator):
 - Use assertions for input validation instead of try-except
 - Prefer explicit checks over catching exceptions
 
-## 4. Code Style Guidelines
+## 4. About Testing
 
-### 4.1. Import Statement Order
-**Always follow this exact order with NO spaces between imports:**
-```python
-from typing import Any, Dict, List, Optional, Tuple, Union
-import os
-import sys
-import copy
-import numpy as np
-import torch
-import torchvision
-from data.datasets.base_dataset import BaseDataset
-from criteria.focal_loss import FocalLoss
-from utils.builders.builder import build_from_config
-```
-
-1. `from typing import` - always first
-2. Python native packages (`os`, `sys`, `copy`, etc.)
-3. External packages (`numpy`, `torch`, `torchvision`, etc.)
-4. Project modules using **full file paths** (not module imports)
-
-### 4.2. Config vs Source Code Import Patterns
-- **Source code**: Use full file paths - `from data.datasets.base_dataset import BaseDataset`
-- **Config files**: Use module imports - `from data.datasets import BaseDataset` (user-friendly)
-- **Note**: Config files are program-generated, so manual editing is rare
-
-### 4.3. Type Annotations
-**Always include type annotations for function/method arguments and return types:**
-```python
-def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-    # implementation
-
-def build_from_config(config: Dict[str, Any], **kwargs: Any) -> Any:
-    # implementation
-```
-
-### 4.4. Documentation Strings
-**Not all functions need docstrings, but when used, follow this pattern:**
-```python
-def some_function(arg1: int, arg2: str) -> bool:
-    """Brief description of what the function does.
-    
-    Args:
-        arg1: Description of first argument
-        arg2: Description of second argument
-        
-    Returns:
-        Description of return value
-    """
-```
-
-### 4.5. Function and File Organization
-**Break down complex code for maintainability:**
-- **Long functions**: Break down using helper functions with clear single responsibilities
-- **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
-- **Test organization**: Group tests by patterns/philosophies rather than single large files
-
-### 4.6. Testing Implementation Guidelines
+### 4.1. Testing Implementation Guidelines
 **CRITICAL: Use pytest functions only - NO test classes:**
 - **Framework**: Use `pytest` with plain functions ONLY
 - **NO test classes**: Never use `class Test*` - always write `def test_*()` functions
@@ -503,7 +448,7 @@ def test_model_different_batch_sizes(batch_size):
     assert output.shape[0] == batch_size
 ```
 
-### 4.7. Testing Focus
+### 4.2. Testing Focus
 **All tests in Pylon are for "your implementation"** - code we've written or integrated:
 - **Base classes and wrappers**: Comprehensive testing with all 9 patterns
 - **Domain-specific models/losses**: Focus on integration and API correctness
@@ -514,7 +459,65 @@ def test_model_different_batch_sizes(batch_size):
 
 **Note**: We do not write separate tests for "official_implementation" - all integrated code is tested as "your implementation".
 
-## 5. Important Implementation Notes
+## 5. Code Style Guidelines
+
+### 5.1. Import Statement Order
+**Always follow this exact order with NO spaces between imports:**
+```python
+from typing import Any, Dict, List, Optional, Tuple, Union
+import os
+import sys
+import copy
+import numpy as np
+import torch
+import torchvision
+from data.datasets.base_dataset import BaseDataset
+from criteria.focal_loss import FocalLoss
+from utils.builders.builder import build_from_config
+```
+
+1. `from typing import` - always first
+2. Python native packages (`os`, `sys`, `copy`, etc.)
+3. External packages (`numpy`, `torch`, `torchvision`, etc.)
+4. Project modules using **full file paths** (not module imports)
+
+### 5.2. Config vs Source Code Import Patterns
+- **Source code**: Use full file paths - `from data.datasets.base_dataset import BaseDataset`
+- **Config files**: Use module imports - `from data.datasets import BaseDataset` (user-friendly)
+- **Note**: Config files are program-generated, so manual editing is rare
+
+### 5.3. Type Annotations
+**Always include type annotations for function/method arguments and return types:**
+```python
+def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    # implementation
+
+def build_from_config(config: Dict[str, Any], **kwargs: Any) -> Any:
+    # implementation
+```
+
+### 5.4. Documentation Strings
+**Not all functions need docstrings, but when used, follow this pattern:**
+```python
+def some_function(arg1: int, arg2: str) -> bool:
+    """Brief description of what the function does.
+    
+    Args:
+        arg1: Description of first argument
+        arg2: Description of second argument
+        
+    Returns:
+        Description of return value
+    """
+```
+
+### 5.5. Function and File Organization
+**Break down complex code for maintainability:**
+- **Long functions**: Break down using helper functions with clear single responsibilities
+- **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
+- **Test organization**: Group tests by patterns/philosophies rather than single large files
+
+## 6. Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8
 - Follows OpenMMLab conventions (mmengine, mmcv, mmdet)
 - Emphasizes Python-native objects and inheritance for extensibility
