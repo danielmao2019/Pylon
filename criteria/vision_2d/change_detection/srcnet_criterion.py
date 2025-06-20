@@ -1,4 +1,4 @@
-from typing import Tuple, Dict
+from typing import Tuple, Dict, Any
 import torch
 import torch.nn.functional as F
 from criteria.wrappers import SingleTaskCriterion
@@ -8,13 +8,13 @@ from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import D
 
 class SRCNetCriterion(SingleTaskCriterion):
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         super(SRCNetCriterion, self).__init__(**kwargs)
         self.edge_loss = EdgeLoss(KSIZE=7)
         self.focal_loss = SemanticSegmentationCriterion()
         self.dice_loss = DiceLoss()
 
-    def calloss(self, prediction, target, sigmas):
+    def calloss(self, prediction: torch.Tensor, target: torch.Tensor, sigmas: torch.Tensor) -> torch.Tensor:
         focal = self.focal_loss(prediction, target)
         dice = self.dice_loss(prediction, target)
         edge = self.edge_loss(prediction, target)
@@ -49,7 +49,7 @@ class EdgeLoss(SingleTaskCriterion):
         self.MASK = torch.zeros([KSIZE, KSIZE])
         self.cal_mask(KSIZE)
 
-    def cal_mask(self, ksize):
+    def cal_mask(self, ksize: int) -> None:
         num = 0
         MASK = self.MASK
         for x in range(0, ksize):
@@ -65,7 +65,7 @@ class EdgeLoss(SingleTaskCriterion):
         )
         self.MASK = MASK
 
-    def tensor_average(self, bin_img, ksize):
+    def tensor_average(self, bin_img: torch.Tensor, ksize: int) -> torch.Tensor:
         B, C, H, W = bin_img.shape
         pad = (ksize - 1) // 2
         bin_img = F.pad(bin_img, [pad, pad, pad, pad], mode="constant", value=0)

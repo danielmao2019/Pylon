@@ -17,7 +17,7 @@ class BaseCriterion(torch.nn.Module, ABC):
             self._buffer_thread.start()
         self.reset_buffer()
 
-    def reset_buffer(self):
+    def reset_buffer(self) -> None:
         if self.use_buffer:
             assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
             with self._buffer_lock:

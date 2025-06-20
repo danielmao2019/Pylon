@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Any, Callable
 from functools import partial
 import math
 import torch
@@ -7,7 +7,13 @@ from data.collators.geotransformer.geotransformer_collate_fn import geotransform
 
 
 def calibrate_neighbors_stack_mode(
-    dataset, collate_fn, num_stages, voxel_size, search_radius, keep_ratio, sample_threshold,
+    dataset: Any, 
+    collate_fn: Callable, 
+    num_stages: int, 
+    voxel_size: float, 
+    search_radius: float, 
+    keep_ratio: float, 
+    sample_threshold: int,
 ) -> List[int]:
     # Compute higher bound of neighbors number in a neighborhood
     hist_n = math.ceil(4 / 3 * math.pi * (search_radius / voxel_size + 1) ** 3)
@@ -46,13 +52,13 @@ class GeoTransformerDataloader(BaseDataLoader):
 
     def __init__(
         self,
-        dataset,
-        num_stages,
-        voxel_size,
-        search_radius,
-        keep_ratio=0.8,
-        sample_threshold=2000,
-        **kwargs,
+        dataset: Any,
+        num_stages: int,
+        voxel_size: float,
+        search_radius: float,
+        keep_ratio: float = 0.8,
+        sample_threshold: int = 2000,
+        **kwargs: Any,
     ) -> None:
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
         self.neighbor_limits = calibrate_neighbors_stack_mode(
