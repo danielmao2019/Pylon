@@ -1,6 +1,5 @@
 from typing import Dict
 import torch
-import criteria
 from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion, DiceLoss
 
