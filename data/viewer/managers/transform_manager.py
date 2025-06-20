@@ -41,12 +41,13 @@ class TransformManager:
         # Clear existing transforms
         self.clear_transforms()
 
-        # If no transforms config provided, return without registering any transforms
-        if transforms_cfg is None:
-            return
+        # Validate config structure first
+        if transforms_cfg is not None:
+            assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
 
-        # Validate config structure
-        assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
+        # If no transforms config provided, return without registering any transforms
+        if transforms_cfg is None or not transforms_cfg:
+            return
         assert 'class' in transforms_cfg, f"Transform configuration must contain 'class' key. Got {transforms_cfg.keys()}."
         assert 'args' in transforms_cfg, f"Transform configuration must contain 'args' key. Got {transforms_cfg.keys()}."
 
