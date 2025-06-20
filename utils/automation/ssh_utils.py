@@ -1,4 +1,4 @@
-from typing import List, Dict
+from typing import List, Dict, Generator
 import subprocess
 import threading
 from contextlib import contextmanager
@@ -8,7 +8,7 @@ import queue
 class SSHConnectionPool:
     """Thread-safe SSH connection pool for reusing connections to reduce overhead."""
 
-    def __init__(self, max_connections_per_server: int = 3, connection_timeout: int = 30, command_timeout: int = 30):
+    def __init__(self, max_connections_per_server: int = 3, connection_timeout: int = 30, command_timeout: int = 30) -> None:
         self.max_connections_per_server = max_connections_per_server
         self.connection_timeout = connection_timeout
         self.command_timeout = command_timeout
@@ -105,7 +105,7 @@ class SSHConnectionPool:
                 raise SSHCommandError(f"SSH command failed on {server}: {str(e)}")
 
     @contextmanager
-    def _get_connection_slot(self, server: str):
+    def _get_connection_slot(self, server: str) -> Generator[str, None, None]:
         """Get a connection slot from the pool for concurrency control."""
         pool = self._get_pool(server)
         connection_lock = self._get_connection_lock(server)

@@ -574,7 +574,7 @@ class BaseTrainer(ABC):
     # ====================================================================================================
     # ====================================================================================================
 
-    def _init_components_(self):
+    def _init_components_(self) -> None:
         self._init_logger()
         self._init_determinism_()
         self._init_state_()
@@ -586,7 +586,7 @@ class BaseTrainer(ABC):
         self._init_scheduler_()
         self._load_checkpoint_()
 
-    def run(self):
+    def run(self) -> None:
         # initialize run
         self._init_components_()
         start_epoch = self.cum_epochs

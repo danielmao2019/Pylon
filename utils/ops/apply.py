@@ -1,11 +1,11 @@
-from typing import List, Union, Callable, Optional
+from typing import List, Union, Callable, Optional, Any
 import torch
 
 
 def apply_tensor_op(
     func: Callable[[torch.Tensor], torch.Tensor],
     inputs: Union[tuple, list, dict, torch.Tensor, float],
-) -> dict:
+) -> Any:
     if type(inputs) == torch.Tensor:
         return func(inputs)
     elif type(inputs) == tuple:
