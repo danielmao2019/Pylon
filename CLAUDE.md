@@ -91,7 +91,15 @@ flake8 .
 ## 3. Design Ideas
 
 ### 3.1. Core Design Philosophy
-Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research:
+Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research.
+The `models` module is mostly copied from official repos and is meant for integrating official model implementations into Pylon.
+Some of the code in the `criteria`, `metrics`, `optimizers`, and `runners` are other-project-specific, meaning that they are also copied from official implementations of other released work.
+The main contribution of Pylon are the follows:
+1. Pylon provides a unified code design for a wide range of research domains, including classical deep learning 2D vision, change detection, point cloud registration, and multi-task learning.
+2. Pylon works hard on providing a well-designed "framework", while paying less attention to domain-specific code.
+3. Pylon provides robust experiment management system, implemented via the `agent` module.
+4. While integrating project-specific code (mainly the project-specific model, criterion, and metric), Pylon maintains them and makes sure that the integrated code from external sources are up-to-date with the advancement of package versions.
+5. Pylon provides robust debugging toolkit including data viewer and evaluation results viewer.
 
 ### 3.2. Dataset Design Pattern
 **Every dataset follows the three-field structure:**
