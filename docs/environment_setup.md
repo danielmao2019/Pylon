@@ -10,6 +10,7 @@
 - [4. Conda Environment Setup](#4-conda-environment-setup)
   - [4.1. Create conda environment](#41-create-conda-environment)
   - [4.2. Basics](#42-basics)
+  - [Segmentation related](#segmentation-related)
   - [4.3. Point cloud registration related](#43-point-cloud-registration-related)
 
 ## 1. Overview
@@ -82,9 +83,16 @@ conda install -c conda-forge -y ftfy regex easydict
 pip install fvcore triton jsbeautifier
 ```
 
+### Segmentation related
+
+```bash
+pip install segmentation-models-pytorch@git+https://github.com/ragavsachdeva/segmentation_models.pytorch.git@2cde92e776b0a074d5e2f4f6a50c68754f948015
+```
+
 ### 4.3. Point cloud registration related
 
 ```bash
+conda install pytorch3d -c pytorch3d --freeze-installed
 git clone git@github.com:erikwijmans/Pointnet2_PyTorch.git && cd Pointnet2_PyTorch && pip install pointnet2_ops_lib/. && cd ..
 pip install --upgrade https://github.com/unlimblue/KNN_CUDA/releases/download/0.2/KNN_CUDA-0.2-py3-none-any.whl
 pip install ninja kornia einops easydict tensorboard tensorboardX nibabel
