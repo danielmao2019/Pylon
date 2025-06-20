@@ -19,16 +19,16 @@
   - [3.8. Key Directories and Components](#38-key-directories-and-components)
   - [3.9. Special Utilities](#39-special-utilities)
   - [3.10. C++ Extensions](#310-c-extensions)
-- [4. About Testing](#4-about-testing)
-  - [4.1. Testing Philosophy and Patterns](#41-testing-philosophy-and-patterns)
-    - [4.1.1. **Common Test Pattern Taxonomy**](#411-common-test-pattern-taxonomy)
-    - [4.1.2. **Test Quality Assessment**](#412-test-quality-assessment)
-    - [4.1.3. **Recommended Test Templates**](#413-recommended-test-templates)
-    - [4.1.4. **Dummy Data Generation for Tests**](#414-dummy-data-generation-for-tests)
-  - [4.2. Testing Implementation Guidelines](#42-testing-implementation-guidelines)
-  - [4.3. Testing Focus](#43-testing-focus)
-- [5. Project-Wide Conventions](#5-project-wide-conventions)
-  - [5.1. Tensor Type Assumptions](#51-tensor-type-assumptions)
+- [4. Project-Wide Conventions](#4-project-wide-conventions)
+  - [4.1. Tensor Type Assumptions](#41-tensor-type-assumptions)
+- [5. About Testing](#5-about-testing)
+  - [5.1. Testing Philosophy and Patterns](#51-testing-philosophy-and-patterns)
+    - [5.1.1. **Common Test Pattern Taxonomy**](#511-common-test-pattern-taxonomy)
+    - [5.1.2. **Test Quality Assessment**](#512-test-quality-assessment)
+    - [5.1.3. **Recommended Test Templates**](#513-recommended-test-templates)
+    - [5.1.4. **Dummy Data Generation for Tests**](#514-dummy-data-generation-for-tests)
+  - [5.2. Testing Implementation Guidelines](#52-testing-implementation-guidelines)
+  - [5.3. Testing Focus](#53-testing-focus)
 - [6. Code Style Guidelines](#6-code-style-guidelines)
   - [6.1. Import Statement Order](#61-import-statement-order)
   - [6.2. Config vs Source Code Import Patterns](#62-config-vs-source-code-import-patterns)
@@ -194,12 +194,58 @@ cd data/collators/geotransformer && python setup.py install && cd ../../..
 cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
 ```
 
-## 4. About Testing
+## 4. Project-Wide Conventions
 
-### 4.1. Testing Philosophy and Patterns
+### 4.1. Tensor Type Assumptions
+**Standardized tensor formats across the framework:**
+
+Pylon enforces strict tensor type conventions validated by `utils/input_checks/` module:
+
+- **Images**: `(C, H, W)` float32 tensors where C=3, batched: `(N, C, H, W)`
+  ```python
+  # Individual image
+  image = torch.randn(3, 224, 224, dtype=torch.float32)
+  # Batched images  
+  images = torch.randn(8, 3, 224, 224, dtype=torch.float32)
+  ```
+
+- **Segmentation masks**: `(H, W)` int64 tensors, batched: `(N, H, W)`
+  ```python
+  # Individual mask (semantic, binary, amodal, instance)
+  mask = torch.randint(0, num_classes, (224, 224), dtype=torch.int64)
+  # Batched masks
+  masks = torch.randint(0, num_classes, (8, 224, 224), dtype=torch.int64)
+  ```
+
+- **Classification labels**: int64 scalars, batched: `(N,)` int64 tensors
+  ```python
+  # Individual label
+  label = torch.tensor(5, dtype=torch.int64)
+  # Batched labels
+  labels = torch.randint(0, num_classes, (8,), dtype=torch.int64)
+  ```
+
+- **Point clouds**: Dictionary format with mandatory 'pos' key
+  ```python
+  # Individual point cloud
+  pc = {'pos': torch.randn(1024, 3), 'feat': torch.randn(1024, 32)}
+  # Batched point clouds (concatenated along point dimension)
+  pc = {'pos': torch.randn(2048, 3), 'feat': torch.randn(2048, 32)}
+  ```
+
+- **Model predictions**: Follow task-specific formats
+  - Classification: `(N, C)` float32 for batched, `(C,)` for individual
+  - Segmentation: `(N, C, H, W)` float32 for batched, `(C, H, W)` for individual
+  - Depth: `(N, 1, H, W)` float32 for batched, `(1, H, W)` for individual
+
+**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow these type assumptions. The input validation will fail otherwise.
+
+## 5. About Testing
+
+### 5.1. Testing Philosophy and Patterns
 **Comprehensive testing approach with standardized patterns:**
 
-#### 4.1.1. **Common Test Pattern Taxonomy**
+#### 5.1.1. **Common Test Pattern Taxonomy**
 
 1. **Correctness Verification Pattern**
    - Hard-coded inputs with known expected outputs
@@ -250,7 +296,7 @@ cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../..
    - Multi-process data sharing and synchronization
    - Example: `test_dataset_cache.py` testing concurrent cache access
 
-#### 4.1.2. **Test Quality Assessment**
+#### 5.1.2. **Test Quality Assessment**
 
 **Well-Implemented Examples:**
 - `test_confusion_matrix.py`: Comprehensive parametrized tests with edge cases
@@ -263,7 +309,7 @@ cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../..
 - Model tests (`test_dsam_net.py`, etc.): Only forward pass, missing gradient/validation testing
 - Transform tests: Limited determinism and edge case coverage
 
-#### 4.1.3. **Recommended Test Templates**
+#### 5.1.3. **Recommended Test Templates**
 
 **For Dataset Classes:**
 ```python
@@ -290,7 +336,7 @@ def test_edge_cases()           # Edge case pattern
 def test_mathematical_properties()  # Random ground truth
 ```
 
-#### 4.1.4. **Dummy Data Generation for Tests**
+#### 5.1.4. **Dummy Data Generation for Tests**
 
 **ALWAYS use the standardized dummy data generators** in `tests/models/utils/dummy_data_generators.py`:
 
@@ -320,7 +366,7 @@ torch.randn(2, 3, 224, 224, dtype=torch.float32)
 torch.randint(0, 10, (2, 224, 224), dtype=torch.int64)
 ```
 
-### 4.2. Testing Implementation Guidelines
+### 5.2. Testing Implementation Guidelines
 **CRITICAL: Use pytest functions only - NO test classes:**
 - **Framework**: Use `pytest` with plain functions ONLY
 - **NO test classes**: Never use `class Test*` - always write `def test_*()` functions
@@ -365,7 +411,7 @@ def test_model_different_batch_sizes(batch_size):
     assert output.shape[0] == batch_size
 ```
 
-### 4.3. Testing Focus
+### 5.3. Testing Focus
 **All tests in Pylon are for "your implementation"** - code we've written or integrated:
 - **Base classes and wrappers**: Comprehensive testing with all 9 patterns
 - **Domain-specific models/losses**: Focus on integration and API correctness
@@ -375,52 +421,6 @@ def test_model_different_batch_sizes(batch_size):
   - No need to verify mathematical correctness against papers
 
 **Note**: We do not write separate tests for "official_implementation" - all integrated code is tested as "your implementation".
-
-## 5. Project-Wide Conventions
-
-### 5.1. Tensor Type Assumptions
-**Standardized tensor formats across the framework:**
-
-Pylon enforces strict tensor type conventions validated by `utils/input_checks/` module:
-
-- **Images**: `(C, H, W)` float32 tensors where C=3, batched: `(N, C, H, W)`
-  ```python
-  # Individual image
-  image = torch.randn(3, 224, 224, dtype=torch.float32)
-  # Batched images  
-  images = torch.randn(8, 3, 224, 224, dtype=torch.float32)
-  ```
-
-- **Segmentation masks**: `(H, W)` int64 tensors, batched: `(N, H, W)`
-  ```python
-  # Individual mask (semantic, binary, amodal, instance)
-  mask = torch.randint(0, num_classes, (224, 224), dtype=torch.int64)
-  # Batched masks
-  masks = torch.randint(0, num_classes, (8, 224, 224), dtype=torch.int64)
-  ```
-
-- **Classification labels**: int64 scalars, batched: `(N,)` int64 tensors
-  ```python
-  # Individual label
-  label = torch.tensor(5, dtype=torch.int64)
-  # Batched labels
-  labels = torch.randint(0, num_classes, (8,), dtype=torch.int64)
-  ```
-
-- **Point clouds**: Dictionary format with mandatory 'pos' key
-  ```python
-  # Individual point cloud
-  pc = {'pos': torch.randn(1024, 3), 'feat': torch.randn(1024, 32)}
-  # Batched point clouds (concatenated along point dimension)
-  pc = {'pos': torch.randn(2048, 3), 'feat': torch.randn(2048, 32)}
-  ```
-
-- **Model predictions**: Follow task-specific formats
-  - Classification: `(N, C)` float32 for batched, `(C,)` for individual
-  - Segmentation: `(N, C, H, W)` float32 for batched, `(C, H, W)` for individual
-  - Depth: `(N, 1, H, W)` float32 for batched, `(1, H, W)` for individual
-
-**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow these type assumptions. The input validation will fail otherwise.
 
 ## 6. Code Style Guidelines
 
