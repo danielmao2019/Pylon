@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, Tuple
 import torch
 import numpy as np
 from metrics.wrappers.single_task_metric import SingleTaskMetric
@@ -13,7 +13,7 @@ class IsotropicTransformError(SingleTaskMetric):
     """
 
     @staticmethod
-    def _get_rotation_translation(transform):
+    def _get_rotation_translation(transform: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""Decompose transformation matrix into rotation matrix and translation vector.
 
         Args:

@@ -24,7 +24,7 @@ class GradientManipulationBaseOptimizer(MTLOptimizer, ABC):
         self,
         grads_list: List[torch.Tensor],
         shared_rep: Optional[torch.Tensor] = None,
-    ):
+    ) -> torch.Tensor:
         r"""Each gradient manipulation method will implement its own.
         """
         raise NotImplementedError("_gradient_manipulation_ not implemented for abstract base class.")

@@ -5,7 +5,7 @@ Misc functions, including distributed helpers.
 
 Mostly copy-paste from torchvision references.
 """
-from typing import List, Optional
+from typing import List, Optional, Dict, Any, Union, Tuple
 from collections import OrderedDict
 from scipy.io import loadmat
 import numpy as np
@@ -18,8 +18,7 @@ import torchvision
 from torch import Tensor
 
 
-def _max_by_axis(the_list):
-    # type: (List[List[int]]) -> List[int]
+def _max_by_axis(the_list: List[List[int]]) -> List[int]:
     maxes = the_list[0]
     for sublist in the_list[1:]:
         for index, item in enumerate(sublist):
@@ -33,7 +32,7 @@ def get_world_size() -> int:
         return 1
     return dist.get_world_size()
 
-def reduce_dict(input_dict, average=True):
+def reduce_dict(input_dict: Dict[str, torch.Tensor], average: bool = True) -> Dict[str, torch.Tensor]:
     """
     Args:
         input_dict (dict): all the values will be reduced
@@ -64,7 +63,7 @@ class NestedTensor(object):
         self.tensors = tensors
         self.mask = mask
 
-    def to(self, device):
+    def to(self, device: torch.device) -> 'NestedTensor':
         # type: (Device) -> NestedTensor # noqa
         cast_tensor = self.tensors.to(device)
         mask = self.mask
@@ -75,13 +74,13 @@ class NestedTensor(object):
             cast_mask = None
         return NestedTensor(cast_tensor, cast_mask)
 
-    def decompose(self):
+    def decompose(self) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         return self.tensors, self.mask
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self.tensors)
 
-def nested_tensor_from_tensor_list(tensor_list: List[Tensor]):
+def nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTensor:
     # TODO make this more general
     if tensor_list[0].ndim == 3:
         if torchvision._is_tracing():
@@ -137,14 +136,14 @@ def _onnx_nested_tensor_from_tensor_list(tensor_list: List[Tensor]) -> NestedTen
 
     return NestedTensor(tensor, mask=mask)
 
-def is_dist_avail_and_initialized():
+def is_dist_avail_and_initialized() -> bool:
     if not dist.is_available():
         return False
     if not dist.is_initialized():
         return False
     return True
 
-def load_parallal_model(model, state_dict_):
+def load_parallal_model(model: torch.nn.Module, state_dict_: Dict[str, Any]) -> torch.nn.Module:
     state_dict = OrderedDict()
     for key in state_dict_:
         if key.startswith('module') and not key.startswith('module_list'):
@@ -171,7 +170,7 @@ def load_parallal_model(model, state_dict_):
     return model
 
 class ADEVisualize(object):
-    def __init__(self):
+    def __init__(self) -> None:
         self.colors = loadmat('dataset/color150.mat')['colors']
         self.names = {}
         with open('dataset/object150_info.csv') as f:
@@ -180,7 +179,7 @@ class ADEVisualize(object):
             for row in reader:
                 self.names[int(row[0])] = row[5].split(";")[0]
 
-    def unique(self, ar, return_index=False, return_inverse=False, return_counts=False):
+    def unique(self, ar: np.ndarray, return_index: bool = False, return_inverse: bool = False, return_counts: bool = False) -> Union[np.ndarray, Tuple[np.ndarray, ...]]:
         ar = np.asanyarray(ar).flatten()
 
         optional_indices = return_index or return_inverse
@@ -222,7 +221,7 @@ class ADEVisualize(object):
                 ret += (np.diff(idx),)
         return ret
 
-    def colorEncode(self, labelmap, colors, mode='RGB'):
+    def colorEncode(self, labelmap: np.ndarray, colors: np.ndarray, mode: str = 'RGB') -> np.ndarray:
         labelmap = labelmap.astype('int')
         labelmap_rgb = np.zeros((labelmap.shape[0], labelmap.shape[1], 3),
                                 dtype=np.uint8)
@@ -238,7 +237,7 @@ class ADEVisualize(object):
         else:
             return labelmap_rgb
 
-    def show_result(self, img, pred, save_path=None):
+    def show_result(self, img: Image.Image, pred: np.ndarray, save_path: Optional[str] = None) -> None:
         pred = np.int32(pred)
         # colorize prediction
         pred_color = self.colorEncode(pred, self.colors)

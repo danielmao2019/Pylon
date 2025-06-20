@@ -1,7 +1,7 @@
 import torch
 
 
-def radius_search(q_points, s_points, q_lengths, s_lengths, radius, neighbor_limit):
+def radius_search(q_points: torch.Tensor, s_points: torch.Tensor, q_lengths: torch.Tensor, s_lengths: torch.Tensor, radius: float, neighbor_limit: int) -> torch.Tensor:
     r"""Computes neighbors for a batch of q_points and s_points, apply radius search (in stack mode).
 
     This function is implemented on CPU.

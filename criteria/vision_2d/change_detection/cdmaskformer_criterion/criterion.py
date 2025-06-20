@@ -3,6 +3,7 @@
 """
 MaskFormer criterion.
 """
+from typing import Dict, List, Tuple, Any
 import torch
 import numpy as np
 import torch.nn.functional as F
@@ -18,7 +19,7 @@ def dice_loss(
         inputs: torch.Tensor,
         targets: torch.Tensor,
         num_masks: float,
-    ):
+    ) -> torch.Tensor:
     """
     Compute the DICE loss, similar to generalized IOU for masks
     Args:
@@ -40,7 +41,7 @@ def sigmoid_ce_loss(
         inputs: torch.Tensor,
         targets: torch.Tensor,
         num_masks: float,
-    ):
+    ) -> torch.Tensor:
     """
     Args:
         inputs: A float tensor of arbitrary shape.
@@ -54,7 +55,7 @@ def sigmoid_ce_loss(
     loss = F.binary_cross_entropy_with_logits(inputs, targets, reduction="none")
     return loss.mean(1).sum() / num_masks
 
-def sigmoid_focal_loss(inputs, targets, num_masks, alpha: float = 0.25, gamma: float = 2):
+def sigmoid_focal_loss(inputs: torch.Tensor, targets: torch.Tensor, num_masks: float, alpha: float = 0.25, gamma: float = 2) -> torch.Tensor:
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
     Args:
@@ -81,7 +82,7 @@ def sigmoid_focal_loss(inputs, targets, num_masks, alpha: float = 0.25, gamma: f
 
     return loss.mean(1).sum() / num_masks
 
-def calculate_uncertainty(logits):
+def calculate_uncertainty(logits: torch.Tensor) -> torch.Tensor:
     """
     We estimate uncerainty as L1 distance between 0.0 and the logit prediction in 'logits' for the
         foreground class in `classes`.
@@ -105,8 +106,8 @@ class SetCriterion(nn.Module):
         2) we supervise each pair of matched ground-truth / prediction (supervise class and box)
     """
 
-    def __init__(self, num_classes, matcher, weight_dict, eos_coef, losses,
-                 num_points, oversample_ratio, importance_sample_ratio, device):
+    def __init__(self, num_classes: int, matcher: Any, weight_dict: Dict[str, float], eos_coef: float, losses: List[str],
+                 num_points: int, oversample_ratio: float, importance_sample_ratio: float, device: torch.device) -> None:
         """Create the criterion.
         Parameters:
             num_classes: number of object categories, omitting the special no-object category
@@ -131,7 +132,7 @@ class SetCriterion(nn.Module):
         self.oversample_ratio = oversample_ratio
         self.importance_sample_ratio = importance_sample_ratio
 
-    def loss_labels(self, outputs, targets, indices, num_masks):
+    def loss_labels(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]], indices: List[Tuple[torch.Tensor, torch.Tensor]], num_masks: float) -> Dict[str, torch.Tensor]:
         """Classification loss (NLL)
         targets dicts must contain the key "labels" containing a tensor of dim [nb_target_boxes]
         """
@@ -147,7 +148,7 @@ class SetCriterion(nn.Module):
         losses = {"loss_ce": loss_ce}
         return losses
 
-    def loss_masks(self, outputs, targets, indices, num_masks):
+    def loss_masks(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]], indices: List[Tuple[torch.Tensor, torch.Tensor]], num_masks: float) -> Dict[str, torch.Tensor]:
         """Compute the losses related to the masks: the focal loss and the dice loss.
         targets dicts must contain the key "masks" containing a tensor of dim [nb_target_boxes, h, w]
         """
@@ -175,25 +176,25 @@ class SetCriterion(nn.Module):
         del target_masks
         return losses
 
-    def _get_src_permutation_idx(self, indices):
+    def _get_src_permutation_idx(self, indices: List[Tuple[torch.Tensor, torch.Tensor]]) -> Tuple[torch.Tensor, torch.Tensor]:
         # permute predictions following indices
         batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
         src_idx = torch.cat([src for (src, _) in indices])
         return batch_idx, src_idx
 
-    def _get_tgt_permutation_idx(self, indices):
+    def _get_tgt_permutation_idx(self, indices: List[Tuple[torch.Tensor, torch.Tensor]]) -> Tuple[torch.Tensor, torch.Tensor]:
         # permute targets following indices
         batch_idx = torch.cat([torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
         tgt_idx = torch.cat([tgt for (_, tgt) in indices])
         return batch_idx, tgt_idx
 
-    def _get_binary_mask(self, target):
+    def _get_binary_mask(self, target: torch.Tensor) -> torch.Tensor:
         y, x = target.size()
         target_onehot = torch.zeros(self.num_classes + 1, y, x).to(self.device)
         target_onehot = target_onehot.scatter(dim=0, index=target.unsqueeze(0), value=1)
         return target_onehot
 
-    def get_loss(self, loss, outputs, targets, indices, num_masks):
+    def get_loss(self, loss: str, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]], indices: List[Tuple[torch.Tensor, torch.Tensor]], num_masks: float) -> Dict[str, torch.Tensor]:
         loss_map = {
             'labels': self.loss_labels,
             'masks': self.loss_masks,
@@ -201,7 +202,7 @@ class SetCriterion(nn.Module):
         assert loss in loss_map, f"do you really want to compute {loss} loss?"
         return loss_map[loss](outputs, targets, indices, num_masks)
 
-    def forward(self, outputs, gt_masks):
+    def forward(self, outputs: Dict[str, torch.Tensor], gt_masks: torch.Tensor) -> Dict[str, torch.Tensor]:
         """This performs the loss computation.
         Parameters:
              outputs: dict of tensors, see the output specification of the model for the format
@@ -235,7 +236,7 @@ class SetCriterion(nn.Module):
 
         return losses
 
-    def _get_targets(self, gt_masks):
+    def _get_targets(self, gt_masks: torch.Tensor) -> List[Dict[str, torch.Tensor]]:
         targets = []
         for mask in gt_masks:
             binary_masks = self._get_binary_mask(mask)
@@ -245,7 +246,7 @@ class SetCriterion(nn.Module):
             targets.append({'masks': binary_masks, 'labels': labels})
         return targets
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         head = "Criterion " + self.__class__.__name__
         body = [
             "matcher: {}".format(self.matcher.__repr__(_repr_indent=8)),

@@ -3,6 +3,7 @@
 """
 Modules to compute the matching cost and solve the corresponding LSAP.
 """
+from typing import Dict, List, Tuple
 import torch
 import torch.nn.functional as F
 from scipy.optimize import linear_sum_assignment
@@ -13,7 +14,7 @@ from criteria.vision_2d.change_detection.cdmaskformer_criterion.point_features i
 
 import numpy as np
 
-def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
+def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     """
     Compute the DICE loss, similar to generalized IOU for masks
     Args:
@@ -31,7 +32,7 @@ def batch_dice_loss(inputs: torch.Tensor, targets: torch.Tensor):
     return loss
 
 
-def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor):
+def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     """
     Args:
         inputs: A float tensor of arbitrary shape.
@@ -56,7 +57,7 @@ def batch_sigmoid_ce_loss(inputs: torch.Tensor, targets: torch.Tensor):
 
     return loss / hw
 
-def batch_sigmoid_focal_loss(inputs, targets, alpha: float = 0.25, gamma: float = 2):
+def batch_sigmoid_focal_loss(inputs: torch.Tensor, targets: torch.Tensor, alpha: float = 0.25, gamma: float = 2) -> torch.Tensor:
     """
     Loss used in RetinaNet for dense detection: https://arxiv.org/abs/1708.02002.
     Args:
@@ -115,7 +116,7 @@ class HungarianMatcher(nn.Module):
         self.num_points = num_points
 
     @torch.no_grad()
-    def memory_efficient_forward(self, outputs, targets):
+    def memory_efficient_forward(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """More memory-friendly matching"""
         bs, num_queries = outputs["pred_logits"].shape[:2]
 
@@ -186,7 +187,7 @@ class HungarianMatcher(nn.Module):
         ]
 
     @torch.no_grad()
-    def forward(self, outputs, targets):
+    def forward(self, outputs: Dict[str, torch.Tensor], targets: List[Dict[str, torch.Tensor]]) -> List[Tuple[torch.Tensor, torch.Tensor]]:
         """Performs the matching
 
         Params:
@@ -208,7 +209,7 @@ class HungarianMatcher(nn.Module):
         """
         return self.memory_efficient_forward(outputs, targets)
 
-    def __repr__(self, _repr_indent=4):
+    def __repr__(self, _repr_indent: int = 4) -> str:
         head = "Matcher " + self.__class__.__name__
         body = [
             "cost_class: {}".format(self.cost_class),
