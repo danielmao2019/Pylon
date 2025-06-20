@@ -16,10 +16,9 @@
   - [3.5. Multi-Task Learning Architecture](#35-multi-task-learning-architecture)
   - [3.6. Training Loop Architecture](#36-training-loop-architecture)
   - [3.7. Data Pipeline Design](#37-data-pipeline-design)
-  - [3.8. Tensor Type Assumptions](#38-tensor-type-assumptions)
-  - [3.9. Key Directories and Components](#39-key-directories-and-components)
-  - [3.10. Special Utilities](#310-special-utilities)
-  - [3.11. C++ Extensions](#311-c-extensions)
+  - [3.8. Key Directories and Components](#38-key-directories-and-components)
+  - [3.9. Special Utilities](#39-special-utilities)
+  - [3.10. C++ Extensions](#310-c-extensions)
 - [4. About Testing](#4-about-testing)
   - [4.1. Testing Philosophy and Patterns](#41-testing-philosophy-and-patterns)
     - [4.1.1. **Common Test Pattern Taxonomy**](#411-common-test-pattern-taxonomy)
@@ -28,14 +27,16 @@
     - [4.1.4. **Dummy Data Generation for Tests**](#414-dummy-data-generation-for-tests)
   - [4.2. Testing Implementation Guidelines](#42-testing-implementation-guidelines)
   - [4.3. Testing Focus](#43-testing-focus)
-- [5. Code Style Guidelines](#5-code-style-guidelines)
-  - [5.1. Import Statement Order](#51-import-statement-order)
-  - [5.2. Config vs Source Code Import Patterns](#52-config-vs-source-code-import-patterns)
-  - [5.3. Type Annotations](#53-type-annotations)
-  - [5.4. Documentation Strings](#54-documentation-strings)
-  - [5.5. Function and File Organization](#55-function-and-file-organization)
-  - [5.6. Error Handling](#56-error-handling)
-- [6. Important Implementation Notes](#6-important-implementation-notes)
+- [5. Project-Wide Conventions](#5-project-wide-conventions)
+  - [5.1. Tensor Type Assumptions](#51-tensor-type-assumptions)
+- [6. Code Style Guidelines](#6-code-style-guidelines)
+  - [6.1. Import Statement Order](#61-import-statement-order)
+  - [6.2. Config vs Source Code Import Patterns](#62-config-vs-source-code-import-patterns)
+  - [6.3. Type Annotations](#63-type-annotations)
+  - [6.4. Documentation Strings](#64-documentation-strings)
+  - [6.5. Function and File Organization](#65-function-and-file-organization)
+  - [6.6. Error Handling](#66-error-handling)
+- [7. Important Implementation Notes](#7-important-implementation-notes)
 
 ----------------------------------------------------------------------------------------------------
 
@@ -160,51 +161,7 @@ obj = build_from_config(config)
 - **Transform composition**: Functional composition with seed propagation
 - **Collation strategy**: Nested dictionary support with custom per-key collators
 
-### 3.8. Tensor Type Assumptions
-**Standardized tensor formats across the framework:**
-
-Pylon enforces strict tensor type conventions validated by `utils/input_checks/` module:
-
-- **Images**: `(C, H, W)` float32 tensors where C=3, batched: `(N, C, H, W)`
-  ```python
-  # Individual image
-  image = torch.randn(3, 224, 224, dtype=torch.float32)
-  # Batched images  
-  images = torch.randn(8, 3, 224, 224, dtype=torch.float32)
-  ```
-
-- **Segmentation masks**: `(H, W)` int64 tensors, batched: `(N, H, W)`
-  ```python
-  # Individual mask (semantic, binary, amodal, instance)
-  mask = torch.randint(0, num_classes, (224, 224), dtype=torch.int64)
-  # Batched masks
-  masks = torch.randint(0, num_classes, (8, 224, 224), dtype=torch.int64)
-  ```
-
-- **Classification labels**: int64 scalars, batched: `(N,)` int64 tensors
-  ```python
-  # Individual label
-  label = torch.tensor(5, dtype=torch.int64)
-  # Batched labels
-  labels = torch.randint(0, num_classes, (8,), dtype=torch.int64)
-  ```
-
-- **Point clouds**: Dictionary format with mandatory 'pos' key
-  ```python
-  # Individual point cloud
-  pc = {'pos': torch.randn(1024, 3), 'feat': torch.randn(1024, 32)}
-  # Batched point clouds (concatenated along point dimension)
-  pc = {'pos': torch.randn(2048, 3), 'feat': torch.randn(2048, 32)}
-  ```
-
-- **Model predictions**: Follow task-specific formats
-  - Classification: `(N, C)` float32 for batched, `(C,)` for individual
-  - Segmentation: `(N, C, H, W)` float32 for batched, `(C, H, W)` for individual
-  - Depth: `(N, 1, H, W)` float32 for batched, `(1, H, W)` for individual
-
-**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow these type assumptions. The input validation will fail otherwise.
-
-### 3.9. Key Directories and Components
+### 3.8. Key Directories and Components
 - `/configs/`: Template-based experiment configurations with automated generation
 - `/data/`: Datasets with caching, transforms, collators, and interactive viewer
 - `/criteria/`: Loss functions with asynchronous buffer pattern
@@ -215,7 +172,7 @@ Pylon enforces strict tensor type conventions validated by `utils/input_checks/`
 - `/schedulers/`: Learning rate schedulers with warmup and multi-component support
 - `/utils/`: Core utilities including builders, automation, determinism, and monitoring
 
-### 3.10. Special Utilities
+### 3.9. Special Utilities
 **Automation and Distributed Training:**
 - **SSH connection pooling**: Thread-safe multi-server experiment management
 - **GPU monitoring**: Real-time utilization tracking across servers
@@ -227,7 +184,7 @@ Pylon enforces strict tensor type conventions validated by `utils/input_checks/`
 - **State preservation**: Robust checkpoint and resumption handling
 - **Validation**: Extensive configuration and type checking
 
-### 3.11. C++ Extensions
+### 3.10. C++ Extensions
 Some modules require building:
 ```bash
 # GeoTransformer
@@ -419,9 +376,55 @@ def test_model_different_batch_sizes(batch_size):
 
 **Note**: We do not write separate tests for "official_implementation" - all integrated code is tested as "your implementation".
 
-## 5. Code Style Guidelines
+## 5. Project-Wide Conventions
 
-### 5.1. Import Statement Order
+### 5.1. Tensor Type Assumptions
+**Standardized tensor formats across the framework:**
+
+Pylon enforces strict tensor type conventions validated by `utils/input_checks/` module:
+
+- **Images**: `(C, H, W)` float32 tensors where C=3, batched: `(N, C, H, W)`
+  ```python
+  # Individual image
+  image = torch.randn(3, 224, 224, dtype=torch.float32)
+  # Batched images  
+  images = torch.randn(8, 3, 224, 224, dtype=torch.float32)
+  ```
+
+- **Segmentation masks**: `(H, W)` int64 tensors, batched: `(N, H, W)`
+  ```python
+  # Individual mask (semantic, binary, amodal, instance)
+  mask = torch.randint(0, num_classes, (224, 224), dtype=torch.int64)
+  # Batched masks
+  masks = torch.randint(0, num_classes, (8, 224, 224), dtype=torch.int64)
+  ```
+
+- **Classification labels**: int64 scalars, batched: `(N,)` int64 tensors
+  ```python
+  # Individual label
+  label = torch.tensor(5, dtype=torch.int64)
+  # Batched labels
+  labels = torch.randint(0, num_classes, (8,), dtype=torch.int64)
+  ```
+
+- **Point clouds**: Dictionary format with mandatory 'pos' key
+  ```python
+  # Individual point cloud
+  pc = {'pos': torch.randn(1024, 3), 'feat': torch.randn(1024, 32)}
+  # Batched point clouds (concatenated along point dimension)
+  pc = {'pos': torch.randn(2048, 3), 'feat': torch.randn(2048, 32)}
+  ```
+
+- **Model predictions**: Follow task-specific formats
+  - Classification: `(N, C)` float32 for batched, `(C,)` for individual
+  - Segmentation: `(N, C, H, W)` float32 for batched, `(C, H, W)` for individual
+  - Depth: `(N, 1, H, W)` float32 for batched, `(1, H, W)` for individual
+
+**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow these type assumptions. The input validation will fail otherwise.
+
+## 6. Code Style Guidelines
+
+### 6.1. Import Statement Order
 **Always follow this exact order with NO spaces between imports:**
 ```python
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -441,12 +444,12 @@ from utils.builders.builder import build_from_config
 3. External packages (`numpy`, `torch`, `torchvision`, etc.)
 4. Project modules using **full file paths** (not module imports)
 
-### 5.2. Config vs Source Code Import Patterns
+### 6.2. Config vs Source Code Import Patterns
 - **Source code**: Use full file paths - `from data.datasets.base_dataset import BaseDataset`
 - **Config files**: Use module imports - `from data.datasets import BaseDataset` (user-friendly)
 - **Note**: Config files are program-generated, so manual editing is rare
 
-### 5.3. Type Annotations
+### 6.3. Type Annotations
 **Always include type annotations for function/method arguments and return types:**
 ```python
 def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
@@ -456,7 +459,7 @@ def build_from_config(config: Dict[str, Any], **kwargs: Any) -> Any:
     # implementation
 ```
 
-### 5.4. Documentation Strings
+### 6.4. Documentation Strings
 **Not all functions need docstrings, but when used, follow this pattern:**
 ```python
 def some_function(arg1: int, arg2: str) -> bool:
@@ -471,13 +474,13 @@ def some_function(arg1: int, arg2: str) -> bool:
     """
 ```
 
-### 5.5. Function and File Organization
+### 6.5. Function and File Organization
 **Break down complex code for maintainability:**
 - **Long functions**: Break down using helper functions with clear single responsibilities
 - **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
 - **Test organization**: Group tests by patterns/philosophies rather than single large files
 
-### 5.6. Error Handling
+### 6.6. Error Handling
 **Avoid unnecessary try-except blocks - only use when truly necessary:**
 
 - **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
@@ -517,7 +520,7 @@ def _call_single_with_generator(self, *args, generator):
 - Use assertions for input validation instead of try-except
 - Prefer explicit checks over catching exceptions
 
-## 6. Important Implementation Notes
+## 7. Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8
 - Follows OpenMMLab conventions (mmengine, mmcv, mmdet)
 - Emphasizes Python-native objects and inheritance for extensibility
