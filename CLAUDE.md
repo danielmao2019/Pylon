@@ -11,11 +11,11 @@
 - [3. Design Ideas](#3-design-ideas)
   - [3.1. Core Design Philosophy](#31-core-design-philosophy)
   - [3.2. Dataset Design Pattern](#32-dataset-design-pattern)
-  - [3.3. Asynchronous Buffer Pattern](#33-asynchronous-buffer-pattern)
-  - [3.4. Configuration-Driven Architecture](#34-configuration-driven-architecture)
-  - [3.5. Multi-Task Learning Architecture](#35-multi-task-learning-architecture)
-  - [3.6. Training Loop Architecture](#36-training-loop-architecture)
-  - [3.7. Data Pipeline Design](#37-data-pipeline-design)
+  - [3.3. Data Pipeline Design](#33-data-pipeline-design)
+  - [3.4. Asynchronous Buffer Pattern](#34-asynchronous-buffer-pattern)
+  - [3.5. Configuration-Driven Architecture](#35-configuration-driven-architecture)
+  - [3.6. Multi-Task Learning Architecture](#36-multi-task-learning-architecture)
+  - [3.7. Training Loop Architecture](#37-training-loop-architecture)
   - [3.8. Key Directories and Components](#38-key-directories-and-components)
   - [3.9. Special Utilities](#39-special-utilities)
   - [3.10. C++ Extensions](#310-c-extensions)
@@ -105,44 +105,7 @@ Pylon follows several fundamental design patterns that enable extensible, reprod
 3. Use helper methods like `_load_seg_labels()`, `_load_amodal_masks()` for modular loading
 4. `meta_info` = `self.annotations` + lightweight additional information
 
-### 3.3. Asynchronous Buffer Pattern
-**Critical for GPU utilization:** Criteria, metrics, and optimizers use asynchronous buffers to prevent blocking training loops:
-- Background thread: `threading.Thread(target=self._buffer_worker, daemon=True)`
-- Thread-safe queue: `queue.Queue()` for non-blocking data collection
-- Lock-protected buffer access: `threading.Lock()` for thread safety
-- Async tensor operations: Detach from computation graph and move to CPU in background
-- `add_to_buffer()` is non-blocking; `summarize()` waits for queue to empty
-
-### 3.4. Configuration-Driven Architecture
-**`build_from_config()` pattern enables flexible component instantiation:**
-```python
-config = {
-    'class': SomeClass,
-    'args': {...}
-}
-obj = build_from_config(config)
-```
-- Recursive construction of nested objects
-- Class references (not strings) for type safety
-- Parameter merging and preservation
-- Supports PyTorch parameter special handling
-
-### 3.5. Multi-Task Learning Architecture
-**Wrapper pattern for orchestrating multiple tasks:**
-- `MultiTaskCriterion` uses `torch.nn.ModuleDict` for task-specific criteria
-- `MultiTaskMetric` aggregates results from individual task metrics
-- `MTLOptimizer` implements gradient manipulation (PCGrad, MGDA, GradNorm)
-- Each task component maintains its own buffer and state
-
-### 3.6. Training Loop Architecture
-**Sophisticated training orchestration:**
-- **Deterministic execution**: Per-epoch seeding with separate train/val/test seeds
-- **Continuous epoch numbering**: Maintains count across resumptions and multi-stage training
-- **Asynchronous I/O**: Threaded checkpoint saving and validation scoring
-- **GPU monitoring**: Real-time resource tracking during training
-- **Robust resumption**: Automatic detection and resumption from last checkpoint
-
-### 3.7. Data Pipeline Design
+### 3.3. Data Pipeline Design
 **Memory-efficient and reproducible data loading:**
 
 - **Lazy loading**: Data loading happens in two phases for memory efficiency:
@@ -160,6 +123,43 @@ obj = build_from_config(config)
 - **LRU caching**: Memory-aware caching with system monitoring
 - **Transform composition**: Functional composition with seed propagation
 - **Collation strategy**: Nested dictionary support with custom per-key collators
+
+### 3.4. Asynchronous Buffer Pattern
+**Critical for GPU utilization:** Criteria, metrics, and optimizers use asynchronous buffers to prevent blocking training loops:
+- Background thread: `threading.Thread(target=self._buffer_worker, daemon=True)`
+- Thread-safe queue: `queue.Queue()` for non-blocking data collection
+- Lock-protected buffer access: `threading.Lock()` for thread safety
+- Async tensor operations: Detach from computation graph and move to CPU in background
+- `add_to_buffer()` is non-blocking; `summarize()` waits for queue to empty
+
+### 3.5. Configuration-Driven Architecture
+**`build_from_config()` pattern enables flexible component instantiation:**
+```python
+config = {
+    'class': SomeClass,
+    'args': {...}
+}
+obj = build_from_config(config)
+```
+- Recursive construction of nested objects
+- Class references (not strings) for type safety
+- Parameter merging and preservation
+- Supports PyTorch parameter special handling
+
+### 3.6. Multi-Task Learning Architecture
+**Wrapper pattern for orchestrating multiple tasks:**
+- `MultiTaskCriterion` uses `torch.nn.ModuleDict` for task-specific criteria
+- `MultiTaskMetric` aggregates results from individual task metrics
+- `MTLOptimizer` implements gradient manipulation (PCGrad, MGDA, GradNorm)
+- Each task component maintains its own buffer and state
+
+### 3.7. Training Loop Architecture
+**Sophisticated training orchestration:**
+- **Deterministic execution**: Per-epoch seeding with separate train/val/test seeds
+- **Continuous epoch numbering**: Maintains count across resumptions and multi-stage training
+- **Asynchronous I/O**: Threaded checkpoint saving and validation scoring
+- **GPU monitoring**: Real-time resource tracking during training
+- **Robust resumption**: Automatic detection and resumption from last checkpoint
 
 ### 3.8. Key Directories and Components
 - `/configs/`: Template-based experiment configurations with automated generation
