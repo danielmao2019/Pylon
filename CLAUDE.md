@@ -20,7 +20,6 @@
   - [3.9. Key Directories and Components](#39-key-directories-and-components)
   - [3.10. Special Utilities](#310-special-utilities)
   - [3.11. C++ Extensions](#311-c-extensions)
-  - [3.12. Error Handling Philosophy](#312-error-handling-philosophy)
 - [4. About Testing](#4-about-testing)
   - [4.1. Testing Philosophy and Patterns](#41-testing-philosophy-and-patterns)
     - [4.1.1. **Common Test Pattern Taxonomy**](#411-common-test-pattern-taxonomy)
@@ -35,6 +34,7 @@
   - [5.3. Type Annotations](#53-type-annotations)
   - [5.4. Documentation Strings](#54-documentation-strings)
   - [5.5. Function and File Organization](#55-function-and-file-organization)
+  - [5.6. Error Handling](#56-error-handling)
 - [6. Important Implementation Notes](#6-important-implementation-notes)
 
 ----------------------------------------------------------------------------------------------------
@@ -236,46 +236,6 @@ cd data/collators/geotransformer && python setup.py install && cd ../../..
 # Buffer/OverlapPredator  
 cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
 ```
-
-### 3.12. Error Handling Philosophy
-**Avoid unnecessary try-except blocks - only use when truly necessary:**
-
-- **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
-- **Let errors propagate naturally** - Python's stack traces show exact error locations
-- **Only use try-except when necessary** for specific functionality, not for general "robustness"
-
-**Examples of necessary try-except usage:**
-```python
-# Example 1: _call_with_seed method - API compatibility for seed parameter
-def _call_with_seed(func, op_inputs, seed=None):
-    try:
-        if len(op_inputs) == 1:
-            op_outputs = [func(op_inputs[0], seed=seed)]
-        else:
-            op_outputs = func(*op_inputs, seed=seed)
-    except Exception as e:
-        if "got an unexpected keyword argument 'seed'" in str(e):
-            if len(op_inputs) == 1:
-                op_outputs = [func(op_inputs[0])]
-            else:
-                op_outputs = func(*op_inputs)
-        else:
-            raise
-
-# Example 2: _call_single_with_generator method - API compatibility for generator parameter
-def _call_single_with_generator(self, *args, generator):
-    try:
-        return self._call_single(*args, generator=generator)
-    except Exception as e:
-        if "got an unexpected keyword argument 'generator'" in str(e):
-            return self._call_single(*args)
-        else:
-            raise
-```
-
-**Key principles:**
-- Use assertions for input validation instead of try-except
-- Prefer explicit checks over catching exceptions
 
 ## 4. About Testing
 
@@ -516,6 +476,46 @@ def some_function(arg1: int, arg2: str) -> bool:
 - **Long functions**: Break down using helper functions with clear single responsibilities
 - **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
 - **Test organization**: Group tests by patterns/philosophies rather than single large files
+
+### 5.6. Error Handling
+**Avoid unnecessary try-except blocks - only use when truly necessary:**
+
+- **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
+- **Let errors propagate naturally** - Python's stack traces show exact error locations
+- **Only use try-except when necessary** for specific functionality, not for general "robustness"
+
+**Examples of necessary try-except usage:**
+```python
+# Example 1: _call_with_seed method - API compatibility for seed parameter
+def _call_with_seed(func, op_inputs, seed=None):
+    try:
+        if len(op_inputs) == 1:
+            op_outputs = [func(op_inputs[0], seed=seed)]
+        else:
+            op_outputs = func(*op_inputs, seed=seed)
+    except Exception as e:
+        if "got an unexpected keyword argument 'seed'" in str(e):
+            if len(op_inputs) == 1:
+                op_outputs = [func(op_inputs[0])]
+            else:
+                op_outputs = func(*op_inputs)
+        else:
+            raise
+
+# Example 2: _call_single_with_generator method - API compatibility for generator parameter
+def _call_single_with_generator(self, *args, generator):
+    try:
+        return self._call_single(*args, generator=generator)
+    except Exception as e:
+        if "got an unexpected keyword argument 'generator'" in str(e):
+            return self._call_single(*args)
+        else:
+            raise
+```
+
+**Key principles:**
+- Use assertions for input validation instead of try-except
+- Prefer explicit checks over catching exceptions
 
 ## 6. Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8
