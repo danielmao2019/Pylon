@@ -421,9 +421,10 @@ def some_function(arg1: int, arg2: str) -> bool:
 - **Test organization**: Group tests by patterns/philosophies rather than single large files
 
 #### Testing Implementation Guidelines
-**Use pytest with best practices:**
-- **Framework**: Use `pytest` (not unittest test classes)
-- **Parametrization**: Use `@pytest.mark.parametrize` for multiple test cases
+**CRITICAL: Use pytest functions only - NO test classes:**
+- **Framework**: Use `pytest` with plain functions ONLY
+- **NO test classes**: Never use `class Test*` - always write `def test_*()` functions
+- **Parametrization**: Use `@pytest.mark.parametrize` for multiple test cases instead of test classes
 - **Test organization**: For large test modules, split by test patterns into separate files:
   ```
   tests/criteria/base_criterion/
@@ -434,6 +435,35 @@ def some_function(arg1: int, arg2: str) -> bool:
   ├── test_edge_cases.py          # Error handling and edge cases
   └── test_determinism.py         # Reproducibility tests
   ```
+
+**Examples of correct vs incorrect test patterns:**
+```python
+# ❌ WRONG - Never use test classes
+class TestModelName:
+    def test_initialization(self):
+        model = ModelName()
+        assert model is not None
+
+# ✅ CORRECT - Use plain pytest functions  
+def test_model_name_initialization():
+    model = ModelName()
+    assert model is not None
+
+# ❌ WRONG - Multiple similar tests as separate functions
+def test_model_batch_size_1():
+    test_with_batch_size(1)
+
+def test_model_batch_size_2():
+    test_with_batch_size(2)
+
+# ✅ CORRECT - Use parametrize for multiple test cases
+@pytest.mark.parametrize("batch_size", [1, 2, 4, 8])
+def test_model_different_batch_sizes(batch_size):
+    model = ModelName()
+    input_data = generate_dummy_data(batch_size=batch_size)
+    output = model(input_data)
+    assert output.shape[0] == batch_size
+```
 
 #### Testing Focus
 **All tests in Pylon are for "your implementation"** - code we've written or integrated:
