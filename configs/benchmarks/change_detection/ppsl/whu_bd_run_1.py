@@ -53,9 +53,9 @@ from runners import MultiValDatasetTrainer
 config['runner'] = MultiValDatasetTrainer
 
 # dataset config
-from configs.common.datasets.change_detection.train.ppsl_whu_bd import config as train_dataset_config
+from configs.common.datasets.change_detection.train.ppsl_whu_bd import data_cfg as train_dataset_config
 config.update(train_dataset_config)
-from configs.common.datasets.change_detection.val.all_bi_temporal import config as val_dataset_config
+from configs.common.datasets.change_detection.val.all_bi_temporal import data_cfg as val_dataset_config
 config.update(val_dataset_config)
 
 # model config
