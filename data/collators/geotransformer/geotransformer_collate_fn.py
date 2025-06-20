@@ -1,11 +1,11 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 import torch
 from data.collators.geotransformer.grid_subsample import grid_subsample
 from data.collators.geotransformer.radius_search import radius_search
 from data.collators.pcr_collator import pcr_collate_fn
 
 
-def unpack_geotransformer_data(data):
+def unpack_geotransformer_data(data: Dict[str, Any]) -> Dict[str, Any]:
     """Unpack data to get points and features."""
     device = data['inputs']['src_pc']['pos'].device
 
@@ -25,7 +25,7 @@ def unpack_geotransformer_data(data):
     }
 
 
-def create_geotransformer_architecture(num_stages, voxel_size, search_radius, neighbor_limits):
+def create_geotransformer_architecture(num_stages: int, voxel_size: float, search_radius: float, neighbor_limits: List[int]) -> List[Dict[str, Any]]:
     """Create architecture for pcr_collator."""
     architecture = []
     current_voxel_size = voxel_size
@@ -49,7 +49,7 @@ def create_geotransformer_architecture(num_stages, voxel_size, search_radius, ne
     return architecture
 
 
-def pack_geotransformer_results(collated_data, unpacked_data):
+def pack_geotransformer_results(collated_data: Dict[str, List[torch.Tensor]], unpacked_data: Dict[str, Any]) -> Dict[str, Any]:
     """Pack pcr_collator results into geotransformer format."""
     # Remove last elements from downsamples and upsamples
     collated_data['downsamples'] = collated_data['downsamples'][:-1]
@@ -68,7 +68,12 @@ def pack_geotransformer_results(collated_data, unpacked_data):
 
 
 def geotransformer_collate_fn(
-    data_dicts, num_stages, voxel_size, search_radius, neighbor_limits, precompute_data=True
+    data_dicts: List[Dict[str, Dict[str, Any]]], 
+    num_stages: int, 
+    voxel_size: float, 
+    search_radius: float, 
+    neighbor_limits: List[int], 
+    precompute_data: bool = True
 ) -> Dict[str, Dict[str, Any]]:
     r"""Collate function for registration in stack mode.
 

@@ -1,18 +1,19 @@
+from typing import Optional
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
 
 def circle_loss(
-    pos_masks,
-    neg_masks,
-    feat_dists,
-    pos_margin,
-    neg_margin,
-    pos_optimal,
-    neg_optimal,
-    log_scale,
-):
+    pos_masks: torch.Tensor,
+    neg_masks: torch.Tensor,
+    feat_dists: torch.Tensor,
+    pos_margin: float,
+    neg_margin: float,
+    pos_optimal: float,
+    neg_optimal: float,
+    log_scale: float,
+) -> torch.Tensor:
     # get anchors that have both positive and negative pairs
     row_masks = (torch.gt(pos_masks.sum(-1), 0) & torch.gt(neg_masks.sum(-1), 0)).detach()
     col_masks = (torch.gt(pos_masks.sum(-2), 0) & torch.gt(neg_masks.sum(-2), 0)).detach()
@@ -41,17 +42,17 @@ def circle_loss(
 
 
 def weighted_circle_loss(
-    pos_masks,
-    neg_masks,
-    feat_dists,
-    pos_margin,
-    neg_margin,
-    pos_optimal,
-    neg_optimal,
-    log_scale,
-    pos_scales=None,
-    neg_scales=None,
-):
+    pos_masks: torch.Tensor,
+    neg_masks: torch.Tensor,
+    feat_dists: torch.Tensor,
+    pos_margin: float,
+    neg_margin: float,
+    pos_optimal: float,
+    neg_optimal: float,
+    log_scale: float,
+    pos_scales: Optional[torch.Tensor] = None,
+    neg_scales: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
     # get anchors that have both positive and negative pairs
     row_masks = (torch.gt(pos_masks.sum(-1), 0) & torch.gt(neg_masks.sum(-1), 0)).detach()
     col_masks = (torch.gt(pos_masks.sum(-2), 0) & torch.gt(neg_masks.sum(-2), 0)).detach()
@@ -86,7 +87,7 @@ def weighted_circle_loss(
 
 
 class CircleLoss(nn.Module):
-    def __init__(self, pos_margin, neg_margin, pos_optimal, neg_optimal, log_scale):
+    def __init__(self, pos_margin: float, neg_margin: float, pos_optimal: float, neg_optimal: float, log_scale: float) -> None:
         super(CircleLoss, self).__init__()
         self.pos_margin = pos_margin
         self.neg_margin = neg_margin
@@ -94,7 +95,7 @@ class CircleLoss(nn.Module):
         self.neg_optimal = neg_optimal
         self.log_scale = log_scale
 
-    def forward(self, pos_masks, neg_masks, feat_dists):
+    def forward(self, pos_masks: torch.Tensor, neg_masks: torch.Tensor, feat_dists: torch.Tensor) -> torch.Tensor:
         return circle_loss(
             pos_masks,
             neg_masks,
@@ -108,7 +109,7 @@ class CircleLoss(nn.Module):
 
 
 class WeightedCircleLoss(nn.Module):
-    def __init__(self, pos_margin, neg_margin, pos_optimal, neg_optimal, log_scale):
+    def __init__(self, pos_margin: float, neg_margin: float, pos_optimal: float, neg_optimal: float, log_scale: float) -> None:
         super(WeightedCircleLoss, self).__init__()
         self.pos_margin = pos_margin
         self.neg_margin = neg_margin
@@ -116,7 +117,7 @@ class WeightedCircleLoss(nn.Module):
         self.neg_optimal = neg_optimal
         self.log_scale = log_scale
 
-    def forward(self, pos_masks, neg_masks, feat_dists, pos_scales=None, neg_scales=None):
+    def forward(self, pos_masks: torch.Tensor, neg_masks: torch.Tensor, feat_dists: torch.Tensor, pos_scales: Optional[torch.Tensor] = None, neg_scales: Optional[torch.Tensor] = None) -> torch.Tensor:
         return weighted_circle_loss(
             pos_masks,
             neg_masks,

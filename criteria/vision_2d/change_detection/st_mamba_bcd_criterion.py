@@ -1,11 +1,11 @@
-from typing import Dict
+from typing import Dict, Any, Union, List, Optional
 from itertools import filterfalse as ifilterfalse
 import torch
 from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion
 
 
-def lovasz_softmax(probas, labels, classes='present', per_image=False, ignore=None):
+def lovasz_softmax(probas: torch.Tensor, labels: torch.Tensor, classes: Union[str, List[int]] = 'present', per_image: bool = False, ignore: Optional[int] = None) -> torch.Tensor:
     """
     Multi-class Lovasz-Softmax loss
       probas: [B, C, H, W] Variable, class probabilities at each prediction (between 0 and 1).
@@ -23,7 +23,7 @@ def lovasz_softmax(probas, labels, classes='present', per_image=False, ignore=No
     return loss
 
 
-def lovasz_softmax_flat(probas, labels, classes='present'):
+def lovasz_softmax_flat(probas: torch.Tensor, labels: torch.Tensor, classes: Union[str, List[int]] = 'present') -> torch.Tensor:
     """
     Multi-class Lovasz-Softmax loss
       probas: [P, C] Variable, class probabilities at each prediction (between 0 and 1)
@@ -54,7 +54,7 @@ def lovasz_softmax_flat(probas, labels, classes='present'):
     return mean(losses)
 
 
-def lovasz_grad(gt_sorted):
+def lovasz_grad(gt_sorted: torch.Tensor) -> torch.Tensor:
     """
     Computes gradient of the Lovasz extension w.r.t sorted errors
     See Alg. 1 in paper
@@ -69,7 +69,7 @@ def lovasz_grad(gt_sorted):
     return jaccard
 
 
-def flatten_probas(probas, labels, ignore=None):
+def flatten_probas(probas: torch.Tensor, labels: torch.Tensor, ignore: Optional[int] = None) -> tuple[torch.Tensor, torch.Tensor]:
     """
     Flattens predictions in the batch
     """
@@ -88,7 +88,7 @@ def flatten_probas(probas, labels, ignore=None):
     return vprobas, vlabels
 
 
-def mean(l, ignore_nan=False, empty=0):
+def mean(l: Any, ignore_nan: bool = False, empty: Union[int, str] = 0) -> Union[float, int]:
     """
     nanmean compatible with generators.
     """
@@ -109,13 +109,13 @@ def mean(l, ignore_nan=False, empty=0):
     return acc / n
 
 
-def isnan(x):
+def isnan(x: Any) -> bool:
     return x != x
 
 
 class STMambaBCDCriterion(SingleTaskCriterion):
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, **kwargs: Any) -> None:
         super(STMambaBCDCriterion, self).__init__(**kwargs)
         self.ce_loss = SemanticSegmentationCriterion(ignore_value=255)
 

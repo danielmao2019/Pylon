@@ -16,7 +16,7 @@ if repo_root not in sys.path:
 from data.viewer.viewer import DatasetViewer
 
 
-def main():
+def main() -> None:
     """Run the dataset viewer application."""
     parser = argparse.ArgumentParser(description="Dataset Viewer CLI")
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")

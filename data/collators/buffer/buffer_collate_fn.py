@@ -1,3 +1,4 @@
+from typing import List, Dict, Any, Optional, Tuple, Union
 import torch
 import numpy as np
 import data.collators.buffer.cpp_wrappers.cpp_subsampling.grid_subsampling as cpp_subsampling
@@ -6,7 +7,15 @@ from data.collators.pcr_collator import pcr_collate_fn
 from models.point_cloud_registration.buffer.point_learner import architecture as _architecture
 
 
-def batch_grid_subsampling_kpconv(points, batches_len, sampleDl, features=None, labels=None, max_p=0, verbose=0):
+def batch_grid_subsampling_kpconv(
+    points: torch.Tensor, 
+    batches_len: torch.Tensor, 
+    sampleDl: float, 
+    features: Optional[torch.Tensor] = None, 
+    labels: Optional[torch.Tensor] = None, 
+    max_p: int = 0, 
+    verbose: int = 0
+) -> Union[Tuple[torch.Tensor, torch.Tensor], Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
     CPP wrapper for a grid subsampling (method = barycenter for points and features)
     """
@@ -67,7 +76,14 @@ def batch_grid_subsampling_kpconv(points, batches_len, sampleDl, features=None, 
         )
 
 
-def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_neighbors):
+def batch_neighbors_kpconv(
+    queries: torch.Tensor, 
+    supports: torch.Tensor, 
+    q_batches: torch.Tensor, 
+    s_batches: torch.Tensor, 
+    radius: float, 
+    max_neighbors: int
+) -> torch.Tensor:
     """
     Computes neighbors for a batch of queries and supports, apply radius search
     :param queries: (N1, 3) the query points
@@ -89,7 +105,7 @@ def batch_neighbors_kpconv(queries, supports, q_batches, s_batches, radius, max_
         return torch.from_numpy(neighbors).to(device)
 
 
-def unpack_buffer_data(data):
+def unpack_buffer_data(data: Dict[str, Any]) -> Dict[str, torch.Tensor]:
     """Unpack data to get points and features."""
     src_fds_points = data['inputs']['src_pc_fds']['pos']
     tgt_fds_points = data['inputs']['tgt_pc_fds']['pos']
@@ -117,7 +133,7 @@ def unpack_buffer_data(data):
     }
 
 
-def create_buffer_architecture(config, neighborhood_limits):
+def create_buffer_architecture(config: Any, neighborhood_limits: List[int]) -> List[Dict[str, Any]]:
     """Create architecture for pcr_collator."""
     architecture = []
     r_normal = config.data.voxel_size_0 * config.point.conv_radius
@@ -159,7 +175,7 @@ def create_buffer_architecture(config, neighborhood_limits):
     return architecture
 
 
-def pack_buffer_results(collated_data, unpacked_data):
+def pack_buffer_results(collated_data: Dict[str, List[torch.Tensor]], unpacked_data: Dict[str, torch.Tensor]) -> Dict[str, Any]:
     """Pack pcr_collator results into buffer format."""
     return {
         'points': collated_data['points'],
@@ -176,7 +192,7 @@ def pack_buffer_results(collated_data, unpacked_data):
     }
 
 
-def buffer_collate_fn(list_data, config, neighborhood_limits):
+def buffer_collate_fn(list_data: List[Dict[str, Any]], config: Any, neighborhood_limits: List[int]) -> Dict[str, Any]:
     assert len(list_data) == 1
     data = list_data[0]  # Get the single item directly
 

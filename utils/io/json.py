@@ -5,7 +5,7 @@ import jsbeautifier
 from utils.ops.apply import apply_tensor_op
 
 
-def serialize_tensor(obj: Any):
+def serialize_tensor(obj: Any) -> Any:
     return apply_tensor_op(func=lambda x: x.detach().tolist(), inputs=obj)
 
 

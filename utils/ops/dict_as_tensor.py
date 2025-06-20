@@ -7,7 +7,7 @@ import numpy
 import torch
 
 
-def buffer_equal(buffer, other) -> bool:
+def buffer_equal(buffer: Any, other: Any) -> bool:
     result = True
     result = result and (type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float])))
     if type(buffer) in [tuple, list]:
@@ -55,7 +55,7 @@ def buffer_allclose(
         return abs(buffer - other) <= atol + rtol * abs(other)
 
 
-def _buffer_add(buffer, other):
+def _buffer_add(buffer: Any, other: Any) -> Any:
     assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float]))
     if type(buffer) in [tuple, list]:
         assert len(buffer) == len(other), f"{len(buffer)=}, {len(other)=}"
@@ -67,14 +67,14 @@ def _buffer_add(buffer, other):
         return buffer + other
 
 
-def buffer_add(*buffers):
+def buffer_add(*buffers: Any) -> Any:
     result = buffers[0]
     for idx in range(1, len(buffers)):
         result = _buffer_add(result, buffers[idx])
     return result
 
 
-def buffer_scalar_mul(buffer, scalar):
+def buffer_scalar_mul(buffer: Any, scalar: Any) -> Any:
     # input checks
     if type(scalar) == numpy.ndarray:
         assert scalar.size == 1, f"{scalar.shape=}"
@@ -93,11 +93,11 @@ def buffer_scalar_mul(buffer, scalar):
         return buffer * scalar
 
 
-def buffer_sub(buffer, other):
+def buffer_sub(buffer: Any, other: Any) -> Any:
     return buffer_add(buffer, buffer_scalar_mul(other, -1))
 
 
-def buffer_mul(buffer, other):
+def buffer_mul(buffer: Any, other: Any) -> Any:
     assert type(buffer) == type(other) or set([type(buffer), type(other)]).issubset(set([int, float])), \
         f"{type(buffer)=}, {type(other)=}"
     if type(buffer) in [tuple, list]:
@@ -110,7 +110,7 @@ def buffer_mul(buffer, other):
         return buffer * other
 
 
-def buffer_rec(buffer):
+def buffer_rec(buffer: Any) -> Any:
     if type(buffer) in [tuple, list]:
         return type(buffer)([buffer_rec(buffer[idx]) for idx in range(len(buffer))])
     elif type(buffer) == dict:
@@ -119,17 +119,17 @@ def buffer_rec(buffer):
         return 1 / buffer
 
 
-def buffer_div(buffer, other):
+def buffer_div(buffer: Any, other: Any) -> Any:
     return buffer_mul(buffer, buffer_rec(other))
 
 
-def buffer_mean(buffer):
+def buffer_mean(buffer: Sequence[Any]) -> Any:
     r"""Take the mean of the buffer along the first axis.
     """
     return buffer_scalar_mul(buffer_add(*list(buffer)), 1 / len(buffer))
 
 
-def get_buffer_structure(buffer) -> List[Tuple[Any, Set[Any]]]:
+def get_buffer_structure(buffer: Any) -> List[Tuple[Any, Set[Any]]]:
     """Get the structure of a buffer.
     """
     if isinstance(buffer, (list, tuple)):
@@ -182,10 +182,10 @@ def buffer_select(buffer, axis: int, index: Any) -> Any:
 
 
 def buffer_permute(
-    buffer,
+    buffer: Any,
     axes: Optional[Sequence[int]] = None,
     buffer_structure: Optional[List[Tuple[Any, Set[Any]]]] = None,
-):
+) -> Any:
     """Permute the axes of a buffer.
 
     Args:

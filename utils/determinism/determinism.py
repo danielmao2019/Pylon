@@ -5,13 +5,13 @@ import numpy
 import torch
 
 
-def set_determinism():
+def set_determinism() -> None:
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
     torch.backends.cudnn.benchmark = False
     torch.use_deterministic_algorithms(True, warn_only=True)
 
 
-def set_seed(seed: Any):
+def set_seed(seed: Any) -> None:
     """Set seed for all random number generators.
     
     Args:

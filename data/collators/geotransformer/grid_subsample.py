@@ -1,4 +1,8 @@
-def grid_subsample(points, lengths, voxel_size):
+from typing import Tuple
+import torch
+
+
+def grid_subsample(points: torch.Tensor, lengths: torch.Tensor, voxel_size: float) -> Tuple[torch.Tensor, torch.Tensor]:
     """Grid subsampling in stack mode.
 
     This function is implemented on CPU.

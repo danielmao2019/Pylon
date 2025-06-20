@@ -1,15 +1,17 @@
+from typing import Iterator, List
 from torch.utils.data import Dataset, Sampler
 import random
 
 
 class FillLastBatchSampler(Sampler):
-    def __init__(self, dataset, batch_size, shuffle=True):
+
+    def __init__(self, dataset: Dataset, batch_size: int, shuffle: bool = True) -> None:
         self.dataset = dataset
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.indices = list(range(len(dataset)))
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[List[int]]:
         if self.shuffle:
             random.shuffle(self.indices)
         
@@ -26,5 +28,5 @@ class FillLastBatchSampler(Sampler):
                 batch.append(random.choice(self.indices))  # Sample with replacement
             yield batch
 
-    def __len__(self):
+    def __len__(self) -> int:
         return (len(self.dataset) + self.batch_size - 1) // self.batch_size  # Round up

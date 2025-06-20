@@ -1,7 +1,8 @@
+from typing import Tuple, Callable, Any
 import torch
 from torch.nn import functional as F
 
-def point_sample(input, point_coords, **kwargs):
+def point_sample(input: torch.Tensor, point_coords: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     """
     A wrapper around :function:`torch.nn.functional.grid_sample` to support 3D point_coords tensors.
     Unlike :function:`torch.nn.functional.grid_sample` it assumes `point_coords` to lie inside
@@ -27,8 +28,12 @@ def point_sample(input, point_coords, **kwargs):
     return output # [c, 1, self.num_points]
 
 def get_uncertain_point_coords_with_randomness(
-    coarse_logits, uncertainty_func, num_points, oversample_ratio, importance_sample_ratio
-):
+    coarse_logits: torch.Tensor, 
+    uncertainty_func: Callable[[torch.Tensor], torch.Tensor], 
+    num_points: int, 
+    oversample_ratio: int, 
+    importance_sample_ratio: float
+) -> torch.Tensor:
     """
     Sample points in [0, 1] x [0, 1] coordinate space based on their uncertainty. The unceratinties
         are calculated for each point using 'uncertainty_func' function that takes point's logit
@@ -82,7 +87,7 @@ def get_uncertain_point_coords_with_randomness(
     return point_coords
 
 
-def get_uncertain_point_coords_on_grid(uncertainty_map, num_points):
+def get_uncertain_point_coords_on_grid(uncertainty_map: torch.Tensor, num_points: int) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Find `num_points` most uncertain points from `uncertainty_map` grid.
 

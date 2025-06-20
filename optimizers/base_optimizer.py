@@ -1,4 +1,4 @@
-from typing import List, Any, Optional
+from typing import List, Any, Optional, Dict
 from abc import ABC, abstractmethod
 import torch
 from utils.input_checks import check_write_file
@@ -12,7 +12,7 @@ class BaseOptimizer(ABC):
     def __init__(self) -> None:
         self.reset_buffer()
 
-    def reset_buffer(self):
+    def reset_buffer(self) -> None:
         self.buffer: List[Any] = []
 
     @abstractmethod
@@ -22,16 +22,16 @@ class BaseOptimizer(ABC):
     # ====================================================================================================
     # ====================================================================================================
 
-    def zero_grad(self, *args, **kwargs):
+    def zero_grad(self, *args: Any, **kwargs: Any) -> None:
         return self.optimizer.zero_grad(*args, **kwargs)
 
-    def step(self, *args, **kwargs):
+    def step(self, *args: Any, **kwargs: Any) -> Any:
         return self.optimizer.step(*args, **kwargs)
 
-    def state_dict(self, *args, **kwargs) -> dict:
+    def state_dict(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
         return self.optimizer.state_dict(*args, **kwargs)
 
-    def load_state_dict(self, *args, **kwargs) -> None:
+    def load_state_dict(self, *args: Any, **kwargs: Any) -> None:
         self.optimizer.load_state_dict(*args, **kwargs)
 
     # ====================================================================================================

@@ -1,3 +1,4 @@
+from typing import List, Any, Callable
 from functools import partial
 import numpy as np
 import torch
@@ -12,7 +13,7 @@ for block_i, block in enumerate(architecture):
         num_layer = num_layer + 1
 
 
-def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_threshold=2000):
+def calibrate_neighbors(dataset: Any, config: Any, collate_fn: Callable, keep_ratio: float = 0.8, samples_threshold: int = 2000) -> List[int]:
     # From config parameter, compute higher bound of neighbors number in a neighborhood
     hist_n = int(np.ceil(4 / 3 * np.pi * (config.point.conv_radius) ** 3))
     neighb_hists = np.zeros((num_layer, hist_n), dtype=np.int32)
@@ -43,7 +44,7 @@ def calibrate_neighbors(dataset, config, collate_fn, keep_ratio=0.8, samples_thr
 
 class BufferDataloader(BaseDataLoader):
 
-    def __init__(self, dataset, config, **kwargs) -> None:
+    def __init__(self, dataset: Any, config: Any, **kwargs: Any) -> None:
         assert 'collate_fn' not in kwargs, 'collate_fn is not allowed to be set'
         self.neighbor_limits = calibrate_neighbors(
             dataset,
