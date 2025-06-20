@@ -282,6 +282,36 @@ def test_edge_cases()           # Edge case pattern
 def test_mathematical_properties()  # Random ground truth
 ```
 
+#### **Dummy Data Generation for Tests**
+
+**ALWAYS use the standardized dummy data generators** in `tests/models/utils/dummy_data_generators.py`:
+
+```python
+# Correct - uses proper tensor types
+from tests.models.utils.dummy_data_generators import (
+    generate_change_detection_data,      # (N, 3, H, W) float32 images
+    generate_segmentation_labels,        # (N, H, W) int64 labels
+    generate_classification_labels,      # (N,) int64 labels
+    generate_point_cloud_data,          # Batched format for registration
+    generate_point_cloud_segmentation_data,  # Flattened format for segmentation
+)
+
+# Test with proper types
+images = generate_change_detection_data(batch_size=2, height=64, width=64)
+labels = generate_segmentation_labels(batch_size=2, height=64, width=64, num_classes=10)
+```
+
+**NEVER manually create dummy tensors without proper dtypes:**
+```python
+# Wrong - missing dtype specification
+torch.randn(2, 3, 224, 224)                     # Should be dtype=torch.float32
+torch.randint(0, 10, (2, 224, 224))            # Should be dtype=torch.int64
+
+# Correct - use generators or specify dtypes  
+torch.randn(2, 3, 224, 224, dtype=torch.float32)
+torch.randint(0, 10, (2, 224, 224), dtype=torch.int64)
+```
+
 ### C++ Extensions
 Some modules require building:
 ```bash
@@ -405,13 +435,16 @@ def some_function(arg1: int, arg2: str) -> bool:
   └── test_determinism.py         # Reproducibility tests
   ```
 
-#### Testing Focus by Code Origin
-**Different testing approaches based on code source:**
-- **Your implementation** (base classes, wrappers): Comprehensive testing with all 9 patterns
-- **Copied from official repos** (domain-specific models/losses): Integration testing only
+#### Testing Focus
+**All tests in Pylon are for "your implementation"** - code we've written or integrated:
+- **Base classes and wrappers**: Comprehensive testing with all 9 patterns
+- **Domain-specific models/losses**: Focus on integration and API correctness
   - Test successful execution with dummy inputs
   - Verify basic input/output shapes and types
-  - No need to verify mathematical correctness
+  - Test gradient flow and device handling
+  - No need to verify mathematical correctness against papers
+
+**Note**: We do not write separate tests for "official_implementation" - all integrated code is tested as "your implementation".
 
 ### Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8
