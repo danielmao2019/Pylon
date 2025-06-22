@@ -1,7 +1,7 @@
 from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
-import threading
 import queue
+import threading
 from utils.ops.apply import apply_tensor_op
 
 

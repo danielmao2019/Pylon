@@ -3,10 +3,10 @@
 from typing import Tuple, List, Dict
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
-from utils.object_detection import pairwise_iou
 from utils.input_checks import check_write_file
-from utils.ops import transpose_buffer
 from utils.io import save_json
+from utils.object_detection import pairwise_iou
+from utils.ops import transpose_buffer
 
 
 class ObjectDetectionMetric(SingleTaskMetric):

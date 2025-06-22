@@ -1,8 +1,8 @@
 from typing import List, Any, Optional
 from abc import ABC, abstractmethod
-import torch
-import threading
 import queue
+import threading
+import torch
 
 
 class BaseCriterion(torch.nn.Module, ABC):

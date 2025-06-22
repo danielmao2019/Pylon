@@ -8,6 +8,7 @@ from functools import wraps
 from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 
+
 # Type variables for generic typing
 T = TypeVar('T')
 CallbackInput = Union[Input, State]

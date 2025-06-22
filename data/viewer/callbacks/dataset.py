@@ -2,9 +2,9 @@
 from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, html
 from dash.exceptions import PreventUpdate
-from data.viewer.layout.display.dataset import create_dataset_info_display
-from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.callbacks.registry import callback, registry
+from data.viewer.layout.controls.transforms import create_transforms_section
+from data.viewer.layout.display.dataset import create_dataset_info_display
 from data.viewer.managers.registry import get_dataset_type
 
 import logging

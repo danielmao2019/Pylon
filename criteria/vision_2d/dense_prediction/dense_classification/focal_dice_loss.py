@@ -1,6 +1,6 @@
-from criteria.wrappers.hybrid_criterion import HybridCriterion
 from criteria.common.focal_loss import FocalLoss
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
+from criteria.wrappers.hybrid_criterion import HybridCriterion
 
 
 class FocalDiceLoss(HybridCriterion):

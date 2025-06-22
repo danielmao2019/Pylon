@@ -1,7 +1,7 @@
 from typing import Dict
 import torch
-from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion, DiceLoss
+from criteria.wrappers import SingleTaskCriterion
 
 
 class SNUNetCDCriterion(SingleTaskCriterion):

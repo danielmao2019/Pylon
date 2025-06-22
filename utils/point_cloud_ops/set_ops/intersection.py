@@ -1,8 +1,8 @@
 from typing import Tuple, Optional
-import torch
-import numpy as np
-from scipy.spatial import cKDTree
 from itertools import product
+from scipy.spatial import cKDTree
+import numpy as np
+import torch
 
 
 def _calculate_chunk_factor(src_points: torch.Tensor, tgt_points: torch.Tensor) -> int:

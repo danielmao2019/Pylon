@@ -1,8 +1,8 @@
 from typing import Dict
 import torch
 from criteria.base_criterion import BaseCriterion
-from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from criteria.wrappers.multi_task_criterion import MultiTaskCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
 class CSA_CDGAN_GeneratorCriterion(SingleTaskCriterion):
