@@ -1,7 +1,7 @@
 from typing import Dict
 import torch
-from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.wrappers import SingleTaskCriterion
 
 
 class ChangeStarCriterion(SingleTaskCriterion):
