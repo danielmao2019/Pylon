@@ -1,6 +1,6 @@
 from typing import List, Dict, TypedDict, Optional, Any
 from utils.monitor.process_info import ProcessInfo, get_all_processes
-from utils.automation.ssh_utils import SSHConnectionPool
+from utils.ssh.pool import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
@@ -167,7 +167,7 @@ def get_server_gpus_info(server: str, gpu_indices: List[int], pool: SSHConnectio
     try:
         return _get_server_gpus_info()
     except Exception as e:
-        print(f"ERROR: Failed to get batch GPU info for server {server}, GPUs {gpu_indices}: {e}")
+        print(f"ERROR: Failed to get GPU info for server {server}, GPUs {gpu_indices}: {e}")
         # Return failed results for all requested GPUs
         return {
             gpu_idx: {

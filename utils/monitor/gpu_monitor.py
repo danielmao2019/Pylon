@@ -4,7 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 import torch
 from utils.monitor.gpu_status import GPUStatus, get_server_gpus_info
-from utils.automation.ssh_utils import _ssh_pool
+from utils.ssh.pool import _ssh_pool
 
 
 class GPUMonitor:
@@ -36,7 +36,7 @@ class GPUMonitor:
             Dictionary mapping server names to lists of GPUStatus objects
         """
         gpus_by_server = {}
-        
+
         if gpu_indices_by_server is None:
             # Handle localhost case - get physical GPU index
             if torch.cuda.is_available():
@@ -47,7 +47,7 @@ class GPUMonitor:
                     physical_device_index = visible_devices[device_index]
                 else:
                     physical_device_index = device_index
-                
+
                 gpu_status: GPUStatus = {
                     'server': 'localhost',
                     'index': physical_device_index,
@@ -80,7 +80,7 @@ class GPUMonitor:
                     }
                     server_gpus.append(gpu_status)
                 gpus_by_server[server] = server_gpus
-            
+
         return gpus_by_server
 
     def start(self):
