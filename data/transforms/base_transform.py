@@ -58,3 +58,31 @@ class BaseTransform:
             return self._call_single_with_generator(*args, generator=generator)
         else:
             return [self._call_single_with_generator(arg, generator=generator) for arg in args]
+
+    def __str__(self) -> str:
+        """String representation of the transform."""
+        class_name = self.__class__.__name__
+        
+        # Try to get constructor parameters if available
+        if hasattr(self, '__dict__') and self.__dict__:
+            params = []
+            for key, value in self.__dict__.items():
+                if not key.startswith('_'):  # Skip private attributes
+                    if isinstance(value, (int, float)):
+                        params.append(f"{key}={value}")
+                    elif isinstance(value, str):
+                        params.append(f"{key}='{value}'")
+                    elif isinstance(value, (list, tuple)):
+                        if len(value) <= 3:
+                            params.append(f"{key}={value}")
+                        else:
+                            params.append(f"{key}=[...{len(value)} items]")
+                    elif value is None:
+                        params.append(f"{key}=None")
+                    else:
+                        params.append(f"{key}={type(value).__name__}")
+            
+            if params:
+                return f"{class_name}({', '.join(params)})"
+        
+        return class_name
