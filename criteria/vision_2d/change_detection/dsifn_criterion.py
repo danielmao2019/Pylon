@@ -1,7 +1,7 @@
 from typing import Tuple, Dict
 import torch
-from criteria.wrappers import SingleTaskCriterion, SpatialPyTorchCriterionWrapper, AuxiliaryOutputsCriterion
 from criteria.vision_2d import DiceLoss
+from criteria.wrappers import SingleTaskCriterion, SpatialPyTorchCriterionWrapper, AuxiliaryOutputsCriterion
 
 
 class DSIFNCriterion(SingleTaskCriterion):

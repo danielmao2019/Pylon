@@ -2,9 +2,9 @@ from typing import List, Any, Callable
 from functools import partial
 import numpy as np
 import torch
-from models.point_cloud_registration.buffer.point_learner import architecture
 from data.collators.buffer.buffer_collate_fn import buffer_collate_fn
 from data.dataloaders.base_dataloader import BaseDataLoader
+from models.point_cloud_registration.buffer.point_learner import architecture
 
 
 num_layer = 1

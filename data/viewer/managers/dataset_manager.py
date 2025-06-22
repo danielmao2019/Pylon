@@ -5,11 +5,10 @@ and managing datasets for the viewer.
 """
 from typing import Dict, Any, Optional, List
 import logging
-
-from data.viewer.managers.dataset_cache import DatasetCache
 from data.viewer.managers.dataset_builder import DatasetBuilder
-from data.viewer.managers.transform_manager import TransformManager
+from data.viewer.managers.dataset_cache import DatasetCache
 from data.viewer.managers.registry import DATASET_FORMATS, get_dataset_type
+from data.viewer.managers.transform_manager import TransformManager
 
 
 class DatasetManager:

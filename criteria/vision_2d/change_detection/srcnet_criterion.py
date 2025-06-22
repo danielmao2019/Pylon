@@ -1,9 +1,9 @@
 from typing import Tuple, Dict, Any
 import torch
 import torch.nn.functional as F
-from criteria.wrappers import SingleTaskCriterion
-from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.wrappers import SingleTaskCriterion
 
 
 class SRCNetCriterion(SingleTaskCriterion):

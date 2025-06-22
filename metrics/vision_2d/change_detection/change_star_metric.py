@@ -1,7 +1,6 @@
 from typing import List, Dict
 import torch
-import metrics
-import metrics
+from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
 from metrics.wrappers import SingleTaskMetric
 from utils.input_checks import check_write_file
 from utils.io.json import save_json
@@ -12,8 +11,8 @@ class ChangeStarMetric(SingleTaskMetric):
 
     def __init__(self) -> None:
         super(ChangeStarMetric, self).__init__()
-        self.change_metric = metrics.vision_2d.SemanticSegmentationMetric(num_classes=2)
-        self.semantic_metric = metrics.vision_2d.SemanticSegmentationMetric(num_classes=5)
+        self.change_metric = SemanticSegmentationMetric(num_classes=2)
+        self.semantic_metric = SemanticSegmentationMetric(num_classes=5)
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, Dict[str, torch.Tensor]]:
         """Override parent class __call__ method.
@@ -46,15 +45,15 @@ class ChangeStarMetric(SingleTaskMetric):
 
         # get aggregated summary
         aggregated_result: Dict[str, Dict[str, torch.Tensor]] = {
-            'change': metrics.vision_2d.SemanticSegmentationMetric._summarize(
+            'change': SemanticSegmentationMetric._summarize(
                 buffer=buffer['change'], num_datapoints=len(self.buffer), num_classes=2,
         )}
         if len(buffer) == 3:
             aggregated_result.update({
-                'semantic_1': metrics.vision_2d.SemanticSegmentationMetric._summarize(
+                'semantic_1': SemanticSegmentationMetric._summarize(
                     buffer=buffer['semantic_1'], num_datapoints=len(self.buffer), num_classes=5,
                 ),
-                'semantic_2': metrics.vision_2d.SemanticSegmentationMetric._summarize(
+                'semantic_2': SemanticSegmentationMetric._summarize(
                     buffer=buffer['semantic_2'], num_datapoints=len(self.buffer), num_classes=5,
                 ),
             })

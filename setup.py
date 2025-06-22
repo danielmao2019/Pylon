@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
 
+
 setup(
     name="pylon",
     description="A deep learning framework for 3D vision tasks",

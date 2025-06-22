@@ -1,7 +1,8 @@
 from typing import List, Dict, Any
+import datetime
 from dash import dcc, html, dash_table
-from utils.monitor.gpu_monitor import GPUMonitor
 from agents.viewer.backend import get_progress
+from utils.monitor.gpu_monitor import GPUMonitor
 
 
 def generate_table_data(gpu_monitor: GPUMonitor, user_names: Dict[str, str]) -> List[Dict[str, Any]]:
@@ -88,7 +89,6 @@ def create_layout(
     assert isinstance(gpu_monitor, GPUMonitor)
     assert isinstance(user_names, dict)
 
-    import datetime
 
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     initial_progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, gpu_monitor)}%"

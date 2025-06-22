@@ -1,8 +1,8 @@
 from typing import Dict, Any, Union, List, Optional
 from itertools import filterfalse as ifilterfalse
 import torch
-from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion
+from criteria.wrappers import SingleTaskCriterion
 
 
 def lovasz_softmax(probas: torch.Tensor, labels: torch.Tensor, classes: Union[str, List[int]] = 'present', per_image: bool = False, ignore: Optional[int] = None) -> torch.Tensor:

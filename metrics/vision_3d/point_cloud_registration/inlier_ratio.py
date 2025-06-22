@@ -1,5 +1,5 @@
-import torch
 from typing import Dict
+import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.point_cloud_ops.apply_transform import apply_transform
 

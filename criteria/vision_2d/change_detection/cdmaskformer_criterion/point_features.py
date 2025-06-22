@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Any
-import torch
 from torch.nn import functional as F
+import torch
+
 
 def point_sample(input: torch.Tensor, point_coords: torch.Tensor, **kwargs: Any) -> torch.Tensor:
     """

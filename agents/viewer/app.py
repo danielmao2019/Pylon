@@ -1,8 +1,8 @@
 from typing import Tuple, List, Dict, Optional
 import dash
 from agents.base_agent import BaseAgent
-from agents.viewer.layout import create_layout
 from agents.viewer.callback import register_callbacks
+from agents.viewer.layout import create_layout
 
 
 class AgentsViewerApp(BaseAgent):
