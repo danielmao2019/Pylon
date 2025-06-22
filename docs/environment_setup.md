@@ -75,11 +75,8 @@ pip install mmsegmentation==1.2.2
 conda install -c conda-forge -y scipy scikit-learn scikit-image timm einops
 conda install -c conda-forge -y opencv pycocotools rasterio imageio plyfile
 pip install open3d laspy
-conda install -c conda-forge -y matplotlib dash plotly pandas
-conda install -c conda-forge -y psutil pytest tqdm
-pip install rich
-conda install -c conda-forge -y ftfy regex easydict
-pip install fvcore triton jsbeautifier
+conda install -c conda-forge -y matplotlib dash plotly pandas psutil pytest tqdm ftfy regex easydict
+pip install rich paramiko jsbeautifier fvcore triton
 ```
 
 ### 4.3. Point cloud registration related

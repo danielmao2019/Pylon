@@ -1,14 +1,54 @@
-# CLAUDE.md
+# CLAUDE.md <!-- omit in toc -->
+
+## Table of Contents <!-- omit in toc -->
+
+- [1. Overview](#1-overview)
+- [2. Essential Commands](#2-essential-commands)
+  - [2.1. Testing](#21-testing)
+  - [2.2. Training](#22-training)
+  - [2.3. Dataset Viewer](#23-dataset-viewer)
+  - [2.4. Code Quality](#24-code-quality)
+- [3. Design Ideas](#3-design-ideas)
+  - [3.1. Core Design Philosophy](#31-core-design-philosophy)
+  - [3.2. Dataset Design Pattern](#32-dataset-design-pattern)
+  - [3.3. Data Pipeline Design](#33-data-pipeline-design)
+  - [3.4. Asynchronous Buffer Pattern](#34-asynchronous-buffer-pattern)
+  - [3.5. Configuration-Driven Architecture](#35-configuration-driven-architecture)
+  - [3.6. Multi-Task Learning Architecture](#36-multi-task-learning-architecture)
+  - [3.7. Training Loop Architecture](#37-training-loop-architecture)
+  - [3.8. Key Directories and Components](#38-key-directories-and-components)
+  - [3.9. Special Utilities](#39-special-utilities)
+  - [3.10. C++ Extensions](#310-c-extensions)
+- [4. Project-Wide Conventions](#4-project-wide-conventions)
+  - [4.1. Tensor Type Assumptions](#41-tensor-type-assumptions)
+- [5. About Testing](#5-about-testing)
+  - [5.1. Testing Philosophy and Patterns](#51-testing-philosophy-and-patterns)
+    - [5.1.1. **Common Test Pattern Taxonomy**](#511-common-test-pattern-taxonomy)
+    - [5.1.2. **Test Quality Assessment**](#512-test-quality-assessment)
+    - [5.1.3. **Recommended Test Templates**](#513-recommended-test-templates)
+    - [5.1.4. **Dummy Data Generation for Tests**](#514-dummy-data-generation-for-tests)
+  - [5.2. Testing Implementation Guidelines](#52-testing-implementation-guidelines)
+  - [5.3. Testing Focus](#53-testing-focus)
+- [6. Code Style Guidelines](#6-code-style-guidelines)
+  - [6.1. Import Statement Order](#61-import-statement-order)
+  - [6.2. Config vs Source Code Import Patterns](#62-config-vs-source-code-import-patterns)
+  - [6.3. Type Annotations](#63-type-annotations)
+  - [6.4. Documentation Strings](#64-documentation-strings)
+  - [6.5. Function and File Organization](#65-function-and-file-organization)
+  - [6.6. Error Handling](#66-error-handling)
+- [7. Important Implementation Notes](#7-important-implementation-notes)
+
+----------------------------------------------------------------------------------------------------
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Overview
+## 1. Overview
 
 Pylon is a PyTorch-based deep learning framework for computer vision research, supporting both 2D vision tasks (change detection, segmentation, object detection) and 3D vision tasks (point cloud registration, 3D change detection) with extensive multi-task learning capabilities.
 
-## Essential Commands
+## 2. Essential Commands
 
-### Testing
+### 2.1. Testing
 ```bash
 # Run all tests
 pytest tests/
@@ -20,7 +60,7 @@ pytest tests/models/change_detection/test_change_star.py
 pytest -v --tb=short tests/
 ```
 
-### Training
+### 2.2. Training
 ```bash
 # Basic training
 python main.py --config-filepath configs/examples/linear/config.py
@@ -29,7 +69,7 @@ python main.py --config-filepath configs/examples/linear/config.py
 python main.py --config-filepath configs/examples/linear/config.py --debug
 ```
 
-### Dataset Viewer
+### 2.3. Dataset Viewer
 ```bash
 # Launch web-based dataset viewer
 python -m data.viewer.cli
@@ -38,7 +78,7 @@ python -m data.viewer.cli
 python -m data.viewer.cli --host 0.0.0.0 --port 8050
 ```
 
-### Code Quality
+### 2.4. Code Quality
 ```bash
 # Format code
 black .
@@ -48,12 +88,20 @@ isort .
 flake8 .
 ```
 
-## Architecture
+## 3. Design Ideas
 
-### Core Design Philosophy
-Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research:
+### 3.1. Core Design Philosophy
+Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research.
+The `models` module is mostly copied from official repos and is meant for integrating official model implementations into Pylon.
+Some of the code in the `criteria`, `metrics`, `optimizers`, and `runners` are other-project-specific, meaning that they are also copied from official implementations of other released work.
+The main contribution of Pylon are the follows:
+1. Pylon provides a unified code design for a wide range of research domains, including classical deep learning 2D vision, change detection, point cloud registration, and multi-task learning.
+2. Pylon works hard on providing a well-designed "framework" that is robust and, at the same time, easy to use and adapt to implement specific research ideas, while paying less attention to domain-specific code.
+3. Pylon provides robust experiment management system, implemented via the `agent` module.
+4. While integrating project-specific code (mainly the project-specific model, criterion, and metric), Pylon maintains them and makes sure that the integrated code from external sources are up-to-date with the advancement of package versions.
+5. Pylon provides robust debugging toolkit including data viewer and evaluation results viewer.
 
-### 1. Dataset Design Pattern
+### 3.2. Dataset Design Pattern
 **Every dataset follows the three-field structure:**
 - `inputs`: Dictionary with actual input data (images, point clouds, etc.)
 - `labels`: Dictionary with ground truth labels for supervision
@@ -65,44 +113,7 @@ Pylon follows several fundamental design patterns that enable extensible, reprod
 3. Use helper methods like `_load_seg_labels()`, `_load_amodal_masks()` for modular loading
 4. `meta_info` = `self.annotations` + lightweight additional information
 
-### 2. Asynchronous Buffer Pattern
-**Critical for GPU utilization:** Criteria, metrics, and optimizers use asynchronous buffers to prevent blocking training loops:
-- Background thread: `threading.Thread(target=self._buffer_worker, daemon=True)`
-- Thread-safe queue: `queue.Queue()` for non-blocking data collection
-- Lock-protected buffer access: `threading.Lock()` for thread safety
-- Async tensor operations: Detach from computation graph and move to CPU in background
-- `add_to_buffer()` is non-blocking; `summarize()` waits for queue to empty
-
-### 3. Configuration-Driven Architecture
-**`build_from_config()` pattern enables flexible component instantiation:**
-```python
-config = {
-    'class': SomeClass,
-    'args': {...}
-}
-obj = build_from_config(config)
-```
-- Recursive construction of nested objects
-- Class references (not strings) for type safety
-- Parameter merging and preservation
-- Supports PyTorch parameter special handling
-
-### 4. Multi-Task Learning Architecture
-**Wrapper pattern for orchestrating multiple tasks:**
-- `MultiTaskCriterion` uses `torch.nn.ModuleDict` for task-specific criteria
-- `MultiTaskMetric` aggregates results from individual task metrics
-- `MTLOptimizer` implements gradient manipulation (PCGrad, MGDA, GradNorm)
-- Each task component maintains its own buffer and state
-
-### 5. Training Loop Architecture
-**Sophisticated training orchestration:**
-- **Deterministic execution**: Per-epoch seeding with separate train/val/test seeds
-- **Continuous epoch numbering**: Maintains count across resumptions and multi-stage training
-- **Asynchronous I/O**: Threaded checkpoint saving and validation scoring
-- **GPU monitoring**: Real-time resource tracking during training
-- **Robust resumption**: Automatic detection and resumption from last checkpoint
-
-### 6. Data Pipeline Design
+### 3.3. Data Pipeline Design
 **Memory-efficient and reproducible data loading:**
 
 - **Lazy loading**: Data loading happens in two phases for memory efficiency:
@@ -121,7 +132,44 @@ obj = build_from_config(config)
 - **Transform composition**: Functional composition with seed propagation
 - **Collation strategy**: Nested dictionary support with custom per-key collators
 
-### Key Directories and Components
+### 3.4. Asynchronous Buffer Pattern
+**Critical for GPU utilization:** Criteria, metrics, and optimizers use asynchronous buffers to prevent blocking training loops:
+- Background thread: `threading.Thread(target=self._buffer_worker, daemon=True)`
+- Thread-safe queue: `queue.Queue()` for non-blocking data collection
+- Lock-protected buffer access: `threading.Lock()` for thread safety
+- Async tensor operations: Detach from computation graph and move to CPU in background
+- `add_to_buffer()` is non-blocking; `summarize()` waits for queue to empty
+
+### 3.5. Configuration-Driven Architecture
+**`build_from_config()` pattern enables flexible component instantiation:**
+```python
+config = {
+    'class': SomeClass,
+    'args': {...}
+}
+obj = build_from_config(config)
+```
+- Recursive construction of nested objects
+- Class references (not strings) for type safety
+- Parameter merging and preservation
+- Supports PyTorch parameter special handling
+
+### 3.6. Multi-Task Learning Architecture
+**Wrapper pattern for orchestrating multiple tasks:**
+- `MultiTaskCriterion` uses `torch.nn.ModuleDict` for task-specific criteria
+- `MultiTaskMetric` aggregates results from individual task metrics
+- `MTLOptimizer` implements gradient manipulation (PCGrad, MGDA, GradNorm)
+- Each task component maintains its own buffer and state
+
+### 3.7. Training Loop Architecture
+**Sophisticated training orchestration:**
+- **Deterministic execution**: Per-epoch seeding with separate train/val/test seeds
+- **Continuous epoch numbering**: Maintains count across resumptions and multi-stage training
+- **Asynchronous I/O**: Threaded checkpoint saving and validation scoring
+- **GPU monitoring**: Real-time resource tracking during training
+- **Robust resumption**: Automatic detection and resumption from last checkpoint
+
+### 3.8. Key Directories and Components
 - `/configs/`: Template-based experiment configurations with automated generation
 - `/data/`: Datasets with caching, transforms, collators, and interactive viewer
 - `/criteria/`: Loss functions with asynchronous buffer pattern
@@ -132,7 +180,7 @@ obj = build_from_config(config)
 - `/schedulers/`: Learning rate schedulers with warmup and multi-component support
 - `/utils/`: Core utilities including builders, automation, determinism, and monitoring
 
-### Special Utilities
+### 3.9. Special Utilities
 **Automation and Distributed Training:**
 - **SSH connection pooling**: Thread-safe multi-server experiment management
 - **GPU monitoring**: Real-time utilization tracking across servers
@@ -144,10 +192,68 @@ obj = build_from_config(config)
 - **State preservation**: Robust checkpoint and resumption handling
 - **Validation**: Extensive configuration and type checking
 
-### Testing Philosophy and Patterns
+### 3.10. C++ Extensions
+Some modules require building:
+```bash
+# GeoTransformer
+cd data/collators/geotransformer && python setup.py install && cd ../../..
+
+# Buffer/OverlapPredator  
+cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
+```
+
+## 4. Project-Wide Conventions
+
+### 4.1. Tensor Type Assumptions
+**Standardized tensor formats across the framework:**
+
+Pylon enforces strict tensor type conventions validated by `utils/input_checks/` module:
+
+- **Images**: `(C, H, W)` float32 tensors where C=3, batched: `(N, C, H, W)`
+  ```python
+  # Individual image
+  image = torch.randn(3, 224, 224, dtype=torch.float32)
+  # Batched images  
+  images = torch.randn(8, 3, 224, 224, dtype=torch.float32)
+  ```
+
+- **Segmentation masks**: `(H, W)` int64 tensors, batched: `(N, H, W)`
+  ```python
+  # Individual mask (semantic, binary, amodal, instance)
+  mask = torch.randint(0, num_classes, (224, 224), dtype=torch.int64)
+  # Batched masks
+  masks = torch.randint(0, num_classes, (8, 224, 224), dtype=torch.int64)
+  ```
+
+- **Classification labels**: int64 scalars, batched: `(N,)` int64 tensors
+  ```python
+  # Individual label
+  label = torch.tensor(5, dtype=torch.int64)
+  # Batched labels
+  labels = torch.randint(0, num_classes, (8,), dtype=torch.int64)
+  ```
+
+- **Point clouds**: Dictionary format with mandatory 'pos' key
+  ```python
+  # Individual point cloud
+  pc = {'pos': torch.randn(1024, 3), 'feat': torch.randn(1024, 32)}
+  # Batched point clouds (concatenated along point dimension)
+  pc = {'pos': torch.randn(2048, 3), 'feat': torch.randn(2048, 32)}
+  ```
+
+- **Model predictions**: Follow task-specific formats
+  - Classification: `(N, C)` float32 for batched, `(C,)` for individual
+  - Segmentation: `(N, C, H, W)` float32 for batched, `(C, H, W)` for individual
+  - Depth: `(N, 1, H, W)` float32 for batched, `(1, H, W)` for individual
+
+**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow these type assumptions. The input validation will fail otherwise.
+
+## 5. About Testing
+
+### 5.1. Testing Philosophy and Patterns
 **Comprehensive testing approach with standardized patterns:**
 
-#### **Common Test Pattern Taxonomy**
+#### 5.1.1. **Common Test Pattern Taxonomy**
 
 1. **Correctness Verification Pattern**
    - Hard-coded inputs with known expected outputs
@@ -198,7 +304,7 @@ obj = build_from_config(config)
    - Multi-process data sharing and synchronization
    - Example: `test_dataset_cache.py` testing concurrent cache access
 
-#### **Test Quality Assessment**
+#### 5.1.2. **Test Quality Assessment**
 
 **Well-Implemented Examples:**
 - `test_confusion_matrix.py`: Comprehensive parametrized tests with edge cases
@@ -211,7 +317,7 @@ obj = build_from_config(config)
 - Model tests (`test_dsam_net.py`, etc.): Only forward pass, missing gradient/validation testing
 - Transform tests: Limited determinism and edge case coverage
 
-#### **Recommended Test Templates**
+#### 5.1.3. **Recommended Test Templates**
 
 **For Dataset Classes:**
 ```python
@@ -238,17 +344,151 @@ def test_edge_cases()           # Edge case pattern
 def test_mathematical_properties()  # Random ground truth
 ```
 
-### C++ Extensions
-Some modules require building:
-```bash
-# GeoTransformer
-cd data/collators/geotransformer && python setup.py install && cd ../../..
+#### 5.1.4. **Dummy Data Generation for Tests**
 
-# Buffer/OverlapPredator  
-cd data/collators/buffer/cpp_wrappers && bash compile_wrappers.sh && cd ../../../..
+**ALWAYS use the standardized dummy data generators** in `tests/models/utils/dummy_data_generators.py`:
+
+```python
+# Correct - uses proper tensor types
+from tests.models.utils.dummy_data_generators import (
+    generate_change_detection_data,      # (N, 3, H, W) float32 images
+    generate_segmentation_labels,        # (N, H, W) int64 labels
+    generate_classification_labels,      # (N,) int64 labels
+    generate_point_cloud_data,          # Batched format for registration
+    generate_point_cloud_segmentation_data,  # Flattened format for segmentation
+)
+
+# Test with proper types
+images = generate_change_detection_data(batch_size=2, height=64, width=64)
+labels = generate_segmentation_labels(batch_size=2, height=64, width=64, num_classes=10)
 ```
 
-### Error Handling Philosophy
+**NEVER manually create dummy tensors without proper dtypes:**
+```python
+# Wrong - missing dtype specification
+torch.randn(2, 3, 224, 224)                     # Should be dtype=torch.float32
+torch.randint(0, 10, (2, 224, 224))            # Should be dtype=torch.int64
+
+# Correct - use generators or specify dtypes  
+torch.randn(2, 3, 224, 224, dtype=torch.float32)
+torch.randint(0, 10, (2, 224, 224), dtype=torch.int64)
+```
+
+### 5.2. Testing Implementation Guidelines
+**CRITICAL: Use pytest functions only - NO test classes:**
+- **Framework**: Use `pytest` with plain functions ONLY
+- **NO test classes**: Never use `class Test*` - always write `def test_*()` functions
+- **Parametrization**: Use `@pytest.mark.parametrize` for multiple test cases instead of test classes
+- **Test organization**: For large test modules, split by test patterns into separate files:
+  ```
+  tests/criteria/base_criterion/
+  ├── __init__.py
+  ├── test_initialization.py      # Initialization pattern
+  ├── test_buffer_management.py   # Threading/async buffer tests
+  ├── test_device_handling.py     # Device transfer tests
+  ├── test_edge_cases.py          # Error handling and edge cases
+  └── test_determinism.py         # Reproducibility tests
+  ```
+
+**Examples of correct vs incorrect test patterns:**
+```python
+# ❌ WRONG - Never use test classes
+class TestModelName:
+    def test_initialization(self):
+        model = ModelName()
+        assert model is not None
+
+# ✅ CORRECT - Use plain pytest functions  
+def test_model_name_initialization():
+    model = ModelName()
+    assert model is not None
+
+# ❌ WRONG - Multiple similar tests as separate functions
+def test_model_batch_size_1():
+    test_with_batch_size(1)
+
+def test_model_batch_size_2():
+    test_with_batch_size(2)
+
+# ✅ CORRECT - Use parametrize for multiple test cases
+@pytest.mark.parametrize("batch_size", [1, 2, 4, 8])
+def test_model_different_batch_sizes(batch_size):
+    model = ModelName()
+    input_data = generate_dummy_data(batch_size=batch_size)
+    output = model(input_data)
+    assert output.shape[0] == batch_size
+```
+
+### 5.3. Testing Focus
+**All tests in Pylon are for "your implementation"** - code we've written or integrated:
+- **Base classes and wrappers**: Comprehensive testing with all 9 patterns
+- **Domain-specific models/losses**: Focus on integration and API correctness
+  - Test successful execution with dummy inputs
+  - Verify basic input/output shapes and types
+  - Test gradient flow and device handling
+  - No need to verify mathematical correctness against papers
+
+**Note**: We do not write separate tests for "official_implementation" - all integrated code is tested as "your implementation".
+
+## 6. Code Style Guidelines
+
+### 6.1. Import Statement Order
+**Always follow this exact order with NO spaces between imports:**
+```python
+from typing import Any, Dict, List, Optional, Tuple, Union
+import os
+import sys
+import copy
+import numpy as np
+import torch
+import torchvision
+from data.datasets.base_dataset import BaseDataset
+from criteria.focal_loss import FocalLoss
+from utils.builders.builder import build_from_config
+```
+
+1. `from typing import` - always first
+2. Python native packages (`os`, `sys`, `copy`, etc.)
+3. External packages (`numpy`, `torch`, `torchvision`, etc.)
+4. Project modules using **full file paths** (not module imports)
+
+### 6.2. Config vs Source Code Import Patterns
+- **Source code**: Use full file paths - `from data.datasets.base_dataset import BaseDataset`
+- **Config files**: Use module imports - `from data.datasets import BaseDataset` (user-friendly)
+- **Note**: Config files are program-generated, so manual editing is rare
+
+### 6.3. Type Annotations
+**Always include type annotations for function/method arguments and return types:**
+```python
+def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
+    # implementation
+
+def build_from_config(config: Dict[str, Any], **kwargs: Any) -> Any:
+    # implementation
+```
+
+### 6.4. Documentation Strings
+**Not all functions need docstrings, but when used, follow this pattern:**
+```python
+def some_function(arg1: int, arg2: str) -> bool:
+    """Brief description of what the function does.
+    
+    Args:
+        arg1: Description of first argument
+        arg2: Description of second argument
+        
+    Returns:
+        Description of return value
+    """
+```
+
+### 6.5. Function and File Organization
+**Break down complex code for maintainability:**
+- **Long functions**: Break down using helper functions with clear single responsibilities
+- **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
+- **Test organization**: Group tests by patterns/philosophies rather than single large files
+
+### 6.6. Error Handling
 **Avoid unnecessary try-except blocks - only use when truly necessary:**
 
 - **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
@@ -288,88 +528,7 @@ def _call_single_with_generator(self, *args, generator):
 - Use assertions for input validation instead of try-except
 - Prefer explicit checks over catching exceptions
 
-### Code Style Guidelines
-
-#### Import Statement Order
-**Always follow this exact order with NO spaces between imports:**
-```python
-from typing import Any, Dict, List, Optional, Tuple, Union
-import os
-import sys
-import copy
-import numpy as np
-import torch
-import torchvision
-from data.datasets.base_dataset import BaseDataset
-from criteria.focal_loss import FocalLoss
-from utils.builders.builder import build_from_config
-```
-
-1. `from typing import` - always first
-2. Python native packages (`os`, `sys`, `copy`, etc.)
-3. External packages (`numpy`, `torch`, `torchvision`, etc.)
-4. Project modules using **full file paths** (not module imports)
-
-#### Config vs Source Code Import Patterns
-- **Source code**: Use full file paths - `from data.datasets.base_dataset import BaseDataset`
-- **Config files**: Use module imports - `from data.datasets import BaseDataset` (user-friendly)
-- **Note**: Config files are program-generated, so manual editing is rare
-
-#### Type Annotations
-**Always include type annotations for function/method arguments and return types:**
-```python
-def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-    # implementation
-
-def build_from_config(config: Dict[str, Any], **kwargs: Any) -> Any:
-    # implementation
-```
-
-#### Documentation Strings
-**Not all functions need docstrings, but when used, follow this pattern:**
-```python
-def some_function(arg1: int, arg2: str) -> bool:
-    """Brief description of what the function does.
-    
-    Args:
-        arg1: Description of first argument
-        arg2: Description of second argument
-        
-    Returns:
-        Description of return value
-    """
-```
-
-#### Function and File Organization
-**Break down complex code for maintainability:**
-- **Long functions**: Break down using helper functions with clear single responsibilities
-- **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
-- **Test organization**: Group tests by patterns/philosophies rather than single large files
-
-#### Testing Implementation Guidelines
-**Use pytest with best practices:**
-- **Framework**: Use `pytest` (not unittest test classes)
-- **Parametrization**: Use `@pytest.mark.parametrize` for multiple test cases
-- **Test organization**: For large test modules, split by test patterns into separate files:
-  ```
-  tests/criteria/base_criterion/
-  ├── __init__.py
-  ├── test_initialization.py      # Initialization pattern
-  ├── test_buffer_management.py   # Threading/async buffer tests
-  ├── test_device_handling.py     # Device transfer tests
-  ├── test_edge_cases.py          # Error handling and edge cases
-  └── test_determinism.py         # Reproducibility tests
-  ```
-
-#### Testing Focus by Code Origin
-**Different testing approaches based on code source:**
-- **Your implementation** (base classes, wrappers): Comprehensive testing with all 9 patterns
-- **Copied from official repos** (domain-specific models/losses): Integration testing only
-  - Test successful execution with dummy inputs
-  - Verify basic input/output shapes and types
-  - No need to verify mathematical correctness
-
-### Important Implementation Notes
+## 7. Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8
 - Follows OpenMMLab conventions (mmengine, mmcv, mmdet)
 - Emphasizes Python-native objects and inheritance for extensibility
