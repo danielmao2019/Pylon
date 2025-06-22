@@ -83,6 +83,48 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
 
     return updated_figures, new_camera
 
+
+@callback(
+    outputs=[
+        Output({'type': 'point-cloud-graph', 'index': ALL}, 'figure', allow_duplicate=True),
+        Output('camera-state', 'data', allow_duplicate=True),
+    ],
+    inputs=[
+        Input('reset-camera-button', 'n_clicks'),
+        State({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
+    ],
+    group="display"
+)
+def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]) -> List[Any]:
+    """Reset camera view to default position for all point cloud graphs."""
+    if n_clicks is None or n_clicks == 0:
+        raise PreventUpdate
+    
+    # Default camera state
+    default_camera = {
+        'up': {'x': 0, 'y': 0, 'z': 1},
+        'center': {'x': 0, 'y': 0, 'z': 0},
+        'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
+    }
+    
+    # Update all figures with default camera state
+    updated_figures = []
+    for figure in all_figures:
+        if not figure:
+            updated_figures.append(dash.no_update)
+            continue
+            
+        updated_figure = figure.copy()
+        if 'layout' not in updated_figure:
+            updated_figure['layout'] = {}
+        if 'scene' not in updated_figure['layout']:
+            updated_figure['layout']['scene'] = {}
+        updated_figure['layout']['scene']['camera'] = default_camera
+        updated_figures.append(updated_figure)
+    
+    return updated_figures, default_camera
+
+
 @callback(
     outputs=[
         Output('datapoint-display', 'children'),
