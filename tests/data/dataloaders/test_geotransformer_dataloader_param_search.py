@@ -4,6 +4,7 @@ import logging
 import multiprocessing
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from typing import Dict, Any, Tuple, List, Optional
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
@@ -160,8 +161,14 @@ def plot_distributions(stats: Dict[str, List], config: Dict[str, float], split: 
 
 @pytest.mark.parametrize("config", search_configs)
 @pytest.mark.parametrize("split", ['train', 'val'])
+@pytest.mark.skip(reason="Performance test - run manually when needed")
 def test_configuration(config: Dict[str, float], split: str):
     """Test a configuration on a specific split."""
+    # Check if the data directory exists
+    data_root = './data/datasets/soft_links/ivision-pcr-data'
+    if not os.path.exists(data_root):
+        pytest.skip(f"PCR dataset not found at {data_root}")
+    
     # Clear CUDA cache
     torch.cuda.empty_cache()
 
@@ -178,10 +185,8 @@ def test_configuration(config: Dict[str, float], split: str):
 
     # Create dataset
     dataset = SynthPCRDataset(
-        data_root='./data/datasets/soft_links/ivision-pcr-data',
+        data_root=data_root,
         split=split,
-        rot_mag=45.0,
-        trans_mag=0.5,
         voxel_size=config['dataset_voxel_size'],
         min_points=256,
         device='cpu',
