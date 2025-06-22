@@ -1,4 +1,6 @@
 from typing import Tuple
+import sys
+import importlib
 import torch
 
 
@@ -16,9 +18,7 @@ def grid_subsample(points: torch.Tensor, lengths: torch.Tensor, voxel_size: floa
         s_points (Tensor): stacked subsampled points (M, 3)
         s_lengths (Tensor): numbers of subsampled points in the batch. (B,)
     """
-    import sys
     sys.path.append('./data/collators/geotransformer')
-    import importlib
     ext_module = importlib.import_module('geotransformer.ext')
 
     device = points.device
