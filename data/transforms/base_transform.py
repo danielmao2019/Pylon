@@ -62,7 +62,7 @@ class BaseTransform:
     def __str__(self) -> str:
         """String representation of the transform."""
         class_name = self.__class__.__name__
-        
+
         # Try to get constructor parameters if available
         if hasattr(self, '__dict__') and self.__dict__:
             params = []
@@ -81,8 +81,8 @@ class BaseTransform:
                         params.append(f"{key}=None")
                     else:
                         params.append(f"{key}={type(value).__name__}")
-            
+
             if params:
                 return f"{class_name}({', '.join(params)})"
-        
+
         return class_name
