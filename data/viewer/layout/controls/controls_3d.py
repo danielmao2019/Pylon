@@ -41,6 +41,15 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
             step=0.1
         ),
 
+        # Camera controls
+        html.Div([
+            html.Button(
+                'Reset Camera View',
+                id='reset-camera-button',
+                style={'margin-top': '20px', 'width': '100%', 'padding': '10px', 'background-color': '#007bff', 'color': 'white', 'border': 'none', 'border-radius': '5px', 'cursor': 'pointer'}
+            ),
+        ], style={'margin-top': '20px'}),
+
         # PCR-specific controls
         html.Div([
             # Radius slider for symmetric difference computation
