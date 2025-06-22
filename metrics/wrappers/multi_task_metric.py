@@ -1,9 +1,9 @@
 from typing import Dict, Optional
 import torch
 from metrics.base_metric import BaseMetric
+from utils.builders import build_from_config
 from utils.input_checks import check_write_file
 from utils.io import save_json
-from utils.builders import build_from_config
 
 
 class MultiTaskMetric(BaseMetric):

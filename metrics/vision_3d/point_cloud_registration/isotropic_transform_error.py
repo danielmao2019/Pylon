@@ -1,6 +1,6 @@
 from typing import Dict, Tuple
-import torch
 import numpy as np
+import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 

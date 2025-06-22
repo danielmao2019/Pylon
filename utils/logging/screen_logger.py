@@ -1,9 +1,9 @@
 from typing import Tuple, Optional, Any
 from rich.console import Console
-from rich.table import Table
 from rich.live import Live
-from utils.logging.base_logger import BaseLogger
+from rich.table import Table
 from utils.io.json import serialize_tensor
+from utils.logging.base_logger import BaseLogger
 
 
 class ScreenLogger(BaseLogger):

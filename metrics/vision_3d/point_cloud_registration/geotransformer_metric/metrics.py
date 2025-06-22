@@ -1,9 +1,8 @@
 import numpy as np
 import torch
-
-from models.point_cloud_registration.geotransformer.transformation import apply_transform, get_rotation_translation_from_transform
-from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.registration import compute_transform_mse_and_mae
+from models.point_cloud_registration.geotransformer.pairwise_distance import pairwise_distance
+from models.point_cloud_registration.geotransformer.transformation import apply_transform, get_rotation_translation_from_transform
 
 
 def modified_chamfer_distance(raw_points, ref_points, src_points, gt_transform, transform, reduction='mean'):
