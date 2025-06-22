@@ -7,7 +7,7 @@ import paramiko
 
 class SSHResult:
     """Result object for SSH command execution, similar to database cursor."""
-    
+
     def __init__(self, stdout_channel, stderr_channel, stdin_channel=None):
         self._stdout_channel = stdout_channel
         self._stderr_channel = stderr_channel
@@ -15,27 +15,27 @@ class SSHResult:
         self._output = None
         self._error = None
         self._return_code = None
-        
+
     def fetch(self) -> str:
         """Fetch command output."""
         if self._output is None:
             # Read all stdout and get return code
             self._output = self._stdout_channel.read().decode('utf-8').strip()
             self._return_code = self._stdout_channel.channel.recv_exit_status()
-            
+
             # Check for command failure
             if self._return_code != 0:
                 error = self.fetcherror()
                 raise SSHCommandError(f"Command failed with exit code {self._return_code}: {error}")
-            
+
         return self._output
-        
+
     def fetcherror(self) -> str:
         """Fetch error output."""
         if self._error is None:
             self._error = self._stderr_channel.read().decode('utf-8').strip()
         return self._error
-        
+
     def get_return_code(self) -> int:
         """Get command return code."""
         if self._return_code is None:
@@ -46,37 +46,37 @@ class SSHResult:
 
 class SSHConnector:
     """Persistent SSH connection similar to database connector."""
-    
+
     def __init__(self, server: str, timeout: int = 30):
         self.server = server
         self.timeout = timeout
         self._client = None
         self._connected = False
         self._lock = threading.Lock()
-        
+
         # Parse server string (user@host:port or user@host)
         if '@' in server:
             self.username, host_part = server.split('@', 1)
         else:
             self.username = None
             host_part = server
-            
+
         if ':' in host_part:
             self.hostname, port_str = host_part.split(':', 1)
             self.port = int(port_str)
         else:
             self.hostname = host_part
             self.port = 22
-    
+
     def connect(self):
         """Establish persistent SSH connection."""
         with self._lock:
             if self._connected:
                 return
-                
+
             self._client = paramiko.SSHClient()
             self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            
+
             try:
                 # Connect with key-based auth first, then password if needed
                 connect_kwargs = {
@@ -86,46 +86,46 @@ class SSHConnector:
                     'banner_timeout': self.timeout,
                     'auth_timeout': self.timeout,
                 }
-                
+
                 if self.username:
                     connect_kwargs['username'] = self.username
-                    
+
                 self._client.connect(**connect_kwargs)
                 self._connected = True
-                
+
             except Exception as e:
                 if self._client:
                     self._client.close()
                     self._client = None
                 raise SSHCommandError(f"Failed to connect to {self.server}: {str(e)}")
-    
+
     def execute(self, command: List[str]) -> SSHResult:
         """Execute command and return result object."""
         if not self._connected:
             self.connect()
-            
+
         cmd_str = ' '.join(command)
-        
+
         try:
             with self._lock:
                 stdin, stdout, stderr = self._client.exec_command(
-                    cmd_str, 
+                    cmd_str,
                     timeout=self.timeout,
                     get_pty=False
                 )
-                
+
             return SSHResult(stdout, stderr, stdin)
-            
+
         except Exception as e:
             # Connection might be broken, mark as disconnected
             self._connected = False
             raise SSHCommandError(f"SSH command failed on {self.server}: {str(e)}")
-    
+
     def is_connected(self) -> bool:
         """Check if connection is still alive."""
         if not self._connected or not self._client:
             return False
-            
+
         try:
             # Test connection with a lightweight command
             transport = self._client.get_transport()
@@ -133,7 +133,7 @@ class SSHConnector:
         except:
             self._connected = False
             return False
-    
+
     def close(self):
         """Close the connection."""
         with self._lock:
@@ -144,27 +144,27 @@ class SSHConnector:
                     pass
                 self._client = None
             self._connected = False
-    
+
     def __enter__(self):
         self.connect()
         return self
-        
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
 
 class LocalhostConnector:
     """Special connector for localhost that uses subprocess instead of SSH."""
-    
+
     def __init__(self, timeout: int = 30):
         self.server = 'localhost'
         self.timeout = timeout
         self._connected = True
-    
+
     def connect(self):
         """No-op for localhost."""
         pass
-    
+
     def execute(self, command: List[str]) -> 'LocalhostResult':
         """Execute command locally using subprocess."""
         try:
@@ -179,39 +179,39 @@ class LocalhostConnector:
             raise SSHCommandError(f"Local command timed out after {self.timeout}s")
         except Exception as e:
             raise SSHCommandError(f"Local command failed: {str(e)}")
-    
+
     def is_connected(self) -> bool:
         """Always connected for localhost."""
         return True
-    
+
     def close(self):
         """No-op for localhost."""
         pass
-    
+
     def __enter__(self):
         return self
-        
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
 
 
 class LocalhostResult:
     """Result object for localhost command execution."""
-    
+
     def __init__(self, subprocess_result):
         self._result = subprocess_result
-        
+
     def fetch(self) -> str:
         """Fetch command output."""
         if self._result.returncode != 0:
             error_msg = f"Local command failed: {self._result.stderr.strip()}"
             raise SSHCommandError(error_msg)
         return self._result.stdout.strip()
-        
+
     def fetcherror(self) -> str:
         """Fetch error output."""
         return self._result.stderr.strip()
-        
+
     def get_return_code(self) -> int:
         """Get command return code."""
         return self._result.returncode
@@ -311,7 +311,7 @@ class SSHConnectionPool:
     def execute(self, server: str, command: List[str]) -> str:
         """
         Execute a command on a remote server using persistent connections.
-        
+
         Automatically manages connector lifecycle and returns output directly.
 
         Args:
@@ -323,7 +323,7 @@ class SSHConnectionPool:
 
         Raises:
             SSHCommandError: If command fails with detailed error information
-            
+
         Example:
             output = _ssh_pool.execute('user@host', ['nvidia-smi'])
         """
@@ -385,8 +385,12 @@ class SSHConnectionPool:
         connection_slot = None
 =======
         connector = self.get_connector(server)
+<<<<<<< HEAD
         
 >>>>>>> f93c67eb (f)
+=======
+
+>>>>>>> 2e2ec72e (f)
         try:
             ssh_result = connector.execute(command)
             output = ssh_result.fetch()
@@ -408,10 +412,10 @@ class SSHConnectionPool:
                         connectors_to_close.append(connector)
                     except queue.Empty:
                         break
-                
+
                 for connector in connectors_to_close:
                     connector.close()
-                
+
                 # Reset active connection count
                 self._active_connections[server] = 0
 
