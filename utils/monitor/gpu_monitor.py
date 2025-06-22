@@ -4,7 +4,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 import torch
 from utils.monitor.gpu_status import GPUStatus, get_server_gpus_info
-from utils.ssh import _ssh_pool
+from utils.ssh.pool import _ssh_pool
 
 
 class GPUMonitor:

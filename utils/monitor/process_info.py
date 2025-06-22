@@ -1,5 +1,5 @@
 from typing import Dict, TypedDict
-from utils.ssh import SSHConnectionPool
+from utils.ssh.pool import SSHConnectionPool
 
 
 class ProcessInfo(TypedDict):

@@ -1,6 +1,6 @@
 from typing import List, Dict, TypedDict, Optional, Any
 from utils.monitor.process_info import ProcessInfo, get_all_processes
-from utils.ssh import SSHConnectionPool
+from utils.ssh.pool import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
