@@ -1,9 +1,9 @@
 from typing import Dict, Any
 import torch
 import torch.nn.functional as F
+from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_2d.change_detection.cdmaskformer_criterion.criterion import SetCriterion
 from criteria.vision_2d.change_detection.cdmaskformer_criterion.matcher import HungarianMatcher
-from criteria.wrappers import SingleTaskCriterion
 
 
 class CDMaskFormerCriterion(SingleTaskCriterion):
