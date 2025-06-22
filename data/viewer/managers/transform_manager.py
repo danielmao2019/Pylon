@@ -85,9 +85,8 @@ class TransformManager:
             else:
                 transform_string = transform_name
         else:
-            # Fallback
-            transform_name = str(type(transform_op).__name__)
-            transform_string = transform_name
+            # This should never happen if transforms are properly normalized
+            assert False, f"Should not reach here. Unexpected transform_op type: {type(transform_op)}"
 
         return transform_name, transform_string
 
