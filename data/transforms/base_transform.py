@@ -65,24 +65,42 @@ class BaseTransform:
 
         # Try to get constructor parameters if available
         if hasattr(self, '__dict__') and self.__dict__:
-            params = []
-            for key, value in self.__dict__.items():
-                if not key.startswith('_'):  # Skip private attributes
-                    if isinstance(value, (int, float)):
-                        params.append(f"{key}={value}")
-                    elif isinstance(value, str):
-                        params.append(f"{key}='{value}'")
-                    elif isinstance(value, (list, tuple)):
-                        if len(value) <= 3:
-                            params.append(f"{key}={value}")
-                        else:
-                            params.append(f"{key}=[...{len(value)} items]")
-                    elif value is None:
-                        params.append(f"{key}=None")
-                    else:
-                        params.append(f"{key}={type(value).__name__}")
+            # Filter out private attributes
+            public_attrs = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+            formatted_params = self.format_params(public_attrs)
 
-            if params:
-                return f"{class_name}({', '.join(params)})"
+            if formatted_params:
+                return f"{class_name}({formatted_params})"
 
         return class_name
+
+    @staticmethod
+    def format_params(params: Dict[str, Any]) -> str:
+        """Format parameters into a string representation.
+
+        Args:
+            params: Dictionary of parameters to format
+
+        Returns:
+            Formatted parameter string (e.g., "size=(96, 96), interpolation=None")
+        """
+        if not params:
+            return ""
+
+        formatted_params = []
+        for key, value in params.items():
+            if isinstance(value, (int, float)):
+                formatted_params.append(f"{key}={value}")
+            elif isinstance(value, str):
+                formatted_params.append(f"{key}='{value}'")
+            elif isinstance(value, (list, tuple)):
+                if len(value) <= 3:
+                    formatted_params.append(f"{key}={value}")
+                else:
+                    formatted_params.append(f"{key}=[...{len(value)} items]")
+            elif value is None:
+                formatted_params.append(f"{key}=None")
+            else:
+                formatted_params.append(f"{key}={type(value).__name__}")
+
+        return ", ".join(formatted_params)
