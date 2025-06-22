@@ -21,6 +21,7 @@ class GPUMonitor:
         self.timeout = timeout
         self.servers = list(self.gpus_by_server.keys())
         self.monitor_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
 
         # Do one update first
         self.ssh_pool = _ssh_pool
@@ -86,11 +87,22 @@ class GPUMonitor:
     def start(self):
         """Starts background monitoring thread that continuously updates GPU info"""
         def monitor_loop():
-            while True:
+            while not self._stop_event.is_set():
                 self._update()
 
         self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
         self.monitor_thread.start()
+
+    def stop(self):
+        """Stops background monitoring thread"""
+        if self._stop_event is not None:
+            self._stop_event.set()
+        if self.monitor_thread is not None:
+            self.monitor_thread.join(timeout=1.0)
+
+    def __del__(self):
+        """Automatically stop monitoring when instance is destroyed"""
+        self.stop()
 
     def _update(self):
         """Updates information for all GPUs using batched queries per server"""
