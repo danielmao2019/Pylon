@@ -1,7 +1,9 @@
 """Display-related callbacks for the viewer."""
-from typing import Dict, List, Optional, Union
-from dash import Input, Output, State, callback_context, html
+from typing import Dict, List, Optional, Union, Any
+import json
+from dash import Input, Output, State, callback_context, html, ALL
 from dash.exceptions import PreventUpdate
+import dash
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
 from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
@@ -22,49 +24,64 @@ DISPLAY_FUNCTIONS = {
 
 @callback(
     outputs=[
+        Output({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
         Output('camera-state', 'data'),
     ],
     inputs=[
-        Input({'type': 'point-cloud-graph', 'index': 0}, 'relayoutData'),
-        Input({'type': 'point-cloud-graph', 'index': 1}, 'relayoutData'),
-        Input({'type': 'point-cloud-graph', 'index': 2}, 'relayoutData'),
-        Input({'type': 'point-cloud-graph', 'index': 3}, 'relayoutData'),
+        Input({'type': 'point-cloud-graph', 'index': ALL}, 'relayoutData'),
+        State({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
         State('camera-state', 'data'),
     ],
     group="display"
 )
-def update_camera_state(relayout_data_0, relayout_data_1, relayout_data_2, relayout_data_3, current_camera_state):
-    """Update the camera state when any point cloud view is manipulated."""
+def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]], current_camera_state: Dict[str, Any]) -> List[Any]:
+    """Synchronize camera state across all point cloud views."""
     ctx = callback_context
     if not ctx.triggered:
         raise PreventUpdate
 
-    # Get the relayout_data that triggered the callback
-    relayout_data = None
-    for trigger in ctx.triggered:
-        if '.relayoutData' in trigger['prop_id']:
-            relayout_data = trigger['value']
-            break
-
-    if not relayout_data:
+    # Find which graph triggered the update
+    triggered_prop_id = ctx.triggered[0]['prop_id']
+    if 'relayoutData' not in triggered_prop_id:
         raise PreventUpdate
+
+    # Parse the triggered component ID to get the index
+    try:
+        triggered_id = json.loads(triggered_prop_id.split('.')[0])
+        triggered_index = triggered_id['index']
+    except (json.JSONDecodeError, KeyError, IndexError):
+        raise PreventUpdate
+
+    # Get the relayout data from the triggered graph
+    if triggered_index >= len(all_relayout_data) or not all_relayout_data[triggered_index]:
+        raise PreventUpdate
+
+    relayout_data = all_relayout_data[triggered_index]
 
     # Check if the relayout_data contains camera information
-    camera_keys = ['scene.camera']
-    if not any(key in relayout_data for key in camera_keys):
+    if 'scene.camera' not in relayout_data:
         raise PreventUpdate
 
-    # Extract camera state from relayout_data
-    new_camera_state = {}
-    if 'scene.camera' in relayout_data:
-        camera_data = relayout_data['scene.camera']
-        new_camera_state = {
-            'up': camera_data.get('up', current_camera_state.get('up')),
-            'center': camera_data.get('center', current_camera_state.get('center')),
-            'eye': camera_data.get('eye', current_camera_state.get('eye'))
-        }
+    # Extract new camera state
+    new_camera = relayout_data['scene.camera']
+    
+    # Update all figures with the new camera state, except the one that triggered the change
+    updated_figures = []
+    for i, figure in enumerate(all_figures):
+        if i == triggered_index or not figure:
+            # Don't update the triggering graph or empty figures
+            updated_figures.append(dash.no_update)
+        else:
+            # Create updated figure with new camera state
+            updated_figure = figure.copy()
+            if 'layout' not in updated_figure:
+                updated_figure['layout'] = {}
+            if 'scene' not in updated_figure['layout']:
+                updated_figure['layout']['scene'] = {}
+            updated_figure['layout']['scene']['camera'] = new_camera
+            updated_figures.append(updated_figure)
 
-    return [new_camera_state]
+    return updated_figures, new_camera
 
 @callback(
     outputs=[
