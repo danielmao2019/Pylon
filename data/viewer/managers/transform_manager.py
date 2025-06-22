@@ -12,10 +12,10 @@ class TransformManager:
         self.logger = logging.getLogger(__name__)
         # Store transforms in the exact format expected by Compose
         self._transforms: List[Tuple[Callable, List[Tuple[str, str]]]] = []
-
+        
     def register_transform(self, transform: Tuple[Callable, Union[Tuple[str, str], List[Tuple[str, str]]]]) -> None:
         """Register a transform.
-
+        
         Args:
             transform: Tuple of (transform_fn, input_keys) where input_keys is either a single key pair
                      or a list of key pairs specifying which fields to transform
@@ -34,20 +34,19 @@ class TransformManager:
 
     def register_transforms_from_config(self, transforms_cfg: Optional[Dict[str, Any]] = None) -> None:
         """Register transforms from a configuration dictionary.
-
+        
         Args:
             transforms_cfg: Transform configuration dictionary. If None or empty, no transforms will be registered.
         """
         # Clear existing transforms
         self.clear_transforms()
-
-        # Validate config structure first
-        if transforms_cfg is not None:
-            assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
-
+        
         # If no transforms config provided, return without registering any transforms
-        if transforms_cfg is None or not transforms_cfg:
+        if not transforms_cfg:
             return
+            
+        # Validate config structure
+        assert isinstance(transforms_cfg, dict), f"Transform configuration must be a dictionary. Got {type(transforms_cfg)}."
         assert 'class' in transforms_cfg, f"Transform configuration must contain 'class' key. Got {transforms_cfg.keys()}."
         assert 'args' in transforms_cfg, f"Transform configuration must contain 'args' key. Got {transforms_cfg.keys()}."
 
@@ -62,10 +61,10 @@ class TransformManager:
 
     def get_transform_info(self, index: int) -> Dict[str, Any]:
         """Get information about a transform.
-
+        
         Args:
             index: Index of the transform
-
+            
         Returns:
             Dictionary containing transform information
         """
@@ -79,7 +78,7 @@ class TransformManager:
 
     def get_available_transforms(self) -> List[Dict[str, Any]]:
         """Get information about all available transforms.
-
+        
         Returns:
             List of dictionaries containing transform information
         """
@@ -89,11 +88,11 @@ class TransformManager:
 
     def apply_transforms(self, data: Any, transform_indices: List[int]) -> Optional[Any]:
         """Apply a sequence of transforms to data.
-
+        
         Args:
             data: Data to transform
             transform_indices: List of transform indices to apply
-
+            
         Returns:
             Transformed data or None if any transform fails
         """
