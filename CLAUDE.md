@@ -438,6 +438,13 @@ def test_model_different_batch_sizes(batch_size):
 
 #### 6.1.1. Order
 **Always follow this exact order with NO spaces between imports:**
+
+1. `from typing import` - always first
+2. Python native packages (`os`, `sys`, `copy`, etc.)
+3. External packages (`numpy`, `torch`, `torchvision`, etc.)
+4. Project modules using **full file paths** (not module imports)
+
+Example:
 ```python
 from typing import Any, Dict, List, Optional, Tuple, Union
 import os
@@ -451,18 +458,12 @@ from criteria.focal_loss import FocalLoss
 from utils.builders.builder import build_from_config
 ```
 
-1. `from typing import` - always first
-2. Python native packages (`os`, `sys`, `copy`, etc.)
-3. External packages (`numpy`, `torch`, `torchvision`, etc.)
-4. Project modules using **full file paths** (not module imports)
-
 #### 6.1.2. Absolute Imports
 - **Source code**: Use full file paths - `from data.datasets.base_dataset import BaseDataset`
 - **Config files**: Use module imports - `from data.datasets import BaseDataset` (user-friendly)
 - **Note**: Config files are program-generated, so manual editing is rare
 
 #### 6.1.3. Unused Imports
-
 Make sure you remove unused imports after coding.
 
 ### 6.2. Type Annotations
