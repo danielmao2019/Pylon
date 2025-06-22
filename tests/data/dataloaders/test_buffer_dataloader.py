@@ -1,9 +1,17 @@
+import pytest
+import os
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import data_cfg
 from utils.builders import build_from_config
 
 
 def test_buffer_dataloader() -> None:
     dataset_cfg = data_cfg['train_dataset']
+
+    # Check if data directory exists, skip if not
+    data_root = dataset_cfg['args']['data_root']
+    if not os.path.exists(data_root):
+        pytest.skip(f"KITTI dataset not found at {data_root}")
+
     dataset = build_from_config(dataset_cfg)
     dataloader_cfg = data_cfg['train_dataloader']
     dataloader = build_from_config(dataloader_cfg, dataset=dataset)
