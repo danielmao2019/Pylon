@@ -1,8 +1,8 @@
-import time
-import torch
-import numpy as np
 from typing import Dict, List
+import time
 import matplotlib.pyplot as plt
+import numpy as np
+import torch
 from utils.point_cloud_ops.sampling.grid_sampling_3d import GridSampling3D as GridSampling3Dv1
 from utils.point_cloud_ops.sampling.grid_sampling_3d_v2 import GridSampling3D as GridSampling3Dv2
 

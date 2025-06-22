@@ -1,6 +1,6 @@
 from typing import Tuple, List, Dict, Union, Optional
-import torch
 import time
+import torch
 from optimizers import BaseOptimizer
 from utils.builders import build_from_config
 from utils.logging.text_logger import TextLogger

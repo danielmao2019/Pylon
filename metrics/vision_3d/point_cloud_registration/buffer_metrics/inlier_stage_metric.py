@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import torch
-from metrics.wrappers.single_task_metric import SingleTaskMetric
 from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
 class BUFFER_InlierStageMetric(SingleTaskMetric):

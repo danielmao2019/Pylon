@@ -1,6 +1,6 @@
 from typing import Dict
-from criteria.vision_2d import SemanticSegmentationCriterion
 import torch
+from criteria.vision_2d import SemanticSegmentationCriterion
 
 
 class SymmetricChangeDetectionCriterion(SemanticSegmentationCriterion):

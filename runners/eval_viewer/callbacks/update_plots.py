@@ -1,11 +1,10 @@
 from typing import List, Dict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
-import dash
 from dash import Input, Output, dcc
 from dash.exceptions import PreventUpdate
+import dash
 import plotly.graph_objects as go
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
 from runners.eval_viewer.backend.initialization import LogDirInfo
 from runners.eval_viewer.backend.visualization import create_overlaid_score_map
 from runners.eval_viewer.layout.main_layout import create_button_grid, create_color_bar

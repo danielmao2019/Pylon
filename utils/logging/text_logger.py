@@ -1,8 +1,8 @@
 from typing import Tuple, Optional, Any
 import logging
 import sys
-from utils.logging.base_logger import BaseLogger
 from utils.io.json import serialize_tensor
+from utils.logging.base_logger import BaseLogger
 
 
 class TextLogger(BaseLogger):

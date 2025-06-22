@@ -1,8 +1,8 @@
 from typing import Tuple, Dict
 import torch
-from criteria.wrappers.single_task_criterion import SingleTaskCriterion
-from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
 from criteria.vision_2d.dense_prediction.dense_classification.dice_loss import DiceLoss
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
+from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 
 
 class DsferNetCriterion(SingleTaskCriterion):

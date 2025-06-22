@@ -1,5 +1,5 @@
-import torch
 from typing import Dict
+import torch
 from metrics.vision_3d.point_cloud_metric import PointCloudMetric
 
 

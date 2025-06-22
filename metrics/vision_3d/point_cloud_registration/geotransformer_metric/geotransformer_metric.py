@@ -1,11 +1,11 @@
 from typing import Tuple, Dict
 from easydict import EasyDict
 import torch
-from models.point_cloud_registration.geotransformer.transformation import apply_transform
-from metrics.wrappers.single_task_metric import SingleTaskMetric
-from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
 from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
+from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
 from metrics.vision_3d.point_cloud_registration.point_inlier_ratio import PointInlierRatio
+from metrics.wrappers.single_task_metric import SingleTaskMetric
+from models.point_cloud_registration.geotransformer.transformation import apply_transform
 
 
 class GeoTransformerMetric(SingleTaskMetric):

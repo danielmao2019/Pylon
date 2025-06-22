@@ -1,7 +1,7 @@
 from typing import Dict, Any
 import torch
-from criteria.wrappers import SingleTaskCriterion
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.desc_loss import ContrastiveLoss, cdist
+from criteria.wrappers import SingleTaskCriterion
 
 
 class BUFFER_DescStageCriterion(SingleTaskCriterion):

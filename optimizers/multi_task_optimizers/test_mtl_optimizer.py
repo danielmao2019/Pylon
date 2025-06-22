@@ -1,7 +1,7 @@
 from typing import Dict
 import pytest
-from .mtl_optimizer import MTLOptimizer
 import torch
+from optimizers.multi_task_optimizers.mtl_optimizer import MTLOptimizer
 from utils.logging.text_logger import TextLogger
 
 

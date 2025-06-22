@@ -2,8 +2,8 @@ from typing import List, Dict, Union
 import torch
 from metrics.base_metric import BaseMetric
 from utils.input_checks.str_types import check_write_file
-from utils.ops.dict_as_tensor import transpose_buffer
 from utils.io.json import save_json
+from utils.ops.dict_as_tensor import transpose_buffer
 
 
 class SingleTaskMetric(BaseMetric):

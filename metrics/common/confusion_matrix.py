@@ -2,8 +2,8 @@ from typing import List, Dict
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.input_checks import check_write_file
-from utils.ops import transpose_buffer
 from utils.io import save_json
+from utils.ops import transpose_buffer
 
 
 class ConfusionMatrix(SingleTaskMetric):

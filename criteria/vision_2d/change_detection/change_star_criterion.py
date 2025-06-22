@@ -1,7 +1,6 @@
 from typing import Dict
 import torch
-import criteria
-import criteria
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
 from criteria.wrappers import SingleTaskCriterion
 
 
@@ -9,7 +8,7 @@ class ChangeStarCriterion(SingleTaskCriterion):
 
     def __init__(self, **kwargs) -> None:
         super(ChangeStarCriterion, self).__init__(**kwargs)
-        self.criterion = criteria.vision_2d.SemanticSegmentationCriterion()
+        self.criterion = SemanticSegmentationCriterion()
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> torch.Tensor:
         """Override parent class __call__ method.

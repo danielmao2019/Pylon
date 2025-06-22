@@ -1,8 +1,8 @@
 from typing import Dict, Any
 import torch
-from metrics.wrappers.single_task_metric import SingleTaskMetric
 from criteria.vision_3d.point_cloud_registration.buffer_criteria.desc_loss import ContrastiveLoss, cdist
 from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
+from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 
 class BUFFER_KeyptStageMetric(SingleTaskMetric):

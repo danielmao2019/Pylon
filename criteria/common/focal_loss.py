@@ -1,6 +1,6 @@
 from typing import Optional, Union
-import torch
 import numpy as np
+import torch
 from criteria.wrappers import SingleTaskCriterion
 from utils.input_checks import check_classification
 

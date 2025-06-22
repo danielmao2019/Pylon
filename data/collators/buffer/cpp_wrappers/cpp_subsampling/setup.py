@@ -1,6 +1,7 @@
 from setuptools import setup, Extension
 import numpy
 
+
 SOURCES = ["../cpp_utils/cloud/cloud.cpp",
            "grid_subsampling/grid_subsampling.cpp",
            "wrapper.cpp"]

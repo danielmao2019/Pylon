@@ -1,10 +1,10 @@
 from typing import Tuple, Dict, Any, Optional
-from data.datasets import BaseDataset
 import os
 import pickle
 import numpy
 import torch
 import torchvision
+from data.datasets.base_dataset import BaseDataset
 import utils
 
 

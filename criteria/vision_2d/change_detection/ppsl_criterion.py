@@ -1,6 +1,6 @@
 from typing import Dict
-from criteria.wrappers import SingleTaskCriterion
 import torch
+from criteria.wrappers import SingleTaskCriterion
 
 
 class PPSLCriterion(SingleTaskCriterion):

@@ -1,7 +1,7 @@
 from typing import Tuple, Dict, Optional
 import torch
-from criteria.wrappers import SingleTaskCriterion, AuxiliaryOutputsCriterion
 from criteria.vision_2d import SemanticSegmentationCriterion, IoULoss, SSIMLoss
+from criteria.wrappers import SingleTaskCriterion, AuxiliaryOutputsCriterion
 
 
 class FTNCriterion(SingleTaskCriterion):

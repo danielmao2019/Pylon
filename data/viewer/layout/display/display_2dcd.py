@@ -1,7 +1,7 @@
 """UI components for displaying dataset items."""
 from typing import Dict, List, Union, Any
-import torch
 from dash import dcc, html
+import torch
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.image import create_image_figure, get_image_stats
 

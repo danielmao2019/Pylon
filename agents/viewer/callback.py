@@ -1,8 +1,8 @@
 from typing import Dict, List
 import datetime
 from dash import Input, Output
-from agents.viewer.layout import generate_table_data, generate_table_style
 from agents.viewer.backend import get_progress
+from agents.viewer.layout import generate_table_data, generate_table_style
 from utils.monitor.gpu_monitor import GPUMonitor
 
 

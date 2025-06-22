@@ -1,8 +1,7 @@
 from typing import Tuple, Dict, Union
 from abc import ABC, abstractmethod
 import torch
-
-from ..mtl_optimizer import MTLOptimizer
+from optimizers.multi_task_optimizers.mtl_optimizer import MTLOptimizer
 
 
 class GradientBalancingBaseOptimizer(MTLOptimizer, ABC):
