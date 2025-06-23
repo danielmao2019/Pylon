@@ -37,7 +37,7 @@ def create_transform_checkboxes(transforms: List[Dict[str, Any]]) -> List[html.D
                 dcc.Checklist(
                     id={'type': 'transform-checkbox', 'index': transform['index']},
                     options=[{'label': '', 'value': transform['index']}],  # Empty label, we'll use custom styling
-                    value=[],
+                    value=[transform['index']],  # Pre-select all transforms by default
                     style={'display': 'inline-block', 'margin-right': '8px'}
                 ),
                 html.Div([
