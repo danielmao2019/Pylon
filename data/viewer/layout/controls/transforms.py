@@ -96,5 +96,5 @@ def create_transforms_section(transforms: Optional[List[Dict[str, Any]]] = None)
     transforms = transforms or []
     return html.Div([
         html.H3("Transforms", style={'margin-top': '0'}),
-        html.Div(create_transform_checkboxes(transforms), style={'max-height': '200px', 'overflow-y': 'auto'})
+        html.Div(create_transform_checkboxes(transforms)),
     ])

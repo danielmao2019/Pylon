@@ -7,7 +7,7 @@ from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
 from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from data.viewer.layout.display.display_semseg import display_semseg_datapoint
-from data.viewer.managers.registry import DatasetType
+from data.viewer.backend.backend import DatasetType
 from runners.eval_viewer.backend.initialization import LogDirInfo
 from utils.builders.builder import build_from_config
 

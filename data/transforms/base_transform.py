@@ -100,6 +100,14 @@ class BaseTransform:
                     formatted_params.append(f"{key}=[...{len(value)} items]")
             elif value is None:
                 formatted_params.append(f"{key}=None")
+            elif hasattr(value, '__str__') and hasattr(value, '__class__') and hasattr(value.__class__, '__name__'):
+                # For objects with meaningful string representations (like nested transforms)
+                value_str = str(value)
+                # Only use the string representation if it's more informative than just the class name
+                if value_str != value.__class__.__name__ and not value_str.startswith('<'):
+                    formatted_params.append(f"{key}={value_str}")
+                else:
+                    formatted_params.append(f"{key}={type(value).__name__}")
             else:
                 formatted_params.append(f"{key}={type(value).__name__}")
 

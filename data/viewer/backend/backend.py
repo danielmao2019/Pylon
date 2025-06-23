@@ -202,7 +202,7 @@ class ViewerBackend:
 
         # Apply transforms if specified
         if transform_indices:
-            datapoint = self._apply_transforms(datapoint, transform_indices)
+            datapoint = self._apply_transforms(datapoint, transform_indices, index)
 
         return datapoint
 
@@ -258,12 +258,13 @@ class ViewerBackend:
 
         return transforms
 
-    def _apply_transforms(self, datapoint: Dict[str, Dict[str, Any]], transform_indices: List[int]) -> Dict[str, Dict[str, Any]]:
-        """Apply selected transforms to a datapoint.
+    def _apply_transforms(self, datapoint: Dict[str, Dict[str, Any]], transform_indices: List[int], datapoint_index: int) -> Dict[str, Dict[str, Any]]:
+        """Apply selected transforms to a datapoint with deterministic seeding.
 
         Args:
             datapoint: The datapoint to transform
             transform_indices: List of transform indices to apply
+            datapoint_index: Index of the datapoint for deterministic seeding
 
         Returns:
             Transformed datapoint
@@ -272,7 +273,8 @@ class ViewerBackend:
         selected_transforms = [self._transforms[idx] for idx in transform_indices]
         compose = Compose(transforms=[])  # Create empty compose
         compose.transforms = selected_transforms  # Directly assign normalized transforms
-        return compose(datapoint)
+        # Apply transforms with deterministic seed using datapoint index
+        return compose(datapoint, seed=(0, datapoint_index))
 
     def update_state(self, **kwargs) -> None:
         """Update backend state with provided values.

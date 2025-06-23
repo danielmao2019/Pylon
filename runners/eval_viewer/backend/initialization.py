@@ -5,11 +5,19 @@ import json
 import numpy as np
 import pickle
 from pathlib import Path
-from data.viewer.managers.registry import get_dataset_type, DatasetType, CONFIG_DIRS
+from data.viewer.backend.backend import DatasetType, DATASET_GROUPS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def get_dataset_type(dataset_name: str) -> DatasetType:
+    """Determine the dataset type based on the dataset name."""
+    for dataset_type, datasets in DATASET_GROUPS.items():
+        if dataset_name in datasets:
+            return dataset_type
+    raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
 
 
 class LogDirInfo(NamedTuple):
@@ -348,7 +356,15 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     assert all(info.dataset_type == list(log_dir_infos.values())[0].dataset_type for info in log_dir_infos.values())
     dataset_type = list(log_dir_infos.values())[0].dataset_type
     repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
-    config_file = os.path.join(repo_root, "configs", "common", "datasets", os.path.dirname(CONFIG_DIRS[dataset_type]), "val", f"{dataset_class}_data_cfg.py")
+    # Map dataset types to their config directory paths
+    dataset_type_to_dir = {
+        'semseg': 'semantic_segmentation',
+        '2dcd': 'change_detection',
+        '3dcd': 'change_detection',
+        'pcr': 'point_cloud_registration',
+    }
+    config_dir = dataset_type_to_dir[dataset_type]
+    config_file = os.path.join(repo_root, "configs", "common", "datasets", config_dir, "val", f"{dataset_class}_data_cfg.py")
     spec = importlib.util.spec_from_file_location("config_file", config_file)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
