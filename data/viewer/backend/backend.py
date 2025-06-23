@@ -73,7 +73,7 @@ class ViewerBackend:
 
     def _init_dataset_configs(self) -> None:
         """Initialize dataset configurations from config directories."""
-        repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../../.."))
+        repo_root = os.path.normpath(os.path.join(os.path.dirname(__file__), "../../.."))
         config_dirs = {
             'semseg': os.path.join(repo_root, 'configs/common/datasets/semantic_segmentation/train'),
             '2dcd': os.path.join(repo_root, 'configs/common/datasets/change_detection/train'),
@@ -88,7 +88,7 @@ class ViewerBackend:
                 continue
 
             for dataset in DATASET_GROUPS.get(dataset_type, []):
-                config_file = os.path.join(config_dir, f'{dataset}_cfg.py')
+                config_file = os.path.join(config_dir, f'{dataset}_data_cfg.py')
                 if os.path.exists(config_file):
                     config_name = f"{dataset_type}/{dataset}"
                     self._configs[config_name] = {
