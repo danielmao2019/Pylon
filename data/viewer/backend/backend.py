@@ -130,15 +130,9 @@ class ViewerBackend:
             config_module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(config_module)
 
-            # Get the dataset config
-            dataset_cfg = None
-            for attr_name in dir(config_module):
-                if attr_name.endswith('_cfg') and not attr_name.startswith('_'):
-                    dataset_cfg = getattr(config_module, attr_name)
-                    break
-
-            if dataset_cfg is None:
-                raise ValueError(f"No dataset config found in {config_info['path']}")
+            # Get the dataset config following the same pattern as main.py
+            data_cfg = config_module.data_cfg
+            dataset_cfg = data_cfg['train_dataset']
 
             # Build the dataset
             dataset = build_from_config(dataset_cfg)
