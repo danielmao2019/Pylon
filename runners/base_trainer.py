@@ -14,7 +14,7 @@ import utils
 from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
-from utils.monitor.gpu_monitor import GPUMonitor
+from utils.monitor.system_monitor import SystemMonitor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
 
@@ -88,12 +88,9 @@ class BaseTrainer(ABC):
         with open(os.path.join(self.work_dir, "config.json"), mode='w') as f:
             f.write(jsbeautifier.beautify(str(self.config), jsbeautifier.default_options()))
 
-        # Initialize GPU monitor
-        if torch.cuda.is_available():
-            self.gpu_monitor = GPUMonitor()
-            self.gpu_monitor.start()
-        else:
-            self.gpu_monitor = None
+        # Initialize system monitor (CPU + GPU)
+        self.system_monitor = SystemMonitor()
+        self.system_monitor.start()
 
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
@@ -263,9 +260,8 @@ class BaseTrainer(ABC):
         self.optimizer.step()
         self.scheduler.step()
 
-        # Log GPU stats if available
-        if self.gpu_monitor is not None:
-            self.gpu_monitor.log_stats(self.logger)
+        # Log system stats (CPU + GPU)
+        self.system_monitor.log_stats(self.logger)
 
         # log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})
@@ -286,9 +282,8 @@ class BaseTrainer(ABC):
         # Log scores
         self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
 
-        # Log GPU stats if available
-        if self.gpu_monitor is not None:
-            self.gpu_monitor.log_stats(self.logger)
+        # Log system stats (CPU + GPU)
+        self.system_monitor.log_stats(self.logger)
 
         # Log time
         self.logger.update_buffer({"iteration_time": round(time.time() - start_time, 2)})

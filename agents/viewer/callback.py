@@ -3,7 +3,7 @@ import datetime
 from dash import Input, Output
 from agents.viewer.backend import get_progress
 from agents.viewer.layout import generate_table_data, generate_table_style
-from utils.monitor.gpu_monitor import GPUMonitor
+from utils.monitor.system_monitor import SystemMonitor
 
 
 def register_callbacks(
@@ -13,7 +13,7 @@ def register_callbacks(
     epochs: int,
     sleep_time: int,
     outdated_days: int,
-    gpu_monitor: GPUMonitor,
+    system_monitor: SystemMonitor,
     user_names: Dict[str, str],
 ) -> None:
     """Register callbacks for the dashboard.
@@ -25,7 +25,7 @@ def register_callbacks(
         epochs: Total number of epochs
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
-        gpu_monitor: GPUMonitor object
+        system_monitor: SystemMonitor object
         user_names: Dict of user names
     """
     @app.callback(
@@ -39,7 +39,7 @@ def register_callbacks(
     )
     def update_table(n_intervals):
         last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, gpu_monitor)}%"
-        table_data = generate_table_data(gpu_monitor, user_names)
+        progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, system_monitor)}%"
+        table_data = generate_table_data(system_monitor, user_names)
         table_style = generate_table_style(table_data)
         return last_update, progress, table_data, table_style

@@ -80,7 +80,7 @@ class Launcher(BaseAgent):
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
-            results = list(executor.map(process_gpu, self.gpu_monitor.connected_gpus))
+            results = list(executor.map(process_gpu, self.system_monitor.connected_gpus))
 
         # Combine all GPU results into a single dictionary
         stuck_cfgs_info = {}
@@ -108,27 +108,52 @@ class Launcher(BaseAgent):
 
     def _find_idle_gpus(self, num_jobs: int) -> List[Dict[str, Any]]:
         r"""
+        Find idle GPUs that meet both GPU and CPU resource constraints.
+
         Args:
             num_jobs (int): the maximum number of jobs allowed on a single GPU.
         Returns:
-            all_idle_gpus (List[Dict[str, Any]]): a list of dictionaries with the following fields
+            idle_gpus (List[Dict[str, Any]]): a list of dictionaries with the following fields
             {
                 server (str): a string in <user_name>@<server_ip> format.
-                gpu_index (int): index of GPU on the server.
+                resource_id (int): GPU index
             }
         """
         idle_gpus = []
-        for gpu in self.gpu_monitor.connected_gpus:
-            if (
-                gpu['util_stats']['avg'] < 50
-                and (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
-                and len(list(filter(lambda x: 'python main.py --config-filepath' in x['cmd'], gpu['processes']))) < num_jobs
-            ):
+
+        # Build a map of server -> CPU status for quick lookup
+        cpu_status_by_server = {}
+        for cpu in self.system_monitor.connected_cpus:
+            cpu_status_by_server[cpu['server']] = cpu
+
+        # Find idle GPUs with CPU constraints
+        for gpu in self.system_monitor.connected_gpus:
+            # Check GPU constraints
+            gpu_util_ok = gpu['util_stats']['avg'] < 50
+            gpu_mem_ok = (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
+            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p['cmd']]) < num_jobs
+
+            # Check CPU constraints for the same server
+            server = gpu['server']
+            cpu_ok = False
+            if server in cpu_status_by_server:
+                cpu = cpu_status_by_server[server]
+                if cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None and cpu['cpu_cores'] is not None:
+                    cpu_util_ok = cpu['cpu_stats']['avg'] < 80
+                    cpu_mem_ok = (cpu['max_memory'] - cpu['memory_stats']['avg']) > 4 * 1024  # 4GB
+                    cpu_load_ok = cpu['load_stats']['avg'] < cpu['cpu_cores']  # Load should be less than number of cores
+                    cpu_ok = cpu_util_ok and cpu_mem_ok and cpu_load_ok
+
+            # GPU is only considered idle if both GPU and CPU resources are available
+            if gpu_util_ok and gpu_mem_ok and gpu_jobs_ok and cpu_ok:
                 idle_gpus.append({
                     'server': gpu['server'],
-                    'gpu_index': gpu['index'],
+                    'resource_id': gpu['index'],
                 })
-        self.logger.warning(f"Disconnected GPUs: {self.gpu_monitor.disconnected_gpus}")
+
+        self.logger.warning(f"Disconnected GPUs: {self.system_monitor.disconnected_gpus}")
+        self.logger.warning(f"Disconnected CPUs: {self.system_monitor.disconnected_cpus}")
+
         return idle_gpus
 
     def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:
@@ -139,20 +164,25 @@ class Launcher(BaseAgent):
         missing_runs: List[str] = self._find_missing_runs(all_running)
         if len(missing_runs) == 0:
             return True
-        gpu_pool: List[Dict[str, Any]] = self._find_idle_gpus(num_jobs)
-        if len(gpu_pool) == 0:
-            self.logger.info("Waiting for idle GPU...")
+        idle_gpus: List[Dict[str, Any]] = self._find_idle_gpus(num_jobs)
+        if len(idle_gpus) == 0:
+            self.logger.info("Waiting for idle GPUs (with sufficient CPU resources)...")
             return False
         random.shuffle(missing_runs)
-        random.shuffle(gpu_pool)
-        num_launch = min(len(gpu_pool), len(missing_runs))
-        gpu_pool = gpu_pool[:num_launch]
+        random.shuffle(idle_gpus)
+        num_launch = min(len(idle_gpus), len(missing_runs))
+        idle_gpus = idle_gpus[:num_launch]
         missing_runs = missing_runs[:num_launch]
 
-        def launch_job(gpu, run):
+        def launch_job(resource, run):
             error_log = os.path.join(get_work_dir(run), "error.log")
             if os.path.isfile(error_log) and os.path.getsize(error_log) > 0:
                 self.logger.error(f"Please fix {run}. {error_log=}.")
+
+            # Set GPU environment variables (all jobs are GPU-based)
+            device_env = f"CUDA_VISIBLE_DEVICES={resource['resource_id']}"
+            resource_label = f"GPU-{resource['resource_id']}"
+
             cmd = ' && '.join([
                 f"cd {self.project_dir}",
                 "git checkout main",
@@ -162,18 +192,19 @@ class Launcher(BaseAgent):
                 f"mkdir -p {os.path.dirname(error_log)}",
                 ' '.join([
                     "MKL_SERVICE_FORCE_INTEL=1",
-                    f"CUDA_VISIBLE_DEVICES={gpu['gpu_index']}",
+                    device_env,
                     "python", "main.py", "--config-filepath", run,
                     # "2>", error_log,
                 ]),
             ])
             cmd = cmd + "; exec bash" if self.keep_tmux else cmd
-            tmux_cmd = f"tmux new-session -d -s {'/'.join(os.path.splitext(run)[0].split('/')[-2:])} \"{cmd}\""
+            session_name = f"{'/'.join(os.path.splitext(run)[0].split('/')[-2:])}-{resource_label}"
+            tmux_cmd = f"tmux new-session -d -s {session_name} \"{cmd}\""
 
-            self.logger.info(f"Executing command on {gpu['server']}: {tmux_cmd}")
-            self.ssh_pool.execute(gpu['server'], [tmux_cmd])
+            self.logger.info(f"Executing command on {resource['server']} ({resource_label}): {tmux_cmd}")
+            self.ssh_pool.execute(resource['server'], [tmux_cmd])
 
-        for gpu, run in zip(gpu_pool, missing_runs):
+        for gpu, run in zip(idle_gpus, missing_runs):
             launch_job(gpu, run)
         return False
 
@@ -188,7 +219,7 @@ class Launcher(BaseAgent):
                 epochs=self.epochs,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
-                gpu_monitor=self.gpu_monitor,
+                system_monitor=self.system_monitor,
             )
 
             self.logger.info("Removing stuck jobs...")

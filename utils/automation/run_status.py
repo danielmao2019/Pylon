@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import torch
 from utils.automation.cfg_log_conversion import get_work_dir
-from utils.monitor.gpu_monitor import GPUMonitor
+from utils.monitor.system_monitor import SystemMonitor
 
 
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
@@ -78,7 +78,7 @@ def get_all_run_status(
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
-    gpu_monitor: GPUMonitor = None,
+    system_monitor: SystemMonitor = None,
 ) -> List[RunStatus]:
     """
     Args:
@@ -87,16 +87,16 @@ def get_all_run_status(
         epochs: Total number of epochs
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
-        servers: List of servers
+        system_monitor: System monitor (CPU + GPU)
     """
     assert isinstance(config_files, list)
     assert isinstance(expected_files, list)
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
     assert isinstance(outdated_days, int)
-    assert isinstance(gpu_monitor, GPUMonitor)
+    assert isinstance(system_monitor, SystemMonitor)
 
-    all_running_commands = gpu_monitor.get_all_running_commands()
+    all_running_commands = system_monitor.get_all_running_commands()
     all_running_work_dirs = list(map(lambda x: get_work_dir(parse_config(x)), all_running_commands))
 
     with ThreadPoolExecutor() as executor:
