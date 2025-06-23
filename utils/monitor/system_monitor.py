@@ -107,63 +107,6 @@ class SystemMonitor:
             'monitoring_active': self._monitoring_started,
         }
 
-    def find_idle_resources(self, num_jobs: int = 1) -> Dict[str, List[Dict[str, Any]]]:
-        """
-        Find idle system resources (both CPU and GPU) that can accept new jobs.
-
-        Args:
-            num_jobs: Maximum number of jobs allowed per resource
-
-        Returns:
-            Dictionary with 'idle_gpus' and 'idle_cpus' keys containing lists of available resources
-        """
-        idle_gpus = []
-        idle_cpus = []
-
-        # Find idle GPUs (using same logic as original GPUMonitor)
-        for gpu in self.connected_gpus:
-            if (
-                gpu['util_stats']['avg'] < 50
-                and (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
-                and len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p['cmd']]) < num_jobs
-            ):
-                idle_gpus.append({
-                    'server': gpu['server'],
-                    'resource_id': gpu['index'],
-                    'available_memory': gpu['max_memory'] - gpu['memory_stats']['avg'],
-                    'utilization': gpu['util_stats']['avg'],
-                })
-
-        # Find idle CPUs
-        for cpu in self.connected_cpus:
-            if cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None:
-                # Consider CPU idle if:
-                # - CPU utilization < 80%
-                # - Available memory > 4GB
-                # - Load average < number of cores (assume 8 cores for now)
-                # - Less than num_jobs running
-                running_jobs = len([p for p in cpu['processes'] if 'python main.py --config-filepath' in p['cmd']])
-                available_memory = cpu['max_memory'] - cpu['memory_stats']['avg']
-
-                if (
-                    cpu['cpu_stats']['avg'] < 80
-                    and available_memory > 4 * 1024  # 4GB in MB
-                    and cpu['load_stats']['avg'] < 8  # Assume 8 cores
-                    and running_jobs < num_jobs
-                ):
-                    idle_cpus.append({
-                        'server': cpu['server'],
-                        'resource_id': 'cpu',  # CPUs don't have individual indices like GPUs
-                        'available_memory': available_memory,
-                        'utilization': cpu['cpu_stats']['avg'],
-                        'load_avg': cpu['load_stats']['avg'],
-                    })
-
-        return {
-            'idle_gpus': idle_gpus,
-            'idle_cpus': idle_cpus,
-        }
-
     def log_stats(self, logger):
         """Log stats from both CPU and GPU monitors"""
         # Log GPU stats
