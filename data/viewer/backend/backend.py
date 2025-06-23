@@ -63,8 +63,10 @@ class ViewerBackend:
         # State management
         self.current_dataset: Optional[str] = None
         self.current_index: int = 0
-        self.point_size: float = 1.0
-        self.point_opacity: float = 1.0
+        self.point_size: float = 2.0
+        self.point_opacity: float = 0.8
+        self.radius: float = 0.05
+        self.correspondence_radius: float = 0.1
 
         # Initialize dataset configurations
         self._init_dataset_configs()
@@ -298,5 +300,7 @@ class ViewerBackend:
             'current_dataset': self.current_dataset,
             'current_index': self.current_index,
             'point_size': self.point_size,
-            'point_opacity': self.point_opacity
+            'point_opacity': self.point_opacity,
+            'radius': self.radius,
+            'correspondence_radius': self.correspondence_radius
         }
