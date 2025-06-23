@@ -41,6 +41,7 @@ class CPUMonitor:
             cpu_status: CPUStatus = {
                 'server': 'localhost',
                 'max_memory': None,
+                'cpu_cores': None,
                 'processes': None,
                 'window_size': 10,  # Default window size
                 'memory_window': None,
@@ -58,6 +59,7 @@ class CPUMonitor:
                 cpu_status: CPUStatus = {
                     'server': server,
                     'max_memory': None,
+                    'cpu_cores': None,
                     'processes': None,
                     'window_size': 10,  # Default window size
                     'memory_window': None,
@@ -113,6 +115,7 @@ class CPUMonitor:
         # If query failed, set all fields to None except server
         if not cpu_info['connected']:
             cpu_status['max_memory'] = None
+            cpu_status['cpu_cores'] = None
             cpu_status['processes'] = None
             cpu_status['memory_window'] = None
             cpu_status['cpu_window'] = None
@@ -125,8 +128,9 @@ class CPUMonitor:
         # Update processes
         cpu_status['processes'] = cpu_info['processes']
 
-        # Update max memory
+        # Update max memory and cpu cores
         cpu_status['max_memory'] = cpu_info['max_memory']
+        cpu_status['cpu_cores'] = cpu_info['cpu_cores']
 
         # Initialize windows if they are None (CPU just reconnected)
         if cpu_status['memory_window'] is None:

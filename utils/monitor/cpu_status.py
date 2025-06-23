@@ -7,6 +7,7 @@ from utils.timeout import with_timeout
 class CPUStatus(TypedDict):
     server: str
     max_memory: int  # Total system memory in MB
+    cpu_cores: int  # Number of CPU cores
     processes: List[ProcessInfo]
     window_size: int
     memory_window: List[int]  # Memory usage in MB
@@ -69,11 +70,17 @@ def get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, A
     load_output = pool.execute(server, load_cmd)
     load_avg = float(load_output.split()[0])  # 1-minute load average
 
+    # Get number of CPU cores
+    cores_cmd = ["nproc"]
+    cores_output = pool.execute(server, cores_cmd)
+    cpu_cores = int(cores_output.strip())
+
     return {
         'memory_total': mem_total,
         'memory_used': mem_used,
         'cpu_util': cpu_util,
-        'load_avg': load_avg
+        'load_avg': load_avg,
+        'cpu_cores': cpu_cores,
     }
 
 
@@ -123,6 +130,7 @@ def get_server_cpu_info(server: str, pool: SSHConnectionPool, timeout: int = 10)
             'current_memory': cpu_stats['memory_used'],
             'current_cpu': cpu_stats['cpu_util'],
             'current_load': cpu_stats['load_avg'],
+            'cpu_cores': cpu_stats['cpu_cores'],
             'processes': processes,
             'connected': True,
         }
@@ -137,6 +145,7 @@ def get_server_cpu_info(server: str, pool: SSHConnectionPool, timeout: int = 10)
             'current_memory': None,
             'current_cpu': None,
             'current_load': None,
+            'cpu_cores': None,
             'processes': None,
             'connected': False,
         }

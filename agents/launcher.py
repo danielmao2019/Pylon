@@ -138,10 +138,10 @@ class Launcher(BaseAgent):
             cpu_ok = False
             if server in cpu_status_by_server:
                 cpu = cpu_status_by_server[server]
-                if cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None:
+                if cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None and cpu['cpu_cores'] is not None:
                     cpu_util_ok = cpu['cpu_stats']['avg'] < 80
                     cpu_mem_ok = (cpu['max_memory'] - cpu['memory_stats']['avg']) > 4 * 1024  # 4GB
-                    cpu_load_ok = cpu['load_stats']['avg'] < 8  # Assume 8 cores
+                    cpu_load_ok = cpu['load_stats']['avg'] < cpu['cpu_cores']  # Load should be less than number of cores
                     cpu_ok = cpu_util_ok and cpu_mem_ok and cpu_load_ok
 
             # GPU is only considered idle if both GPU and CPU resources are available
