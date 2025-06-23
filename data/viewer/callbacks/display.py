@@ -4,6 +4,7 @@ import json
 from dash import Input, Output, State, callback_context, html, ALL
 from dash.exceptions import PreventUpdate
 import dash
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
@@ -66,12 +67,11 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     # Extract new camera state
     new_camera = relayout_data['scene.camera']
 
-    # Update all figures with the new camera state, except the one that triggered the change
-    updated_figures = []
-    for i, figure in enumerate(all_figures):
+    # Update all figures with the new camera state in parallel
+    def update_figure_camera(i, figure):
         if i == triggered_index or not figure:
             # Don't update the triggering graph or empty figures
-            updated_figures.append(dash.no_update)
+            return dash.no_update
         else:
             # Create updated figure with new camera state
             updated_figure = figure.copy()
@@ -80,7 +80,26 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
             if 'scene' not in updated_figure['layout']:
                 updated_figure['layout']['scene'] = {}
             updated_figure['layout']['scene']['camera'] = new_camera
-            updated_figures.append(updated_figure)
+            return updated_figure
+
+    updated_figures = [None] * len(all_figures)
+    
+    # Use parallel processing for multiple figures
+    if len(all_figures) > 1:
+        with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
+            # Submit all update tasks
+            future_to_index = {
+                executor.submit(update_figure_camera, i, figure): i 
+                for i, figure in enumerate(all_figures)
+            }
+            
+            # Collect results in order
+            for future in as_completed(future_to_index):
+                idx = future_to_index[future]
+                updated_figures[idx] = future.result()
+    else:
+        # For single figure, just update directly
+        updated_figures = [update_figure_camera(i, figure) for i, figure in enumerate(all_figures)]
 
     return updated_figures, new_camera
 
@@ -108,12 +127,10 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
         'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
     }
 
-    # Update all figures with default camera state
-    updated_figures = []
-    for figure in all_figures:
+    # Update all figures with default camera state in parallel
+    def reset_figure_camera(figure):
         if not figure:
-            updated_figures.append(dash.no_update)
-            continue
+            return dash.no_update
 
         updated_figure = figure.copy()
         if 'layout' not in updated_figure:
@@ -121,7 +138,26 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
         if 'scene' not in updated_figure['layout']:
             updated_figure['layout']['scene'] = {}
         updated_figure['layout']['scene']['camera'] = default_camera
-        updated_figures.append(updated_figure)
+        return updated_figure
+
+    updated_figures = [None] * len(all_figures)
+    
+    # Use parallel processing for multiple figures
+    if len(all_figures) > 1:
+        with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
+            # Submit all reset tasks
+            future_to_index = {
+                executor.submit(reset_figure_camera, figure): i 
+                for i, figure in enumerate(all_figures)
+            }
+            
+            # Collect results in order
+            for future in as_completed(future_to_index):
+                idx = future_to_index[future]
+                updated_figures[idx] = future.result()
+    else:
+        # For single figure, just update directly
+        updated_figures = [reset_figure_camera(figure) for figure in all_figures]
 
     return updated_figures, default_camera
 
