@@ -5,8 +5,7 @@ from pathlib import Path
 import dash
 from data.viewer.layout.app import create_app_layout
 from data.viewer.callbacks import registry
-from data.viewer.states import ViewerState
-from data.viewer.managers.dataset_manager import DatasetManager
+from data.viewer.backend import ViewerBackend
 
 import logging
 
@@ -16,7 +15,7 @@ class DatasetViewer:
 
     def __init__(self, log_level: str = "INFO", log_file: Optional[str] = None):
         """Initialize the dataset viewer.
-        
+
         Args:
             log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
             log_file: Optional path to log file
@@ -29,15 +28,12 @@ class DatasetViewer:
         self.logger.info(f"Current working directory: {os.getcwd()}")
         self.logger.info(f"Repository root (estimated): {os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))}")
 
-        # Initialize dataset manager
-        self.dataset_manager = DatasetManager()
-        
-        # Get available datasets from the manager
-        self.available_datasets = self.dataset_manager._configs
-        self.logger.info(f"Found {len(self.available_datasets)} available datasets")
+        # Initialize backend
+        self.backend = ViewerBackend()
 
-        # Initialize state management
-        self.state = ViewerState()
+        # Get available datasets from the backend
+        self.available_datasets = self.backend.get_available_datasets()
+        self.logger.info(f"Found {len(self.available_datasets)} available datasets")
 
         # Dash app setup
         self.app = dash.Dash(
@@ -55,7 +51,7 @@ class DatasetViewer:
 
     def _setup_logging(self, log_level: str, log_file: Optional[str]) -> None:
         """Setup logging configuration.
-        
+
         Args:
             log_level: Logging level
             log_file: Optional path to log file

@@ -30,38 +30,63 @@ class Compose(BaseTransform):
             transforms = []
         assert type(transforms) == list, f"{type(transforms)=}"
 
-        parsed_transforms = []
-        for idx, transform in enumerate(transforms):
-            if isinstance(transform, tuple):
-                # Handle backward compatibility case
-                assert len(transform) == 2, f"{idx=}, {len(transform)=}"
+        # Normalize all transforms using the static method
+        self.transforms = [self.normalize_transforms_cfg(transform) for transform in transforms]
 
-                # parse transform
-                func = transform[0]
-                assert callable(func), f"{type(func)=}"
-                input_names = self._process_names(transform[1])
-                output_names = input_names
-            else:
-                # Handle new dictionary format
-                assert isinstance(transform, dict), f"{idx=}, {type(transform)=}"
-                assert "op" in transform, f"Transform {idx} missing 'op' key"
-                assert "input_names" in transform, f"Transform {idx} missing 'input_names' key"
+    @staticmethod
+    def normalize_transforms_cfg(transform: Union[
+        Tuple[Callable, Union[Tuple[str, str], List[Tuple[str, str]]]],
+        Dict[str, Union[Callable, Union[Tuple[str, str], List[Tuple[str, str]]]]]
+    ]) -> Dict[str, Any]:
+        """Normalize transform configuration to standard dictionary format.
 
-                # parse transform
-                func = transform["op"]
-                assert callable(func), f"{type(func)=}"
-                input_names = self._process_names(transform["input_names"])
-                output_names = self._process_names(transform.get("output_names", input_names))
+        This method converts transforms from either the legacy tuple format or the new dictionary format
+        into a standardized dictionary format with keys: 'op', 'input_names', 'output_names'.
 
-            # append to processed transforms
-            parsed_transforms.append({
+        Args:
+            transform: Transform in either format:
+                     - Tuple format: (transform_fn, input_keys) for backward compatibility
+                     - Dictionary format: {'op': transform_fn, 'input_names': input_keys, 'output_names': output_keys}
+
+        Returns:
+            Normalized transform dictionary with keys: 'op', 'input_names', 'output_names'
+
+        Raises:
+            ValueError: If transform format is invalid
+            AssertionError: If validation of keys/structure fails
+        """
+        if isinstance(transform, tuple):
+            # Handle backward compatibility case
+            assert len(transform) == 2, f"Tuple format must have exactly 2 elements, got {len(transform)}"
+
+            # parse transform
+            func = transform[0]
+            assert callable(func) or isinstance(func, dict), f"Transform function must be callable or dict config, got {type(func)}"
+            input_names = Compose._process_names(transform[1])
+            output_names = input_names
+
+            return {
                 "op": func,
                 "input_names": input_names,
                 "output_names": output_names,
-            })
+            }
+        else:
+            # Handle new dictionary format
+            assert isinstance(transform, dict), f"Expected dict format, got {type(transform)}"
+            assert "op" in transform, f"Transform missing 'op' key, got keys: {list(transform.keys())}"
+            assert "input_names" in transform, f"Transform missing 'input_names' key, got keys: {list(transform.keys())}"
 
-        # assign to class attribute
-        self.transforms = parsed_transforms
+            # parse transform
+            func = transform["op"]
+            assert callable(func) or isinstance(func, dict), f"Transform 'op' must be callable or dict config, got {type(func)}"
+            input_names = Compose._process_names(transform["input_names"])
+            output_names = Compose._process_names(transform.get("output_names", input_names))
+
+            return {
+                "op": func,
+                "input_names": input_names,
+                "output_names": output_names,
+            }
 
     @staticmethod
     def _process_names(names: Union[Tuple[str, str], List[Tuple[str, str]]]) -> List[Tuple[str, str]]:

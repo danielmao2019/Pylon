@@ -5,6 +5,7 @@ from dash import Input, Output, State, callback_context, html, ALL
 from dash.exceptions import PreventUpdate
 import dash
 from data.viewer.callbacks.registry import callback, registry
+from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
 from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
@@ -64,7 +65,7 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
 
     # Extract new camera state
     new_camera = relayout_data['scene.camera']
-    
+
     # Update all figures with the new camera state, except the one that triggered the change
     updated_figures = []
     for i, figure in enumerate(all_figures):
@@ -99,21 +100,21 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
     """Reset camera view to default position for all point cloud graphs."""
     if n_clicks is None or n_clicks == 0:
         raise PreventUpdate
-    
+
     # Default camera state
     default_camera = {
         'up': {'x': 0, 'y': 0, 'z': 1},
         'center': {'x': 0, 'y': 0, 'z': 0},
         'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
     }
-    
+
     # Update all figures with default camera state
     updated_figures = []
     for figure in all_figures:
         if not figure:
             updated_figures.append(dash.no_update)
             continue
-            
+
         updated_figure = figure.copy()
         if 'layout' not in updated_figure:
             updated_figure['layout'] = {}
@@ -121,7 +122,7 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
             updated_figure['layout']['scene'] = {}
         updated_figure['layout']['scene']['camera'] = default_camera
         updated_figures.append(updated_figure)
-    
+
     return updated_figures, default_camera
 
 
@@ -132,6 +133,7 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
     inputs=[
         Input('dataset-info', 'data'),
         Input('datapoint-index-slider', 'value'),
+        Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
         Input('point-size-slider', 'value'),
         Input('point-opacity-slider', 'value'),
         Input('radius-slider', 'value'),
@@ -142,6 +144,7 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
 def update_datapoint(
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
     datapoint_idx: int,
+    transform_values: List[List[int]],
     point_size: float,
     point_opacity: float,
     radius: float,
@@ -160,8 +163,14 @@ def update_datapoint(
     dataset_name: str = dataset_info.get('name', 'unknown')
     logger.info(f"Attempting to get dataset: {dataset_name}")
 
-    # Get datapoint from manager through registry
-    datapoint = registry.viewer.dataset_manager.get_datapoint(dataset_name, datapoint_idx)
+    # Get list of selected transform indices
+    selected_indices = [
+        idx for values in transform_values
+        for idx in values  # values will be a list containing the index if checked, empty if not
+    ]
+
+    # Get datapoint from backend through registry
+    datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
 
     # Get dataset type from dataset info
     dataset_type = dataset_info.get('type')
@@ -196,3 +205,58 @@ def update_datapoint(
 
     logger.info("Display created successfully")
     return [display]
+
+
+@callback(
+    outputs=[
+        Output('transforms-section', 'children', allow_duplicate=True),
+        Output('datapoint-display', 'children', allow_duplicate=True)
+    ],
+    inputs=[Input('dataset-info', 'data')],
+    states=[State('datapoint-index-slider', 'value')],
+    group="display"
+)
+def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int]) -> List[Union[html.Div, List[html.Div]]]:
+    """Update the transforms section when dataset info changes and display datapoint with all transforms applied."""
+    # If no dataset is selected, maintain current state
+    if not dataset_info:
+        raise PreventUpdate
+
+    dataset_name = dataset_info['name']
+    transforms = dataset_info.get('transforms', [])
+
+    # Use index 0 if datapoint_idx is None (first dataset selection)
+    if datapoint_idx is None:
+        datapoint_idx = 0
+
+    # Create updated transforms section
+    transforms_section = create_transforms_section(transforms)
+
+    # Display datapoint with all transforms applied by default
+    # Get all transform indices to apply all transforms by default
+    all_transform_indices = [transform['index'] for transform in transforms]
+
+    # Get transformed datapoint using backend
+    datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, all_transform_indices)
+
+    # Get dataset type and determine display function
+    dataset_type = dataset_info['type']
+
+    # Get the appropriate display function
+    display_func = DISPLAY_FUNCTIONS.get(dataset_type)
+    if display_func is None:
+        return [transforms_section, [html.Div(f"Error: Unsupported dataset type: {dataset_type}")]]
+
+    # Call the display function with appropriate parameters (using default 3D settings)
+    if dataset_type == 'semseg':
+        display = display_func(datapoint)
+    elif dataset_type == '2dcd':
+        display = display_func(datapoint)
+    elif dataset_type == '3dcd':
+        display = display_func(datapoint, 1.0, 1.0, dataset_info.get('class_labels', {}), {})
+    elif dataset_type == 'pcr':
+        display = display_func(datapoint, 1.0, 1.0, {}, 1.0)
+    else:
+        raise ValueError(f"Unsupported dataset type: {dataset_type}")
+
+    return [transforms_section, [display]]

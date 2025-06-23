@@ -10,50 +10,43 @@ THREE_D_DATASET_TYPES = ['3dcd', 'pcr']
 
 @callback(
     outputs=[
-        Output('3d-settings-section', 'children'),
         Output('3d-settings-store', 'data')
     ],
     inputs=[
-        Input('3d-settings-dropdown', 'value'),
-        Input('3d-settings-params', 'data')
+        Input('point-size-slider', 'value'),
+        Input('point-opacity-slider', 'value'),
+        Input('radius-slider', 'value'),
+        Input('correspondence-radius-slider', 'value')
     ],
     group="3d_settings"
 )
 def update_3d_settings(
-    selected_setting: Optional[str],
-    setting_params: Optional[Dict[str, Union[str, int, float, bool]]]
-) -> List[Union[html.Div, Dict[str, Union[str, int, float, bool]]]]:
-    """Update the 3D settings section when a setting is selected or parameters change."""
-    if selected_setting is None and setting_params is None:
+    point_size: float,
+    point_opacity: float,
+    radius: float,
+    correspondence_radius: float
+) -> List[Dict[str, Union[str, int, float, bool]]]:
+    """Update 3D settings store when slider values change."""
+    if point_size is None or point_opacity is None:
         raise PreventUpdate
 
-    # Get current dataset info
-    dataset_info: Dict[str, Union[str, int, bool, Dict]] = registry.viewer.state.get_state()['dataset_info']
-    if not dataset_info:
-        return [
-            html.Div("No dataset loaded."),
-            registry.viewer.state.get_state()['3d_settings']
-        ]
+    # Update backend state with new 3D settings
+    registry.viewer.backend.update_state(
+        point_size=point_size,
+        point_opacity=point_opacity,
+        radius=radius or 0.05,
+        correspondence_radius=correspondence_radius or 0.1
+    )
 
-    assert 'type' in dataset_info, f"{dataset_info.keys()=}"
-    dataset_type = dataset_info.get('type')
+    # Store all 3D settings in the store
+    settings = {
+        'point_size': point_size,
+        'point_opacity': point_opacity,
+        'radius': radius or 0.05,  # Default radius
+        'correspondence_radius': correspondence_radius or 0.1  # Default correspondence radius
+    }
 
-    if dataset_type not in THREE_D_DATASET_TYPES:
-        return [
-            html.Div("3D settings are only available for 3D datasets."),
-            registry.viewer.state.get_state()['3d_settings']
-        ]
-
-    # Update state with new 3D settings
-    registry.viewer.state.update_3d_settings(selected_setting, setting_params)
-
-    # Create updated 3D settings section
-    settings_section: html.Div = create_3d_settings_section()
-
-    return [
-        settings_section,
-        registry.viewer.state.get_state()['3d_settings']
-    ]
+    return [settings]
 
 
 @callback(
