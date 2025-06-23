@@ -1,6 +1,7 @@
 """UI components for displaying dataset items."""
 from typing import Dict, Optional, Any
 from dash import dcc, html
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
 
@@ -49,10 +50,9 @@ def display_3dcd_datapoint(
 
     titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
 
-    # Create figures
-    figures = []
-    for points, labels, title in zip(points_list, labels_list, titles):
-        fig = create_point_cloud_figure(
+    # Create figures in parallel for better performance
+    def create_figure(points, labels, title):
+        return create_point_cloud_figure(
             points=points,
             labels=labels,
             title=title,
@@ -60,7 +60,26 @@ def display_3dcd_datapoint(
             point_opacity=point_opacity,
             camera_state=camera_state,
         )
-        figures.append(fig)
+
+    # Prepare figure creation tasks
+    figure_tasks = [
+        (points, labels, title) 
+        for points, labels, title in zip(points_list, labels_list, titles)
+    ]
+
+    figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
+    
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # Submit all tasks
+        future_to_index = {
+            executor.submit(create_figure, points, labels, title): idx 
+            for idx, (points, labels, title) in enumerate(figure_tasks)
+        }
+        
+        # Collect results in order
+        for future in as_completed(future_to_index):
+            idx = future_to_index[future]
+            figures[idx] = future.result()
 
     # Extract metadata
     meta_info = datapoint.get('meta_info', {})
