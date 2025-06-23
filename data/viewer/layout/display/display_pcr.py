@@ -384,46 +384,71 @@ def display_pcr_datapoint_batched(
 
         # For top level (level 0), show all visualizations
         if level == 0:
-            # Source point cloud
-            figures.append(create_point_cloud_figure(
-                points=src_points,
-                title=f"Source Point Cloud (Level {level})",
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-            ))
+            # Create visualization functions
+            def create_source_figure():
+                return create_point_cloud_figure(
+                    points=src_points,
+                    title=f"Source Point Cloud (Level {level})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                )
 
-            # Target point cloud
-            figures.append(create_point_cloud_figure(
-                points=tgt_points,
-                title=f"Target Point Cloud (Level {level})",
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-            ))
+            def create_target_figure():
+                return create_point_cloud_figure(
+                    points=tgt_points,
+                    title=f"Target Point Cloud (Level {level})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                )
 
-            # Union visualization
-            union_fig = create_union_visualization(
-                src_points,
-                tgt_points,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-            )
-            union_fig.update_layout(title=f"Union (Level {level})")
-            figures.append(union_fig)
+            def create_union_figure():
+                union_fig = create_union_visualization(
+                    src_points,
+                    tgt_points,
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                )
+                union_fig.update_layout(title=f"Union (Level {level})")
+                return union_fig
 
-            # Symmetric difference visualization
-            sym_diff_fig = create_symmetric_difference_visualization(
-                src_points,
-                tgt_points,
-                radius=sym_diff_radius,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-            )
-            sym_diff_fig.update_layout(title=f"Symmetric Difference (Level {level})")
-            figures.append(sym_diff_fig)
+            def create_sym_diff_figure():
+                sym_diff_fig = create_symmetric_difference_visualization(
+                    src_points,
+                    tgt_points,
+                    radius=sym_diff_radius,
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                )
+                sym_diff_fig.update_layout(title=f"Symmetric Difference (Level {level})")
+                return sym_diff_fig
+
+            # Create figures in parallel
+            figure_tasks = [
+                create_source_figure,
+                create_target_figure,
+                create_union_figure,
+                create_sym_diff_figure,
+            ]
+
+            level_figures = [None] * len(figure_tasks)
+            
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                # Submit all tasks
+                future_to_index = {
+                    executor.submit(task_func): idx 
+                    for idx, task_func in enumerate(figure_tasks)
+                }
+                
+                # Collect results in order
+                for future in as_completed(future_to_index):
+                    idx = future_to_index[future]
+                    level_figures[idx] = future.result()
+            
+            figures.extend(level_figures)
 
             # TODO: Add correspondence visualization
             # # Correspondence visualization
