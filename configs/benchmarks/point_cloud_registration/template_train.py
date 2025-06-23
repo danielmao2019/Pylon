@@ -1,9 +1,10 @@
 import torch
 import optimizers
+from runners import SupervisedSingleTaskTrainer
 
 
 config = {
-    'runner': None,
+    'runner': SupervisedSingleTaskTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds

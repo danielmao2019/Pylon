@@ -24,17 +24,7 @@ def main(dataset: str, model: str) -> None:
     with open(f"./configs/benchmarks/point_cloud_registration/{template_name}", mode='r') as f:
         config = f.read() + '\n'
     config = add_heading(config)
-    # add runner
-    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
-        config += f"from runners import BaseEvaluator\n"
-        config += f"config['runner'] = BaseEvaluator\n"
-        config += '\n'
-    elif model == 'BUFFER':
-        pass
-    else:
-        config += f"from runners import SupervisedSingleTaskTrainer\n"
-        config += f"config['runner'] = SupervisedSingleTaskTrainer\n"
-        config += '\n'
+    # determine dataset name
     if dataset.startswith('synth_pcr') or dataset.startswith('real_pcr'):
         overlap = float(dataset.split('_')[-1])
         dataset_name = '_'.join(dataset.split('_')[:-1])
@@ -44,12 +34,14 @@ def main(dataset: str, model: str) -> None:
     # add model config
     if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
         config += f"# data config\n"
-        config += f"from configs.common.datasets.point_cloud_registration.val.classic_{dataset_name}_data_cfg import data_cfg as eval_data_cfg\n"
+        config += f"from configs.common.datasets.point_cloud_registration.eval.{dataset_name}_data_cfg import data_cfg as eval_data_cfg\n"
         if overlap is not None:
             config += f"eval_data_cfg['eval_dataset']['args']['overlap'] = {overlap}\n"
         config += f"config.update(eval_data_cfg)\n"
         config += '\n'
         if model == 'TeaserPlusPlus':
+            config += f"config['eval_n_jobs'] = 1\n"
+            config += '\n'
             config += f"# model config\n"
             config += f"from configs.common.models.point_cloud_registration.teaserplusplus_cfg import model_cfg\n"
             config += f"config['model'] = model_cfg\n"
@@ -58,9 +50,6 @@ def main(dataset: str, model: str) -> None:
             config += f"# model config\n"
             config += f"from models.point_cloud_registration.classic import {model}\n"
             config += f"config['model'] = {{'class': {model}, 'args': {{}}}}\n"
-            config += '\n'
-        if model == 'TeaserPlusPlus':
-            config += f"config['eval_n_jobs'] = 1\n"
             config += '\n'
     elif model == 'GeoTransformer':
         config += f"# data config\n"
