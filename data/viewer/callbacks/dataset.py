@@ -5,7 +5,6 @@ from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.layout.display.dataset import create_dataset_info_display
-from data.viewer.managers.registry import get_dataset_type
 
 import logging
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
 
     if dataset_key is None:
         logger.info("No dataset selected")
-        registry.viewer.state.reset()
+        registry.viewer.backend.current_dataset = None
         return [
             {},  # dataset-info
             0,   # min
@@ -43,23 +42,15 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
             create_transforms_section(),  # transforms-section
         ]
 
-    # Load dataset using dataset manager
-    dataset_name = dataset_key.split('/')[-1]
+    # Load dataset using backend
     logger.info(f"Attempting to load dataset: {dataset_key}")
-    dataset_info = registry.viewer.dataset_manager.load_dataset(dataset_name)
+    dataset_info = registry.viewer.backend.load_dataset(dataset_key)
 
-    # Determine dataset type using registry
-    dataset_type = get_dataset_type(dataset_name)
-    dataset_info['type'] = dataset_type
-
-    # Update state with dataset info
-    logger.info(f"Updating state with dataset info: {dataset_info}")
-    registry.viewer.state.update_dataset_info(
-        name=dataset_info['name'],
-        length=dataset_info['length'],
-        class_labels=dataset_info['class_labels'],
-        transforms=dataset_info['transforms'],
-        dataset_type=dataset_type
+    # Update backend state
+    logger.info(f"Updating backend state with dataset info: {dataset_info}")
+    registry.viewer.backend.update_state(
+        current_dataset=dataset_info['name'],
+        current_index=0
     )
 
     # Create slider marks
@@ -76,13 +67,13 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
     logger.info("Dataset loaded successfully, returning updated UI components")
 
     return [
-        registry.viewer.state.get_state()['dataset_info'],  # dataset-info
+        dataset_info,  # dataset-info
         0,                   # min
         dataset_info['length'] - 1,  # max
         0,                # value
         marks,              # marks
         initial_message,    # datapoint-display
-        create_dataset_info_display(registry.viewer.state.get_state()['dataset_info']),  # dataset-info-display
+        create_dataset_info_display(dataset_info),  # dataset-info-display
         create_transforms_section(dataset_info['transforms']),  # transforms-section
     ]
 
@@ -98,7 +89,7 @@ def reload_datasets(n_clicks: Optional[int]) -> List[Dict[str, str]]:
         raise PreventUpdate
 
     # Get list of available datasets
-    available_datasets = registry.viewer.dataset_manager._configs
+    available_datasets = registry.viewer.backend.get_available_datasets()
 
     # Create options for the dropdown
-    return [{'label': name, 'value': name} for name in available_datasets.keys()]
+    return [{'label': label, 'value': name} for name, label in available_datasets.items()]
