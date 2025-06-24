@@ -173,11 +173,14 @@ def build_training_config(dataset: str, model: str):
         return config
 
 
-def generate_eval_configs(dataset: str, model: str) -> None:
-    """Generate config files for eval-only models (ICP, RANSAC_FPFH, TeaserPlusPlus)."""
-    
-    # Build eval config
-    config = build_eval_config(dataset, model)
+def generate_configs(dataset: str, model: str) -> None:
+    """Generate config files for a specific dataset and model combination."""
+
+    # Build appropriate config based on model type
+    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
+        config = build_eval_config(dataset, model)
+    else:
+        config = build_training_config(dataset, model)
 
     # Generate seeded configs
     relpath = os.path.join("benchmarks", "point_cloud_registration", dataset)
@@ -196,36 +199,7 @@ def generate_eval_configs(dataset: str, model: str) -> None:
     for idx, seeded_config in enumerate(seeded_configs):
         # Add auto-generated header
         final_config = add_heading(seeded_config, generator_path)
-        
-        output_path = os.path.join("./configs", relpath, f"{model}_run_{idx}.py")
-        with open(output_path, mode='w') as f:
-            f.write(final_config)
 
-
-def generate_training_configs(dataset: str, model: str) -> None:
-    """Generate config files for training models (GeoTransformer, OverlapPredator, BUFFER)."""
-    
-    # Build training config
-    config = build_training_config(dataset, model)
-
-    # Generate seeded configs
-    relpath = os.path.join("benchmarks", "point_cloud_registration", dataset)
-    work_dir = os.path.join("./logs", relpath, model)
-
-    # Generate seeded configs using the new dictionary-based approach
-    seeded_configs = generate_seeded_configs(
-        base_config=config,
-        base_seed=relpath,
-        base_work_dir=work_dir
-    )
-
-    # Add heading and save to disk
-    generator_path = "./configs/benchmarks/point_cloud_registration/gen.py"
-    os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
-    for idx, seeded_config in enumerate(seeded_configs):
-        # Add auto-generated header
-        final_config = add_heading(seeded_config, generator_path)
-        
         output_path = os.path.join("./configs", relpath, f"{model}_run_{idx}.py")
         with open(output_path, mode='w') as f:
             f.write(final_config)
@@ -233,11 +207,7 @@ def generate_training_configs(dataset: str, model: str) -> None:
 
 def main(dataset: str, model: str) -> None:
     """Generate config file for a specific dataset and model combination."""
-    
-    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
-        generate_eval_configs(dataset, model)
-    else:
-        generate_training_configs(dataset, model)
+    generate_configs(dataset, model)
 
 
 if __name__ == "__main__":
