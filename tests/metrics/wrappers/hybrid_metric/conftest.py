@@ -1,5 +1,4 @@
 import pytest
-import torch
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
