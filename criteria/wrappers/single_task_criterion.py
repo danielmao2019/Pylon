@@ -33,9 +33,9 @@ class SingleTaskCriterion(BaseCriterion):
         r"""This method stacks loss trajectory across all data points in buffer.
         Thread-safe version that works with async operations.
         """
+        assert self.use_buffer and hasattr(self, 'buffer') and self.buffer is not None
         self._buffer_queue.join()  # Wait for all items to be processed
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
-        assert self.use_buffer and hasattr(self, 'buffer') and self.buffer is not None
         assert len(self.buffer) != 0
 
         # summarize losses

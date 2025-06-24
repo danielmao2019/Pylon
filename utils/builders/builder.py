@@ -4,7 +4,7 @@ import easydict as edict
 import torch
 
 
-def deepcopy_rec(obj: Any) -> Any:
+def semideepcopy(obj: Any) -> Any:
     """A version of deepcopy that preserves PyTorch parameters.
 
     Args:
@@ -16,11 +16,11 @@ def deepcopy_rec(obj: Any) -> Any:
     if isinstance(obj, (torch.nn.Parameter, edict.EasyDict)):
         return obj
     elif isinstance(obj, dict):
-        return {key: deepcopy_rec(value) for key, value in obj.items()}
+        return {key: semideepcopy(value) for key, value in obj.items()}
     elif isinstance(obj, list):
-        return [deepcopy_rec(item) for item in obj]
+        return [semideepcopy(item) for item in obj]
     elif isinstance(obj, tuple):
-        return tuple(deepcopy_rec(item) for item in obj)
+        return tuple(semideepcopy(item) for item in obj)
     else:
         return deepcopy(obj)
 
@@ -36,7 +36,7 @@ def build_from_config(config: Any, **kwargs) -> Any:
         return config
     if isinstance(config, dict) and config.keys() == {'class', 'args'}:
         # Create a deep copy to avoid modifying input, but preserve parameters
-        config_copy = deepcopy_rec(config)
+        config_copy = semideepcopy(config)
 
         # merge args
         assert type(kwargs) == dict, f"{type(kwargs)=}"
