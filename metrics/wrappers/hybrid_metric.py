@@ -23,12 +23,12 @@ class HybridMetric(SingleTaskMetric):
         **kwargs,
     ) -> None:
         super(HybridMetric, self).__init__(**kwargs)
-        # Build metrics as submodules
+        # Build metrics
         assert metrics_cfg is not None and len(metrics_cfg) > 0
         # Disable buffer for all component metrics
         for cfg in metrics_cfg:
             cfg['args']['use_buffer'] = False
-        self.metrics = torch.nn.ModuleList([build_from_config(cfg) for cfg in metrics_cfg])
+        self.metrics = [build_from_config(cfg) for cfg in metrics_cfg]
         assert all(isinstance(metric, BaseMetric) for metric in self.metrics)
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
