@@ -55,7 +55,7 @@ class BaseMetric(ABC):
         """
         if self.use_buffer:
             assert hasattr(self, 'buffer')
-            assert isinstance(self.buffer, list)
+            assert isinstance(self.buffer, dict)
             self._buffer_queue.put({'data': data, 'idx': idx})
         else:
             assert not hasattr(self, 'buffer')
