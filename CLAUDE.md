@@ -543,3 +543,4 @@ def _call_single_with_generator(self, *args, generator):
 - Emphasizes Python-native objects and inheritance for extensibility
 - Dictionary-as-tensor operations for flexible nested data structures
 - Async logging with thread-safe buffered writes
+- **NEVER use PYTHONPATH environment variable** when running commands - the project structure handles imports correctly without it
