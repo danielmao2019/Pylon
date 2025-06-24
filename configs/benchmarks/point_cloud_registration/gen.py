@@ -128,7 +128,10 @@ def build_training_config(dataset: str, model: str):
                 # For kitti, use general data config since no model-specific ones exist
                 from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
-            else:
+            elif dataset_name == 'synth_pcr':
+                from configs.common.datasets.point_cloud_registration.train.geotransformer_synth_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.geotransformer_synth_pcr_data_cfg import data_cfg as val_data_cfg
+            else:  # real_pcr
                 from configs.common.datasets.point_cloud_registration.train.geotransformer_real_pcr_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.geotransformer_real_pcr_data_cfg import data_cfg as val_data_cfg
 
@@ -141,7 +144,10 @@ def build_training_config(dataset: str, model: str):
                 # For kitti, use general data config since no model-specific ones exist
                 from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
-            else:
+            elif dataset_name == 'synth_pcr':
+                from configs.common.datasets.point_cloud_registration.train.overlappredator_synth_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.overlappredator_synth_pcr_data_cfg import data_cfg as val_data_cfg
+            else:  # real_pcr
                 from configs.common.datasets.point_cloud_registration.train.overlappredator_real_pcr_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.overlappredator_real_pcr_data_cfg import data_cfg as val_data_cfg
 
