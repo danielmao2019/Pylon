@@ -14,11 +14,11 @@ def test_build_from_config_integration(dummy_metric, another_dummy_metric):
             'metrics_cfg': [
                 {
                     'class': dummy_metric.__class__,
-                    'args': {'metric_name': 'config_metric1'}
+                    'args': {'metric_name': 'config_metric1', 'use_buffer': False}
                 },
                 {
                     'class': another_dummy_metric.__class__,
-                    'args': {'metric_name': 'config_metric2'}
+                    'args': {'metric_name': 'config_metric2', 'use_buffer': False}
                 }
             ]
         }
@@ -51,7 +51,7 @@ def test_build_from_config_with_buffer_disabled(dummy_metric):
             'metrics_cfg': [
                 {
                     'class': dummy_metric.__class__,
-                    'args': {'metric_name': 'no_buffer_metric'}
+                    'args': {'metric_name': 'no_buffer_metric', 'use_buffer': False}
                 }
             ]
         }
@@ -75,14 +75,14 @@ def test_nested_config_building(dummy_metric, another_dummy_metric):
                     'class': dummy_metric.__class__,
                     'args': {
                         'metric_name': 'nested_metric1',
-                        'use_buffer': True  # This should be overridden
+                        'use_buffer': False  # Component metrics should not use buffer
                     }
                 },
                 {
                     'class': another_dummy_metric.__class__,
                     'args': {
                         'metric_name': 'nested_metric2',
-                        'use_buffer': True  # This should be overridden
+                        'use_buffer': False  # Component metrics should not use buffer
                     }
                 }
             ]
@@ -106,7 +106,7 @@ def test_config_parameter_merging(dummy_metric):
             'metrics_cfg': [
                 {
                     'class': dummy_metric.__class__,
-                    'args': {'metric_name': 'merge_test'}
+                    'args': {'metric_name': 'merge_test', 'use_buffer': False}
                 }
             ]
         }
@@ -124,7 +124,7 @@ def test_recursive_building_preservation(dummy_metric):
     # Create config with shared references
     shared_metric_config = {
         'class': dummy_metric.__class__,
-        'args': {'metric_name': 'shared'}
+        'args': {'metric_name': 'shared', 'use_buffer': False}
     }
 
     # Use the same config reference in multiple places

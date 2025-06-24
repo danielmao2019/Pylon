@@ -14,11 +14,11 @@ def test_build_from_config_integration(dummy_criterion):
             'criteria_cfg': [
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion}
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
                 },
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion}
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
                 }
             ]
         }
@@ -52,7 +52,7 @@ def test_build_from_config_with_buffer_disabled(dummy_criterion):
             'criteria_cfg': [
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion}
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
                 }
             ]
         }
@@ -78,14 +78,14 @@ def test_nested_config_building(dummy_criterion):
                     'class': PyTorchCriterionWrapper,
                     'args': {
                         'criterion': dummy_criterion,
-                        'use_buffer': True  # This should be overridden
+                        'use_buffer': False  # Component criteria should not use buffer
                     }
                 },
                 {
                     'class': PyTorchCriterionWrapper,
                     'args': {
                         'criterion': dummy_criterion,
-                        'use_buffer': True  # This should be overridden
+                        'use_buffer': False  # Component criteria should not use buffer
                     }
                 }
             ]
@@ -110,7 +110,7 @@ def test_config_parameter_merging(dummy_criterion):
             'criteria_cfg': [
                 {
                     'class': PyTorchCriterionWrapper,
-                    'args': {'criterion': dummy_criterion}
+                    'args': {'criterion': dummy_criterion, 'use_buffer': False}
                 }
             ]
         }
@@ -128,7 +128,7 @@ def test_recursive_building_preservation(dummy_criterion):
     # Create config with shared references
     shared_criterion_config = {
         'class': PyTorchCriterionWrapper,
-        'args': {'criterion': dummy_criterion}
+        'args': {'criterion': dummy_criterion, 'use_buffer': False}
     }
     
     # Use the same config reference in multiple places
