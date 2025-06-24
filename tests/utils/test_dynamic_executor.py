@@ -33,8 +33,8 @@ def error_function(x: int) -> int:
     return x * 3
 
 
-def test_adaptive_executor_basic_equivalency():
-    """Test that adaptive executor produces same results as sequential execution."""
+def test_dynamic_executor_basic_equivalency():
+    """Test that dynamic executor produces same results as sequential execution."""
     inputs = list(range(10))
 
     # Sequential execution (reference)
@@ -42,18 +42,18 @@ def test_adaptive_executor_basic_equivalency():
     for x in inputs:
         sequential_results.append(simple_function(x))
 
-    # Adaptive executor execution
+    # Dynamic executor execution
     executor = create_dynamic_executor(max_workers=4, min_workers=1)
     with executor:
-        adaptive_results = list(executor.map(simple_function, inputs))
+        dynamic_results = list(executor.map(simple_function, inputs))
 
     # Results should be identical (order-preserving)
-    assert adaptive_results == sequential_results
-    assert len(adaptive_results) == len(sequential_results)
-    assert all(a == b for a, b in zip(adaptive_results, sequential_results))
+    assert dynamic_results == sequential_results
+    assert len(dynamic_results) == len(sequential_results)
+    assert all(a == b for a, b in zip(dynamic_results, sequential_results))
 
 
-def test_adaptive_executor_complex_equivalency():
+def test_dynamic_executor_complex_equivalency():
     """Test equivalency with more complex computation function."""
     inputs = list(range(5))
 
@@ -65,18 +65,18 @@ def test_adaptive_executor_complex_equivalency():
     # Adaptive executor execution
     executor = create_dynamic_executor(max_workers=3, min_workers=1)
     with executor:
-        adaptive_results = list(executor.map(computation_function, inputs))
+        dynamic_results = list(executor.map(computation_function, inputs))
 
     # Check that inputs and core computations match
-    assert len(adaptive_results) == len(sequential_results)
-    for i, (seq_result, adapt_result) in enumerate(zip(sequential_results, adaptive_results)):
+    assert len(dynamic_results) == len(sequential_results)
+    for i, (seq_result, adapt_result) in enumerate(zip(sequential_results, dynamic_results)):
         assert seq_result['input'] == adapt_result['input'] == i
         assert seq_result['squared'] == adapt_result['squared'] == i * i
         # Results should be very close (floating point computation)
         assert abs(seq_result['result'] - adapt_result['result']) < 1e-10
 
 
-def test_adaptive_executor_empty_input():
+def test_dynamic_executor_empty_input():
     """Test behavior with empty input list."""
     inputs = []
 
@@ -86,12 +86,12 @@ def test_adaptive_executor_empty_input():
     # Adaptive executor execution
     executor = create_dynamic_executor(max_workers=2)
     with executor:
-        adaptive_results = list(executor.map(simple_function, inputs))
+        dynamic_results = list(executor.map(simple_function, inputs))
 
-    assert adaptive_results == sequential_results == []
+    assert dynamic_results == sequential_results == []
 
 
-def test_adaptive_executor_single_input():
+def test_dynamic_executor_single_input():
     """Test behavior with single input."""
     inputs = [42]
 
@@ -101,13 +101,13 @@ def test_adaptive_executor_single_input():
     # Adaptive executor execution
     executor = create_dynamic_executor(max_workers=4)
     with executor:
-        adaptive_results = list(executor.map(simple_function, inputs))
+        dynamic_results = list(executor.map(simple_function, inputs))
 
-    assert adaptive_results == sequential_results == [84]
+    assert dynamic_results == sequential_results == [84]
 
 
-def test_adaptive_executor_error_handling():
-    """Test that adaptive executor handles errors the same way as sequential execution."""
+def test_dynamic_executor_error_handling():
+    """Test that dynamic executor handles errors the same way as sequential execution."""
     inputs = [1, 2, 3, 4, 5, 6]  # input 5 will cause an error
 
     # Sequential execution - should raise ValueError
@@ -122,7 +122,7 @@ def test_adaptive_executor_error_handling():
             list(executor.map(error_function, inputs))
 
 
-def test_adaptive_executor_result_ordering():
+def test_dynamic_executor_result_ordering():
     """Test that results maintain correct ordering even with parallel execution."""
     inputs = list(range(20))
     expected_results = [x * 2 for x in inputs]
@@ -131,15 +131,15 @@ def test_adaptive_executor_result_ordering():
     for _ in range(3):
         executor = create_dynamic_executor(max_workers=5)
         with executor:
-            adaptive_results = list(executor.map(simple_function, inputs))
+            dynamic_results = list(executor.map(simple_function, inputs))
 
-        assert adaptive_results == expected_results
+        assert dynamic_results == expected_results
         # Verify each result is in the correct position
-        for i, result in enumerate(adaptive_results):
+        for i, result in enumerate(dynamic_results):
             assert result == inputs[i] * 2
 
 
-def test_adaptive_executor_deterministic_computation():
+def test_dynamic_executor_deterministic_computation():
     """Test that deterministic computations produce identical results."""
     inputs = [10, 20, 30]
 
@@ -158,7 +158,7 @@ def test_adaptive_executor_deterministic_computation():
             assert abs(all_results[run_idx][i]['result'] - first_run_result) < 1e-10
 
 
-def test_adaptive_executor_submit_method():
+def test_dynamic_executor_submit_method():
     """Test the submit method works equivalently to map."""
     inputs = [1, 2, 3, 4, 5]
 
@@ -169,9 +169,9 @@ def test_adaptive_executor_submit_method():
     executor = create_dynamic_executor(max_workers=3)
     with executor:
         futures = [executor.submit(simple_function, x) for x in inputs]
-        adaptive_results = [f.result() for f in futures]
+        dynamic_results = [f.result() for f in futures]
 
-    assert adaptive_results == sequential_results
+    assert dynamic_results == sequential_results
 
 
 def test_dynamic_thread_pool_executor_direct():
@@ -200,7 +200,7 @@ def test_dynamic_executor_worker_count_behavior():
 
 
 @pytest.mark.parametrize("max_workers", [1, 2, 4, 8])
-def test_adaptive_executor_different_worker_counts(max_workers: int):
+def test_dynamic_executor_different_worker_counts(max_workers: int):
     """Test that different worker counts all produce equivalent results."""
     inputs = list(range(10))
     expected = [x * 2 for x in inputs]
@@ -212,7 +212,7 @@ def test_adaptive_executor_different_worker_counts(max_workers: int):
     assert results == expected
 
 
-def test_adaptive_executor_large_dataset():
+def test_dynamic_executor_large_dataset():
     """Test equivalency with larger dataset to stress test the system."""
     inputs = list(range(50))
 
@@ -222,13 +222,13 @@ def test_adaptive_executor_large_dataset():
     # Adaptive executor execution
     executor = create_dynamic_executor(max_workers=6)
     with executor:
-        adaptive_results = list(executor.map(simple_function, inputs))
+        dynamic_results = list(executor.map(simple_function, inputs))
 
-    assert len(adaptive_results) == len(sequential_results) == 50
-    assert adaptive_results == sequential_results
+    assert len(dynamic_results) == len(sequential_results) == 50
+    assert dynamic_results == sequential_results
 
 
-def test_adaptive_executor_context_manager():
+def test_dynamic_executor_context_manager():
     """Test that context manager properly handles cleanup."""
     inputs = [1, 2, 3]
 
