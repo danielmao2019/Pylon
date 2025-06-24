@@ -390,7 +390,7 @@ class DynamicThreadPoolExecutor:
             return len(self.workers)
 
 
-def create_adaptive_executor(
+def create_dynamic_executor(
     max_workers: Optional[int] = None,
     min_workers: int = 1,
     **kwargs

@@ -3,7 +3,7 @@ import pytest
 import time
 import numpy as np
 import torch
-from utils.adaptive_executor import create_adaptive_executor, AdaptiveThreadPoolExecutor
+from utils.dynamic_executor import create_dynamic_executor, DynamicThreadPoolExecutor
 
 
 def simple_function(x: int) -> int:
@@ -43,7 +43,7 @@ def test_adaptive_executor_basic_equivalency():
         sequential_results.append(simple_function(x))
 
     # Adaptive executor execution
-    executor = create_adaptive_executor(max_workers=4, min_workers=1)
+    executor = create_dynamic_executor(max_workers=4, min_workers=1)
     with executor:
         adaptive_results = list(executor.map(simple_function, inputs))
 
@@ -63,7 +63,7 @@ def test_adaptive_executor_complex_equivalency():
         sequential_results.append(computation_function(x))
 
     # Adaptive executor execution
-    executor = create_adaptive_executor(max_workers=3, min_workers=1)
+    executor = create_dynamic_executor(max_workers=3, min_workers=1)
     with executor:
         adaptive_results = list(executor.map(computation_function, inputs))
 
@@ -84,7 +84,7 @@ def test_adaptive_executor_empty_input():
     sequential_results = [simple_function(x) for x in inputs]
 
     # Adaptive executor execution
-    executor = create_adaptive_executor(max_workers=2)
+    executor = create_dynamic_executor(max_workers=2)
     with executor:
         adaptive_results = list(executor.map(simple_function, inputs))
 
@@ -99,7 +99,7 @@ def test_adaptive_executor_single_input():
     sequential_results = [simple_function(x) for x in inputs]
 
     # Adaptive executor execution
-    executor = create_adaptive_executor(max_workers=4)
+    executor = create_dynamic_executor(max_workers=4)
     with executor:
         adaptive_results = list(executor.map(simple_function, inputs))
 
@@ -116,7 +116,7 @@ def test_adaptive_executor_error_handling():
             error_function(x)
 
     # Adaptive executor execution - should also raise ValueError
-    executor = create_adaptive_executor(max_workers=3)
+    executor = create_dynamic_executor(max_workers=3)
     with executor:
         with pytest.raises(ValueError):
             list(executor.map(error_function, inputs))
@@ -129,7 +129,7 @@ def test_adaptive_executor_result_ordering():
 
     # Run multiple times to catch any ordering issues
     for _ in range(3):
-        executor = create_adaptive_executor(max_workers=5)
+        executor = create_dynamic_executor(max_workers=5)
         with executor:
             adaptive_results = list(executor.map(simple_function, inputs))
 
@@ -146,7 +146,7 @@ def test_adaptive_executor_deterministic_computation():
     # Run the same computation multiple times
     all_results = []
     for _ in range(3):
-        executor = create_adaptive_executor(max_workers=2)
+        executor = create_dynamic_executor(max_workers=2)
         with executor:
             results = list(executor.map(computation_function, inputs))
         all_results.append(results)
@@ -166,7 +166,7 @@ def test_adaptive_executor_submit_method():
     sequential_results = [simple_function(x) for x in inputs]
 
     # Adaptive executor with submit
-    executor = create_adaptive_executor(max_workers=3)
+    executor = create_dynamic_executor(max_workers=3)
     with executor:
         futures = [executor.submit(simple_function, x) for x in inputs]
         adaptive_results = [f.result() for f in futures]
@@ -174,28 +174,29 @@ def test_adaptive_executor_submit_method():
     assert adaptive_results == sequential_results
 
 
-def test_adaptive_thread_pool_executor_direct():
-    """Test AdaptiveThreadPoolExecutor class directly."""
+def test_dynamic_thread_pool_executor_direct():
+    """Test DynamicThreadPoolExecutor class directly."""
     inputs = [1, 2, 3, 4]
     expected = [2, 4, 6, 8]
 
     # Test with direct class usage
-    with AdaptiveThreadPoolExecutor(max_workers=2, min_workers=1) as executor:
+    with DynamicThreadPoolExecutor(max_workers=2, min_workers=1) as executor:
         results = list(executor.map(simple_function, inputs))
 
     assert results == expected
 
 
-def test_adaptive_executor_worker_count_behavior():
-    """Test that adaptive executor respects worker count constraints."""
-    executor_instance = AdaptiveThreadPoolExecutor(max_workers=4, min_workers=1)
+def test_dynamic_executor_worker_count_behavior():
+    """Test that dynamic executor respects worker count constraints."""
+    executor_instance = DynamicThreadPoolExecutor(max_workers=4, min_workers=1)
 
     # Worker count should be within bounds
-    optimal_count = executor_instance.get_optimal_worker_count()
-    assert 1 <= optimal_count <= 4
+    with executor_instance._lock:
+        current_count = len(executor_instance.workers)
+    assert 1 <= current_count <= 4
 
     # Initial count should be reasonable (not more than max_workers)
-    assert optimal_count <= 4
+    assert current_count <= 4
 
 
 @pytest.mark.parametrize("max_workers", [1, 2, 4, 8])
@@ -204,7 +205,7 @@ def test_adaptive_executor_different_worker_counts(max_workers: int):
     inputs = list(range(10))
     expected = [x * 2 for x in inputs]
 
-    executor = create_adaptive_executor(max_workers=max_workers)
+    executor = create_dynamic_executor(max_workers=max_workers)
     with executor:
         results = list(executor.map(simple_function, inputs))
 
@@ -219,7 +220,7 @@ def test_adaptive_executor_large_dataset():
     sequential_results = [simple_function(x) for x in inputs]
 
     # Adaptive executor execution
-    executor = create_adaptive_executor(max_workers=6)
+    executor = create_dynamic_executor(max_workers=6)
     with executor:
         adaptive_results = list(executor.map(simple_function, inputs))
 
@@ -231,7 +232,7 @@ def test_adaptive_executor_context_manager():
     """Test that context manager properly handles cleanup."""
     inputs = [1, 2, 3]
 
-    with create_adaptive_executor(max_workers=2) as executor:
+    with create_dynamic_executor(max_workers=2) as executor:
         results = list(executor.map(simple_function, inputs))
 
     assert results == [2, 4, 6]
