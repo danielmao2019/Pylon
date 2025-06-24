@@ -1,4 +1,4 @@
-from typing import List, Dict, Set, Tuple, NamedTuple, Any
+from typing import List, Dict, Set, Tuple, NamedTuple, Any, Literal
 import importlib.util
 import os
 import json
@@ -20,17 +20,46 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
     raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
 
 
+def detect_runner_type(log_dir: str) -> Literal['trainer', 'evaluator']:
+    """Detect whether log directory contains BaseTrainer or BaseEvaluator results.
+    
+    Args:
+        log_dir: Path to log directory
+        
+    Returns:
+        'trainer' if directory contains epoch folders with validation_scores.json
+        'evaluator' if directory contains evaluation_scores.json directly
+        
+    Raises:
+        ValueError: If neither pattern is detected
+    """
+    # Check for BaseEvaluator pattern: evaluation_scores.json directly in log_dir
+    evaluation_scores_path = os.path.join(log_dir, "evaluation_scores.json")
+    if os.path.exists(evaluation_scores_path):
+        return 'evaluator'
+    
+    # Check for BaseTrainer pattern: epoch folders with validation_scores.json
+    epoch_0_dir = os.path.join(log_dir, "epoch_0")
+    validation_scores_path = os.path.join(epoch_0_dir, "validation_scores.json")
+    if os.path.exists(epoch_0_dir) and os.path.exists(validation_scores_path):
+        return 'trainer'
+    
+    raise ValueError(f"Unable to detect log directory runner type for {log_dir}. "
+                   f"Expected either 'evaluation_scores.json' in root or 'epoch_*/validation_scores.json' structure.")
+
+
 class LogDirInfo(NamedTuple):
     """Information extracted from a log directory."""
     num_epochs: int
     metric_names: Set[str]
     num_datapoints: int  # Number of datapoints in the dataset
-    score_map: np.ndarray  # Shape: (N, C, H, W) where N=epochs, C=metrics, H=W=sqrt(num_datapoints)
-    aggregated_scores: np.ndarray  # Shape: (N, C) where N=epochs, C=metrics
+    score_map: np.ndarray  # Shape: (N, C, H, W) for trainer or (C, H, W) for evaluator
+    aggregated_scores: np.ndarray  # Shape: (N, C) for trainer or (C,) for evaluator
     dataset_class: str
     dataset_type: DatasetType  # 2d_change_detection, 3d_change_detection, point_cloud_registration, etc.
     dataset_cfg: Dict[str, Any]
     dataloader_cfg: Dict[str, Any]
+    runner_type: Literal['trainer', 'evaluator']  # Whether results come from BaseTrainer or BaseEvaluator
 
 
 def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray, float]:
@@ -151,6 +180,52 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], int, np.ndarray, n
         score_map_epoch_metric[2] for score_map_epoch_metric in all_score_maps_epoch
     ])
     return metric_names, num_datapoints, score_map_epoch, aggregated_scores_epoch
+
+
+def get_evaluator_score_map(scores_file: str) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
+    """Get score map for BaseEvaluator results (single evaluation).
+    
+    Args:
+        scores_file: Path to evaluation_scores.json file
+        
+    Returns:
+        Tuple of (metric_names, num_datapoints, score_map, aggregated_scores)
+        score_map has shape (C, H, W) where C=metrics, H=W=sqrt(num_datapoints)
+        aggregated_scores has shape (C,) where C=metrics
+    """
+    with open(scores_file, "r") as f:
+        scores = json.load(f)
+    assert isinstance(scores, dict), f"Invalid scores format in {scores_file}"
+    assert scores.keys() == {'aggregated', 'per_datapoint'}, f"Invalid keys in {scores_file}"
+
+    metric_names = get_metric_names_aggregated(scores['aggregated'])
+    assert metric_names == get_metric_names_per_datapoint(scores['per_datapoint'])
+
+    all_score_maps_metric = [
+        get_score_map_epoch_metric(scores_file, metric_name)
+        for metric_name in metric_names
+    ]
+
+    # Validate that all metrics have the same number of datapoints
+    num_datapoints = all_score_maps_metric[0][0]
+    assert all(
+        score_map_metric[0] == num_datapoints
+        for score_map_metric in all_score_maps_metric
+    ), f"""{list(zip(
+        metric_names,
+        [score_map_metric[0] for score_map_metric in all_score_maps_metric],
+    ))}"""
+
+    # Create score_map with shape (C, H, W) instead of (N, C, H, W)
+    score_map = np.stack([
+        score_map_metric[1] for score_map_metric in all_score_maps_metric
+    ], axis=0)
+    # Create aggregated_scores with shape (C,) instead of (N, C)
+    aggregated_scores = np.array([
+        score_map_metric[2] for score_map_metric in all_score_maps_metric
+    ])
+    
+    return metric_names, num_datapoints, score_map, aggregated_scores
 
 
 def get_epoch_dirs(log_dir: str) -> List[str]:
@@ -288,14 +363,26 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         with open(cache_path, 'rb') as f:
             return pickle.load(f)
 
-    # Extract information from source files
-    epoch_dirs = get_epoch_dirs(log_dir)
-    metric_names, num_datapoints, score_map, aggregated_scores = get_score_map(epoch_dirs)
+    # Detect runner type and extract information accordingly
+    runner_type = detect_runner_type(log_dir)
     dataset_class, dataset_type, dataset_cfg, dataloader_cfg = get_data_info(log_dir)
+    
+    if runner_type == 'trainer':
+        # BaseTrainer results: load from epoch folders
+        epoch_dirs = get_epoch_dirs(log_dir)
+        metric_names, num_datapoints, score_map, aggregated_scores = get_score_map(epoch_dirs)
+        num_epochs = len(epoch_dirs)
+    elif runner_type == 'evaluator':
+        # BaseEvaluator results: load from evaluation_scores.json
+        scores_file = os.path.join(log_dir, "evaluation_scores.json")
+        metric_names, num_datapoints, score_map, aggregated_scores = get_evaluator_score_map(scores_file)
+        num_epochs = 1  # BaseEvaluator produces only one evaluation result
+    else:
+        raise ValueError(f"Unknown runner type: {runner_type}")
 
     # Create LogDirInfo object
     info = LogDirInfo(
-        num_epochs=len(epoch_dirs),
+        num_epochs=num_epochs,
         metric_names=metric_names,
         num_datapoints=num_datapoints,
         score_map=score_map,
@@ -304,6 +391,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         dataset_type=dataset_type,
         dataset_cfg=dataset_cfg,
         dataloader_cfg=dataloader_cfg,
+        runner_type=runner_type,
     )
 
     # Save to cache

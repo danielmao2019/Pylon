@@ -95,9 +95,18 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         if metric_name is None:
             raise PreventUpdate
 
-        # Get scores for all epochs from all runs
+        # Get scores for all epochs from all runs, handling different shapes
         metric_idx = metric_names.index(metric_name)
-        epoch_scores = [info.aggregated_scores[:, metric_idx] for info in log_dir_infos.values()]
+        epoch_scores = []
+        for info in log_dir_infos.values():
+            if info.runner_type == 'trainer':
+                # For trainer: aggregated_scores has shape (N, C)
+                epoch_scores.append(info.aggregated_scores[:, metric_idx])
+            elif info.runner_type == 'evaluator':
+                # For evaluator: aggregated_scores has shape (C,), replicate to show as single point
+                epoch_scores.append(np.array([info.aggregated_scores[metric_idx]]))
+            else:
+                raise ValueError(f"Unknown runner type: {info.runner_type}")
 
         # Create figure
         fig = create_aggregated_scores_plot(epoch_scores, list(log_dir_infos.keys()), metric_name=metric_name)
@@ -114,10 +123,17 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
             raise PreventUpdate
 
         metric_idx = metric_names.index(metric_name)
-        score_maps = [
-            info.score_map[epoch, metric_idx]
-            for info in log_dir_infos.values()
-        ]
+        score_maps = []
+        for info in log_dir_infos.values():
+            if info.runner_type == 'trainer':
+                # For trainer: use epoch from slider, score_map has shape (N, C, H, W)
+                score_maps.append(info.score_map[epoch, metric_idx])
+            elif info.runner_type == 'evaluator':
+                # For evaluator: ignore epoch slider, score_map has shape (C, H, W)
+                score_maps.append(info.score_map[metric_idx])
+            else:
+                raise ValueError(f"Unknown runner type: {info.runner_type}")
+        
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
         overlaid_score_map = create_overlaid_score_map(score_maps)
         button_grid = create_button_grid(
@@ -146,11 +162,17 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
 
         metric_idx = metric_names.index(metric_name)
 
-        # Get all score maps for this epoch and metric
-        score_maps = [
-            info.score_map[epoch, metric_idx]
-            for info in log_dir_infos.values()
-        ]
+        # Get all score maps for this epoch and metric, handling different shapes
+        score_maps = []
+        for info in log_dir_infos.values():
+            if info.runner_type == 'trainer':
+                # For trainer: use epoch from slider, score_map has shape (N, C, H, W)
+                score_maps.append(info.score_map[epoch, metric_idx])
+            elif info.runner_type == 'evaluator':
+                # For evaluator: ignore epoch slider, score_map has shape (C, H, W)
+                score_maps.append(info.score_map[metric_idx])
+            else:
+                raise ValueError(f"Unknown runner type: {info.runner_type}")
 
         # Calculate global min/max scores across all individual maps
         min_score = min(np.nanmin(score_map) for score_map in score_maps)
