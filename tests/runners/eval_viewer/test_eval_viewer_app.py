@@ -96,7 +96,14 @@ def create_trainer_log_dir(base_dir: str, run_name: str, num_epochs: int = 5, nu
     # Create config.json
     config = {
         'model': {'class': 'Model1', 'args': {}},
-        'val_dataset': {'class': 'Dataset1', 'args': {}},
+        'val_dataset': {
+            'class': 'COCOStuff164KDataset',
+            'args': {
+                'data_root': './data/datasets/soft_links/COCOStuff164K',
+                'split': 'val2017',
+                'semantic_granularity': 'coarse',
+            }
+        },
         'val_dataloader': {'class': 'DataLoader', 'args': {'batch_size': 8}},
         'metric': {'class': 'TestMetric', 'args': {}},
         'epochs': num_epochs,
@@ -159,7 +166,14 @@ def create_evaluator_log_dir(base_dir: str, run_name: str, num_datapoints: int =
     # Create config.json
     config = {
         'model': {'class': 'Model1', 'args': {}},
-        'eval_dataset': {'class': 'Dataset1', 'args': {}},
+        'eval_dataset': {
+            'class': 'COCOStuff164KDataset',
+            'args': {
+                'data_root': './data/datasets/soft_links/COCOStuff164K',
+                'split': 'val2017',
+                'semantic_granularity': 'coarse',
+            }
+        },
         'eval_dataloader': {'class': 'DataLoader', 'args': {'batch_size': 8}},
         'metric': {'class': 'TestMetric', 'args': {}},
         'seed': 42
@@ -184,25 +198,26 @@ def create_config_structure(base_dir: str) -> None:
     Args:
         base_dir: Base directory to create the config structure in
     """
-    # Create configs/common/datasets/change_detection/val/
-    config_dir = os.path.join(base_dir, "configs", "common", "datasets", "change_detection", "val")
+    # Create configs/common/datasets/semantic_segmentation/val/
+    config_dir = os.path.join(base_dir, "configs", "common", "datasets", "semantic_segmentation", "val")
     os.makedirs(config_dir, exist_ok=True)
     
-    # Create dataset1_data_cfg.py
-    data_cfg_content = '''"""Configuration for Dataset1 validation."""
+    # Create coco_stuff_164k_data_cfg.py
+    data_cfg_content = '''"""Configuration for COCOStuff164K validation."""
 
 data_cfg = {
     'val_dataset': {
-        'class': 'Dataset1',
+        'class': 'COCOStuff164KDataset',
         'args': {
-            'split': 'val',
-            'transforms': None
+            'data_root': './data/datasets/soft_links/COCOStuff164K',
+            'split': 'val2017',
+            'semantic_granularity': 'coarse',
         }
     }
 }
 '''
     
-    with open(os.path.join(config_dir, "dataset1_data_cfg.py"), 'w') as f:
+    with open(os.path.join(config_dir, "coco_stuff_164k_data_cfg.py"), 'w') as f:
         f.write(data_cfg_content)
 
 
@@ -216,7 +231,7 @@ def create_dummy_log_dirs(temp_dir: str) -> List[str]:
         List of paths to the created log directories
     """
     # Create base logs directory structure
-    logs_dir = os.path.join(temp_dir, "logs", "benchmarks", "change_detection", "dataset1")
+    logs_dir = os.path.join(temp_dir, "logs", "benchmarks", "semantic_segmentation", "coco_stuff_164k")
     os.makedirs(logs_dir, exist_ok=True)
     
     # Create config structure (required for dataset type detection)
