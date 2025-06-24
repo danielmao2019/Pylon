@@ -3,21 +3,22 @@ from abc import ABC, abstractmethod
 import copy
 import os
 import glob
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import time
 import json
 import jsbeautifier
 import torch
 import threading
 import criteria
-import utils
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.builders import build_from_config
+from utils.determinism import set_determinism, set_seed
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
 from utils.monitor.system_monitor import SystemMonitor
-from utils.monitor.adaptive_executor import create_adaptive_executor
+from utils.adaptive_executor import create_adaptive_executor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
+from utils.logging import echo_page_break, log_losses, log_scores
 
 
 class BaseTrainer(ABC):
@@ -68,11 +69,11 @@ class BaseTrainer(ABC):
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
-        utils.logging.echo_page_break(filepath=git_log, heading="git branch -a")
+        echo_page_break(filepath=git_log, heading="git branch -a")
         os.system(f"git branch -a >> {git_log}")
-        utils.logging.echo_page_break(filepath=git_log, heading="git status")
+        echo_page_break(filepath=git_log, heading="git status")
         os.system(f"git status >> {git_log}")
-        utils.logging.echo_page_break(filepath=git_log, heading="git log")
+        echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
 
         # training log
@@ -95,7 +96,7 @@ class BaseTrainer(ABC):
 
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
-        utils.determinism.set_determinism()
+        set_determinism()
 
         # Get training seeds
         assert 'train_seeds' in self.config.keys()
@@ -123,7 +124,7 @@ class BaseTrainer(ABC):
         assert 'init_seed' in self.config.keys()
         init_seed = self.config['init_seed']
         assert type(init_seed) == int, f"{type(init_seed)=}"
-        utils.determinism.set_seed(seed=init_seed)
+        set_seed(seed=init_seed)
 
     @property
     def expected_files(self) -> List[str]:
@@ -254,7 +255,7 @@ class BaseTrainer(ABC):
 
         # update logger
         self.logger.update_buffer({"learning_rate": self.scheduler.get_last_lr()})
-        self.logger.update_buffer(utils.logging.log_losses(losses=dp['losses']))
+        self.logger.update_buffer(log_losses(losses=dp['losses']))
 
         # update states
         self._set_gradients_(dp)
@@ -281,7 +282,7 @@ class BaseTrainer(ABC):
         dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
 
         # Log scores
-        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
+        self.logger.update_buffer(log_scores(scores=dp['scores']))
 
         # Log system stats (CPU + GPU)
         self.system_monitor.log_stats(self.logger)
@@ -593,7 +594,7 @@ class BaseTrainer(ABC):
         self.logger.page_break()
         # training and validation epochs
         for idx in range(start_epoch, self.tot_epochs):
-            utils.determinism.set_seed(seed=self.train_seeds[idx])
+            set_seed(seed=self.train_seeds[idx])
             self._train_epoch_()
             self._val_epoch_()
             self.logger.page_break()

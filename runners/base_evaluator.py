@@ -6,12 +6,11 @@ import time
 import json
 import jsbeautifier
 import torch
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
+from concurrent.futures import as_completed
 from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
 from utils.monitor.system_monitor import SystemMonitor
-from utils.monitor.adaptive_executor import create_adaptive_executor
+from utils.adaptive_executor import create_adaptive_executor
 from utils.logging.text_logger import TextLogger
 from utils.logging import echo_page_break, log_scores
 
