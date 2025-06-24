@@ -66,7 +66,8 @@ def test_compute_loss_sum(criterion, sample_tensor):
     assert isinstance(loss, torch.Tensor)
     assert loss.ndim == 0
 
-    # Check that loss is in the buffer
+    # Wait for buffer to be processed and check that loss is in the buffer
+    criterion._buffer_queue.join()
     assert len(criterion.buffer) == 1
     assert criterion.buffer[0].equal(loss.detach().cpu())
 
