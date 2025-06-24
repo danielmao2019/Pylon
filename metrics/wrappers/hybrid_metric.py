@@ -3,6 +3,7 @@ import torch
 from metrics.base_metric import BaseMetric
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 from utils.builders import build_from_config
+from utils.builders.builder import semideepcopy
 
 
 class HybridMetric(SingleTaskMetric):
@@ -25,11 +26,25 @@ class HybridMetric(SingleTaskMetric):
         super(HybridMetric, self).__init__(**kwargs)
         # Build metrics
         assert metrics_cfg is not None and len(metrics_cfg) > 0
-        # Disable buffer for all component metrics
+        # Disable buffer for all component metrics by modifying config before building
+        modified_configs = []
         for cfg in metrics_cfg:
-            cfg['args']['use_buffer'] = False
-        self.metrics = [build_from_config(cfg) for cfg in metrics_cfg]
-        assert all(isinstance(metric, BaseMetric) for metric in self.metrics)
+            if isinstance(cfg, dict) and 'args' in cfg:
+                # Make a copy and modify buffer setting
+                cfg_copy = semideepcopy(cfg)
+                if 'args' not in cfg_copy:
+                    cfg_copy['args'] = {}
+                cfg_copy['args']['use_buffer'] = False
+                modified_configs.append(cfg_copy)
+            else:
+                # If not a config dict, use as-is (might be pre-built object)
+                modified_configs.append(cfg)
+        # Build all metrics
+        self.metrics = [build_from_config(cfg) for cfg in modified_configs]
+        # Validate all metrics
+        assert all(isinstance(m, BaseMetric) for m in self.metrics)
+        assert all(not m.use_buffer for m in self.metrics)
+        assert all(not hasattr(m, 'buffer') for m in self.metrics)
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         merged_scores = {}
