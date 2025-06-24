@@ -13,7 +13,7 @@ sys.path.insert(0, project_root)
 os.chdir(project_root)
 
 import utils
-from utils.automation.config_to_file import dict_to_config_file
+from utils.automation.config_to_file import dict_to_config_file, add_heading
 from utils.automation.config_seeding import generate_seeded_configs
 from utils.builders.builder import semideepcopy
 
@@ -34,10 +34,9 @@ from configs.benchmarks.point_cloud_registration.template_train import config as
 from configs.benchmarks.point_cloud_registration.template_buffer import config as buffer_template_config
 
 
-def build_complete_config(dataset: str, model: str):
+def build_eval_config(dataset: str, model: str):
     """
-    Build a COMPLETE config dictionary (or list for BUFFER) for the given dataset and model.
-    This should include ALL necessary configurations so the final file only needs the config dict.
+    Build config for eval-only models (ICP, RANSAC_FPFH, TeaserPlusPlus).
     """
     # Determine dataset name and overlap
     if dataset.startswith('synth_pcr') or dataset.startswith('real_pcr'):
@@ -47,62 +46,76 @@ def build_complete_config(dataset: str, model: str):
         overlap = None
         dataset_name = dataset
 
-    # Build config based on model type
-    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
-        # Start with eval template
-        config = semideepcopy(eval_template_config)
+    # Start with eval template
+    config = semideepcopy(eval_template_config)
 
-        # Load dataset-specific eval data config
-        if dataset_name == 'kitti':
-            eval_data_cfg = {
-                'eval_dataset': {
-                    'class': data.datasets.KITTIDataset,
-                    'args': {
-                        'data_root': './data/datasets/soft_links/KITTI',
-                        'split': 'val',
-                    },
+    # Load dataset-specific eval data config
+    if dataset_name == 'kitti':
+        eval_data_cfg = {
+            'eval_dataset': {
+                'class': data.datasets.KITTIDataset,
+                'args': {
+                    'data_root': './data/datasets/soft_links/KITTI',
+                    'split': 'val',
                 },
-                'eval_dataloader': {
-                    'class': torch.utils.data.DataLoader,
-                    'args': {
-                        'batch_size': 1,
-                        'num_workers': 4,
-                    },
+            },
+            'eval_dataloader': {
+                'class': torch.utils.data.DataLoader,
+                'args': {
+                    'batch_size': 1,
+                    'num_workers': 4,
                 },
-                'metric': None,
-            }
+            },
+            'metric': None,
+        }
+    else:
+        # For non-kitti datasets, import configs
+        if dataset_name == 'synth_pcr':
+            from configs.common.datasets.point_cloud_registration.eval.synth_pcr_data_cfg import data_cfg as eval_data_cfg
+        elif dataset_name == 'real_pcr':
+            from configs.common.datasets.point_cloud_registration.eval.real_pcr_data_cfg import data_cfg as eval_data_cfg
         else:
-            # For non-kitti datasets, try to import configs but handle gracefully if missing
-            if dataset_name == 'synth_pcr':
-                from configs.common.datasets.point_cloud_registration.eval.synth_pcr_data_cfg import data_cfg as eval_data_cfg
-            elif dataset_name == 'real_pcr':
-                from configs.common.datasets.point_cloud_registration.eval.real_pcr_data_cfg import data_cfg as eval_data_cfg
-            else:
-                raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
+            raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
 
-        # Set overlap if needed
-        if overlap is not None:
-            eval_data_cfg = semideepcopy(eval_data_cfg)
-            eval_data_cfg['eval_dataset']['args']['overlap'] = overlap
+    # Set overlap if needed
+    if overlap is not None:
+        eval_data_cfg = semideepcopy(eval_data_cfg)
+        eval_data_cfg['eval_dataset']['args']['overlap'] = overlap
 
-        # Update template with dataset config
-        config.update(eval_data_cfg)
+    # Update template with dataset config
+    config.update(eval_data_cfg)
 
-        # Model-specific config
-        if model == 'TeaserPlusPlus':
-            config['eval_n_jobs'] = 1
-            from configs.common.models.point_cloud_registration.teaserplusplus_cfg import model_cfg
-            config['model'] = model_cfg
-        else:
-            # ICP or RANSAC_FPFH
-            model_class = ICP if model == 'ICP' else RANSAC_FPFH
-            config['model'] = {'class': model_class, 'args': {}}
+    # Model-specific config
+    if model == 'TeaserPlusPlus':
+        config['eval_n_jobs'] = 1
+        from configs.common.models.point_cloud_registration.teaserplusplus_cfg import model_cfg
+        config['model'] = model_cfg
+    else:
+        # ICP or RANSAC_FPFH
+        model_class = ICP if model == 'ICP' else RANSAC_FPFH
+        config['model'] = {'class': model_class, 'args': {}}
 
-    elif model == 'BUFFER':
+    return config
+
+
+def build_training_config(dataset: str, model: str):
+    """
+    Build config for training models (GeoTransformer, OverlapPredator, BUFFER).
+    """
+    # Determine dataset name and overlap
+    if dataset.startswith('synth_pcr') or dataset.startswith('real_pcr'):
+        overlap = float(dataset.split('_')[-1])
+        dataset_name = '_'.join(dataset.split('_')[:-1])
+    else:
+        overlap = None
+        dataset_name = dataset
+
+    if model == 'BUFFER':
         # Start with BUFFER template (list of stage configs)
         config = semideepcopy(buffer_template_config)
         # Note: BUFFER template already contains all necessary configuration
         # No additional customization needed for different datasets
+        return config
 
     else:
         # Regular training models (GeoTransformer, OverlapPredator)
@@ -157,14 +170,14 @@ def build_complete_config(dataset: str, model: str):
             'model': model_cfg,
         })
 
-    return config
+        return config
 
 
-def main(dataset: str, model: str) -> None:
-    """Generate config file for a specific dataset and model combination."""
-
-    # Build complete config (returns list for BUFFER, dict for others)
-    config = build_complete_config(dataset, model)
+def generate_eval_configs(dataset: str, model: str) -> None:
+    """Generate config files for eval-only models (ICP, RANSAC_FPFH, TeaserPlusPlus)."""
+    
+    # Build eval config
+    config = build_eval_config(dataset, model)
 
     # Generate seeded configs
     relpath = os.path.join("benchmarks", "point_cloud_registration", dataset)
@@ -174,16 +187,57 @@ def main(dataset: str, model: str) -> None:
     seeded_configs = generate_seeded_configs(
         base_config=config,
         base_seed=relpath,
-        base_work_dir=work_dir,
-        generator_path="./configs/benchmarks/point_cloud_registration/gen.py"
+        base_work_dir=work_dir
     )
 
-    # Save to disk
+    # Add heading and save to disk
+    generator_path = "./configs/benchmarks/point_cloud_registration/gen.py"
     os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
+        # Add auto-generated header
+        final_config = add_heading(seeded_config, generator_path)
+        
         output_path = os.path.join("./configs", relpath, f"{model}_run_{idx}.py")
         with open(output_path, mode='w') as f:
-            f.write(seeded_config)
+            f.write(final_config)
+
+
+def generate_training_configs(dataset: str, model: str) -> None:
+    """Generate config files for training models (GeoTransformer, OverlapPredator, BUFFER)."""
+    
+    # Build training config
+    config = build_training_config(dataset, model)
+
+    # Generate seeded configs
+    relpath = os.path.join("benchmarks", "point_cloud_registration", dataset)
+    work_dir = os.path.join("./logs", relpath, model)
+
+    # Generate seeded configs using the new dictionary-based approach
+    seeded_configs = generate_seeded_configs(
+        base_config=config,
+        base_seed=relpath,
+        base_work_dir=work_dir
+    )
+
+    # Add heading and save to disk
+    generator_path = "./configs/benchmarks/point_cloud_registration/gen.py"
+    os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
+    for idx, seeded_config in enumerate(seeded_configs):
+        # Add auto-generated header
+        final_config = add_heading(seeded_config, generator_path)
+        
+        output_path = os.path.join("./configs", relpath, f"{model}_run_{idx}.py")
+        with open(output_path, mode='w') as f:
+            f.write(final_config)
+
+
+def main(dataset: str, model: str) -> None:
+    """Generate config file for a specific dataset and model combination."""
+    
+    if model in ['ICP', 'RANSAC_FPFH', 'TeaserPlusPlus']:
+        generate_eval_configs(dataset, model)
+    else:
+        generate_training_configs(dataset, model)
 
 
 if __name__ == "__main__":
