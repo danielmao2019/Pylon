@@ -3,6 +3,7 @@ import torch
 from criteria.base_criterion import BaseCriterion
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from utils.builders import build_from_config
+from utils.builders.builder import semideepcopy
 
 
 class HybridCriterion(SingleTaskCriterion):
@@ -31,11 +32,25 @@ class HybridCriterion(SingleTaskCriterion):
         self.combine = combine
         # Build criteria as submodules
         assert criteria_cfg is not None and len(criteria_cfg) > 0
-        # Disable buffer for all component criteria
+        # Disable buffer for all component criteria by modifying config before building
+        modified_configs = []
         for cfg in criteria_cfg:
-            cfg['args']['use_buffer'] = False
-        self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in criteria_cfg])
+            if isinstance(cfg, dict) and 'args' in cfg:
+                # Make a copy and modify buffer setting
+                cfg_copy = semideepcopy(cfg)
+                if 'args' not in cfg_copy:
+                    cfg_copy['args'] = {}
+                cfg_copy['args']['use_buffer'] = False
+                modified_configs.append(cfg_copy)
+            else:
+                # If not a config dict, use as-is (might be pre-built object)
+                modified_configs.append(cfg)
+        # Build all criteria
+        self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in modified_configs])
+        # Validate all criteria
         assert all(isinstance(criterion, BaseCriterion) for criterion in self.criteria)
+        assert all(not c.use_buffer for c in self.criteria)
+        assert all(not hasattr(c, 'buffer') for c in self.criteria)
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         total_loss = 0
