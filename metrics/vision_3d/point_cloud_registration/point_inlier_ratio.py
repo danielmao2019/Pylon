@@ -7,7 +7,7 @@ class PointInlierRatio(SingleTaskMetric):
 
     DIRECTION = +1  # Higher is better
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, torch.Tensor]:
         assert isinstance(y_pred, dict), f"Expected dict for y_pred, got {type(y_pred)}"
         assert y_pred.keys() == {'src_points', 'tgt_points', 'correspondences'}, f"{y_pred.keys()=}"
         assert isinstance(y_pred['src_points'], torch.Tensor), f"Expected torch.Tensor for src_points, got {type(y_pred['src_points'])}"
@@ -28,5 +28,5 @@ class PointInlierRatio(SingleTaskMetric):
         corr_map[y_true['correspondences'][:, 0], y_true['correspondences'][:, 1]] = 1.0
         point_inlier_ratio = corr_map[y_pred['correspondences'][:, 0], y_pred['correspondences'][:, 1]].mean()
         scores = {'point_inlier_ratio': point_inlier_ratio}
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, idx)
         return scores
