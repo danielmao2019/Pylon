@@ -1,5 +1,6 @@
 import pytest
 import torch
+from metrics.base_metric import BaseMetric
 from metrics.wrappers.hybrid_metric import HybridMetric
 from utils.builders import build_from_config
 
@@ -146,14 +147,19 @@ def test_recursive_building_preservation(dummy_metric):
 
 def test_error_handling_in_build_process(dummy_metric):
     """Test error handling during the build process."""
-    # Test with malformed config
+    # Test with malformed config - create a class that requires an argument to force an error
+    class RequiredArgMetric(BaseMetric):
+        def __init__(self, required_arg, use_buffer=True):
+            super().__init__(use_buffer=use_buffer)
+            self.required_arg = required_arg
+            
     malformed_config = {
         'class': HybridMetric,
         'args': {
             'metrics_cfg': [
                 {
-                    'class': dummy_metric.__class__,
-                    'args': {}  # Missing required metric_name
+                    'class': RequiredArgMetric,
+                    'args': {}  # Missing required_arg
                 }
             ]
         }
