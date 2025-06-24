@@ -10,19 +10,24 @@ class BaseMetric(ABC):
     Base class for all metrics.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, use_buffer: bool = True) -> None:
         """Initialize the base metric."""
-        self._buffer_lock = threading.Lock()
-        self._buffer_queue = queue.Queue()
-        self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
-        self._buffer_thread.start()
+        self.use_buffer = use_buffer
+        if self.use_buffer:
+            self._buffer_lock = threading.Lock()
+            self._buffer_queue = queue.Queue()
+            self._buffer_thread = threading.Thread(target=self._buffer_worker, daemon=True)
+            self._buffer_thread.start()
         self.reset_buffer()
 
     def reset_buffer(self) -> None:
         """Reset the buffer."""
-        assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
-        with self._buffer_lock:
-            self.buffer = []
+        if self.use_buffer:
+            assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
+            with self._buffer_lock:
+                self.buffer = []
+        else:
+            assert not hasattr(self, 'buffer')
 
     def _buffer_worker(self) -> None:
         """Background thread to handle buffer updates."""
