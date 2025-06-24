@@ -11,6 +11,7 @@ from runners.base_evaluator import BaseEvaluator
 from utils.logging.text_logger import TextLogger
 from utils.ops import transpose_buffer
 from utils.io import save_json
+from data.collators.base_collator import BaseCollator
 
 
 class SimpleTestDataset(torch.utils.data.Dataset):
@@ -192,7 +193,8 @@ def create_test_config(work_dir: str, eval_n_jobs: int, seed: int = 42) -> Dict[
                 'batch_size': 1,  # Process one sample at a time for clear comparison
                 'shuffle': False,
                 'num_workers': 0,
-                'drop_last': False
+                'drop_last': False,
+                'collate_fn': BaseCollator()
             }
         },
         'model': {
