@@ -15,7 +15,6 @@ def generate_seeded_configs(
     base_work_dir: Optional[str] = None,
     num_repetitions: Optional[int] = 3,
     ub: Optional[int] = 10**8-1,
-    generator_path: Optional[str] = None,
 ) -> List[str]:
     """
     Generate seeded config files from a base config dictionary.
@@ -26,7 +25,6 @@ def generate_seeded_configs(
         base_work_dir: Base work directory path (will append _run_{idx})
         num_repetitions: Number of repetitions to generate
         ub: Upper bound for random seed generation
-        generator_path: Path to the generator file (for header comment)
 
     Returns:
         List of generated config file contents as strings
@@ -34,16 +32,16 @@ def generate_seeded_configs(
     # Check if this is a list of configs (BUFFER multi-stage)
     if isinstance(base_config, list):
         return _generate_multistage_seeded_configs(
-            base_config, base_seed, base_work_dir, num_repetitions, ub, generator_path
+            base_config, base_seed, base_work_dir, num_repetitions, ub
         )
     # Check if this is an eval config or training config
     elif 'epochs' in base_config and base_config['epochs'] is not None:
         return _generate_train_seeded_configs(
-            base_config, base_seed, base_work_dir, num_repetitions, ub, generator_path
+            base_config, base_seed, base_work_dir, num_repetitions, ub
         )
     else:
         return _generate_eval_seeded_configs(
-            base_config, base_seed, base_work_dir, ub, generator_path
+            base_config, base_seed, base_work_dir, ub
         )
 
 
@@ -53,7 +51,6 @@ def _generate_train_seeded_configs(
     base_work_dir: Optional[str] = None,
     num_repetitions: Optional[int] = 3,
     ub: Optional[int] = 10**8-1,
-    generator_path: Optional[str] = None,
 ) -> List[str]:
     """Generate seeded configs for training models."""
     seeded_configs: List[str] = []
@@ -89,7 +86,6 @@ def _generate_eval_seeded_configs(
     base_seed: str,
     base_work_dir: Optional[str] = None,
     ub: Optional[int] = 10**8-1,
-    generator_path: Optional[str] = None,
 ) -> List[str]:
     """Generate seeded configs for eval models."""
     # Seed the random generator
@@ -117,7 +113,6 @@ def _generate_multistage_seeded_configs(
     base_work_dir: Optional[str] = None,
     num_repetitions: Optional[int] = 3,
     ub: Optional[int] = 10**8-1,
-    generator_path: Optional[str] = None,
 ) -> List[str]:
     """Generate seeded configs for multi-stage models like BUFFER."""
     seeded_configs: List[str] = []
