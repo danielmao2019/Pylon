@@ -25,7 +25,7 @@ class BaseMetric(ABC):
         if self.use_buffer:
             assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
             with self._buffer_lock:
-                self.buffer: List[Any] = []
+                self.buffer = {}  # Now a dict mapping indices to data
         else:
             assert not hasattr(self, 'buffer')
 
@@ -33,36 +33,47 @@ class BaseMetric(ABC):
         """Background thread to handle buffer updates."""
         while True:
             try:
-                data = self._buffer_queue.get()
+                item = self._buffer_queue.get()
+                data, idx = item['data'], item['idx']
+                processed_data = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=data)
+
                 with self._buffer_lock:
-                    self.buffer.append(apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=data))
+                    # Store data by index for order preservation
+                    self.buffer[idx] = processed_data
+
                 self._buffer_queue.task_done()
             except Exception as e:
                 print(f"Buffer worker error: {e}")
 
-    def add_to_buffer(self, data: Dict[str, Any]) -> None:
+    def add_to_buffer(self, data: Dict[str, Any], idx: int) -> None:
         """
         Add data to the buffer.
 
         Args:
             data: Dictionary of data to add to the buffer
+            idx: Integer index of the datapoint for order preservation.
         """
         if self.use_buffer:
             assert hasattr(self, 'buffer')
             assert isinstance(self.buffer, list)
-            self._buffer_queue.put(data)
+            self._buffer_queue.put({'data': data, 'idx': idx})
         else:
             assert not hasattr(self, 'buffer')
 
     def get_buffer(self) -> List[Any]:
-        """Thread-safe method to get a copy of the buffer."""
+        """Thread-safe method to get a copy of the buffer as an ordered list."""
         if self.use_buffer:
             with self._buffer_lock:
-                return self.buffer.copy()
+                # Convert dict to list, sorted by indices for order preservation
+                if not self.buffer:
+                    return []
+                sorted_indices = sorted(self.buffer.keys())
+                assert sorted_indices[0] == 0 and sorted_indices[-1] == len(self.buffer) - 1, f"{sorted_indices=}"
+                return [self.buffer[idx] for idx in sorted_indices]
         raise RuntimeError("Buffer is not enabled")
 
     @abstractmethod
-    def __call__(self, y_pred: Any, y_true: Any) -> Any:
+    def __call__(self, y_pred: Any, y_true: Any, idx: int) -> Any:
         raise NotImplementedError("Abstract method BaseMetric.__call__ not implemented.")
 
     @abstractmethod

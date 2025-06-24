@@ -126,9 +126,18 @@ class BaseEvaluator:
         # init time
         start_time = time.time()
 
+        # Extract idx from meta_info for order preservation
+        assert 'meta_info' in dp and 'idx' in dp['meta_info']
+        assert type(dp['meta_info']['idx']) == torch.Tensor
+        assert dp['meta_info']['idx'].ndim() == 1
+        assert dp['meta_info']['idx'].numel() == 1
+        assert dp['meta_info']['idx'].dtype == torch.int64
+        idx_data = dp['meta_info']['idx']
+        idx = int(idx_data.item())
+
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])
-        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
+        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'], idx=idx)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))
@@ -164,10 +173,13 @@ class BaseEvaluator:
             self.logger.info(f"Using adaptive parallel evaluation (max {executor._max_workers} workers)")
             
             with executor:
+                # Submit all tasks with regular _eval_step - order will be preserved by indexed buffer
                 future_to_args = {executor.submit(
                     self._eval_step, dp,
                     flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
                 ): (idx, dp) for idx, dp in enumerate(self.eval_dataloader)}
+                
+                # Wait for all tasks to complete (order doesn't matter since buffer is indexed)
                 for future in as_completed(future_to_args):
                     future.result()
 

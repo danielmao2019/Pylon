@@ -277,9 +277,18 @@ class BaseTrainer(ABC):
         # init time
         start_time = time.time()
 
+        # Extract idx from meta_info for order preservation
+        assert 'meta_info' in dp and 'idx' in dp['meta_info']
+        assert type(dp['meta_info']['idx']) == torch.Tensor
+        assert dp['meta_info']['idx'].ndim() == 1
+        assert dp['meta_info']['idx'].numel() == 1
+        assert dp['meta_info']['idx'].dtype == torch.int64
+        idx_data = dp['meta_info']['idx']
+        idx = int(idx_data.item())
+
         # do computation
         dp['outputs'] = self.model(dp['inputs'])
-        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
+        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'], idx=idx)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))

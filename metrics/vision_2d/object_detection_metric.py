@@ -82,7 +82,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
             "thresholds": thresholds,
         }
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, List[torch.Tensor]]) -> torch.Tensor:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, List[torch.Tensor]], idx: int) -> torch.Tensor:
         r"""
         Args:
             y_pred: {
@@ -132,7 +132,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
                         **recalls_dict,
                     }
             scores.append(single_result)
-        self.buffer.extend(scores)
+        self.add_to_buffer(scores, idx)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
