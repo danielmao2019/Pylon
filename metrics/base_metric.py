@@ -47,12 +47,19 @@ class BaseMetric(ABC):
         Args:
             data: Dictionary of data to add to the buffer
         """
-        self._buffer_queue.put(data)
+        if self.use_buffer:
+            assert hasattr(self, 'buffer')
+            assert isinstance(self.buffer, list)
+            self._buffer_queue.put(data)
+        else:
+            assert not hasattr(self, 'buffer')
 
     def get_buffer(self) -> List[Any]:
         """Thread-safe method to get a copy of the buffer."""
-        with self._buffer_lock:
-            return self.buffer.copy()
+        if self.use_buffer:
+            with self._buffer_lock:
+                return self.buffer.copy()
+        raise RuntimeError("Buffer is not enabled")
 
     @abstractmethod
     def __call__(self, y_pred: Any, y_true: Any) -> Any:
