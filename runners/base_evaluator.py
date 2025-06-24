@@ -128,12 +128,10 @@ class BaseEvaluator:
 
         # Extract idx from meta_info for order preservation
         assert 'meta_info' in dp and 'idx' in dp['meta_info']
-        assert type(dp['meta_info']['idx']) == torch.Tensor
-        assert dp['meta_info']['idx'].ndim == 1
-        assert dp['meta_info']['idx'].numel() == 1
-        assert dp['meta_info']['idx'].dtype == torch.int64
-        idx_data = dp['meta_info']['idx']
-        idx = int(idx_data.item())
+        assert isinstance(dp['meta_info']['idx'], list)
+        assert len(dp['meta_info']['idx']) == 1
+        assert isinstance(dp['meta_info']['idx'][0], int)
+        idx = dp['meta_info']['idx'][0]
 
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])

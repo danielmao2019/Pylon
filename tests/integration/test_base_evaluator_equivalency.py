@@ -33,7 +33,7 @@ class SimpleTestDataset(torch.utils.data.Dataset):
         return {
             'inputs': {'image': self.images[idx]},
             'labels': {'target': self.labels[idx]},
-            'meta_info': {'idx': idx}
+            'meta_info': {'idx': idx},
         }
 
 
@@ -114,7 +114,7 @@ class SimpleTestMetric(BaseMetric):
     def __init__(self):
         super().__init__()
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, torch.Tensor]:
         """Calculate accuracy."""
         logits = y_pred['logits']
         targets = y_true['target']
@@ -126,11 +126,11 @@ class SimpleTestMetric(BaseMetric):
         correct = (predictions == targets).float()
         accuracy = correct.mean()
 
-        # Add to buffer for summarization
+        # Add to buffer for summarization with idx for order preservation
         self.add_to_buffer({
             'accuracy': accuracy,
             'num_samples': torch.tensor(len(targets), dtype=torch.float32)
-        })
+        }, idx=idx)
 
         return {
             'accuracy': accuracy,
