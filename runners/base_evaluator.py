@@ -10,7 +10,7 @@ from concurrent.futures import as_completed
 from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
 from utils.monitor.system_monitor import SystemMonitor
-from utils.adaptive_executor import create_adaptive_executor
+from utils.dynamic_executor import create_dynamic_executor
 from utils.logging.text_logger import TextLogger
 from utils.logging import echo_page_break, log_scores
 
@@ -167,16 +167,16 @@ class BaseEvaluator:
         else:
             # Use adaptive executor that dynamically adjusts worker count based on system resources
             max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
-            executor = create_adaptive_executor(max_workers=max_workers, min_workers=1)
-            self.logger.info(f"Using adaptive parallel evaluation (max {executor._max_workers} workers)")
-            
+            executor = create_dynamic_executor(max_workers=max_workers, min_workers=1)
+            self.logger.info(f"Using dynamic parallel evaluation (max {executor._max_workers} workers)")
+
             with executor:
                 # Submit all tasks with regular _eval_step - order will be preserved by indexed buffer
                 future_to_args = {executor.submit(
                     self._eval_step, dp,
                     flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
                 ): (idx, dp) for idx, dp in enumerate(self.eval_dataloader)}
-                
+
                 # Wait for all tasks to complete (order doesn't matter since buffer is indexed)
                 for future in as_completed(future_to_args):
                     future.result()

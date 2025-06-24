@@ -15,7 +15,7 @@ from utils.determinism import set_determinism, set_seed
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
 from utils.monitor.system_monitor import SystemMonitor
-from utils.adaptive_executor import create_adaptive_executor
+from utils.dynamic_executor import create_dynamic_executor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
 from utils.logging import echo_page_break, log_losses, log_scores
@@ -408,9 +408,9 @@ class BaseTrainer(ABC):
         else:
             # Use adaptive executor that dynamically adjusts worker count based on system resources
             max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
-            executor = create_adaptive_executor(max_workers=max_workers, min_workers=1)
-            self.logger.info(f"Using adaptive parallel validation (max {executor._max_workers} workers)")
-            
+            executor = create_dynamic_executor(max_workers=max_workers, min_workers=1)
+            self.logger.info(f"Using dynamic parallel validation (max {executor._max_workers} workers)")
+
             with executor:
                 future_to_args = {executor.submit(
                     self._eval_step, dp,
