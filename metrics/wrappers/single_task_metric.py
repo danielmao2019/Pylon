@@ -41,6 +41,7 @@ class SingleTaskMetric(BaseMetric):
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
         r"""This method averages scores across all data points in buffer.
         """
+        assert self.use_buffer and hasattr(self, 'buffer') and self.buffer is not None
         self._buffer_queue.join()  # Wait for all items to be processed
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
