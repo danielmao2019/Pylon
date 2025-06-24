@@ -4,9 +4,9 @@ from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
 from criteria.vision_3d.point_cloud_registration.overlappredator_criterion.overlappredator_criterion import OverlapPredatorCriterion
 from data.dataloaders.overlappredator_dataloader import OverlapPredatorDataloader
-from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
+from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 from data.transforms.compose import Compose
-from data.transforms.vision_3d.pcr_translation import PCRTranslation
+from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
 from metrics.vision_3d.point_cloud_registration.overlappredator_metric.overlappredator_metric import OverlapPredatorMetric
 from models.point_cloud_registration.overlappredator.overlappredator import OverlapPredator
 from optimizers.single_task_optimizer import SingleTaskOptimizer
@@ -22,11 +22,10 @@ config = {
     'val_seeds': [44451211, 46973892, 91980466, 10542869, 90778031, 15241770, 85834391, 301858, 35979474, 97667037, 38913680, 16479667, 14147194, 22583175, 24142189, 3989770, 38355646, 41757981, 59305907, 51527696, 20412509, 17085532, 72065017, 78788244, 17460257, 13488487, 52416318, 26292699, 91080980, 62391926, 38797993, 55350203, 25266115, 6787797, 7262893, 76275785, 81997438, 15690902, 77974184, 38837898, 213978, 82613509, 3430388, 44178109, 14550901, 52287208, 78465776, 44630622, 26314105, 53123909, 78288927, 65762064, 86989183, 65363567, 11457327, 32266074, 98131990, 94239429, 74902634, 41823403, 44858388, 79003591, 46863258, 96155470, 27793230, 95025018, 76054504, 24828831, 58627503, 24085536, 63032156, 93369974, 97846568, 8633720, 43410773, 5997087, 20658439, 15355830, 53724678, 19385519, 6483198, 74320022, 26252752, 56345032, 7557386, 83107327, 43756610, 62286111, 33992207, 32397448, 7027956, 73666772, 75157953, 80826683, 33170978, 55334611, 91812956, 12663603, 3738398, 11190218],
     'test_seed': 76296785,
     'train_dataset': {
-        'class': RealPCRDataset,
+        'class': SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'real_pcr_cache',
+            'cache_dirname': 'synth_pcr_cache',
             'split': 'train',
             'voxel_size': 10.0,
             'min_points': 512,
@@ -36,8 +35,11 @@ config = {
                 'args': {
                     'transforms': [(
     {
-            'class': PCRTranslation,
-            'args': {},
+            'class': RandomRigidTransform,
+            'args': {
+                'rot_mag': 45.0,
+                'trans_mag': 0.5,
+            },
         },
     [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
 )],
@@ -78,11 +80,10 @@ config = {
         },
     },
     'val_dataset': {
-        'class': RealPCRDataset,
+        'class': SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'real_pcr_cache',
+            'cache_dirname': 'synth_pcr_cache',
             'split': 'val',
             'voxel_size': 10.0,
             'min_points': 512,
@@ -92,8 +93,11 @@ config = {
                 'args': {
                     'transforms': [(
     {
-            'class': PCRTranslation,
-            'args': {},
+            'class': RandomRigidTransform,
+            'args': {
+                'rot_mag': 45.0,
+                'trans_mag': 0.5,
+            },
         },
     [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
 )],

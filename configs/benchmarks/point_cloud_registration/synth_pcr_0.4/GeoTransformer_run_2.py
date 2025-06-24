@@ -4,9 +4,9 @@ from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
 from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.geotransformer_criterion import GeoTransformerCriterion
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
-from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
+from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 from data.transforms.compose import Compose
-from data.transforms.vision_3d.pcr_translation import PCRTranslation
+from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.geotransformer_metric import GeoTransformerMetric
 from models.point_cloud_registration.geotransformer.geotransformer import GeoTransformer
 from optimizers.single_task_optimizer import SingleTaskOptimizer
@@ -22,22 +22,24 @@ config = {
     'val_seeds': [94230036, 27677175, 62219277, 82831595, 32238648, 83822458, 83286898, 6454717, 41562255, 28820295, 55554349, 10454138, 48282834, 26629392, 97574533, 17846096, 93699514, 71707863, 34495673, 61716328, 71743886, 30187647, 23651389, 89777508, 4246304, 55223611, 32023123, 34044305, 19947282, 77406705, 10520736, 75992493, 76714573, 9931824, 64611519, 17305574, 72382774, 41680626, 13882854, 24117812, 36610568, 24969860, 57214245, 48852247, 75051314, 11422522, 6943538, 72899257, 49441232, 11394007, 94781130, 5741038, 7655787, 82932202, 90032017, 9545330, 57773619, 84244299, 29236437, 36692590, 72384430, 13255677, 8784811, 81109854, 38155717, 81083544, 35349482, 76937629, 97519625, 84448300, 121426, 22357462, 40288610, 15963714, 24857315, 75804203, 8423285, 18542668, 53664131, 99102864, 15950883, 74611508, 5098118, 57467796, 76133174, 1234591, 67870736, 11677971, 15107300, 42178761, 17686643, 96750911, 50860268, 77284879, 38059317, 5553936, 80709054, 88872088, 96890964, 1103382],
     'test_seed': 84151357,
     'train_dataset': {
-        'class': RealPCRDataset,
+        'class': SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'real_pcr_cache',
+            'cache_dirname': 'synth_pcr_cache',
             'split': 'train',
             'voxel_size': 10.0,
             'min_points': 512,
-            'max_points': 4096,
+            'max_points': 8192,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
                     'transforms': [(
     {
-            'class': PCRTranslation,
-            'args': {},
+            'class': RandomRigidTransform,
+            'args': {
+                'rot_mag': 45.0,
+                'trans_mag': 0.5,
+            },
         },
     [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
 )],
@@ -77,22 +79,24 @@ config = {
         },
     },
     'val_dataset': {
-        'class': RealPCRDataset,
+        'class': SynthPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'real_pcr_cache',
+            'cache_dirname': 'synth_pcr_cache',
             'split': 'val',
             'voxel_size': 10.0,
             'min_points': 512,
-            'max_points': 4096,
+            'max_points': 8192,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
                     'transforms': [(
     {
-            'class': PCRTranslation,
-            'args': {},
+            'class': RandomRigidTransform,
+            'args': {
+                'rot_mag': 45.0,
+                'trans_mag': 0.5,
+            },
         },
     [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
 )],
