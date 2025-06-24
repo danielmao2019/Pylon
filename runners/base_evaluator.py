@@ -8,10 +8,12 @@ import jsbeautifier
 import torch
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import utils
 from utils.builders import build_from_config
+from utils.determinism import set_determinism, set_seed
 from utils.monitor.system_monitor import SystemMonitor
+from utils.monitor.adaptive_executor import create_adaptive_executor
 from utils.logging.text_logger import TextLogger
+from utils.logging import echo_page_break, log_scores
 
 
 class BaseEvaluator:
@@ -49,11 +51,11 @@ class BaseEvaluator:
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "eval*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
-        utils.logging.echo_page_break(filepath=git_log, heading="git branch -a")
+        echo_page_break(filepath=git_log, heading="git branch -a")
         os.system(f"git branch -a >> {git_log}")
-        utils.logging.echo_page_break(filepath=git_log, heading="git status")
+        echo_page_break(filepath=git_log, heading="git status")
         os.system(f"git status >> {git_log}")
-        utils.logging.echo_page_break(filepath=git_log, heading="git log")
+        echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
 
         # evaluation log
@@ -71,12 +73,12 @@ class BaseEvaluator:
 
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
-        utils.determinism.set_determinism()
+        set_determinism()
         # get seed for initialization steps
         assert 'seed' in self.config.keys()
         seed = self.config['seed']
         assert type(seed) == int, f"{type(seed)=}"
-        utils.determinism.set_seed(seed=seed)
+        set_seed(seed=seed)
 
     def _init_dataloaders_(self) -> None:
         self.logger.info("Initializing dataloaders...")
@@ -130,7 +132,7 @@ class BaseEvaluator:
         dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
 
         # Log scores
-        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
+        self.logger.update_buffer(log_scores(scores=dp['scores']))
 
         # Log system stats (CPU + GPU)
         self.system_monitor.log_stats(self.logger)
@@ -157,8 +159,12 @@ class BaseEvaluator:
             for idx, dp in enumerate(self.eval_dataloader):
                 self._eval_step(dp, flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
         else:
-            self.logger.info(f"Using {self.eval_n_jobs} threads for parallel evaluation")
-            with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
+            # Use adaptive executor that dynamically adjusts worker count based on system resources
+            max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
+            executor = create_adaptive_executor(max_workers=max_workers, min_workers=1)
+            self.logger.info(f"Using adaptive parallel evaluation (max {executor._max_workers} workers)")
+            
+            with executor:
                 future_to_args = {executor.submit(
                     self._eval_step, dp,
                     flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",

@@ -15,6 +15,7 @@ from utils.builders import build_from_config
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
 from utils.monitor.system_monitor import SystemMonitor
+from utils.monitor.adaptive_executor import create_adaptive_executor
 from utils.logging.text_logger import TextLogger
 from utils.logging.screen_logger import ScreenLogger
 
@@ -397,8 +398,12 @@ class BaseTrainer(ABC):
             for idx, dp in enumerate(self.val_dataloader):
                 self._eval_step(dp, flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].")
         else:
-            self.logger.info(f"Using {self.eval_n_jobs} threads for parallel validation")
-            with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
+            # Use adaptive executor that dynamically adjusts worker count based on system resources
+            max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
+            executor = create_adaptive_executor(max_workers=max_workers, min_workers=1)
+            self.logger.info(f"Using adaptive parallel validation (max {executor._max_workers} workers)")
+            
+            with executor:
                 future_to_args = {executor.submit(
                     self._eval_step, dp,
                     flush_prefix=f"Validation [Epoch {self.cum_epochs}/{self.tot_epochs}][Iteration {idx}/{len(self.val_dataloader)}].",
