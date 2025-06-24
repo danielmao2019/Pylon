@@ -48,7 +48,7 @@ class HybridCriterion(SingleTaskCriterion):
         # Build all criteria
         self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in modified_configs])
         # Validate all criteria
-        assert all(isinstance(criterion, BaseCriterion) for criterion in self.criteria)
+        assert all(isinstance(c, BaseCriterion) for c in self.criteria)
         assert all(not c.use_buffer for c in self.criteria)
         assert all(not hasattr(c, 'buffer') for c in self.criteria)
 
