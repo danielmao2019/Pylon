@@ -49,8 +49,8 @@ class HybridCriterion(SingleTaskCriterion):
         self.criteria = torch.nn.ModuleList([build_from_config(cfg) for cfg in modified_configs])
         # Validate all criteria
         assert all(isinstance(c, BaseCriterion) for c in self.criteria)
-        assert all(not c.use_buffer for c in self.criteria)
-        assert all(not hasattr(c, 'buffer') for c in self.criteria)
+        assert all(not c.use_buffer for c in self.criteria), "Component criteria should not use buffer"
+        assert all(not hasattr(c, 'buffer') for c in self.criteria), "Component criteria should not have buffer attribute"
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         total_loss = 0

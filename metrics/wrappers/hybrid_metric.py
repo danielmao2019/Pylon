@@ -43,8 +43,8 @@ class HybridMetric(SingleTaskMetric):
         self.metrics = [build_from_config(cfg) for cfg in modified_configs]
         # Validate all metrics
         assert all(isinstance(m, BaseMetric) for m in self.metrics)
-        assert all(not m.use_buffer for m in self.metrics)
-        assert all(not hasattr(m, 'buffer') for m in self.metrics)
+        assert all(not m.use_buffer for m in self.metrics), "Component metrics should not use buffer"
+        assert all(not hasattr(m, 'buffer') for m in self.metrics), "Component metrics should not have buffer attribute"
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         merged_scores = {}
