@@ -9,6 +9,8 @@ from torch.utils.data import DataLoader
 from metrics.base_metric import BaseMetric
 from runners.base_evaluator import BaseEvaluator
 from utils.logging.text_logger import TextLogger
+from utils.ops import transpose_buffer
+from utils.io import save_json
 
 
 class SimpleTestDataset(torch.utils.data.Dataset):
@@ -135,27 +137,37 @@ class SimpleTestMetric(BaseMetric):
             'num_samples': torch.tensor(len(targets), dtype=torch.float32)
         }
 
-    def summarize(self, output_path: str = None) -> Dict[str, float]:
-        """Summarize metrics across all batches."""
+    def summarize(self, output_path: str = None) -> Dict[str, Any]:
+        """Summarize metrics across all batches following Pylon pattern."""
         # Wait for buffer to be processed
         self._buffer_queue.join()
 
         buffer = self.get_buffer()
         if not buffer:
-            result = {'accuracy': 0.0, 'reduced': 0.0}
+            aggregated = {'accuracy': 0.0, 'reduced': 0.0}
+            per_datapoint = {'accuracy': [], 'num_samples': []}
         else:
+            # Compute aggregated metrics
             total_correct = sum(item['accuracy'] * item['num_samples'] for item in buffer)
             total_samples = sum(item['num_samples'] for item in buffer)
-
             final_accuracy = total_correct / total_samples if total_samples > 0 else 0.0
-            result = {
+            
+            aggregated = {
                 'accuracy': float(final_accuracy),
                 'reduced': float(final_accuracy)  # For compatibility with BaseTrainer._find_best_checkpoint_
             }
+            
+            # Create per_datapoint structure by transposing buffer
+            per_datapoint = transpose_buffer(buffer)
+
+        # Create result following Pylon pattern
+        result = {
+            'aggregated': aggregated,
+            'per_datapoint': per_datapoint
+        }
 
         if output_path:
-            with open(output_path, 'w') as f:
-                json.dump(result, f, indent=2)
+            save_json(obj=result, filepath=output_path)
 
         return result
 
@@ -233,21 +245,54 @@ def test_base_evaluator_single_vs_multi_worker():
         single_worker_scores = run_evaluator(single_worker_config)
         multi_worker_scores = run_evaluator(multi_worker_config)
 
-        # Compare results
+        # Compare results structure
         assert single_worker_scores.keys() == multi_worker_scores.keys(), \
             f"Score keys differ: {single_worker_scores.keys()} vs {multi_worker_scores.keys()}"
+        
+        assert 'aggregated' in single_worker_scores, "Missing aggregated scores"
+        assert 'per_datapoint' in single_worker_scores, "Missing per_datapoint scores"
 
-        for key in single_worker_scores.keys():
-            single_value = single_worker_scores[key]
-            multi_value = multi_worker_scores[key]
+        # Compare aggregated metrics (should be identical)
+        single_agg = single_worker_scores['aggregated']
+        multi_agg = multi_worker_scores['aggregated']
+        
+        assert single_agg.keys() == multi_agg.keys(), \
+            f"Aggregated keys differ: {single_agg.keys()} vs {multi_agg.keys()}"
+
+        for key in single_agg.keys():
+            single_value = single_agg[key]
+            multi_value = multi_agg[key]
 
             # Allow small floating point differences
             if isinstance(single_value, (int, float)) and isinstance(multi_value, (int, float)):
                 assert abs(single_value - multi_value) < 1e-6, \
-                    f"Scores differ for {key}: {single_value} vs {multi_value}"
+                    f"Aggregated scores differ for {key}: {single_value} vs {multi_value}"
             else:
                 assert single_value == multi_value, \
-                    f"Scores differ for {key}: {single_value} vs {multi_value}"
+                    f"Aggregated scores differ for {key}: {single_value} vs {multi_value}"
+
+        # Compare per_datapoint metrics (this tests execution order!)
+        single_per_dp = single_worker_scores['per_datapoint']
+        multi_per_dp = multi_worker_scores['per_datapoint']
+        
+        assert single_per_dp.keys() == multi_per_dp.keys(), \
+            f"Per-datapoint keys differ: {single_per_dp.keys()} vs {multi_per_dp.keys()}"
+            
+        for key in single_per_dp.keys():
+            single_list = single_per_dp[key]
+            multi_list = multi_per_dp[key]
+            
+            assert len(single_list) == len(multi_list), \
+                f"Per-datapoint list lengths differ for {key}: {len(single_list)} vs {len(multi_list)}"
+            
+            # Compare each element in order - this verifies execution order is preserved
+            for i, (single_val, multi_val) in enumerate(zip(single_list, multi_list)):
+                if isinstance(single_val, (int, float)) and isinstance(multi_val, (int, float)):
+                    assert abs(single_val - multi_val) < 1e-6, \
+                        f"Per-datapoint values differ at index {i} for {key}: {single_val} vs {multi_val}"
+                else:
+                    assert single_val == multi_val, \
+                        f"Per-datapoint values differ at index {i} for {key}: {single_val} vs {multi_val}"
 
         print(f"✓ Single worker scores: {single_worker_scores}")
         print(f"✓ Multi worker scores: {multi_worker_scores}")
@@ -275,16 +320,36 @@ def test_base_evaluator_deterministic_results():
             assert scores.keys() == reference_scores.keys(), \
                 f"Run {run_idx} keys differ from reference"
 
-            for key in reference_scores.keys():
-                ref_value = reference_scores[key]
-                run_value = scores[key]
+            # Compare aggregated scores
+            ref_agg = reference_scores['aggregated']
+            run_agg = scores['aggregated']
+            for key in ref_agg.keys():
+                ref_value = ref_agg[key]
+                run_value = run_agg[key]
 
                 if isinstance(ref_value, (int, float)) and isinstance(run_value, (int, float)):
                     assert abs(ref_value - run_value) < 1e-6, \
-                        f"Run {run_idx} differs for {key}: {ref_value} vs {run_value}"
+                        f"Run {run_idx} aggregated differs for {key}: {ref_value} vs {run_value}"
                 else:
                     assert ref_value == run_value, \
-                        f"Run {run_idx} differs for {key}: {ref_value} vs {run_value}"
+                        f"Run {run_idx} aggregated differs for {key}: {ref_value} vs {run_value}"
+
+            # Compare per_datapoint scores (order should be identical for same seed)
+            ref_per_dp = reference_scores['per_datapoint']
+            run_per_dp = scores['per_datapoint']
+            for key in ref_per_dp.keys():
+                ref_list = ref_per_dp[key]
+                run_list = run_per_dp[key]
+                assert len(ref_list) == len(run_list), \
+                    f"Run {run_idx} per_datapoint length differs for {key}"
+                
+                for i, (ref_val, run_val) in enumerate(zip(ref_list, run_list)):
+                    if isinstance(ref_val, (int, float)) and isinstance(run_val, (int, float)):
+                        assert abs(ref_val - run_val) < 1e-6, \
+                            f"Run {run_idx} per_datapoint differs at index {i} for {key}: {ref_val} vs {run_val}"
+                    else:
+                        assert ref_val == run_val, \
+                            f"Run {run_idx} per_datapoint differs at index {i} for {key}: {ref_val} vs {run_val}"
 
         print(f"✓ All {len(all_scores)} runs produced identical results!")
 
@@ -312,16 +377,36 @@ def test_base_evaluator_different_worker_counts():
             assert scores.keys() == reference_scores.keys(), \
                 f"Worker count {worker_count} keys differ from reference"
 
-            for key in reference_scores.keys():
-                ref_value = reference_scores[key]
-                worker_value = scores[key]
+            # Compare aggregated scores
+            ref_agg = reference_scores['aggregated']
+            worker_agg = scores['aggregated']
+            for key in ref_agg.keys():
+                ref_value = ref_agg[key]
+                worker_value = worker_agg[key]
 
                 if isinstance(ref_value, (int, float)) and isinstance(worker_value, (int, float)):
                     assert abs(ref_value - worker_value) < 1e-6, \
-                        f"Worker count {worker_count} differs for {key}: {ref_value} vs {worker_value}"
+                        f"Worker count {worker_count} aggregated differs for {key}: {ref_value} vs {worker_value}"
                 else:
                     assert ref_value == worker_value, \
-                        f"Worker count {worker_count} differs for {key}: {ref_value} vs {worker_value}"
+                        f"Worker count {worker_count} aggregated differs for {key}: {ref_value} vs {worker_value}"
+
+            # Compare per_datapoint scores (order should be identical for same seed)
+            ref_per_dp = reference_scores['per_datapoint']
+            worker_per_dp = scores['per_datapoint']
+            for key in ref_per_dp.keys():
+                ref_list = ref_per_dp[key]
+                worker_list = worker_per_dp[key]
+                assert len(ref_list) == len(worker_list), \
+                    f"Worker count {worker_count} per_datapoint length differs for {key}"
+                
+                for i, (ref_val, worker_val) in enumerate(zip(ref_list, worker_list)):
+                    if isinstance(ref_val, (int, float)) and isinstance(worker_val, (int, float)):
+                        assert abs(ref_val - worker_val) < 1e-6, \
+                            f"Worker count {worker_count} per_datapoint differs at index {i} for {key}: {ref_val} vs {worker_val}"
+                    else:
+                        assert ref_val == worker_val, \
+                            f"Worker count {worker_count} per_datapoint differs at index {i} for {key}: {ref_val} vs {worker_val}"
 
         print(f"✓ All worker counts {worker_counts} produced identical results!")
 
@@ -352,12 +437,14 @@ def test_base_evaluator_file_structure():
                 filepath = os.path.join(config['work_dir'], filename)
                 assert os.path.exists(filepath), f"Expected file {filename} not found in {config['work_dir']}"
 
-            # Verify evaluation_scores.json is valid JSON
+            # Verify evaluation_scores.json is valid JSON with proper structure
             scores_path = os.path.join(config['work_dir'], 'evaluation_scores.json')
             with open(scores_path, 'r') as f:
                 scores = json.load(f)
                 assert isinstance(scores, dict), "Evaluation scores should be a dictionary"
-                assert 'accuracy' in scores, "Accuracy metric should be present"
-                assert 'reduced' in scores, "Reduced metric should be present"
+                assert 'aggregated' in scores, "Aggregated scores should be present"
+                assert 'per_datapoint' in scores, "Per-datapoint scores should be present"
+                assert 'accuracy' in scores['aggregated'], "Accuracy metric should be present in aggregated"
+                assert 'reduced' in scores['aggregated'], "Reduced metric should be present in aggregated"
 
         print("✓ Both evaluators created expected file structure!")
