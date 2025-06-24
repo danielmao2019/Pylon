@@ -25,7 +25,7 @@ class BaseMetric(ABC):
         if self.use_buffer:
             assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
             with self._buffer_lock:
-                self.buffer = []
+                self.buffer: List[Any] = []
         else:
             assert not hasattr(self, 'buffer')
 
