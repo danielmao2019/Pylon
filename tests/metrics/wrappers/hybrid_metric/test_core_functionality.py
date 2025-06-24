@@ -113,3 +113,90 @@ def test_multiple_metrics_configuration(dummy_metric, another_dummy_metric):
     assert 'metric_b' in scores
     assert 'metric_c' in scores
     assert all(isinstance(score, torch.Tensor) for score in scores.values())
+
+
+def test_compute_score_method_directly(metrics_cfg, sample_tensor, sample_target):
+    """Test the _compute_score method directly."""
+    hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
+    
+    # Call _compute_score directly
+    scores = hybrid_metric._compute_score(y_pred=sample_tensor, y_true=sample_target)
+    
+    # Verify it returns the expected format
+    assert isinstance(scores, dict)
+    assert 'metric1' in scores
+    assert 'metric2' in scores
+    assert len(scores) == 2
+    
+    # Verify tensor properties
+    for score in scores.values():
+        assert isinstance(score, torch.Tensor)
+        assert score.ndim == 0  # scalar
+        assert torch.isfinite(score)
+        assert not torch.isnan(score)
+
+
+def test_score_tensor_properties(metrics_cfg, sample_tensor, sample_target):
+    """Test that scores have correct tensor properties."""
+    hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
+    
+    scores = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    
+    for key, score in scores.items():
+        # Basic tensor properties
+        assert isinstance(score, torch.Tensor)
+        assert score.dtype == torch.float32
+        assert score.ndim == 0  # scalar
+        assert score.requires_grad is False  # Should be detached from computation graph
+        
+        # Numerical properties
+        assert torch.isfinite(score), f"Score {key} is not finite: {score}"
+        assert not torch.isnan(score), f"Score {key} is NaN: {score}"
+        assert not torch.isinf(score), f"Score {key} is infinite: {score}"
+
+
+def test_component_metric_isolation(dummy_metric, another_dummy_metric):
+    """Test that component metrics are properly isolated."""
+    metrics_cfg = [
+        {
+            'class': dummy_metric.__class__,
+            'args': {'metric_name': 'isolated1'}
+        },
+        {
+            'class': another_dummy_metric.__class__,
+            'args': {'metric_name': 'isolated2'}
+        }
+    ]
+    
+    hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
+    
+    # Verify each component metric is independent
+    assert len(hybrid_metric.metrics) == 2
+    assert hybrid_metric.metrics[0] is not hybrid_metric.metrics[1]
+    
+    # Verify they don't share state
+    sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
+    sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
+    
+    scores = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    
+    # Each should produce different scores (since they use different computations)
+    assert scores['isolated1'] != scores['isolated2']
+
+
+def test_deterministic_computation(metrics_cfg):
+    """Test that computation is deterministic with same inputs."""
+    hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
+    
+    # Use fixed seed for deterministic inputs
+    torch.manual_seed(42)
+    sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
+    sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
+    
+    # Compute scores multiple times
+    scores1 = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    scores2 = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    
+    # Should be identical
+    for key in scores1.keys():
+        assert torch.equal(scores1[key], scores2[key]), f"Non-deterministic computation for {key}"
