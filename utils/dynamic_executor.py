@@ -42,19 +42,24 @@ class DynamicWorker(threading.Thread):
                 future, func, args, kwargs = task_item
                 start_time = time.time()
 
+                task_failed = False
                 try:
                     result = func(*args, **kwargs)
                     future.set_result(result)
                 except Exception as e:
                     future.set_exception(e)
-                    logging.warning(f"Worker {self.worker_id} task failed: {e}")
-                finally:
-                    # Always update stats and callback regardless of success/failure
+                    task_failed = True
+                    # Trigger fail-fast: notify executor of failure and stop all workers
+                    self.result_callback(self.worker_id, task_time=0, error=e)
+                    self.task_queue.task_done()  # Mark this task as done
+                    return  # Exit worker immediately on error
+
+                if not task_failed:
+                    # Update stats and callback for successful tasks only
                     task_time = time.time() - start_time
                     self.stats.tasks_completed += 1
                     self.stats.total_time += task_time
                     self.stats.last_task_time = task_time
-
                     self.result_callback(self.worker_id, task_time)
                     self.task_queue.task_done()
 
@@ -114,6 +119,7 @@ class DynamicThreadPoolExecutor:
         # Synchronization
         self._lock = threading.Lock()
         self._shutdown = False
+        self._failed = False  # Track if any task has failed
 
         # Scaling state and analysis
         self._last_scale_time = 0
@@ -161,10 +167,30 @@ class DynamicThreadPoolExecutor:
 
         return worker_id
 
-    def _worker_completed_task(self, worker_id: int, task_time: float):
-        """Callback when a worker completes a task."""
+    def _worker_completed_task(self, worker_id: int, task_time: float, error: Optional[Exception] = None):
+        """Callback when a worker completes a task or encounters an error."""
         with self._lock:
-            if self._pending_tasks > 0:
+            if error is not None:
+                # Fail-fast: mark as failed and stop all workers
+                self._failed = True
+                logging.error(f"Worker {worker_id} failed, stopping all workers: {error}")
+
+                # Stop all workers immediately
+                for worker in self.workers:
+                    worker.stop()
+
+                # Clear the task queue to prevent new work
+                while not self.task_queue.empty():
+                    try:
+                        self.task_queue.get_nowait()
+                        self.task_queue.task_done()
+                    except queue.Empty:
+                        break
+
+                # Set shutdown to prevent new submissions
+                self._shutdown = True
+
+            elif self._pending_tasks > 0:
                 self._pending_tasks -= 1
 
     def _get_system_load(self) -> Dict[str, float]:
@@ -196,7 +222,7 @@ class DynamicThreadPoolExecutor:
         # Skip measurement if executor is shutting down
         if self._shutdown:
             return
-            
+
         current_stats = self._get_system_load()
 
         # Calculate the increase in utilization
@@ -320,6 +346,9 @@ class DynamicThreadPoolExecutor:
         if self._shutdown:
             raise RuntimeError("Executor has been shut down")
 
+        if self._failed:
+            raise RuntimeError("Executor has failed due to a previous task error")
+
         future = Future()
         task_item = (future, fn, args, kwargs)
 
@@ -332,30 +361,30 @@ class DynamicThreadPoolExecutor:
         """Return an iterator equivalent to map(fn, *iterables)."""
         if not iterables:
             return iter([])
-            
+
         args_list = list(zip(*iterables))
         if not args_list:
             return iter([])
-            
+
         # Submit all tasks with their original index for order preservation
         indexed_futures = [(i, self.submit(fn, *args)) for i, args in enumerate(args_list)]
-        
+
         def result_iterator():
             # Collect results and sort by original index to preserve order
             results = [None] * len(indexed_futures)
             completed_count = 0
-            
+
             try:
                 future_to_index = {future: i for i, future in indexed_futures}
                 for future in as_completed([f for _, f in indexed_futures], timeout=timeout):
                     index = future_to_index[future]
                     results[index] = future.result()
                     completed_count += 1
-                    
+
                 # Yield results in original order
                 for result in results:
                     yield result
-                    
+
             finally:
                 # Cancel any remaining futures
                 for _, future in indexed_futures:
@@ -398,7 +427,7 @@ class DynamicThreadPoolExecutor:
     def _max_workers(self) -> int:
         """Property for compatibility with ThreadPoolExecutor."""
         return self.max_workers
-    
+
     @property
     def _current_workers(self) -> int:
         """Current number of active workers."""
