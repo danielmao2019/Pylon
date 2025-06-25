@@ -196,7 +196,7 @@ def create_config_files():
     # Create config directory structure
     config_dir = os.path.join(".", "configs", "tests", "runners", "eval_viewer", "semantic_segmentation", "coco_stuff_164k")
     os.makedirs(config_dir, exist_ok=True)
-    
+
     # Config template for BaseTrainer runs
     trainer_config_template = """\"\"\"Configuration for {run_name}.\"\"\"
 
@@ -222,7 +222,7 @@ config = {{
     'seed': 42
 }}
 """
-    
+
     # Config template for BaseEvaluator runs
     evaluator_config_template = """\"\"\"Configuration for {run_name}.\"\"\"
 
@@ -247,14 +247,14 @@ config = {{
     'seed': 42
 }}
 """
-    
+
     # Create trainer configs
     trainer_configs = [
         ("model1_run_0", "Model1", 5),
         ("model2_run_0", "Model2", 3),
         ("model3_run_0", "Model3", 4)
     ]
-    
+
     for run_name, model_class, epochs in trainer_configs:
         config_content = trainer_config_template.format(
             run_name=run_name,
@@ -265,13 +265,13 @@ config = {{
         with open(config_path, 'w') as f:
             f.write(config_content)
         print(f"Created config file: {config_path}")
-    
+
     # Create evaluator configs
     evaluator_configs = [
         ("model1_evaluation", "Model1"),
         ("model2_evaluation", "Model2")
     ]
-    
+
     for run_name, model_class in evaluator_configs:
         config_content = evaluator_config_template.format(
             run_name=run_name,
@@ -359,13 +359,13 @@ def main():
         if os.path.exists(test_logs_dir):
             print(f"Cleaning up test log directories: {test_logs_dir}")
             shutil.rmtree(test_logs_dir)
-        
+
         # Clean up test config directories
         test_configs_dir = "./configs/tests/runners/eval_viewer"
         if os.path.exists(test_configs_dir):
             print(f"Cleaning up test config directories: {test_configs_dir}")
             shutil.rmtree(test_configs_dir)
-        
+
         print("Done!")
 
 
