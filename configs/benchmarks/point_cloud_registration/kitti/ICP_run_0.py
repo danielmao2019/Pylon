@@ -5,7 +5,7 @@ from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from models.point_cloud_registration.classic.icp import ICP
 from runners.base_evaluator import BaseEvaluator
 
-# Configuration
+
 config = {
     'runner': BaseEvaluator,
     'work_dir': './logs/benchmarks/point_cloud_registration/kitti/ICP_run_0',

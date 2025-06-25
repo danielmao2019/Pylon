@@ -24,7 +24,7 @@ from models.point_cloud_registration.buffer.buffer import BUFFER
 from optimizers.single_task_optimizer import SingleTaskOptimizer
 from runners.pcr_trainers.buffer_trainer import BufferTrainer
 
-# Configuration
+
 config = [{
     'stage': 'Ref',
     'runner': BufferTrainer,

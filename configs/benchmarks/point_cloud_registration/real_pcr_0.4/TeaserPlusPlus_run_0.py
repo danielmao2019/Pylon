@@ -10,7 +10,7 @@ from metrics.wrappers.hybrid_metric import HybridMetric
 from models.point_cloud_registration.classic.teaserplusplus import TeaserPlusPlus
 from runners.base_evaluator import BaseEvaluator
 
-# Configuration
+
 config = {
     'runner': BaseEvaluator,
     'work_dir': './logs/benchmarks/point_cloud_registration/real_pcr_0.4/TeaserPlusPlus_run_0',

@@ -10,7 +10,7 @@ from metrics.wrappers.hybrid_metric import HybridMetric
 from models.point_cloud_registration.classic.icp import ICP
 from runners.base_evaluator import BaseEvaluator
 
-# Configuration
+
 config = {
     'runner': BaseEvaluator,
     'work_dir': './logs/benchmarks/point_cloud_registration/synth_pcr_0.5/ICP_run_0',

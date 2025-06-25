@@ -12,7 +12,7 @@ from models.point_cloud_registration.overlappredator.overlappredator import Over
 from optimizers.single_task_optimizer import SingleTaskOptimizer
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
-# Configuration
+
 config = {
     'runner': SupervisedSingleTaskTrainer,
     'work_dir': './logs/benchmarks/point_cloud_registration/synth_pcr_0.4/OverlapPredator_run_1',

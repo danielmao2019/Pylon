@@ -10,7 +10,7 @@ from models.point_cloud_registration.geotransformer.geotransformer import GeoTra
 from optimizers.single_task_optimizer import SingleTaskOptimizer
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
-# Configuration
+
 config = {
     'runner': SupervisedSingleTaskTrainer,
     'work_dir': './logs/benchmarks/point_cloud_registration/kitti/GeoTransformer_run_2',
