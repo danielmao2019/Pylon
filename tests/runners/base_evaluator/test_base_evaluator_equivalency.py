@@ -1,6 +1,7 @@
 from typing import Dict, Any
-import os
+import pytest
 import tempfile
+import os
 import json
 import numpy as np
 import torch
@@ -109,6 +110,34 @@ class SimpleTestModel(nn.Module):
         return {'logits': logits}
 
 
+class ErrorTestDataset(torch.utils.data.Dataset):
+    """Test dataset that triggers errors at specific indices."""
+
+    def __init__(self, num_examples: int = 20, error_indices: list = None, seed: int = 42):
+        self.num_examples = num_examples
+        self.error_indices = error_indices or []
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+
+        # Generate fixed random data
+        self.images = torch.randn(num_examples, 3, 32, 32, dtype=torch.float32)
+        self.labels = torch.randint(0, 10, (num_examples,), dtype=torch.int64)
+
+    def __len__(self):
+        return self.num_examples
+
+    def __getitem__(self, idx):
+        # Trigger error at specific indices
+        if idx in self.error_indices:
+            raise ValueError(f"Test error at dataset index {idx}")
+
+        return {
+            'inputs': {'image': self.images[idx]},
+            'labels': {'target': self.labels[idx]},
+            'meta_info': {'idx': idx},
+        }
+
+
 class SimpleTestMetric(BaseMetric):
     """Simple accuracy metric for testing."""
 
@@ -152,12 +181,12 @@ class SimpleTestMetric(BaseMetric):
             total_correct = sum(item['accuracy'] * item['num_samples'] for item in buffer)
             total_samples = sum(item['num_samples'] for item in buffer)
             final_accuracy = total_correct / total_samples if total_samples > 0 else 0.0
-            
+
             aggregated = {
                 'accuracy': float(final_accuracy),
                 'reduced': float(final_accuracy)  # For compatibility with BaseTrainer._find_best_checkpoint_
             }
-            
+
             # Create per_datapoint structure by transposing buffer
             per_datapoint = transpose_buffer(buffer)
 
@@ -250,14 +279,14 @@ def test_base_evaluator_single_vs_multi_worker():
         # Compare results structure
         assert single_worker_scores.keys() == multi_worker_scores.keys(), \
             f"Score keys differ: {single_worker_scores.keys()} vs {multi_worker_scores.keys()}"
-        
+
         assert 'aggregated' in single_worker_scores, "Missing aggregated scores"
         assert 'per_datapoint' in single_worker_scores, "Missing per_datapoint scores"
 
         # Compare aggregated metrics (should be identical)
         single_agg = single_worker_scores['aggregated']
         multi_agg = multi_worker_scores['aggregated']
-        
+
         assert single_agg.keys() == multi_agg.keys(), \
             f"Aggregated keys differ: {single_agg.keys()} vs {multi_agg.keys()}"
 
@@ -276,17 +305,17 @@ def test_base_evaluator_single_vs_multi_worker():
         # Compare per_datapoint metrics (this tests execution order!)
         single_per_dp = single_worker_scores['per_datapoint']
         multi_per_dp = multi_worker_scores['per_datapoint']
-        
+
         assert single_per_dp.keys() == multi_per_dp.keys(), \
             f"Per-datapoint keys differ: {single_per_dp.keys()} vs {multi_per_dp.keys()}"
-            
+
         for key in single_per_dp.keys():
             single_list = single_per_dp[key]
             multi_list = multi_per_dp[key]
-            
+
             assert len(single_list) == len(multi_list), \
                 f"Per-datapoint list lengths differ for {key}: {len(single_list)} vs {len(multi_list)}"
-            
+
             # Compare each element in order - this verifies execution order is preserved
             for i, (single_val, multi_val) in enumerate(zip(single_list, multi_list)):
                 if isinstance(single_val, (int, float)) and isinstance(multi_val, (int, float)):
@@ -344,7 +373,7 @@ def test_base_evaluator_deterministic_results():
                 run_list = run_per_dp[key]
                 assert len(ref_list) == len(run_list), \
                     f"Run {run_idx} per_datapoint length differs for {key}"
-                
+
                 for i, (ref_val, run_val) in enumerate(zip(ref_list, run_list)):
                     if isinstance(ref_val, (int, float)) and isinstance(run_val, (int, float)):
                         assert abs(ref_val - run_val) < 1e-6, \
@@ -401,7 +430,7 @@ def test_base_evaluator_different_worker_counts():
                 worker_list = worker_per_dp[key]
                 assert len(ref_list) == len(worker_list), \
                     f"Worker count {worker_count} per_datapoint length differs for {key}"
-                
+
                 for i, (ref_val, worker_val) in enumerate(zip(ref_list, worker_list)):
                     if isinstance(ref_val, (int, float)) and isinstance(worker_val, (int, float)):
                         assert abs(ref_val - worker_val) < 1e-6, \
@@ -450,3 +479,171 @@ def test_base_evaluator_file_structure():
                 assert 'reduced' in scores['aggregated'], "Reduced metric should be present in aggregated"
 
         print("✓ Both evaluators created expected file structure!")
+
+
+def test_base_evaluator_error_equivalency():
+    """
+    Test that single-worker (sequential) and multi-worker evaluators handle errors identically.
+    Both should fail at the same datapoint with the same error.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Create datasets that will error at index 5
+        error_indices = [5]
+
+        # Test single worker (sequential) error handling
+        single_worker_dir = os.path.join(temp_dir, 'single_worker_error')
+        os.makedirs(single_worker_dir, exist_ok=True)
+
+        single_worker_config = {
+            'work_dir': single_worker_dir,
+            'seed': 42,
+            'eval_n_jobs': 1,  # Sequential execution
+            'eval_dataset': {
+                'class': ErrorTestDataset,
+                'args': {
+                    'num_examples': 10,
+                    'error_indices': error_indices,
+                    'seed': 42
+                }
+            },
+            'eval_dataloader': {
+                'class': DataLoader,
+                'args': {
+                    'batch_size': 1,
+                    'shuffle': False,
+                    'num_workers': 0,
+                    'drop_last': False,
+                    'collate_fn': BaseCollator()
+                }
+            },
+            'model': {
+                'class': SimpleTestModel,
+                'args': {
+                    'num_classes': 10,
+                    'input_size': 3*32*32
+                }
+            },
+            'metric': {
+                'class': SimpleTestMetric,
+                'args': {}
+            }
+        }
+
+        # Test multi-worker error handling
+        multi_worker_dir = os.path.join(temp_dir, 'multi_worker_error')
+        os.makedirs(multi_worker_dir, exist_ok=True)
+
+        multi_worker_config = single_worker_config.copy()
+        multi_worker_config['work_dir'] = multi_worker_dir
+        multi_worker_config['eval_n_jobs'] = 3  # Parallel execution
+
+        # Both should raise the same error
+        single_worker_error = None
+        multi_worker_error = None
+
+        # Test single worker execution
+        try:
+            run_evaluator(single_worker_config)
+        except Exception as e:
+            single_worker_error = e
+
+        # Test multi-worker execution
+        try:
+            run_evaluator(multi_worker_config)
+        except Exception as e:
+            multi_worker_error = e
+
+        # Both should have failed with errors
+        assert single_worker_error is not None, "Single worker should have raised an error"
+        assert multi_worker_error is not None, "Multi worker should have raised an error"
+
+        # Error types should be the same (both should propagate the ValueError)
+        assert type(single_worker_error) == type(multi_worker_error), \
+            f"Error types differ: {type(single_worker_error)} vs {type(multi_worker_error)}"
+
+        # Error messages should contain the same dataset error
+        assert "Test error at dataset index 5" in str(single_worker_error), \
+            f"Single worker error should mention index 5: {single_worker_error}"
+        assert "Test error at dataset index 5" in str(multi_worker_error), \
+            f"Multi worker error should mention index 5: {multi_worker_error}"
+
+        print(f"✓ Both execution methods failed with same error: {type(single_worker_error).__name__}")
+        print(f"✓ Single worker error: {single_worker_error}")
+        print(f"✓ Multi worker error: {multi_worker_error}")
+
+
+def test_base_evaluator_early_vs_late_error():
+    """
+    Test error behavior when errors occur early vs late in the evaluation.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Test early error (index 1)
+        early_error_dir = os.path.join(temp_dir, 'early_error')
+        os.makedirs(early_error_dir, exist_ok=True)
+
+        early_error_config = create_test_config(early_error_dir, eval_n_jobs=2, seed=42)
+        early_error_config['eval_dataset'] = {
+            'class': ErrorTestDataset,
+            'args': {
+                'num_examples': 10,
+                'error_indices': [1],  # Early error
+                'seed': 42
+            }
+        }
+
+        # Test late error (index 8)
+        late_error_dir = os.path.join(temp_dir, 'late_error')
+        os.makedirs(late_error_dir, exist_ok=True)
+
+        late_error_config = create_test_config(late_error_dir, eval_n_jobs=2, seed=42)
+        late_error_config['eval_dataset'] = {
+            'class': ErrorTestDataset,
+            'args': {
+                'num_examples': 10,
+                'error_indices': [8],  # Late error
+                'seed': 42
+            }
+        }
+
+        # Both should fail with ValueError mentioning the specific index
+        with pytest.raises(Exception) as early_exc_info:
+            run_evaluator(early_error_config)
+        assert "Test error at dataset index 1" in str(early_exc_info.value)
+
+        with pytest.raises(Exception) as late_exc_info:
+            run_evaluator(late_error_config)
+        assert "Test error at dataset index 8" in str(late_exc_info.value)
+
+        print("✓ Both early and late errors handled correctly with fail-fast behavior")
+
+
+def test_base_evaluator_multiple_error_points():
+    """
+    Test that evaluation fails on the first error when multiple error points exist.
+    """
+    with tempfile.TemporaryDirectory() as temp_dir:
+        multi_error_dir = os.path.join(temp_dir, 'multi_error')
+        os.makedirs(multi_error_dir, exist_ok=True)
+
+        # Dataset with errors at indices 3 and 7
+        multi_error_config = create_test_config(multi_error_dir, eval_n_jobs=2, seed=42)
+        multi_error_config['eval_dataset'] = {
+            'class': ErrorTestDataset,
+            'args': {
+                'num_examples': 10,
+                'error_indices': [3, 7],  # Multiple potential errors
+                'seed': 42
+            }
+        }
+
+        # Should fail on the first error encountered (due to fail-fast)
+        with pytest.raises(Exception) as exc_info:
+            run_evaluator(multi_error_config)
+
+        error_message = str(exc_info.value)
+        # Should fail at index 3 or 7, but consistently on the same one due to deterministic execution
+        assert ("Test error at dataset index 3" in error_message or
+                "Test error at dataset index 7" in error_message), \
+            f"Error should mention index 3 or 7: {error_message}"
+
+        print(f"✓ Multi-error scenario handled with fail-fast: {error_message}")

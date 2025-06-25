@@ -25,6 +25,22 @@ def computation_function(x: int) -> Dict[str, Any]:
     }
 
 
+def error_function(x: int) -> int:
+    """Function that raises an error at specific input values."""
+    if x == 7:
+        raise ValueError(f"Test error at input {x}")
+    return x * 3
+
+
+def intermittent_error_function(x: int) -> int:
+    """Function that raises different types of errors at different inputs."""
+    if x == 3:
+        raise RuntimeError(f"Runtime error at input {x}")
+    elif x == 8:
+        raise KeyError(f"Key error at input {x}")
+    return x + 10
+
+
 def test_basic_equivalency():
     """Test that dynamic executor produces same results as sequential execution."""
     inputs = list(range(10))
@@ -150,3 +166,136 @@ def test_map_empty_iterables():
         # Multiple empty iterables
         results = list(executor.map(lambda x, y: x + y, [], []))
         assert results == []
+
+
+def test_error_equivalency_single_error():
+    """Test that dynamic executor and for loop behave identically when an error occurs."""
+    inputs = [1, 2, 3, 4, 5, 6, 7, 8, 9]  # error_function will fail at x=7
+
+    # Sequential execution (for loop) - should raise ValueError at x=7
+    sequential_error = None
+    sequential_results = []
+    try:
+        for x in inputs:
+            sequential_results.append(error_function(x))
+    except Exception as e:
+        sequential_error = e
+        sequential_error_type = type(e)
+        sequential_error_message = str(e)
+
+    # Dynamic executor execution - should also raise ValueError at x=7 and stop immediately
+    executor_error = None
+    with pytest.raises(Exception) as exec_info:
+        executor = create_dynamic_executor(max_workers=3)
+        with executor:
+            list(executor.map(error_function, inputs))
+
+    executor_error = exec_info.value
+    executor_error_type = type(executor_error)
+    executor_error_message = str(executor_error)
+
+    # Both should have raised an error
+    assert sequential_error is not None, "Sequential execution should have raised an error"
+    assert executor_error is not None, "Dynamic executor should have raised an error"
+
+    # Error types and messages should be the same
+    assert sequential_error_type == executor_error_type, \
+        f"Error types differ: {sequential_error_type} vs {executor_error_type}"
+    assert sequential_error_message == executor_error_message, \
+        f"Error messages differ: '{sequential_error_message}' vs '{executor_error_message}'"
+
+
+def test_error_equivalency_multiple_potential_errors():
+    """Test that both execution methods fail on the first error encountered."""
+    inputs = [1, 2, 3, 4, 5, 6, 7, 8, 9]  # intermittent_error_function fails at x=3 and x=8
+
+    # Sequential execution - should fail at x=3 (first error)
+    sequential_error = None
+    try:
+        for x in inputs:
+            intermittent_error_function(x)
+    except Exception as e:
+        sequential_error = e
+
+    # Dynamic executor execution - should also fail at x=3 (first error)
+    executor_error = None
+    with pytest.raises(Exception) as exec_info:
+        executor = create_dynamic_executor(max_workers=2)
+        with executor:
+            list(executor.map(intermittent_error_function, inputs))
+
+    executor_error = exec_info.value
+
+    # Both should have raised the same error (RuntimeError at x=3)
+    assert type(sequential_error) == type(executor_error) == RuntimeError
+    assert "Runtime error at input 3" in str(sequential_error)
+    assert "Runtime error at input 3" in str(executor_error)
+
+
+def test_error_equivalency_no_partial_results():
+    """Test that both methods provide no partial results when an error occurs."""
+    inputs = [10, 20, 30, 7, 40, 50]  # error at index 3 (x=7)
+
+    # Sequential execution - collect results until error
+    sequential_partial_results = []
+    sequential_error = None
+    try:
+        for x in inputs:
+            result = error_function(x)
+            sequential_partial_results.append(result)
+    except Exception as e:
+        sequential_error = e
+
+    # Dynamic executor execution - should fail completely
+    executor_error = None
+    executor_partial_results = []
+    try:
+        executor = create_dynamic_executor(max_workers=2)
+        with executor:
+            executor_partial_results = list(executor.map(error_function, inputs))
+    except Exception as e:
+        executor_error = e
+
+    # Both should have errors
+    assert sequential_error is not None
+    assert executor_error is not None
+
+    # Sequential would have partial results (before error), but executor should have none
+    # This demonstrates fail-fast behavior - no partial results returned
+    assert len(sequential_partial_results) == 3  # [30, 60, 90] before error at index 3
+    assert len(executor_partial_results) == 0    # Fail-fast: no partial results
+
+    # Error types should be the same
+    assert type(sequential_error) == type(executor_error) == ValueError
+
+
+def test_error_equivalency_early_vs_late_error():
+    """Test error behavior when error occurs early vs late in the dataset."""
+
+    # Test early error (index 1)
+    inputs_early_error = [1, 7, 3, 4, 5]  # error at index 1
+
+    # Sequential execution
+    with pytest.raises(ValueError, match="Test error at input 7"):
+        for x in inputs_early_error:
+            error_function(x)
+
+    # Dynamic executor execution
+    with pytest.raises(ValueError, match="Test error at input 7"):
+        executor = create_dynamic_executor(max_workers=3)
+        with executor:
+            list(executor.map(error_function, inputs_early_error))
+
+    # Test late error (index 4)
+    inputs_late_error = [1, 2, 3, 4, 7]  # error at index 4
+
+    # Sequential execution
+    with pytest.raises(ValueError, match="Test error at input 7"):
+        for x in inputs_late_error:
+            error_function(x)
+
+    # Dynamic executor execution
+    with pytest.raises(ValueError, match="Test error at input 7"):
+        executor = create_dynamic_executor(max_workers=3)
+        with executor:
+            list(executor.map(error_function, inputs_late_error))
