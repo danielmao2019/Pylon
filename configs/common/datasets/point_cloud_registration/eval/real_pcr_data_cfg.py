@@ -1,6 +1,7 @@
 import torch
 import data
-from metrics.vision_3d import RegistrationRecall
+from metrics.wrappers import HybridMetric
+from metrics.vision_3d.point_cloud_registration import IsotropicTransformError, InlierRatio
 
 
 data_cfg = {
@@ -39,10 +40,20 @@ data_cfg = {
         },
     },
     'metric': {
-        'class': RegistrationRecall,
+        'class': HybridMetric,
         'args': {
-            'rot_threshold_deg': 5.0,
-            'trans_threshold_m': 0.3,
+            'metrics_cfg': [
+                {
+                    'class': IsotropicTransformError,
+                    'args': {},
+                },
+                {
+                    'class': InlierRatio,
+                    'args': {
+                        'threshold': 0.3,
+                    },
+                },
+            ],
         },
     },
 }
