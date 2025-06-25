@@ -242,11 +242,12 @@ class ConfigToFile:
         if import_lines:
             lines.extend(import_lines)
             lines.append('')
+            lines.append('')  # Add second empty line for two total empty lines
 
-        # Add config definition with proper formatting
-        lines.append('# Configuration')
+        # Add config definition with proper formatting (removed '# Configuration' comment)
         config_str = self._format_value(analyzed_config, 0)
         lines.append(f'config = {config_str}')
+        lines.append('')  # Add empty line at the end
 
         return '\n'.join(lines)
 
