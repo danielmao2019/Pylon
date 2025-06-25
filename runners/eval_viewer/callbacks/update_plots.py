@@ -67,7 +67,7 @@ def create_grid_and_colorbar(score_map, run_idx, num_datapoints, min_score, max_
     return run_idx, [button_grid, color_bar]
 
 
-def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: int, log_dir_infos: Dict[str, LogDirInfo]):
+def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: int, log_dir_infos: Dict[str, LogDirInfo], global_color_scale: tuple[float, float]):
     """
     Registers all callbacks for the app.
 
@@ -174,9 +174,8 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
             else:
                 raise ValueError(f"Unknown runner type: {info.runner_type}")
 
-        # Calculate global min/max scores across all individual maps
-        min_score = min(np.nanmin(score_map) for score_map in score_maps)
-        max_score = max(np.nanmax(score_map) for score_map in score_maps)
+        # Use pre-computed global color scale for consistent coloring
+        min_score, max_score = global_color_scale
 
         # Create button grids and color bars in parallel
         results = [None] * len(score_maps)  # Pre-allocate list to maintain order

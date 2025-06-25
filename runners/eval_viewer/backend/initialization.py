@@ -22,14 +22,14 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
 
 def detect_runner_type(log_dir: str) -> Literal['trainer', 'evaluator']:
     """Detect whether log directory contains BaseTrainer or BaseEvaluator results.
-    
+
     Args:
         log_dir: Path to log directory
-        
+
     Returns:
         'trainer' if directory contains epoch folders with validation_scores.json
         'evaluator' if directory contains evaluation_scores.json directly
-        
+
     Raises:
         ValueError: If neither pattern is detected
     """
@@ -37,13 +37,13 @@ def detect_runner_type(log_dir: str) -> Literal['trainer', 'evaluator']:
     evaluation_scores_path = os.path.join(log_dir, "evaluation_scores.json")
     if os.path.exists(evaluation_scores_path):
         return 'evaluator'
-    
+
     # Check for BaseTrainer pattern: epoch folders with validation_scores.json
     epoch_0_dir = os.path.join(log_dir, "epoch_0")
     validation_scores_path = os.path.join(epoch_0_dir, "validation_scores.json")
     if os.path.exists(epoch_0_dir) and os.path.exists(validation_scores_path):
         return 'trainer'
-    
+
     raise ValueError(f"Unable to detect log directory runner type for {log_dir}. "
                    f"Expected either 'evaluation_scores.json' in root or 'epoch_*/validation_scores.json' structure.")
 
@@ -184,10 +184,10 @@ def get_score_map_epoch(scores_file: str) -> Tuple[List[str], int, np.ndarray, n
 
 def get_evaluator_score_map(scores_file: str) -> Tuple[List[str], int, np.ndarray, np.ndarray]:
     """Get score map for BaseEvaluator results (single evaluation).
-    
+
     Args:
         scores_file: Path to evaluation_scores.json file
-        
+
     Returns:
         Tuple of (metric_names, num_datapoints, score_map, aggregated_scores)
         score_map has shape (C, H, W) where C=metrics, H=W=sqrt(num_datapoints)
@@ -224,7 +224,7 @@ def get_evaluator_score_map(scores_file: str) -> Tuple[List[str], int, np.ndarra
     aggregated_scores = np.array([
         score_map_metric[2] for score_map_metric in all_score_maps_metric
     ])
-    
+
     return metric_names, num_datapoints, score_map, aggregated_scores
 
 
@@ -339,7 +339,7 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
         dataloader_cfg = config['eval_dataloader']
     else:
         raise ValueError(f"Config must contain either 'val_dataset' or 'eval_dataset', found keys: {list(config.keys())}")
-    
+
     return dataset_class, dataset_type, dataset_cfg, dataloader_cfg
 
 
@@ -374,7 +374,7 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     # Detect runner type and extract information accordingly
     runner_type = detect_runner_type(log_dir)
     dataset_class, dataset_type, dataset_cfg, dataloader_cfg = get_data_info(log_dir)
-    
+
     if runner_type == 'trainer':
         # BaseTrainer results: load from epoch folders
         epoch_dirs = get_epoch_dirs(log_dir)
@@ -409,8 +409,43 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     return info
 
 
+def compute_global_color_scales(log_dir_infos: Dict[str, LogDirInfo], metric_names: List[str]) -> Tuple[float, float]:
+    """Compute global min/max color scales across all data for all metrics.
+
+    Args:
+        log_dir_infos: Dictionary of log directory information
+        metric_names: List of metric names
+
+    Returns:
+        Tuple of (global_min_score, global_max_score)
+    """
+    all_scores = []
+
+    for info in log_dir_infos.values():
+        if info.runner_type == 'trainer':
+            # For trainers: collect all scores from all epochs and metrics
+            # score_map shape: (N, C, H, W)
+            all_scores.extend(info.score_map.flatten())
+        elif info.runner_type == 'evaluator':
+            # For evaluators: collect all scores from all metrics
+            # score_map shape: (C, H, W)
+            all_scores.extend(info.score_map.flatten())
+
+    all_scores = np.array(all_scores)
+    # Filter out NaN values
+    valid_scores = all_scores[~np.isnan(all_scores)]
+
+    if len(valid_scores) == 0:
+        return 0.0, 1.0  # Default range if no valid scores
+
+    global_min = float(np.min(valid_scores))
+    global_max = float(np.max(valid_scores))
+
+    return global_min, global_max
+
+
 def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
-    int, Set[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo],
+    int, Set[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], Tuple[float, float]
 ]:
     """Initialize log directories and validate consistency.
 
@@ -419,7 +454,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         force_reload: Whether to force reload from source files
 
     Returns:
-        Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos)
+        Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, global_color_scale)
 
     Raises:
         ValueError: If log directories are invalid or inconsistent
@@ -472,4 +507,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     data_cfg = module.data_cfg
     dataset_cfg = data_cfg['val_dataset']
 
-    return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos
+    # Compute global color scales across all data
+    global_color_scale = compute_global_color_scales(log_dir_infos, metric_names)
+
+    return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, global_color_scale
