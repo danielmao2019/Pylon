@@ -62,6 +62,8 @@ pytest tests/models/change_detection/test_change_star.py
 pytest -v --tb=short tests/
 ```
 
+**IMPORTANT:** NEVER use the PYTHONPATH environment variable when running commands. This can interfere with Python's module resolution and cause import errors. The project structure handles imports correctly without it
+
 ### 2.2. Training
 ```bash
 # Basic training

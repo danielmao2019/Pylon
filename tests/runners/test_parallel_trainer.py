@@ -4,13 +4,13 @@ from runners import BaseTrainer, SupervisedSingleTaskTrainer
 
 class SimpleTrainer(BaseTrainer):
     """A simplified trainer for testing purposes."""
-    
+
     def _init_optimizer_(self) -> None:
         pass
-    
+
     def _init_scheduler_(self) -> None:
         pass
-    
+
     def _set_gradients_(self, dp: dict) -> None:
         pass
 

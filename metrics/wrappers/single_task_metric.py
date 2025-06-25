@@ -14,6 +14,7 @@ class SingleTaskMetric(BaseMetric):
         self,
         y_pred: Union[torch.Tensor, Dict[str, torch.Tensor]],
         y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
+        idx: int,
     ) -> Dict[str, torch.Tensor]:
         r"""This method assumes `_compute_score` is implemented and both y_pred
         and y_true are either tensors or dictionaries of exactly one key-val pair.
@@ -35,7 +36,7 @@ class SingleTaskMetric(BaseMetric):
             f"{{{', '.join([f'{k}: {type(k)}' for k in scores.keys()])}}}"
         assert all([isinstance(v, torch.Tensor) for v in scores.values()]), \
             f"{{{', '.join([f'{k}: {type(v)}' for k, v in scores.items()])}}}"
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, idx)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:

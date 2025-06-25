@@ -5,7 +5,7 @@ from runners import BaseEvaluator
 
 class SequentialEvaluator(BaseEvaluator):
     """An evaluator that runs evaluation sequentially for testing purposes."""
-    
+
     def _eval_epoch_(self) -> None:
         """Run evaluation sequentially."""
         assert self.eval_dataloader and self.model
@@ -14,12 +14,12 @@ class SequentialEvaluator(BaseEvaluator):
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
-        
+
         # Process evaluation data sequentially
         for idx, dp in enumerate(self.eval_dataloader):
             self._process_eval_batch(dp)
             self.logger.flush(prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
-        
+
         # after validation loop
         self._after_eval_loop_()
         # log time

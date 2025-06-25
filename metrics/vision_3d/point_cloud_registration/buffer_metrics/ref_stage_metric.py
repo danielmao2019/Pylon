@@ -8,9 +8,9 @@ class BUFFER_RefStageMetric(SingleTaskMetric):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.isotropic_transform_error = IsotropicTransformError()
+        self.isotropic_transform_error = IsotropicTransformError(use_buffer=False)
 
-    def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, torch.Tensor]:
         assert isinstance(y_pred, dict), f"{type(y_pred)=}"
         assert y_pred.keys() == {
             'src_ref', 'tgt_ref', 'src_s', 'tgt_s',
@@ -27,7 +27,7 @@ class BUFFER_RefStageMetric(SingleTaskMetric):
         err = err.mean()
         scores = {
             'ref_error': err,
-            **self.isotropic_transform_error(y_pred['pose'], y_true['transform']),
+            **self.isotropic_transform_error(y_pred['pose'], y_true['transform'], idx),
         }
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, idx)
         return scores
