@@ -155,7 +155,9 @@ class DynamicThreadPoolExecutor:
         worker.start()
 
         # Schedule measurement of utilization impact after worker has had time to start work
-        threading.Timer(2.0, self._measure_worker_impact, args=[worker_id, baseline_stats]).start()
+        timer = threading.Timer(2.0, self._measure_worker_impact, args=[worker_id, baseline_stats])
+        timer.daemon = True  # Ensure timer thread doesn't prevent shutdown
+        timer.start()
 
         return worker_id
 
@@ -167,8 +169,8 @@ class DynamicThreadPoolExecutor:
 
     def _get_system_load(self) -> Dict[str, float]:
         """Get current system resource usage."""
-        # Get CPU usage over a short interval
-        cpu_percent = psutil.cpu_percent(interval=0.1)
+        # Get CPU usage - use non-blocking call for better performance in tests
+        cpu_percent = psutil.cpu_percent(interval=None)  # Non-blocking call
 
         # Get GPU memory usage if available
         gpu_memory_percent = 0.0
@@ -191,6 +193,10 @@ class DynamicThreadPoolExecutor:
 
     def _measure_worker_impact(self, worker_id: int, baseline_stats: Dict[str, float]):
         """Measure the utilization impact of adding a worker."""
+        # Skip measurement if executor is shutting down
+        if self._shutdown:
+            return
+            
         current_stats = self._get_system_load()
 
         # Calculate the increase in utilization
