@@ -1,13 +1,14 @@
+from runners import BaseEvaluator
+
+
 config = {
-    'runner': None,
+    'runner': BaseEvaluator,
     'work_dir': None,
     # seeds
     'seed': None,
     # dataset config
-    'val_dataset': None,
-    'val_dataloader': None,
-    'test_dataset': None,
-    'test_dataloader': None,
+    'eval_dataset': None,
+    'eval_dataloader': None,
     'metric': None,
     # model config
     'model': None,
