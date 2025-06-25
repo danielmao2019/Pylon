@@ -409,12 +409,11 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     return info
 
 
-def compute_global_color_scales(log_dir_infos: Dict[str, LogDirInfo], metric_names: List[str]) -> Tuple[float, float]:
+def compute_global_color_scales(log_dir_infos: Dict[str, LogDirInfo]) -> Tuple[float, float]:
     """Compute global min/max color scales across all data for all metrics.
 
     Args:
         log_dir_infos: Dictionary of log directory information
-        metric_names: List of metric names
 
     Returns:
         Tuple of (global_min_score, global_max_score)
@@ -459,16 +458,23 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     Raises:
         ValueError: If log directories are invalid or inconsistent
     """
-    # Extract information from each log directory in parallel
+    # Extract information from each log directory in parallel while preserving order
     log_dir_infos = {}
     with ThreadPoolExecutor() as executor:
-        future_to_log_dir = {
-            executor.submit(extract_log_dir_info, log_dir, force_reload): log_dir
-            for log_dir in log_dirs
+        # Submit all tasks and collect results in order
+        future_to_idx = {
+            executor.submit(extract_log_dir_info, log_dir, force_reload): idx
+            for idx, log_dir in enumerate(log_dirs)
         }
-        for future in as_completed(future_to_log_dir):
-            log_dir = future_to_log_dir[future]
-            log_dir_infos[log_dir] = future.result()
+        # Collect results and maintain order
+        results = [None] * len(log_dirs)
+        for future in as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            results[idx] = future.result()
+        
+        # Build ordered dictionary
+        for log_dir, result in zip(log_dirs, results):
+            log_dir_infos[log_dir] = result
 
     # Get common information
     # For epoch slider, use minimum epochs among trainers to ensure all trainers have data for all epochs
@@ -508,6 +514,6 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     dataset_cfg = data_cfg['val_dataset']
 
     # Compute global color scales across all data
-    global_color_scale = compute_global_color_scales(log_dir_infos, metric_names)
+    global_color_scale = compute_global_color_scales(log_dir_infos)
 
     return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, global_color_scale
