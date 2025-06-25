@@ -1,8 +1,3 @@
-"""
-New version of point cloud registration generator using dictionary-based approach.
-This should produce identical configs to gen.py but using the new system.
-"""
-
 import os
 import sys
 
@@ -12,21 +7,12 @@ project_root = os.path.abspath(os.path.join(script_dir, "../../.."))
 sys.path.insert(0, project_root)
 os.chdir(project_root)
 
-import utils
-from utils.automation.config_to_file import dict_to_config_file, add_heading
+from utils.automation.config_to_file import add_heading
 from utils.automation.config_seeding import generate_seeded_configs
 from utils.builders.builder import semideepcopy
 
 # Import all necessary classes
-import torch
-import data
-import optimizers
-import criteria
-import metrics
-from runners import BaseEvaluator, SupervisedSingleTaskTrainer
-from runners.pcr_trainers import BufferTrainer
 from models.point_cloud_registration.classic import ICP, RANSAC_FPFH
-
 
 # Load template configs
 from configs.benchmarks.point_cloud_registration.template_eval import config as eval_template_config
@@ -51,31 +37,13 @@ def build_eval_config(dataset: str, model: str):
 
     # Load dataset-specific eval data config
     if dataset_name == 'kitti':
-        eval_data_cfg = {
-            'eval_dataset': {
-                'class': data.datasets.KITTIDataset,
-                'args': {
-                    'data_root': './data/datasets/soft_links/KITTI',
-                    'split': 'val',
-                },
-            },
-            'eval_dataloader': {
-                'class': torch.utils.data.DataLoader,
-                'args': {
-                    'batch_size': 1,
-                    'num_workers': 4,
-                },
-            },
-            'metric': None,
-        }
+        from configs.common.datasets.point_cloud_registration.eval.kitti_data_cfg import data_cfg as eval_data_cfg
+    elif dataset_name == 'synth_pcr':
+        from configs.common.datasets.point_cloud_registration.eval.synth_pcr_data_cfg import data_cfg as eval_data_cfg
+    elif dataset_name == 'real_pcr':
+        from configs.common.datasets.point_cloud_registration.eval.real_pcr_data_cfg import data_cfg as eval_data_cfg
     else:
-        # For non-kitti datasets, import configs
-        if dataset_name == 'synth_pcr':
-            from configs.common.datasets.point_cloud_registration.eval.synth_pcr_data_cfg import data_cfg as eval_data_cfg
-        elif dataset_name == 'real_pcr':
-            from configs.common.datasets.point_cloud_registration.eval.real_pcr_data_cfg import data_cfg as eval_data_cfg
-        else:
-            raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
+        raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
 
     # Set overlap if needed
     if overlap is not None:
