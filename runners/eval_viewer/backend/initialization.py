@@ -436,7 +436,12 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
             log_dir_infos[log_dir] = future.result()
 
     # Get common information
-    max_epochs = max(info.num_epochs for info in log_dir_infos.values())
+    # For epoch slider, use minimum epochs among trainers to ensure all trainers have data for all epochs
+    trainer_epochs = [info.num_epochs for info in log_dir_infos.values() if info.runner_type == 'trainer']
+    if trainer_epochs:
+        max_epochs = min(trainer_epochs)  # Use minimum to ensure all trainers have data
+    else:
+        max_epochs = 1  # If no trainers, default to 1 epoch
     assert all(
         info.metric_names == list(log_dir_infos.values())[0].metric_names
         for info in log_dir_infos.values()
