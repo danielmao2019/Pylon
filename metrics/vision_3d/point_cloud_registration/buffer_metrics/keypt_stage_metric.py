@@ -10,9 +10,9 @@ class BUFFER_KeyptStageMetric(SingleTaskMetric):
     def __init__(self, **kwargs) -> None:
         super(BUFFER_KeyptStageMetric, self).__init__(**kwargs)
         self.desc_loss = ContrastiveLoss()
-        self.isotropic_transform_error = IsotropicTransformError()
+        self.isotropic_transform_error = IsotropicTransformError(use_buffer=False)
 
-    def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, y_pred: Dict[str, Any], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, torch.Tensor]:
         assert isinstance(y_pred, dict), f"{type(y_pred)=}"
         assert y_pred.keys() == {
             'src_kpt', 'src_s', 'tgt_s', 'src_des', 'tgt_des',
@@ -26,7 +26,7 @@ class BUFFER_KeyptStageMetric(SingleTaskMetric):
         _, _, accuracy = self.desc_loss(src_des, tgt_des, cdist(src_kpt, src_kpt))
         scores = {
             'desc_acc': accuracy,
-            **self.isotropic_transform_error(y_pred['pose'], y_true['transform']),
+            **self.isotropic_transform_error(y_pred['pose'], y_true['transform'], idx),
         }
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, idx)
         return scores

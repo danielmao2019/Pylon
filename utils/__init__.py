@@ -1,6 +1,7 @@
 """
 UTILS API
 """
+from utils import dynamic_executor
 from utils import automation
 from utils import builders
 from utils import conversions
@@ -21,6 +22,7 @@ from utils import semantic_segmentation
 
 
 __all__ = (
+    'dynamic_executor',
     'automation',
     'builders',
     'conversions',

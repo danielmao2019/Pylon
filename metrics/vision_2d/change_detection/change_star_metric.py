@@ -11,24 +11,24 @@ class ChangeStarMetric(SingleTaskMetric):
 
     def __init__(self) -> None:
         super(ChangeStarMetric, self).__init__()
-        self.change_metric = SemanticSegmentationMetric(num_classes=2)
-        self.semantic_metric = SemanticSegmentationMetric(num_classes=5)
+        self.change_metric = SemanticSegmentationMetric(num_classes=2, use_buffer=False)
+        self.semantic_metric = SemanticSegmentationMetric(num_classes=5, use_buffer=False)
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, Dict[str, torch.Tensor]]:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, Dict[str, torch.Tensor]]:
         """Override parent class __call__ method.
         """
         assert set(y_pred.keys()) == set(['change', 'semantic_1', 'semantic_2'])
         if set(y_true.keys()) == {'change', 'semantic_1', 'semantic_2'}:
             scores = {
-                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change']),
-                'semantic_1': self.semantic_metric(y_pred=y_pred['semantic_1'], y_true=y_true['semantic_1']),
-                'semantic_2': self.semantic_metric(y_pred=y_pred['semantic_2'], y_true=y_true['semantic_2']),
+                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change'], idx=idx),
+                'semantic_1': self.semantic_metric(y_pred=y_pred['semantic_1'], y_true=y_true['semantic_1'], idx=idx),
+                'semantic_2': self.semantic_metric(y_pred=y_pred['semantic_2'], y_true=y_true['semantic_2'], idx=idx),
             }
         elif set(y_true.keys()) == {'change_map'}:
             scores = {
-                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change_map']),
+                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change_map'], idx=idx),
             }
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, idx)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:

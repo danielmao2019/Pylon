@@ -17,7 +17,7 @@ config['work_dir'] = "./logs/tests/supervised_single_task_trainer/interrupt_and_
 
 def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     """Helper function to train from start_epoch until end_epoch.
-    
+
     Args:
         config: Training configuration
         start_epoch: Epoch to start training from
@@ -25,7 +25,7 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     """
     trainer = SupervisedSingleTaskTrainer(config=config)
     trainer._init_components_()
-    
+
     # Verify we're starting from the correct epoch
     assert trainer.cum_epochs == start_epoch, f"Expected to start from epoch {start_epoch}, but got {trainer.cum_epochs}"
     print(f"Starting training from epoch {trainer.cum_epochs}")

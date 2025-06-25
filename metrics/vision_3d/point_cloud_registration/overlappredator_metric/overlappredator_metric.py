@@ -97,7 +97,7 @@ class OverlapPredatorMetric(SingleTaskMetric):
 
         return self.get_recall(coords_dist, feats_dist)
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, Any], idx: int) -> Dict[str, torch.Tensor]:
         # Input checks
         assert isinstance(y_pred, dict), f"{type(y_pred)=}"
         assert y_pred.keys() == {'feats_f', 'scores_overlap', 'scores_saliency'}, f"{y_pred.keys()=}"
@@ -135,5 +135,5 @@ class OverlapPredatorMetric(SingleTaskMetric):
             correspondence, src_pcd, tgt_pcd, src_feats, tgt_feats,
         )
 
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, idx)
         return scores

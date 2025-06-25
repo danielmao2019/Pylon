@@ -24,7 +24,7 @@ class MultiTaskMetric(BaseMetric):
         for metric in self.task_metrics.values():
             metric.reset_buffer()
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, Dict[str, torch.Tensor]]:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, Dict[str, torch.Tensor]]:
         r"""Call each metric.
         """
         # input checks
@@ -33,7 +33,7 @@ class MultiTaskMetric(BaseMetric):
             f"{set(y_pred.keys())=}, {set(y_true.keys())=}, {set(self.task_names)=}"
         # call each task metric
         scores: Dict[str, Dict[str, torch.Tensor]] = {
-            task: self.task_metrics[task](y_pred=y_pred[task], y_true=y_true[task])
+            task: self.task_metrics[task](y_pred=y_pred[task], y_true=y_true[task], idx=idx)
             for task in self.task_names
         }
         return scores

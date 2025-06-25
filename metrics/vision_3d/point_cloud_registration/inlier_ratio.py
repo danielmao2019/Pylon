@@ -25,7 +25,7 @@ class InlierRatio(SingleTaskMetric):
         super(InlierRatio, self).__init__()
         self.threshold = threshold
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, torch.Tensor]:
         assert isinstance(y_pred, dict), f"y_pred must be a dictionary. Got {type(y_pred)}."
         assert y_pred.keys() == {'src_points', 'tgt_points'}, f"{y_pred.keys()=}"
         assert isinstance(y_pred['src_points'], torch.Tensor), f"src_points must be a tensor. Got {type(y_pred['src_points'])}."
@@ -46,5 +46,5 @@ class InlierRatio(SingleTaskMetric):
         inlier_mask = (distances <= self.threshold)
         inlier_ratio = torch.mean(inlier_mask.float())
         scores = {'inlier_ratio': inlier_ratio}
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, idx)
         return scores
