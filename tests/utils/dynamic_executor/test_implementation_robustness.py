@@ -13,16 +13,16 @@ def test_logging_integration():
     """Test that logging is properly integrated throughout the executor."""
     # Test without mocking to ensure actual logging works
     executor = DynamicThreadPoolExecutor(max_workers=2, min_workers=1)
-    
+
     # Submit work that might trigger logging
     futures = [executor.submit(slow_function, i, 0.01) for i in range(5)]
     time.sleep(1.0)  # Allow time for impact measurement
-    
+
     for future in futures:
         future.result()
-    
+
     executor.shutdown(wait=True)
-    
+
     # Test that the executor can handle logging without errors
     # The actual logging calls depend on system behavior and timing
     assert True  # If we reach here, logging integration didn't crash

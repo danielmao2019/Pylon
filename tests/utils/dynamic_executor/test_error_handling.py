@@ -90,7 +90,7 @@ def test_fail_fast_during_execution():
 
     # Should have failed and shutdown
     assert executor._failed is True
-    
+
     # Let execution complete
     executor.shutdown(wait=True)
     assert executor._shutdown is True
