@@ -133,7 +133,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
                 score_maps.append(info.score_map[metric_idx])
             else:
                 raise ValueError(f"Unknown runner type: {info.runner_type}")
-        
+
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
         overlaid_score_map = create_overlaid_score_map(score_maps)
         button_grid = create_button_grid(
@@ -188,11 +188,11 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
                     score_map, i, num_datapoints, min_score, max_score,
                 ): i for i, score_map in enumerate(score_maps)
             }
-            
+
             # Collect results in order
             for future in as_completed(future_to_idx):
                 run_idx, grid_and_bar = future.result()
                 results[run_idx] = grid_and_bar  # Place results in correct position
-        
+
         # Flatten the results list
         return [item for sublist in results for item in sublist]
