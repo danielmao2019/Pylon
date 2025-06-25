@@ -27,10 +27,10 @@ def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
             dcc.Slider(
                 id='epoch-slider',
                 min=0,
-                max=max_epoch,
+                max=max_epoch - 1,
                 step=1,
                 value=0,
-                marks={i: str(i) for i in range(max_epoch + 1)},
+                marks={i: str(i) for i in range(max_epoch)},
             ),
         ], style={'width': '50%', 'display': 'inline-block'}),
 
@@ -60,11 +60,11 @@ def create_aggregated_scores_plot() -> html.Div:
 
 def create_color_bar(min_score: float, max_score: float) -> html.Div:
     """Create a color bar showing the score range.
-    
+
     Args:
         min_score: Minimum score value
         max_score: Maximum score value
-        
+
     Returns:
         Color bar as an HTML div
     """
@@ -73,7 +73,7 @@ def create_color_bar(min_score: float, max_score: float) -> html.Div:
             html.Div(style={
                 'width': '20px',
                 'height': '100px',
-                'background': 'linear-gradient(to bottom, rgb(255,0,0), rgb(255,255,0), rgb(0,255,0))',
+                'background': 'linear-gradient(to bottom, rgb(0,255,0), rgb(255,255,0), rgb(255,0,0))',
                 'marginRight': '10px'
             }),
             html.Div([
@@ -174,7 +174,7 @@ def create_button_grid(
 
 def create_individual_score_maps_layout(run_names: List[str]) -> html.Div:
     """Section for individual score maps.
-    
+
     Args:
         run_names: List of run names to display
     """
