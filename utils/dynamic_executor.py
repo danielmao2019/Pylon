@@ -7,7 +7,6 @@ import torch
 import logging
 from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
-from collections import deque
 
 
 @dataclass
@@ -18,15 +17,6 @@ class WorkerStats:
     total_time: float = 0.0
     last_task_time: float = 0.0
     active: bool = True
-
-
-@dataclass
-class UtilizationSnapshot:
-    """Snapshot of system utilization at a point in time."""
-    timestamp: float
-    worker_count: int
-    cpu_percent: float
-    gpu_memory_percent: float
 
 
 class DynamicWorker(threading.Thread):
@@ -99,7 +89,6 @@ class DynamicThreadPoolExecutor:
         gpu_memory_threshold: float = 85.0,
         monitor_interval: float = 2.0,
         scale_check_interval: float = 1.0,
-        utilization_history_size: int = 10,
     ):
         """
         Args:
@@ -109,7 +98,6 @@ class DynamicThreadPoolExecutor:
             gpu_memory_threshold: GPU memory usage threshold (%) above which to stop scaling up
             monitor_interval: How often to monitor resources for scaling decisions (seconds)
             scale_check_interval: How often to check if scaling is needed (seconds)
-            utilization_history_size: How many utilization snapshots to keep for analysis
         """
         self.max_workers = max_workers or psutil.cpu_count(logical=True)
         self.min_workers = max(1, min_workers)
@@ -121,7 +109,6 @@ class DynamicThreadPoolExecutor:
         # Task management
         self.task_queue = queue.Queue()
         self.workers: List[DynamicWorker] = []
-        self.worker_stats: Dict[int, WorkerStats] = {}
         self.next_worker_id = 0
 
         # Synchronization
@@ -134,7 +121,6 @@ class DynamicThreadPoolExecutor:
         self._scale_cooldown = 5.0  # Longer cooldown for more careful scaling
 
         # Utilization tracking for smart scaling decisions
-        self._utilization_history: deque = deque(maxlen=utilization_history_size)
         self._last_resource_check = 0
         self._worker_utilization_impacts: List[Dict[str, float]] = []  # Track impact of each worker addition
 
@@ -166,7 +152,6 @@ class DynamicThreadPoolExecutor:
         )
 
         self.workers.append(worker)
-        self.worker_stats[worker_id] = worker.stats
         worker.start()
 
         # Schedule measurement of utilization impact after worker has had time to start work
@@ -310,14 +295,8 @@ class DynamicThreadPoolExecutor:
                     stats = self._get_system_load()
                     self._last_resource_check = current_time
 
-                    # Record utilization snapshot
-                    snapshot = UtilizationSnapshot(
-                        timestamp=current_time,
-                        worker_count=len(self.workers),
-                        cpu_percent=stats['cpu_percent'],
-                        gpu_memory_percent=stats['gpu_memory_percent']
-                    )
-                    self._utilization_history.append(snapshot)
+                    # Resource monitoring for scaling decisions
+                    # (Historical snapshots removed as they weren't used for decision making)
 
                     # Consider adding workers (never scaling down)
                     if self._should_add_worker(stats):
