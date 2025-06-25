@@ -60,11 +60,11 @@ def create_aggregated_scores_plot() -> html.Div:
 
 def create_color_bar(min_score: float, max_score: float) -> html.Div:
     """Create a color bar showing the score range.
-    
+
     Args:
         min_score: Minimum score value
         max_score: Maximum score value
-        
+
     Returns:
         Color bar as an HTML div
     """
@@ -174,7 +174,7 @@ def create_button_grid(
 
 def create_individual_score_maps_layout(run_names: List[str]) -> html.Div:
     """Section for individual score maps.
-    
+
     Args:
         run_names: List of run names to display
     """

@@ -471,7 +471,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         for future in as_completed(future_to_idx):
             idx = future_to_idx[future]
             results[idx] = future.result()
-        
+
         # Build ordered dictionary
         for log_dir, result in zip(log_dirs, results):
             log_dir_infos[log_dir] = result
