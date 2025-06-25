@@ -72,7 +72,7 @@ def register_datapoint_viewer_callbacks(
 
         # Parse the button index
         index_parts = triggered_id['index'].split('-')
-        
+
         if triggered_id['type'] == 'overlaid-grid-button':
             # Overlaid button grid click - use the common dataset from dataset_cfg
             run_idx = None
@@ -103,7 +103,7 @@ def register_datapoint_viewer_callbacks(
                 html.P(f"Type: {dataset_type}"),
                 html.P(f"Source: {'Individual Run' if run_idx is not None else 'Overlaid View'}"),
             ], style={'marginBottom': '20px'}),
-            
+
             # Visualization section
             html.Div(display)
         ])
