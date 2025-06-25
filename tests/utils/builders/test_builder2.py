@@ -110,4 +110,4 @@ def test_optimizer_parameter_preservation(optimizer_config_factory):
     for param in optimizer_params:
         param.data += 1.0
     for orig_param, opt_param in zip(original_params, optimizer_params):
-        assert torch.allclose(orig_param, opt_param), "Parameter modifications should be reflected in both model and optimizer" 
+        assert torch.allclose(orig_param, opt_param), "Parameter modifications should be reflected in both model and optimizer"

@@ -13,11 +13,11 @@ def simple_function(x: int) -> int:
 def test_create_dynamic_executor_factory():
     """Test the factory function creates executor correctly."""
     executor = create_dynamic_executor(max_workers=4, min_workers=2)
-    
+
     assert executor._max_workers == 4
     assert executor._current_workers >= 2
     assert executor._current_workers <= 4
-    
+
     executor.shutdown(wait=True)
 
 
@@ -119,14 +119,14 @@ def test_different_worker_counts(max_workers: int):
 def test_worker_properties():
     """Test _max_workers and _current_workers properties."""
     executor = DynamicThreadPoolExecutor(max_workers=5, min_workers=2)
-    
+
     # _max_workers should return the configured maximum
     assert executor._max_workers == 5
-    
+
     # _current_workers should return actual number of workers
     assert executor._current_workers >= 2  # At least min_workers
     assert executor._current_workers <= 5  # At most max_workers
-    
+
     executor.shutdown(wait=True)
 
 
@@ -141,5 +141,5 @@ def test_worker_count_constraints():
 
     # Initial count should be reasonable (not more than max_workers)
     assert current_count <= 4
-    
+
     executor_instance.shutdown(wait=True)

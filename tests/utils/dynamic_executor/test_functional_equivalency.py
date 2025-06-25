@@ -127,26 +127,26 @@ def test_map_order_preservation_with_timeout():
         sleep_time = 0.1 / (x + 1)
         time.sleep(sleep_time)
         return x * 3
-    
+
     inputs = list(range(10))
     expected = [x * 3 for x in inputs]
-    
+
     executor = create_dynamic_executor(max_workers=4)
     with executor:
         results = list(executor.map(variable_time_function, inputs, timeout=5.0))
-    
+
     assert results == expected
 
 
 def test_map_empty_iterables():
     """Test map method with various empty input scenarios."""
     executor = create_dynamic_executor(max_workers=2)
-    
+
     with executor:
         # Empty iterables
         results = list(executor.map(simple_function, []))
         assert results == []
-        
+
         # Multiple empty iterables
         results = list(executor.map(lambda x, y: x + y, [], []))
         assert results == []
