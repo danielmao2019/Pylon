@@ -2,7 +2,7 @@ import torch
 import criteria
 import metrics
 import optimizers
-import runners.pcr_trainers
+from runners.pcr_trainers import BufferTrainer
 
 import copy
 from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import get_transforms_cfg
@@ -36,7 +36,7 @@ scheduler_cfg = {
 config = [
 {
     'stage': 'Ref',
-    'runner': runners.pcr_trainers.BufferTrainer,
+    'runner': BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
@@ -68,7 +68,7 @@ config = [
 },
 {
     'stage': 'Desc',
-    'runner': runners.pcr_trainers.BufferTrainer,
+    'runner': BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
@@ -100,7 +100,7 @@ config = [
 },
 {
     'stage': 'Keypt',
-    'runner': runners.pcr_trainers.BufferTrainer,
+    'runner': BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
@@ -132,7 +132,7 @@ config = [
 },
 {
     'stage': 'Inlier',
-    'runner': runners.pcr_trainers.BufferTrainer,
+    'runner': BufferTrainer,
     'work_dir': None,
     'epochs': 100,
     # seeds
