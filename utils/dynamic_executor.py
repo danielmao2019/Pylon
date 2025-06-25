@@ -174,30 +174,6 @@ class DynamicThreadPoolExecutor:
 
         return worker_id
 
-    def _measure_worker_impact(self, worker_id: int, baseline_stats: Dict[str, float]):
-        """Measure the utilization impact of adding a worker."""
-        current_stats = self._get_system_load()
-
-        # Calculate the increase in utilization
-        cpu_increase = current_stats['cpu_percent'] - baseline_stats['cpu_percent']
-        gpu_increase = current_stats['gpu_memory_percent'] - baseline_stats['gpu_memory_percent']
-
-        # Only record positive increases (negative could be noise or other system activity)
-        impact = {
-            'worker_id': worker_id,
-            'cpu_increase': max(0, cpu_increase),
-            'gpu_increase': max(0, gpu_increase),
-            'timestamp': time.time()
-        }
-
-        with self._lock:
-            self._worker_utilization_impacts.append(impact)
-            # Keep only recent measurements (last 5 workers)
-            while len(self._worker_utilization_impacts) > 5:
-                self._worker_utilization_impacts.pop(0)
-
-        logging.info(f"[DynamicExecutor] Worker {worker_id} impact: CPU +{cpu_increase:.1f}%, GPU +{gpu_increase:.1f}%")
-
     def _worker_completed_task(self, worker_id: int, task_time: float):
         """Callback when a worker completes a task."""
         with self._lock:
@@ -227,6 +203,30 @@ class DynamicThreadPoolExecutor:
             'cpu_percent': cpu_percent,
             'gpu_memory_percent': gpu_memory_percent,
         }
+
+    def _measure_worker_impact(self, worker_id: int, baseline_stats: Dict[str, float]):
+        """Measure the utilization impact of adding a worker."""
+        current_stats = self._get_system_load()
+
+        # Calculate the increase in utilization
+        cpu_increase = current_stats['cpu_percent'] - baseline_stats['cpu_percent']
+        gpu_increase = current_stats['gpu_memory_percent'] - baseline_stats['gpu_memory_percent']
+
+        # Only record positive increases (negative could be noise or other system activity)
+        impact = {
+            'worker_id': worker_id,
+            'cpu_increase': max(0, cpu_increase),
+            'gpu_increase': max(0, gpu_increase),
+            'timestamp': time.time()
+        }
+
+        with self._lock:
+            self._worker_utilization_impacts.append(impact)
+            # Keep only recent measurements (last 5 workers)
+            while len(self._worker_utilization_impacts) > 5:
+                self._worker_utilization_impacts.pop(0)
+
+        logging.info(f"[DynamicExecutor] Worker {worker_id} impact: CPU +{cpu_increase:.1f}%, GPU +{gpu_increase:.1f}%")
 
     def _estimate_worker_impact(self) -> Dict[str, float]:
         """Estimate the average resource impact of adding a new worker."""
