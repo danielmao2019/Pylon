@@ -4,6 +4,7 @@ import time
 import queue
 import psutil
 import torch
+import logging
 from concurrent.futures import Future, as_completed
 from dataclasses import dataclass
 from collections import deque
@@ -56,20 +57,21 @@ class DynamicWorker(threading.Thread):
                     future.set_result(result)
                 except Exception as e:
                     future.set_exception(e)
+                    logging.warning(f"Worker {self.worker_id} task failed: {e}")
+                finally:
+                    # Always update stats and callback regardless of success/failure
+                    task_time = time.time() - start_time
+                    self.stats.tasks_completed += 1
+                    self.stats.total_time += task_time
+                    self.stats.last_task_time = task_time
 
-                # Update stats
-                task_time = time.time() - start_time
-                self.stats.tasks_completed += 1
-                self.stats.total_time += task_time
-                self.stats.last_task_time = task_time
-
-                self.result_callback(self.worker_id, task_time)
-                self.task_queue.task_done()
+                    self.result_callback(self.worker_id, task_time)
+                    self.task_queue.task_done()
 
             except queue.Empty:
                 continue  # Check stop event and try again
             except Exception as e:
-                print(f"Worker {self.worker_id} error: {e}")
+                logging.error(f"Worker {self.worker_id} error: {e}")
 
     def stop(self):
         """Signal the worker to stop."""
@@ -191,10 +193,10 @@ class DynamicThreadPoolExecutor:
         with self._lock:
             self._worker_utilization_impacts.append(impact)
             # Keep only recent measurements (last 5 workers)
-            if len(self._worker_utilization_impacts) > 5:
+            while len(self._worker_utilization_impacts) > 5:
                 self._worker_utilization_impacts.pop(0)
 
-        print(f"[DynamicExecutor] Worker {worker_id} impact: CPU +{cpu_increase:.1f}%, GPU +{gpu_increase:.1f}%")
+        logging.info(f"[DynamicExecutor] Worker {worker_id} impact: CPU +{cpu_increase:.1f}%, GPU +{gpu_increase:.1f}%")
 
     def _worker_completed_task(self, worker_id: int, task_time: float):
         """Callback when a worker completes a task."""
@@ -211,11 +213,14 @@ class DynamicThreadPoolExecutor:
         gpu_memory_percent = 0.0
         if torch.cuda.is_available():
             try:
-                gpu_memory_used = torch.cuda.memory_allocated()
-                gpu_memory_total = torch.cuda.get_device_properties(0).total_memory
+                # Use current device instead of hardcoded device 0
+                current_device = torch.cuda.current_device()
+                gpu_memory_used = torch.cuda.memory_allocated(current_device)
+                gpu_memory_total = torch.cuda.get_device_properties(current_device).total_memory
                 if gpu_memory_total > 0:
                     gpu_memory_percent = (gpu_memory_used / gpu_memory_total) * 100
-            except:
+            except Exception as e:
+                logging.debug(f"Failed to get GPU memory usage: {e}")
                 gpu_memory_percent = 0.0
 
         return {
@@ -282,7 +287,7 @@ class DynamicThreadPoolExecutor:
             decision = cpu_safe and gpu_safe and utilization_suggests_need
 
             if decision:
-                print(f"[DynamicExecutor] Planning to add worker: current={current_workers}, "
+                logging.debug(f"[DynamicExecutor] Planning to add worker: current={current_workers}, "
                       f"CPU {current_stats['cpu_percent']:.1f}%→{projected_cpu:.1f}%, "
                       f"GPU {current_stats['gpu_memory_percent']:.1f}%→{projected_gpu:.1f}%, "
                       f"pending={self._pending_tasks}")
@@ -319,11 +324,11 @@ class DynamicThreadPoolExecutor:
                         with self._lock:
                             if len(self.workers) < self.max_workers:
                                 worker_id = self._add_worker()
-                                print(f"[DynamicExecutor] Added worker {worker_id}, now {len(self.workers)} total workers")
+                                logging.info(f"[DynamicExecutor] Added worker {worker_id}, now {len(self.workers)} total workers")
                                 self._last_scale_time = current_time
 
             except Exception as e:
-                print(f"Monitor loop error: {e}")
+                logging.error(f"Monitor loop error: {e}")
 
     def submit(self, fn: Callable, *args, **kwargs) -> Future:
         """Submit a callable to be executed with the given arguments."""
@@ -335,21 +340,42 @@ class DynamicThreadPoolExecutor:
 
         with self._lock:
             self._pending_tasks += 1
-
-        self.task_queue.put(task_item)
+            self.task_queue.put(task_item)
         return future
 
     def map(self, fn: Callable, *iterables, timeout: Optional[float] = None, chunksize: int = 1):
         """Return an iterator equivalent to map(fn, *iterables)."""
-        futures = [self.submit(fn, *args) for args in zip(*iterables)]
-
+        if not iterables:
+            return iter([])
+            
+        args_list = list(zip(*iterables))
+        if not args_list:
+            return iter([])
+            
+        # Submit all tasks with their original index for order preservation
+        indexed_futures = [(i, self.submit(fn, *args)) for i, args in enumerate(args_list)]
+        
         def result_iterator():
+            # Collect results and sort by original index to preserve order
+            results = [None] * len(indexed_futures)
+            completed_count = 0
+            
             try:
-                for future in as_completed(futures, timeout=timeout):
-                    yield future.result()
+                future_to_index = {future: i for i, future in indexed_futures}
+                for future in as_completed([f for _, f in indexed_futures], timeout=timeout):
+                    index = future_to_index[future]
+                    results[index] = future.result()
+                    completed_count += 1
+                    
+                # Yield results in original order
+                for result in results:
+                    yield result
+                    
             finally:
-                for future in futures:
-                    future.cancel()
+                # Cancel any remaining futures
+                for _, future in indexed_futures:
+                    if not future.done():
+                        future.cancel()
 
         return result_iterator()
 
@@ -386,6 +412,11 @@ class DynamicThreadPoolExecutor:
     @property
     def _max_workers(self) -> int:
         """Property for compatibility with ThreadPoolExecutor."""
+        return self.max_workers
+    
+    @property
+    def _current_workers(self) -> int:
+        """Current number of active workers."""
         with self._lock:
             return len(self.workers)
 

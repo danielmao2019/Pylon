@@ -409,7 +409,7 @@ class BaseTrainer(ABC):
             # Use adaptive executor that dynamically adjusts worker count based on system resources
             max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
             executor = create_dynamic_executor(max_workers=max_workers, min_workers=1)
-            self.logger.info(f"Using dynamic parallel validation (max {executor._max_workers} workers)")
+            self.logger.info(f"Using dynamic parallel validation (max {executor._max_workers} workers, current {executor._current_workers})")
 
             with executor:
                 future_to_args = {executor.submit(
