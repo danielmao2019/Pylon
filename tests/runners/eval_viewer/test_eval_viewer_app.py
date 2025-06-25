@@ -354,18 +354,6 @@ def main():
     except KeyboardInterrupt:
         print(f"\nStopping app...")
     finally:
-        # Clean up test log directories
-        test_logs_dir = "./logs/tests/runners/eval_viewer"
-        if os.path.exists(test_logs_dir):
-            print(f"Cleaning up test log directories: {test_logs_dir}")
-            shutil.rmtree(test_logs_dir)
-
-        # Clean up test config directories
-        test_configs_dir = "./configs/tests/runners/eval_viewer"
-        if os.path.exists(test_configs_dir):
-            print(f"Cleaning up test config directories: {test_configs_dir}")
-            shutil.rmtree(test_configs_dir)
-
         print("Done!")
 
 
