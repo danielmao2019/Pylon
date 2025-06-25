@@ -73,7 +73,7 @@ def create_color_bar(min_score: float, max_score: float) -> html.Div:
             html.Div(style={
                 'width': '20px',
                 'height': '100px',
-                'background': 'linear-gradient(to bottom, rgb(255,0,0), rgb(255,255,0), rgb(0,255,0))',
+                'background': 'linear-gradient(to bottom, rgb(0,255,0), rgb(255,255,0), rgb(255,0,0))',
                 'marginRight': '10px'
             }),
             html.Div([
