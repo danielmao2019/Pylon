@@ -1,5 +1,8 @@
 import torch
 import data
+from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
+from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
+from metrics.wrappers.hybrid_metric import HybridMetric
 
 
 data_cfg = {

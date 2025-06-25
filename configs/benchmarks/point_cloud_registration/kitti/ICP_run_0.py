@@ -2,6 +2,9 @@
 # Please do not attempt to modify manually.
 from torch.utils.data.dataloader import DataLoader
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
+from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
+from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
+from metrics.wrappers.hybrid_metric import HybridMetric
 from models.point_cloud_registration.classic.icp import ICP
 from runners.base_evaluator import BaseEvaluator
 
@@ -24,7 +27,20 @@ config = {
             'num_workers': 4,
         },
     },
-    'metric': None,
+    'metric': {
+        'class': HybridMetric,
+        'args': {
+            'metrics_cfg': [{
+    'class': IsotropicTransformError,
+    'args': {},
+}, {
+    'class': InlierRatio,
+    'args': {
+        'threshold': 0.3,
+    },
+}],
+        },
+    },
     'model': {
         'class': ICP,
         'args': {},
