@@ -27,10 +27,10 @@ def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
             dcc.Slider(
                 id='epoch-slider',
                 min=0,
-                max=max_epoch,
+                max=max_epoch - 1,
                 step=1,
                 value=0,
-                marks={i: str(i) for i in range(max_epoch + 1)},
+                marks={i: str(i) for i in range(max_epoch)},
             ),
         ], style={'width': '50%', 'display': 'inline-block'}),
 
