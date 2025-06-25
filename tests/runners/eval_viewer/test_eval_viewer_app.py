@@ -10,7 +10,6 @@ Usage:
 from typing import Dict, Any, List
 import os
 import sys
-import tempfile
 import shutil
 import json
 import numpy as np
@@ -192,17 +191,106 @@ def create_evaluator_log_dir(base_dir: str, run_name: str, num_datapoints: int =
     return log_dir
 
 
-def create_dummy_log_dirs(temp_dir: str) -> List[str]:
-    """Create dummy log directories for both BaseTrainer and BaseEvaluator results.
+def create_config_files():
+    """Create config files in the new folder structure."""
+    # Create config directory structure
+    config_dir = os.path.join(".", "configs", "tests", "runners", "eval_viewer", "semantic_segmentation", "coco_stuff_164k")
+    os.makedirs(config_dir, exist_ok=True)
+    
+    # Config template for BaseTrainer runs
+    trainer_config_template = """\"\"\"Configuration for {run_name}.\"\"\"
 
-    Args:
-        temp_dir: Temporary directory to create the log structure in
+from data.datasets import COCOStuff164KDataset
+import torch
+
+config = {{
+    'model': {{'class': '{model_class}', 'args': {{}}}},
+    'val_dataset': {{
+        'class': COCOStuff164KDataset,
+        'args': {{
+            'data_root': './data/datasets/soft_links/COCOStuff164K',
+            'split': 'val2017',
+            'semantic_granularity': 'coarse',
+        }}
+    }},
+    'val_dataloader': {{
+        'class': torch.utils.data.DataLoader,
+        'args': {{'batch_size': 8}}
+    }},
+    'metric': {{'class': 'TestMetric', 'args': {{}}}},
+    'epochs': {epochs},
+    'seed': 42
+}}
+"""
+    
+    # Config template for BaseEvaluator runs
+    evaluator_config_template = """\"\"\"Configuration for {run_name}.\"\"\"
+
+from data.datasets import COCOStuff164KDataset
+import torch
+
+config = {{
+    'model': {{'class': '{model_class}', 'args': {{}}}},
+    'eval_dataset': {{
+        'class': COCOStuff164KDataset,
+        'args': {{
+            'data_root': './data/datasets/soft_links/COCOStuff164K',
+            'split': 'val2017',
+            'semantic_granularity': 'coarse',
+        }}
+    }},
+    'eval_dataloader': {{
+        'class': torch.utils.data.DataLoader,
+        'args': {{'batch_size': 8}}
+    }},
+    'metric': {{'class': 'TestMetric', 'args': {{}}}},
+    'seed': 42
+}}
+"""
+    
+    # Create trainer configs
+    trainer_configs = [
+        ("model1_run_0", "Model1", 5),
+        ("model2_run_0", "Model2", 3),
+        ("model3_run_0", "Model3", 4)
+    ]
+    
+    for run_name, model_class, epochs in trainer_configs:
+        config_content = trainer_config_template.format(
+            run_name=run_name,
+            model_class=model_class,
+            epochs=epochs
+        )
+        config_path = os.path.join(config_dir, f"{run_name}.py")
+        with open(config_path, 'w') as f:
+            f.write(config_content)
+        print(f"Created config file: {config_path}")
+    
+    # Create evaluator configs
+    evaluator_configs = [
+        ("model1_evaluation", "Model1"),
+        ("model2_evaluation", "Model2")
+    ]
+    
+    for run_name, model_class in evaluator_configs:
+        config_content = evaluator_config_template.format(
+            run_name=run_name,
+            model_class=model_class
+        )
+        config_path = os.path.join(config_dir, f"{run_name}.py")
+        with open(config_path, 'w') as f:
+            f.write(config_content)
+        print(f"Created config file: {config_path}")
+
+
+def create_dummy_log_dirs() -> List[str]:
+    """Create dummy log directories for both BaseTrainer and BaseEvaluator results.
 
     Returns:
         List of paths to the created log directories
     """
-    # Create base logs directory structure
-    logs_dir = os.path.join(temp_dir, "logs", "benchmarks", "semantic_segmentation", "coco_stuff_164k")
+    # Create base logs directory structure in project directory
+    logs_dir = os.path.join(".", "logs", "tests", "runners", "eval_viewer", "semantic_segmentation", "coco_stuff_164k")
     os.makedirs(logs_dir, exist_ok=True)
 
     log_dirs = []
@@ -230,7 +318,8 @@ def create_dummy_log_dirs(temp_dir: str) -> List[str]:
         log_dirs.append(log_dir)
         print(f"Created BaseEvaluator log directory: {log_dir}")
 
-    # Note: No need to create config structure in temp dir - eval viewer uses real project config files
+    # Create corresponding config files
+    create_config_files()
 
     return log_dirs
 
@@ -244,17 +333,9 @@ def main():
     parser.add_argument("--port", type=int, default=8050, help="Port to run the server on (default: 8050)")
     args = parser.parse_args()
 
-    # Create temporary directory
-    temp_dir = tempfile.mkdtemp(prefix="eval_viewer_test_")
-    print(f"Created temporary directory: {temp_dir}")
-
     try:
-        # Change working directory to temp_dir so relative paths work
-        original_cwd = os.getcwd()
-        os.chdir(temp_dir)
-
-        # Create dummy log directories
-        log_dirs = create_dummy_log_dirs(temp_dir)
+        # Create dummy log directories in project directory
+        log_dirs = create_dummy_log_dirs()
 
         print(f"\nCreated {len(log_dirs)} log directories:")
         for log_dir in log_dirs:
@@ -264,9 +345,8 @@ def main():
         print(f"The app will show:")
         print(f"  - BaseTrainer results: respond to epoch slider changes")
         print(f"  - BaseEvaluator results: static display (ignore epoch slider)")
-        print(f"\nTemp directory: {temp_dir}")
         print(f"Access the app at: http://localhost:{args.port}")
-        print(f"\nPress Ctrl+C to stop the app and clean up temp directory.")
+        print(f"\nPress Ctrl+C to stop the app and clean up test directories.")
 
         # Launch the eval viewer app
         run_app(log_dirs=log_dirs, force_reload=True, debug=True, port=args.port)
@@ -274,12 +354,18 @@ def main():
     except KeyboardInterrupt:
         print(f"\nStopping app...")
     finally:
-        # Restore original working directory
-        os.chdir(original_cwd)
-
-        # Clean up temporary directory
-        print(f"Cleaning up temporary directory: {temp_dir}")
-        shutil.rmtree(temp_dir)
+        # Clean up test log directories
+        test_logs_dir = "./logs/tests/runners/eval_viewer"
+        if os.path.exists(test_logs_dir):
+            print(f"Cleaning up test log directories: {test_logs_dir}")
+            shutil.rmtree(test_logs_dir)
+        
+        # Clean up test config directories
+        test_configs_dir = "./configs/tests/runners/eval_viewer"
+        if os.path.exists(test_configs_dir):
+            print(f"Cleaning up test config directories: {test_configs_dir}")
+            shutil.rmtree(test_configs_dir)
+        
         print("Done!")
 
 
