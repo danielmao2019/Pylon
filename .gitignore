@@ -1,5 +1,6 @@
 __pycache__
 .vscode
+.claude
 logs
 data/datasets/soft_links
 project
