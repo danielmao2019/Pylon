@@ -329,9 +329,17 @@ def get_data_info(log_dir: str) -> Tuple[str, DatasetType, Dict[str, Any], Dict[
     spec.loader.exec_module(module)
     config = module.config
 
-    # Extract dataset and dataloader configs
-    dataset_cfg = config['val_dataset']
-    dataloader_cfg = config['val_dataloader']
+    # Extract dataset and dataloader configs based on runner type
+    # BaseTrainer uses 'val_dataset', BaseEvaluator uses 'eval_dataset'
+    if 'val_dataset' in config:
+        dataset_cfg = config['val_dataset']
+        dataloader_cfg = config['val_dataloader']
+    elif 'eval_dataset' in config:
+        dataset_cfg = config['eval_dataset']
+        dataloader_cfg = config['eval_dataloader']
+    else:
+        raise ValueError(f"Config must contain either 'val_dataset' or 'eval_dataset', found keys: {list(config.keys())}")
+    
     return dataset_class, dataset_type, dataset_cfg, dataloader_cfg
 
 
