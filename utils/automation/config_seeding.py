@@ -117,8 +117,8 @@ def _generate_multistage_seeded_configs(
     """Generate seeded configs for multi-stage models like BUFFER."""
     seeded_configs: List[str] = []
 
-    # Get epochs from the first stage
-    epochs = base_config[0]['epochs']
+    # Get epochs from each stage (should be same for all stages)
+    epochs_per_stage = [stage_config['epochs'] for stage_config in base_config]
 
     for idx in range(num_repetitions):
         # Seed the random generator
@@ -127,18 +127,24 @@ def _generate_multistage_seeded_configs(
         # Deep copy the base config list
         config = semideepcopy(base_config)
 
-        # Generate seeds once for all stages
-        init_seed = random.randint(0, ub)
-        train_seeds = [random.randint(0, ub) for _ in range(epochs)]
-        val_seeds = [random.randint(0, ub) for _ in range(epochs)]
-        test_seed = random.randint(0, ub)
+        # Generate different seeds for each stage (to match old behavior)
+        init_seed_multi_stage = [random.randint(0, ub) for _ in range(len(epochs_per_stage))]
+        train_seeds_multi_stage = [
+            [random.randint(0, ub) for _ in range(num_epochs)]
+            for num_epochs in epochs_per_stage
+        ]
+        val_seeds_multi_stage = [
+            [random.randint(0, ub) for _ in range(num_epochs)]
+            for num_epochs in epochs_per_stage
+        ]
+        test_seed_multi_stage = [random.randint(0, ub) for _ in range(len(epochs_per_stage))]
 
-        # Apply seeds to all stages
-        for stage_config in config:
-            stage_config['init_seed'] = init_seed
-            stage_config['train_seeds'] = train_seeds
-            stage_config['val_seeds'] = val_seeds
-            stage_config['test_seed'] = test_seed
+        # Apply different seeds to each stage
+        for stage_idx, stage_config in enumerate(config):
+            stage_config['init_seed'] = init_seed_multi_stage[stage_idx]
+            stage_config['train_seeds'] = train_seeds_multi_stage[stage_idx]
+            stage_config['val_seeds'] = val_seeds_multi_stage[stage_idx]
+            stage_config['test_seed'] = test_seed_multi_stage[stage_idx]
 
             # Set work directory for each stage
             if base_work_dir is not None:
