@@ -6,12 +6,13 @@ import time
 import json
 import jsbeautifier
 import torch
-from concurrent.futures import ThreadPoolExecutor, as_completed
-
-import utils
+from concurrent.futures import as_completed
 from utils.builders import build_from_config
+from utils.determinism import set_determinism, set_seed
 from utils.monitor.system_monitor import SystemMonitor
+from utils.dynamic_executor import create_dynamic_executor
 from utils.logging.text_logger import TextLogger
+from utils.logging import echo_page_break, log_scores
 
 
 class BaseEvaluator:
@@ -49,11 +50,11 @@ class BaseEvaluator:
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "eval*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
-        utils.logging.echo_page_break(filepath=git_log, heading="git branch -a")
+        echo_page_break(filepath=git_log, heading="git branch -a")
         os.system(f"git branch -a >> {git_log}")
-        utils.logging.echo_page_break(filepath=git_log, heading="git status")
+        echo_page_break(filepath=git_log, heading="git status")
         os.system(f"git status >> {git_log}")
-        utils.logging.echo_page_break(filepath=git_log, heading="git log")
+        echo_page_break(filepath=git_log, heading="git log")
         os.system(f"git log >> {git_log}")
 
         # evaluation log
@@ -71,12 +72,12 @@ class BaseEvaluator:
 
     def _init_determinism_(self) -> None:
         self.logger.info("Initializing determinism...")
-        utils.determinism.set_determinism()
+        set_determinism()
         # get seed for initialization steps
         assert 'seed' in self.config.keys()
         seed = self.config['seed']
         assert type(seed) == int, f"{type(seed)=}"
-        utils.determinism.set_seed(seed=seed)
+        set_seed(seed=seed)
 
     def _init_dataloaders_(self) -> None:
         self.logger.info("Initializing dataloaders...")
@@ -125,12 +126,19 @@ class BaseEvaluator:
         # init time
         start_time = time.time()
 
+        # Extract idx from meta_info for order preservation
+        assert 'meta_info' in dp and 'idx' in dp['meta_info']
+        assert isinstance(dp['meta_info']['idx'], list)
+        assert len(dp['meta_info']['idx']) == 1
+        assert isinstance(dp['meta_info']['idx'][0], int)
+        idx = dp['meta_info']['idx'][0]
+
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])
-        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'])
+        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'], idx=idx)
 
         # Log scores
-        self.logger.update_buffer(utils.logging.log_scores(scores=dp['scores']))
+        self.logger.update_buffer(log_scores(scores=dp['scores']))
 
         # Log system stats (CPU + GPU)
         self.system_monitor.log_stats(self.logger)
@@ -157,12 +165,19 @@ class BaseEvaluator:
             for idx, dp in enumerate(self.eval_dataloader):
                 self._eval_step(dp, flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].")
         else:
-            self.logger.info(f"Using {self.eval_n_jobs} threads for parallel evaluation")
-            with ThreadPoolExecutor(max_workers=self.eval_n_jobs) as executor:
+            # Use adaptive executor that dynamically adjusts worker count based on system resources
+            max_workers = self.eval_n_jobs if self.eval_n_jobs > 1 else None
+            executor = create_dynamic_executor(max_workers=max_workers, min_workers=1)
+            self.logger.info(f"Using dynamic parallel evaluation (max {executor._max_workers} workers, current {executor._current_workers})")
+
+            with executor:
+                # Submit all tasks with regular _eval_step - order will be preserved by indexed buffer
                 future_to_args = {executor.submit(
                     self._eval_step, dp,
                     flush_prefix=f"Evaluation [Iteration {idx}/{len(self.eval_dataloader)}].",
                 ): (idx, dp) for idx, dp in enumerate(self.eval_dataloader)}
+
+                # Wait for all tasks to complete (order doesn't matter since buffer is indexed)
                 for future in as_completed(future_to_args):
                     future.result()
 
