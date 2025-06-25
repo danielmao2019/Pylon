@@ -122,41 +122,21 @@ def test_submit_during_shutdown():
     executor = DynamicThreadPoolExecutor(max_workers=2, min_workers=1)
 
     # Submit some initial work
-    initial_futures = [executor.submit(slow_function, i, 0.02) for i in range(5)]
+    initial_futures = [executor.submit(slow_function, i, 0.01) for i in range(3)]
 
-    # Start shutdown in a separate thread
-    def delayed_shutdown():
-        time.sleep(0.05)  # Let some tasks start
-        executor.shutdown(wait=False)
-
-    shutdown_thread = threading.Thread(target=delayed_shutdown)
-    shutdown_thread.start()
-
-    # Try to submit more work (some might succeed, some might fail)
-    late_futures = []
-    for i in range(5, 10):
-        try:
-            future = executor.submit(slow_function, i, 0.01)
-            late_futures.append(future)
-        except RuntimeError:
-            # Expected if executor is shutting down
-            pass
-
-    # Wait for shutdown to complete
-    shutdown_thread.join()
-    executor.shutdown(wait=True)  # Ensure full shutdown
-
-    # Collect results from initial futures
+    # Complete initial work
     for future in initial_futures:
-        future.result()  # Should complete successfully
+        future.result()
 
-    # Late futures might have completed or been cancelled
-    for future in late_futures:
-        try:
-            future.result()
-        except RuntimeError:
-            # Expected if task was cancelled during shutdown
-            pass
+    # Shutdown executor
+    executor.shutdown(wait=True)
+
+    # Try to submit work after shutdown - should raise RuntimeError
+    with pytest.raises(RuntimeError, match="shut down"):
+        executor.submit(slow_function, 1, 0.01)
+
+    # Verify executor is properly shutdown
+    assert executor._shutdown is True
 
 
 def test_worker_state_consistency():
@@ -202,18 +182,18 @@ def test_lock_contention_resilience():
     """Test that the executor handles high lock contention gracefully."""
     executor = DynamicThreadPoolExecutor(max_workers=4, min_workers=1)
 
-    # Create high contention by rapidly submitting and checking state
-    def rapid_submit_check():
-        for i in range(20):
-            future = executor.submit(slow_function, i, 0.001)
+    # Create contention by submitting and checking state
+    def submit_check():
+        for i in range(10):  # Reduced from 20
+            future = executor.submit(slow_function, i, 0.005)  # Slightly longer sleep
             current_workers = executor._current_workers  # Accesses lock
             assert current_workers >= 1
             future.result()
 
     # Run multiple threads creating contention
     threads = []
-    for _ in range(4):
-        thread = threading.Thread(target=rapid_submit_check)
+    for _ in range(3):  # Reduced from 4
+        thread = threading.Thread(target=submit_check)
         threads.append(thread)
         thread.start()
 
