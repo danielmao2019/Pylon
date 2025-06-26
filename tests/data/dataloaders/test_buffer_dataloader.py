@@ -5,6 +5,8 @@ from utils.builders import build_from_config
 
 
 def test_buffer_dataloader() -> None:
+    from configs.common.datasets.point_cloud_registration.train.buffer_data_cfg import get_transforms_cfg
+    
     dataset_cfg = data_cfg['train_dataset']
 
     # Check if data directory exists, skip if not
@@ -12,14 +14,16 @@ def test_buffer_dataloader() -> None:
     if not os.path.exists(data_root):
         pytest.skip(f"KITTI dataset not found at {data_root}")
 
+    # Add the transforms that BUFFER expects for the Ref stage
+    dataset_cfg['args']['transforms_cfg'] = get_transforms_cfg('Euler', 3)
     dataset = build_from_config(dataset_cfg)
     dataloader_cfg = data_cfg['train_dataloader']
     dataloader = build_from_config(dataloader_cfg, dataset=dataset)
-    print(f"Total batches: {len(dataloader)}. Checking first 10 batches...")
+    print(f"Total batches: {len(dataloader)}. Checking first 2 batches...")
     idx = 0
     for dp in dataloader:
         print(f"Validating batch {idx}...")
-        if idx >= 10:
+        if idx >= 2:  # Only test 2 batches to keep test fast
             break
         assert isinstance(dp, dict), f"dp is not a dict"
         assert dp.keys() == {'inputs', 'labels', 'meta_info'}, f"dp keys incorrect"

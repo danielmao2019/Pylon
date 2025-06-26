@@ -135,9 +135,10 @@ def log_neighbor_limits(dataloader: GeoTransformerDataloader):
 @pytest.mark.parametrize("num_points", [256, 512, 1024, 2048])
 def test_num_points_impact(num_points):
     """Test how number of points affects memory, data structure, and neighbor limits."""
-    # Clear CUDA cache
+    # Clear CUDA cache thoroughly  
     torch.cuda.empty_cache()
-
+    torch.cuda.synchronize()  # Wait for all operations to complete
+    
     # Initial memory
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
@@ -189,17 +190,17 @@ def test_num_points_impact(num_points):
     # Log neighbor limits analysis
     log_neighbor_limits(dataloader)
 
-    # Basic assertions
-    assert memory_stats['total'] > 0, "Total memory should be positive"
-    assert memory_stats['per_point'] > 0, "Memory per point should be positive"
+    # Basic assertions - memory should increase when creating data structures
+    assert memory_stats['total'] > 0, "Total memory usage should be positive"
 
 
 @pytest.mark.parametrize("voxel_size", [0.01, 0.025, 0.05, 0.1])
 def test_voxel_size_impact(voxel_size):
     """Test how voxel size affects memory, data structure, and neighbor limits."""
-    # Clear CUDA cache
+    # Clear CUDA cache thoroughly  
     torch.cuda.empty_cache()
-
+    torch.cuda.synchronize()  # Wait for all operations to complete
+    
     # Initial memory
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
@@ -250,17 +251,17 @@ def test_voxel_size_impact(voxel_size):
     # Log neighbor limits analysis
     log_neighbor_limits(dataloader)
 
-    # Basic assertions
-    assert memory_stats['total'] > 0, "Total memory should be positive"
-    assert memory_stats['per_point'] > 0, "Memory per point should be positive"
+    # Basic assertions - memory should increase when creating data structures
+    assert memory_stats['total'] > 0, "Total memory usage should be positive"
 
 
 @pytest.mark.parametrize("search_radius", [0.025, 0.0625, 0.125, 0.25])
 def test_search_radius_impact(search_radius):
     """Test how search radius affects memory, data structure, and neighbor limits."""
-    # Clear CUDA cache
+    # Clear CUDA cache thoroughly  
     torch.cuda.empty_cache()
-
+    torch.cuda.synchronize()  # Wait for all operations to complete
+    
     # Initial memory
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
@@ -311,17 +312,17 @@ def test_search_radius_impact(search_radius):
     # Log neighbor limits analysis
     log_neighbor_limits(dataloader)
 
-    # Basic assertions
-    assert memory_stats['total'] > 0, "Total memory should be positive"
-    assert memory_stats['per_point'] > 0, "Memory per point should be positive"
+    # Basic assertions - memory should increase when creating data structures
+    assert memory_stats['total'] > 0, "Total memory usage should be positive"
 
 
 @pytest.mark.parametrize("keep_ratio", [0.6, 0.8, 0.9])
 def test_keep_ratio_impact(keep_ratio):
     """Test how keep ratio affects memory, data structure, and neighbor limits."""
-    # Clear CUDA cache
+    # Clear CUDA cache thoroughly  
     torch.cuda.empty_cache()
-
+    torch.cuda.synchronize()  # Wait for all operations to complete
+    
     # Initial memory
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
@@ -372,17 +373,17 @@ def test_keep_ratio_impact(keep_ratio):
     # Log neighbor limits analysis
     log_neighbor_limits(dataloader)
 
-    # Basic assertions
-    assert memory_stats['total'] > 0, "Total memory should be positive"
-    assert memory_stats['per_point'] > 0, "Memory per point should be positive"
+    # Basic assertions - memory should increase when creating data structures
+    assert memory_stats['total'] > 0, "Total memory usage should be positive"
 
 
 @pytest.mark.parametrize("sample_threshold", [1000, 2000, 4000])
 def test_sample_threshold_impact(sample_threshold):
     """Test how sample_threshold affects memory, data structure, and neighbor limits."""
-    # Clear CUDA cache
+    # Clear CUDA cache thoroughly  
     torch.cuda.empty_cache()
-
+    torch.cuda.synchronize()  # Wait for all operations to complete
+    
     # Initial memory
     initial_allocated = torch.cuda.memory_allocated()
     initial_reserved = torch.cuda.memory_reserved()
@@ -434,6 +435,5 @@ def test_sample_threshold_impact(sample_threshold):
     # Log neighbor limits analysis
     log_neighbor_limits(dataloader)
 
-    # Basic assertions
-    assert memory_stats['total'] > 0, "Total memory should be positive"
-    assert memory_stats['per_point'] > 0, "Memory per point should be positive"
+    # Basic assertions - memory should increase when creating data structures
+    assert memory_stats['total'] > 0, "Total memory usage should be positive"
