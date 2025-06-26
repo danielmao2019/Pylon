@@ -18,8 +18,8 @@ from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
             [
                 {
                     "inputs": {
-                        "pc_0": torch.rand(10, 6),  # 10 points, 3 position + 3 features
-                        "pc_1": torch.rand(10, 6)
+                        "pc_0": {"pos": torch.rand(10, 3), "feat": torch.rand(10, 3)},
+                        "pc_1": {"pos": torch.rand(10, 3), "feat": torch.rand(10, 3)}
                     },
                     "labels": {
                         "change_map": torch.randint(0, 2, (10,), dtype=torch.long)
@@ -31,8 +31,8 @@ from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
                 },
                 {
                     "inputs": {
-                        "pc_0": torch.rand(10, 6),
-                        "pc_1": torch.rand(10, 6)
+                        "pc_0": {"pos": torch.rand(10, 3), "feat": torch.rand(10, 3)},
+                        "pc_1": {"pos": torch.rand(10, 3), "feat": torch.rand(10, 3)}
                     },
                     "labels": {
                         "change_map": torch.randint(0, 2, (10,), dtype=torch.long)
@@ -51,8 +51,8 @@ from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
             [
                 {
                     "inputs": {
-                        "pc_0": torch.rand(5, 6),  # 5 points
-                        "pc_1": torch.rand(5, 6)
+                        "pc_0": {"pos": torch.rand(5, 3), "feat": torch.rand(5, 3)},
+                        "pc_1": {"pos": torch.rand(5, 3), "feat": torch.rand(5, 3)}
                     },
                     "labels": {
                         "change_map": torch.randint(0, 2, (5,), dtype=torch.long)
@@ -64,8 +64,8 @@ from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
                 },
                 {
                     "inputs": {
-                        "pc_0": torch.rand(7, 6),  # 7 points
-                        "pc_1": torch.rand(7, 6)
+                        "pc_0": {"pos": torch.rand(7, 3), "feat": torch.rand(7, 3)},
+                        "pc_1": {"pos": torch.rand(7, 3), "feat": torch.rand(7, 3)}
                     },
                     "labels": {
                         "change_map": torch.randint(0, 2, (7,), dtype=torch.long)
@@ -77,8 +77,8 @@ from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
                 },
                 {
                     "inputs": {
-                        "pc_0": torch.rand(3, 6),  # 3 points
-                        "pc_1": torch.rand(3, 6)
+                        "pc_0": {"pos": torch.rand(3, 3), "feat": torch.rand(3, 3)},
+                        "pc_1": {"pos": torch.rand(3, 3), "feat": torch.rand(3, 3)}
                     },
                     "labels": {
                         "change_map": torch.randint(0, 2, (3,), dtype=torch.long)
@@ -125,11 +125,11 @@ def test_siamese_kpconv_collator(samples, expected_batch_size):
         # Verify batch indices
         batch_indices = batch['inputs'][pc_key]['batch']
         for i, sample in enumerate(samples):
-            sample_size = sample['inputs'][pc_key].shape[0]
+            sample_size = sample['inputs'][pc_key]['pos'].shape[0]
             if i == 0:
                 start_idx = 0
             else:
-                start_idx = sum(s['inputs'][pc_key].shape[0] for s in samples[:i])
+                start_idx = sum(s['inputs'][pc_key]['pos'].shape[0] for s in samples[:i])
                 
             end_idx = start_idx + sample_size
             expected_indices = torch.full((sample_size,), i, dtype=torch.long)

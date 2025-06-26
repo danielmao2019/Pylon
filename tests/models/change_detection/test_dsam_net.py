@@ -14,7 +14,7 @@ def test_dsam_net_forward_pass(input_size):
     batch_size = 4
     image1 = torch.randn(batch_size, 3, *input_size, device='cuda')
     image2 = torch.randn(batch_size, 3, *input_size, device='cuda')
-    inputs = {'image1': image1, 'image2': image2}
+    inputs = {'img_1': image1, 'img_2': image2}
 
     # Run forward pass
     with torch.no_grad():

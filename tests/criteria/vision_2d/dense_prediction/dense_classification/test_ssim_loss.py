@@ -182,7 +182,7 @@ def test_ssim_loss_with_weights_and_ignore():
 
     # Create a version with some ignored pixels
     y_true_ignored = y_true.clone()
-    y_true_ignored[0, 0:5, 0:5] = ignore_value  # Set a small block to ignore_value
+    y_true_ignored[0, 0:height//2, 0:width//2] = ignore_value  # Set a larger block (quarter of the image) to ignore_value
 
     # Create weights with more extreme differences
     weights = torch.tensor([0.05, 0.15, 0.8]).to(device)

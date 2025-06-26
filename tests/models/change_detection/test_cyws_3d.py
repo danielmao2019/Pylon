@@ -16,7 +16,7 @@ def get_easy_dict_from_yaml_file(path_to_yaml_file):
 
 
 def test_cyws_3d() -> None:
-    configs = get_easy_dict_from_yaml_file("/home/d6mao/repos/Pylon/models/change_detection/cyws_3d/config.yml")
+    configs = get_easy_dict_from_yaml_file("./models/change_detection/cyws_3d/config.yml")
     model = CYWS3D(configs).to('cuda')
     dataset = data.datasets.KC3DDataset(
         data_root="./data/datasets/soft_links/KC3D",

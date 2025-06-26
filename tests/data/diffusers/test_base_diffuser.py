@@ -13,7 +13,7 @@ from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesData
                 'data_root': "./data/datasets/soft_links/city-scapes",
                 'split': 'train',
                 'indices': None,
-                'transforms': None,
+                'transforms_cfg': None,
             },
         },
         100, [('labels', 'semantic_segmentation')],
