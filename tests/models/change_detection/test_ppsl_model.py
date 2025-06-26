@@ -6,7 +6,8 @@ def test_ppsl_model() -> None:
     model = PPSLModel().to('cuda')
     img_1 = torch.zeros(size=(4, 3, 224, 224), device='cuda')
     img_2 = torch.zeros(size=(4, 3, 224, 224), device='cuda')
-    outputs = model(img_1, img_2)
+    inputs = {'img_1': img_1, 'img_2': img_2}
+    outputs = model(inputs)
     semantic_out = outputs['semantic_map']
     assert semantic_out.shape == (4, 2, 56, 56)
     change_out = outputs['change_map']

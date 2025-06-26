@@ -49,7 +49,7 @@ class SiameseKPConvCollator(BaseCollator):
         
         return {
             'pos': batched_pos,
-            'feat': batched_x,
+            'x': batched_x,
             'batch': batched_batch
         }
     
