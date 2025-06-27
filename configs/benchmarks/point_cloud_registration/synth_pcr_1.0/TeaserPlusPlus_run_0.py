@@ -40,6 +40,7 @@ config = {
 )],
                 },
             },
+            'device': 'cpu',
         },
     },
     'eval_dataloader': {
