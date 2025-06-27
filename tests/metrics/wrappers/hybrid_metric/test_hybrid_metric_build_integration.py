@@ -5,6 +5,16 @@ from metrics.wrappers.hybrid_metric import HybridMetric
 from utils.builders import build_from_config
 
 
+def create_datapoint(y_pred, y_true, idx=0):
+    """Helper function to create datapoint from y_pred and y_true."""
+    return {
+        'inputs': {},  # Empty for these tests
+        'outputs': y_pred,
+        'labels': y_true,
+        'meta_info': {'idx': idx}
+    }
+
+
 def test_build_from_config_integration(dummy_metric, another_dummy_metric):
     """Test that HybridMetric works correctly with build_from_config."""
     # Test building HybridMetric from config
@@ -36,7 +46,8 @@ def test_build_from_config_integration(dummy_metric, another_dummy_metric):
     sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
 
-    scores = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    datapoint = create_datapoint(sample_input, sample_target)
+    scores = hybrid_metric(datapoint)
     assert isinstance(scores, dict)
     assert 'config_metric1' in scores
     assert 'config_metric2' in scores
@@ -152,7 +163,7 @@ def test_error_handling_in_build_process(dummy_metric):
         def __init__(self, required_arg, use_buffer=True):
             super().__init__(use_buffer=use_buffer)
             self.required_arg = required_arg
-            
+
     malformed_config = {
         'class': HybridMetric,
         'args': {

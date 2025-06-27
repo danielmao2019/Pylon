@@ -3,6 +3,16 @@ import torch
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
+def create_datapoint(y_pred, y_true, idx=0):
+    """Helper function to create datapoint from y_pred and y_true."""
+    return {
+        'inputs': {},  # Empty for these tests
+        'outputs': y_pred,
+        'labels': y_true,
+        'meta_info': {'idx': idx}
+    }
+
+
 def test_buffer_behavior(metrics_cfg, sample_tensor, sample_target):
     """Test the buffer behavior of HybridMetric."""
     # Create a hybrid metric
@@ -10,17 +20,22 @@ def test_buffer_behavior(metrics_cfg, sample_tensor, sample_target):
 
     # Test initialize
     assert hybrid_metric.use_buffer is True
-    assert hasattr(hybrid_metric, 'buffer') and hybrid_metric.buffer == []
+    assert hasattr(hybrid_metric, 'buffer') and hybrid_metric.buffer == {}
     for component_metric in hybrid_metric.metrics:
         assert component_metric.use_buffer is False
         assert not hasattr(component_metric, 'buffer')
 
     # Test update
-    scores = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    scores = hybrid_metric(datapoint)
     hybrid_metric._buffer_queue.join()
     assert hybrid_metric.use_buffer is True
     assert hasattr(hybrid_metric, 'buffer') and len(hybrid_metric.buffer) == 1
-    assert hybrid_metric.buffer[0] == scores  # The merged scores should be in buffer
+    assert 0 in hybrid_metric.buffer  # Index 0 should be in buffer
+    # Compare scores stored in buffer (note: buffer contains CPU versions)
+    buffer_scores = hybrid_metric.buffer[0]
+    for key in scores.keys():
+        assert torch.allclose(scores[key].cpu(), buffer_scores[key])
     for component_metric in hybrid_metric.metrics:
         assert component_metric.use_buffer is False
         assert not hasattr(component_metric, 'buffer')
@@ -28,7 +43,7 @@ def test_buffer_behavior(metrics_cfg, sample_tensor, sample_target):
     # Test reset
     hybrid_metric.reset_buffer()
     assert hybrid_metric.use_buffer is True
-    assert hasattr(hybrid_metric, 'buffer') and hybrid_metric.buffer == []
+    assert hasattr(hybrid_metric, 'buffer') and hybrid_metric.buffer == {}
     for component_metric in hybrid_metric.metrics:
         assert component_metric.use_buffer is False
         assert not hasattr(component_metric, 'buffer')
@@ -47,7 +62,8 @@ def test_disabled_buffer_initialization(metrics_cfg, sample_tensor, sample_targe
         assert not hasattr(component_metric, 'buffer')
 
     # Test that scores are still computed correctly
-    scores = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    scores = hybrid_metric(datapoint)
     assert isinstance(scores, dict)
     assert 'metric1' in scores
     assert 'metric2' in scores
@@ -91,7 +107,8 @@ def test_buffer_operations_thread_safety(metrics_cfg, sample_tensor, sample_targ
 
     # Perform multiple operations to test thread safety
     for i in range(5):
-        scores = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+        datapoint = create_datapoint(sample_tensor, sample_target, idx=i)
+        scores = hybrid_metric(datapoint)
         assert isinstance(scores, dict)
 
     # Wait for all operations to complete
