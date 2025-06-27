@@ -52,7 +52,7 @@ def test_default_buffer_enabled(metrics_cfg):
 
     assert hybrid_metric.use_buffer is True
     assert hasattr(hybrid_metric, 'buffer')
-    assert isinstance(hybrid_metric.buffer, list)
+    assert isinstance(hybrid_metric.buffer, dict)
     assert len(hybrid_metric.buffer) == 0
 
 
