@@ -48,7 +48,7 @@ def get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, A
     top_cmd = ["top", "-bn1"]
     top_output = pool.execute(server, top_cmd)
     
-    cpu_util = 0.0
+    cpu_util = None  # Initialize to None to indicate parsing failure
     for line in top_output.splitlines():
         if '%Cpu' in line:
             # Parse line like: %Cpu(s):  5.9 us,  1.2 sy,  0.0 ni, 92.6 id,  0.3 wa,  0.0 hi,  0.0 si,  0.0 st
@@ -58,7 +58,7 @@ def get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, A
                     try:
                         cpu_util = float(part.replace('us,', ''))
                     except ValueError:
-                        cpu_util = 0.0
+                        cpu_util = None  # Keep as None on parsing failure
                     break
             break
 
