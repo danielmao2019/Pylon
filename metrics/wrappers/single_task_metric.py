@@ -10,16 +10,17 @@ class SingleTaskMetric(BaseMetric):
 
     DIRECTION: int
 
-    def __call__(
-        self,
-        y_pred: Union[torch.Tensor, Dict[str, torch.Tensor]],
-        y_true: Union[torch.Tensor, Dict[str, torch.Tensor]],
-        idx: int,
-    ) -> Dict[str, torch.Tensor]:
+    def __call__(self, datapoint: Dict[str, Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]]) -> Dict[str, torch.Tensor]:
         r"""This method assumes `_compute_score` is implemented and both y_pred
         and y_true are either tensors or dictionaries of exactly one key-val pair.
         """
         assert hasattr(self, '_compute_score') and callable(self._compute_score)
+
+        # Extract outputs and labels from datapoint
+        assert 'outputs' in datapoint and 'labels' in datapoint
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
+
         # input checks
         if type(y_pred) == dict:
             assert len(y_pred) == 1, f"{y_pred.keys()=}"
@@ -36,7 +37,7 @@ class SingleTaskMetric(BaseMetric):
             f"{{{', '.join([f'{k}: {type(k)}' for k in scores.keys()])}}}"
         assert all([isinstance(v, torch.Tensor) for v in scores.values()]), \
             f"{{{', '.join([f'{k}: {type(v)}' for k, v in scores.items()])}}}"
-        self.add_to_buffer(scores, idx)
+        self.add_to_buffer(scores, datapoint)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:

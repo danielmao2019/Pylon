@@ -45,17 +45,22 @@ class BaseMetric(ABC):
             except Exception as e:
                 print(f"Buffer worker error: {e}")
 
-    def add_to_buffer(self, data: Dict[str, Any], idx: int) -> None:
+    def add_to_buffer(self, data: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]) -> None:
         """
         Add data to the buffer.
 
         Args:
             data: Dictionary of data to add to the buffer
-            idx: Integer index of the datapoint for order preservation.
+            datapoint: Complete datapoint to extract idx from
         """
         if self.use_buffer:
             assert hasattr(self, 'buffer')
             assert isinstance(self.buffer, dict)
+
+            # Extract idx from datapoint meta_info
+            assert 'meta_info' in datapoint and 'idx' in datapoint['meta_info']
+            idx = datapoint['meta_info']['idx']
+
             self._buffer_queue.put({'data': data, 'idx': idx})
         else:
             assert not hasattr(self, 'buffer')
@@ -73,7 +78,20 @@ class BaseMetric(ABC):
         raise RuntimeError("Buffer is not enabled")
 
     @abstractmethod
-    def __call__(self, y_pred: Any, y_true: Any, idx: int) -> Any:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Any:
+        """
+        Compute metrics on a datapoint.
+
+        Args:
+            datapoint: Complete datapoint dictionary containing:
+                - 'inputs': Model inputs
+                - 'labels': Ground truth labels
+                - 'outputs': Model outputs (added by runner)
+                - 'meta_info': Metadata including 'idx'
+
+        Returns:
+            Dictionary of computed metrics
+        """
         raise NotImplementedError("Abstract method BaseMetric.__call__ not implemented.")
 
     @abstractmethod
