@@ -5,21 +5,36 @@ import open3d as o3d
 
 
 class RANSAC_FPFH(torch.nn.Module):
-    def __init__(self, voxel_size: float = 0.05):
+    """RANSAC-based registration using Fast Point Feature Histograms (FPFH).
+
+    This method first downsamples point clouds, computes FPFH descriptors,
+    then uses RANSAC to robustly estimate the transformation from feature correspondences.
+
+    Args:
+        voxel_size: Voxel size for downsampling and feature computation
+    """
+
+    def __init__(self, voxel_size: float = 0.05) -> None:
+        """Initialize RANSAC-FPFH model with voxel size parameter.
+
+        Args:
+            voxel_size: Voxel size for downsampling. Also used to determine
+                       radius for normal estimation (2x voxel_size) and
+                       FPFH computation (5x voxel_size)
+        """
         super(RANSAC_FPFH, self).__init__()
         self.voxel_size = voxel_size
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-        """
-        RANSAC-based registration using FPFH features.
+    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
+        """Perform RANSAC-based registration using FPFH features.
 
         Args:
-            inputs: Dictionary containing source and target point clouds
-            inputs['src_pc']['pos']: Source point cloud (B, N, 3)
-            inputs['tgt_pc']['pos']: Target point cloud (B, M, 3)
+            inputs: Dictionary containing:
+                - 'src_pc': Dict with 'pos' key containing source points (B, N, 3)
+                - 'tgt_pc': Dict with 'pos' key containing target points (B, M, 3)
 
         Returns:
-            Transformation matrix (B, 4, 4)
+            Transformation matrix (B, 4, 4) that aligns source to target
         """
         batch_size = inputs['src_pc']['pos'].shape[0]
         device = inputs['src_pc']['pos'].device
