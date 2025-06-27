@@ -1,13 +1,11 @@
 from typing import List, Dict, Optional, Any
 import os
-import threading
-from concurrent.futures import ThreadPoolExecutor
 import torch
+from utils.monitor.base_monitor import BaseMonitor
 from utils.monitor.gpu_status import GPUStatus, get_server_gpus_info
-from utils.ssh.pool import _ssh_pool
 
 
-class GPUMonitor:
+class GPUMonitor(BaseMonitor[GPUStatus]):
 
     def __init__(self, gpu_indices_by_server: Optional[Dict[str, List[int]]] = None, timeout: int = 5):
         """
@@ -17,15 +15,16 @@ class GPUMonitor:
             gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices, or None for localhost
             timeout: SSH command timeout in seconds
         """
-        self.gpus_by_server = self._init_gpu_status(gpu_indices_by_server)
-        self.timeout = timeout
-        self.servers = list(self.gpus_by_server.keys())
-        self.monitor_thread: Optional[threading.Thread] = None
-        self._stop_event = threading.Event()
+        self.gpu_indices_by_server = gpu_indices_by_server
+        super().__init__(timeout=timeout)
 
-        # Do one update first
-        self.ssh_pool = _ssh_pool
-        self._update()
+    def _init_status_structures(self) -> None:
+        """Initialize GPU status data structures."""
+        self.gpus_by_server = self._init_gpu_status(self.gpu_indices_by_server)
+
+    def _get_servers_list(self) -> List[str]:
+        """Get list of servers being monitored."""
+        return list(self.gpus_by_server.keys())
 
     def _init_gpu_status(self, gpu_indices_by_server: Optional[Dict[str, List[int]]]) -> Dict[str, List[GPUStatus]]:
         """Initialize GPUStatus objects from GPU indices organized by server.
@@ -83,31 +82,6 @@ class GPUMonitor:
                 gpus_by_server[server] = server_gpus
 
         return gpus_by_server
-
-    def start(self):
-        """Starts background monitoring thread that continuously updates GPU info"""
-        def monitor_loop():
-            while not self._stop_event.is_set():
-                self._update()
-
-        self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
-        self.monitor_thread.start()
-
-    def stop(self):
-        """Stops background monitoring thread"""
-        if self._stop_event is not None:
-            self._stop_event.set()
-        if self.monitor_thread is not None:
-            self.monitor_thread.join(timeout=1.0)
-
-    def __del__(self):
-        """Automatically stop monitoring when instance is destroyed"""
-        self.stop()
-
-    def _update(self):
-        """Updates information for all GPUs using batched queries per server"""
-        with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
-            list(executor.map(self._update_single_server, self.servers))
 
     def _update_single_server(self, server: str) -> None:
         """Update all GPUs on a single server using batched queries"""
@@ -225,10 +199,3 @@ class GPUMonitor:
         ]
         all_running_commands = [process['cmd'] for process in all_processes]
         return all_running_commands
-
-    def log_stats(self, logger):
-        """Logs status of all monitored GPUs"""
-        stats = self._check()
-        assert len(stats) == 1, "Only support single GPU training for now."
-        stats = list(stats.values())[0]
-        logger.update_buffer(stats)
