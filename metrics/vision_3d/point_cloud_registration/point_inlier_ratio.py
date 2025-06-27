@@ -18,19 +18,18 @@ class PointInlierRatio(SingleTaskMetric):
     def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         """Override __call__ to handle complex data access pattern.
 
-        This metric needs point cloud dimensions from inputs and correspondences from outputs/labels.
+        This metric uses predicted correspondence points from outputs and correspondences from outputs/labels.
         It can't use the simple SingleTaskMetric pattern because it needs multiple data sources.
         """
         # Extract all required data
-        assert 'inputs' in datapoint and 'outputs' in datapoint and 'labels' in datapoint
-        inputs = datapoint['inputs']
+        assert 'outputs' in datapoint and 'labels' in datapoint
         outputs = datapoint['outputs']
         labels = datapoint['labels']
 
-        # Validate inputs for point cloud dimensions
-        assert 'src_pc' in inputs and 'tgt_pc' in inputs, f"Expected src_pc and tgt_pc in inputs, got {inputs.keys()}"
-        src_points = inputs['src_pc']
-        tgt_points = inputs['tgt_pc']
+        # Validate outputs for predicted correspondence points
+        assert 'src_pc' in outputs and 'tgt_pc' in outputs, f"Expected src_pc and tgt_pc in outputs, got {outputs.keys()}"
+        src_points = outputs['src_pc']  # Predicted source correspondence points
+        tgt_points = outputs['tgt_pc']  # Predicted target correspondence points
         assert isinstance(src_points, torch.Tensor), f"Expected torch.Tensor for src_points, got {type(src_points)}"
         assert isinstance(tgt_points, torch.Tensor), f"Expected torch.Tensor for tgt_points, got {type(tgt_points)}"
         assert src_points.ndim == 2 and src_points.shape[1] == 3, f"{src_points.shape=}"
@@ -40,13 +39,21 @@ class PointInlierRatio(SingleTaskMetric):
         assert 'correspondences' in outputs, f"Expected correspondences in outputs, got {outputs.keys()}"
         pred_correspondences = outputs['correspondences']
         assert isinstance(pred_correspondences, torch.Tensor), f"Expected torch.Tensor for pred_correspondences, got {type(pred_correspondences)}"
-        assert pred_correspondences.ndim == 2 and pred_correspondences.shape[1] == 2, f"{pred_correspondences.shape=}"
+        assert (
+            pred_correspondences.ndim == 2
+            and pred_correspondences.shape[1] == 2
+            and pred_correspondences.shape[0] > 0
+        ), f"{pred_correspondences.shape=}"
 
         # Validate labels - ground truth correspondences
         assert 'correspondences' in labels, f"Expected correspondences in labels, got {labels.keys()}"
         gt_correspondences = labels['correspondences']
         assert isinstance(gt_correspondences, torch.Tensor), f"Expected torch.Tensor for gt_correspondences, got {type(gt_correspondences)}"
-        assert gt_correspondences.ndim == 2 and gt_correspondences.shape[1] == 2, f"{gt_correspondences.shape=}"
+        assert (
+            gt_correspondences.ndim == 2
+            and gt_correspondences.shape[1] == 2
+            and gt_correspondences.shape[0] > 0
+        ), f"{gt_correspondences.shape=}"
 
         # Compute inlier ratio
         device = src_points.device
