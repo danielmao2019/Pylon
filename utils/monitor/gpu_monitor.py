@@ -20,24 +20,9 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
 
     def _init_status_structures(self) -> None:
         """Initialize GPU status data structures."""
-        self.gpus_by_server = self._init_gpu_status(self.gpu_indices_by_server)
-
-    def _get_servers_list(self) -> List[str]:
-        """Get list of servers being monitored."""
-        return list(self.gpus_by_server.keys())
-
-    def _init_gpu_status(self, gpu_indices_by_server: Optional[Dict[str, List[int]]]) -> Dict[str, List[GPUStatus]]:
-        """Initialize GPUStatus objects from GPU indices organized by server.
-
-        Args:
-            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices, or None for localhost
-
-        Returns:
-            Dictionary mapping server names to lists of GPUStatus objects
-        """
         gpus_by_server = {}
 
-        if gpu_indices_by_server is None:
+        if self.gpu_indices_by_server is None:
             # Handle localhost case - get physical GPU index
             if torch.cuda.is_available():
                 device_index = torch.cuda.current_device()
@@ -63,7 +48,7 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
                 gpus_by_server['localhost'] = [gpu_status]
         else:
             # Regular dictionary of server -> indices
-            for server, indices in gpu_indices_by_server.items():
+            for server, indices in self.gpu_indices_by_server.items():
                 server_gpus = []
                 for gpu_idx in indices:
                     gpu_status: GPUStatus = {
@@ -81,7 +66,11 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
                     server_gpus.append(gpu_status)
                 gpus_by_server[server] = server_gpus
 
-        return gpus_by_server
+        self.gpus_by_server = gpus_by_server
+
+    def _get_servers_list(self) -> List[str]:
+        """Get list of servers being monitored."""
+        return list(self.gpus_by_server.keys())
 
     def _update_single_server(self, server: str) -> None:
         """Update all GPUs on a single server using batched queries"""

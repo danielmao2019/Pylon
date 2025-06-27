@@ -52,11 +52,14 @@ config = {
         'args': {
             'metrics_cfg': [{
     'class': IsotropicTransformError,
-    'args': {},
+    'args': {
+        'use_buffer': False,
+    },
 }, {
     'class': InlierRatio,
     'args': {
         'threshold': 0.3,
+        'use_buffer': False,
     },
 }],
         },
@@ -65,4 +68,5 @@ config = {
         'class': ICP,
         'args': {},
     },
+    'eval_n_jobs': 32,
 }
