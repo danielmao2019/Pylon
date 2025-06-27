@@ -30,55 +30,67 @@ class InlierRatio(SingleTaskMetric):
         """
         Compute inlier ratio from a complete datapoint.
 
+        For correspondence-based PCR algorithms that predict point correspondences,
+        this metric evaluates correspondence quality using the ground truth transform.
+
         Args:
             datapoint: Complete datapoint containing:
-                - 'inputs': {'src_pc': {'pos': ...}, 'tgt_pc': {'pos': ...}}
-                - 'outputs': {'transform': predicted_transform_matrix}
+                - 'outputs': {'src_pc': predicted_source_points, 'tgt_pc': predicted_target_correspondences}
                 - 'labels': {'transform': ground_truth_transform_matrix}
                 - 'meta_info': {...}
 
         Returns:
             Dictionary containing inlier ratio score
         """
-        # Extract source and target point clouds from inputs
-        assert 'inputs' in datapoint, "Missing 'inputs' in datapoint"
-        inputs = datapoint['inputs']
-        assert 'src_pc' in inputs and 'tgt_pc' in inputs, f"Missing point clouds in inputs: {inputs.keys()}"
-        assert 'pos' in inputs['src_pc'] and 'pos' in inputs['tgt_pc'], "Missing 'pos' in point clouds"
-
-        src_points = inputs['src_pc']['pos']  # (B, N, 3)
-        tgt_points = inputs['tgt_pc']['pos']  # (B, M, 3)
-
-        # Handle batched input
-        assert src_points.ndim == 3 and src_points.shape[0] == 1, f"Expected batched input with B=1, got {src_points.shape}"
-        assert tgt_points.ndim == 3 and tgt_points.shape[0] == 1, f"Expected batched input with B=1, got {tgt_points.shape}"
-        assert src_points.shape[2] == 3, f"Expected 3D points, got {src_points.shape}"
-        assert tgt_points.shape[2] == 3, f"Expected 3D points, got {tgt_points.shape}"
-
-        # Remove batch dimension
-        src_points = src_points.squeeze(0)  # (N, 3)
-        tgt_points = tgt_points.squeeze(0)  # (M, 3)
-
-        # Extract predicted transformation from outputs
+        # Extract predicted correspondences from outputs
         assert 'outputs' in datapoint, "Missing 'outputs' in datapoint"
         outputs = datapoint['outputs']
-        assert 'transform' in outputs, f"Missing transform in outputs: {outputs.keys()}"
-        predicted_transform = outputs['transform']  # (1, 4, 4)
-        assert predicted_transform.shape == (1, 4, 4), f"Expected (1, 4, 4) transform, got {predicted_transform.shape}"
+        assert 'src_pc' in outputs and 'tgt_pc' in outputs, f"Missing point clouds in outputs: {outputs.keys()}"
 
-        # Remove batch dimension from transform
-        transform = predicted_transform.squeeze(0)  # (4, 4)
+        src_points = outputs['src_pc']  # Predicted source points
+        tgt_points = outputs['tgt_pc']  # Predicted target correspondences
 
-        # Apply transformation to source points
-        transformed_src_points = apply_transform(src_points, transform)
+        # Handle different input formats - could be tensors or dicts with 'pos'
+        if isinstance(src_points, dict):
+            assert 'pos' in src_points, "Missing 'pos' in src_pc"
+            src_points = src_points['pos']
+        if isinstance(tgt_points, dict):
+            assert 'pos' in tgt_points, "Missing 'pos' in tgt_pc"
+            tgt_points = tgt_points['pos']
 
-        # Compute distances to nearest neighbors in target point cloud
-        # For efficiency, we compute pairwise distances and take minimum
-        distances = torch.cdist(transformed_src_points.unsqueeze(0), tgt_points.unsqueeze(0)).squeeze(0)  # (N, M)
-        min_distances = torch.min(distances, dim=1)[0]  # (N,)
+        # Handle batched input
+        if src_points.ndim == 3:
+            assert src_points.shape[0] == 1, f"Expected batch size 1, got {src_points.shape[0]}"
+            src_points = src_points.squeeze(0)  # (N, 3)
+        if tgt_points.ndim == 3:
+            assert tgt_points.shape[0] == 1, f"Expected batch size 1, got {tgt_points.shape[0]}"
+            tgt_points = tgt_points.squeeze(0)  # (N, 3)
+
+        assert src_points.ndim == 2 and src_points.shape[1] == 3, f"Expected (N, 3) source points, got {src_points.shape}"
+        assert tgt_points.ndim == 2 and tgt_points.shape[1] == 3, f"Expected (N, 3) target points, got {tgt_points.shape}"
+        assert src_points.shape[0] == tgt_points.shape[0], f"Mismatched correspondence count: {src_points.shape[0]} vs {tgt_points.shape[0]}"
+
+        # Extract ground truth transformation from labels
+        assert 'labels' in datapoint, "Missing 'labels' in datapoint"
+        labels = datapoint['labels']
+        assert 'transform' in labels, f"Missing transform in labels: {labels.keys()}"
+        gt_transform = labels['transform']  # (1, 4, 4)
+
+        # Handle batch dimension
+        if gt_transform.ndim == 3:
+            assert gt_transform.shape[0] == 1, f"Expected batch size 1, got {gt_transform.shape[0]}"
+            gt_transform = gt_transform.squeeze(0)  # (4, 4)
+        assert gt_transform.shape == (4, 4), f"Expected (4, 4) transform, got {gt_transform.shape}"
+
+        # Apply ground truth transformation to predicted source points
+        transformed_src_points = apply_transform(src_points, gt_transform)
+
+        # Compute distances between transformed source points and their predicted target correspondences
+        # Since these are correspondences (not arbitrary target points), we compute point-to-point distances
+        distances = torch.norm(transformed_src_points - tgt_points, dim=1)  # (N,)
 
         # Compute inlier mask and ratio
-        inlier_mask = (min_distances <= self.threshold)
+        inlier_mask = (distances <= self.threshold)
         inlier_ratio = torch.mean(inlier_mask.float())
 
         scores = {'inlier_ratio': inlier_ratio}
