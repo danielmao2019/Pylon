@@ -77,3 +77,11 @@ class TextLogger(BaseLogger):
                 string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
                 self.core_logger.info(string)
                 self.buffer = {}
+
+    def train(self) -> None:
+        """Switch to training mode (no-op for TextLogger)."""
+        pass
+
+    def eval(self) -> None:
+        """Switch to evaluation mode (no-op for TextLogger)."""
+        pass
