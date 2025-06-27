@@ -114,7 +114,7 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
-        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.get_buffer())
 
         # Initialize result structure
         result: Dict[str, Dict[str, torch.Tensor]] = {

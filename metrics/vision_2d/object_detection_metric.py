@@ -150,7 +150,17 @@ class ObjectDetectionMetric(SingleTaskMetric):
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
-        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.get_buffer())
+        # The buffer contains lists of batch results, we need to flatten and restructure
+        # get_buffer() returns List[List[Dict]] where outer list is datapoints, inner list is batch items
+        buffer_list = self.get_buffer()
+
+        # Flatten all batch items from all datapoints into a single list
+        all_batch_items = []
+        for datapoint_scores in buffer_list:
+            all_batch_items.extend(datapoint_scores)
+
+        # Now transpose to group by metric keys
+        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(all_batch_items)
         buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
             key1: transpose_buffer(buffer[key1]) for key1 in buffer.keys()
         }
