@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
 import queue
 import threading
+import torch
 from utils.ops.apply import apply_tensor_op
 
 
@@ -59,7 +60,24 @@ class BaseMetric(ABC):
 
             # Extract idx from datapoint meta_info
             assert 'meta_info' in datapoint and 'idx' in datapoint['meta_info']
-            idx = datapoint['meta_info']['idx']
+            idx_raw = datapoint['meta_info']['idx']
+
+            # Handle different idx formats (similar to BaseEvaluator)
+            if isinstance(idx_raw, torch.Tensor):
+                # Handle tensor format from DataLoader collation
+                assert idx_raw.shape == (1,), f"Expected single element tensor, got {idx_raw}"
+                assert idx_raw.dtype == torch.int64
+                idx = idx_raw.item()
+            elif isinstance(idx_raw, list):
+                # Handle list format
+                assert len(idx_raw) == 1
+                assert isinstance(idx_raw[0], int)
+                idx = idx_raw[0]
+            elif isinstance(idx_raw, int):
+                # Handle direct int format
+                idx = idx_raw
+            else:
+                raise ValueError(f"Unsupported idx format: {type(idx_raw)} with value {idx_raw}")
 
             self._buffer_queue.put({'data': data, 'idx': idx})
         else:
