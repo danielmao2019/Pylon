@@ -25,6 +25,7 @@ config = {
             'min_points': 512,
             'max_points': 8192,
             'overlap': 0.5,
+            'device': 'cpu',
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
@@ -40,7 +41,6 @@ config = {
 )],
                 },
             },
-            'device': 'cpu',
         },
     },
     'eval_dataloader': {
