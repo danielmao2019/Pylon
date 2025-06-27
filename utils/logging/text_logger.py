@@ -35,7 +35,7 @@ class TextLogger(BaseLogger):
     def _init_core_logger_(self) -> None:
         self.core_logger = logging.getLogger(name=self.filepath)
         self.core_logger.setLevel(level=logging.INFO)
-        self.core_logger.propagate = True
+        self.core_logger.propagate = False
 
     def _init_file_handler_(self) -> None:
         if self.filepath is None:
