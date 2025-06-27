@@ -117,6 +117,7 @@ class LevirCdDataset(BaseDataset):
         assert all(x.shape == (3, height, width) for x in [inputs['img_1'], inputs['img_2']]), \
             f"{inputs['img_1'].shape=}, {inputs['img_2'].shape=}, {labels['change_map'].shape=}"
         meta_info = {
+            'idx': idx,
             'image_resolution': (height, width),
         }
         return inputs, labels, meta_info
