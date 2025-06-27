@@ -7,7 +7,23 @@ from scipy.spatial import cKDTree
 
 
 class TeaserPlusPlus(torch.nn.Module):
-
+    """TEASER++ robust point cloud registration algorithm.
+    
+    TEASER++ (Truncated least squares Estimation And SEmidefinite Relaxation) 
+    is a certifiably optimal robust registration method that can handle 
+    high outlier rates in correspondences.
+    
+    Reference:
+        Yang et al., "TEASER: Fast and Certifiable Point Cloud Registration"
+        https://teaser.readthedocs.io/
+    
+    Args:
+        estimate_rotation: Whether to estimate rotation
+        estimate_scaling: Whether to estimate scaling
+        correspondences: Method to establish correspondences ('fpfh' or None)
+        voxel_size: Voxel size for downsampling and FPFH feature extraction
+    """
+    
     def __init__(
         self,
         estimate_rotation: bool = True,
@@ -36,12 +52,11 @@ class TeaserPlusPlus(torch.nn.Module):
         self.voxel_size = voxel_size
 
     def _extract_fpfh(self, points: np.ndarray) -> np.ndarray:
-        """
-        Extract FPFH features from point cloud.
-
+        """Extract FPFH features from point cloud.
+        
         Args:
             points: Point cloud as numpy array (N, 3)
-
+            
         Returns:
             FPFH features as numpy array (N, 33)
         """
@@ -62,13 +77,12 @@ class TeaserPlusPlus(torch.nn.Module):
         return np.array(fpfh.data).T
 
     def _find_correspondences(self, feats0: np.ndarray, feats1: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Find correspondences between two sets of features using nearest neighbor search.
-
+        """Find correspondences between two sets of features using mutual nearest neighbor.
+        
         Args:
             feats0: Features of first point cloud (N, 33)
             feats1: Features of second point cloud (M, 33)
-
+            
         Returns:
             Tuple of (indices in first cloud, indices in second cloud)
         """
@@ -91,17 +105,16 @@ class TeaserPlusPlus(torch.nn.Module):
 
         return corres_idx0, corres_idx1
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-        """
-        TEASER++ registration.
-
+    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
+        """Perform TEASER++ registration on source and target point clouds.
+        
         Args:
-            inputs: Dictionary containing source and target point clouds
-            inputs['src_pc']['pos']: Source point cloud (B, N, 3)
-            inputs['tgt_pc']['pos']: Target point cloud (B, M, 3)
-
+            inputs: Dictionary containing:
+                - 'src_pc': Dict with 'pos' key containing source points (B, N, 3)
+                - 'tgt_pc': Dict with 'pos' key containing target points (B, M, 3)
+                
         Returns:
-            Transformation matrix (B, 4, 4)
+            Transformation matrix (B, 4, 4) that aligns source to target
         """
         import teaserpp_python
         batch_size = inputs['src_pc']['pos'].shape[0]

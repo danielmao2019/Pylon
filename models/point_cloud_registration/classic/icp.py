@@ -5,22 +5,40 @@ import open3d as o3d
 
 
 class ICP(torch.nn.Module):
-    def __init__(self, threshold: float = 0.02, max_iterations: int = 50):
+    """Iterative Closest Point (ICP) algorithm for point cloud registration.
+
+    ICP iteratively refines the transformation between source and target point clouds
+    by minimizing the distance between corresponding points.
+
+    Args:
+        threshold: Maximum correspondence distance threshold for convergence
+        max_iterations: Maximum number of iterations for ICP optimization
+    """
+
+    def __init__(self, threshold: float = 0.02, max_iterations: int = 50) -> None:
+        """Initialize ICP model with convergence parameters.
+
+        Args:
+            threshold: Maximum correspondence distance threshold for convergence
+            max_iterations: Maximum number of iterations for ICP optimization
+        """
         super(ICP, self).__init__()
         self.threshold = threshold
         self.max_iterations = max_iterations
 
-    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
-        """
-        Iterative Closest Point (ICP) registration.
+    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
+        """Perform ICP registration on source and target point clouds.
 
         Args:
-            inputs: Dictionary containing source and target point clouds
-            inputs['src_pc']['pos']: Source point cloud (B, N, 3)
-            inputs['tgt_pc']['pos']: Target point cloud (B, M, 3)
+            inputs: Dictionary containing:
+                - 'src_pc': Dict with 'pos' key containing source points (B, N, 3)
+                - 'tgt_pc': Dict with 'pos' key containing target points (B, M, 3)
 
         Returns:
-            Transformation matrix (B, 4, 4)
+            Transformation matrix (B, 4, 4) that aligns source to target
+
+        Note:
+            This implementation uses Open3D's ICP algorithm
         """
         batch_size = inputs['src_pc']['pos'].shape[0]
         device = inputs['src_pc']['pos'].device
