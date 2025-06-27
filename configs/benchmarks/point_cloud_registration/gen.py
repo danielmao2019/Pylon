@@ -132,6 +132,9 @@ def build_training_config(dataset: str, model: str):
             val_data = semideepcopy(val_data_cfg)
             train_data['train_dataset']['args']['overlap'] = overlap
             val_data['val_dataset']['args']['overlap'] = overlap
+        else:
+            train_data = train_data_cfg
+            val_data = val_data_cfg
 
         # Update template with dataset and model configs
         config.update({

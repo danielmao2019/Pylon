@@ -18,24 +18,9 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
 
     def _init_status_structures(self) -> None:
         """Initialize CPU status data structures."""
-        self.cpus_by_server = self._init_cpu_status(self.servers_list)
-
-    def _get_servers_list(self) -> List[str]:
-        """Get list of servers being monitored."""
-        return list(self.cpus_by_server.keys())
-
-    def _init_cpu_status(self, servers: Optional[List[str]]) -> Dict[str, CPUStatus]:
-        """Initialize CPUStatus objects from server list.
-
-        Args:
-            servers: List of server names to monitor, or None for localhost only
-
-        Returns:
-            Dictionary mapping server names to CPUStatus objects
-        """
         cpus_by_server = {}
 
-        if servers is None:
+        if self.servers_list is None:
             # Handle localhost case
             cpu_status: CPUStatus = {
                 'server': 'localhost',
@@ -54,7 +39,7 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
             cpus_by_server['localhost'] = cpu_status
         else:
             # Multiple servers
-            for server in servers:
+            for server in self.servers_list:
                 cpu_status: CPUStatus = {
                     'server': server,
                     'max_memory': None,
@@ -71,7 +56,11 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
                 }
                 cpus_by_server[server] = cpu_status
 
-        return cpus_by_server
+        self.cpus_by_server = cpus_by_server
+
+    def _get_servers_list(self) -> List[str]:
+        """Get list of servers being monitored."""
+        return list(self.cpus_by_server.keys())
 
     def _update_single_server(self, server: str) -> None:
         """Update CPU info for a single server"""

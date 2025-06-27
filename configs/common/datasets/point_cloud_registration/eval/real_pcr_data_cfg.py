@@ -45,12 +45,15 @@ data_cfg = {
             'metrics_cfg': [
                 {
                     'class': IsotropicTransformError,
-                    'args': {},
+                    'args': {
+                        'use_buffer': False,
+                    },
                 },
                 {
                     'class': InlierRatio,
                     'args': {
                         'threshold': 0.3,
+                        'use_buffer': False,
                     },
                 },
             ],
