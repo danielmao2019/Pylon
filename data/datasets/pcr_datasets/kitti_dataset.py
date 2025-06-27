@@ -180,6 +180,7 @@ class KITTIDataset(BaseDataset):
             'transform': torch.from_numpy(gt_transform).float(),
         }
         meta_info = {
+            'idx': idx,
             'seq': seq,
             't0': t0,
             't1': t1,
