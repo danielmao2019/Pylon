@@ -3,6 +3,16 @@ import pytest
 from metrics.vision_3d.point_cloud_registration.point_inlier_ratio import PointInlierRatio
 
 
+def create_datapoint(y_pred, y_true, idx=0):
+    """Helper function to create datapoint for PointInlierRatio tests."""
+    return {
+        'inputs': {},  # Empty for these tests
+        'outputs': y_pred,
+        'labels': y_true,
+        'meta_info': {'idx': idx}
+    }
+
+
 @pytest.fixture
 def metric():
     return PointInlierRatio()
@@ -29,7 +39,8 @@ def test_point_inlier_ratio_perfect_match(metric):
     }
     y_true = {'correspondences': gt_correspondences}
 
-    result = metric(y_pred, y_true)
+    datapoint = create_datapoint(y_pred, y_true)
+    result = metric(datapoint)
     assert 'point_inlier_ratio' in result
     assert torch.isclose(result['point_inlier_ratio'], torch.tensor(1.0))
 
@@ -50,7 +61,8 @@ def test_point_inlier_ratio_partial_match(metric):
     }
     y_true = {'correspondences': gt_correspondences}
 
-    result = metric(y_pred, y_true)
+    datapoint = create_datapoint(y_pred, y_true)
+    result = metric(datapoint)
     assert 'point_inlier_ratio' in result
     # Only the first correspondence is correct
     assert torch.isclose(result['point_inlier_ratio'], torch.tensor(1/3))
@@ -72,7 +84,8 @@ def test_point_inlier_ratio_no_match(metric):
     }
     y_true = {'correspondences': gt_correspondences}
 
-    result = metric(y_pred, y_true)
+    datapoint = create_datapoint(y_pred, y_true)
+    result = metric(datapoint)
     assert 'point_inlier_ratio' in result
     assert torch.isclose(result['point_inlier_ratio'], torch.tensor(0.0))
 
@@ -90,7 +103,8 @@ def test_point_inlier_ratio_invalid_inputs(metric):
             'correspondences': correspondences
         }
         y_true = {'correspondences': correspondences}
-        metric(y_pred, y_true)
+        datapoint = create_datapoint(y_pred, y_true)
+        metric(datapoint)
 
     # Test with invalid correspondence shape
     with pytest.raises(AssertionError):
@@ -104,7 +118,8 @@ def test_point_inlier_ratio_invalid_inputs(metric):
             'correspondences': correspondences
         }
         y_true = {'correspondences': correspondences}
-        metric(y_pred, y_true)
+        datapoint = create_datapoint(y_pred, y_true)
+        metric(datapoint)
 
     # Test with missing required keys
     with pytest.raises(AssertionError):
@@ -118,4 +133,5 @@ def test_point_inlier_ratio_invalid_inputs(metric):
             # Missing 'correspondences' key
         }
         y_true = {'correspondences': correspondences}
-        metric(y_pred, y_true)
+        datapoint = create_datapoint(y_pred, y_true)
+        metric(datapoint)
