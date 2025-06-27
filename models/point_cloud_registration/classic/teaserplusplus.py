@@ -56,7 +56,7 @@ class TeaserPlusPlus(torch.nn.Module):
 
         Args:
             points: Point cloud as numpy array (N, 3)
-
+            
         Returns:
             FPFH features as numpy array (N, 33)
         """
@@ -82,7 +82,7 @@ class TeaserPlusPlus(torch.nn.Module):
         Args:
             feats0: Features of first point cloud (N, 33)
             feats1: Features of second point cloud (M, 33)
-
+            
         Returns:
             Tuple of (indices in first cloud, indices in second cloud)
         """
