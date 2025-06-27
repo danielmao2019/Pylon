@@ -53,16 +53,38 @@ class TransformInlierRatio(BaseMetric):
 
         # Validate inputs
         assert 'src_pc' in inputs and 'tgt_pc' in inputs, f"Expected src_pc and tgt_pc in inputs, got {inputs.keys()}"
-        assert 'transform' in outputs, f"Expected transform in outputs, got {outputs.keys()}"
 
+        # Handle point clouds - they may be tensors directly or dicts with 'pos' key
         src_points = inputs['src_pc']
         tgt_points = inputs['tgt_pc']
-        transform = outputs['transform']
+
+        if isinstance(src_points, dict):
+            assert 'pos' in src_points, "Expected 'pos' key in src_pc dict"
+            src_points = src_points['pos']
+        if isinstance(tgt_points, dict):
+            assert 'pos' in tgt_points, "Expected 'pos' key in tgt_pc dict"
+            tgt_points = tgt_points['pos']
+
+        # Handle transform - it may be a dict with 'transform' key or directly the tensor
+        if isinstance(outputs, dict):
+            assert 'transform' in outputs, f"Expected transform in outputs, got {outputs.keys()}"
+            transform = outputs['transform']
+        else:
+            # outputs is directly the transform tensor (e.g., from ICP, RANSAC)
+            transform = outputs
 
         # Input validation
         assert isinstance(src_points, torch.Tensor), f"Expected torch.Tensor for src_points, got {type(src_points)}"
         assert isinstance(tgt_points, torch.Tensor), f"Expected torch.Tensor for tgt_points, got {type(tgt_points)}"
         assert isinstance(transform, torch.Tensor), f"Expected torch.Tensor for transform, got {type(transform)}"
+
+        # Handle batched point clouds - squeeze batch dimension if present
+        if src_points.ndim == 3:
+            assert src_points.shape[0] == 1, f"Expected batch size 1, got {src_points.shape[0]}"
+            src_points = src_points.squeeze(0)
+        if tgt_points.ndim == 3:
+            assert tgt_points.shape[0] == 1, f"Expected batch size 1, got {tgt_points.shape[0]}"
+            tgt_points = tgt_points.squeeze(0)
 
         assert src_points.ndim == 2 and src_points.shape[1] == 3, f"Expected src_points shape (N, 3), got {src_points.shape}"
         assert tgt_points.ndim == 2 and tgt_points.shape[1] == 3, f"Expected tgt_points shape (M, 3), got {tgt_points.shape}"
@@ -86,11 +108,8 @@ class TransformInlierRatio(BaseMetric):
         # Convert back to 3D coordinates
         transformed_src_3d = transformed_src[:, :3]  # (N, 3)
 
-        # Compute pairwise distances using cdist
-        # distances[i, j] = distance from transformed_src_3d[i] to tgt_points[j]
+        # Compute pairwise distances and find minimum distance for each transformed source point
         distances = torch.cdist(transformed_src_3d.unsqueeze(0), tgt_points.unsqueeze(0)).squeeze(0)  # (N, M)
-
-        # Find minimum distance for each transformed source point to any target point
         min_distances, _ = torch.min(distances, dim=1)  # (N,)
 
         # Count inliers (points within threshold)
