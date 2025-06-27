@@ -15,14 +15,15 @@ class InlierRatio(SingleTaskMetric):
 
     DIRECTION = +1  # Higher is better
 
-    def __init__(self, threshold: float) -> None:
+    def __init__(self, threshold: float, use_buffer: bool = True) -> None:
         """
         Initialize the Inlier Ratio metric.
 
         Args:
             threshold: Distance threshold for considering a point as an inlier
+            use_buffer: Whether to use buffer for storing results
         """
-        super(InlierRatio, self).__init__()
+        super(InlierRatio, self).__init__(use_buffer=use_buffer)
         self.threshold = threshold
 
     def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, torch.Tensor]:

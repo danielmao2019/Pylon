@@ -12,6 +12,14 @@ class IsotropicTransformError(SingleTaskMetric):
     2. Relative Translation Error (RTE) in the same units as the input point clouds
     """
 
+    def __init__(self, use_buffer: bool = True) -> None:
+        """Initialize the IsotropicTransformError metric.
+        
+        Args:
+            use_buffer: Whether to use buffer for storing results
+        """
+        super(IsotropicTransformError, self).__init__(use_buffer=use_buffer)
+
     @staticmethod
     def _get_rotation_translation(transform: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
         r"""Decompose transformation matrix into rotation matrix and translation vector.
