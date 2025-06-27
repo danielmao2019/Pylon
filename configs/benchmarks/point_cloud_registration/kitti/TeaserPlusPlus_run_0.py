@@ -18,6 +18,7 @@ config = {
         'args': {
             'data_root': './data/datasets/soft_links/KITTI',
             'split': 'val',
+            'device': 'cpu',
         },
     },
     'eval_dataloader': {
