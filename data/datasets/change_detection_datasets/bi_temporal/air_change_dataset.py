@@ -146,7 +146,6 @@ class AirChangeDataset(BaseDataset):
             )
         }
         meta_info = {
-            'idx': idx,
             'img_1_filepath': self.annotations[idx]['img_1_filepath'],
             'img_2_filepath': self.annotations[idx]['img_2_filepath'],
             "change_map_filepath": self.annotations[idx]['change_map_filepath'],
