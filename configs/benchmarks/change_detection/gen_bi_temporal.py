@@ -31,13 +31,13 @@ def build_config(dataset: str, model: str):
     """
     # Start with template
     config = semideepcopy(template_config)
-    
+
     # Set runner
     if model == "CSA_CDGAN":
         config['runner'] = CSA_CDGAN_Trainer
     else:
         config['runner'] = SupervisedSingleTaskTrainer
-    
+
     # Load dataset-specific configs
     if dataset == "air_change":
         from configs.common.datasets.change_detection.train.air_change_data_cfg import data_cfg as train_data_cfg
@@ -56,22 +56,22 @@ def build_config(dataset: str, model: str):
         from configs.common.datasets.change_detection.val.sysu_cd_data_cfg import data_cfg as val_data_cfg
     else:
         raise NotImplementedError(f"Dataset {dataset} not implemented")
-    
+
     # Update template with dataset configs
     config.update(train_data_cfg)
     config.update(val_data_cfg)
-    
+
     # Model-specific configurations
     if model.startswith("FC-"):
         from configs.common.models.change_detection.fc_siam import model_config
         config['model'] = semideepcopy(model_config)
         config['model']['args']['arch'] = model
         config['model']['args']['in_channels'] = 6 if model == 'FC-EF' else 3
-        
+
     elif model == "SNUNet_ECAM":
         config['model'] = {'class': models.change_detection.SNUNet_ECAM, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.change_detection.SNUNetCDCriterion, 'args': {}}
-        
+
     elif model == "RFL_CDNet":
         config['model'] = {'class': models.change_detection.RFL_CDNet, 'args': {}}
         # Modify criterion for auxiliary outputs
@@ -84,14 +84,14 @@ def build_config(dataset: str, model: str):
                 'reduction': 'sum'
             }
         }
-        
+
     elif model == "DSIFN":
         config['model'] = {'class': models.change_detection.DSIFN, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.change_detection.DSIFNCriterion, 'args': {}}
-        
+
     elif model == "TinyCD":
         config['model'] = {'class': models.change_detection.TinyCD, 'args': {}}
-        
+
     elif model == "HCGMNet":
         config['model'] = {'class': models.change_detection.HCGMNet, 'args': {}}
         # Modify criterion for auxiliary outputs
@@ -104,11 +104,11 @@ def build_config(dataset: str, model: str):
                 'reduction': 'sum'
             }
         }
-        
+
     elif model == "HANet":
         config['model'] = {'class': models.change_detection.HANet, 'args': {}}
         config['criterion']['class'] = criteria.vision_2d.FocalDiceLoss
-        
+
         # Add transforms config
         from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
         if dataset == "air_change":
@@ -120,11 +120,11 @@ def build_config(dataset: str, model: str):
         else:
             config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
             config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
-            
+
     elif model == 'DsferNet':
         config['model'] = {'class': models.change_detection.DsferNet, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.change_detection.DsferNetCriterion, 'args': {}}
-        
+
         # Add transforms config
         from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
         if dataset == "air_change":
@@ -136,11 +136,11 @@ def build_config(dataset: str, model: str):
         else:
             config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
             config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
-            
+
     elif model == "DSAMNet":
         config['model'] = {'class': models.change_detection.DSAMNet, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.change_detection.DSAMNetCriterion, 'args': {'dice_weight': 0.1}}
-        
+
     elif model.startswith("Changer"):
         # Import appropriate changer config
         changer_variant = model[len('Changer-'):].replace('-', '_').lower()
@@ -156,9 +156,9 @@ def build_config(dataset: str, model: str):
             from configs.common.models.change_detection.changer import changer_s101_cfg as model_cfg
         else:
             raise NotImplementedError(f"Changer variant {changer_variant} not implemented")
-        
+
         config['model'] = model_cfg
-        
+
         # Add transforms config
         from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
         if dataset == "air_change":
@@ -170,12 +170,12 @@ def build_config(dataset: str, model: str):
         else:
             config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
             config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
-            
+
     elif model.startswith("ChangeFormer"):
         # Get the model class
         model_class = getattr(models.change_detection, model)
         config['model'] = {'class': model_class, 'args': {}}
-        
+
         # Add transforms config
         from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
         if dataset == "air_change":
@@ -187,7 +187,7 @@ def build_config(dataset: str, model: str):
         else:
             config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
             config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
-            
+
         # Special handling for versions 4, 5, 6
         if int(model[-1]) in {4, 5, 6}:
             original_criterion = config['criterion']
@@ -199,12 +199,12 @@ def build_config(dataset: str, model: str):
                     'reduction': 'mean'
                 }
             }
-            
+
     elif model.startswith("ChangeNext"):
         # Get the model class
         model_class = getattr(models.change_detection, model)
         config['model'] = {'class': model_class, 'args': {}}
-        
+
         # Add transforms config
         from configs.common.datasets.change_detection.train._transforms_cfg import transforms_cfg
         if dataset == "air_change":
@@ -216,7 +216,7 @@ def build_config(dataset: str, model: str):
         else:
             config['train_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
             config['val_dataset']['args']['transforms_cfg'] = transforms_cfg(size=(256, 256))
-            
+
         # Modify criterion for auxiliary outputs
         original_criterion = config['criterion']
         original_criterion['args']['use_buffer'] = False
@@ -227,39 +227,39 @@ def build_config(dataset: str, model: str):
                 'reduction': 'mean'
             }
         }
-        
+
     elif model == "FTN":
         config['model'] = {'class': models.change_detection.FTN, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.change_detection.FTNCriterion, 'args': {}}
-        
+
     elif model == "SRCNet":
         config['model'] = {'class': models.change_detection.SRCNet, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.change_detection.SRCNetCriterion, 'args': {}}
-        
+
     elif model == 'BiFA':
         config['model'] = {'class': models.change_detection.BiFA, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.CEDiceLoss, 'args': {}}
-        
+
     elif model == "CDXFormer":
         config['model'] = {'class': models.change_detection.CDXFormer, 'args': {}}
         config['criterion'] = {'class': criteria.vision_2d.CEDiceLoss, 'args': {}}
-        
+
     elif model == "CDMaskFormer":
         from configs.common.models.change_detection.cdmaskformer import model_cfg
         config['model'] = model_cfg
         config['criterion'] = {'class': criteria.vision_2d.change_detection.CDMaskFormerCriterion, 'args': {}}
-        
+
     elif model == "CSA_CDGAN":
         from configs.common.models.change_detection.csa_cdgan import model_config
         from configs.common.criteria.change_detection.csa_cdgan import criterion_cfg
         from configs.common.optimizers.gans.csa_cdgan import optimizer_config
         from configs.common.schedulers.gans.gan import scheduler_cfg
-        
+
         config['model'] = model_config
         config['criterion'] = criterion_cfg
         config['optimizer'] = optimizer_config
         config['scheduler'] = scheduler_cfg
-        
+
     elif model.startswith("ChangeMamba"):
         # Import appropriate change mamba config
         mamba_variant = model.split('-')[1].lower()
@@ -271,40 +271,40 @@ def build_config(dataset: str, model: str):
             from configs.common.models.change_detection.change_mamba import model_tiny_cfg as model_cfg
         else:
             raise NotImplementedError(f"ChangeMamba variant {mamba_variant} not implemented")
-        
+
         config['model'] = model_cfg
         config['criterion'] = {'class': criteria.vision_2d.change_detection.STMambaBCDCriterion, 'args': {}}
-        
+
     else:
         raise NotImplementedError(f"Model {model} not implemented")
-    
+
     return config
 
 
 def generate_configs(dataset: str, model: str) -> None:
     """Generate config files for a specific dataset and model combination."""
-    
+
     # Build config
     config = build_config(dataset, model)
-    
+
     # Generate seeded configs
     relpath = os.path.join("benchmarks", "change_detection", dataset)
     work_dir = os.path.join("./logs", relpath, model)
-    
+
     # Generate seeded configs using the new dictionary-based approach
     seeded_configs = generate_seeded_configs(
         base_config=config,
         base_seed=relpath,
         base_work_dir=work_dir
     )
-    
+
     # Add heading and save to disk
     generator_path = "./configs/benchmarks/change_detection/gen_bi_temporal.py"
     os.makedirs(os.path.join("./configs", relpath), exist_ok=True)
     for idx, seeded_config in enumerate(seeded_configs):
         # Add auto-generated header
         final_config = add_heading(seeded_config, generator_path)
-        
+
         output_path = os.path.join("./configs", relpath, f"{model}_run_{idx}.py")
         with open(output_path, mode='w') as f:
             f.write(final_config)
