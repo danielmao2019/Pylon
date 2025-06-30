@@ -44,26 +44,23 @@ def get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, A
 
     mem_used = mem_total - mem_available
 
-    # Get CPU utilization using top
-    cpu_cmd = ["top", "-bn1", "|", "grep", "'^%Cpu'", "|", "awk", "'{print $2}'", "|", "sed", "'s/%us,//'"]
-    cpu_output = pool.execute(server, cpu_cmd)
-
-    try:
-        cpu_util = float(cpu_output.strip())
-    except ValueError:
-        # Fallback: parse top output more carefully
-        top_cmd = ["top", "-bn1", "|", "head", "-n", "10"]
-        top_output = pool.execute(server, top_cmd)
-        cpu_util = 0.0
-        for line in top_output.splitlines():
-            if '%Cpu' in line:
-                # Parse line like: %Cpu(s):  5.9 us,  1.2 sy,  0.0 ni, 92.6 id,  0.3 wa,  0.0 hi,  0.0 si,  0.0 st
-                parts = line.split()
-                for i, part in enumerate(parts):
-                    if 'us,' in part:
-                        cpu_util = float(part.replace('us,', ''))
-                        break
-                break
+    # Get CPU utilization using top (without shell pipes for localhost compatibility)
+    top_cmd = ["top", "-bn1"]
+    top_output = pool.execute(server, top_cmd)
+    
+    cpu_util = None  # Initialize to None to indicate parsing failure
+    for line in top_output.splitlines():
+        if '%Cpu' in line:
+            # Parse line like: %Cpu(s):  5.9 us,  1.2 sy,  0.0 ni, 92.6 id,  0.3 wa,  0.0 hi,  0.0 si,  0.0 st
+            parts = line.split()
+            for i, part in enumerate(parts):
+                if 'us,' in part and i > 0:  # Find 'us,' and ensure there's a previous part
+                    try:
+                        cpu_util = float(parts[i-1])  # Get the number from the previous part
+                    except ValueError:
+                        cpu_util = None  # Keep as None on parsing failure
+                    break
+            break
 
     # Get load average
     load_cmd = ["cat", "/proc/loadavg"]
