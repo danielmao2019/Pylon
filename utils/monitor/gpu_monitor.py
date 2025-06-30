@@ -1,11 +1,13 @@
 from typing import List, Dict, Optional, Any
 import os
+import threading
+from concurrent.futures import ThreadPoolExecutor
 import torch
-from utils.monitor.base_monitor import BaseMonitor
 from utils.monitor.gpu_status import GPUStatus, get_server_gpus_info
+from utils.ssh.pool import _ssh_pool
 
 
-class GPUMonitor(BaseMonitor[GPUStatus]):
+class GPUMonitor:
 
     def __init__(self, gpu_indices_by_server: Optional[Dict[str, List[int]]] = None, timeout: int = 5):
         """
@@ -15,14 +17,27 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
             gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices, or None for localhost
             timeout: SSH command timeout in seconds
         """
-        self.gpu_indices_by_server = gpu_indices_by_server
-        super().__init__(timeout=timeout)
+        self.gpus_by_server = self._init_gpu_status(gpu_indices_by_server)
+        self.timeout = timeout
+        self.servers = list(self.gpus_by_server.keys())
+        self.monitor_thread: Optional[threading.Thread] = None
 
-    def _init_status_structures(self) -> None:
-        """Initialize GPU status data structures."""
+        # Do one update first
+        self.ssh_pool = _ssh_pool
+        self._update()
+
+    def _init_gpu_status(self, gpu_indices_by_server: Optional[Dict[str, List[int]]]) -> Dict[str, List[GPUStatus]]:
+        """Initialize GPUStatus objects from GPU indices organized by server.
+
+        Args:
+            gpu_indices_by_server: Dictionary mapping server names to lists of GPU indices, or None for localhost
+
+        Returns:
+            Dictionary mapping server names to lists of GPUStatus objects
+        """
         gpus_by_server = {}
 
-        if self.gpu_indices_by_server is None:
+        if gpu_indices_by_server is None:
             # Handle localhost case - get physical GPU index
             if torch.cuda.is_available():
                 device_index = torch.cuda.current_device()
@@ -48,7 +63,7 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
                 gpus_by_server['localhost'] = [gpu_status]
         else:
             # Regular dictionary of server -> indices
-            for server, indices in self.gpu_indices_by_server.items():
+            for server, indices in gpu_indices_by_server.items():
                 server_gpus = []
                 for gpu_idx in indices:
                     gpu_status: GPUStatus = {
@@ -66,11 +81,21 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
                     server_gpus.append(gpu_status)
                 gpus_by_server[server] = server_gpus
 
-        self.gpus_by_server = gpus_by_server
+        return gpus_by_server
 
-    def _get_servers_list(self) -> List[str]:
-        """Get list of servers being monitored."""
-        return list(self.gpus_by_server.keys())
+    def start(self):
+        """Starts background monitoring thread that continuously updates GPU info"""
+        def monitor_loop():
+            while True:
+                self._update()
+
+        self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
+        self.monitor_thread.start()
+
+    def _update(self):
+        """Updates information for all GPUs using batched queries per server"""
+        with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
+            list(executor.map(self._update_single_server, self.servers))
 
     def _update_single_server(self, server: str) -> None:
         """Update all GPUs on a single server using batched queries"""
@@ -188,3 +213,10 @@ class GPUMonitor(BaseMonitor[GPUStatus]):
         ]
         all_running_commands = [process['cmd'] for process in all_processes]
         return all_running_commands
+
+    def log_stats(self, logger):
+        """Logs status of all monitored GPUs"""
+        stats = self._check()
+        assert len(stats) == 1, "Only support single GPU training for now."
+        stats = list(stats.values())[0]
+        logger.update_buffer(stats)

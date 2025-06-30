@@ -1,9 +1,11 @@
 from typing import List, Dict, Optional, Any
-from utils.monitor.base_monitor import BaseMonitor
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from utils.monitor.cpu_status import CPUStatus, get_server_cpu_info
+from utils.ssh.pool import _ssh_pool
 
 
-class CPUMonitor(BaseMonitor[CPUStatus]):
+class CPUMonitor:
 
     def __init__(self, servers: Optional[List[str]] = None, timeout: int = 5):
         """
@@ -13,14 +15,28 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
             servers: List of server names to monitor, or None for localhost only
             timeout: SSH command timeout in seconds
         """
-        self.servers_list = servers
-        super().__init__(timeout=timeout)
+        self.cpus_by_server = self._init_cpu_status(servers)
+        self.timeout = timeout
+        self.servers = list(self.cpus_by_server.keys())
+        self.monitor_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
 
-    def _init_status_structures(self) -> None:
-        """Initialize CPU status data structures."""
+        # Do one update first
+        self.ssh_pool = _ssh_pool
+        self._update()
+
+    def _init_cpu_status(self, servers: Optional[List[str]]) -> Dict[str, CPUStatus]:
+        """Initialize CPUStatus objects from server list.
+
+        Args:
+            servers: List of server names to monitor, or None for localhost only
+
+        Returns:
+            Dictionary mapping server names to CPUStatus objects
+        """
         cpus_by_server = {}
 
-        if self.servers_list is None:
+        if servers is None:
             # Handle localhost case
             cpu_status: CPUStatus = {
                 'server': 'localhost',
@@ -39,7 +55,7 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
             cpus_by_server['localhost'] = cpu_status
         else:
             # Multiple servers
-            for server in self.servers_list:
+            for server in servers:
                 cpu_status: CPUStatus = {
                     'server': server,
                     'max_memory': None,
@@ -56,11 +72,32 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
                 }
                 cpus_by_server[server] = cpu_status
 
-        self.cpus_by_server = cpus_by_server
+        return cpus_by_server
 
-    def _get_servers_list(self) -> List[str]:
-        """Get list of servers being monitored."""
-        return list(self.cpus_by_server.keys())
+    def start(self):
+        """Starts background monitoring thread that continuously updates CPU info"""
+        def monitor_loop():
+            while not self._stop_event.is_set():
+                self._update()
+
+        self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
+        self.monitor_thread.start()
+
+    def stop(self):
+        """Stops background monitoring thread"""
+        if self._stop_event is not None:
+            self._stop_event.set()
+        if self.monitor_thread is not None:
+            self.monitor_thread.join(timeout=1.0)
+
+    def __del__(self):
+        """Automatically stop monitoring when instance is destroyed"""
+        self.stop()
+
+    def _update(self):
+        """Updates information for all CPUs using batched queries per server"""
+        with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
+            list(executor.map(self._update_single_server, self.servers))
 
     def _update_single_server(self, server: str) -> None:
         """Update CPU info for a single server"""
@@ -116,28 +153,17 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         if len(cpu_status['load_window']) > cpu_status['window_size']:
             cpu_status['load_window'] = cpu_status['load_window'][-cpu_status['window_size']:]
 
-        # Update stats - handle None values gracefully
+        # Update stats
         cpu_status['memory_stats'] = {
             'min': min(cpu_status['memory_window']),
             'max': max(cpu_status['memory_window']),
             'avg': sum(cpu_status['memory_window']) / len(cpu_status['memory_window']),
         }
-        
-        # CPU stats may contain None values if parsing failed
-        valid_cpu_values = [v for v in cpu_status['cpu_window'] if v is not None]
-        if valid_cpu_values:
-            cpu_status['cpu_stats'] = {
-                'min': min(valid_cpu_values),
-                'max': max(valid_cpu_values),
-                'avg': sum(valid_cpu_values) / len(valid_cpu_values),
-            }
-        else:
-            cpu_status['cpu_stats'] = {
-                'min': None,
-                'max': None,
-                'avg': None,
-            }
-        
+        cpu_status['cpu_stats'] = {
+            'min': min(cpu_status['cpu_window']),
+            'max': max(cpu_status['cpu_window']),
+            'avg': sum(cpu_status['cpu_window']) / len(cpu_status['cpu_window']),
+        }
         cpu_status['load_stats'] = {
             'min': min(cpu_status['load_window']),
             'max': max(cpu_status['load_window']),
@@ -197,3 +223,10 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         ]
         all_running_commands = [process['cmd'] for process in all_processes]
         return all_running_commands
+
+    def log_stats(self, logger):
+        """Logs status of all monitored CPUs"""
+        stats = self._check()
+        assert len(stats) == 1, "Only support single server monitoring for now."
+        stats = list(stats.values())[0]
+        logger.update_buffer(stats)

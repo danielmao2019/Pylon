@@ -138,8 +138,7 @@ class Launcher(BaseAgent):
             cpu_ok = False
             if server in cpu_status_by_server:
                 cpu = cpu_status_by_server[server]
-                if (cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None and cpu['cpu_cores'] is not None and
-                    cpu['cpu_stats']['avg'] is not None and cpu['memory_stats']['avg'] is not None and cpu['load_stats']['avg'] is not None):
+                if cpu['cpu_stats'] is not None and cpu['memory_stats'] is not None and cpu['cpu_cores'] is not None:
                     cpu_util_ok = cpu['cpu_stats']['avg'] < 80
                     cpu_mem_ok = (cpu['max_memory'] - cpu['memory_stats']['avg']) > 4 * 1024  # 4GB
                     cpu_load_ok = cpu['load_stats']['avg'] < cpu['cpu_cores']  # Load should be less than number of cores
