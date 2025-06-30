@@ -57,9 +57,9 @@ def build_config(dataset: str, model: str):
     else:
         raise NotImplementedError(f"Dataset {dataset} not implemented")
 
-    # Update template with dataset configs
-    config.update(train_data_cfg)
-    config.update(val_data_cfg)
+    # Update template with dataset configs (deep copy to avoid contamination)
+    config.update(semideepcopy(train_data_cfg))
+    config.update(semideepcopy(val_data_cfg))
 
     # Model-specific configurations
     if model.startswith("FC-"):
