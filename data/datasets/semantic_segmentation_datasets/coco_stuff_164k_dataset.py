@@ -113,7 +113,6 @@ class COCOStuff164KDataset(BaseDataset):
 
         # Load meta info
         meta_info = {
-            'idx': idx,
             'image_filepath': os.path.relpath(path=self.annotations[idx]['image_filepath'], start=self.data_root),
             'label_filepath': os.path.relpath(path=self.annotations[idx]['label_filepath'], start=self.data_root),
             'image_resolution': tuple(inputs['image'].shape[-2:]),
