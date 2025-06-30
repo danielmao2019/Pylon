@@ -24,18 +24,29 @@ class MultiTaskMetric(BaseMetric):
         for metric in self.task_metrics.values():
             metric.reset_buffer()
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, Dict[str, torch.Tensor]]:
+    def __call__(self, datapoint: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, Dict[str, torch.Tensor]]:
         r"""Call each metric.
         """
+        # Extract outputs and labels
+        assert 'outputs' in datapoint and 'labels' in datapoint
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
+
         # input checks
         assert type(y_pred) == type(y_true) == dict, f"{type(y_pred)=}, {type(y_true)=}"
         assert set(y_pred.keys()) & set(y_true.keys()) == set(self.task_names), \
             f"{set(y_pred.keys())=}, {set(y_true.keys())=}, {set(self.task_names)=}"
-        # call each task metric
-        scores: Dict[str, Dict[str, torch.Tensor]] = {
-            task: self.task_metrics[task](y_pred=y_pred[task], y_true=y_true[task], idx=idx)
-            for task in self.task_names
-        }
+
+        # Create task-specific datapoints for each metric
+        scores: Dict[str, Dict[str, torch.Tensor]] = {}
+        for task in self.task_names:
+            task_datapoint = {
+                'inputs': datapoint['inputs'],
+                'outputs': y_pred[task],
+                'labels': y_true[task],
+                'meta_info': datapoint['meta_info']
+            }
+            scores[task] = self.task_metrics[task](task_datapoint)
         return scores
 
     def summarize(self, output_path: Optional[str] = None) -> Dict[str, float]:
