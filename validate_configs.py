@@ -149,26 +149,18 @@ def main():
     all_differences = []
     errors = []
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-        # Submit all comparison tasks
-        future_to_pair = {
-            executor.submit(compare_config_pair, old_path, new_path): (old_path, new_path)
-            for old_path, new_path in pairs
-        }
+    # Process sequentially to avoid import contamination
+    for old_path, new_path in pairs:
+        try:
+            new_path_result, differences, error = compare_config_pair(old_path, new_path)
 
-        # Process results as they complete
-        for future in concurrent.futures.as_completed(future_to_pair):
-            old_path, new_path = future_to_pair[future]
-            try:
-                new_path, differences, error = future.result()
+            if error:
+                errors.append((new_path_result, error))
+            elif differences:
+                all_differences.append((new_path_result, differences))
 
-                if error:
-                    errors.append((new_path, error))
-                elif differences:
-                    all_differences.append((new_path, differences))
-
-            except Exception as exc:
-                errors.append((new_path, f"Exception: {str(exc)}"))
+        except Exception as exc:
+            errors.append((new_path, f"Exception: {str(exc)}"))
 
     # Report results
     print("\n" + "="*80)
