@@ -13,6 +13,7 @@ from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDD
 from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
+from data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset import Bi2SingleTemporal
 from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import I3PEDataset
 from data.transforms.compose import Compose
 from data.transforms.randomize import Randomize
@@ -36,7 +37,18 @@ config = {
     'train_dataset': {
         'class': I3PEDataset,
         'args': {
-            'source': <data.datasets.change_detection_datasets.single_temporal.bi2single_temporal_dataset.Bi2SingleTemporal object at 0x7fe8fd45dbd0>,
+            'source': {
+                'class': Bi2SingleTemporal,
+                'args': {
+                    'source': {
+                        'class': SYSU_CD_Dataset,
+                        'args': {
+                            'data_root': './data/datasets/soft_links/SYSU-CD',
+                            'split': 'train',
+                        },
+                    },
+                },
+            },
             'dataset_size': 24000,
             'exchange_ratio': 0.75,
             'transforms_cfg': {
