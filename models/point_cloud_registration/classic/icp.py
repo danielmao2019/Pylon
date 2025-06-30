@@ -48,10 +48,17 @@ class ICP(torch.nn.Module):
         assert isinstance(inputs['tgt_pc'], dict), "inputs['tgt_pc'] must be a dictionary"
         assert 'pos' in inputs['src_pc'], "inputs['src_pc'] must contain 'pos' key"
         assert 'pos' in inputs['tgt_pc'], "inputs['tgt_pc'] must contain 'pos' key"
-        
+
         # Validate tensor properties
         assert isinstance(inputs['src_pc']['pos'], torch.Tensor), "Source positions must be a tensor"
         assert isinstance(inputs['tgt_pc']['pos'], torch.Tensor), "Target positions must be a tensor"
+
+        # Handle both 2D (unbatched) and 3D (batched) tensors
+        if inputs['src_pc']['pos'].dim() == 2:
+            inputs['src_pc']['pos'] = inputs['src_pc']['pos'].unsqueeze(0)
+        if inputs['tgt_pc']['pos'].dim() == 2:
+            inputs['tgt_pc']['pos'] = inputs['tgt_pc']['pos'].unsqueeze(0)
+
         assert inputs['src_pc']['pos'].dim() == 3, f"Source positions must be 3D tensor, got {inputs['src_pc']['pos'].dim()}D"
         assert inputs['tgt_pc']['pos'].dim() == 3, f"Target positions must be 3D tensor, got {inputs['tgt_pc']['pos'].dim()}D"
         assert inputs['src_pc']['pos'].shape[-1] == 3, f"Source positions must have 3 coordinates, got {inputs['src_pc']['pos'].shape[-1]}"
@@ -60,7 +67,7 @@ class ICP(torch.nn.Module):
             f"Batch sizes must match: source={inputs['src_pc']['pos'].shape[0]}, target={inputs['tgt_pc']['pos'].shape[0]}"
         assert inputs['src_pc']['pos'].shape[1] > 0, "Source point cloud cannot be empty"
         assert inputs['tgt_pc']['pos'].shape[1] > 0, "Target point cloud cannot be empty"
-        
+
         batch_size = inputs['src_pc']['pos'].shape[0]
         device = inputs['src_pc']['pos'].device
 
