@@ -5,6 +5,7 @@ from torch import Tensor
 from torch.optim.lr_scheduler import PolynomialLR
 from torch.optim.sgd import SGD
 from torch.utils.data.dataloader import DataLoader
+from torchvision.transforms.transforms import ColorJitter
 from criteria.vision_2d.change_detection.ppsl_criterion import PPSLCriterion
 from data.collators.base_collator import BaseCollator
 from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
@@ -13,9 +14,11 @@ from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
 from data.datasets.change_detection_datasets.bi_temporal.sysu_cd_dataset import SYSU_CD_Dataset
 from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
+from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
 from data.transforms.compose import Compose
 from data.transforms.randomize import Randomize
 from data.transforms.vision_2d.crop.random_crop import RandomCrop
+from data.transforms.vision_2d.flip import Flip
 from data.transforms.vision_2d.random_rotation import RandomRotation
 from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationMetric
 from models.change_detection.ppsl.ppsl_model import PPSLModel
@@ -34,7 +37,13 @@ config = {
     'train_dataset': {
         'class': PPSLDataset,
         'args': {
-            'source': <data.datasets.semantic_segmentation_datasets.whu_bd_dataset.WHU_BD_Dataset object at 0x77ed46059900>,
+            'source': {
+                'class': WHU_BD_Dataset,
+                'args': {
+                    'data_root': './data/datasets/soft_links/WHU-BD',
+                    'split': 'train',
+                },
+            },
             'dataset_size': 4736,
             'transforms_cfg': {
                 'class': Compose,
@@ -59,7 +68,12 @@ config = {
     {
             'class': Randomize,
             'args': {
-                'transform': <data.transforms.vision_2d.flip.Flip object at 0x77ed46059cf0>,
+                'transform': {
+                    'class': Flip,
+                    'args': {
+                        'axis': -1,
+                    },
+                },
                 'p': 0.5,
             },
         },
@@ -68,7 +82,12 @@ config = {
     {
             'class': Randomize,
             'args': {
-                'transform': <data.transforms.vision_2d.flip.Flip object at 0x77ed46059d50>,
+                'transform': {
+                    'class': Flip,
+                    'args': {
+                        'axis': -2,
+                    },
+                },
                 'p': 0.5,
             },
         },
@@ -77,7 +96,14 @@ config = {
     {
             'class': Randomize,
             'args': {
-                'transform': ColorJitter(brightness=(0.5, 1.5), contrast=(0.5, 1.5), saturation=(0.5, 1.5), hue=None),
+                'transform': {
+                    'class': ColorJitter,
+                    'args': {
+                        'brightness': 0.5,
+                        'contrast': 0.5,
+                        'saturation': 0.5,
+                    },
+                },
                 'p': 0.5,
             },
         },
@@ -86,7 +112,14 @@ config = {
     {
             'class': Randomize,
             'args': {
-                'transform': ColorJitter(brightness=(0.5, 1.5), contrast=(0.5, 1.5), saturation=(0.5, 1.5), hue=None),
+                'transform': {
+                    'class': ColorJitter,
+                    'args': {
+                        'brightness': 0.5,
+                        'contrast': 0.5,
+                        'saturation': 0.5,
+                    },
+                },
                 'p': 0.5,
             },
         },
