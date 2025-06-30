@@ -17,6 +17,12 @@ def load_config_from_file(filepath: str) -> Dict[str, Any]:
     original_path = sys.path.copy()
 
     try:
+        # Clear modules that could cause contamination between config loads
+        modules_to_clear = [key for key in sys.modules.keys() 
+                           if key.startswith('configs.common')]
+        for module in modules_to_clear:
+            del sys.modules[module]
+
         # Add project root and parent directories to sys.path
         project_root = os.path.dirname(os.path.abspath(__file__))
         sys.path.insert(0, project_root)
