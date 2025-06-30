@@ -37,7 +37,10 @@ class Resnet50WithFPN(torch.nn.Module):
 model_config = {
     'class': models.change_detection.ChangeStar,
     'args': {
-        'encoder': Resnet50WithFPN(),
+        'encoder': {
+            'class': Resnet50WithFPN,
+            'args': {},
+        },
         'change_decoder_cfg': {
             'in_channels': 256*2,
             'mid_channels': 16,

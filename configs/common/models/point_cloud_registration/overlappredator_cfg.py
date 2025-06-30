@@ -1,7 +1,7 @@
 from models.point_cloud_registration.overlappredator.overlappredator import OverlapPredator
 
 
-model_cfg = {   
+model_cfg = {
     'class': OverlapPredator,
     'args': {
         'architecture': [
