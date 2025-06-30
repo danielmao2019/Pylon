@@ -54,9 +54,9 @@ def get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, A
             # Parse line like: %Cpu(s):  5.9 us,  1.2 sy,  0.0 ni, 92.6 id,  0.3 wa,  0.0 hi,  0.0 si,  0.0 st
             parts = line.split()
             for i, part in enumerate(parts):
-                if 'us,' in part:
+                if 'us,' in part and i > 0:  # Find 'us,' and ensure there's a previous part
                     try:
-                        cpu_util = float(part.replace('us,', ''))
+                        cpu_util = float(parts[i-1])  # Get the number from the previous part
                     except ValueError:
                         cpu_util = None  # Keep as None on parsing failure
                     break
