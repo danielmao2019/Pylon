@@ -8,6 +8,16 @@ import math
 from metrics.vision_3d import RMSE
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def compute_rmse_numpy(source, target):
     """Original numpy implementation of RMSE."""
     kdtree = KDTree(target)
@@ -38,7 +48,8 @@ def compute_rmse_with_correspondences_numpy(source, target):
 def test_basic_functionality(case_name, source, target, expected_rmse, expected_correspondences):
     """Test basic RMSE calculation with simple examples."""
     rmse = RMSE()
-    result = rmse(source, target)
+    datapoint = create_datapoint(source, target)
+    result = rmse(datapoint)
     assert result.keys() == {'rmse', 'correspondences'}, f"Expected keys {{'rmse', 'correspondences'}}, got {result.keys()}"
     assert abs(result['rmse'].item() - expected_rmse) < 1e-5, \
         f"Case '{case_name}': Expected {expected_rmse}, got {result['rmse'].item()}"
@@ -61,7 +72,8 @@ def test_with_random_point_clouds():
     rmse = RMSE()
 
     # Compute RMSE using the metric class
-    metric_result = rmse(source_torch, target_torch)
+    datapoint = create_datapoint(source_torch, target_torch)
+    metric_result = rmse(datapoint)
 
     # Compute RMSE using NumPy implementation for verification
     numpy_result = compute_rmse_numpy(source_np, target_np)
@@ -114,7 +126,8 @@ def test_with_known_rmse():
     rmse = RMSE()
 
     # Compute RMSE using the metric class
-    metric_result = rmse(source_torch, target_torch)
+    datapoint = create_datapoint(source_torch, target_torch)
+    metric_result = rmse(datapoint)
 
     # Check that the results are approximately equal to the expected RMSE
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
@@ -162,9 +175,11 @@ def test_edge_cases(case_name, source, target, expected_rmse, raises_error):
 
     if raises_error:
         with pytest.raises(raises_error):
-            rmse(source, target)
+            datapoint = create_datapoint(source, target)
+            rmse(datapoint)
     else:
-        result = rmse(source, target)
+        datapoint = create_datapoint(source, target)
+        result = rmse(datapoint)
         assert result.keys() == {'rmse', 'correspondences'}, f"Expected keys {{'rmse', 'correspondences'}}, got {result.keys()}"
         assert abs(result['rmse'].item() - expected_rmse) < 1e-5, \
             f"Case '{case_name}': Expected {expected_rmse}, got {result['rmse'].item()}"

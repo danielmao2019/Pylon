@@ -4,6 +4,16 @@ import numpy as np
 from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def create_rotation_matrix(angle_deg: float, axis: str = 'z') -> torch.Tensor:
     """Create a 3x3 rotation matrix for a given angle around a specified axis."""
     angle_rad = np.radians(angle_deg)
@@ -119,34 +129,36 @@ def test_complete_transform_error(metric, angle_gt, angle_pred, trans_gt, trans_
     transform_pred = create_transform_matrix(rot_pred, trans_pred)
 
     # Compute errors
-    scores = metric(
-        y_pred={'transform': transform_pred.unsqueeze(0)},
-        y_true={'transform': transform_gt.unsqueeze(0)}
-    )
+    outputs = {'transform': transform_pred.unsqueeze(0)}
+    labels = {'transform': transform_gt.unsqueeze(0)}
+    datapoint = create_datapoint(outputs, labels)
+    scores = metric(datapoint)
 
     # Check results
     assert torch.allclose(scores['rotation_error'], torch.tensor(expected_rre, dtype=torch.float32), atol=1e-5)
     assert torch.allclose(scores['translation_error'], torch.tensor(expected_rte, dtype=torch.float32), atol=1e-5)
 
 
-@pytest.mark.parametrize("y_pred,y_true", [
+@pytest.mark.parametrize("outputs,labels", [
     (torch.eye(4).unsqueeze(0), {'transform': torch.eye(4).unsqueeze(0)}),
     ({'transform': torch.eye(4).unsqueeze(0)}, torch.eye(4).unsqueeze(0)),
     ({'wrong_key': torch.eye(4).unsqueeze(0)}, {'transform': torch.eye(4).unsqueeze(0)}),
     ({'transform': torch.eye(4).unsqueeze(0)}, {'wrong_key': torch.eye(4).unsqueeze(0)}),
 ])
-def test_input_edge_cases(metric, y_pred, y_true):
+def test_input_edge_cases(metric, outputs, labels):
     """Test input validation for various edge cases."""
-    metric(y_pred=y_pred, y_true=y_true)
+    datapoint = create_datapoint(outputs, labels)
+    metric(datapoint)
 
 
-@pytest.mark.parametrize("y_pred,y_true", [
+@pytest.mark.parametrize("outputs,labels", [
     ({'transform': torch.eye(3)}, {'transform': torch.eye(4)}),
 ])
-def test_invalid_inputs(metric, y_pred, y_true):
+def test_invalid_inputs(metric, outputs, labels):
     """Test invalid inputs."""
     with pytest.raises(AssertionError):
-        metric(y_pred=y_pred, y_true=y_true)
+        datapoint = create_datapoint(outputs, labels)
+        metric(datapoint)
 
 
 @pytest.mark.parametrize("angle_gt,angle_pred,trans_gt,trans_pred", [
@@ -170,10 +182,10 @@ def test_implementation_equivalence(metric, angle_gt, angle_pred, trans_gt, tran
     transform_pred = create_transform_matrix(rot_pred, trans_pred)
 
     # Compute errors using both implementations
-    class_scores = metric(
-        y_pred={'transform': transform_pred.unsqueeze(0)},
-        y_true={'transform': transform_gt.unsqueeze(0)}
-    )
+    outputs = {'transform': transform_pred.unsqueeze(0)}
+    labels = {'transform': transform_gt.unsqueeze(0)}
+    datapoint = create_datapoint(outputs, labels)
+    class_scores = metric(datapoint)
     func_rre, func_rte = isotropic_transform_error(
         gt_transforms=transform_gt.unsqueeze(0),
         transforms=transform_pred.unsqueeze(0),

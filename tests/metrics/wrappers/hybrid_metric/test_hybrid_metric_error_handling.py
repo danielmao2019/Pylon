@@ -3,6 +3,16 @@ import torch
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def test_empty_metrics_config():
     """Test that empty metrics config raises assertion error."""
     with pytest.raises(AssertionError):
@@ -34,7 +44,8 @@ def test_no_key_overlap_assertion(sample_tensor, sample_target, dummy_metric, an
 
     # This should raise an assertion error due to key overlap
     with pytest.raises(AssertionError, match="Key overlap detected"):
-        hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+        datapoint = create_datapoint(sample_tensor, sample_target)
+        hybrid_metric(datapoint)
 
 
 def test_invalid_metric_config():
@@ -76,7 +87,8 @@ def test_tensor_input_validation(metrics_cfg):
 
     # This should raise an error from the underlying metric computation
     with pytest.raises(RuntimeError):
-        hybrid_metric(y_pred=sample_input, y_true=mismatched_target)
+        datapoint = create_datapoint(sample_input, mismatched_target)
+        hybrid_metric(datapoint)
 
 
 def test_non_tensor_inputs(metrics_cfg):
@@ -85,7 +97,8 @@ def test_non_tensor_inputs(metrics_cfg):
 
     # Test with non-tensor inputs
     with pytest.raises(Exception):
-        hybrid_metric(y_pred="not_a_tensor", y_true="also_not_a_tensor")
+        datapoint = create_datapoint("not_a_tensor", "also_not_a_tensor")
+        hybrid_metric(datapoint)
 
 
 def test_complex_key_overlap_scenarios(dummy_metric, another_dummy_metric):
@@ -112,4 +125,5 @@ def test_complex_key_overlap_scenarios(dummy_metric, another_dummy_metric):
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
 
     with pytest.raises(AssertionError, match="Key overlap detected"):
-        hybrid_metric(y_pred=sample_input, y_true=sample_target)
+        datapoint = create_datapoint(sample_input, sample_target)
+        hybrid_metric(datapoint)

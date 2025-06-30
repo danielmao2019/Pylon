@@ -8,6 +8,16 @@ from scipy.spatial.distance import pdist
 from metrics.vision_3d import MAE
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def compute_mae_numpy(source, target):
     """Alternative numpy implementation of MAE using KDTree."""
     # Build KD-trees for both point clouds
@@ -34,7 +44,8 @@ def compute_mae_numpy(source, target):
 def test_basic_functionality(case_name, source, target, expected_mae):
     """Test basic MAE calculation with simple examples."""
     mae = MAE()
-    result = mae(source, target)
+    datapoint = create_datapoint(source, target)
+    result = mae(datapoint)
     assert result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {result.keys()}"
     assert abs(result['mae'].item() - expected_mae) < 1e-5, \
         f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"
@@ -55,7 +66,8 @@ def test_with_random_point_clouds():
     mae = MAE()
 
     # Compute MAE using the metric class
-    metric_result = mae(source_torch, target_torch)
+    datapoint = create_datapoint(source_torch, target_torch)
+    metric_result = mae(datapoint)
 
     # Compute MAE using NumPy implementation for verification
     numpy_result = compute_mae_numpy(source_np, target_np)
@@ -101,7 +113,8 @@ def test_with_known_mae():
     mae = MAE()
 
     # Compute MAE using the metric class
-    metric_result = mae(source_torch, target_torch)
+    datapoint = create_datapoint(source_torch, target_torch)
+    metric_result = mae(datapoint)
 
     # Check that the results are approximately equal to the expected MAE
     assert isinstance(metric_result, dict), f"{type(metric_result)=}"
@@ -143,9 +156,11 @@ def test_edge_cases(case_name, source, target, expected_mae, raises_error):
 
     if raises_error:
         with pytest.raises(raises_error):
-            mae(source, target)
+            datapoint = create_datapoint(source, target)
+            mae(datapoint)
     else:
-        result = mae(source, target)
+        datapoint = create_datapoint(source, target)
+        result = mae(datapoint)
         assert result.keys() == {'mae'}, f"Expected keys {{'mae'}}, got {result.keys()}"
         assert abs(result['mae'].item() - expected_mae) < 1e-5, \
             f"Case '{case_name}': Expected {expected_mae}, got {result['mae'].item()}"

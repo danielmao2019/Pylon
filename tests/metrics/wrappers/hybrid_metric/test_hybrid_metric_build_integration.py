@@ -5,6 +5,16 @@ from metrics.wrappers.hybrid_metric import HybridMetric
 from utils.builders import build_from_config
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def test_build_from_config_integration(dummy_metric, another_dummy_metric):
     """Test that HybridMetric works correctly with build_from_config."""
     # Test building HybridMetric from config
@@ -36,7 +46,8 @@ def test_build_from_config_integration(dummy_metric, another_dummy_metric):
     sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
 
-    scores = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    datapoint = create_datapoint(sample_input, sample_target)
+    scores = hybrid_metric(datapoint)
     assert isinstance(scores, dict)
     assert 'config_metric1' in scores
     assert 'config_metric2' in scores

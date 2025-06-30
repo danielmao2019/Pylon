@@ -2,6 +2,7 @@ from typing import List, Dict, Any, Optional
 from abc import ABC, abstractmethod
 import queue
 import threading
+import torch
 from utils.ops.apply import apply_tensor_op
 
 
@@ -45,17 +46,39 @@ class BaseMetric(ABC):
             except Exception as e:
                 print(f"Buffer worker error: {e}")
 
-    def add_to_buffer(self, data: Dict[str, Any], idx: int) -> None:
+    def add_to_buffer(self, data: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]) -> None:
         """
         Add data to the buffer.
 
         Args:
             data: Dictionary of data to add to the buffer
-            idx: Integer index of the datapoint for order preservation.
+            datapoint: Complete datapoint to extract idx from
         """
         if self.use_buffer:
             assert hasattr(self, 'buffer')
             assert isinstance(self.buffer, dict)
+
+            # Extract idx from datapoint meta_info
+            assert 'meta_info' in datapoint and 'idx' in datapoint['meta_info']
+            idx_raw = datapoint['meta_info']['idx']
+
+            # Handle different idx formats (similar to BaseEvaluator)
+            if isinstance(idx_raw, torch.Tensor):
+                # Handle tensor format from DataLoader collation
+                assert idx_raw.shape == (1,), f"Expected single element tensor, got {idx_raw}"
+                assert idx_raw.dtype == torch.int64
+                idx = idx_raw.item()
+            elif isinstance(idx_raw, list):
+                # Handle list format
+                assert len(idx_raw) == 1
+                assert isinstance(idx_raw[0], int)
+                idx = idx_raw[0]
+            elif isinstance(idx_raw, int):
+                # Handle direct int format
+                idx = idx_raw
+            else:
+                raise ValueError(f"Unsupported idx format: {type(idx_raw)} with value {idx_raw}")
+
             self._buffer_queue.put({'data': data, 'idx': idx})
         else:
             assert not hasattr(self, 'buffer')
@@ -73,7 +96,20 @@ class BaseMetric(ABC):
         raise RuntimeError("Buffer is not enabled")
 
     @abstractmethod
-    def __call__(self, y_pred: Any, y_true: Any, idx: int) -> Any:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Any:
+        """
+        Compute metrics on a datapoint.
+
+        Args:
+            datapoint: Complete datapoint dictionary containing:
+                - 'inputs': Model inputs
+                - 'labels': Ground truth labels
+                - 'outputs': Model outputs (added by runner)
+                - 'meta_info': Metadata including 'idx'
+
+        Returns:
+            Dictionary of computed metrics
+        """
         raise NotImplementedError("Abstract method BaseMetric.__call__ not implemented.")
 
     @abstractmethod
