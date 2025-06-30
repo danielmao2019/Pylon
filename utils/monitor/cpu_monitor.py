@@ -78,10 +78,18 @@ class CPUMonitor:
         """Starts background monitoring thread that continuously updates CPU info"""
         def monitor_loop():
             while not self._stop_event.is_set():
-                self._update()
+                try:
+                    self._update()
+                except Exception as e:
+                    if not self._stop_event.is_set():
+                        print(f"CPU monitor error: {e}")
+                # Wait for a short interval or until stop event is set
+                self._stop_event.wait(timeout=1.0)
 
-        self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
-        self.monitor_thread.start()
+        if self.monitor_thread is None or not self.monitor_thread.is_alive():
+            self._stop_event.clear()
+            self.monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
+            self.monitor_thread.start()
 
     def stop(self):
         """Stops background monitoring thread"""
@@ -96,8 +104,17 @@ class CPUMonitor:
 
     def _update(self):
         """Updates information for all CPUs using batched queries per server"""
-        with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
-            list(executor.map(self._update_single_server, self.servers))
+        if self._stop_event.is_set():
+            return
+        try:
+            with ThreadPoolExecutor(max_workers=len(self.servers)) as executor:
+                list(executor.map(self._update_single_server, self.servers))
+        except RuntimeError as e:
+            if "cannot schedule new futures after interpreter shutdown" in str(e):
+                # Interpreter is shutting down, stop the monitor
+                self._stop_event.set()
+            else:
+                raise
 
     def _update_single_server(self, server: str) -> None:
         """Update CPU info for a single server"""
