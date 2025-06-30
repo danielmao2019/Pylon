@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import torch
 from metrics.base_metric import BaseMetric
 from metrics.wrappers.single_task_metric import SingleTaskMetric
