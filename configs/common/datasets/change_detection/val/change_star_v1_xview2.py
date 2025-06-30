@@ -1,4 +1,3 @@
-import data.collators.change_star_collator
 import torch
 import data
 import metrics
@@ -56,7 +55,7 @@ data_cfg = {
         },
     }, [air_change_cfg, cdd_cfg, levir_cd_cfg, oscd_cfg, sysu_cd_cfg])),
     'metric': {
-        'class': metrics.vision_2d.ChangeStarMetric,
+        'class': metrics.vision_2d.change_detection.ChangeStarMetric,
         'args': {},
     },
 }

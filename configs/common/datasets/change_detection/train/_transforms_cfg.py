@@ -41,14 +41,13 @@ def transforms_cfg(
                 (
                     {
                         'class': data.transforms.Randomize,
-                        'args': {'transform': data.transforms.vision_2d.Flip(axis=-1), 'p': 0.5},
-                    },
-                    [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
-                ),
-                (
-                    {
-                        'class': data.transforms.Randomize,
-                        'args': {'transform': data.transforms.vision_2d.Flip(axis=-2), 'p': 0.5},
+                        'args': {
+                            'transform': {
+                                'class': data.transforms.vision_2d.Flip,
+                                'args': {'axis': -1}
+                            },
+                            'p': 0.5
+                        },
                     },
                     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
                 ),
@@ -56,7 +55,23 @@ def transforms_cfg(
                     {
                         'class': data.transforms.Randomize,
                         'args': {
-                            'transform': torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+                            'transform': {
+                                'class': data.transforms.vision_2d.Flip,
+                                'args': {'axis': -2}
+                            },
+                            'p': 0.5
+                        },
+                    },
+                    [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')],
+                ),
+                (
+                    {
+                        'class': data.transforms.Randomize,
+                        'args': {
+                            'transform': {
+                                'class': torchvision.transforms.ColorJitter,
+                                'args': {'brightness': 0.5, 'contrast': 0.5, 'saturation': 0.5}
+                            },
                             'p': 0.5,
                         },
                     },
@@ -66,7 +81,10 @@ def transforms_cfg(
                     {
                         'class': data.transforms.Randomize,
                         'args': {
-                            'transform': torchvision.transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5),
+                            'transform': {
+                                'class': torchvision.transforms.ColorJitter,
+                                'args': {'brightness': 0.5, 'contrast': 0.5, 'saturation': 0.5}
+                            },
                             'p': 0.5,
                         },
                     },
