@@ -117,4 +117,4 @@ def test_buffer_operations_thread_safety(metrics_cfg, sample_tensor, sample_targ
     # Test that buffer can be safely accessed
     buffer_copy = hybrid_metric.get_buffer()
     assert len(buffer_copy) == 5
-    assert all(isinstance(item, dict) for item in buffer_copy.values())
+    assert all(isinstance(item, dict) for item in buffer_copy)
