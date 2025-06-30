@@ -7,23 +7,7 @@ from scipy.spatial import cKDTree
 
 
 class TeaserPlusPlus(torch.nn.Module):
-    """TEASER++ robust point cloud registration algorithm.
-    
-    TEASER++ (Truncated least squares Estimation And SEmidefinite Relaxation) 
-    is a certifiably optimal robust registration method that can handle 
-    high outlier rates in correspondences.
-    
-    Reference:
-        Yang et al., "TEASER: Fast and Certifiable Point Cloud Registration"
-        https://teaser.readthedocs.io/
-    
-    Args:
-        estimate_rotation: Whether to estimate rotation
-        estimate_scaling: Whether to estimate scaling
-        correspondences: Method to establish correspondences ('fpfh' or None)
-        voxel_size: Voxel size for downsampling and FPFH feature extraction
-    """
-    
+
     def __init__(
         self,
         estimate_rotation: bool = True,
@@ -52,11 +36,12 @@ class TeaserPlusPlus(torch.nn.Module):
         self.voxel_size = voxel_size
 
     def _extract_fpfh(self, points: np.ndarray) -> np.ndarray:
-        """Extract FPFH features from point cloud.
-        
+        """
+        Extract FPFH features from point cloud.
+
         Args:
             points: Point cloud as numpy array (N, 3)
-            
+
         Returns:
             FPFH features as numpy array (N, 33)
         """
@@ -77,12 +62,13 @@ class TeaserPlusPlus(torch.nn.Module):
         return np.array(fpfh.data).T
 
     def _find_correspondences(self, feats0: np.ndarray, feats1: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """Find correspondences between two sets of features using mutual nearest neighbor.
-        
+        """
+        Find correspondences between two sets of features using nearest neighbor search.
+
         Args:
             feats0: Features of first point cloud (N, 33)
             feats1: Features of second point cloud (M, 33)
-            
+
         Returns:
             Tuple of (indices in first cloud, indices in second cloud)
         """
@@ -105,40 +91,19 @@ class TeaserPlusPlus(torch.nn.Module):
 
         return corres_idx0, corres_idx1
 
-    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
-        """Perform TEASER++ registration on source and target point clouds.
-        
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """
+        TEASER++ registration.
+
         Args:
-            inputs: Dictionary containing:
-                - 'src_pc': Dict with 'pos' key containing source points (B, N, 3)
-                - 'tgt_pc': Dict with 'pos' key containing target points (B, M, 3)
-                
+            inputs: Dictionary containing source and target point clouds
+            inputs['src_pc']['pos']: Source point cloud (B, N, 3)
+            inputs['tgt_pc']['pos']: Target point cloud (B, M, 3)
+
         Returns:
-            Transformation matrix (B, 4, 4) that aligns source to target
+            Transformation matrix (B, 4, 4)
         """
         import teaserpp_python
-        
-        # Input validation
-        assert isinstance(inputs, dict), "inputs must be a dictionary"
-        assert 'src_pc' in inputs, "inputs must contain 'src_pc' key"
-        assert 'tgt_pc' in inputs, "inputs must contain 'tgt_pc' key"
-        assert isinstance(inputs['src_pc'], dict), "inputs['src_pc'] must be a dictionary"
-        assert isinstance(inputs['tgt_pc'], dict), "inputs['tgt_pc'] must be a dictionary"
-        assert 'pos' in inputs['src_pc'], "inputs['src_pc'] must contain 'pos' key"
-        assert 'pos' in inputs['tgt_pc'], "inputs['tgt_pc'] must contain 'pos' key"
-        
-        # Validate tensor properties
-        assert isinstance(inputs['src_pc']['pos'], torch.Tensor), "Source positions must be a tensor"
-        assert isinstance(inputs['tgt_pc']['pos'], torch.Tensor), "Target positions must be a tensor"
-        assert inputs['src_pc']['pos'].dim() == 3, f"Source positions must be 3D tensor, got {inputs['src_pc']['pos'].dim()}D"
-        assert inputs['tgt_pc']['pos'].dim() == 3, f"Target positions must be 3D tensor, got {inputs['tgt_pc']['pos'].dim()}D"
-        assert inputs['src_pc']['pos'].shape[-1] == 3, f"Source positions must have 3 coordinates, got {inputs['src_pc']['pos'].shape[-1]}"
-        assert inputs['tgt_pc']['pos'].shape[-1] == 3, f"Target positions must have 3 coordinates, got {inputs['tgt_pc']['pos'].shape[-1]}"
-        assert inputs['src_pc']['pos'].shape[0] == inputs['tgt_pc']['pos'].shape[0], \
-            f"Batch sizes must match: source={inputs['src_pc']['pos'].shape[0]}, target={inputs['tgt_pc']['pos'].shape[0]}"
-        assert inputs['src_pc']['pos'].shape[1] > 0, "Source point cloud cannot be empty"
-        assert inputs['tgt_pc']['pos'].shape[1] > 0, "Target point cloud cannot be empty"
-        
         batch_size = inputs['src_pc']['pos'].shape[0]
         device = inputs['src_pc']['pos'].device
 

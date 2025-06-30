@@ -4,16 +4,6 @@ import torch
 from metrics.vision_2d.object_detection_metric import ObjectDetectionMetric
 
 
-def create_datapoint(y_pred, y_true, idx=0):
-    """Helper function to create datapoint for tests."""
-    return {
-        'inputs': {},  # Empty for these tests
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': idx}
-    }
-
-
 @pytest.mark.parametrize("y_pred, y_true, areas, limits", [
     (
         {
@@ -40,8 +30,7 @@ def create_datapoint(y_pred, y_true, idx=0):
 def test_object_detection_metric_call(y_pred, y_true, areas, limits):
     """Tests object detection metric computation for a single datapoint."""
     metric = ObjectDetectionMetric(areas=areas, limits=limits)
-    datapoint = create_datapoint(y_pred, y_true)
-    scores: List[Dict[str, torch.Tensor]] = metric(datapoint)
+    scores: List[Dict[str, torch.Tensor]] = metric(y_pred, y_true)
 
     # Check structure
     for bbox_score in scores:
@@ -99,25 +88,24 @@ def test_object_detection_metric_call(y_pred, y_true, areas, limits):
 def test_object_detection_metric_summarize(y_preds, y_trues, areas, limits):
     """Tests object detection metric summarization across multiple datapoints."""
     metric = ObjectDetectionMetric(areas=areas, limits=limits)
-
+    
     # Compute scores for each datapoint
-    for idx, (y_pred, y_true) in enumerate(zip(y_preds, y_trues)):
-        datapoint = create_datapoint(y_pred, y_true, idx)
-        metric(datapoint)
-
+    for y_pred, y_true in zip(y_preds, y_trues):
+        metric(y_pred, y_true)
+    
     # Summarize results
     result = metric.summarize()
-
+    
     # Check structure
     assert set(result.keys()) == {'aggregated', 'per_datapoint'}
-
+    
     # Check aggregated structure
     for area in areas:
         for limit in limits:
             key = f"gt_overlaps_{area}@{limit}"
             assert key in result['aggregated']
             assert set(result['aggregated'][key].keys()) == {'AR', 'recalls', 'thresholds'}
-
+    
     # Check per_datapoint structure
     for area in areas:
         for limit in limits:

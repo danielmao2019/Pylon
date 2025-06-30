@@ -3,16 +3,6 @@ import torch
 from metrics.vision_2d.depth_estimation_metric import DepthEstimationMetric
 
 
-def create_datapoint(y_pred, y_true, idx=0):
-    """Helper function to create datapoint for DepthEstimationMetric tests."""
-    return {
-        'inputs': {},  # Empty for these tests
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': idx}
-    }
-
-
 @pytest.mark.parametrize("y_pred, y_true", [
     (
         torch.tensor([[
@@ -28,9 +18,8 @@ def create_datapoint(y_pred, y_true, idx=0):
 def test_depth_estimation_metric_call(y_pred, y_true):
     """Tests depth estimation metric computation for a single datapoint."""
     metric = DepthEstimationMetric()
-    datapoint = create_datapoint(y_pred, y_true)
-    score = metric(datapoint)
-
+    score = metric(y_pred, y_true)
+    
     # Check structure
     assert set(score.keys()) == {'l1'}
     assert isinstance(score['l1'], torch.Tensor)
@@ -64,20 +53,19 @@ def test_depth_estimation_metric_call(y_pred, y_true):
 def test_depth_estimation_metric_summarize(y_preds, y_trues):
     """Tests depth estimation metric summarization across multiple datapoints."""
     metric = DepthEstimationMetric()
-
+    
     # Compute scores for each datapoint
-    for idx, (y_pred, y_true) in enumerate(zip(y_preds, y_trues)):
-        datapoint = create_datapoint(y_pred, y_true, idx)
-        metric(datapoint)
-
+    for y_pred, y_true in zip(y_preds, y_trues):
+        metric(y_pred, y_true)
+    
     # Summarize results
     result = metric.summarize()
-
+    
     # Check structure
     assert set(result.keys()) == {'aggregated', 'per_datapoint'}
-
+    
     # Check aggregated structure
     assert set(result['aggregated'].keys()) == {'l1'}
-
+    
     # Check per_datapoint structure
     assert set(result['per_datapoint'].keys()) == {'l1'}

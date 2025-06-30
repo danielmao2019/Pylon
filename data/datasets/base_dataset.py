@@ -260,11 +260,6 @@ class BaseDataset(torch.utils.data.Dataset, ABC):
         if raw_datapoint is None:
             # Load raw datapoint
             inputs, labels, meta_info = self._load_datapoint(idx)
-
-            # Ensure 'idx' hasn't been added by concrete class, then add it
-            assert 'idx' not in meta_info, f"Dataset class should not manually add 'idx' to meta_info. Found 'idx' in meta_info: {meta_info.keys()}"
-            meta_info['idx'] = idx
-
             raw_datapoint = {
                 'inputs': inputs,
                 'labels': labels,

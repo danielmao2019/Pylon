@@ -566,6 +566,7 @@ class BasePCRDataset(BaseDataset):
         }
 
         meta_info = {
+            'idx': idx,
             'src_indices': src_indices,
             'tgt_indices': tgt_indices,
             'src_path': src_path,

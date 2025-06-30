@@ -322,6 +322,7 @@ class Urb3DCDDataset(BaseDataset):
 
         # Create meta_info dictionary
         meta_info = {
+            'idx': idx,
             'pc_1_filepath': data['pc_1_filepath'],
             'pc_2_filepath': data['pc_2_filepath']
         }
@@ -366,6 +367,7 @@ class Urb3DCDDataset(BaseDataset):
 
                 # Create meta info dictionary with all metadata
                 meta_info = {
+                    'idx': idx,
                     'center_idx': self.annotations[idx].get('idx', idx),
                     'center_pos': self.annotations[idx].get('pos', None),
                     'point_idx_pc1': data['point_idx_pc1'],

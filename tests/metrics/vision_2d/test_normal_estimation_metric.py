@@ -3,16 +3,6 @@ import torch
 from metrics.vision_2d.normal_estimation_metric import NormalEstimationMetric
 
 
-def create_datapoint(y_pred, y_true, idx=0):
-    """Helper function to create datapoint for tests."""
-    return {
-        'inputs': {},  # Empty for these tests
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': idx}
-    }
-
-
 @pytest.mark.parametrize("y_pred, y_true", [
     (
         torch.tensor([
@@ -34,9 +24,8 @@ def create_datapoint(y_pred, y_true, idx=0):
 def test_normal_estimation_metric_call(y_pred, y_true):
     """Tests normal estimation metric structure for a single datapoint."""
     metric = NormalEstimationMetric()
-    datapoint = create_datapoint(y_pred, y_true)
-    score = metric(datapoint)
-
+    score = metric(y_pred, y_true)
+    
     # Check structure
     assert set(score.keys()) == {'angle'}
     assert isinstance(score['angle'], torch.Tensor)
@@ -53,8 +42,7 @@ def test_normal_estimation_metric_call(y_pred, y_true):
 def test_normal_estimation_metric_value(y_pred, y_true, expected) -> None:
     """Tests normal estimation metric computation for a single datapoint."""
     metric = NormalEstimationMetric()
-    datapoint = create_datapoint(y_pred, y_true)
-    score = metric(datapoint)
+    score = metric(y_pred=y_pred, y_true=y_true)
     assert type(score) == dict and set(score.keys()) == set(['angle']), f"{score=}"
     assert torch.equal(score['angle'], expected)
 
@@ -98,23 +86,22 @@ def test_normal_estimation_metric_value(y_pred, y_true, expected) -> None:
 def test_normal_estimation_metric_summarize(y_preds, y_trues):
     """Tests normal estimation metric summarization structure across multiple datapoints."""
     metric = NormalEstimationMetric()
-
+    
     # Compute scores for each datapoint
-    for idx, (y_pred, y_true) in enumerate(zip(y_preds, y_trues)):
-        datapoint = create_datapoint(y_pred, y_true, idx)
-        metric(datapoint)
-
+    for y_pred, y_true in zip(y_preds, y_trues):
+        metric(y_pred, y_true)
+    
     # Summarize results
     result = metric.summarize()
-
+    
     # Check structure
     assert set(result.keys()) == {'aggregated', 'per_datapoint'}
-
+    
     # Check aggregated structure
     assert set(result['aggregated'].keys()) == {'angle'}
     assert isinstance(result['aggregated']['angle'], torch.Tensor)
     assert result['aggregated']['angle'].ndim == 0  # Scalar tensor
-
+    
     # Check per_datapoint structure
     assert set(result['per_datapoint'].keys()) == {'angle'}
     assert isinstance(result['per_datapoint']['angle'], torch.Tensor)

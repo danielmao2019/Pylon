@@ -59,6 +59,7 @@ class ADE20KDataset(BaseDataset):
             **self._load_amodal_masks(idx),
         }
         meta_info = {
+            'idx': idx,
             **self.annotations[idx],
             'image_resolution': tuple(inputs['image'].shape[-2:]),
         }

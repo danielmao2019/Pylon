@@ -450,6 +450,7 @@ class SLPCCDDataset(BaseDataset):
             Dictionary with metadata
         """
         return {
+            'idx': idx,
             'pc_1_filepath': pc_data['pc_1_filepath'],
             'pc_2_filepath': pc_data['pc_2_filepath'],
             'dir_name': os.path.dirname(pc_data['pc_1_filepath']),

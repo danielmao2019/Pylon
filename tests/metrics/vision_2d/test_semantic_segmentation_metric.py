@@ -4,16 +4,6 @@ from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationM
 import torch
 
 
-def create_datapoint(y_pred, y_true, idx=0):
-    """Helper function to create datapoint for SemanticSegmentationMetric tests."""
-    return {
-        'inputs': {},  # Empty for these tests
-        'outputs': y_pred,
-        'labels': y_true,
-        'meta_info': {'idx': idx}
-    }
-
-
 @pytest.mark.parametrize("y_pred, y_true, expected_output", [
     (
         torch.tensor([[
@@ -36,8 +26,7 @@ def create_datapoint(y_pred, y_true, idx=0):
 def test_semantic_segmentation_metric_call(y_pred, y_true, expected_output):
     """Tests IoU computation for multiple classes."""
     metric = SemanticSegmentationMetric(num_classes=len(expected_output['class_IoU']))
-    datapoint = create_datapoint(y_pred, y_true)
-    score: Dict[str, torch.Tensor] = metric(datapoint)
+    score: Dict[str, torch.Tensor] = metric(y_pred, y_true)
     # check IoU computation
     iou = score['class_IoU']
     expected_iou = expected_output['class_IoU']
@@ -83,9 +72,8 @@ def test_semantic_segmentation_metric_summarize(y_preds, y_trues):
     metric = SemanticSegmentationMetric(num_classes=3)
 
     # Compute scores for each datapoint
-    for idx, (y_pred, y_true) in enumerate(zip(y_preds, y_trues)):
-        datapoint = create_datapoint(y_pred, y_true, idx)
-        metric(datapoint)
+    for y_pred, y_true in zip(y_preds, y_trues):
+        metric(y_pred, y_true)
 
     # Summarize results
     result = metric.summarize()

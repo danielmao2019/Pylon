@@ -82,28 +82,19 @@ class ObjectDetectionMetric(SingleTaskMetric):
             "thresholds": thresholds,
         }
 
-    def __call__(self, datapoint: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
+    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, List[torch.Tensor]], idx: int) -> torch.Tensor:
         r"""
         Args:
-            datapoint: Complete datapoint dictionary containing:
-                - 'outputs': y_pred dict with 'labels', 'bboxes', 'objectness'
-                - 'labels': y_true dict with 'bboxes', 'areas'
-                - 'meta_info': Metadata including 'idx'
-                y_pred: {
-                    'labels' (torch.Tensor): int64 tensor of shape (B, N).
-                    'bboxes' (torch.Tensor): float32 tensor of shape (B, N, 4).
-                    'objectness' (torch.Tensor): float32 tensor of shape (B, N).
-                }
-                y_true: {
-                    'bboxes': (List[torch.Tensor]): list of float32 tensor, each of shape (N_i, 4).
-                    'areas': (List[torch.Tensor]): list of int tensor, each of shape (N_i,).
-                }
+            y_pred: {
+                'labels' (torch.Tensor): int64 tensor of shape (B, N).
+                'bboxes' (torch.Tensor): float32 tensor of shape (B, N, 4).
+                'objectness' (torch.Tensor): float32 tensor of shape (B, N).
+            }
+            y_true: {
+                'bboxes': (List[torch.Tensor]): list of float32 tensor, each of shape (N_i, 4).
+                'areas': (List[torch.Tensor]): list of int tensor, each of shape (N_i,).
+            }
         """
-        # Extract outputs and labels from datapoint
-        assert 'outputs' in datapoint and 'labels' in datapoint
-        y_pred = datapoint['outputs']
-        y_true = datapoint['labels']
-
         # input checks
         assert type(y_pred) == dict, f"{type(y_pred)=}"
         assert set(['labels', 'bboxes', 'objectness']).issubset(set(y_pred.keys())), f"{y_pred.keys()=}"
@@ -141,7 +132,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
                         **recalls_dict,
                     }
             scores.append(single_result)
-        self.add_to_buffer(scores, datapoint)
+        self.add_to_buffer(scores, idx)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
@@ -150,17 +141,7 @@ class ObjectDetectionMetric(SingleTaskMetric):
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
-        # The buffer contains lists of batch results, we need to flatten and restructure
-        # get_buffer() returns List[List[Dict]] where outer list is datapoints, inner list is batch items
-        buffer_list = self.get_buffer()
-
-        # Flatten all batch items from all datapoints into a single list
-        all_batch_items = []
-        for datapoint_scores in buffer_list:
-            all_batch_items.extend(datapoint_scores)
-
-        # Now transpose to group by metric keys
-        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(all_batch_items)
+        buffer: Dict[str, List[Dict[str, torch.Tensor]]] = transpose_buffer(self.buffer)
         buffer: Dict[str, Dict[str, List[torch.Tensor]]] = {
             key1: transpose_buffer(buffer[key1]) for key1 in buffer.keys()
         }

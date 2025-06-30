@@ -3,16 +3,6 @@ from metrics.common import ConfusionMatrix
 import torch
 
 
-def create_datapoint(y_pred, y_true, idx=0):
-    """Helper function to create datapoint from y_pred and y_true."""
-    return {
-        'inputs': {},  # Empty for these tests
-        'outputs': y_pred,
-        'labels': y_true, 
-        'meta_info': {'idx': idx}
-    }
-
-
 @pytest.mark.parametrize("y_pred, y_true, num_classes, expected", [
     (torch.tensor([
         [-1.1595,  1.4228, -2.3782,  0.0046, -0.3676,  1.9378, -1.6972,  0.3562, 0.4178,  0.8286],
@@ -41,8 +31,7 @@ def create_datapoint(y_pred, y_true, idx=0):
 ])
 def test_confusion_matrix_call(y_pred, y_true, num_classes, expected) -> None:
     metric = ConfusionMatrix(num_classes=num_classes)
-    datapoint = create_datapoint(y_pred, y_true)
-    score = metric(datapoint)
+    score = metric(y_pred=y_pred, y_true=y_true)
     assert set(score.keys()) >= set(expected.keys())
     for key in expected:
         assert torch.equal(score[key], expected[key])
@@ -81,9 +70,8 @@ def test_confusion_matrix_call(y_pred, y_true, num_classes, expected) -> None:
 ])
 def test_confusion_matrix_summary(y_pred_list, y_true_list, num_classes, expected) -> None:
     metric = ConfusionMatrix(num_classes=num_classes)
-    for idx, (y_pred, y_true) in enumerate(zip(y_pred_list, y_true_list)):
-        datapoint = create_datapoint(y_pred, y_true, idx)
-        metric(datapoint)
+    for y_pred, y_true in zip(y_pred_list, y_true_list):
+        metric(y_pred=y_pred, y_true=y_true)
     summary = metric.summarize(output_path=None)
     assert set(summary.keys()) == {'aggregated', 'per_datapoint'}
 

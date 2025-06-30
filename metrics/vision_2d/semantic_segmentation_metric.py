@@ -12,8 +12,8 @@ class SemanticSegmentationMetric(SingleTaskMetric):
 
     DIRECTION = +1
 
-    def __init__(self, num_classes: int, ignore_index: Optional[int] = None, use_buffer: bool = True) -> None:
-        super(SemanticSegmentationMetric, self).__init__(use_buffer=use_buffer)
+    def __init__(self, num_classes: int, ignore_index: Optional[int] = None) -> None:
+        super(SemanticSegmentationMetric, self).__init__()
         assert type(num_classes) == int, f"{type(num_classes)=}"
         assert num_classes > 0, f"{num_classes=}"
         self.num_classes = num_classes
@@ -114,7 +114,7 @@ class SemanticSegmentationMetric(SingleTaskMetric):
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
-        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.get_buffer())
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
 
         # Initialize result structure
         result: Dict[str, Dict[str, torch.Tensor]] = {

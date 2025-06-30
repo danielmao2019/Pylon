@@ -111,7 +111,7 @@ class ConfusionMatrix(SingleTaskMetric):
         assert self._buffer_queue.empty(), "Buffer queue is not empty when summarizing"
         assert len(self.buffer) != 0
 
-        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.get_buffer())
+        buffer: Dict[str, List[torch.Tensor]] = transpose_buffer(self.buffer)
         # summarize scores
         result: Dict[str, Dict[str, torch.Tensor]] = {
             "aggregated": {},

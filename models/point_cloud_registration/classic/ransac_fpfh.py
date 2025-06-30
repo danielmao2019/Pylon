@@ -5,58 +5,22 @@ import open3d as o3d
 
 
 class RANSAC_FPFH(torch.nn.Module):
-    """RANSAC-based registration using Fast Point Feature Histograms (FPFH).
-
-    This method first downsamples point clouds, computes FPFH descriptors,
-    then uses RANSAC to robustly estimate the transformation from feature correspondences.
-
-    Args:
-        voxel_size: Voxel size for downsampling and feature computation
-    """
-
-    def __init__(self, voxel_size: float = 0.05) -> None:
-        """Initialize RANSAC-FPFH model with voxel size parameter.
-
-        Args:
-            voxel_size: Voxel size for downsampling. Also used to determine
-                       radius for normal estimation (2x voxel_size) and
-                       FPFH computation (5x voxel_size)
-        """
+    def __init__(self, voxel_size: float = 0.05):
         super(RANSAC_FPFH, self).__init__()
         self.voxel_size = voxel_size
 
-    def forward(self, inputs: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
-        """Perform RANSAC-based registration using FPFH features.
+    def forward(self, inputs: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """
+        RANSAC-based registration using FPFH features.
 
         Args:
-            inputs: Dictionary containing:
-                - 'src_pc': Dict with 'pos' key containing source points (B, N, 3)
-                - 'tgt_pc': Dict with 'pos' key containing target points (B, M, 3)
+            inputs: Dictionary containing source and target point clouds
+            inputs['src_pc']['pos']: Source point cloud (B, N, 3)
+            inputs['tgt_pc']['pos']: Target point cloud (B, M, 3)
 
         Returns:
-            Transformation matrix (B, 4, 4) that aligns source to target
+            Transformation matrix (B, 4, 4)
         """
-        # Input validation
-        assert isinstance(inputs, dict), "inputs must be a dictionary"
-        assert 'src_pc' in inputs, "inputs must contain 'src_pc' key"
-        assert 'tgt_pc' in inputs, "inputs must contain 'tgt_pc' key"
-        assert isinstance(inputs['src_pc'], dict), "inputs['src_pc'] must be a dictionary"
-        assert isinstance(inputs['tgt_pc'], dict), "inputs['tgt_pc'] must be a dictionary"
-        assert 'pos' in inputs['src_pc'], "inputs['src_pc'] must contain 'pos' key"
-        assert 'pos' in inputs['tgt_pc'], "inputs['tgt_pc'] must contain 'pos' key"
-        
-        # Validate tensor properties
-        assert isinstance(inputs['src_pc']['pos'], torch.Tensor), "Source positions must be a tensor"
-        assert isinstance(inputs['tgt_pc']['pos'], torch.Tensor), "Target positions must be a tensor"
-        assert inputs['src_pc']['pos'].dim() == 3, f"Source positions must be 3D tensor, got {inputs['src_pc']['pos'].dim()}D"
-        assert inputs['tgt_pc']['pos'].dim() == 3, f"Target positions must be 3D tensor, got {inputs['tgt_pc']['pos'].dim()}D"
-        assert inputs['src_pc']['pos'].shape[-1] == 3, f"Source positions must have 3 coordinates, got {inputs['src_pc']['pos'].shape[-1]}"
-        assert inputs['tgt_pc']['pos'].shape[-1] == 3, f"Target positions must have 3 coordinates, got {inputs['tgt_pc']['pos'].shape[-1]}"
-        assert inputs['src_pc']['pos'].shape[0] == inputs['tgt_pc']['pos'].shape[0], \
-            f"Batch sizes must match: source={inputs['src_pc']['pos'].shape[0]}, target={inputs['tgt_pc']['pos'].shape[0]}"
-        assert inputs['src_pc']['pos'].shape[1] > 0, "Source point cloud cannot be empty"
-        assert inputs['tgt_pc']['pos'].shape[1] > 0, "Target point cloud cannot be empty"
-        
         batch_size = inputs['src_pc']['pos'].shape[0]
         device = inputs['src_pc']['pos'].device
 

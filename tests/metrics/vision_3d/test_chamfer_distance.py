@@ -5,16 +5,6 @@ from metrics.vision_3d import ChamferDistance
 from scipy.spatial import KDTree
 
 
-def create_datapoint(source, target, idx=0):
-    """Helper function to create datapoint for ChamferDistance tests."""
-    return {
-        'inputs': {},  # Empty for these tests
-        'outputs': {'source': source},
-        'labels': {'target': target},
-        'meta_info': {'idx': idx}
-    }
-
-
 def compute_chamfer_distance_numpy(source, target):
     """Alternative numpy implementation of Chamfer distance using KDTree."""
     # Build KD-trees for both point clouds
@@ -44,8 +34,7 @@ def compute_chamfer_distance_numpy(source, target):
 def test_basic_functionality(case_name, source, target, expected_distance):
     """Test basic Chamfer distance calculation with simple examples."""
     chamfer = ChamferDistance()
-    datapoint = create_datapoint(source, target)
-    result = chamfer(datapoint)
+    result = chamfer(source, target)
     assert result.keys() == {'chamfer_distance'}, f"Expected keys {{'chamfer_distance'}}, got {result.keys()}"
     assert abs(result['chamfer_distance'].item() - expected_distance) < 1e-5, \
         f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"
@@ -66,8 +55,7 @@ def test_with_random_point_clouds():
     chamfer = ChamferDistance()
 
     # Compute Chamfer distance using the metric class
-    datapoint = create_datapoint(source_torch, target_torch)
-    metric_result = chamfer(datapoint)
+    metric_result = chamfer(source_torch, target_torch)
 
     # Compute Chamfer distance using NumPy implementation for verification
     numpy_result = compute_chamfer_distance_numpy(source_np, target_np)
@@ -102,8 +90,7 @@ def test_with_known_distance():
     chamfer = ChamferDistance()
 
     # Compute Chamfer distance using the metric class
-    datapoint = create_datapoint(source_torch, target_torch)
-    metric_result = chamfer(datapoint)
+    metric_result = chamfer(source_torch, target_torch)
 
     # Expected distance is twice the translation magnitude (bidirectional)
     expected_distance = 2 * np.linalg.norm(translation)
@@ -148,11 +135,9 @@ def test_edge_cases(case_name, source, target, expected_distance, raises_error):
 
     if raises_error:
         with pytest.raises(raises_error):
-            datapoint = create_datapoint(source, target)
-            chamfer(datapoint)
+            chamfer(source, target)
     else:
-        datapoint = create_datapoint(source, target)
-        result = chamfer(datapoint)
+        result = chamfer(source, target)
         assert result.keys() == {'chamfer_distance'}, f"Expected keys {{'chamfer_distance'}}, got {result.keys()}"
         assert abs(result['chamfer_distance'].item() - expected_distance) < 1e-5, \
             f"Case '{case_name}': Expected {expected_distance}, got {result['chamfer_distance'].item()}"
