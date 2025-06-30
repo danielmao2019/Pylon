@@ -23,7 +23,7 @@ def test_gpu_computation(metrics_cfg, sample_tensor, sample_target):
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Test on CPU
-    datapoint = create_datapoint(sample_tensor, sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target, idx=0)
     cpu_scores = hybrid_metric(datapoint)
     hybrid_metric._buffer_queue.join()
     assert len(hybrid_metric.buffer) == 1
@@ -32,7 +32,7 @@ def test_gpu_computation(metrics_cfg, sample_tensor, sample_target):
     gpu_input = sample_tensor.cuda()
     gpu_target = sample_target.cuda()
 
-    gpu_datapoint = create_datapoint(gpu_input, gpu_target)
+    gpu_datapoint = create_datapoint(gpu_input, gpu_target, idx=1)
     gpu_scores = hybrid_metric(gpu_datapoint)
     hybrid_metric._buffer_queue.join()
     assert len(hybrid_metric.buffer) == 2
@@ -108,13 +108,13 @@ def test_buffer_device_handling(metrics_cfg):
     # Compute scores with CPU tensors
     cpu_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     cpu_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
-    cpu_datapoint = create_datapoint(cpu_input, cpu_target)
+    cpu_datapoint = create_datapoint(cpu_input, cpu_target, idx=0)
     cpu_scores = hybrid_metric(cpu_datapoint)
 
     # Compute scores with GPU tensors
     gpu_input = torch.randn(2, 3, 4, 4, dtype=torch.float32).cuda()
     gpu_target = torch.randn(2, 3, 4, 4, dtype=torch.float32).cuda()
-    gpu_datapoint = create_datapoint(gpu_input, gpu_target)
+    gpu_datapoint = create_datapoint(gpu_input, gpu_target, idx=1)
     gpu_scores = hybrid_metric(gpu_datapoint)
 
     # Wait for buffer processing
