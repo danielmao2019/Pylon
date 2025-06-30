@@ -32,6 +32,5 @@ class MNISTDataset(BaseDataset):
             'label': torch.tensor(label, dtype=torch.int64),
         }
         meta_info = {
-            'index': idx,
         }
         return inputs, labels, meta_info
