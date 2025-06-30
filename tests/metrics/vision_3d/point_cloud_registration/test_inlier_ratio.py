@@ -3,6 +3,25 @@ import pytest
 from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
 
 
+def create_datapoint(src_points, tgt_points, gt_transform, idx=0):
+    """Helper function to create datapoint for InlierRatio tests.
+
+    Args:
+        src_points: Predicted source points (correspondences)
+        tgt_points: Predicted target points (correspondences)
+        gt_transform: Ground truth transformation matrix
+    """
+    return {
+        'inputs': {},  # Not used by InlierRatio
+        'outputs': {
+            'src_pc': src_points,  # Predicted source correspondences
+            'tgt_pc': tgt_points   # Predicted target correspondences
+        },
+        'labels': {'transform': gt_transform},  # Ground truth transform
+        'meta_info': {'idx': idx}
+    }
+
+
 @pytest.fixture
 def metric():
     return InlierRatio(threshold=0.1)
@@ -15,15 +34,13 @@ def test_inlier_ratio_initialization():
 
 
 def test_inlier_ratio_perfect_match(metric):
-    # Create perfectly matching point clouds
+    # Create perfect correspondences: when GT transform is applied to src, they exactly match tgt
     src_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
     tgt_points = torch.tensor([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [2.0, 2.0, 2.0]], dtype=torch.float32)
-    transform = torch.eye(4).unsqueeze(0)  # Identity transform
+    gt_transform = torch.eye(4).unsqueeze(0)  # Identity transform
 
-    y_pred = {'src_points': src_points, 'tgt_points': tgt_points}
-    y_true = {'transform': transform}
-
-    result = metric(y_pred, y_true)
+    datapoint = create_datapoint(src_points, tgt_points, gt_transform)
+    result = metric(datapoint)
     assert 'inlier_ratio' in result
     assert torch.isclose(result['inlier_ratio'], torch.tensor(1.0))
 

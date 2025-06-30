@@ -14,21 +14,52 @@ class ChangeStarMetric(SingleTaskMetric):
         self.change_metric = SemanticSegmentationMetric(num_classes=2, use_buffer=False)
         self.semantic_metric = SemanticSegmentationMetric(num_classes=5, use_buffer=False)
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, Dict[str, torch.Tensor]]:
+    def __call__(self, datapoint: Dict[str, Dict[str, torch.Tensor]]) -> Dict[str, Dict[str, torch.Tensor]]:
         """Override parent class __call__ method.
         """
+        # Extract outputs and labels from datapoint
+        assert 'outputs' in datapoint and 'labels' in datapoint
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
+
         assert set(y_pred.keys()) == set(['change', 'semantic_1', 'semantic_2'])
         if set(y_true.keys()) == {'change', 'semantic_1', 'semantic_2'}:
+            # Create sub-datapoints for each task
+            change_datapoint = {
+                'inputs': datapoint['inputs'],
+                'outputs': y_pred['change'],
+                'labels': y_true['change'],
+                'meta_info': datapoint['meta_info']
+            }
+            semantic_1_datapoint = {
+                'inputs': datapoint['inputs'],
+                'outputs': y_pred['semantic_1'],
+                'labels': y_true['semantic_1'],
+                'meta_info': datapoint['meta_info']
+            }
+            semantic_2_datapoint = {
+                'inputs': datapoint['inputs'],
+                'outputs': y_pred['semantic_2'],
+                'labels': y_true['semantic_2'],
+                'meta_info': datapoint['meta_info']
+            }
+
             scores = {
-                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change'], idx=idx),
-                'semantic_1': self.semantic_metric(y_pred=y_pred['semantic_1'], y_true=y_true['semantic_1'], idx=idx),
-                'semantic_2': self.semantic_metric(y_pred=y_pred['semantic_2'], y_true=y_true['semantic_2'], idx=idx),
+                'change': self.change_metric(change_datapoint),
+                'semantic_1': self.semantic_metric(semantic_1_datapoint),
+                'semantic_2': self.semantic_metric(semantic_2_datapoint),
             }
         elif set(y_true.keys()) == {'change_map'}:
-            scores = {
-                'change': self.change_metric(y_pred=y_pred['change'], y_true=y_true['change_map'], idx=idx),
+            change_datapoint = {
+                'inputs': datapoint['inputs'],
+                'outputs': y_pred['change'],
+                'labels': y_true['change_map'],
+                'meta_info': datapoint['meta_info']
             }
-        self.add_to_buffer(scores, idx)
+            scores = {
+                'change': self.change_metric(change_datapoint),
+            }
+        self.add_to_buffer(scores, datapoint)
         return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, torch.Tensor]:
