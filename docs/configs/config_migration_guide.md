@@ -240,6 +240,49 @@ Keep track of which models override default transforms:
 
 The new system should produce functionally equivalent configs to the old system, just in a different format. The actual training behavior should remain unchanged.
 
+## Regenerating the Validation Script
+
+If the `validate_configs.py` script is removed and needs to be regenerated, use this prompt:
+
+### Prompt for Regenerating `validate_configs.py`
+
+```
+Create a Python script called `validate_configs.py` that compares config files between two directory trees to validate config migration. The script should:
+
+FUNCTIONALITY:
+- Compare config files from backup directory (cd_cfg_backup/) vs current directory (configs/benchmarks/change_detection/)
+- Load Python config files and compare their `config` dictionaries recursively
+- Handle module import contamination by clearing configs.common modules from sys.modules
+- Report differences in values, types, structure, and missing/extra keys
+- Process files sequentially to avoid import contamination
+- Provide detailed diff output and summary statistics
+
+TECHNICAL REQUIREMENTS:
+- Use importlib.util.spec_from_file_location and exec_module to load configs
+- Implement deep recursive dictionary comparison with path tracking
+- Handle special cases: class references, list/tuple length mismatches, type differences
+- Clear sys.modules cache for 'configs.common' modules before each config load
+- Add project root and config directories to sys.path for proper imports
+- Restore original sys.path after each load to prevent contamination
+
+INPUT/OUTPUT:
+- Input: Two directory paths (old_dir, new_dir) hardcoded in main()
+- Output: Detailed differences for each config pair, summary with total/identical/different/error counts
+- Handle missing files gracefully with warnings
+- Use concurrent.futures structure but process sequentially
+
+STRUCTURE:
+- load_config_from_file(filepath) -> Dict[str, Any]
+- deep_compare_dicts(dict1, dict2, path="") -> List[str]  
+- compare_config_pair(old_path, new_path) -> Tuple[str, List[str], str]
+- find_config_pairs(old_dir, new_dir) -> List[Tuple[str, str]]
+- main() function with hardcoded paths and summary output
+
+The script was critical for debugging the config migration cross-contamination bug where models like HANet were contaminating ChangeMamba configs with resize=(256, 256) values.
+```
+
+This prompt captures all the essential functionality and technical details needed to recreate the validation script.
+
 ## Conclusion
 
 The migration from string-based to dictionary-based config generation provides better debugging capabilities and eliminates runtime evaluation complexity. However, it requires careful handling of object references and deep copying to avoid cross-contamination between generated configs. The validation script serves as an essential tool for ensuring the migration maintains correctness across all model and dataset combinations.
