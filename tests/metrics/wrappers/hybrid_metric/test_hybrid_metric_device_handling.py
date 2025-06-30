@@ -3,6 +3,16 @@ import torch
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def test_gpu_computation(metrics_cfg, sample_tensor, sample_target):
     """Test computing scores with GPU tensors."""
     # Skip if CUDA is not available
@@ -13,7 +23,8 @@ def test_gpu_computation(metrics_cfg, sample_tensor, sample_target):
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Test on CPU
-    cpu_scores = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    cpu_scores = hybrid_metric(datapoint)
     hybrid_metric._buffer_queue.join()
     assert len(hybrid_metric.buffer) == 1
 
@@ -21,7 +32,8 @@ def test_gpu_computation(metrics_cfg, sample_tensor, sample_target):
     gpu_input = sample_tensor.cuda()
     gpu_target = sample_target.cuda()
 
-    gpu_scores = hybrid_metric(y_pred=gpu_input, y_true=gpu_target)
+    gpu_datapoint = create_datapoint(gpu_input, gpu_target)
+    gpu_scores = hybrid_metric(gpu_datapoint)
     hybrid_metric._buffer_queue.join()
     assert len(hybrid_metric.buffer) == 2
 
@@ -45,7 +57,8 @@ def test_mixed_device_computation(metrics_cfg):
 
     # Test CPU input, GPU target (should work as tensors are moved as needed)
     try:
-        scores1 = hybrid_metric(y_pred=cpu_tensor, y_true=gpu_tensor.cpu())
+        datapoint1 = create_datapoint(cpu_tensor, gpu_tensor.cpu())
+        scores1 = hybrid_metric(datapoint1)
         assert isinstance(scores1, dict)
     except RuntimeError:
         # This is expected behavior for device mismatch in some operations
@@ -53,7 +66,8 @@ def test_mixed_device_computation(metrics_cfg):
 
     # Test GPU input, CPU target
     try:
-        scores2 = hybrid_metric(y_pred=gpu_tensor.cpu(), y_true=cpu_tensor)
+        datapoint2 = create_datapoint(gpu_tensor.cpu(), cpu_tensor)
+        scores2 = hybrid_metric(datapoint2)
         assert isinstance(scores2, dict)
     except RuntimeError:
         # This is expected behavior for device mismatch in some operations
@@ -71,7 +85,8 @@ def test_device_consistency_across_metrics(metrics_cfg):
     gpu_input = torch.randn(2, 3, 4, 4, dtype=torch.float32).cuda()
     gpu_target = torch.randn(2, 3, 4, 4, dtype=torch.float32).cuda()
 
-    scores = hybrid_metric(y_pred=gpu_input, y_true=gpu_target)
+    datapoint = create_datapoint(gpu_input, gpu_target)
+    scores = hybrid_metric(datapoint)
 
     # All scores should be computed successfully
     assert isinstance(scores, dict)
@@ -93,12 +108,14 @@ def test_buffer_device_handling(metrics_cfg):
     # Compute scores with CPU tensors
     cpu_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     cpu_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
-    cpu_scores = hybrid_metric(y_pred=cpu_input, y_true=cpu_target)
+    cpu_datapoint = create_datapoint(cpu_input, cpu_target)
+    cpu_scores = hybrid_metric(cpu_datapoint)
 
     # Compute scores with GPU tensors
     gpu_input = torch.randn(2, 3, 4, 4, dtype=torch.float32).cuda()
     gpu_target = torch.randn(2, 3, 4, 4, dtype=torch.float32).cuda()
-    gpu_scores = hybrid_metric(y_pred=gpu_input, y_true=gpu_target)
+    gpu_datapoint = create_datapoint(gpu_input, gpu_target)
+    gpu_scores = hybrid_metric(gpu_datapoint)
 
     # Wait for buffer processing
     hybrid_metric._buffer_queue.join()
@@ -107,7 +124,7 @@ def test_buffer_device_handling(metrics_cfg):
     assert len(hybrid_metric.buffer) == 2
 
     # All buffered scores should be on CPU (as per buffer worker behavior)
-    for buffered_scores in hybrid_metric.buffer:
+    for buffered_scores in hybrid_metric.buffer.values():
         for score in buffered_scores.values():
             assert not score.is_cuda  # Should be moved to CPU by buffer worker
 
@@ -123,7 +140,8 @@ def test_large_tensor_device_transfer(metrics_cfg):
     large_gpu_input = torch.randn(8, 3, 64, 64, dtype=torch.float32).cuda()
     large_gpu_target = torch.randn(8, 3, 64, 64, dtype=torch.float32).cuda()
 
-    scores = hybrid_metric(y_pred=large_gpu_input, y_true=large_gpu_target)
+    datapoint = create_datapoint(large_gpu_input, large_gpu_target)
+    scores = hybrid_metric(datapoint)
 
     # Verify computation succeeded
     assert isinstance(scores, dict)
