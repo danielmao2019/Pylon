@@ -66,21 +66,18 @@ transforms_cfg = {
     },
 }
 
-collate_fn_cfg = {
-    'class': data.collators.BaseCollator,
-    'args': {
-        'collators': {},
-    },
-}
-
-source_dataset = data.datasets.WHU_BD_Dataset(data_root="./data/datasets/soft_links/WHU-BD", split="train")
-
 data_cfg = {
     'train_dataset': {
         'class': data.datasets.PPSLDataset,
         'args': {
-            'source': source_dataset,
-            'dataset_size': len(source_dataset),
+            'source': {
+                'class': data.datasets.WHU_BD_Dataset,
+                'args': {
+                    'data_root': "./data/datasets/soft_links/WHU-BD",
+                    'split': "train",
+                },
+            },
+            'dataset_size': data.datasets.WHU_BD_Dataset.DATASET_SIZE['train'],
             'transforms_cfg': transforms_cfg,
         },
     },
@@ -89,7 +86,12 @@ data_cfg = {
         'args': {
             'batch_size': 128,
             'num_workers': 8,
-            'collate_fn': collate_fn_cfg,
+            'collate_fn': {
+                'class': data.collators.BaseCollator,
+                'args': {
+                    'collators': {},
+                },
+            },
         },
     },
     'criterion': {
