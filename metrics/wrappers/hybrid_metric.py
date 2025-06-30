@@ -46,12 +46,16 @@ class HybridMetric(SingleTaskMetric):
         assert all(not m.use_buffer for m in self.metrics), "Component metrics should not use buffer"
         assert all(not hasattr(m, 'buffer') for m in self.metrics), "Component metrics should not have buffer attribute"
 
-    def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, torch.Tensor]:
+        """Override to properly handle component metrics that use the full datapoint."""
         merged_scores = {}
         for metric in self.metrics:
-            scores = metric(y_pred=y_pred, y_true=y_true)
+            scores = metric(datapoint)
             # Assert no key overlaps to avoid ambiguity in merging
             overlapping_keys = set(merged_scores.keys()) & set(scores.keys())
             assert len(overlapping_keys) == 0, f"Key overlap detected: {overlapping_keys}"
             merged_scores.update(scores)
+        
+        # Add to buffer if this metric uses buffer
+        self.add_to_buffer(merged_scores, datapoint)
         return merged_scores
