@@ -7,18 +7,10 @@ project_root = os.path.abspath(os.path.join(script_dir, "../../.."))
 sys.path.insert(0, project_root)
 os.chdir(project_root)
 
+from runners import MultiValDatasetTrainer
 from utils.automation.config_to_file import add_heading
 from utils.automation.config_seeding import generate_seeded_configs
 from utils.builders.builder import semideepcopy
-
-# Import all necessary classes
-import torch
-import optimizers
-import data
-import models
-import criteria
-import metrics
-from runners import MultiValDatasetTrainer
 
 # Load template config
 from configs.benchmarks.change_detection.template import config as template_config
