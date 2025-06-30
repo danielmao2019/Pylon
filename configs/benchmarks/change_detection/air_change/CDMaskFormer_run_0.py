@@ -42,7 +42,7 @@ config = {
     {
             'class': ResizeMaps,
             'args': {
-                'size': (256, 256),
+                'size': (224, 224),
                 'interpolation': None,
                 'antialias': True,
             },
@@ -157,79 +157,11 @@ config = {
             'class': RandomCrop,
             'args': {
                 'size': (112, 112),
-                'resize': (256, 256),
+                'resize': (224, 224),
                 'interpolation': None,
             },
         },
     [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
-), (
-    {
-            'class': RandomRotation,
-            'args': {
-                'choices': [0, 90, 180, 270],
-            },
-        },
-    [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
-), (
-    {
-            'class': Randomize,
-            'args': {
-                'transform': {
-                    'class': Flip,
-                    'args': {
-                        'axis': -1,
-                    },
-                },
-                'p': 0.5,
-            },
-        },
-    [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
-), (
-    {
-            'class': Randomize,
-            'args': {
-                'transform': {
-                    'class': Flip,
-                    'args': {
-                        'axis': -2,
-                    },
-                },
-                'p': 0.5,
-            },
-        },
-    [('inputs', 'img_1'), ('inputs', 'img_2'), ('labels', 'change_map')]
-), (
-    {
-            'class': Randomize,
-            'args': {
-                'transform': {
-                    'class': ColorJitter,
-                    'args': {
-                        'brightness': 0.5,
-                        'contrast': 0.5,
-                        'saturation': 0.5,
-                    },
-                },
-                'p': 0.5,
-            },
-        },
-    ('inputs', 'img_1')
-), (
-    {
-            'class': Randomize,
-            'args': {
-                'transform': {
-                    'class': ColorJitter,
-                    'args': {
-                        'brightness': 0.5,
-                        'contrast': 0.5,
-                        'saturation': 0.5,
-                    },
-                },
-                'p': 0.5,
-            },
-        },
-    ('inputs', 'img_2')
 )],
                 },
             },

@@ -142,7 +142,6 @@ config = {
         'class': SemanticSegmentationCriterion,
         'args': {
             'class_weights': (0.09632044285535812, 1.9036794900894165),
-            'use_buffer': False,
         },
     },
     'val_dataset': {

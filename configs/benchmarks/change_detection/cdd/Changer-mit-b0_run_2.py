@@ -6,7 +6,7 @@ from torch.optim.lr_scheduler import PolynomialLR
 from torch.optim.sgd import SGD
 from torch.utils.data.dataloader import DataLoader
 from torchvision.transforms.transforms import ColorJitter
-from criteria.vision_2d.dense_prediction.dense_classification.focal_dice_loss import FocalDiceLoss
+from criteria.vision_2d.dense_prediction.dense_classification.semantic_segmentation import SemanticSegmentationCriterion
 from data.collators.base_collator import BaseCollator
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset
 from data.transforms.compose import Compose
@@ -140,10 +140,9 @@ config = {
         },
     },
     'criterion': {
-        'class': FocalDiceLoss,
+        'class': SemanticSegmentationCriterion,
         'args': {
             'class_weights': (0.1918177604675293, 1.8081822395324707),
-            'use_buffer': False,
         },
     },
     'val_dataset': {

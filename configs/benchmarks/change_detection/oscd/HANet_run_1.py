@@ -141,7 +141,6 @@ config = {
         'class': FocalDiceLoss,
         'args': {
             'class_weights': (0.04578080773353577, 1.9542192220687866),
-            'use_buffer': False,
         },
     },
     'val_dataset': {
