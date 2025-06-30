@@ -126,16 +126,9 @@ class BaseEvaluator:
         # init time
         start_time = time.time()
 
-        # Extract idx from meta_info for order preservation
-        assert 'meta_info' in dp and 'idx' in dp['meta_info']
-        assert isinstance(dp['meta_info']['idx'], list)
-        assert len(dp['meta_info']['idx']) == 1
-        assert isinstance(dp['meta_info']['idx'][0], int)
-        idx = dp['meta_info']['idx'][0]
-
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])
-        dp['scores'] = self.metric(y_pred=dp['outputs'], y_true=dp['labels'], idx=idx)
+        dp['scores'] = self.metric(dp)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))

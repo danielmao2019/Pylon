@@ -3,13 +3,24 @@ import torch
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def test_summarize_basic_functionality(metrics_cfg, sample_tensor, sample_target):
     """Test basic summarize functionality."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Generate some scores
-    for _ in range(3):
-        hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    for i in range(3):
+        datapoint = create_datapoint(sample_tensor, sample_target, idx=i)
+        hybrid_metric(datapoint)
 
     # Wait for buffer processing
     hybrid_metric._buffer_queue.join()
@@ -51,8 +62,9 @@ def test_summarize_with_different_score_values(metrics_cfg):
     ]
 
     expected_scores = []
-    for input_pair in test_inputs:
-        scores = hybrid_metric(y_pred=input_pair[0], y_true=input_pair[1])
+    for i, input_pair in enumerate(test_inputs):
+        datapoint = create_datapoint(input_pair[0], input_pair[1], idx=i)
+        scores = hybrid_metric(datapoint)
         expected_scores.append(scores)
 
     # Wait for buffer processing
@@ -88,7 +100,8 @@ def test_summarize_after_reset(metrics_cfg, sample_tensor, sample_target):
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Add some scores
-    hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    hybrid_metric(datapoint)
     hybrid_metric._buffer_queue.join()
 
     # Reset buffer
@@ -99,7 +112,8 @@ def test_summarize_after_reset(metrics_cfg, sample_tensor, sample_target):
         hybrid_metric.summarize()
 
     # Add new scores after reset
-    hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    hybrid_metric(datapoint)
     hybrid_metric._buffer_queue.join()
 
     # Should now be able to summarize
@@ -115,7 +129,8 @@ def test_summarize_thread_safety(metrics_cfg, sample_tensor, sample_target):
     # Add multiple scores rapidly
     num_scores = 10
     for i in range(num_scores):
-        hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+        datapoint = create_datapoint(sample_tensor, sample_target, idx=i)
+        hybrid_metric(datapoint)
 
     # Wait for all buffer operations to complete
     hybrid_metric._buffer_queue.join()
@@ -133,7 +148,8 @@ def test_summarize_output_file_writing(metrics_cfg, sample_tensor, sample_target
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Generate some scores
-    hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    hybrid_metric(datapoint)
     hybrid_metric._buffer_queue.join()
 
     # Test writing to file

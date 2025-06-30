@@ -3,12 +3,23 @@ import torch
 from metrics.wrappers.hybrid_metric import HybridMetric
 
 
+def create_datapoint(outputs, labels, idx=0):
+    """Helper function to create datapoint with proper structure."""
+    return {
+        'inputs': {},
+        'outputs': outputs,
+        'labels': labels, 
+        'meta_info': {'idx': idx}
+    }
+
+
 def test_compute_score_merge(metrics_cfg, sample_tensor, sample_target):
     """Test computing merged scores from multiple metrics."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Compute scores using the hybrid metric
-    scores = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    scores = hybrid_metric(datapoint)
 
     # Check that we get scores from both metrics
     assert isinstance(scores, dict)
@@ -28,8 +39,9 @@ def test_score_computation_consistency(metrics_cfg, sample_tensor, sample_target
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
 
     # Compute scores multiple times with same inputs
-    scores1 = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
-    scores2 = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    scores1 = hybrid_metric(datapoint)
+    scores2 = hybrid_metric(datapoint)
 
     # Scores should have same keys
     assert set(scores1.keys()) == set(scores2.keys())
@@ -50,7 +62,8 @@ def test_different_input_shapes(metrics_cfg):
         sample_input = torch.randn(shape, dtype=torch.float32)
         sample_target = torch.randn(shape, dtype=torch.float32)
 
-        scores = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+        datapoint = create_datapoint(sample_input, sample_target)
+        scores = hybrid_metric(datapoint)
 
         # Verify scores are computed correctly
         assert isinstance(scores, dict)
@@ -75,7 +88,8 @@ def test_single_metric_configuration(dummy_metric):
     sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
 
-    scores = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    datapoint = create_datapoint(sample_input, sample_target)
+    scores = hybrid_metric(datapoint)
 
     assert isinstance(scores, dict)
     assert len(scores) == 1
@@ -105,7 +119,8 @@ def test_multiple_metrics_configuration(dummy_metric, another_dummy_metric):
     sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
 
-    scores = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    datapoint = create_datapoint(sample_input, sample_target)
+    scores = hybrid_metric(datapoint)
 
     assert isinstance(scores, dict)
     assert len(scores) == 3
@@ -120,7 +135,9 @@ def test_compute_score_method_directly(metrics_cfg, sample_tensor, sample_target
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
     
     # Call _compute_score directly
-    scores = hybrid_metric._compute_score(y_pred=sample_tensor, y_true=sample_target)
+    # Call __call__ instead of _compute_score which no longer exists
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    scores = hybrid_metric(datapoint)
     
     # Verify it returns the expected format
     assert isinstance(scores, dict)
@@ -140,7 +157,8 @@ def test_score_tensor_properties(metrics_cfg, sample_tensor, sample_target):
     """Test that scores have correct tensor properties."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
     
-    scores = hybrid_metric(y_pred=sample_tensor, y_true=sample_target)
+    datapoint = create_datapoint(sample_tensor, sample_target)
+    scores = hybrid_metric(datapoint)
     
     for key, score in scores.items():
         # Basic tensor properties
@@ -178,7 +196,8 @@ def test_component_metric_isolation(dummy_metric, another_dummy_metric):
     sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     
-    scores = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    datapoint = create_datapoint(sample_input, sample_target)
+    scores = hybrid_metric(datapoint)
     
     # Each should produce different scores (since they use different computations)
     assert scores['isolated1'] != scores['isolated2']
@@ -194,8 +213,9 @@ def test_deterministic_computation(metrics_cfg):
     sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
     
     # Compute scores multiple times
-    scores1 = hybrid_metric(y_pred=sample_input, y_true=sample_target)
-    scores2 = hybrid_metric(y_pred=sample_input, y_true=sample_target)
+    datapoint = create_datapoint(sample_input, sample_target)
+    scores1 = hybrid_metric(datapoint)
+    scores2 = hybrid_metric(datapoint)
     
     # Should be identical
     for key in scores1.keys():

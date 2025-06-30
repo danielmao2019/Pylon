@@ -10,11 +10,13 @@ class DummyMetric(BaseMetric):
         super().__init__(use_buffer=use_buffer)
         self.metric_name = metric_name
 
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict:
+    def __call__(self, datapoint: dict) -> dict:
         # Simple dummy score computation
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
         score = torch.mean(torch.abs(y_pred - y_true))
         scores = {self.metric_name: score}
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, datapoint)
         return scores
 
     def summarize(self, output_path=None):
@@ -32,11 +34,13 @@ class AnotherDummyMetric(BaseMetric):
         super().__init__(use_buffer=use_buffer)
         self.metric_name = metric_name
 
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict:
+    def __call__(self, datapoint: dict) -> dict:
         # Different dummy score computation
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
         score = torch.mean((y_pred - y_true) ** 2)
         scores = {self.metric_name: score}
-        self.add_to_buffer(scores)
+        self.add_to_buffer(scores, datapoint)
         return scores
 
     def summarize(self, output_path=None):
