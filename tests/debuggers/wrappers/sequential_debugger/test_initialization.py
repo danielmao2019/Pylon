@@ -143,7 +143,7 @@ def test_sequential_debugger_model_layer_validation(forward_debugger_config, dum
 
 def test_sequential_debugger_missing_layer_warning(dummy_model, capsys):
     """Test warning when trying to hook a non-existent layer."""
-    
+
     class TestDebugger(ForwardDebugger):
         def process_forward(self, module, input, output):
             return {'test': 'data'}

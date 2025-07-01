@@ -88,7 +88,7 @@ def test_another_dummy_debugger_call(another_dummy_debugger, sample_datapoint, d
 @pytest.mark.parametrize("output_key", ["custom_key", "special_stats", "my_debug_output"])
 def test_debugger_with_different_output_keys(dummy_model, output_key):
     """Test debuggers with custom output keys."""
-    
+
     class CustomDummyDebugger(BaseDebugger):
         def __init__(self, output_key: str = "dummy_stats"):
             self.output_key = output_key
@@ -102,7 +102,7 @@ def test_debugger_with_different_output_keys(dummy_model, output_key):
                 'max': torch.max(outputs).item(),
             }
             return {self.output_key: stats}
-    
+
     custom_debugger = CustomDummyDebugger(output_key=output_key)
 
     datapoint = {
@@ -124,7 +124,7 @@ def test_debugger_with_different_output_keys(dummy_model, output_key):
 ])
 def test_debugger_edge_cases(dummy_model, test_case, description):
     """Test debugger behavior with edge cases."""
-    
+
     class EdgeCaseDummyDebugger(BaseDebugger):
         def __init__(self, output_key: str = "dummy_stats"):
             self.output_key = output_key
@@ -138,7 +138,7 @@ def test_debugger_edge_cases(dummy_model, test_case, description):
                 'max': torch.max(outputs).item(),
             }
             return {self.output_key: stats}
-    
+
     debugger = EdgeCaseDummyDebugger()
 
     datapoint = {
@@ -162,7 +162,7 @@ def test_debugger_edge_cases(dummy_model, test_case, description):
 ])
 def test_debugger_invalid_inputs(dummy_model, invalid_input, expected_exception):
     """Test debugger behavior with invalid inputs (Invalid Input Testing Pattern)."""
-    
+
     class InvalidInputDummyDebugger(BaseDebugger):
         def __init__(self, output_key: str = "dummy_stats"):
             self.output_key = output_key
@@ -176,7 +176,7 @@ def test_debugger_invalid_inputs(dummy_model, invalid_input, expected_exception)
                 'max': torch.max(outputs).item(),
             }
             return {self.output_key: stats}
-    
+
     debugger = InvalidInputDummyDebugger()
 
     datapoint = {

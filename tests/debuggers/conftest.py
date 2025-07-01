@@ -63,7 +63,7 @@ class AnotherDummyDebugger(BaseDebugger):
 # Forward Debugger Implementations for Testing
 class FeatureMapDebugger(ForwardDebugger):
     """Test debugger for feature map extraction."""
-    
+
     def process_forward(self, module, input, output):
         if isinstance(output, torch.Tensor):
             return {
@@ -82,7 +82,7 @@ class FeatureMapDebugger(ForwardDebugger):
 
 class ActivationStatsDebugger(ForwardDebugger):
     """Test debugger for activation statistics."""
-    
+
     def process_forward(self, module, input, output):
         if isinstance(output, torch.Tensor):
             activation = output.detach().cpu()
@@ -114,11 +114,11 @@ class ActivationStatsDebugger(ForwardDebugger):
 
 class LayerOutputDebugger(ForwardDebugger):
     """Test debugger for layer outputs."""
-    
+
     def __init__(self, layer_name: str, downsample_factor: int = 4):
         super().__init__(layer_name)
         self.downsample_factor = downsample_factor
-        
+
     def process_forward(self, module, input, output):
         if isinstance(output, torch.Tensor):
             output_cpu = output.detach().cpu()
