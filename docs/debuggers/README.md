@@ -94,6 +94,8 @@ config = {
 }
 ```
 
+See [integration_guide.md](integration_guide.md) for detailed BaseTrainer and BaseEvaluator integration instructions.
+
 ### 3. Run Training or Evaluation
 
 For training:
@@ -140,9 +142,14 @@ work_dir/
     └── page_2.pkl
 ```
 
-## Example Debuggers
+## Documentation Structure
 
-See [examples.md](examples.md) for comprehensive implementation examples:
+- **[examples.md](examples.md)**: Comprehensive debugger implementation examples
+- **[integration_guide.md](integration_guide.md)**: BaseTrainer/BaseEvaluator integration details  
+- **[testing_guide.md](testing_guide.md)**: Testing patterns and 79-test suite documentation
+- **[design_principles.md](design_principles.md)**: Core design philosophy and architectural decisions
+
+## Example Debuggers
 
 - **FeatureMapDebugger**: Captures feature maps with statistics
 - **AttentionDebugger**: Extracts attention patterns
