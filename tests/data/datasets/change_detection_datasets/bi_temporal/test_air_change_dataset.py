@@ -1,42 +1,12 @@
+from typing import Any, Dict
 import pytest
-from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
+import random
 import torch
+from concurrent.futures import ThreadPoolExecutor
+from data.datasets.change_detection_datasets.bi_temporal.air_change_dataset import AirChangeDataset
 
 
-@pytest.mark.parametrize("dataset", [
-    AirChangeDataset(data_root="./data/datasets/soft_links/AirChange", split='train'),
-    AirChangeDataset(data_root="./data/datasets/soft_links/AirChange", split='test'),
-])
-def test_air_change(dataset: torch.utils.data.Dataset) -> None:
-    assert isinstance(dataset, torch.utils.data.Dataset), "Dataset must inherit from torch.utils.data.Dataset"
-
-    # Initialize class distribution tensor
-    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
-
-    # Iterate through dataset
-    for idx in range(len(dataset)):
-        datapoint = dataset[idx]
-
-        # Validate datapoint structure
-        assert isinstance(datapoint, dict), f"Expected datapoint to be a dict, got {type(datapoint)}"
-        assert set(datapoint.keys()) == {"inputs", "labels", "meta_info"}, f"Unexpected keys in datapoint: {datapoint.keys()}"
-
-        # Validate inputs
-        _validate_inputs(datapoint['inputs'], dataset)
-
-        # Validate labels
-        _validate_labels(datapoint['labels'], class_dist, dataset)
-
-        # Validate meta_info idx
-        meta_info = datapoint['meta_info']
-        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
-
-    # Validate class distribution
-    _validate_class_distribution(class_dist, dataset)
-
-
-def _validate_inputs(inputs: dict, dataset: AirChangeDataset) -> None:
+def validate_inputs(inputs: Dict[str, Any], dataset: AirChangeDataset) -> None:
     """Validate the inputs of a datapoint."""
     assert isinstance(inputs, dict), f"Expected inputs to be a dict, got {type(inputs)}"
     assert set(inputs.keys()) == set(dataset.INPUT_NAMES), f"Unexpected input keys: {inputs.keys()}"
@@ -49,7 +19,7 @@ def _validate_inputs(inputs: dict, dataset: AirChangeDataset) -> None:
         assert img.dtype == torch.float32, f"{img_name} should be of dtype torch.float32, got {img.dtype}"
 
 
-def _validate_labels(labels: dict, class_dist: torch.Tensor, dataset: AirChangeDataset) -> None:
+def validate_labels(labels: Dict[str, Any], class_dist: torch.Tensor, dataset: AirChangeDataset) -> None:
     """Validate the labels of a datapoint."""
     assert isinstance(labels, dict), f"Expected labels to be a dict, got {type(labels)}"
     assert set(labels.keys()) == set(dataset.LABEL_NAMES), f"Unexpected label keys: {labels.keys()}"
@@ -64,10 +34,42 @@ def _validate_labels(labels: dict, class_dist: torch.Tensor, dataset: AirChangeD
         class_dist[cls] += torch.sum(change_map == cls)
 
 
-def _validate_class_distribution(class_dist: torch.Tensor, dataset: AirChangeDataset) -> None:
+def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
+    """Validate the meta_info of a datapoint."""
+    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+
+
+def validate_class_distribution(class_dist: torch.Tensor, dataset: AirChangeDataset) -> None:
     """Validate the class distribution tensor against the dataset's expected distribution."""
     assert isinstance(dataset.CLASS_DIST, list), f"CLASS_DIST should be a list, got {type(dataset.CLASS_DIST)}"
     if dataset.split == 'train':
         assert abs(class_dist[1] / class_dist[0] - dataset.CLASS_DIST[1] / dataset.CLASS_DIST[0]) < 1.0e-02
     else:
         assert class_dist.tolist() == dataset.CLASS_DIST, f"Class distribution mismatch: {class_dist=}, {dataset.CLASS_DIST=}"
+
+
+@pytest.mark.parametrize('split', ['train', 'test'])
+def test_air_change(split: str, max_samples) -> None:
+    dataset = AirChangeDataset(data_root="./data/datasets/soft_links/AirChange", split=split)
+    assert isinstance(dataset, torch.utils.data.Dataset), "Dataset must inherit from torch.utils.data.Dataset"
+
+    # Initialize class distribution tensor
+    class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
+
+    def validate_datapoint(idx: int) -> None:
+        datapoint = dataset[idx]
+        assert isinstance(datapoint, dict), f"Expected datapoint to be a dict, got {type(datapoint)}"
+        assert set(datapoint.keys()) == {"inputs", "labels", "meta_info"}, f"Unexpected keys in datapoint: {datapoint.keys()}"
+        validate_inputs(datapoint['inputs'], dataset)
+        validate_labels(datapoint['labels'], class_dist, dataset)
+        validate_meta_info(datapoint['meta_info'], idx)
+
+    # Use command line --samples if provided, otherwise test all samples
+    num_samples = min(len(dataset), max_samples if max_samples is not None else len(dataset))
+    indices = random.sample(range(len(dataset)), num_samples)
+    with ThreadPoolExecutor() as executor:
+        executor.map(validate_datapoint, indices)
+
+    # Validate class distribution
+    validate_class_distribution(class_dist, dataset)

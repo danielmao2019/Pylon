@@ -1,11 +1,13 @@
 from typing import Dict, Any, List, Optional, Union, Tuple
 import pytest
+import random
 import torch
+from concurrent.futures import ThreadPoolExecutor
 from sklearn.neighbors import KDTree
 from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
 
 
-def _validate_point_cloud(pc: Dict[str, torch.Tensor], name: str) -> None:
+def validate_point_cloud(pc: Dict[str, torch.Tensor], name: str) -> None:
     """Validate a point cloud dictionary."""
     assert isinstance(pc, dict), f"{name} should be a dictionary"
     assert 'pos' in pc, f"{name} should have 'pos' key"
@@ -24,7 +26,7 @@ def _validate_point_cloud(pc: Dict[str, torch.Tensor], name: str) -> None:
     assert torch.is_floating_point(pc['feat']), f"{name}['feat'] should be of dtype torch.float"
 
 
-def _validate_change_map(change_map: torch.Tensor) -> None:
+def validate_change_map(change_map: torch.Tensor) -> None:
     """Validate the change map tensor."""
     assert isinstance(change_map, torch.Tensor), "change_map should be a torch.Tensor"
     assert change_map.ndim == 1, "change_map should have 1 dimension (N,)"
@@ -34,25 +36,62 @@ def _validate_change_map(change_map: torch.Tensor) -> None:
         f"Unexpected values in change_map: {unique_values}"
 
 
-def _validate_point_count_consistency(pc1: Dict[str, torch.Tensor], change_map: torch.Tensor) -> None:
+def validate_point_count_consistency(pc1: Dict[str, torch.Tensor], change_map: torch.Tensor) -> None:
     """Validate that pc_1 and change_map have the same number of points."""
     assert pc1['pos'].size(0) == change_map.size(0), \
         f"Number of points in pc_1 ({pc1['pos'].size(0)}) does not match " \
         f"number of points in change_map ({change_map.size(0)})"
 
 
-@pytest.mark.parametrize("dataset_params", [
-    {"sample_per_epoch": 100, "radius": 100, "fix_samples": False},
-    {"sample_per_epoch": 0, "radius": 100, "fix_samples": False},  # Grid sampling mode
-    {"sample_per_epoch": 100, "radius": 100, "fix_samples": True},  # Fixed sampling mode
+def validate_inputs(inputs: Dict[str, Any], dataset: Urb3DCDDataset) -> None:
+    """Validate the inputs of a datapoint."""
+    assert isinstance(inputs, dict)
+    assert set(inputs.keys()) == {'pc_1', 'pc_2'}
+    assert isinstance(inputs['pc_1'], dict)
+    validate_point_cloud(inputs['pc_1'], 'pc_1')
+    assert isinstance(inputs['pc_2'], dict)
+    validate_point_cloud(inputs['pc_2'], 'pc_2')
+
+
+def validate_labels(labels: Dict[str, Any], dataset: Urb3DCDDataset) -> None:
+    """Validate the labels of a datapoint."""
+    assert isinstance(labels, dict)
+    assert 'change_map' in labels
+    assert isinstance(labels['change_map'], torch.Tensor)
+    validate_change_map(labels['change_map'])
+
+
+def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
+    """Validate the meta_info of a datapoint."""
+    assert isinstance(meta_info, dict)
+    assert 'point_idx_pc1' in meta_info
+    assert 'point_idx_pc2' in meta_info
+    assert isinstance(meta_info['point_idx_pc1'], torch.Tensor)
+    assert isinstance(meta_info['point_idx_pc2'], torch.Tensor)
+    assert meta_info['point_idx_pc1'].dtype == torch.long
+    assert meta_info['point_idx_pc2'].dtype == torch.long
+    assert 'pc_1_filepath' in meta_info
+    assert 'pc_2_filepath' in meta_info
+    assert isinstance(meta_info['pc_1_filepath'], str)
+    assert isinstance(meta_info['pc_2_filepath'], str)
+    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+
+
+@pytest.mark.parametrize('sample_per_epoch,radius,fix_samples', [
+    (100, 100, False),
+    (0, 100, False),  # Grid sampling mode
+    (100, 100, True),  # Fixed sampling mode
 ])
-def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> None:
+def test_urb3dcd_dataset(sample_per_epoch: int, radius: int, fix_samples: bool, max_samples) -> None:
     """Test the Urb3DCDDataset class."""
     # Create a dataset instance
     print("Initializing dataset...")
     dataset = Urb3DCDDataset(
         data_root="./data/datasets/soft_links/Urb3DCD",
-        **dataset_params
+        sample_per_epoch=sample_per_epoch,
+        radius=radius,
+        fix_samples=fix_samples
     )
     print("Dataset initialized.")
 
@@ -62,45 +101,24 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
     assert all(dataset.CLASS_LABELS[name] == idx for idx, name in dataset.INV_OBJECT_LABEL.items())
 
     assert len(dataset) > 0
-    # Test first few samples
-    print(f"Testing samples...")
-    for idx in range(min(3, len(dataset))):
+
+    def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
         inputs = datapoint['inputs']
         labels = datapoint['labels']
         meta_info = datapoint['meta_info']
-        # Validate point clouds
-        assert isinstance(inputs, dict)
-        assert set(inputs.keys()) == {'pc_1', 'pc_2'}
-        assert isinstance(inputs['pc_1'], dict)
-        _validate_point_cloud(inputs['pc_1'], 'pc_1')
-        assert isinstance(inputs['pc_2'], dict)
-        _validate_point_cloud(inputs['pc_2'], 'pc_2')
+        validate_inputs(inputs, dataset)
+        validate_labels(labels, dataset)
+        validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
+        validate_meta_info(meta_info, idx)
 
-        # Validate change map
-        assert isinstance(labels, dict)
-        assert 'change_map' in labels
-        assert isinstance(labels['change_map'], torch.Tensor)
-        _validate_change_map(labels['change_map'])
+    # Use command line --samples if provided, otherwise test first 3 samples
+    num_samples = min(len(dataset), max_samples if max_samples is not None else 3)
+    indices = random.sample(range(len(dataset)), num_samples)
+    with ThreadPoolExecutor() as executor:
+        executor.map(validate_datapoint, indices)
 
-        # Validate point count consistency
-        _validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
-        # Validate meta info
-        assert isinstance(meta_info, dict)
-        assert 'point_idx_pc1' in meta_info
-        assert 'point_idx_pc2' in meta_info
-        assert isinstance(meta_info['point_idx_pc1'], torch.Tensor)
-        assert isinstance(meta_info['point_idx_pc2'], torch.Tensor)
-        assert meta_info['point_idx_pc1'].dtype == torch.long
-        assert meta_info['point_idx_pc2'].dtype == torch.long
-        assert 'pc_1_filepath' in meta_info
-        assert 'pc_2_filepath' in meta_info
-        assert isinstance(meta_info['pc_1_filepath'], str)
-        assert isinstance(meta_info['pc_2_filepath'], str)
-        
-        # Validate meta_info idx
-        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
+    print(f"Testing samples completed.")
 
 
 def test_fixed_samples_consistency() -> None:

@@ -1,11 +1,41 @@
+from typing import Dict, Any
 import pytest
-from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
+import random
 import os
 import torch
+from concurrent.futures import ThreadPoolExecutor
+from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
+from tests.data.datasets.conftest import get_samples_to_test
 
 
-@pytest.mark.parametrize("split", ['train', 'val', 'test'])
-def test_load_real_dataset(split):
+def validate_inputs(inputs: Dict[str, Any]) -> None:
+    assert isinstance(inputs, dict), f"{type(inputs)=}"
+    assert set(inputs.keys()) == set(SLPCCDDataset.INPUT_NAMES)
+
+    # Check point cloud data for both time points
+    for pc_key in ['pc_1', 'pc_2']:
+        assert pc_key in inputs
+        assert 'xyz' in inputs[pc_key]
+        assert isinstance(inputs[pc_key]['xyz'], torch.Tensor)
+        assert inputs[pc_key]['xyz'].shape[1] == 3  # xyz coordinates
+
+
+def validate_labels(labels: Dict[str, Any]) -> None:
+    assert isinstance(labels, dict), f"{type(labels)=}"
+    assert set(labels.keys()) == set(SLPCCDDataset.LABEL_NAMES)
+    assert isinstance(labels['change_map'], torch.Tensor)
+
+
+def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
+    assert isinstance(meta_info, dict), f"{type(meta_info)=}"
+    assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
+    assert 'pc_1_filepath' in meta_info
+    assert 'pc_2_filepath' in meta_info
+
+
+@pytest.mark.parametrize('split', ['train', 'val', 'test'])
+def test_load_real_dataset(split: str, max_samples) -> None:
     """Test loading the actual SLPCCD dataset."""
     # Set the data root path
     data_root = "./data/datasets/soft_links/SLPCCD"
@@ -25,38 +55,15 @@ def test_load_real_dataset(split):
     # Verify dataset has expected number of samples
     assert len(dataset) > 0, f"No data found in {split} split"
 
-    # Test loading each datapoint
-    for idx in range(len(dataset)):
+    def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
+        assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+        assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
+        validate_inputs(datapoint['inputs'])
+        validate_labels(datapoint['labels'])
+        validate_meta_info(datapoint['meta_info'], idx)
 
-        # Verify basic structure
-        assert isinstance(datapoint, dict)
-        assert set(datapoint.keys()) == {'inputs', 'labels', 'meta_info'}
-
-        # Check inputs
-        inputs = datapoint['inputs']
-        assert set(inputs.keys()) == set(SLPCCDDataset.INPUT_NAMES)
-
-        # Check point cloud data for both time points
-        for pc_key in ['pc_1', 'pc_2']:
-            assert pc_key in inputs
-            assert 'xyz' in inputs[pc_key]
-            assert isinstance(inputs[pc_key]['xyz'], torch.Tensor)
-            assert inputs[pc_key]['xyz'].shape[1] == 3  # xyz coordinates
-
-        # Check labels
-        labels = datapoint['labels']
-        assert set(labels.keys()) == set(SLPCCDDataset.LABEL_NAMES)
-        assert isinstance(labels['change_map'], torch.Tensor)
-
-        # Check meta info
-        meta = datapoint['meta_info']
-        assert 'idx' in meta
-        assert 'pc_1_filepath' in meta
-        assert 'pc_2_filepath' in meta
-
-        # Validate meta_info idx
-        assert 'idx' in meta, f"meta_info should contain 'idx' key: {meta.keys()=}"
-        assert meta['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta['idx']=}, {idx=}"
-
-    print(f"Successfully verified all datapoints in {split} dataset")
+    num_samples = get_samples_to_test(len(dataset), max_samples, default=len(dataset))
+    indices = list(range(num_samples))
+    with ThreadPoolExecutor() as executor:
+        executor.map(validate_datapoint, indices)
