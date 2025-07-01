@@ -48,7 +48,7 @@ class MyGradCAMDebugger(BaseDebugger):
     def __init__(self, target_layer: str, target_class: int = None):
         self.target_layer = target_layer
         self.target_class = target_class
-        
+
     def __call__(self, datapoint, model):
         # Compute GradCAM using datapoint, model and target layer
         # This is a post-forward debugger that operates on the full datapoint
@@ -145,7 +145,7 @@ work_dir/
 See [examples.md](examples.md) for comprehensive implementation examples:
 
 - **FeatureMapDebugger**: Captures feature maps with statistics
-- **AttentionDebugger**: Extracts attention patterns  
+- **AttentionDebugger**: Extracts attention patterns
 - **GradCAMDebugger**: Computes GradCAM visualizations
 - **ActivationStatsDebugger**: Collects detailed activation statistics
 - **LayerOutputDebugger**: Saves raw layer outputs with downsampling
@@ -241,7 +241,7 @@ pytest tests/debuggers/wrappers/sequential_debugger/ -v
 
 Tests cover:
 - Initialization and configuration
-- Forward hook functionality  
+- Forward hook functionality
 - Memory management
 - Error handling
 - API integration

@@ -285,7 +285,7 @@ config = {
    - Useful for analysis requiring both inputs and outputs
    - Better for computations like GradCAM, LIME, etc.
 
-3. **Memory Management**: 
+3. **Memory Management**:
    - Tensors are computed on GPU for speed, moved to CPU automatically during saving via apply_tensor_op
    - Use downsampling for large feature maps to reduce memory usage
    - Consider the page_size_mb setting for storage efficiency
