@@ -97,15 +97,6 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert all(x > 0 for x in meta_info['image_resolution']), f"{meta_info['image_resolution']=}"
 
 
-def validate_datapoint(dataset: ADE20KDataset, idx: int) -> None:
-    datapoint = dataset[idx]
-    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
-    assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
-    validate_inputs(datapoint['inputs'])
-    validate_labels(datapoint['labels'], datapoint['meta_info']['image_resolution'])
-    validate_meta_info(datapoint['meta_info'], idx)
-
-
 @pytest.mark.parametrize('split', ['training', 'validation'])
 def test_ade_20k(split: str, max_samples):
     dataset = ADE20KDataset(
@@ -114,7 +105,15 @@ def test_ade_20k(split: str, max_samples):
     )
     assert dataset.split == split, f"{dataset.split=}, {split=}"
 
+    def validate_datapoint(idx: int) -> None:
+        datapoint = dataset[idx]
+        assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+        assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
+        validate_inputs(datapoint['inputs'])
+        validate_labels(datapoint['labels'], datapoint['meta_info']['image_resolution'])
+        validate_meta_info(datapoint['meta_info'], idx)
+
     num_samples = get_samples_to_test(len(dataset), max_samples, default=1000)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
-        executor.map(lambda idx: validate_datapoint(dataset, idx), indices)
+        executor.map(validate_datapoint, indices)

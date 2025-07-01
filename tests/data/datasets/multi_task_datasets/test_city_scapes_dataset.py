@@ -8,13 +8,15 @@ from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesData
 from tests.data.datasets.conftest import get_samples_to_test
 
 
-def validate_inputs(inputs: Dict[str, Any]) -> None:
+def validate_inputs(inputs: Dict[str, Any], image_resolution: tuple) -> None:
     assert isinstance(inputs, dict), f"{type(inputs)=}"
     assert inputs.keys() == {'image'}
-    assert isinstance(inputs['image'], torch.Tensor), f"{type(inputs['image'])=}"
-    assert inputs['image'].ndim == 3 and inputs['image'].shape[0] == 3, f"{inputs['image'].shape=}"
-    assert inputs['image'].dtype == torch.float32, f"{inputs['image'].dtype=}"
-    assert -1 <= inputs['image'].min() <= inputs['image'].max() <= +1, f"{inputs['image'].min()=}, {inputs['image'].max()=}"
+    image = inputs['image']
+    assert isinstance(image, torch.Tensor), f"{type(image)=}"
+    assert image.ndim == 3 and image.shape[0] == 3, f"{image.shape=}"
+    assert image.dtype == torch.float32, f"{image.dtype=}"
+    assert -1 <= image.min() <= image.max() <= +1, f"{image.min()=}, {image.max()=}"
+    assert image.shape[-2:] == image_resolution, f"{image.shape[-2:]=}, {image_resolution=}"
 
 
 def validate_labels(labels: Dict[str, Any], dataset: CityScapesDataset, image_resolution: tuple) -> None:
@@ -57,17 +59,6 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
     assert all(x > 0 for x in image_resolution), f"{image_resolution=}"
 
 
-def validate_datapoint(dataset: CityScapesDataset, idx: int) -> None:
-    datapoint = dataset[idx]
-    assert isinstance(datapoint, dict), f"{type(datapoint)=}"
-    assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
-    validate_inputs(datapoint['inputs'])
-    validate_labels(datapoint['labels'], dataset, datapoint['meta_info']['image_resolution'])
-    validate_meta_info(datapoint['meta_info'], idx, dataset)
-    # Additional validation for image resolution consistency
-    assert datapoint['inputs']['image'].shape[-2:] == datapoint['meta_info']['image_resolution']
-
-
 @pytest.mark.parametrize("dataset", [
     (CityScapesDataset(data_root="./data/datasets/soft_links/city-scapes", split='train')),
     (CityScapesDataset(data_root="./data/datasets/soft_links/city-scapes", split='train', indices=[0, 2, 4, 6, 8])),
@@ -75,7 +66,15 @@ def validate_datapoint(dataset: CityScapesDataset, idx: int) -> None:
 def test_city_scapes(dataset: CityScapesDataset, max_samples) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     
+    def validate_datapoint(idx: int) -> None:
+        datapoint = dataset[idx]
+        assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+        assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
+        validate_inputs(datapoint['inputs'], datapoint['meta_info']['image_resolution'])
+        validate_labels(datapoint['labels'], dataset, datapoint['meta_info']['image_resolution'])
+        validate_meta_info(datapoint['meta_info'], idx, dataset)
+    
     num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
-        executor.map(lambda idx: validate_datapoint(dataset, idx), indices)
+        executor.map(validate_datapoint, indices)
