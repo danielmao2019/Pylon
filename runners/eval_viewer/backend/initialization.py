@@ -537,26 +537,24 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales
 
 
-def load_debug_outputs(epoch_dir: str) -> Optional[List[tuple]]:
+def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
     """Load all debug outputs for an epoch.
     
     Args:
         epoch_dir: Path to epoch directory
         
     Returns:
-        List of all (datapoint_idx, debug_outputs) tuples, or None if not found
+        Dict mapping datapoint_idx to debug_outputs, or None if not found
     """
     debugger_dir = os.path.join(epoch_dir, "debugger")
     if not os.path.exists(debugger_dir):
         return None
     
-    all_outputs = []
-    # Load all pages in order
+    all_outputs = {}
+    # Load all pages in order and merge
     page_files = sorted(glob.glob(os.path.join(debugger_dir, "page_*.pkl")))
     for page_file in page_files:
-        page_data = joblib.load(page_file)
-        all_outputs.extend(page_data)
+        page_data = joblib.load(page_file)  # This is now a dict
+        all_outputs.update(page_data)  # Merge page dict into all_outputs
     
-    # Sort by datapoint index
-    all_outputs.sort(key=lambda x: x[0])
     return all_outputs

@@ -8,7 +8,7 @@ from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from data.viewer.layout.display.display_semseg import display_semseg_datapoint
 from data.viewer.backend.backend import DatasetType
-from runners.eval_viewer.backend.initialization import LogDirInfo
+from runners.eval_viewer.backend.initialization import LogDirInfo, load_debug_outputs
 from utils.builders.builder import build_from_config
 
 import logging
@@ -89,6 +89,20 @@ def register_datapoint_viewer_callbacks(
             collate_fn = dataloader.collate_fn
             datapoint = current_dataset[datapoint_idx]
             datapoint = collate_fn([datapoint])  # Apply collate function to single datapoint
+            
+            # Load debug outputs if available
+            log_dir = list(log_dir_infos.keys())[run_idx]
+            if run_info.runner_type == 'trainer':
+                # For trainer: load from epoch directory
+                epoch_dir = f"{log_dir}/epoch_{epoch}"
+                debug_outputs = load_debug_outputs(epoch_dir)
+            else:
+                # For evaluator: load from root directory
+                debug_outputs = load_debug_outputs(log_dir)
+            
+            # debug_outputs is a dict mapping datapoint_idx to debug_data, or None
+            if debug_outputs and datapoint_idx in debug_outputs:
+                datapoint['debug'] = debug_outputs[datapoint_idx]
 
         # Get the appropriate display function
         display_func = DISPLAY_FUNCTIONS.get(dataset_type)

@@ -11,7 +11,6 @@ import threading
 import criteria
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.builders import build_from_config
-from debugger.utils import get_layer_by_name
 from utils.determinism import set_determinism, set_seed
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
@@ -258,17 +257,7 @@ class BaseTrainer(ABC):
         self._init_checkpoint_indices()
         
         if self.config.get('debugger', None):
-            self.debugger = build_from_config(self.config['debugger'])
-            
-            # Register forward hooks on model
-            for layer_name, debuggers in self.debugger.forward_debuggers.items():
-                layer = get_layer_by_name(self.model, layer_name)
-                if layer is not None:
-                    for debugger in debuggers:
-                        layer.register_forward_hook(debugger.forward_hook_fn)
-                    self.logger.info(f"Registered {len(debuggers)} forward debugger(s) on layer '{layer_name}'")
-                else:
-                    self.logger.warning(f"Could not find layer '{layer_name}' for debugger")
+            self.debugger = build_from_config(self.config['debugger'], model=self.model)
         else:
             self.debugger = None
 
@@ -322,10 +311,7 @@ class BaseTrainer(ABC):
 
         # Add debug outputs (only during validation/test at checkpoint indices)
         if self.debugger and self.debugger.enabled:
-            dp['debug'] = self.debugger(dp, self.model)
-            # Extract actual datapoint index (batch_size=1 for eval)
-            datapoint_idx = dp['meta_info']['idx'][0]
-            self.debugger.add_to_buffer(datapoint_idx, dp['debug'])
+            dp['debug'] = self.debugger(dp, self.model, idx)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))

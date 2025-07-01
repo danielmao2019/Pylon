@@ -2,7 +2,7 @@
 
 ## Overview
 
-This feature enables researchers to save and visualize debugging outputs during validation to identify patterns when algorithms fail. The system captures intermediate model outputs (feature maps, attention maps, correspondences, etc.) and visualizes them alongside input data in the eval viewer.
+This feature enables researchers to save and visualize debugging outputs during validation and evaluation to identify patterns when algorithms fail. The system captures intermediate model outputs (feature maps, attention maps, correspondences, etc.) and visualizes them alongside input data in the eval viewer. Works with both BaseTrainer and BaseEvaluator.
 
 ## Architecture
 
@@ -149,7 +149,7 @@ class SequentialDebugger(BaseDebugger):
         # Page management
         self.current_page_idx = 0
         self.current_page_size = 0
-        self.current_page_data = []  # List of (datapoint_idx, debug_outputs) tuples
+        self.current_page_data = {}  # Dict mapping datapoint_idx to debug_outputs
         self.output_dir = None
         
         # Build debuggers from config with name validation
@@ -222,7 +222,7 @@ class SequentialDebugger(BaseDebugger):
                 
                 with self._buffer_lock:
                     # Add to current page
-                    self.current_page_data.append((datapoint_idx, debug_outputs))
+                    self.current_page_data[datapoint_idx] = debug_outputs
                     self.current_page_size += data_size
                     
                     # Check if we need to save current page
@@ -288,7 +288,7 @@ class SequentialDebugger(BaseDebugger):
         assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
         
         with self._buffer_lock:
-            self.current_page_data = []
+            self.current_page_data = {}
             self.current_page_size = 0
             self.current_page_idx = 0
 ```
@@ -394,28 +394,26 @@ def after_val_ops():
 #### 4.1 Loading Debug Outputs
 ```python
 # In runners/eval_viewer/backend/initialization.py
-def load_debug_outputs(epoch_dir: str) -> Optional[List[tuple]]:
+def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
     """Load all debug outputs for an epoch.
     
     Args:
         epoch_dir: Path to epoch directory
         
     Returns:
-        List of all (datapoint_idx, debug_outputs) tuples, or None if not found
+        Dict mapping datapoint_idx to debug_outputs, or None if not found
     """
     debugger_dir = os.path.join(epoch_dir, "debugger")
     if not os.path.exists(debugger_dir):
         return None
     
-    all_outputs = []
-    # Load all pages in order
+    all_outputs = {}
+    # Load all pages in order and merge
     page_files = sorted(glob.glob(os.path.join(debugger_dir, "page_*.pkl")))
     for page_file in page_files:
-        page_data = joblib.load(page_file)
-        all_outputs.extend(page_data)
+        page_data = joblib.load(page_file)  # This is now a dict
+        all_outputs.update(page_data)  # Merge page dict into all_outputs
     
-    # Sort by datapoint index
-    all_outputs.sort(key=lambda x: x[0])
     return all_outputs
 ```
 
