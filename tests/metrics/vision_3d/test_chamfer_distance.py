@@ -10,7 +10,7 @@ def create_datapoint(outputs, labels, idx=0):
     return {
         'inputs': {},
         'outputs': outputs,
-        'labels': labels, 
+        'labels': labels,
         'meta_info': {'idx': idx}
     }
 

@@ -48,18 +48,28 @@ class IsotropicTransformError(SingleTaskMetric):
         Returns:
             Relative rotation errors in degrees (*)
         """
-        mat = torch.matmul(rotations.transpose(-1, -2), gt_rotations)
-        trace = mat[..., 0, 0] + mat[..., 1, 1] + mat[..., 2, 2]
-        x = 0.5 * (trace - 1.0)
-        x = x.clamp(min=-1.0, max=1.0)
-        x = torch.arccos(x)
-        rre = 180.0 * x / np.pi
-        return rre
+        assert gt_rotations.shape[-2:] == (3, 3), f"Expected rotation shape (*, 3, 3), got {gt_rotations.shape}"
+        assert rotations.shape[-2:] == (3, 3), f"Expected rotation shape (*, 3, 3), got {rotations.shape}"
+
+        # Compute relative rotation: R_rel = R_gt^T @ R_pred
+        rel_rotations = torch.matmul(gt_rotations.transpose(-2, -1), rotations)
+
+        # Extract rotation angle using trace
+        traces = torch.diagonal(rel_rotations, dim1=-2, dim2=-1).sum(-1)
+
+        # Clamp to valid range for arccos to handle numerical errors
+        traces = torch.clamp(traces, -1.0, 3.0)
+
+        # Compute rotation error in radians, then convert to degrees
+        rotation_errors_rad = torch.acos((traces - 1.0) / 2.0)
+        rotation_errors_deg = rotation_errors_rad * 180.0 / np.pi
+
+        return rotation_errors_deg
 
     def _compute_translation_error(self, gt_translations: torch.Tensor, translations: torch.Tensor) -> torch.Tensor:
-        """Compute Relative Translation Error (RTE).
+        r"""Compute Relative Translation Error (RTE).
 
-        RTE = ||t - \bar{t}||_2
+        RTE = ||t_gt - t_pred||_2
 
         Args:
             gt_translations: Ground truth translation vector (*, 3)
@@ -79,15 +89,29 @@ class IsotropicTransformError(SingleTaskMetric):
             y_true: Ground truth transformation matrix (4x4 tensor)
 
         Returns:
-            Dictionary containing:
-                - 'RRE': Relative rotation error in degrees
-                - 'RTE': Relative translation error
+            Dictionary containing rotation and translation errors
         """
         # Input validation
         assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor for y_pred, got {type(y_pred)}"
         assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor for y_true, got {type(y_true)}"
-        assert y_pred.shape == (1, 4, 4), f"{y_pred.shape=}"
-        assert y_true.shape == (1, 4, 4), f"{y_true.shape=}"
+
+        # Handle batch dimension - expect (1, 4, 4) from SingleTaskMetric
+        if y_pred.ndim == 3:
+            assert y_pred.shape[0] == 1, f"Expected batch size 1, got {y_pred.shape[0]}"
+        elif y_pred.ndim == 2:
+            y_pred = y_pred.unsqueeze(0)  # Add batch dimension
+        else:
+            raise ValueError(f"Expected 2D or 3D tensor, got {y_pred.ndim}D")
+
+        if y_true.ndim == 3:
+            assert y_true.shape[0] == 1, f"Expected batch size 1, got {y_true.shape[0]}"
+        elif y_true.ndim == 2:
+            y_true = y_true.unsqueeze(0)  # Add batch dimension
+        else:
+            raise ValueError(f"Expected 2D or 3D tensor, got {y_true.ndim}D")
+
+        assert y_pred.shape == (1, 4, 4), f"Expected (1, 4, 4) transform, got {y_pred.shape}"
+        assert y_true.shape == (1, 4, 4), f"Expected (1, 4, 4) transform, got {y_true.shape}"
 
         # Extract rotation and translation from transformation matrices
         gt_rotations, gt_translations = self._get_rotation_translation(y_true)

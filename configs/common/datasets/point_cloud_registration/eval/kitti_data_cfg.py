@@ -1,6 +1,6 @@
 import torch
 import data
-from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
+from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import TransformInlierRatio
 from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
 from metrics.wrappers.hybrid_metric import HybridMetric
 
@@ -11,6 +11,7 @@ data_cfg = {
         'args': {
             'data_root': './data/datasets/soft_links/KITTI',
             'split': 'val',
+            'device': 'cpu',
         },
     },
     'eval_dataloader': {
@@ -26,12 +27,15 @@ data_cfg = {
             'metrics_cfg': [
                 {
                     'class': IsotropicTransformError,
-                    'args': {},
+                    'args': {
+                        'use_buffer': False,
+                    },
                 },
                 {
-                    'class': InlierRatio,
+                    'class': TransformInlierRatio,
                     'args': {
                         'threshold': 0.3,
+                        'use_buffer': False,
                     },
                 },
             ],

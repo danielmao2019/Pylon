@@ -45,7 +45,7 @@ def build_eval_config(dataset: str, model: str):
     else:
         raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
 
-    # Set overlap if needed
+    # Deep copy configs and set overlap if needed
     if overlap is not None:
         eval_data_cfg = semideepcopy(eval_data_cfg)
         eval_data_cfg['eval_dataset']['args']['overlap'] = overlap
@@ -60,6 +60,7 @@ def build_eval_config(dataset: str, model: str):
         config['model'] = model_cfg
     else:
         # ICP or RANSAC_FPFH
+        config['eval_n_jobs'] = 32
         model_class = ICP if model == 'ICP' else RANSAC_FPFH
         config['model'] = {'class': model_class, 'args': {}}
 
@@ -126,12 +127,14 @@ def build_training_config(dataset: str, model: str):
             raise NotImplementedError(f"Model {model} not implemented")
 
         # Deep copy configs and set overlap if needed
-        train_data = semideepcopy(train_data_cfg)
-        val_data = semideepcopy(val_data_cfg)
-
         if overlap is not None:
+            train_data = semideepcopy(train_data_cfg)
+            val_data = semideepcopy(val_data_cfg)
             train_data['train_dataset']['args']['overlap'] = overlap
             val_data['val_dataset']['args']['overlap'] = overlap
+        else:
+            train_data = train_data_cfg
+            val_data = val_data_cfg
 
         # Update template with dataset and model configs
         config.update({

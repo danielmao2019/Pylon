@@ -163,7 +163,7 @@ def test_error_handling_in_build_process(dummy_metric):
         def __init__(self, required_arg, use_buffer=True):
             super().__init__(use_buffer=use_buffer)
             self.required_arg = required_arg
-            
+
     malformed_config = {
         'class': HybridMetric,
         'args': {
