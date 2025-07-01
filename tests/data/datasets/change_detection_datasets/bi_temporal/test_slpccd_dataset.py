@@ -37,21 +37,14 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 @pytest.mark.parametrize('split', ['train', 'val', 'test'])
 def test_load_real_dataset(split: str, max_samples) -> None:
     """Test loading the actual SLPCCD dataset."""
-    # Set the data root path
-    data_root = "./data/datasets/soft_links/SLPCCD"
-
-    if not os.path.isdir(data_root):
-        pytest.skip("SLPCCD dataset not found in the expected location")
-
-    # Load the dataset with minimal preprocessing for faster test
     dataset = SLPCCDDataset(
-        data_root=data_root,
+        data_root="./data/datasets/soft_links/SLPCCD",
         split=split,
         num_points=256,  # Use fewer points for faster testing
         use_hierarchy=False,  # Disable hierarchy for faster testing
         random_subsample=True
     )
-
+    assert isinstance(dataset, torch.utils.data.Dataset)
     # Verify dataset has expected number of samples
     assert len(dataset) > 0, f"No data found in {split} split"
 

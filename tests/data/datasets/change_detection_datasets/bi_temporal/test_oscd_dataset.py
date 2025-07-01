@@ -4,6 +4,7 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.oscd_dataset import OSCDDataset
+from tests.data.datasets.conftest import get_samples_to_test
 import utils
 
 
@@ -68,10 +69,12 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-def validate_class_distribution(class_dist: torch.Tensor, dataset: OSCDDataset) -> None:
+def validate_class_distribution(class_dist: torch.Tensor, dataset: OSCDDataset, num_samples: int) -> None:
     """Validate the class distribution tensor against the dataset's expected distribution."""
-    assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
-    assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
+    # Validate class distribution (only if we processed the full dataset)
+    if num_samples == len(dataset):
+        assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
+        assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
 
 @pytest.mark.parametrize('split,bands', [
@@ -95,11 +98,10 @@ def test_oscd(split: str, bands, max_samples) -> None:
         validate_labels(datapoint['labels'], class_dist, dataset, idx)
         validate_meta_info(datapoint['meta_info'], idx)
 
-    # Use command line --samples if provided, otherwise test all samples
-    num_samples = min(len(dataset), max_samples if max_samples is not None else len(dataset))
-    indices = random.sample(range(len(dataset)), num_samples)
+    num_samples = get_samples_to_test(len(dataset), max_samples, default=len(dataset))
+    indices = list(range(num_samples))
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
 
     # Validate class distribution
-    validate_class_distribution(class_dist, dataset)
+    validate_class_distribution(class_dist, dataset, num_samples)
