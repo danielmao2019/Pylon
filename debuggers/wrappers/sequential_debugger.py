@@ -5,9 +5,9 @@ import queue
 import joblib
 import sys
 import torch
-from debugger.base_debugger import BaseDebugger
-from debugger.forward_debugger import ForwardDebugger
-from debugger.utils import get_layer_by_name
+from debuggers.base_debugger import BaseDebugger
+from debuggers.forward_debugger import ForwardDebugger
+from debuggers.utils import get_layer_by_name
 from utils.builders import build_from_config
 
 

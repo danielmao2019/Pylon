@@ -1,7 +1,7 @@
 from typing import Any, Dict
 from abc import abstractmethod
 import torch
-from debugger.base_debugger import BaseDebugger
+from debuggers.base_debugger import BaseDebugger
 
 
 class ForwardDebugger(BaseDebugger):
