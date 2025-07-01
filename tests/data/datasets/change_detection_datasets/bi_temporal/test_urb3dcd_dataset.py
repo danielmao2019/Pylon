@@ -78,21 +78,25 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('sample_per_epoch,radius,fix_samples', [
-    (100, 100, False),
-    (0, 100, False),  # Grid sampling mode
-    (100, 100, True),  # Fixed sampling mode
-])
-def test_urb3dcd_dataset(sample_per_epoch: int, radius: int, fix_samples: bool, max_samples) -> None:
-    """Test the Urb3DCDDataset class."""
-    # Create a dataset instance
-    print("Initializing dataset...")
-    dataset = Urb3DCDDataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a Urb3DCDDataset instance."""
+    sample_per_epoch, radius, fix_samples = request.param
+    return Urb3DCDDataset(
         data_root="./data/datasets/soft_links/Urb3DCD",
         sample_per_epoch=sample_per_epoch,
         radius=radius,
         fix_samples=fix_samples
     )
+
+
+@pytest.mark.parametrize('dataset', [
+    (100, 100, False),
+    (0, 100, False),  # Grid sampling mode
+    (100, 100, True),  # Fixed sampling mode
+], indirect=True)
+def test_urb3dcd_dataset(dataset, max_samples, get_samples_to_test) -> None:
+    """Test the Urb3DCDDataset class."""
     print("Dataset initialized.")
 
     # Verify class labels mapping
