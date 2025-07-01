@@ -289,10 +289,12 @@ config = {
    - Tensors are computed on GPU for speed, moved to CPU automatically during saving via apply_tensor_op
    - Use downsampling for large feature maps to reduce memory usage
    - Consider the page_size_mb setting for storage efficiency
+   - CPU conversion happens in background threads to avoid blocking training
 
 4. **Error Handling**:
    - Use explicit type checking (e.g., `isinstance(output, torch.Tensor)`)
    - Return error messages in dict format for graceful failure handling
    - Use assertions for input validation where appropriate
+   - Follow CLAUDE.md section 6.5: avoid unnecessary try-catch blocks
 
 These examples provide a solid foundation for implementing custom debuggers tailored to your specific research needs.

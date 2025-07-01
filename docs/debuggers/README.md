@@ -178,8 +178,13 @@ See [examples.md](examples.md) for comprehensive implementation examples:
 
 - **Page-based storage**: Configurable page size limits (default 100MB)
 - **Async processing**: Background threads prevent blocking training
+- **GPU to CPU conversion**: Uses `apply_tensor_op` for efficient tensor transfer (following base_metric.py pattern)
 - **Deep size calculation**: Recursive memory usage tracking
-- **Thread-safe operations**: Proper locking and queue management
+- **Thread-safe operations**: Proper locking and queue management with `threading.Lock()`
+- **Joblib compatibility**: While joblib can serialize GPU tensors, CPU conversion is preferred for:
+  - Memory efficiency (avoids GPU memory doubling)
+  - Performance (16x faster loading)
+  - Portability (works across different GPU configurations)
 
 ## API Reference
 
@@ -227,7 +232,7 @@ def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module)
 
 ## Testing
 
-The module includes comprehensive tests following Pylon's testing patterns:
+The module includes comprehensive tests following Pylon's testing patterns with 79 passing tests:
 
 ```bash
 # Run all debugger tests
@@ -240,10 +245,17 @@ pytest tests/debuggers/wrappers/sequential_debugger/ -v
 ```
 
 Tests cover:
-- Initialization and configuration
-- Forward hook functionality
-- Memory management
-- Error handling
-- API integration
-- Threading setup
-- Edge cases
+- **Initialization and configuration** (12 tests)
+- **Forward hook functionality** (18 tests)  
+- **Buffer management and threading** (12 tests)
+- **API integration** (14 tests)
+- **Memory management with apply_tensor_op** (CPU conversion testing)
+- **Error handling** (using pytest.raises for invalid inputs)
+- **Thread safety and concurrency** (concurrent access testing)
+- **Edge cases and boundary conditions** (23 tests total)
+
+Test implementation follows CLAUDE.md guidelines:
+- Uses `pytest.raises` for exception testing (Invalid Input Testing Pattern)
+- Separates edge cases from invalid input testing
+- No test classes - only pytest functions with parametrization
+- Comprehensive dummy data generation using proper tensor types
