@@ -43,7 +43,8 @@ def test_city_scapes(dataset: torch.utils.data.Dataset) -> None:
         # inspect meta info
         meta_info = example['meta_info']
         assert type(meta_info) == dict
-        assert set(meta_info.keys()) == set(['image_filepath', 'image_resolution'])
+        assert set(meta_info.keys()) == set(['idx', 'image_filepath', 'image_resolution'])
+        assert meta_info['idx'] == i, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {i=}"
         image_filepath = meta_info['image_filepath']
         assert type(image_filepath) == str
         assert os.path.isfile(os.path.join(dataset.data_root, image_filepath))
@@ -54,7 +55,3 @@ def test_city_scapes(dataset: torch.utils.data.Dataset) -> None:
         assert depth_estimation.shape[-2:] == image_resolution
         assert semantic_segmentation.shape[-2:] == image_resolution
         assert instance_segmentation.shape[-2:] == image_resolution
-        
-        # Validate meta_info idx
-        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-        assert meta_info['idx'] == i, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {i=}"

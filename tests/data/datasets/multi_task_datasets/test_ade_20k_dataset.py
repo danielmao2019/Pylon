@@ -79,9 +79,10 @@ def validate_labels(labels: dict, image_resolution: Tuple[int, int]) -> None:
     assert all(x.shape == image_resolution for x in labels['amodal_masks']), f"{labels['amodal_masks']=}, {image_resolution=}"
 
 
-def validate_meta_info(meta_info: dict) -> None:
+def validate_meta_info(meta_info: dict, datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert meta_info.keys() == {'image_filepath', 'object_mask_filepath', 'parts_masks_filepaths', 'attr_filepath', 'amodal_masks_filepaths', 'image_resolution'}
+    assert meta_info.keys() == {'idx', 'image_filepath', 'object_mask_filepath', 'parts_masks_filepaths', 'attr_filepath', 'amodal_masks_filepaths', 'image_resolution'}
+    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
     assert isinstance(meta_info['image_filepath'], str), f"{meta_info['image_filepath']=}"
     assert isinstance(meta_info['object_mask_filepath'], str), f"{meta_info['object_mask_filepath']=}"
     assert isinstance(meta_info['parts_masks_filepaths'], list), f"{type(meta_info['parts_masks_filepaths'])=}"
@@ -109,12 +110,7 @@ def test_ade_20k(split: str):
         assert dp.keys() == {'inputs', 'labels', 'meta_info'}
         validate_inputs(dp['inputs'])
         validate_labels(dp['labels'], dp['meta_info']['image_resolution'])
-        validate_meta_info(dp['meta_info'])
-        
-        # Validate meta_info idx
-        meta_info = dp['meta_info']
-        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
-        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
+        validate_meta_info(dp['meta_info'], idx)
 
     indices = random.sample(range(len(dataset)), 1000)
     with ThreadPoolExecutor() as executor:

@@ -16,5 +16,6 @@ def test_classification_random_dataset(num_classes, num_examples, image_res, ini
         check_image(example['inputs']['image'], batched=False)
         assert set(example['labels'].keys()) == set(['target']), f"{example['labels'].keys()=}"
         assert example['labels']['target'].shape == (), f"{example['labels']['target'].shape=}"
-        assert set(example['meta_info'].keys()) == set(['seed']), f"{example['meta_info'].keys()=}"
+        assert set(example['meta_info'].keys()) == set(['idx', 'seed']), f"{example['meta_info'].keys()=}"
         assert type(example['meta_info']['seed']) == int, f"{type(example['meta_info']['seed'])=}"
+        assert example['meta_info']['idx'] == idx, f"meta_info['idx'] should match datapoint index: {example['meta_info']['idx']=}, {idx=}"

@@ -40,7 +40,11 @@ def test_kitti_dataset(split: str):
         # Check meta_info
         meta_info = datapoint['meta_info']
         assert isinstance(meta_info, dict), f"meta_info is not a dict in sample {idx}"
-        assert meta_info.keys() == {'seq', 't0', 't1'}, f"meta_info keys incorrect in sample {idx}"
+        assert meta_info.keys() == {'idx', 'seq', 't0', 't1'}, f"meta_info keys incorrect in sample {idx}"
         assert isinstance(meta_info['seq'], str), f"seq is not str in sample {idx}"
         assert isinstance(meta_info['t0'], int), f"{type(meta_info['t0'])=}"
         assert isinstance(meta_info['t1'], int), f"{type(meta_info['t1'])=}"
+        
+        # Validate meta_info idx
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
