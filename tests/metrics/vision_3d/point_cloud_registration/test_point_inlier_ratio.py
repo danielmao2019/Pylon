@@ -33,8 +33,8 @@ def test_point_inlier_ratio_perfect_match(metric):
     gt_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
 
     outputs = {
-        'src_pc': src_points,
-        'tgt_pc': tgt_points,
+        'src_pc': pred_src_points,
+        'tgt_pc': pred_tgt_points,
         'correspondences': pred_correspondences
     }
     labels = {'correspondences': gt_correspondences}
@@ -55,8 +55,8 @@ def test_point_inlier_ratio_partial_match(metric):
     gt_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
 
     outputs = {
-        'src_pc': src_points,
-        'tgt_pc': tgt_points,
+        'src_pc': pred_src_points,
+        'tgt_pc': pred_tgt_points,
         'correspondences': pred_correspondences
     }
     labels = {'correspondences': gt_correspondences}
@@ -78,8 +78,8 @@ def test_point_inlier_ratio_no_match(metric):
     gt_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
 
     outputs = {
-        'src_pc': src_points,
-        'tgt_pc': tgt_points,
+        'src_pc': pred_src_points,
+        'tgt_pc': pred_tgt_points,
         'correspondences': pred_correspondences
     }
     labels = {'correspondences': gt_correspondences}
@@ -97,14 +97,18 @@ def test_point_inlier_ratio_empty_predictions(metric):
     pred_correspondences = torch.tensor([], dtype=torch.long).reshape(0, 2)
     gt_correspondences = torch.tensor([[0, 0], [1, 1], [2, 2]], dtype=torch.long)
 
-        outputs = {
-            'src_pc': src_points,
-            'tgt_pc': tgt_points,
-            'correspondences': correspondences
-        }
-        labels = {'correspondences': correspondences}
-        datapoint = create_datapoint(outputs, labels)
-        metric(datapoint)
+    outputs = {
+        'src_pc': pred_src_points,
+        'tgt_pc': pred_tgt_points,
+        'correspondences': pred_correspondences
+    }
+    labels = {'correspondences': gt_correspondences}
+    datapoint = create_datapoint(outputs, labels)
+    
+    # Should handle empty predictions gracefully
+    result = metric(datapoint)
+    assert 'point_inlier_ratio' in result
+    assert torch.isclose(result['point_inlier_ratio'], torch.tensor(0.0))
 
     # Test with invalid correspondence shape
     with pytest.raises(AssertionError):
@@ -114,11 +118,11 @@ def test_point_inlier_ratio_empty_predictions(metric):
         gt_correspondences = torch.tensor([[0, 0]], dtype=torch.long)
 
         outputs = {
-            'src_pc': src_points,
-            'tgt_pc': tgt_points,
-            'correspondences': correspondences
+            'src_pc': pred_src_points,
+            'tgt_pc': pred_tgt_points,
+            'correspondences': pred_correspondences
         }
-        labels = {'correspondences': correspondences}
+        labels = {'correspondences': gt_correspondences}
         datapoint = create_datapoint(outputs, labels)
         metric(datapoint)
 
