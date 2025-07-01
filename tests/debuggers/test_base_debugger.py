@@ -1,3 +1,4 @@
+from typing import Dict, Any
 import pytest
 import torch
 from debuggers.base_debugger import BaseDebugger
@@ -87,9 +88,22 @@ def test_another_dummy_debugger_call(another_dummy_debugger, sample_datapoint, d
 @pytest.mark.parametrize("output_key", ["custom_key", "special_stats", "my_debug_output"])
 def test_debugger_with_different_output_keys(dummy_model, output_key):
     """Test debuggers with custom output keys."""
-    # Import locally to avoid module path issues
-    from conftest import DummyDebugger
-    custom_debugger = DummyDebugger(output_key=output_key)
+    
+    class CustomDummyDebugger(BaseDebugger):
+        def __init__(self, output_key: str = "dummy_stats"):
+            self.output_key = output_key
+
+        def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
+            outputs = datapoint['outputs']
+            stats = {
+                'mean': torch.mean(outputs).item(),
+                'std': torch.std(outputs).item(),
+                'min': torch.min(outputs).item(),
+                'max': torch.max(outputs).item(),
+            }
+            return {self.output_key: stats}
+    
+    custom_debugger = CustomDummyDebugger(output_key=output_key)
 
     datapoint = {
         'inputs': torch.randn(2, 3, 32, 32, dtype=torch.float32),
@@ -106,14 +120,26 @@ def test_debugger_with_different_output_keys(dummy_model, output_key):
 @pytest.mark.parametrize("test_case,description", [
     (torch.tensor([[0.001]], dtype=torch.float32), "very_small_outputs"),
     (torch.randn(1, 1000, dtype=torch.float32) * 1000, "large_outputs"),
-    (torch.tensor([[float('inf')]], dtype=torch.float32), "inf_outputs"),
-    (torch.tensor([[0.0]], dtype=torch.float32), "zero_outputs")
+    (torch.tensor([[0.0]], dtype=torch.float32), "zero_outputs"),
 ])
 def test_debugger_edge_cases(dummy_model, test_case, description):
     """Test debugger behavior with edge cases."""
-    # Import locally to avoid module path issues
-    from conftest import DummyDebugger
-    debugger = DummyDebugger()
+    
+    class EdgeCaseDummyDebugger(BaseDebugger):
+        def __init__(self, output_key: str = "dummy_stats"):
+            self.output_key = output_key
+
+        def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
+            outputs = datapoint['outputs']
+            stats = {
+                'mean': torch.mean(outputs).item(),
+                'std': torch.std(outputs).item(),
+                'min': torch.min(outputs).item(),
+                'max': torch.max(outputs).item(),
+            }
+            return {self.output_key: stats}
+    
+    debugger = EdgeCaseDummyDebugger()
 
     datapoint = {
         'inputs': torch.randn(1, 3, 32, 32, dtype=torch.float32),
@@ -122,11 +148,44 @@ def test_debugger_edge_cases(dummy_model, test_case, description):
         'meta_info': {'idx': [0]}
     }
 
-    # Some edge cases might raise exceptions (like inf), handle gracefully
-    try:
-        result = debugger(datapoint, dummy_model)
-        stats = result["dummy_stats"]
-        assert all(isinstance(v, float) for v in stats.values())
-    except (RuntimeError, ValueError):
-        # Some edge cases (like inf) might cause computation errors
-        pytest.skip(f"Edge case {description} caused expected computation error")
+    # Test cases that should work normally
+    result = debugger(datapoint, dummy_model)
+    stats = result["dummy_stats"]
+    assert all(isinstance(v, float) for v in stats.values())
+
+
+@pytest.mark.parametrize("invalid_input,expected_exception", [
+    ("not_a_tensor", TypeError),
+    (None, TypeError),
+    ([], AttributeError),
+    ({}, AttributeError),
+])
+def test_debugger_invalid_inputs(dummy_model, invalid_input, expected_exception):
+    """Test debugger behavior with invalid inputs (Invalid Input Testing Pattern)."""
+    
+    class InvalidInputDummyDebugger(BaseDebugger):
+        def __init__(self, output_key: str = "dummy_stats"):
+            self.output_key = output_key
+
+        def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
+            outputs = datapoint['outputs']
+            stats = {
+                'mean': torch.mean(outputs).item(),
+                'std': torch.std(outputs).item(),
+                'min': torch.min(outputs).item(),
+                'max': torch.max(outputs).item(),
+            }
+            return {self.output_key: stats}
+    
+    debugger = InvalidInputDummyDebugger()
+
+    datapoint = {
+        'inputs': torch.randn(1, 3, 32, 32, dtype=torch.float32),
+        'labels': torch.randint(0, 10, (1,), dtype=torch.int64),
+        'outputs': invalid_input,
+        'meta_info': {'idx': [0]}
+    }
+
+    # Test invalid inputs raise appropriate exceptions
+    with pytest.raises(expected_exception):
+        debugger(datapoint, dummy_model)

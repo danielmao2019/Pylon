@@ -1,13 +1,13 @@
 import pytest
 import torch
 import torch.nn as nn
-from tests.debuggers.conftest import TestFeatureMapDebugger, TestActivationStatsDebugger, TestLayerOutputDebugger
+from conftest import FeatureMapDebugger, ActivationStatsDebugger, LayerOutputDebugger
 
 
 @pytest.mark.parametrize("layer_name", ["conv1", "relu", "conv2", "pool", "fc"])
 def test_feature_map_debugger_initialization(layer_name):
     """Test FeatureMapDebugger initialization with different layer names."""
-    debugger = TestFeatureMapDebugger(layer_name=layer_name)
+    debugger = FeatureMapDebugger(layer_name=layer_name)
     assert debugger.layer_name == layer_name
     assert debugger.last_capture is None
 
@@ -19,7 +19,7 @@ def test_feature_map_debugger_initialization(layer_name):
 ])
 def test_feature_map_debugger_process_forward(batch_size, channels, height, width):
     """Test FeatureMapDebugger process_forward with different tensor sizes."""
-    debugger = TestFeatureMapDebugger(layer_name="test_layer")
+    debugger = FeatureMapDebugger(layer_name="test_layer")
     
     # Create mock input and output
     mock_module = nn.Conv2d(3, channels, 3)
@@ -43,7 +43,7 @@ def test_feature_map_debugger_process_forward(batch_size, channels, height, widt
 
 def test_feature_map_debugger_forward_hook():
     """Test FeatureMapDebugger with forward hook."""
-    debugger = TestFeatureMapDebugger(layer_name="conv1")
+    debugger = FeatureMapDebugger(layer_name="conv1")
     
     # Create mock data
     mock_module = nn.Conv2d(3, 16, 3)
@@ -61,7 +61,7 @@ def test_feature_map_debugger_forward_hook():
 
 def test_feature_map_debugger_call(sample_datapoint, dummy_model):
     """Test FeatureMapDebugger __call__ method."""
-    debugger = TestFeatureMapDebugger(layer_name="conv1")
+    debugger = FeatureMapDebugger(layer_name="conv1")
     
     # Without any captured data
     result = debugger(sample_datapoint, dummy_model)
@@ -76,14 +76,14 @@ def test_feature_map_debugger_call(sample_datapoint, dummy_model):
 @pytest.mark.parametrize("layer_name", ["relu", "conv1", "bn1"])
 def test_activation_stats_debugger_initialization(layer_name):
     """Test ActivationStatsDebugger initialization."""
-    debugger = TestActivationStatsDebugger(layer_name=layer_name)
+    debugger = ActivationStatsDebugger(layer_name=layer_name)
     assert debugger.layer_name == layer_name
     assert debugger.last_capture is None
 
 
 def test_activation_stats_debugger_process_forward():
     """Test ActivationStatsDebugger process_forward method."""
-    debugger = TestActivationStatsDebugger(layer_name="relu")
+    debugger = ActivationStatsDebugger(layer_name="relu")
     
     # Create mock data
     mock_module = nn.ReLU()
@@ -115,7 +115,7 @@ def test_activation_stats_debugger_process_forward():
 @pytest.mark.parametrize("downsample_factor", [1, 2, 4])
 def test_layer_output_debugger_initialization(downsample_factor):
     """Test LayerOutputDebugger initialization with different downsample factors."""
-    debugger = TestLayerOutputDebugger(layer_name="conv2", downsample_factor=downsample_factor)
+    debugger = LayerOutputDebugger(layer_name="conv2", downsample_factor=downsample_factor)
     assert debugger.layer_name == "conv2"
     assert debugger.downsample_factor == downsample_factor
     assert debugger.last_capture is None
@@ -128,7 +128,7 @@ def test_layer_output_debugger_initialization(downsample_factor):
 ])
 def test_layer_output_debugger_process_forward(downsample_factor, expected_downsampled):
     """Test LayerOutputDebugger process_forward with different downsample factors."""
-    debugger = TestLayerOutputDebugger(layer_name="conv2", downsample_factor=downsample_factor)
+    debugger = LayerOutputDebugger(layer_name="conv2", downsample_factor=downsample_factor)
     
     # Create mock data
     mock_module = nn.Conv2d(16, 32, 3)
@@ -161,7 +161,7 @@ def test_layer_output_debugger_process_forward(downsample_factor, expected_downs
 @pytest.mark.parametrize("output_type", ["tensor", "non_tensor"])
 def test_forward_debugger_non_tensor_output(output_type):
     """Test forward debuggers with different output types."""
-    debugger = TestFeatureMapDebugger(layer_name="test")
+    debugger = FeatureMapDebugger(layer_name="test")
     
     # Create mock data
     mock_module = nn.Identity()
@@ -182,7 +182,7 @@ def test_forward_debugger_non_tensor_output(output_type):
 
 def test_forward_debugger_memory_cleanup():
     """Test that forward debuggers properly clean up memory."""
-    debugger = TestFeatureMapDebugger(layer_name="test")
+    debugger = FeatureMapDebugger(layer_name="test")
     
     # Create large tensors
     large_output = torch.randn(10, 256, 64, 64)
@@ -199,8 +199,8 @@ def test_forward_debugger_memory_cleanup():
 
 def test_multiple_forward_debuggers():
     """Test using multiple forward debuggers."""
-    debugger1 = TestFeatureMapDebugger(layer_name="conv1")
-    debugger2 = TestActivationStatsDebugger(layer_name="conv1")
+    debugger1 = FeatureMapDebugger(layer_name="conv1")
+    debugger2 = ActivationStatsDebugger(layer_name="conv1")
     
     # Create mock data
     mock_module = nn.Conv2d(3, 16, 3)

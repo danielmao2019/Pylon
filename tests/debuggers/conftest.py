@@ -60,8 +60,8 @@ class AnotherDummyDebugger(BaseDebugger):
         return {self.output_key: stats}
 
 
-# Test Forward Debugger Implementations
-class TestFeatureMapDebugger(ForwardDebugger):
+# Forward Debugger Implementations for Testing
+class FeatureMapDebugger(ForwardDebugger):
     """Test debugger for feature map extraction."""
     
     def process_forward(self, module, input, output):
@@ -80,7 +80,7 @@ class TestFeatureMapDebugger(ForwardDebugger):
         return {'error': 'Output is not a tensor'}
 
 
-class TestActivationStatsDebugger(ForwardDebugger):
+class ActivationStatsDebugger(ForwardDebugger):
     """Test debugger for activation statistics."""
     
     def process_forward(self, module, input, output):
@@ -112,7 +112,7 @@ class TestActivationStatsDebugger(ForwardDebugger):
         return {'error': 'Output is not a tensor'}
 
 
-class TestLayerOutputDebugger(ForwardDebugger):
+class LayerOutputDebugger(ForwardDebugger):
     """Test debugger for layer outputs."""
     
     def __init__(self, layer_name: str, downsample_factor: int = 4):
@@ -235,7 +235,7 @@ def forward_debugger_config():
     return {
         'name': 'conv2_features',
         'debugger_config': {
-            'class': TestFeatureMapDebugger,
+            'class': FeatureMapDebugger,
             'args': {
                 'layer_name': 'conv2'
             }
