@@ -311,7 +311,7 @@ class BaseTrainer(ABC):
 
         # Add debug outputs (only during validation/test at checkpoint indices)
         if self.debugger and self.debugger.enabled:
-            dp['debug'] = self.debugger(dp, self.model, idx)
+            dp['debug'] = self.debugger(dp)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))
