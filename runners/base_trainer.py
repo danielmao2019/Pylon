@@ -455,11 +455,12 @@ class BaseTrainer(ABC):
         self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
         
         # Enable/disable debugger based on checkpoint indices
-        if self.debugger:
-            self.debugger.enabled = self.cum_epochs in self.checkpoint_indices
-            if self.debugger.enabled:
-                self.debugger.reset_buffer()
-                self.logger.info(f"Debugger enabled for epoch {self.cum_epochs}")
+        if self.debugger and self.cum_epochs in self.checkpoint_indices:
+            self.debugger.enabled = True
+            self.debugger.reset_buffer()
+            self.logger.info(f"Debugger enabled for epoch {self.cum_epochs}")
+        elif self.debugger:
+            self.debugger.enabled = False
 
     def _after_val_loop_(self) -> None:
         if self.work_dir is None:

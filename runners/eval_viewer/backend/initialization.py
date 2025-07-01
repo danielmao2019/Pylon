@@ -555,6 +555,9 @@ def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
     page_files = sorted(glob.glob(os.path.join(debugger_dir, "page_*.pkl")))
     for page_file in page_files:
         page_data = joblib.load(page_file)  # This is now a dict
+        # Assert no overlapping keys between pages
+        overlapping_keys = set(all_outputs.keys()).intersection(set(page_data.keys()))
+        assert len(overlapping_keys) == 0, f"Overlapping keys found between pages: {overlapping_keys}"
         all_outputs.update(page_data)  # Merge page dict into all_outputs
     
     return all_outputs
