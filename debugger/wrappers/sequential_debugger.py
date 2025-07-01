@@ -1,4 +1,4 @@
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 import os
 import threading
 import queue
@@ -73,12 +73,11 @@ class SequentialDebugger(BaseDebugger):
             else:
                 print(f"Warning: Could not find layer '{layer_name}' for debugger")
     
-    def __call__(self, datapoint: Dict[str, Any], idx: int) -> Dict[str, Any]:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
         """Run all debuggers sequentially on the datapoint.
         
         Args:
             datapoint: Dict with inputs, labels, meta_info, outputs
-            idx: Datapoint index for buffer management
             
         Returns:
             Dict mapping debugger names to their outputs
@@ -92,19 +91,40 @@ class SequentialDebugger(BaseDebugger):
         
         # Handle buffering internally (like metric does)
         if debug_outputs:  # Only add to buffer if there are debug outputs
-            self.add_to_buffer(idx, debug_outputs)
+            self.add_to_buffer(debug_outputs, datapoint)
             
         return debug_outputs
     
-    def add_to_buffer(self, datapoint_idx: int, debug_outputs: Dict[str, Any]):
+    def add_to_buffer(self, debug_outputs: Dict[str, Any], datapoint: Dict[str, Dict[str, Any]]):
         """Add debug outputs to buffer for async processing.
         
         Args:
-            datapoint_idx: Index of the datapoint in the dataset
             debug_outputs: Debug outputs from all debuggers
+            datapoint: Complete datapoint to extract idx from
         """
         if not self.enabled:
             return
+            
+        # Extract idx from datapoint meta_info (following BaseMetric pattern)
+        assert 'meta_info' in datapoint and 'idx' in datapoint['meta_info']
+        idx_raw = datapoint['meta_info']['idx']
+        
+        # Handle different idx formats (similar to BaseMetric)
+        if isinstance(idx_raw, torch.Tensor):
+            # Handle tensor format from DataLoader collation
+            assert idx_raw.shape == (1,), f"Expected single element tensor, got {idx_raw}"
+            assert idx_raw.dtype == torch.int64
+            datapoint_idx = idx_raw.item()
+        elif isinstance(idx_raw, list):
+            # Handle list format
+            assert len(idx_raw) == 1
+            assert isinstance(idx_raw[0], int)
+            datapoint_idx = idx_raw[0]
+        elif isinstance(idx_raw, int):
+            # Handle direct int format
+            datapoint_idx = idx_raw
+        else:
+            raise ValueError(f"Unsupported idx format: {type(idx_raw)} with value {idx_raw}")
             
         # Calculate memory size using sys.getsizeof recursively
         data_size = self._get_deep_size(debug_outputs)
