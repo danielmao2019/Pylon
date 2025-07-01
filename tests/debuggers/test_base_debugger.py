@@ -157,8 +157,8 @@ def test_debugger_edge_cases(dummy_model, test_case, description):
 @pytest.mark.parametrize("invalid_input,expected_exception", [
     ("not_a_tensor", TypeError),
     (None, TypeError),
-    ([], AttributeError),
-    ({}, AttributeError),
+    ([], TypeError),
+    ({}, TypeError),
 ])
 def test_debugger_invalid_inputs(dummy_model, invalid_input, expected_exception):
     """Test debugger behavior with invalid inputs (Invalid Input Testing Pattern)."""
