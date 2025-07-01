@@ -19,7 +19,7 @@ tests/debuggers/
         └── test_api_integration.py               # API integration tests (14 tests)
 ```
 
-## Test Coverage: 79 Tests Total
+## Test Coverage: 86 Tests Total
 
 ### 1. BaseDebugger Tests (12 tests)
 - **Initialization**: Abstract class behavior, interface compliance
@@ -32,9 +32,9 @@ tests/debuggers/
 - **Device Handling**: GPU/CPU tensor management
 - **Layer Access**: Target layer finding and validation
 
-### 3. SequentialDebugger Tests (35 tests)
+### 3. SequentialDebugger Tests (42 tests)
 
-#### Initialization Tests (9 tests)
+#### Initialization Tests (11 tests)
 - Configuration parsing and debugger building
 - Model parameter passing
 - Hook registration for forward debuggers
@@ -55,6 +55,23 @@ tests/debuggers/
 - **Device Handling**: Mixed GPU/CPU tensor support
 - **Batch Size Compatibility**: Various batch sizes
 - **Output Consistency**: Consistent structure across calls
+
+#### Enabled/Disabled State Tests (3 tests)
+- **State Management**: Proper enable/disable flag handling
+- **Empty Returns**: Returns empty dict when disabled
+- **Buffer Isolation**: No buffer filling when disabled
+
+### 4. Integration Tests (4 tests)
+- **Complete Runner Integration**: Real SupervisedSingleTaskTrainer with disk saves
+- **Forward Hook Integration**: End-to-end hook registration and execution
+- **Missing Layer Handling**: Graceful degradation for non-existent layers
+- **Multiple Hook Registration**: Multiple debuggers on same layer
+
+### 5. Runner Tests (10 tests)
+- **Real BaseTrainer Testing**: Tests actual Pylon BaseTrainer._init_checkpoint_indices() method
+- **Checkpoint Index Calculation**: All checkpoint methods (latest, all, interval)
+- **Edge Cases**: Different epoch counts and interval combinations
+- **Integration Points**: Tests _init_debugger() method calls checkpoint calculation
 
 ## Testing Patterns Used
 
@@ -185,10 +202,41 @@ pytest tests/debuggers/ -k "invalid" -v
 
 ## Test Performance
 
-- **Total tests**: 79 passing
-- **Execution time**: ~15-20 seconds for full suite
+- **Total tests**: 86 passing
+- **Execution time**: ~2-3 seconds for full suite
 - **Memory usage**: Efficient with proper cleanup
 - **Thread safety**: All concurrent tests pass
 - **Device compatibility**: Works on both CPU-only and GPU systems
+- **Disk I/O**: Real file operations tested with proper cleanup
+
+## Key Integration Verifications
+
+The test suite now includes comprehensive integration testing that verifies:
+
+### 1. Forward Hook System
+✅ **Hook Registration**: Hooks are properly registered on model layers during initialization  
+✅ **Hook Execution**: Hooks execute during model forward passes and capture layer outputs  
+✅ **Missing Layers**: Graceful handling of non-existent layers with warnings  
+✅ **Multiple Hooks**: Multiple debuggers can hook the same layer without conflicts
+
+### 2. Selective Epoch Execution  
+✅ **Checkpoint Calculation**: Correct calculation of checkpoint epochs for all methods  
+✅ **Enable/Disable Logic**: Debugger only enabled during checkpoint epochs  
+✅ **State Management**: Proper state transitions between enabled/disabled  
+✅ **Performance**: No overhead when disabled (immediate empty dict return)
+
+### 3. Complete Runner Integration
+✅ **Real Trainer Integration**: Uses actual SupervisedSingleTaskTrainer from Pylon source  
+✅ **Real BaseTrainer Methods**: Tests actual _init_debugger(), _before_val_loop(), _init_checkpoint_indices()  
+✅ **Disk Saves**: Debug outputs saved only at checkpoint epochs  
+✅ **File Structure**: Correct directory structure (`epoch_X/debugger/page_Y.pkl`)  
+✅ **Data Integrity**: Saved data contains expected debugger outputs  
+✅ **Cleanup**: Proper test cleanup to avoid file system pollution
+
+### 4. Real File I/O Testing  
+✅ **Directory Creation**: Automatic creation of epoch and debugger directories  
+✅ **Page Serialization**: Joblib serialization/deserialization of debug data  
+✅ **Content Verification**: Loaded data matches expected debugger output structure  
+✅ **Epoch Filtering**: Only checkpoint epochs have saved data  
 
 The test suite provides comprehensive coverage of all debugger functionality while following Pylon's established testing patterns and maintaining high code quality standards.

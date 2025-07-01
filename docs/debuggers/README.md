@@ -239,7 +239,7 @@ def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module)
 
 ## Testing
 
-The module includes comprehensive tests following Pylon's testing patterns with 79 passing tests:
+The module includes comprehensive tests following Pylon's testing patterns with 86 passing tests:
 
 ```bash
 # Run all debugger tests
