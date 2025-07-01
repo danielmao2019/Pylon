@@ -5,7 +5,6 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.random_datasets.classification_random_dataset import ClassificationRandomDataset
 from utils.input_checks import check_image
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

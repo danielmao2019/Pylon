@@ -4,7 +4,6 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
 from data.datasets import WHU_BD_Dataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

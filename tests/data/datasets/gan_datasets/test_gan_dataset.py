@@ -5,7 +5,6 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets import MNISTDataset
 from data.datasets.gan_datasets.gan_dataset import GANDataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any], dataset) -> None:

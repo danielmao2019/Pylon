@@ -5,7 +5,6 @@ import torch
 import os
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.city_scapes_dataset import CityScapesDataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any], image_resolution: tuple) -> None:

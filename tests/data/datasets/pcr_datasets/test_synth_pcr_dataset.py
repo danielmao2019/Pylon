@@ -5,7 +5,6 @@ import torch
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 import data
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:

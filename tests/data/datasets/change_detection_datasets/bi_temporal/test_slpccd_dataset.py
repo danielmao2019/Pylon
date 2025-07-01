@@ -5,7 +5,6 @@ import os
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

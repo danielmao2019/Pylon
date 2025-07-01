@@ -5,7 +5,6 @@ import torch
 import os
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.nyu_v2_dataset import NYUv2Dataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

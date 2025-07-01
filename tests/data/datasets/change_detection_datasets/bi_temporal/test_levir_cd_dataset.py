@@ -3,7 +3,6 @@ import pytest
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.levir_cd_dataset import LevirCdDataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

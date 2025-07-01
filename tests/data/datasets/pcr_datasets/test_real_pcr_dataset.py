@@ -4,7 +4,6 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

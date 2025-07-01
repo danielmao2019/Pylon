@@ -5,7 +5,6 @@ import torch
 import os
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.multi_task_facial_landmark_dataset import MultiTaskFacialLandmarkDataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

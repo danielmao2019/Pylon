@@ -4,7 +4,6 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.semantic_segmentation_datasets.whu_bd_dataset import WHU_BD_Dataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:

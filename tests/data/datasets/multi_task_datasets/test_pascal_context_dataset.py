@@ -4,7 +4,6 @@ import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.multi_task_datasets.pascal_context_dataset import PASCALContextDataset
-from tests.data.datasets.conftest import get_samples_to_test
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
