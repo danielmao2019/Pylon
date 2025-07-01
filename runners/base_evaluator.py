@@ -141,7 +141,7 @@ class BaseEvaluator:
 
         # Add debug outputs (always enabled for evaluator)
         if self.debugger and self.debugger.enabled:
-            dp['debug'] = self.debugger(dp)
+            dp['debug'] = self.debugger(dp, self.model)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))

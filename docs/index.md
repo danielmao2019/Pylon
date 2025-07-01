@@ -7,6 +7,10 @@ This directory contains documentation for the Pylon deep learning library.
 - [Overview](README.md) - General overview of the Pylon library
 - [Environment Setup](environment_setup.md) - How to set up the development environment
 
+## Debugging and Analysis
+
+- [Debuggers Module](debuggers/README.md) - Framework for capturing and visualizing debugging outputs during training and evaluation
+
 ## Models
 
 ### Change Detection

@@ -73,11 +73,12 @@ class SequentialDebugger(BaseDebugger):
             else:
                 print(f"Warning: Could not find layer '{layer_name}' for debugger")
 
-    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
         """Run all debuggers sequentially on the datapoint.
 
         Args:
             datapoint: Dict with inputs, labels, meta_info, outputs
+            model: The model being debugged
 
         Returns:
             Dict mapping debugger names to their outputs
@@ -87,7 +88,7 @@ class SequentialDebugger(BaseDebugger):
 
         debug_outputs = {}
         for name, debugger in self.debuggers.items():
-            debug_outputs[name] = debugger(datapoint)
+            debug_outputs[name] = debugger(datapoint, model)
 
         # Handle buffering internally (like metric does)
         if debug_outputs:  # Only add to buffer if there are debug outputs
