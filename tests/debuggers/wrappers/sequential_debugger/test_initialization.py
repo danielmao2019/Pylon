@@ -2,7 +2,6 @@ import pytest
 import torch
 import torch.nn as nn
 from debuggers.wrappers.sequential_debugger import SequentialDebugger
-from debuggers.examples import FeatureMapDebugger
 
 
 def test_sequential_debugger_basic_initialization(debuggers_config, dummy_model):
@@ -89,7 +88,7 @@ def test_sequential_debugger_forward_hook_tracking(mixed_debuggers_config, dummy
 
     # Check the forward debugger is the correct instance
     forward_debugger = debugger.forward_debuggers['conv2'][0]
-    assert isinstance(forward_debugger, FeatureMapDebugger)
+    assert isinstance(forward_debugger, TestFeatureMapDebugger)
     assert forward_debugger.layer_name == 'conv2'
 
 
