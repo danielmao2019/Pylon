@@ -9,6 +9,7 @@ from debuggers.base_debugger import BaseDebugger
 from debuggers.forward_debugger import ForwardDebugger
 from debuggers.utils import get_layer_by_name
 from utils.builders import build_from_config
+from utils.ops.apply import apply_tensor_op
 
 
 class SequentialDebugger(BaseDebugger):
@@ -138,7 +139,7 @@ class SequentialDebugger(BaseDebugger):
         })
 
     def _buffer_worker(self) -> None:
-        """Background thread to handle buffer updates (following base_criterion.py pattern)."""
+        """Background thread to handle buffer updates (following base_metric.py pattern)."""
         while True:
             try:
                 item = self._buffer_queue.get()
@@ -146,9 +147,12 @@ class SequentialDebugger(BaseDebugger):
                 debug_outputs = item['debug_outputs']
                 data_size = item['data_size']
 
+                # Move tensors to CPU using apply_tensor_op (like base_metric.py)
+                processed_debug_outputs = apply_tensor_op(func=lambda x: x.detach().cpu(), inputs=debug_outputs)
+
                 with self._buffer_lock:
-                    # Add to current page
-                    self.current_page_data[datapoint_idx] = debug_outputs
+                    # Add processed debug outputs to current page
+                    self.current_page_data[datapoint_idx] = processed_debug_outputs
                     self.current_page_size += data_size
 
                     # Check if we need to save current page
