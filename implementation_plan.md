@@ -187,4 +187,27 @@ The conversation natually leads to the answer to Question 2 "Early stopping plac
 
 Lastly, for Question 4 "State persistence", I don't think you need to modify the checkpoints in any way. There is also no early stopping state. However, with early stopping, you need to upgrade entirely the logic in the code base to define the "progress" of a run. Specifically how to define that a run has completed. Previously this is as simple as counting the number of completed epochs and compare against the predefined total number of epochs. Now you also need to take the `config['order']` to determine this. This will involve lots of refactoring and restructuring, including in the `_init_state` in the runners, and the progress check in `agents` module. So let's do this at the end.
 
+### Questions (Round 2)
+
+Based on your answers, I have some clarification questions:
+
+1. **Vector comparison precedence**: When using vector comparison (order=False/None), how should we handle cases where vectors are incomparable (e.g., [0.8, 0.6] vs [0.7, 0.7])? Should we:
+   - Keep current best if new is not strictly better?
+   - Use some tie-breaking mechanism?
+   - Require at least one score improvement?
+
+2. **Metric structure access**: You mentioned the nested dict must match scores structure. Should I assume all metrics produce the same nested structure, or do I need to handle cases where different epochs might have different score keys?
+
+3. **Implementation priority**: Should I tackle this in phases?
+   - Phase 1: Fix `_find_best_checkpoint_()` with `config['order']`
+   - Phase 2: Add early stopping logic
+   - Phase 3: Refactor run completion logic in agents/runners
+   
+4. **Backward compatibility**: For existing configs without `config['order']`, should I:
+   - Default to `order=True` (average all scores)?
+   - Try to infer a sensible single metric based on task type?
+   - Require explicit configuration?
+
+5. **agents module scope**: The agents module refactoring sounds extensive. Should this be a separate task, or is it essential for basic early stopping functionality?
+
 This plan provides a robust, backward-compatible early stopping implementation that follows Pylon's design patterns and conventions.
