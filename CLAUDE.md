@@ -49,6 +49,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Pylon is a PyTorch-based deep learning framework for computer vision research, supporting both 2D vision tasks (change detection, segmentation, object detection) and 3D vision tasks (point cloud registration, 3D change detection) with extensive multi-task learning capabilities.
 
+First look at the entire repo and all the docs to understand everything. if you need, you can always create simple small quick script to validate your factual claims, when you are unsure about anything and want to confirm. such scripts should be designed to answer your own questions about the code base and should have descriptive outputs that you can read from when you execute them. when you are reading and understanding and checking things, you can always refer to all the docs in @docs/ folder, and the @CLAUDE.md and the @README.md . you can ask me any questions and you can update any doc to reflect your knowledge, if you can improve any of the docs. after that, i want you to ultrathink about the solution to the task and let's have a discussion and agree on an implementation plan first. please maintain a implementation_plan.md as you go so that I know what you are thinking and I can provide my feedback when you are done. take your time.
+
 ## 2. Essential Commands
 
 ### 2.1. Testing
