@@ -54,6 +54,8 @@ def test_cdd_dataset(dataset: torch.utils.data.Dataset) -> None:
         # Validate meta_info
         meta_info = datapoint['meta_info']
         assert isinstance(meta_info, dict), f"Meta info at index {idx} is not a dictionary."
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
         assert 'image_resolution' in meta_info, f"Missing 'image_resolution' in meta info at index {idx}."
     assert type(dataset.CLASS_DIST) == list, f"{type(dataset.CLASS_DIST)=}"
     assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"

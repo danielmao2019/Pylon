@@ -27,6 +27,11 @@ def test_air_change(dataset: torch.utils.data.Dataset) -> None:
         # Validate labels
         _validate_labels(datapoint['labels'], class_dist, dataset)
 
+        # Validate meta_info idx
+        meta_info = datapoint['meta_info']
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
+
     # Validate class distribution
     _validate_class_distribution(class_dist, dataset)
 

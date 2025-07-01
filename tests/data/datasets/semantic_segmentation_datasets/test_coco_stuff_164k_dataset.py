@@ -25,9 +25,10 @@ def validate_labels(labels: Dict[str, Any], num_classes: int, image_resolution: 
     assert labels['label'].shape == image_resolution, f"{labels['label'].shape=}, {image_resolution=}"
 
 
-def validate_meta_info(meta_info: Dict[str, Any]) -> None:
+def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
     assert meta_info.keys() == {'idx', 'image_filepath', 'label_filepath', 'image_resolution'}
+    assert meta_info['idx'] == datapoint_idx, f"{meta_info['idx']=}, {datapoint_idx=}"
 
 
 @pytest.mark.parametrize('split', ['train2017', 'val2017'])
@@ -47,7 +48,7 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str):
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
         validate_inputs(datapoint['inputs'])
         validate_labels(datapoint['labels'], dataset.NUM_CLASSES, datapoint['inputs']['image'].shape[-2:])
-        validate_meta_info(datapoint['meta_info'])
+        validate_meta_info(datapoint['meta_info'], idx)
 
     indices = random.sample(range(len(dataset)), 1000)
     with ThreadPoolExecutor() as executor:
