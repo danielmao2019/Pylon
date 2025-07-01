@@ -25,41 +25,31 @@ After thorough exploration of the Pylon codebase, I've identified the key compon
 
 ## Early Stopping Implementation Strategy
 
-### Phase 1: Implement Score Comparison System
-1. **Create score comparison utilities**:
-   - Location: `utils/training/score_comparison.py`
-   - Support three comparison modes:
-     - **Vector comparison**: Multi-dimensional partial order (first quadrant cone)
-     - **Weighted average**: Combine scores with user-defined weights
-     - **Simple average**: Average all scores equally
-   - Use metric `DIRECTION` attributes for proper comparison
+### Phase 1: Early Stopping Logic (Priority 1)
+1. **Add early stopping to BaseTrainer**:
+   - Track validation score history for partial order comparison
+   - Implement early stopping check after each validation epoch
+   - Handle "not improving" case for incomparable vectors
+   - Stop training when no improvement for specified epochs
 
-2. **Fix `_find_best_checkpoint_()` method**:
-   - Replace hardcoded `'reduced'` key with `config['order']` system
-   - Support all three comparison modes
-   - Extract scores from `scores['aggregated']` structure
+2. **Fix `_init_state_()` in runners module**:
+   - Update logic to handle early stopping completion
+   - Redefine what constitutes a "completed" run
+   - Check for early stopping markers in addition to epoch count
 
-### Phase 2: Configuration System
-1. **Add `config['order']` field**:
+3. **Configuration system**:
    ```python
    config = {
-       'order': False,  # Vector comparison (partial order)
+       'order': False,  # Default: no reduction (vector comparison)
        # OR
        'order': True,   # Average all scores
        # OR  
-       'order': {       # Weighted combination
-           'aggregated': {
-               'mean_IoU': 0.7,
-               'mean_f1': 0.3,
-               # Missing scores default to 0.0
-           }
-       }
-   }
-   ```
-
-2. **Add `config['early_stopping']` field**:
-   ```python
-   config = {
+       'order': {       # Weighted combination (same structure as scores['aggregated'])
+           'mean_IoU': 0.7,
+           'mean_f1': 0.3,
+           # Missing scores default to 0.0
+       },
+       
        'early_stopping': {
            'enabled': True,  # Default True if config exists
            'epochs': 10,     # Patience epochs without improvement
@@ -67,111 +57,135 @@ After thorough exploration of the Pylon codebase, I've identified the key compon
    }
    ```
 
-### Phase 3: Early Stopping Logic
-1. **Implement early stopping in BaseTrainer**:
-   - Track validation score history
-   - Use same comparison logic as checkpoint selection
-   - No separate state persistence needed
-   - Stop training when no improvement for specified epochs
+### Phase 2: Best Checkpoint Logic (Priority 2)
+1. **Fix `_find_best_checkpoint()` method** (rename from `_find_best_checkpoint_()`):
+   - Replace hardcoded `'reduced'` key with `config['order']` system
+   - Handle incomparable vectors by falling back to equal-weight average
+   - Extract scores from `scores['aggregated']` structure only
+   - Support all three comparison modes
 
-2. **Modify training loop (`run()` method)**:
-   - After each validation epoch, check early stopping condition
-   - If should stop: log message and break training loop
-   - Use existing best checkpoint loading mechanism
+2. **Score comparison utilities**:
+   - Location: `utils/training/score_comparison.py`
+   - Vector comparison with first quadrant cone partial order
+   - Weighted averaging with normalization
+   - Fallback to equal-weight average for incomparable cases
 
-### Phase 4: Run Completion Logic (Deferred)
-1. **Major refactoring required**:
-   - Update `_init_state_()` in runners
+### Phase 3: Agents Module (Separate PR)
+1. **Deferred to separate task**:
    - Update progress checking in `agents` module
-   - Redefine what constitutes a "completed" run
-   - This phase can be implemented as a separate task
+   - This will be handled in another PR
 
 ## Detailed Implementation
 
-### 1. Score Comparison System Design
+### 1. Early Stopping Implementation
 
 ```python
-# utils/training/score_comparison.py
-def compare_scores(
-    current_scores: Dict[str, Any],
-    best_scores: Dict[str, Any], 
-    order_config: Union[bool, Dict, None],
-    metric_directions: Dict[str, int]
-) -> bool:
+# In BaseTrainer class
+def _should_stop_early(self, current_epoch_scores: Dict[str, Any]) -> bool:
     """
-    Compare two score dictionaries based on order configuration.
+    Check if training should stop early based on score history.
     
-    Returns:
-        True if current_scores is better than best_scores
+    Uses vector comparison (partial order) for improvement detection.
+    Incomparable vectors are treated as "not improving".
     """
 ```
 
 **Key Features**:
-- Support for vector comparison (partial order)
-- Weighted averaging with normalization
-- Integration with metric DIRECTION attributes
-- Nested dictionary structure handling
+- Vector comparison using first quadrant cone partial order
+- Track score history across epochs
+- "Not improving" for incomparable cases
+- Integration with existing validation loop
 
-### 2. BaseTrainer Integration Points
+### 2. Score Comparison System
+
+```python
+# utils/training/score_comparison.py
+def compare_scores_vector(
+    current_scores: Dict[str, Any],
+    best_scores: Dict[str, Any], 
+    metric_directions: Dict[str, int]
+) -> Optional[bool]:
+    """
+    Vector comparison using partial order.
+    Returns None for incomparable cases.
+    """
+
+def reduce_scores_to_scalar(
+    scores: Dict[str, Any],
+    order_config: Union[bool, Dict],
+    metric_directions: Dict[str, int]
+) -> float:
+    """
+    Reduce scores to scalar for best checkpoint selection.
+    Handles weighted and equal-weight averaging.
+    """
+```
+
+### 3. BaseTrainer Integration Points
 
 **Modified methods**:
-1. `_find_best_checkpoint_()`: Use `config['order']` instead of 'reduced' key
-2. `run()`: Add early stopping check after validation
-3. `_after_val_loop_()`: Track score history for early stopping
+1. `_init_state_()`: Handle early stopping completion detection
+2. `run()`: Add early stopping check after validation epochs
+3. `_find_best_checkpoint()`: Use `config['order']` with fallback averaging
+4. `_after_val_loop_()`: Track score history for early stopping
 
 **New methods**:
-1. `_compare_validation_scores()`: Wrapper for score comparison
-2. `_should_stop_early()`: Check early stopping condition
-3. `_get_metric_directions()`: Extract DIRECTION from metric classes
+1. `_should_stop_early()`: Early stopping condition check
+2. `_get_metric_directions()`: Extract DIRECTION from metric classes
+3. `_compare_scores()`: Wrapper for score comparison utilities
 
-### 3. Configuration Schema
+### 4. Configuration Schema
 
-**New config structure**:
+**Updated structure (matching scores['aggregated'])**:
 ```python
 config = {
-    # Score comparison (used by both early stopping and best checkpoint)
-    'order': False,  # or True, or weights dict
+    'order': False,  # Default: vector comparison, no reduction
+    # OR
+    'order': True,   # Equal-weight average  
+    # OR
+    'order': {       # Weights dict (same structure as scores['aggregated'])
+        'mean_IoU': 0.7,
+        'mean_f1': 0.3,
+    },
     
-    # Early stopping configuration
     'early_stopping': {
         'enabled': True,   # Default True if section exists
         'epochs': 10,      # Patience
-    },
-    
-    # Existing keys remain unchanged...
+    }
 }
 ```
 
-### 4. Backward Compatibility Strategy
+### 5. Backward Compatibility
 
-- `config['order']` is optional - will need default behavior
+- `config['order']` defaults to `False` (no reduction) if not provided
 - `config['early_stopping']` is optional - disabled if not present
 - Existing configs work unchanged
-- Gradual migration path for users
+- Multi-stage training uses separate configs per stage
 
 ## Implementation Timeline
 
-1. **Phase 1** (Score comparison system): 3-4 hours
-   - Implement `utils/training/score_comparison.py`
-   - Support vector, weighted, and average comparison modes
-   - Add comprehensive tests for comparison logic
+1. **Phase 1** (Early stopping - Priority 1): 4-5 hours
+   - Add early stopping logic to BaseTrainer training loop
+   - Implement vector comparison for early stopping (partial order)
+   - Fix `_init_state_()` to handle early stopping completion
+   - Add score history tracking
 
-2. **Phase 2** (BaseTrainer integration): 2-3 hours  
-   - Fix `_find_best_checkpoint_()` to use `config['order']`
-   - Add early stopping logic to training loop
+2. **Phase 2** (Best checkpoint - Priority 2): 3-4 hours  
+   - Fix `_find_best_checkpoint()` to use `config['order']`
+   - Implement score reduction utilities in `utils/training/score_comparison.py`
+   - Handle fallback to equal-weight average for incomparable vectors
    - Extract metric DIRECTION attributes
 
-3. **Phase 3** (Configuration & testing): 2-3 hours
-   - Validate configuration parsing
-   - Add integration tests
-   - Test with existing configs (backward compatibility)
+3. **Phase 3** (Testing & validation): 2-3 hours
+   - Add comprehensive tests for both early stopping and checkpoint logic
+   - Test configuration parsing and defaults
+   - Validate backward compatibility with existing configs
 
-4. **Phase 4** (Run completion refactoring): 4-6 hours (DEFERRED)
-   - Major refactoring of `_init_state_()` 
+4. **Phase 4** (Agents module): SEPARATE PR
    - Update agents module progress checking
-   - Can be implemented as separate task
+   - Will be handled in separate pull request
 
-**Total estimated time**: 7-10 hours (Phase 1-3), +4-6 hours for Phase 4
+**Total estimated time**: 9-12 hours (this PR), agents module in separate PR
 
 ## Q&A
 
@@ -234,5 +248,3 @@ Based on your answers, I have some clarification questions:
 4. When `config['order']` is not provided, default to `False`, meaning that you don't do any reduction.
 
 5. Let's do this task in another PR.
-
-This plan provides a robust, backward-compatible early stopping implementation that follows Pylon's design patterns and conventions.
