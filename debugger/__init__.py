@@ -5,6 +5,6 @@ from debugger.wrappers.sequential_debugger import SequentialDebugger
 
 __all__ = (
     'BaseDebugger',
-    'ForwardDebugger', 
+    'ForwardDebugger',
     'SequentialDebugger',
 )
