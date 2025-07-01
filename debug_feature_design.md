@@ -172,12 +172,13 @@ class SequentialDebugger(BaseDebugger):
                     self.forward_debuggers[layer_name] = []
                 self.forward_debuggers[layer_name].append(debugger)
     
-    def __call__(self, datapoint: Dict[str, Any], model: torch.nn.Module) -> Dict[str, Any]:
+    def __call__(self, datapoint: Dict[str, Any], model: torch.nn.Module, idx: int) -> Dict[str, Any]:
         """Run all debuggers sequentially on the datapoint.
         
         Args:
             datapoint: Dict with inputs, labels, meta_info, outputs
             model: The model being debugged
+            idx: Datapoint index for buffer management
             
         Returns:
             Dict mapping debugger names to their outputs
@@ -188,6 +189,10 @@ class SequentialDebugger(BaseDebugger):
         debug_outputs = {}
         for name, debugger in self.debuggers.items():
             debug_outputs[name] = debugger(datapoint, model)
+        
+        # Handle buffering internally (like criterion and metric do)
+        if debug_outputs:  # Only add to buffer if there are debug outputs
+            self.add_to_buffer(idx, debug_outputs)
             
         return debug_outputs
     
@@ -358,10 +363,7 @@ def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] 
     
     # Add debug outputs (only during validation/test at checkpoint indices)
     if self.debugger and self.debugger.enabled:
-        dp['debug'] = self.debugger(dp, self.model)
-        # Extract actual datapoint index (batch_size=1 for eval)
-        datapoint_idx = dp['meta_info']['idx'][0]
-        self.debugger.add_to_buffer(datapoint_idx, dp['debug'])
+        dp['debug'] = self.debugger(dp, self.model, idx)
     
     # ... rest of existing code ...
 
