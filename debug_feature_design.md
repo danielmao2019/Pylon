@@ -284,6 +284,9 @@ class SequentialDebugger(BaseDebugger):
         # Wait for queue to empty before resetting
         self._buffer_queue.join()
         
+        # Assert queue is empty (following base_criterion.py and base_metric.py pattern)
+        assert self._buffer_queue.empty(), "Buffer queue is not empty when resetting buffer"
+        
         with self._buffer_lock:
             self.current_page_data = []
             self.current_page_size = 0
