@@ -90,7 +90,7 @@ def test_point_inlier_ratio_no_match(metric):
     assert torch.isclose(result['point_inlier_ratio'], torch.tensor(0.0))
 
 
-def test_point_inlier_ratio_empty_predictions(metric):
+def test_point_inlier_ratio_invalid_inputs(metric):
     # Test with empty predicted correspondences - should raise assertion error
     pred_src_points = torch.tensor([], dtype=torch.float32).reshape(0, 3)
     pred_tgt_points = torch.tensor([], dtype=torch.float32).reshape(0, 3)
@@ -105,38 +105,37 @@ def test_point_inlier_ratio_empty_predictions(metric):
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
     
-    # Should handle empty predictions gracefully
-    result = metric(datapoint)
-    assert 'point_inlier_ratio' in result
-    assert torch.isclose(result['point_inlier_ratio'], torch.tensor(0.0))
-
-    # Test with invalid correspondence shape
     with pytest.raises(AssertionError):
-        pred_src_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
-        pred_tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
-        pred_correspondences = torch.tensor([[0, 0, 0]], dtype=torch.long)  # Invalid shape
-        gt_correspondences = torch.tensor([[0, 0]], dtype=torch.long)
+        metric(datapoint)
+    # Test with invalid correspondence shape
+    pred_src_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
+    pred_tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
+    pred_correspondences = torch.tensor([[0, 0, 0]], dtype=torch.long)  # Invalid shape
+    gt_correspondences = torch.tensor([[0, 0]], dtype=torch.long)
 
-        outputs = {
-            'src_pc': pred_src_points,
-            'tgt_pc': pred_tgt_points,
-            'correspondences': pred_correspondences
-        }
-        labels = {'correspondences': gt_correspondences}
-        datapoint = create_datapoint(outputs, labels)
+    outputs = {
+        'src_pc': pred_src_points,
+        'tgt_pc': pred_tgt_points,
+        'correspondences': pred_correspondences
+    }
+    labels = {'correspondences': gt_correspondences}
+    datapoint = create_datapoint(outputs, labels)
+    
+    with pytest.raises(AssertionError):
         metric(datapoint)
 
     # Test with missing required keys
-    with pytest.raises(AssertionError):
-        src_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
-        tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
-        correspondences = torch.tensor([[0, 0]], dtype=torch.long)
+    pred_src_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
+    pred_tgt_points = torch.tensor([[0.0, 0.0, 0.0]], dtype=torch.float32)
+    gt_correspondences = torch.tensor([[0, 0]], dtype=torch.long)
 
-        outputs = {
-            'src_pc': src_points,
-            'tgt_pc': tgt_points,
-            # Missing 'correspondences' key
-        }
-        labels = {'correspondences': correspondences}
-        datapoint = create_datapoint(outputs, labels)
+    outputs = {
+        'src_pc': pred_src_points,
+        'tgt_pc': pred_tgt_points,
+        # Missing 'correspondences' key
+    }
+    labels = {'correspondences': gt_correspondences}
+    datapoint = create_datapoint(outputs, labels)
+    
+    with pytest.raises(AssertionError):
         metric(datapoint)
