@@ -1,9 +1,11 @@
-from typing import List, Dict, Set, Tuple, NamedTuple, Any, Literal
+from typing import List, Dict, Set, Tuple, NamedTuple, Any, Literal, Optional
 import importlib.util
 import os
 import json
+import glob
 import numpy as np
 import pickle
+import joblib
 from pathlib import Path
 from data.viewer.backend.backend import DatasetType, DATASET_GROUPS
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -533,3 +535,28 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     per_metric_color_scales = compute_per_metric_color_scales(log_dir_infos)
 
     return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales
+
+
+def load_debug_outputs(epoch_dir: str) -> Optional[List[tuple]]:
+    """Load all debug outputs for an epoch.
+    
+    Args:
+        epoch_dir: Path to epoch directory
+        
+    Returns:
+        List of all (datapoint_idx, debug_outputs) tuples, or None if not found
+    """
+    debugger_dir = os.path.join(epoch_dir, "debugger")
+    if not os.path.exists(debugger_dir):
+        return None
+    
+    all_outputs = []
+    # Load all pages in order
+    page_files = sorted(glob.glob(os.path.join(debugger_dir, "page_*.pkl")))
+    for page_file in page_files:
+        page_data = joblib.load(page_file)
+        all_outputs.extend(page_data)
+    
+    # Sort by datapoint index
+    all_outputs.sort(key=lambda x: x[0])
+    return all_outputs

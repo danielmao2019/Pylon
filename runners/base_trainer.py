@@ -11,6 +11,7 @@ import threading
 import criteria
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.builders import build_from_config
+from debugger.utils import get_layer_by_name
 from utils.determinism import set_determinism, set_seed
 from utils.io import serialize_tensor
 from utils.automation.run_status import check_epoch_finished
@@ -233,6 +234,44 @@ class BaseTrainer(ABC):
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
+    def _init_checkpoint_indices(self) -> None:
+        """Precompute epoch indices where checkpoints (and debug outputs) will be saved."""
+        checkpoint_method = self.config.get('checkpoint_method', 'latest')
+        
+        if checkpoint_method == 'all':
+            self.checkpoint_indices = list(range(self.tot_epochs))
+        elif checkpoint_method == 'latest':
+            self.checkpoint_indices = [self.tot_epochs - 1]  # Only last epoch
+        else:
+            # Interval-based: every N epochs
+            assert isinstance(checkpoint_method, int) and checkpoint_method > 0
+            self.checkpoint_indices = list(range(checkpoint_method-1, self.tot_epochs, checkpoint_method))
+            # Always include the last epoch
+            if self.tot_epochs - 1 not in self.checkpoint_indices:
+                self.checkpoint_indices.append(self.tot_epochs - 1)
+
+    def _init_debugger(self):
+        """Initialize debugger and register forward hooks."""
+        self.logger.info("Initializing debugger...")
+        
+        # Precompute checkpoint indices
+        self._init_checkpoint_indices()
+        
+        if self.config.get('debugger', None):
+            self.debugger = build_from_config(self.config['debugger'])
+            
+            # Register forward hooks on model
+            for layer_name, debuggers in self.debugger.forward_debuggers.items():
+                layer = get_layer_by_name(self.model, layer_name)
+                if layer is not None:
+                    for debugger in debuggers:
+                        layer.register_forward_hook(debugger.forward_hook_fn)
+                    self.logger.info(f"Registered {len(debuggers)} forward debugger(s) on layer '{layer_name}'")
+                else:
+                    self.logger.warning(f"Could not find layer '{layer_name}' for debugger")
+        else:
+            self.debugger = None
+
     # ====================================================================================================
     # iteration-level methods
     # ====================================================================================================
@@ -280,6 +319,13 @@ class BaseTrainer(ABC):
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])
         dp['scores'] = self.metric(dp)
+
+        # Add debug outputs (only during validation/test at checkpoint indices)
+        if self.debugger and self.debugger.enabled:
+            dp['debug'] = self.debugger(dp, self.model)
+            # Extract actual datapoint index (batch_size=1 for eval)
+            datapoint_idx = dp['meta_info']['idx'][0]
+            self.debugger.add_to_buffer(datapoint_idx, dp['debug'])
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))
@@ -421,6 +467,13 @@ class BaseTrainer(ABC):
         self.metric.reset_buffer()
         self.logger.eval()
         self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
+        
+        # Enable/disable debugger based on checkpoint indices
+        if self.debugger:
+            self.debugger.enabled = self.cum_epochs in self.checkpoint_indices
+            if self.debugger.enabled:
+                self.debugger.reset_buffer()
+                self.logger.info(f"Debugger enabled for epoch {self.cum_epochs}")
 
     def _after_val_loop_(self) -> None:
         if self.work_dir is None:
@@ -446,6 +499,11 @@ class BaseTrainer(ABC):
                 os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
             except:
                 best_checkpoint = None
+
+            # Save debugger outputs if enabled
+            if self.debugger and self.debugger.enabled:
+                debugger_dir = os.path.join(epoch_root, "debugger")
+                self.debugger.save_all(debugger_dir)
 
             # cleanup checkpoints
             self._clean_checkpoints(
@@ -586,6 +644,7 @@ class BaseTrainer(ABC):
         self._init_optimizer_()
         self._init_scheduler_()
         self._load_checkpoint_()
+        self._init_debugger()  # After model is initialized
 
     def run(self) -> None:
         # initialize run
