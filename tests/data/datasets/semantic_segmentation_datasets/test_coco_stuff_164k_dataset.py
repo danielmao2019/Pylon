@@ -31,15 +31,25 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"{meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('split', ['train2017', 'val2017'])
-@pytest.mark.parametrize('semantic_granularity', ['fine', 'coarse'])
-def test_coco_stuff_164k(split: str, semantic_granularity: str, max_samples, get_samples_to_test):
-    dataset = COCOStuff164KDataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a COCOStuff164KDataset instance."""
+    split, semantic_granularity = request.param
+    return COCOStuff164KDataset(
         data_root='./data/datasets/soft_links/COCOStuff164K',
         split=split,
         semantic_granularity=semantic_granularity,
     )
-    assert dataset.semantic_granularity == semantic_granularity, f"{dataset.semantic_granularity=}, {semantic_granularity=}"
+
+
+@pytest.mark.parametrize('dataset', [
+    ('train2017', 'fine'),
+    ('train2017', 'coarse'),
+    ('val2017', 'fine'),
+    ('val2017', 'coarse'),
+], indirect=True)
+def test_coco_stuff_164k(dataset, max_samples, get_samples_to_test):
+    semantic_granularity = dataset.semantic_granularity
     assert dataset.NUM_CLASSES == 182 if semantic_granularity == 'fine' else 27, f"{dataset.NUM_CLASSES=}, {semantic_granularity=}"
 
     def validate_datapoint(idx: int) -> None:

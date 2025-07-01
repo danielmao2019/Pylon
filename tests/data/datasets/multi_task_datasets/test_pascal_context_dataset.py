@@ -33,10 +33,14 @@ def validate_datapoint(dataset: PASCALContextDataset, idx: int) -> None:
     validate_meta_info(datapoint['meta_info'], idx)
 
 
-@pytest.mark.parametrize("dataset", [
-    (PASCALContextDataset(data_root="./data/datasets/soft_links/PASCAL_MT", split='train')),
-    (PASCALContextDataset(data_root="./data/datasets/soft_links/PASCAL_MT", split='val')),
-])
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a PASCALContextDataset instance."""
+    split = request.param
+    return PASCALContextDataset(data_root="./data/datasets/soft_links/PASCAL_MT", split=split)
+
+
+@pytest.mark.parametrize("dataset", ['train', 'val'], indirect=True)
 def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     

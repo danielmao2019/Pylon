@@ -22,12 +22,18 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('split', ['train'])
-def test_kc_3d_dataset(split: str, max_samples):
-    dataset = KC3DDataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a KC3DDataset instance."""
+    split = request.param
+    return KC3DDataset(
         data_root="./data/datasets/soft_links/KC3D",
         split=split
     )
+
+
+@pytest.mark.parametrize('dataset', ['train'], indirect=True)
+def test_kc_3d_dataset(dataset, max_samples, get_samples_to_test):
     assert isinstance(dataset, torch.utils.data.Dataset)
 
     def validate_datapoint(idx: int) -> None:

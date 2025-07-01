@@ -30,7 +30,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-def test_ppsl_dataset(max_samples) -> None:
+def test_ppsl_dataset(max_samples, get_samples_to_test) -> None:
     source = WHU_BD_Dataset(data_root="./data/datasets/soft_links/WHU-BD", split='train')
     dataset = PPSLDataset(source=source, dataset_size=len(source))
 

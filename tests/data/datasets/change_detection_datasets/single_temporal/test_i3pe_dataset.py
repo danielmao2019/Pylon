@@ -30,7 +30,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-def test_i3pe_dataset(max_samples) -> None:
+def test_i3pe_dataset(max_samples, get_samples_to_test) -> None:
     source = Bi2SingleTemporal(SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split='train'))
     dataset = I3PEDataset(source=source, dataset_size=len(source), exchange_ratio=0.75)
 
