@@ -46,6 +46,10 @@ def test_gan_dataset_properties(dataset):
         # Meta info check
         assert "cpu_rng_state" in meta_info, f"Missing cpu_rng_state in meta_info at idx {idx}"
         assert "gpu_rng_state" in meta_info, f"Missing gpu_rng_state in meta_info at idx {idx}"
+        
+        # Validate meta_info idx
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
 
 
 @pytest.mark.parametrize("dataset", [
