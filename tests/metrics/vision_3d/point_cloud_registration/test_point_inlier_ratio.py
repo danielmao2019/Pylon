@@ -8,7 +8,7 @@ def create_datapoint(outputs, labels, idx=0):
     return {
         'inputs': {},
         'outputs': outputs,
-        'labels': labels, 
+        'labels': labels,
         'meta_info': {'idx': idx}
     }
 
@@ -104,7 +104,7 @@ def test_point_inlier_ratio_invalid_inputs(metric):
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
-    
+
     with pytest.raises(AssertionError):
         metric(datapoint)
     # Test with invalid correspondence shape
@@ -120,7 +120,7 @@ def test_point_inlier_ratio_invalid_inputs(metric):
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
-    
+
     with pytest.raises(AssertionError):
         metric(datapoint)
 
@@ -136,6 +136,6 @@ def test_point_inlier_ratio_invalid_inputs(metric):
     }
     labels = {'correspondences': gt_correspondences}
     datapoint = create_datapoint(outputs, labels)
-    
+
     with pytest.raises(AssertionError):
         metric(datapoint)
