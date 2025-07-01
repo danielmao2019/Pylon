@@ -34,6 +34,6 @@ class ForwardDebugger(BaseDebugger):
         """
         raise NotImplementedError
 
-    def __call__(self, datapoint: Dict[str, Any], model: torch.nn.Module) -> Any:
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Any:
         """Return the captured data from forward pass."""
         return self.last_capture
