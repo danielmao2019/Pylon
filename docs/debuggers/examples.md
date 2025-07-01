@@ -180,38 +180,34 @@ class GradCAMDebugger(BaseDebugger):
 
     def __call__(self, datapoint: Dict[str, Dict[str, Any]], model: torch.nn.Module) -> Dict[str, Any]:
         """Compute GradCAM for the target layer."""
-        try:
-            # Extract inputs and outputs
-            inputs = datapoint['inputs']
-            outputs = datapoint['outputs']
+        # Extract inputs and outputs
+        inputs = datapoint['inputs']
+        outputs = datapoint['outputs']
 
-            # Now we have access to the model for gradient computation
-            # In practice, you'd use the model to compute gradients and apply GradCAM algorithm
-            # For demonstration, we'll create a simple mock GradCAM
-            if isinstance(outputs, torch.Tensor):
-                # Mock GradCAM as attention over the spatial dimensions
-                B, C = outputs.shape[:2]
-                if len(outputs.shape) >= 4:  # Has spatial dimensions
-                    H, W = outputs.shape[2:4]
-                    gradcam = torch.rand(B, H, W)  # Mock GradCAM
-                else:
-                    gradcam = torch.rand(B, 8, 8)  # Mock spatial GradCAM
-
-                return {
-                    'gradcam': gradcam.detach().cpu(),
-                    'target_layer': self.target_layer,
-                    'target_class': self.target_class,
-                    'gradcam_stats': {
-                        'mean': float(gradcam.mean()),
-                        'std': float(gradcam.std()),
-                        'shape': list(gradcam.shape)
-                    }
-                }
+        # Now we have access to the model for gradient computation
+        # In practice, you'd use the model to compute gradients and apply GradCAM algorithm
+        # For demonstration, we'll create a simple mock GradCAM
+        if isinstance(outputs, torch.Tensor):
+            # Mock GradCAM as attention over the spatial dimensions
+            B, C = outputs.shape[:2]
+            if len(outputs.shape) >= 4:  # Has spatial dimensions
+                H, W = outputs.shape[2:4]
+                gradcam = torch.rand(B, H, W)  # Mock GradCAM
             else:
-                return {'error': 'Model output is not a tensor'}
+                gradcam = torch.rand(B, 8, 8)  # Mock spatial GradCAM
 
-        except Exception as e:
-            return {'error': f'GradCAM computation failed: {str(e)}'}
+            return {
+                'gradcam': gradcam.detach().cpu(),
+                'target_layer': self.target_layer,
+                'target_class': self.target_class,
+                'gradcam_stats': {
+                    'mean': float(gradcam.mean()),
+                    'std': float(gradcam.std()),
+                    'shape': list(gradcam.shape)
+                }
+            }
+        else:
+            return {'error': 'Model output is not a tensor'}
 ```
 
 ## Usage Examples
@@ -290,13 +286,13 @@ config = {
    - Better for computations like GradCAM, LIME, etc.
 
 3. **Memory Management**: 
-   - Always move tensors to CPU in debug outputs
-   - Use downsampling for large feature maps
+   - Tensors are computed on GPU for speed, moved to CPU automatically during saving via apply_tensor_op
+   - Use downsampling for large feature maps to reduce memory usage
    - Consider the page_size_mb setting for storage efficiency
 
 4. **Error Handling**:
-   - Always wrap complex computations in try-catch
-   - Return error messages in dict format
-   - Check tensor types before processing
+   - Use explicit type checking (e.g., `isinstance(output, torch.Tensor)`)
+   - Return error messages in dict format for graceful failure handling
+   - Use assertions for input validation where appropriate
 
 These examples provide a solid foundation for implementing custom debuggers tailored to your specific research needs.
