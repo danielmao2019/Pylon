@@ -2,8 +2,8 @@
 # Please do not attempt to modify manually.
 from torch.utils.data.dataloader import DataLoader
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
-from metrics.vision_3d.point_cloud_registration.inlier_ratio import InlierRatio
 from metrics.vision_3d.point_cloud_registration.isotropic_transform_error import IsotropicTransformError
+from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import TransformInlierRatio
 from metrics.wrappers.hybrid_metric import HybridMetric
 from models.point_cloud_registration.classic.ransac_fpfh import RANSAC_FPFH
 from runners.base_evaluator import BaseEvaluator
@@ -18,6 +18,7 @@ config = {
         'args': {
             'data_root': './data/datasets/soft_links/KITTI',
             'split': 'val',
+            'device': 'cpu',
         },
     },
     'eval_dataloader': {
@@ -32,11 +33,14 @@ config = {
         'args': {
             'metrics_cfg': [{
     'class': IsotropicTransformError,
-    'args': {},
+    'args': {
+        'use_buffer': False,
+    },
 }, {
-    'class': InlierRatio,
+    'class': TransformInlierRatio,
     'args': {
         'threshold': 0.3,
+        'use_buffer': False,
     },
 }],
         },
@@ -45,4 +49,5 @@ config = {
         'class': RANSAC_FPFH,
         'args': {},
     },
+    'eval_n_jobs': 32,
 }

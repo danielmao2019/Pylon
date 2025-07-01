@@ -197,10 +197,3 @@ class CPUMonitor(BaseMonitor[CPUStatus]):
         ]
         all_running_commands = [process['cmd'] for process in all_processes]
         return all_running_commands
-
-    def log_stats(self, logger):
-        """Logs status of all monitored CPUs"""
-        stats = self._check()
-        assert len(stats) == 1, "Only support single server monitoring for now."
-        stats = list(stats.values())[0]
-        logger.update_buffer(stats)

@@ -131,7 +131,7 @@ def test_multiple_metrics_configuration(dummy_metric, another_dummy_metric):
 
 
 def test_compute_score_method_directly(metrics_cfg, sample_tensor, sample_target):
-    """Test the _compute_score method directly."""
+    """Test that the hybrid metric call works as expected (no direct _compute_score method)."""
     hybrid_metric = HybridMetric(metrics_cfg=metrics_cfg)
     
     # Call _compute_score directly

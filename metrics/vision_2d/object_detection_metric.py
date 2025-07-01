@@ -85,15 +85,19 @@ class ObjectDetectionMetric(SingleTaskMetric):
     def __call__(self, datapoint: Dict[str, Dict[str, torch.Tensor]]) -> torch.Tensor:
         r"""
         Args:
-            y_pred: {
-                'labels' (torch.Tensor): int64 tensor of shape (B, N).
-                'bboxes' (torch.Tensor): float32 tensor of shape (B, N, 4).
-                'objectness' (torch.Tensor): float32 tensor of shape (B, N).
-            }
-            y_true: {
-                'bboxes': (List[torch.Tensor]): list of float32 tensor, each of shape (N_i, 4).
-                'areas': (List[torch.Tensor]): list of int tensor, each of shape (N_i,).
-            }
+            datapoint: Complete datapoint dictionary containing:
+                - 'outputs': y_pred dict with 'labels', 'bboxes', 'objectness'
+                - 'labels': y_true dict with 'bboxes', 'areas'
+                - 'meta_info': Metadata including 'idx'
+                y_pred: {
+                    'labels' (torch.Tensor): int64 tensor of shape (B, N).
+                    'bboxes' (torch.Tensor): float32 tensor of shape (B, N, 4).
+                    'objectness' (torch.Tensor): float32 tensor of shape (B, N).
+                }
+                y_true: {
+                    'bboxes': (List[torch.Tensor]): list of float32 tensor, each of shape (N_i, 4).
+                    'areas': (List[torch.Tensor]): list of int tensor, each of shape (N_i,).
+                }
         """
         # Extract outputs and labels from datapoint
         assert 'outputs' in datapoint and 'labels' in datapoint
