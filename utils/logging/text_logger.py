@@ -35,7 +35,7 @@ class TextLogger(BaseLogger):
     def _init_core_logger_(self) -> None:
         self.core_logger = logging.getLogger(name=self.filepath)
         self.core_logger.setLevel(level=logging.INFO)
-        self.core_logger.propagate = True
+        self.core_logger.propagate = False
 
     def _init_file_handler_(self) -> None:
         if self.filepath is None:
@@ -77,3 +77,11 @@ class TextLogger(BaseLogger):
                 string = content + " " + ", ".join([f"{key}: {val}" for key, val in self.buffer.items()])
                 self.core_logger.info(string)
                 self.buffer = {}
+
+    def train(self) -> None:
+        """Switch to training mode (no-op for TextLogger)."""
+        pass
+
+    def eval(self) -> None:
+        """Switch to evaluation mode (no-op for TextLogger)."""
+        pass
