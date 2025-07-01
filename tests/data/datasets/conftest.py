@@ -23,24 +23,30 @@ def max_samples(request):
     return request.config.getoption("--samples")
 
 
-def get_samples_to_test(dataset_length: int, max_samples: int = None, default: int = None) -> int:
+@pytest.fixture
+def get_samples_to_test():
     """
-    Helper function to determine how many samples to test based on command line args.
-    
-    Args:
-        dataset_length: Total number of samples in the dataset
-        max_samples: Value from --samples command line argument (can be None)
-        default: Default number of samples to test if --samples not provided
+    Fixture that provides helper function to determine how many samples to test.
+    """
+    def _get_samples_to_test(dataset_length: int, max_samples: int = None, default: int = None) -> int:
+        """
+        Helper function to determine how many samples to test based on command line args.
         
-    Returns:
-        Number of samples to test
-    """
-    if max_samples is not None:
-        return min(dataset_length, max_samples)
-    elif default is not None:
-        return min(dataset_length, default)
-    else:
-        return dataset_length
+        Args:
+            dataset_length: Total number of samples in the dataset
+            max_samples: Value from --samples command line argument (can be None)
+            default: Default number of samples to test if --samples not provided
+            
+        Returns:
+            Number of samples to test
+        """
+        if max_samples is not None:
+            return min(dataset_length, max_samples)
+        elif default is not None:
+            return min(dataset_length, default)
+        else:
+            return dataset_length
+    return _get_samples_to_test
 
 
 @pytest.fixture

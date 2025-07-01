@@ -49,13 +49,19 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info['t1'], int), f"{type(meta_info['t1'])=}"
 
 
-@pytest.mark.parametrize('split', ['train', 'val', 'test'])
-def test_kitti_dataset(split: str, max_samples):
-    """Test the structure and content of dataset outputs."""
-    dataset = KITTIDataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a KITTIDataset instance."""
+    split = request.param
+    return KITTIDataset(
         data_root='./data/datasets/soft_links/KITTI',
         split=split,
     )
+
+
+@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
+def test_kitti_dataset(dataset, max_samples, get_samples_to_test):
+    """Test the structure and content of dataset outputs."""
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]

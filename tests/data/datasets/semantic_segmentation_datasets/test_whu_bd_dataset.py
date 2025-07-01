@@ -38,12 +38,18 @@ def test_whu_bd_sha1sum() -> None:
     )
 
 
-@pytest.mark.parametrize('split', ['train', 'val', 'test'])
-def test_whu_bd_dataset(split: str, max_samples):
-    dataset = WHU_BD_Dataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a WHU_BD_Dataset instance."""
+    split = request.param
+    return WHU_BD_Dataset(
         data_root="./data/datasets/soft_links/WHU-BD",
         split=split
     )
+
+
+@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
+def test_whu_bd_dataset(dataset, max_samples, get_samples_to_test):
     assert isinstance(dataset, torch.utils.data.Dataset)
 
     def validate_datapoint(idx: int) -> None:

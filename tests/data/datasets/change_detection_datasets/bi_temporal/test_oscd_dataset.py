@@ -76,16 +76,22 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: OSCDDataset, 
         assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.mark.parametrize('split,bands', [
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating an OSCDDataset instance."""
+    split, bands = request.param
+    return OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split=split, bands=bands)
+
+
+@pytest.mark.parametrize('dataset', [
     ('train', None),
     ('test', None),
     ('train', ['B01', 'B02']),
     ('test', ['B01', 'B02']),
     ('train', ['B04', 'B03', 'B02']),
     ('train', ['B08', 'B8A']),
-])
-def test_oscd(split: str, bands, max_samples) -> None:
-    dataset = OSCDDataset(data_root="./data/datasets/soft_links/OSCD", split=split, bands=bands)
+], indirect=True)
+def test_oscd(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
 

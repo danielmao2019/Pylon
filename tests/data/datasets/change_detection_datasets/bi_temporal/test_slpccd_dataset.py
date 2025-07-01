@@ -33,19 +33,25 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert 'pc_2_filepath' in meta_info
 
 
-@pytest.mark.parametrize('split', ['train', 'val', 'test'])
-def test_load_real_dataset(split: str, max_samples) -> None:
-    """Test loading the actual SLPCCD dataset."""
-    dataset = SLPCCDDataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating an SLPCCDDataset instance."""
+    split = request.param
+    return SLPCCDDataset(
         data_root="./data/datasets/soft_links/SLPCCD",
         split=split,
         num_points=256,  # Use fewer points for faster testing
         use_hierarchy=False,  # Disable hierarchy for faster testing
         random_subsample=True
     )
+
+
+@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
+def test_load_real_dataset(dataset, max_samples, get_samples_to_test) -> None:
+    """Test loading the actual SLPCCD dataset."""
     assert isinstance(dataset, torch.utils.data.Dataset)
     # Verify dataset has expected number of samples
-    assert len(dataset) > 0, f"No data found in {split} split"
+    assert len(dataset) > 0, f"No data found in dataset split"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]

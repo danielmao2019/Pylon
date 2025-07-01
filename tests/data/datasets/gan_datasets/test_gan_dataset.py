@@ -50,7 +50,7 @@ def dataset(request):
     ("train", "cuda"),
     ("test", "cuda"),
 ], indirect=True)
-def test_gan_dataset_properties(dataset, max_samples):
+def test_gan_dataset_properties(dataset, max_samples, get_samples_to_test):
     """Checks tensor shapes, dtypes, and device placement for all datapoints in the GANDataset."""
     
     def validate_datapoint(idx: int) -> None:
@@ -71,7 +71,7 @@ def test_gan_dataset_properties(dataset, max_samples):
     ("train", "cpu"),
     ("train", "cuda"),
 ], indirect=True)
-def test_reproducibility(dataset, max_samples):
+def test_reproducibility(dataset, max_samples, get_samples_to_test):
     """Checks that the dataset generates the same sample when the RNG state is restored."""
     
     def test_reproducibility_for_idx(idx: int) -> None:

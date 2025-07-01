@@ -33,7 +33,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 @pytest.mark.parametrize('split', ['train2017', 'val2017'])
 @pytest.mark.parametrize('semantic_granularity', ['fine', 'coarse'])
-def test_coco_stuff_164k(split: str, semantic_granularity: str, max_samples):
+def test_coco_stuff_164k(split: str, semantic_granularity: str, max_samples, get_samples_to_test):
     dataset = COCOStuff164KDataset(
         data_root='./data/datasets/soft_links/COCOStuff164K',
         split=split,
@@ -51,7 +51,7 @@ def test_coco_stuff_164k(split: str, semantic_granularity: str, max_samples):
         validate_meta_info(datapoint['meta_info'], idx)
 
     # Use command line --samples if provided, otherwise default to 1000
-    num_samples = min(len(dataset), max_samples if max_samples is not None else 1000)
+    num_samples = get_samples_to_test(len(dataset), max_samples, default=1000)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)

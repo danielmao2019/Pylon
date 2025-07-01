@@ -96,13 +96,18 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert all(x > 0 for x in meta_info['image_resolution']), f"{meta_info['image_resolution']=}"
 
 
-@pytest.mark.parametrize('split', ['training', 'validation'])
-def test_ade_20k(split: str, max_samples):
-    dataset = ADE20KDataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating an ADE20KDataset instance."""
+    split = request.param
+    return ADE20KDataset(
         data_root='./data/datasets/soft_links/ADE20K',
         split=split,
     )
-    assert dataset.split == split, f"{dataset.split=}, {split=}"
+
+
+@pytest.mark.parametrize('dataset', ['training', 'validation'], indirect=True)
+def test_ade_20k(dataset, max_samples, get_samples_to_test):
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]

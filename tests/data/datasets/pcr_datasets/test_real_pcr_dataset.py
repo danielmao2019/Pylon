@@ -61,7 +61,14 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"{meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('dataset_params', [
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a RealPCRDataset instance."""
+    dataset_params = request.param
+    return RealPCRDataset(**dataset_params)
+
+
+@pytest.mark.parametrize('dataset', [
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'cache_dirname': 'real_pcr_cache',
@@ -80,10 +87,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
         'min_points': 256,
         'max_points': 8192,
     },
-])
-def test_real_pcr_dataset(dataset_params, max_samples):
+], indirect=True)
+def test_real_pcr_dataset(dataset, max_samples, get_samples_to_test):
     """Test basic functionality of RealPCRDataset."""
-    dataset = RealPCRDataset(**dataset_params)
 
     # Basic dataset checks
     assert len(dataset) > 0, "Dataset should not be empty"

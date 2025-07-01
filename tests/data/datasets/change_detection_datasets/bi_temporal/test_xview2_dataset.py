@@ -41,9 +41,15 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('split', ['train', 'test', 'hold'])
-def test_xview2(split: str, max_samples) -> None:
-    dataset = xView2Dataset(data_root="./data/datasets/soft_links/xView2", split=split)
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating an xView2Dataset instance."""
+    split = request.param
+    return xView2Dataset(data_root="./data/datasets/soft_links/xView2", split=split)
+
+
+@pytest.mark.parametrize('dataset', ['train', 'test', 'hold'], indirect=True)
+def test_xview2(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
 
     def validate_datapoint(idx: int) -> None:

@@ -37,7 +37,7 @@ def validate_datapoint(dataset: PASCALContextDataset, idx: int) -> None:
     (PASCALContextDataset(data_root="./data/datasets/soft_links/PASCAL_MT", split='train')),
     (PASCALContextDataset(data_root="./data/datasets/soft_links/PASCAL_MT", split='val')),
 ])
-def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples) -> None:
+def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     
     num_samples = get_samples_to_test(len(dataset), max_samples, default=3)

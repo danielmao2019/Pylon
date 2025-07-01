@@ -26,12 +26,18 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize("num_classes, num_examples, image_res, initial_seed", [
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a ClassificationRandomDataset instance."""
+    num_classes, num_examples, image_res, initial_seed = request.param
+    return ClassificationRandomDataset(num_classes, num_examples, image_res, initial_seed)
+
+
+@pytest.mark.parametrize("dataset", [
     (10, 1000, (512, 512), None),
     (10, 1000, (512, 512), 0),
-])
-def test_classification_random_dataset(num_classes, num_examples, image_res, initial_seed, max_samples):
-    dataset = ClassificationRandomDataset(num_classes, num_examples, image_res, initial_seed)
+], indirect=True)
+def test_classification_random_dataset(dataset, max_samples, get_samples_to_test):
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]

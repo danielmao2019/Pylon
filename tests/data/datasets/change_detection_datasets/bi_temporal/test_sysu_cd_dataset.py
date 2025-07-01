@@ -48,9 +48,15 @@ def validate_class_distribution(class_dist: torch.Tensor, dataset: SYSU_CD_Datas
         assert class_dist.tolist() == dataset.CLASS_DIST, f"{class_dist=}, {dataset.CLASS_DIST=}"
 
 
-@pytest.mark.parametrize('split', ['train', 'val', 'test'])
-def test_sysu_cd(split: str, max_samples) -> None:
-    dataset = SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split=split)
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a SYSU_CD_Dataset instance."""
+    split = request.param
+    return SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split=split)
+
+
+@pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
+def test_sysu_cd(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
 

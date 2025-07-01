@@ -103,7 +103,19 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert meta_info['idx'] == datapoint_idx, f"{meta_info['idx']=}, {datapoint_idx=}"
 
 
-@pytest.mark.parametrize('dataset_params', [
+@pytest.fixture
+def dataset_with_params(request):
+    """Fixture for creating a SynthPCRDataset instance with validation parameters."""
+    dataset_params = request.param.copy()
+    # Extract rot_mag and trans_mag for validation
+    rot_mag = dataset_params.pop('rot_mag')
+    trans_mag = dataset_params.pop('trans_mag')
+    
+    dataset = data.datasets.SynthPCRDataset(**dataset_params)
+    return dataset, rot_mag, trans_mag
+
+
+@pytest.mark.parametrize('dataset_with_params', [
     {
         'data_root': './data/datasets/soft_links/ivision-pcr-data',
         'cache_dirname': 'synth_pcr_cache',
@@ -126,14 +138,10 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
         'rot_mag': 30.0,
         'trans_mag': 0.3,
     },
-])
-def test_synth_pcr_dataset(dataset_params, max_samples):
+], indirect=True)
+def test_synth_pcr_dataset(dataset_with_params, max_samples, get_samples_to_test):
     """Test basic functionality of SynthPCRDataset."""
-    # Extract rot_mag and trans_mag for validation
-    rot_mag = dataset_params.pop('rot_mag')
-    trans_mag = dataset_params.pop('trans_mag')
-    
-    dataset = data.datasets.SynthPCRDataset(**dataset_params)
+    dataset, rot_mag, trans_mag = dataset_with_params
 
     # Basic dataset checks
     assert len(dataset) > 0, "Dataset should not be empty"
