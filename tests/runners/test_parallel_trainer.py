@@ -7,10 +7,10 @@ from utils.ops import buffer_allclose
 class SimpleTrainer(BaseTrainer):
     """A simplified trainer for testing purposes."""
 
-    def _init_optimizer_(self) -> None:
+    def _init_optimizer(self) -> None:
         pass
 
-    def _init_scheduler_(self) -> None:
+    def _init_scheduler(self) -> None:
         pass
 
     def _set_gradients_(self, dp: dict) -> None:

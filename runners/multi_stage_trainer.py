@@ -43,7 +43,7 @@ class MultiStageTrainer(BaseTrainer):
         """Override to use total epochs across all stages."""
         self.tot_epochs = sum(self.stage_epochs)
 
-    def _init_determinism_(self):
+    def _init_determinism(self):
         self.logger.info("Initializing determinism...")
         utils.determinism.set_determinism()
 
@@ -104,15 +104,15 @@ class MultiStageTrainer(BaseTrainer):
 
     def _reinitialize(self) -> None:
         # Reinitialize components except model
-        self._init_dataloaders_()
-        self._init_criterion_()
-        self._init_metric_()
-        self._init_optimizer_()
-        self._init_scheduler_()
+        self._init_dataloaders()
+        self._init_criterion()
+        self._init_metric()
+        self._init_optimizer()
+        self._init_scheduler()
 
-    def _init_state_(self) -> None:
+    def _init_state(self) -> None:
         """Initialize state and handle resumption."""
-        super(MultiStageTrainer, self)._init_state_()
+        super(MultiStageTrainer, self)._init_state()
         # Determine which stage to resume from
         self.current_stage = self._get_stage_for_epoch(self.cum_epochs-1)
         self._switch_to_stage(self.current_stage)

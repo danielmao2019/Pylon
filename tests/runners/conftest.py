@@ -95,7 +95,6 @@ class SimpleModel(torch.nn.Module):
         return self.linear(x)
 
 
-@pytest.fixture
 def test_dir():
     """Create a temporary directory for test outputs."""
     temp_dir = tempfile.mkdtemp()
@@ -104,16 +103,6 @@ def test_dir():
     shutil.rmtree(temp_dir)
 
 
-@pytest.fixture
-def device():
-    """Get the device to use for testing."""
-    return 'cuda'
-
-
-@pytest.fixture
-def dataset(device):
-    """Create a simple dataset for testing."""
-    return SimpleDataset(device=device)
 
 
 @pytest.fixture
@@ -140,7 +129,7 @@ def trainer_cfg(dataloader, device):
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 1,  # Pylon evaluators expect batch_size=1
+                'batch_size': 1,
                 'shuffle': False
             }
         },
@@ -153,8 +142,8 @@ def trainer_cfg(dataloader, device):
         'epochs': 1,
         'init_seed': 42,
         'train_seeds': [42],
-        'val_seeds': [42],  # Add missing val_seeds
-        'test_seed': 42  # Add missing test_seed
+        'val_seeds': [42],
+        'test_seed': 42
     }
 
 

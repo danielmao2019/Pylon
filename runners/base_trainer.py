@@ -94,7 +94,7 @@ class BaseTrainer(ABC):
         self.system_monitor = SystemMonitor()
         self.system_monitor.start()
 
-    def _init_determinism_(self) -> None:
+    def _init_determinism(self) -> None:
         self.logger.info("Initializing determinism...")
         set_determinism()
 
@@ -130,7 +130,7 @@ class BaseTrainer(ABC):
     def expected_files(self) -> List[str]:
         return ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
 
-    def _init_state_(self) -> None:
+    def _init_state(self) -> None:
         self.logger.info("Initializing state...")
         # Get self.cum_epochs
         if self.work_dir is None:
@@ -153,7 +153,7 @@ class BaseTrainer(ABC):
             return
         self.cum_epochs = load_idx + 1
 
-    def _init_dataloaders_(self) -> None:
+    def _init_dataloaders(self) -> None:
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
         if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
@@ -184,7 +184,7 @@ class BaseTrainer(ABC):
         else:
             self.test_dataloader = None
 
-    def _init_criterion_(self) -> None:
+    def _init_criterion(self) -> None:
         self.logger.info("Initializing criterion...")
         if self.config.get('criterion', None):
             criterion = build_from_config(self.config['criterion'])
@@ -194,14 +194,14 @@ class BaseTrainer(ABC):
         else:
             self.criterion = None
 
-    def _init_metric_(self) -> None:
+    def _init_metric(self) -> None:
         self.logger.info("Initializing metric...")
         if self.config.get('metric', None):
             self.metric = build_from_config(self.config['metric'])
         else:
             self.metric = None
 
-    def _init_model_(self) -> None:
+    def _init_model(self) -> None:
         self.logger.info("Initializing model...")
         if self.config.get('model', None):
             model = build_from_config(self.config['model'])
@@ -212,7 +212,7 @@ class BaseTrainer(ABC):
             self.model = None
 
     @abstractmethod
-    def _init_optimizer_(self) -> None:
+    def _init_optimizer(self) -> None:
         raise NotImplementedError("Abstract method BaseTrainer._init_optimizer_ not implemented.")
 
     @abstractmethod
