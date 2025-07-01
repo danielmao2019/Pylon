@@ -6,11 +6,14 @@ import torch
 @pytest.mark.parametrize("dataset", [
     (KC3DDataset(data_root="./data/datasets/soft_links/KC3D", split='train')),
 ])
-def test_kc_3d(dataset: torch.utils.data.Dataset) -> None:
+def test_kc_3d(dataset: torch.utils.data.Dataset, max_samples) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    for idx in range(min(len(dataset), 100)):
+    # Use command line --samples if provided, otherwise default to 100
+    samples_to_test = min(len(dataset), max_samples if max_samples is not None else 100)
+    for idx in range(samples_to_test):
         datapoint = dataset[idx]
         inputs, labels, meta_info = datapoint['inputs'], datapoint['labels'], datapoint['meta_info']
         assert set(inputs.keys()) == set(KC3DDataset.INPUT_NAMES), f"{set(inputs.keys())=}"
         assert set(labels.keys()) == set(KC3DDataset.LABEL_NAMES), f"{set(inputs.keys())=}"
-        assert meta_info == {}
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
