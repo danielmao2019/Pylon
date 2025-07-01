@@ -1,6 +1,7 @@
 import pytest
 from data.datasets.change_detection_datasets.bi_temporal.kc_3d_dataset import KC3DDataset
 import torch
+from tests.data.datasets.conftest import get_samples_to_test
 
 
 @pytest.mark.parametrize("dataset", [
@@ -8,8 +9,7 @@ import torch
 ])
 def test_kc_3d(dataset: torch.utils.data.Dataset, max_samples) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    # Use command line --samples if provided, otherwise default to 100
-    samples_to_test = min(len(dataset), max_samples if max_samples is not None else 100)
+    samples_to_test = get_samples_to_test(len(dataset), max_samples, default=100)
     for idx in range(samples_to_test):
         datapoint = dataset[idx]
         inputs, labels, meta_info = datapoint['inputs'], datapoint['labels'], datapoint['meta_info']
