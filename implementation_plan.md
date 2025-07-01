@@ -25,140 +25,153 @@ After thorough exploration of the Pylon codebase, I've identified the key compon
 
 ## Early Stopping Implementation Strategy
 
-### Phase 1: Fix Existing Issues
-1. **Fix `_find_best_checkpoint_()` method**:
-   - Replace hardcoded `'reduced'` key with configurable metric selection
-   - Add `monitor_metric` parameter to config (e.g., `'mean_IoU'`, `'mean_f1'`)
-   - Extract metric value from `scores['aggregated'][monitor_metric]`
+### Phase 1: Implement Score Comparison System
+1. **Create score comparison utilities**:
+   - Location: `utils/training/score_comparison.py`
+   - Support three comparison modes:
+     - **Vector comparison**: Multi-dimensional partial order (first quadrant cone)
+     - **Weighted average**: Combine scores with user-defined weights
+     - **Simple average**: Average all scores equally
+   - Use metric `DIRECTION` attributes for proper comparison
 
-### Phase 2: Implement Early Stopping Component
-1. **Create `EarlyStopping` class**:
-   - Location: `utils/training/early_stopping.py`
-   - Features:
-     - Track validation metric history
-     - Configurable patience (epochs without improvement)
-     - Configurable min_delta (minimum improvement threshold)
-     - Support for both minimize and maximize metrics
-     - Save/restore state for training resumption
+2. **Fix `_find_best_checkpoint_()` method**:
+   - Replace hardcoded `'reduced'` key with `config['order']` system
+   - Support all three comparison modes
+   - Extract scores from `scores['aggregated']` structure
 
-2. **Configuration Parameters**:
+### Phase 2: Configuration System
+1. **Add `config['order']` field**:
    ```python
-   early_stopping_config = {
-       'enabled': True,
-       'monitor_metric': 'mean_IoU',  # Which metric to monitor
-       'mode': 'max',  # 'max' for metrics to maximize, 'min' for minimize
-       'patience': 10,  # Number of epochs without improvement
-       'min_delta': 0.001,  # Minimum improvement threshold
-       'restore_best_weights': True,  # Load best weights when stopping
+   config = {
+       'order': False,  # Vector comparison (partial order)
+       # OR
+       'order': True,   # Average all scores
+       # OR  
+       'order': {       # Weighted combination
+           'aggregated': {
+               'mean_IoU': 0.7,
+               'mean_f1': 0.3,
+               # Missing scores default to 0.0
+           }
+       }
    }
    ```
 
-### Phase 3: Integration with BaseTrainer
-1. **Modify `BaseTrainer.__init__()`**:
-   - Initialize early stopping component if enabled in config
-   - Set up metric monitoring configuration
+2. **Add `config['early_stopping']` field**:
+   ```python
+   config = {
+       'early_stopping': {
+           'enabled': True,  # Default True if config exists
+           'epochs': 10,     # Patience epochs without improvement
+       }
+   }
+   ```
+
+### Phase 3: Early Stopping Logic
+1. **Implement early stopping in BaseTrainer**:
+   - Track validation score history
+   - Use same comparison logic as checkpoint selection
+   - No separate state persistence needed
+   - Stop training when no improvement for specified epochs
 
 2. **Modify training loop (`run()` method)**:
    - After each validation epoch, check early stopping condition
    - If should stop: log message and break training loop
-   - If restore_best_weights: load best checkpoint
+   - Use existing best checkpoint loading mechanism
 
-3. **Update validation logic**:
-   - Extract monitored metric from validation scores
-   - Update early stopping tracker with current metric value
-
-### Phase 4: Testing and Documentation
-1. **Create comprehensive tests**:
-   - Test early stopping with different metrics
-   - Test patience and min_delta functionality
-   - Test training resumption with early stopping state
-   - Test integration with existing trainer classes
-
-2. **Update configuration examples**:
-   - Add early stopping to example configs
-   - Document configuration parameters
+### Phase 4: Run Completion Logic (Deferred)
+1. **Major refactoring required**:
+   - Update `_init_state_()` in runners
+   - Update progress checking in `agents` module
+   - Redefine what constitutes a "completed" run
+   - This phase can be implemented as a separate task
 
 ## Detailed Implementation
 
-### 1. EarlyStopping Class Design
+### 1. Score Comparison System Design
 
 ```python
-class EarlyStopping:
-    def __init__(
-        self,
-        monitor_metric: str,
-        mode: str = 'max',
-        patience: int = 10,
-        min_delta: float = 0.0,
-        restore_best_weights: bool = True
-    ):
-        # Implementation details below
+# utils/training/score_comparison.py
+def compare_scores(
+    current_scores: Dict[str, Any],
+    best_scores: Dict[str, Any], 
+    order_config: Union[bool, Dict, None],
+    metric_directions: Dict[str, int]
+) -> bool:
+    """
+    Compare two score dictionaries based on order configuration.
+    
+    Returns:
+        True if current_scores is better than best_scores
+    """
 ```
 
 **Key Features**:
-- Thread-safe design following Pylon's patterns
-- State persistence for training resumption  
-- Configurable metric direction (maximize/minimize)
-- Best weights tracking
+- Support for vector comparison (partial order)
+- Weighted averaging with normalization
+- Integration with metric DIRECTION attributes
+- Nested dictionary structure handling
 
 ### 2. BaseTrainer Integration Points
 
 **Modified methods**:
-1. `__init__()`: Initialize early stopping
-2. `_init_components_()`: Set up early stopping with metric info
-3. `run()`: Main training loop with early stopping checks
-4. `_find_best_checkpoint_()`: Fix to use configurable metric
-5. `_after_val_loop_()`: Update early stopping tracker
+1. `_find_best_checkpoint_()`: Use `config['order']` instead of 'reduced' key
+2. `run()`: Add early stopping check after validation
+3. `_after_val_loop_()`: Track score history for early stopping
 
 **New methods**:
-1. `_init_early_stopping_()`: Initialize early stopping component
+1. `_compare_validation_scores()`: Wrapper for score comparison
 2. `_should_stop_early()`: Check early stopping condition
-3. `_handle_early_stop()`: Handle early stopping logic
+3. `_get_metric_directions()`: Extract DIRECTION from metric classes
 
-### 3. Configuration Integration
+### 3. Configuration Schema
 
-**Required config keys**:
+**New config structure**:
 ```python
 config = {
-    # Existing keys...
-    'monitor_metric': 'mean_IoU',  # Fix for _find_best_checkpoint_
+    # Score comparison (used by both early stopping and best checkpoint)
+    'order': False,  # or True, or weights dict
+    
+    # Early stopping configuration
     'early_stopping': {
-        'enabled': True,
-        'monitor_metric': 'mean_IoU',  # Can differ from above
-        'mode': 'max',
-        'patience': 10,
-        'min_delta': 0.001,
-        'restore_best_weights': True,
-    }
+        'enabled': True,   # Default True if section exists
+        'epochs': 10,      # Patience
+    },
+    
+    # Existing keys remain unchanged...
 }
 ```
 
-### 4. Backward Compatibility
+### 4. Backward Compatibility Strategy
 
-- Early stopping is opt-in (disabled by default)
-- Existing configs continue to work unchanged
-- `monitor_metric` has sensible defaults per task type
-- Graceful fallbacks for missing configuration
+- `config['order']` is optional - will need default behavior
+- `config['early_stopping']` is optional - disabled if not present
+- Existing configs work unchanged
+- Gradual migration path for users
 
 ## Implementation Timeline
 
-1. **Phase 1** (Fix existing issues): 1-2 hours
-   - Fix `_find_best_checkpoint_()` method
-   - Add `monitor_metric` configuration support
+1. **Phase 1** (Score comparison system): 3-4 hours
+   - Implement `utils/training/score_comparison.py`
+   - Support vector, weighted, and average comparison modes
+   - Add comprehensive tests for comparison logic
 
-2. **Phase 2** (Early stopping component): 2-3 hours  
-   - Implement `EarlyStopping` class
-   - Add comprehensive tests
+2. **Phase 2** (BaseTrainer integration): 2-3 hours  
+   - Fix `_find_best_checkpoint_()` to use `config['order']`
+   - Add early stopping logic to training loop
+   - Extract metric DIRECTION attributes
 
-3. **Phase 3** (Integration): 2-3 hours
-   - Integrate with `BaseTrainer`
-   - Update all trainer subclasses if needed
+3. **Phase 3** (Configuration & testing): 2-3 hours
+   - Validate configuration parsing
+   - Add integration tests
+   - Test with existing configs (backward compatibility)
 
-4. **Phase 4** (Testing & docs): 1-2 hours
-   - Integration testing
-   - Update documentation and examples
+4. **Phase 4** (Run completion refactoring): 4-6 hours (DEFERRED)
+   - Major refactoring of `_init_state_()` 
+   - Update agents module progress checking
+   - Can be implemented as separate task
 
-**Total estimated time**: 6-10 hours
+**Total estimated time**: 7-10 hours (Phase 1-3), +4-6 hours for Phase 4
 
 ## Q&A
 
@@ -209,5 +222,17 @@ Based on your answers, I have some clarification questions:
    - Require explicit configuration?
 
 5. **agents module scope**: The agents module refactoring sounds extensive. Should this be a separate task, or is it essential for basic early stopping functionality?
+
+### Answers (Round 2)
+
+1. When using the partial order in high-dimensional Euclidean space for early stopping, you only need to know when the model is improving and when it is not improving. For the incomparable case, it is "not improving". For finding the best checkpoint, yes there is a problem, because you must be able to compare any two models. So in the case that you are not able to find a model that is better than all other models, then you use the equal-weight average to reduce the high-dimensional scores to a scalar.
+
+2. You should assume that all epochs have the same scores structure, because they will be using the same metric class. The only case is multi-stage training. But in this case you need a separate config for each stage, then you have the opportunity to provide different order configs if the scores structure changes. Note that for model comparison, you don't need the `per_datapoint` field in the scores. You only look at the `aggregated` field of the scores dict. The `order` field should have the same structure as the dict `scores['aggregated']` (not the same structure as the dict `scores`).
+
+3. Do "Add early stopping logic" first, including fixing the `_init_state` in the runners module. that's the first thing. Then you fix `_find_best_checkpoint_` (please rename to `_find_best_checkpoint`). Lastly you fix other modules like `agents`.
+
+4. When `config['order']` is not provided, default to `False`, meaning that you don't do any reduction.
+
+5. Let's do this task in another PR.
 
 This plan provides a robust, backward-compatible early stopping implementation that follows Pylon's design patterns and conventions.
