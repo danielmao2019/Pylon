@@ -26,3 +26,8 @@ def test_xview2(dataset: torch.utils.data.Dataset) -> None:
         assert labels['lbl_2'].ndim == 2, f"{labels['lbl_2'].shape=}"
         assert set(torch.unique(labels['lbl_1']).tolist()).issubset(set([0, 1, 2, 3, 4])), f"{torch.unique(labels['lbl_1'])=}"
         assert set(torch.unique(labels['lbl_2']).tolist()).issubset(set([0, 1, 2, 3, 4])), f"{torch.unique(labels['lbl_2'])=}"
+        
+        # Validate meta_info idx
+        meta_info = datapoint['meta_info']
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"

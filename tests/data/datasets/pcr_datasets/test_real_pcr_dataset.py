@@ -81,6 +81,10 @@ def test_real_pcr_dataset(dataset_params):
         assert isinstance(meta_info, dict), "meta_info should be a dictionary"
         assert meta_info.keys() >= {'idx', 'src_path', 'tgt_path'}, \
             "meta_info missing required keys"
+        
+        # Validate meta_info idx
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
 
         # Check that source and target have same number of points
         assert inputs['src_pc']['pos'].shape[0] == inputs['src_pc']['feat'].shape[0], \

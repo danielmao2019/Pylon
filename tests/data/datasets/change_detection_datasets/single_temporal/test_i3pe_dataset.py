@@ -26,3 +26,8 @@ def test_i3pe_dataset() -> None:
         change_map = labels['change_map']
         assert type(change_map) == torch.Tensor and change_map.ndim == 2 and change_map.dtype == torch.int64
         assert set(torch.unique(change_map).tolist()).issubset({0, 1}), f"{torch.unique(change_map)=}"
+        
+        # Validate meta_info idx
+        meta_info = datapoint['meta_info']
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"

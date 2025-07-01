@@ -38,3 +38,7 @@ def test_celeb_a(dataset: torch.utils.data.Dataset) -> None:
         assert type(image_resolution) == tuple
         assert len(image_resolution) == 2
         assert image.shape[-2:] == image_resolution
+        
+        # Validate meta_info idx
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == i, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {i=}"

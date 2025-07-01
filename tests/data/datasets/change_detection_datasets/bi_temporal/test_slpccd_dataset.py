@@ -55,4 +55,8 @@ def test_load_real_dataset(split):
         assert 'pc_1_filepath' in meta
         assert 'pc_2_filepath' in meta
 
+        # Validate meta_info idx
+        assert 'idx' in meta, f"meta_info should contain 'idx' key: {meta.keys()=}"
+        assert meta['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta['idx']=}, {idx=}"
+
     print(f"Successfully verified all datapoints in {split} dataset")

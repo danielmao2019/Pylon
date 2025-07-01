@@ -97,6 +97,10 @@ def test_urb3dcd_dataset(dataset_params: Dict[str, Union[int, float, bool]]) -> 
         assert 'pc_2_filepath' in meta_info
         assert isinstance(meta_info['pc_1_filepath'], str)
         assert isinstance(meta_info['pc_2_filepath'], str)
+        
+        # Validate meta_info idx
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
 
 
 def test_fixed_samples_consistency() -> None:

@@ -60,3 +60,7 @@ def test_nyu_v2(dataset: torch.utils.data.Dataset) -> None:
         assert depth_estimation.shape[-2:] == image_resolution
         assert normal_estimation.shape[-2:] == image_resolution
         assert semantic_segmentation.shape[-2:] == image_resolution
+        
+        # Validate meta_info idx
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == i, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {i=}"

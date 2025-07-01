@@ -110,6 +110,11 @@ def test_ade_20k(split: str):
         validate_inputs(dp['inputs'])
         validate_labels(dp['labels'], dp['meta_info']['image_resolution'])
         validate_meta_info(dp['meta_info'])
+        
+        # Validate meta_info idx
+        meta_info = dp['meta_info']
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
 
     indices = random.sample(range(len(dataset)), 1000)
     with ThreadPoolExecutor() as executor:

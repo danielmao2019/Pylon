@@ -38,3 +38,8 @@ def test_whu_bd_dataset(dataset) -> None:
         assert semantic_map.ndim == 2, f"{semantic_map.shape=}"
         assert semantic_map.dtype == torch.int64, f"{semantic_map.dtype=}"
         assert set(torch.unique(semantic_map).tolist()).issubset({0, 1}), f"{torch.unique(semantic_map)=}"
+        
+        # Validate meta_info idx
+        meta_info = datapoint['meta_info']
+        assert 'idx' in meta_info, f"meta_info should contain 'idx' key: {meta_info.keys()=}"
+        assert meta_info['idx'] == idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {idx=}"
