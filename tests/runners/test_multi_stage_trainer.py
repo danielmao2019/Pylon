@@ -101,6 +101,8 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'init_seed': 42,
         'epochs': epochs,
         'train_seeds': [42] * epochs,
+        'val_seeds': [42] * epochs,  # Add missing val_seeds
+        'test_seed': 42,  # Add missing test_seed
         'checkpoint_method': 'all',
         'train_dataset': {
             'class': dataset,
