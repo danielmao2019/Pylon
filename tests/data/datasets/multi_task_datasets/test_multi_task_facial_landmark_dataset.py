@@ -51,17 +51,18 @@ def validate_datapoint(dataset: MultiTaskFacialLandmarkDataset, idx: int) -> Non
 @pytest.fixture
 def dataset(request):
     """Fixture for creating a MultiTaskFacialLandmarkDataset instance."""
-    dataset_params = request.param
-    return MultiTaskFacialLandmarkDataset(**dataset_params)
+    params = request.param
+    return MultiTaskFacialLandmarkDataset(
+        data_root='./data/datasets/soft_links/multi-task-facial-landmark',
+        **params
+    )
 
 
 @pytest.mark.parametrize('dataset', [
     {
-        'data_root': './data/datasets/soft_links/multi-task-facial-landmark',
         'split': 'train',
     },
     {
-        'data_root': './data/datasets/soft_links/multi-task-facial-landmark',
         'split': 'train',
         'indices': [0, 2, 4, 6, 8],
     },

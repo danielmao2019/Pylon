@@ -61,17 +61,18 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
 @pytest.fixture
 def dataset(request):
     """Fixture for creating a CityScapesDataset instance."""
-    dataset_params = request.param
-    return CityScapesDataset(**dataset_params)
+    params = request.param
+    return CityScapesDataset(
+        data_root='./data/datasets/soft_links/city-scapes',
+        **params
+    )
 
 
 @pytest.mark.parametrize('dataset', [
     {
-        'data_root': './data/datasets/soft_links/city-scapes',
         'split': 'train',
     },
     {
-        'data_root': './data/datasets/soft_links/city-scapes',
         'split': 'train',
         'indices': [0, 2, 4, 6, 8],
     },
