@@ -76,6 +76,15 @@ cd tests/runners && pytest test_checkpoint_indices.py
 
 **IMPORTANT:** NEVER use the PYTHONPATH environment variable when running commands. This can interfere with Python's module resolution and cause import errors. The project structure handles imports correctly without it
 
+**conftest.py Usage:**
+- conftest.py files are for pytest fixtures ONLY, not general class definitions
+- Classes defined in conftest.py are NOT automatically available in test files
+- Only fixtures (functions decorated with `@pytest.fixture`) are auto-discovered
+- For test helper classes, either:
+  - Define them directly in the test file (recommended for test-specific classes)
+  - Import them from actual source modules
+  - Define them as fixtures in conftest.py if they need setup/teardown
+
 ### 2.2. Training
 ```bash
 # Basic training

@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 from typing import Dict, Any, List
 from debuggers.base_debugger import BaseDebugger
-from debuggers.forward_debugger import ForwardDebugger
 
 
 class DummyModel(nn.Module):
@@ -60,85 +59,8 @@ class AnotherDummyDebugger(BaseDebugger):
         return {self.output_key: stats}
 
 
-# Forward Debugger Implementations for Testing
-class FeatureMapDebugger(ForwardDebugger):
-    """Test debugger for feature map extraction."""
-
-    def process_forward(self, module, input, output):
-        if isinstance(output, torch.Tensor):
-            return {
-                'feature_map': output.detach().cpu(),
-                'stats': {
-                    'mean': float(output.mean()),
-                    'std': float(output.std()),
-                    'min': float(output.min()),
-                    'max': float(output.max()),
-                    'shape': list(output.shape)
-                },
-                'layer_name': self.layer_name
-            }
-        return {'error': 'Output is not a tensor'}
-
-
-class ActivationStatsDebugger(ForwardDebugger):
-    """Test debugger for activation statistics."""
-
-    def process_forward(self, module, input, output):
-        if isinstance(output, torch.Tensor):
-            activation = output.detach().cpu()
-            stats = {
-                'shape': list(activation.shape),
-                'mean': float(activation.mean()),
-                'std': float(activation.std()),
-                'min': float(activation.min()),
-                'max': float(activation.max()),
-                'l1_norm': float(activation.abs().mean()),
-                'l2_norm': float(activation.norm()),
-                'sparsity': float((activation == 0).float().mean()),
-                'positive_ratio': float((activation > 0).float().mean()),
-                'saturation_low': float((activation <= -1).float().mean()),
-                'saturation_high': float((activation >= 1).float().mean()),
-            }
-            if len(activation.shape) >= 3:
-                channel_means = activation.mean(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.mean(dim=0)
-                stats['channel_means'] = channel_means.tolist()
-                stats['channel_stds'] = (activation.std(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.std(dim=0)).tolist()
-            return {
-                'layer_name': self.layer_name,
-                'module_type': type(module).__name__,
-                'activation_stats': stats,
-                'sample_values': activation.flatten()[:100].tolist()
-            }
-        return {'error': 'Output is not a tensor'}
-
-
-class LayerOutputDebugger(ForwardDebugger):
-    """Test debugger for layer outputs."""
-
-    def __init__(self, layer_name: str, downsample_factor: int = 4):
-        super().__init__(layer_name)
-        self.downsample_factor = downsample_factor
-
-    def process_forward(self, module, input, output):
-        if isinstance(output, torch.Tensor):
-            output_cpu = output.detach().cpu()
-            if len(output_cpu.shape) >= 3 and self.downsample_factor > 1:
-                if len(output_cpu.shape) == 4:
-                    downsampled = torch.nn.functional.avg_pool2d(output_cpu, self.downsample_factor)
-                elif len(output_cpu.shape) == 3:
-                    downsampled = torch.nn.functional.avg_pool2d(output_cpu.unsqueeze(0), self.downsample_factor).squeeze(0)
-                else:
-                    downsampled = output_cpu
-            else:
-                downsampled = output_cpu
-            return {
-                'layer_name': self.layer_name,
-                'original_shape': list(output_cpu.shape),
-                'output': downsampled,
-                'downsampled': self.downsample_factor > 1,
-                'downsample_factor': self.downsample_factor
-            }
-        return {'error': 'Output is not a tensor'}
+# NOTE: Forward debugger test classes are now defined directly in test_forward_debugger.py
+# conftest.py is for fixtures only, not class definitions
 
 
 @pytest.fixture
