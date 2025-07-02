@@ -74,6 +74,7 @@ class SimpleDataset(torch.utils.data.Dataset):
         self.device = device
         self.data = torch.randn(size, 10, device=device)
         self.labels = torch.randn(size, 1, device=device)
+        self.base_seed = 0  # Add base_seed attribute
 
     def __len__(self):
         return len(self.data)
@@ -84,6 +85,10 @@ class SimpleDataset(torch.utils.data.Dataset):
             'labels': self.labels[idx], 
             'meta_info': {'idx': idx}
         }
+    
+    def set_base_seed(self, seed: int) -> None:
+        """Set the base seed for deterministic behavior."""
+        self.base_seed = seed
 
 
 class SimpleModel(torch.nn.Module):
@@ -142,7 +147,7 @@ def trainer_cfg(dataloader, device):
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 32,
+                'batch_size': 1,  # Pylon evaluators expect batch_size=1
                 'shuffle': False
             }
         },
