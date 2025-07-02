@@ -6,43 +6,9 @@ from optimizers.wrappers.multi_part_optimizer import MultiPartOptimizer
 from optimizers.single_task_optimizer import SingleTaskOptimizer
 
 
-def test_multi_part_optimizer_initialization():
+def test_multi_part_optimizer_initialization(multi_part_optimizer_configs):
     """Test that MultiPartOptimizer correctly initializes with optimizer configs."""
-    model = nn.Sequential(
-        nn.Linear(10, 5),
-        nn.ReLU(),
-        nn.Linear(5, 2)
-    )
-    
-    optimizer_cfgs = {
-        'encoder': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.SGD,
-                    'args': {
-                        'params': list(model[0].parameters()),
-                        'lr': 0.01,
-                        'momentum': 0.9
-                    }
-                }
-            }
-        },
-        'decoder': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.Adam,
-                    'args': {
-                        'params': list(model[2].parameters()),
-                        'lr': 0.001
-                    }
-                }
-            }
-        }
-    }
-    
-    optimizer = MultiPartOptimizer(optimizer_cfgs)
+    optimizer = MultiPartOptimizer(multi_part_optimizer_configs)
     
     assert hasattr(optimizer, 'optimizers')
     assert 'encoder' in optimizer.optimizers
@@ -51,52 +17,17 @@ def test_multi_part_optimizer_initialization():
     assert isinstance(optimizer.optimizers['decoder'], SingleTaskOptimizer)
 
 
-def test_multi_part_optimizer_state_dict_save_load():
+def test_multi_part_optimizer_state_dict_save_load(simple_model, multi_part_optimizer_configs):
     """Test that MultiPartOptimizer correctly saves and loads state dicts."""
-    model = nn.Sequential(
-        nn.Linear(10, 5),
-        nn.ReLU(),
-        nn.Linear(5, 2)
-    )
-    
-    optimizer_cfgs = {
-        'encoder': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.SGD,
-                    'args': {
-                        'params': list(model[0].parameters()),
-                        'lr': 0.01,
-                        'momentum': 0.9
-                    }
-                }
-            }
-        },
-        'decoder': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.SGD,
-                    'args': {
-                        'params': list(model[2].parameters()),
-                        'lr': 0.001,
-                        'momentum': 0.95
-                    }
-                }
-            }
-        }
-    }
-    
     # Create MultiPartOptimizer
-    optimizer = MultiPartOptimizer(optimizer_cfgs)
+    optimizer = MultiPartOptimizer(multi_part_optimizer_configs)
     
     # Run a few optimization steps to build up state
     for _ in range(3):
         for opt in optimizer.optimizers.values():
             opt.zero_grad()
         x = torch.randn(4, 10)
-        y = model(x)
+        y = simple_model(x)
         loss = y.sum()
         loss.backward()
         for opt in optimizer.optimizers.values():
@@ -115,7 +46,7 @@ def test_multi_part_optimizer_state_dict_save_load():
     assert 'param_groups' in state_dict['decoder']
     
     # Create a new optimizer with the same config
-    new_optimizer = MultiPartOptimizer(optimizer_cfgs)
+    new_optimizer = MultiPartOptimizer(multi_part_optimizer_configs)
     
     # Load state dict
     new_optimizer.load_state_dict(state_dict)
@@ -150,36 +81,9 @@ def test_multi_part_optimizer_state_dict_save_load():
                 )
 
 
-def test_multi_part_optimizer_reset_buffer():
+def test_multi_part_optimizer_reset_buffer(basic_optimizer_configs):
     """Test that reset_buffer works for all optimizers."""
-    optimizer_cfgs = {
-        'part1': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.SGD,
-                    'args': {
-                        'params': [torch.nn.Parameter(torch.randn(2, 2))],
-                        'lr': 0.01
-                    }
-                }
-            }
-        },
-        'part2': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.SGD,
-                    'args': {
-                        'params': [torch.nn.Parameter(torch.randn(2, 2))],
-                        'lr': 0.01
-                    }
-                }
-            }
-        }
-    }
-    
-    optimizer = MultiPartOptimizer(optimizer_cfgs)
+    optimizer = MultiPartOptimizer(basic_optimizer_configs)
     
     # Reset buffers should not raise an error
     optimizer.reset_buffer()
@@ -190,36 +94,9 @@ def test_multi_part_optimizer_reset_buffer():
         assert opt.buffer == []
 
 
-def test_multi_part_optimizer_summarize():
+def test_multi_part_optimizer_summarize(basic_optimizer_configs):
     """Test that summarize works correctly."""
-    optimizer_cfgs = {
-        'part1': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.SGD,
-                    'args': {
-                        'params': [torch.nn.Parameter(torch.randn(2, 2))],
-                        'lr': 0.01
-                    }
-                }
-            }
-        },
-        'part2': {
-            'class': SingleTaskOptimizer,
-            'args': {
-                'optimizer_config': {
-                    'class': torch.optim.SGD,
-                    'args': {
-                        'params': [torch.nn.Parameter(torch.randn(2, 2))],
-                        'lr': 0.01
-                    }
-                }
-            }
-        }
-    }
-    
-    optimizer = MultiPartOptimizer(optimizer_cfgs)
+    optimizer = MultiPartOptimizer(basic_optimizer_configs)
     
     # Summarize should return a dictionary
     summary = optimizer.summarize()
