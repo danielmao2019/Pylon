@@ -27,11 +27,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
     assert meta_info.keys() == {'idx', 'image_filepath', 'image_resolution'}
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
-    
+
     image_filepath = meta_info['image_filepath']
     assert isinstance(image_filepath, str), f"{type(image_filepath)=}"
     assert os.path.isfile(os.path.join(dataset.data_root, image_filepath)), f"File does not exist: {os.path.join(dataset.data_root, image_filepath)}"
-    
+
     image_resolution = meta_info['image_resolution']
     assert isinstance(image_resolution, tuple), f"{type(image_resolution)=}"
     assert len(image_resolution) == 2, f"{image_resolution=}"
@@ -60,7 +60,7 @@ def dataset(request):
 ], indirect=True)
 def test_celeb_a(dataset: CelebADataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    
+
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
@@ -68,7 +68,7 @@ def test_celeb_a(dataset: CelebADataset, max_samples, get_samples_to_test) -> No
         validate_inputs(datapoint['inputs'], datapoint['meta_info']['image_resolution'])
         validate_labels(datapoint['labels'], dataset)
         validate_meta_info(datapoint['meta_info'], idx, dataset)
-    
+
     num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:

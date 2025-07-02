@@ -44,6 +44,6 @@ def test_i3pe_dataset(max_samples, get_samples_to_test) -> None:
 
     num_samples = get_samples_to_test(len(dataset), max_samples, default=100)
     indices = list(range(num_samples))
-    
+
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)

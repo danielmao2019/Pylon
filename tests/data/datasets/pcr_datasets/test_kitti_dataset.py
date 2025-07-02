@@ -9,24 +9,24 @@ from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 def validate_inputs(inputs: Dict[str, Any]) -> None:
     assert isinstance(inputs, dict), f"{type(inputs)=}"
     assert inputs.keys() == {'src_pc', 'tgt_pc'}, f"{inputs.keys()=}"
-    
+
     for pc_name in ['src_pc', 'tgt_pc']:
         pc = inputs[pc_name]
         assert isinstance(pc, dict), f"{pc_name} is not a dict: {type(pc)=}"
         assert pc.keys() == {'pos', 'reflectance'}, f"{pc_name} keys incorrect: {pc.keys()=}"
-        
+
         # Validate position tensor
         assert isinstance(pc['pos'], torch.Tensor), f"{pc_name}['pos'] is not torch.Tensor: {type(pc['pos'])=}"
         assert pc['pos'].ndim == 2, f"{pc_name}['pos'] should be 2-dimensional: {pc['pos'].shape=}"
         assert pc['pos'].shape[1] == 3, f"{pc_name}['pos'] should have 3 coordinates: {pc['pos'].shape=}"
         assert pc['pos'].dtype == torch.float32, f"{pc_name}['pos'] dtype incorrect: {pc['pos'].dtype=}"
-        
+
         # Validate reflectance tensor
         assert isinstance(pc['reflectance'], torch.Tensor), f"{pc_name}['reflectance'] is not torch.Tensor: {type(pc['reflectance'])=}"
         assert pc['reflectance'].ndim == 2, f"{pc_name}['reflectance'] should be 2-dimensional: {pc['reflectance'].shape=}"
         assert pc['reflectance'].shape[1] == 1, f"{pc_name}['reflectance'] should have 1 feature: {pc['reflectance'].shape=}"
         assert pc['reflectance'].dtype == torch.float32, f"{pc_name}['reflectance'] dtype incorrect: {pc['reflectance'].dtype=}"
-        
+
         # Check shapes match
         assert pc['pos'].shape[0] == pc['reflectance'].shape[0], \
             f"{pc_name} positions and reflectance should have same number of points: {pc['pos'].shape[0]=}, {pc['reflectance'].shape[0]=}"

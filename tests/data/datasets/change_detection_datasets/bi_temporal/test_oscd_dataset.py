@@ -27,7 +27,7 @@ def validate_labels(labels: Dict[str, Any], class_dist: torch.Tensor, dataset: O
     assert set(torch.unique(change_map).tolist()) == set([0, 1]), f"{torch.unique(change_map)=}"
     for cls in range(dataset.NUM_CLASSES):
         class_dist[cls] += torch.sum(change_map == cls)
-    
+
     # sanity check for consistency between different modalities
     # TODO: Enable the following assertions
     # for input_idx in [1, 2]:

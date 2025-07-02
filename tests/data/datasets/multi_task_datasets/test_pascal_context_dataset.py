@@ -46,7 +46,7 @@ def dataset(request):
 @pytest.mark.parametrize('dataset', ['train', 'val'], indirect=True)
 def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    
+
     num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:

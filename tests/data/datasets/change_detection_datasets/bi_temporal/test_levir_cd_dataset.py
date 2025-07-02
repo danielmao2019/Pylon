@@ -51,7 +51,7 @@ def dataset(request):
 @pytest.mark.parametrize('dataset', ['train', 'test', 'val'], indirect=True)
 def test_levir_cd_dataset(dataset, max_samples, get_samples_to_test):
     assert isinstance(dataset, torch.utils.data.Dataset)
-    
+
     # Class distribution tracking (preserving original test logic)
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
 
@@ -66,15 +66,15 @@ def test_levir_cd_dataset(dataset, max_samples, get_samples_to_test):
 
     num_samples = get_samples_to_test(len(dataset), max_samples, default=len(dataset))
     indices = list(range(num_samples))
-    
+
     # Process datapoints and accumulate class distribution
     with ThreadPoolExecutor() as executor:
         change_maps = list(executor.map(validate_datapoint, indices))
-    
+
     # Accumulate class distribution from all processed change maps
     for change_map in change_maps:
         for cls in range(dataset.NUM_CLASSES):
             class_dist[cls] += torch.sum(change_map == cls)
-    
+
     # Validate class distribution
     validate_class_distribution(class_dist, dataset, num_samples)

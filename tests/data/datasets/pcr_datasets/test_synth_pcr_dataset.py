@@ -30,7 +30,7 @@ def transforms_cfg(rot_mag: float, trans_mag: float) -> Dict[str, Any]:
 def validate_inputs(inputs: Dict[str, Any], labels: Dict[str, Any]) -> None:
     assert isinstance(inputs, dict), f"{type(inputs)=}"
     assert inputs.keys() == {'src_pc', 'tgt_pc'}, f"{inputs.keys()=}"
-    
+
     for pc_name in ['src_pc', 'tgt_pc']:
         pc = inputs[pc_name]
         assert isinstance(pc, dict), f"{pc_name} should be a dictionary: {type(pc)=}"
@@ -49,7 +49,7 @@ def validate_inputs(inputs: Dict[str, Any], labels: Dict[str, Any]) -> None:
         # Check for NaN values
         assert not torch.isnan(pc['pos']).any(), f"{pc_name}['pos'] contains NaN values"
         assert not torch.isnan(pc['feat']).any(), f"{pc_name}['feat'] contains NaN values"
-    
+
     # Check that source and target have same number of points
     assert inputs['src_pc']['pos'].shape[0] == inputs['src_pc']['feat'].shape[0], \
         "Source positions and features should have same number of points"
@@ -57,7 +57,7 @@ def validate_inputs(inputs: Dict[str, Any], labels: Dict[str, Any]) -> None:
         "Target positions and features should have same number of points"
     assert inputs['src_pc']['pos'].shape[0] == inputs['tgt_pc']['pos'].shape[0], \
         "Source and target should have same number of points"
-    
+
     # Check that transformed source matches target
     transform = labels['transform']
     R = transform[:3, :3]
@@ -110,7 +110,7 @@ def dataset_with_params(request):
     # Extract rot_mag and trans_mag for validation
     rot_mag = dataset_params.pop('rot_mag')
     trans_mag = dataset_params.pop('trans_mag')
-    
+
     dataset = data.datasets.SynthPCRDataset(**dataset_params)
     return dataset, rot_mag, trans_mag
 

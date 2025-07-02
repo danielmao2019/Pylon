@@ -9,7 +9,7 @@ from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
 def validate_inputs(inputs: Dict[str, Any]) -> None:
     assert isinstance(inputs, dict), f"{type(inputs)=}"
     assert inputs.keys() == {'src_pc', 'tgt_pc'}, f"{inputs.keys()=}"
-    
+
     for pc_name in ['src_pc', 'tgt_pc']:
         pc = inputs[pc_name]
         assert isinstance(pc, dict), f"{pc_name} should be a dictionary: {type(pc)=}"
@@ -28,7 +28,7 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
         # Check for NaN values
         assert not torch.isnan(pc['pos']).any(), f"{pc_name}['pos'] contains NaN values"
         assert not torch.isnan(pc['feat']).any(), f"{pc_name}['feat'] contains NaN values"
-        
+
         # Check that positions and features have same number of points
         assert pc['pos'].shape[0] == pc['feat'].shape[0], \
             f"{pc_name} positions and features should have same number of points: {pc['pos'].shape[0]=}, {pc['feat'].shape[0]=}"

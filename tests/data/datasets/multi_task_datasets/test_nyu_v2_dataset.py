@@ -19,26 +19,26 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
 def validate_labels(labels: Dict[str, Any], dataset: NYUv2Dataset, image_resolution: tuple) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert labels.keys() == set(NYUv2Dataset.LABEL_NAMES)
-    
+
     edge_detection = labels['edge_detection']
     assert isinstance(edge_detection, torch.Tensor), f"{type(edge_detection)=}"
     assert edge_detection.ndim == 3 and edge_detection.shape[0] == 1, f"{edge_detection.shape=}"
     assert edge_detection.dtype == torch.float32, f"{edge_detection.dtype=}"
     assert set(edge_detection.unique().tolist()) == set([0, 1]), f"{edge_detection.unique().tolist()=}"
     assert edge_detection.shape[-2:] == image_resolution, f"{edge_detection.shape=}, {image_resolution=}"
-    
+
     depth_estimation = labels['depth_estimation']
     assert isinstance(depth_estimation, torch.Tensor), f"{type(depth_estimation)=}"
     assert depth_estimation.ndim == 2, f"{depth_estimation.shape=}"
     assert depth_estimation.dtype == torch.float32, f"{depth_estimation.dtype=}"
     assert depth_estimation.shape == image_resolution, f"{depth_estimation.shape=}, {image_resolution=}"
-    
+
     normal_estimation = labels['normal_estimation']
     assert isinstance(normal_estimation, torch.Tensor), f"{type(normal_estimation)=}"
     assert normal_estimation.ndim == 3 and normal_estimation.shape[0] == 3, f"{normal_estimation.shape=}"
     assert normal_estimation.dtype == torch.float32, f"{normal_estimation.dtype=}"
     assert normal_estimation.shape[-2:] == image_resolution, f"{normal_estimation.shape=}, {image_resolution=}"
-    
+
     semantic_segmentation = labels['semantic_segmentation']
     assert isinstance(semantic_segmentation, torch.Tensor), f"{type(semantic_segmentation)=}"
     assert semantic_segmentation.ndim == 2, f"{semantic_segmentation.shape=}"
@@ -51,11 +51,11 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: N
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
     assert meta_info.keys() == {'idx', 'image_filepath', 'image_resolution'}
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
-    
+
     image_filepath = meta_info['image_filepath']
     assert isinstance(image_filepath, str), f"{type(image_filepath)=}"
     assert os.path.isfile(os.path.join(dataset.data_root, image_filepath)), f"File does not exist: {os.path.join(dataset.data_root, image_filepath)}"
-    
+
     image_resolution = meta_info['image_resolution']
     assert isinstance(image_resolution, tuple), f"{type(image_resolution)=}"
     assert len(image_resolution) == 2, f"{image_resolution=}"
@@ -95,7 +95,7 @@ def dataset(request):
 ], indirect=True)
 def test_nyu_v2(dataset: NYUv2Dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
-    
+
     num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
