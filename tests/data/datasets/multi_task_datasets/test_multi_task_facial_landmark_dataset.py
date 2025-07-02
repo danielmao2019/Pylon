@@ -48,11 +48,25 @@ def validate_datapoint(dataset: MultiTaskFacialLandmarkDataset, idx: int) -> Non
     assert datapoint['inputs']['image'].shape[-2:] == datapoint['meta_info']['image_resolution']
 
 
-@pytest.mark.parametrize("dataset", [
-    (MultiTaskFacialLandmarkDataset(data_root="./data/datasets/soft_links/multi-task-facial-landmark", split='train')),
-    (MultiTaskFacialLandmarkDataset(data_root="./data/datasets/soft_links/multi-task-facial-landmark", split='train', indices=[0, 2, 4, 6, 8])),
-])
-def test_multi_task_facial_landmark(dataset: MultiTaskFacialLandmarkDataset, max_samples) -> None:
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a MultiTaskFacialLandmarkDataset instance."""
+    dataset_params = request.param
+    return MultiTaskFacialLandmarkDataset(**dataset_params)
+
+
+@pytest.mark.parametrize('dataset', [
+    {
+        'data_root': './data/datasets/soft_links/multi-task-facial-landmark',
+        'split': 'train',
+    },
+    {
+        'data_root': './data/datasets/soft_links/multi-task-facial-landmark',
+        'split': 'train',
+        'indices': [0, 2, 4, 6, 8],
+    },
+], indirect=True)
+def test_multi_task_facial_landmark(dataset: MultiTaskFacialLandmarkDataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     
     num_samples = get_samples_to_test(len(dataset), max_samples, default=3)

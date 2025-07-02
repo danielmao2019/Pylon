@@ -58,11 +58,25 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int, dataset: C
     assert all(x > 0 for x in image_resolution), f"{image_resolution=}"
 
 
-@pytest.mark.parametrize("dataset", [
-    (CityScapesDataset(data_root="./data/datasets/soft_links/city-scapes", split='train')),
-    (CityScapesDataset(data_root="./data/datasets/soft_links/city-scapes", split='train', indices=[0, 2, 4, 6, 8])),
-])
-def test_city_scapes(dataset: CityScapesDataset, max_samples) -> None:
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating a CityScapesDataset instance."""
+    dataset_params = request.param
+    return CityScapesDataset(**dataset_params)
+
+
+@pytest.mark.parametrize('dataset', [
+    {
+        'data_root': './data/datasets/soft_links/city-scapes',
+        'split': 'train',
+    },
+    {
+        'data_root': './data/datasets/soft_links/city-scapes',
+        'split': 'train',
+        'indices': [0, 2, 4, 6, 8],
+    },
+], indirect=True)
+def test_city_scapes(dataset: CityScapesDataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
     
     def validate_datapoint(idx: int) -> None:
