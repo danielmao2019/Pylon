@@ -4,6 +4,30 @@ import torch
 from scipy.spatial import cKDTree
 
 
+def _normalize_points(points: torch.Tensor) -> torch.Tensor:
+    """Normalize points to unbatched format (N, 3) while preserving type.
+    
+    Args:
+        points: Input points, either [N, 3] or [1, N, 3]
+        
+    Returns:
+        Normalized points with shape (N, 3), same type as input
+    """
+    if points.ndim == 2:
+        # Points are unbatched [N, 3]
+        assert points.shape[1] == 3, f"Points must have 3 coordinates, got shape {points.shape}"
+        return points
+    elif points.ndim == 3:
+        # Points are batched [B, N, 3]
+        assert points.shape[0] == 1, f"Batch size must be 1, got shape {points.shape}"
+        assert points.shape[2] == 3, f"Points must have 3 coordinates, got shape {points.shape}"
+        
+        # Squeeze batch dimension
+        return points.squeeze(0)
+    else:
+        raise ValueError(f"Points must have 2 or 3 dimensions, got shape {points.shape}")
+
+
 def pc_symmetric_difference(
     src_pc: torch.Tensor,
     tgt_pc: torch.Tensor,
@@ -13,8 +37,8 @@ def pc_symmetric_difference(
     Compute the indices of points in the symmetric difference between two point clouds using KDTree.
 
     Args:
-        src_pc: torch.Tensor of shape (M, 3) - source point cloud coordinates
-        tgt_pc: torch.Tensor of shape (N, 3) - target point cloud coordinates
+        src_pc: torch.Tensor of shape (M, 3) or (1, M, 3) - source point cloud coordinates
+        tgt_pc: torch.Tensor of shape (N, 3) or (1, N, 3) - target point cloud coordinates
         radius: float - radius for neighborhood search
 
     Returns:
@@ -26,23 +50,21 @@ def pc_symmetric_difference(
     assert isinstance(radius, (int, float)), "radius must be a numeric value"
     assert radius > 0, "radius must be positive"
 
-    # Check tensor dimensions
-    assert src_pc.dim() == 2, f"src_pc must be 2D tensor, got {src_pc.dim()}D"
-    assert tgt_pc.dim() == 2, f"tgt_pc must be 2D tensor, got {tgt_pc.dim()}D"
-    assert src_pc.shape[1] == 3, f"src_pc must have shape (M, 3), got {src_pc.shape}"
-    assert tgt_pc.shape[1] == 3, f"tgt_pc must have shape (N, 3), got {tgt_pc.shape}"
+    # Normalize points to unbatched format
+    src_pc_normalized = _normalize_points(src_pc)
+    tgt_pc_normalized = _normalize_points(tgt_pc)
 
     # Check for empty point clouds
-    if src_pc.shape[0] == 0 or tgt_pc.shape[0] == 0:
+    if src_pc_normalized.shape[0] == 0 or tgt_pc_normalized.shape[0] == 0:
         return torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long)
 
     # Check for NaN or Inf values
-    if torch.isnan(src_pc).any() or torch.isnan(tgt_pc).any() or torch.isinf(src_pc).any() or torch.isinf(tgt_pc).any():
+    if torch.isnan(src_pc_normalized).any() or torch.isnan(tgt_pc_normalized).any() or torch.isinf(src_pc_normalized).any() or torch.isinf(tgt_pc_normalized).any():
         return torch.tensor([], dtype=torch.long), torch.tensor([], dtype=torch.long)
 
     # Convert to numpy for scipy's cKDTree
-    src_np = src_pc.cpu().numpy()
-    tgt_np = tgt_pc.cpu().numpy()
+    src_np = src_pc_normalized.cpu().numpy()
+    tgt_np = tgt_pc_normalized.cpu().numpy()
 
     # Build KDTree for target point cloud
     tgt_tree = cKDTree(tgt_np)
