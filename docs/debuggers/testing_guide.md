@@ -119,7 +119,7 @@ def test_buffer_thread_safety_concurrent_access():
         futures = [executor.submit(add_to_buffer, data) for data in test_data]
         for future in as_completed(futures):
             future.result()
-    
+
     # Verify no data corruption
     assert len(debugger.current_page_data) == expected_count
 ```
@@ -131,10 +131,10 @@ def test_buffer_apply_tensor_op_cpu_conversion():
     if torch.cuda.is_available():
         gpu_tensor = torch.randn(5, 5).cuda()
         debug_outputs = {'test': {'gpu_tensor': gpu_tensor}}
-    
+
     debugger.add_to_buffer(debug_outputs, datapoint)
     debugger._buffer_queue.join()
-    
+
     # Verify all tensors moved to CPU
     stored_data = debugger.current_page_data[0]
     assert stored_data['test']['gpu_tensor'].device.type == 'cpu'
@@ -196,7 +196,7 @@ pytest tests/debuggers/ --cov=debuggers --cov-report=html
 
 # Run specific test patterns
 pytest tests/debuggers/ -k "threading" -v
-pytest tests/debuggers/ -k "buffer" -v  
+pytest tests/debuggers/ -k "buffer" -v
 pytest tests/debuggers/ -k "invalid" -v
 ```
 
@@ -214,29 +214,29 @@ pytest tests/debuggers/ -k "invalid" -v
 The test suite now includes comprehensive integration testing that verifies:
 
 ### 1. Forward Hook System
-✅ **Hook Registration**: Hooks are properly registered on model layers during initialization  
-✅ **Hook Execution**: Hooks execute during model forward passes and capture layer outputs  
-✅ **Missing Layers**: Graceful handling of non-existent layers with warnings  
+✅ **Hook Registration**: Hooks are properly registered on model layers during initialization
+✅ **Hook Execution**: Hooks execute during model forward passes and capture layer outputs
+✅ **Missing Layers**: Graceful handling of non-existent layers with warnings
 ✅ **Multiple Hooks**: Multiple debuggers can hook the same layer without conflicts
 
-### 2. Selective Epoch Execution  
-✅ **Checkpoint Calculation**: Correct calculation of checkpoint epochs for all methods  
-✅ **Enable/Disable Logic**: Debugger only enabled during checkpoint epochs  
-✅ **State Management**: Proper state transitions between enabled/disabled  
+### 2. Selective Epoch Execution
+✅ **Checkpoint Calculation**: Correct calculation of checkpoint epochs for all methods
+✅ **Enable/Disable Logic**: Debugger only enabled during checkpoint epochs
+✅ **State Management**: Proper state transitions between enabled/disabled
 ✅ **Performance**: No overhead when disabled (immediate empty dict return)
 
 ### 3. Complete Runner Integration
-✅ **Real Trainer Integration**: Uses actual SupervisedSingleTaskTrainer from Pylon source  
-✅ **Real BaseTrainer Methods**: Tests actual _init_debugger(), _before_val_loop(), _init_checkpoint_indices()  
-✅ **Disk Saves**: Debug outputs saved only at checkpoint epochs  
-✅ **File Structure**: Correct directory structure (`epoch_X/debugger/page_Y.pkl`)  
-✅ **Data Integrity**: Saved data contains expected debugger outputs  
+✅ **Real Trainer Integration**: Uses actual SupervisedSingleTaskTrainer from Pylon source
+✅ **Real BaseTrainer Methods**: Tests actual _init_debugger(), _before_val_loop(), _init_checkpoint_indices()
+✅ **Disk Saves**: Debug outputs saved only at checkpoint epochs
+✅ **File Structure**: Correct directory structure (`epoch_X/debugger/page_Y.pkl`)
+✅ **Data Integrity**: Saved data contains expected debugger outputs
 ✅ **Cleanup**: Proper test cleanup to avoid file system pollution
 
-### 4. Real File I/O Testing  
-✅ **Directory Creation**: Automatic creation of epoch and debugger directories  
-✅ **Page Serialization**: Joblib serialization/deserialization of debug data  
-✅ **Content Verification**: Loaded data matches expected debugger output structure  
-✅ **Epoch Filtering**: Only checkpoint epochs have saved data  
+### 4. Real File I/O Testing
+✅ **Directory Creation**: Automatic creation of epoch and debugger directories
+✅ **Page Serialization**: Joblib serialization/deserialization of debug data
+✅ **Content Verification**: Loaded data matches expected debugger output structure
+✅ **Epoch Filtering**: Only checkpoint epochs have saved data
 
 The test suite provides comprehensive coverage of all debugger functionality while following Pylon's established testing patterns and maintaining high code quality standards.

@@ -6,7 +6,7 @@ from runners.base_trainer import BaseTrainer
 
 class TestableBaseTrainer(BaseTrainer):
     """Testable version of BaseTrainer that implements abstract methods."""
-    
+
     def __init__(self, tot_epochs=10, checkpoint_method='latest'):
         # Create minimal config
         config = {
@@ -14,36 +14,36 @@ class TestableBaseTrainer(BaseTrainer):
             'epochs': tot_epochs,  # BaseTrainer expects 'epochs' not 'tot_epochs'
             'checkpoint_method': checkpoint_method
         }
-        
+
         # Mock device
         device = torch.device('cpu')
-        
+
         # Initialize BaseTrainer
         super().__init__(config, device)
-        
+
         # Mock required attributes that would normally be set by _init_components_
         self.logger = Mock()
         self.logger.info = Mock()
-    
+
     # Implement abstract methods (minimal implementations for testing)
     def _init_components_(self):
         pass
-    
+
     def _load_checkpoint_(self):
         pass
-    
+
     def _train_epoch_(self):
         pass
-    
+
     def _eval_epoch_(self):
         pass
-    
+
     def _init_optimizer_(self):
         pass
-    
+
     def _init_scheduler_(self):
         pass
-    
+
     def _set_gradients_(self, dp):
         pass
 
@@ -61,7 +61,7 @@ def test_checkpoint_indices_calculation(tot_epochs, checkpoint_method, expected_
     """Test that checkpoint indices are calculated correctly for different methods."""
     trainer = TestableBaseTrainer(tot_epochs=tot_epochs, checkpoint_method=checkpoint_method)
     trainer._init_checkpoint_indices()
-    
+
     assert trainer.checkpoint_indices == expected_indices
 
 
@@ -71,12 +71,12 @@ def test_checkpoint_indices_edge_cases():
     trainer = TestableBaseTrainer(tot_epochs=1, checkpoint_method='latest')
     trainer._init_checkpoint_indices()
     assert trainer.checkpoint_indices == [0]  # Only epoch 0
-    
+
     # Test with interval larger than total epochs
     trainer = TestableBaseTrainer(tot_epochs=3, checkpoint_method=10)
     trainer._init_checkpoint_indices()
     assert trainer.checkpoint_indices == [2]  # Only last epoch
-    
+
     # Test with interval = 1 (every epoch)
     trainer = TestableBaseTrainer(tot_epochs=3, checkpoint_method=1)
     trainer._init_checkpoint_indices()
@@ -91,11 +91,11 @@ def test_checkpoint_indices_config_default():
         'epochs': 5,  # BaseTrainer expects 'epochs'
         # No checkpoint_method specified
     }
-    
+
     trainer = TestableBaseTrainer.__new__(TestableBaseTrainer)
     BaseTrainer.__init__(trainer, config, torch.device('cpu'))
     trainer.logger = Mock()
     trainer.logger.info = Mock()
-    
+
     trainer._init_checkpoint_indices()
     assert trainer.checkpoint_indices == [4]  # Latest only (last epoch)

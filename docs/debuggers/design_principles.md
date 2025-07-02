@@ -60,7 +60,7 @@ self._buffer_queue = queue.Queue()
 ```python
 # Memory-efficient tensor handling
 processed_outputs = apply_tensor_op(
-    func=lambda x: x.detach().cpu(), 
+    func=lambda x: x.detach().cpu(),
     inputs=debug_outputs
 )
 
@@ -162,7 +162,7 @@ class NewDebuggerType(BaseDebugger):
 - **Rationale**: Research needs vary greatly, customization more valuable than speed
 - **Mitigation**: Async processing and selective saving minimize performance impact
 
-### Simplicity vs Features  
+### Simplicity vs Features
 - **Choice**: Kept core interfaces simple, advanced features in implementations
 - **Rationale**: Lower barrier to entry, advanced users can build complex debuggers
 - **Mitigation**: Rich examples show how to implement advanced features

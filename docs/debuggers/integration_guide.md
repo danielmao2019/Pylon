@@ -31,7 +31,7 @@ The trainer precomputes when to save debug outputs based on checkpoint method:
 def _init_checkpoint_indices(self) -> None:
     """Precompute epoch indices where checkpoints (and debug outputs) will be saved."""
     checkpoint_method = self.config.get('checkpoint_method', 'latest')
-    
+
     if checkpoint_method == 'all':
         self.checkpoint_indices = list(range(self.tot_epochs))
     elif checkpoint_method == 'latest':
@@ -51,13 +51,13 @@ def _init_checkpoint_indices(self) -> None:
 def _init_debugger(self):
     """Initialize debugger and register forward hooks."""
     self.logger.info("Initializing debugger...")
-    
+
     # Precompute checkpoint indices
     self._init_checkpoint_indices()
-    
+
     if self.config.get('debugger', None):
         self.debugger = build_from_config(self.config['debugger'])
-        
+
         # Register forward hooks on model
         for layer_name, debuggers in self.debugger.forward_debuggers.items():
             layer = get_layer_by_name(self.model, layer_name)
@@ -79,7 +79,7 @@ def _before_val_loop(self):
     self.metric.reset_buffer()
     self.logger.eval()
     self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
-    
+
     # Enable/disable debugger based on checkpoint indices
     if self.debugger:
         self.debugger.enabled = self.cum_epochs in self.checkpoint_indices
@@ -89,16 +89,16 @@ def _before_val_loop(self):
 
 def _eval_step(self, dp: Dict[str, Dict[str, Any]], flush_prefix: Optional[str] = None) -> None:
     # ... existing code through model forward and metric computation ...
-    
+
     # Add debug outputs (only during validation/test at checkpoint indices)
     if self.debugger and self.debugger.enabled:
         dp['debug'] = self.debugger(dp, self.model)
-    
+
     # ... rest of existing code ...
 
 def _after_val_loop_(self):
     # ... existing saves ...
-    
+
     # Save debugger outputs if enabled
     if self.debugger and self.debugger.enabled:
         debugger_dir = os.path.join(epoch_root, "debugger")
@@ -116,7 +116,7 @@ def _init_debugger(self):
     """Initialize debugger for evaluation."""
     if self.config.get('debugger', None):
         self.debugger = build_from_config(self.config['debugger'])
-        
+
         # Register forward hooks
         for layer_name, debuggers in self.debugger.forward_debuggers.items():
             layer = get_layer_by_name(self.model, layer_name)
@@ -135,19 +135,19 @@ def _eval_epoch_(self):
     if self.debugger:
         self.debugger.enabled = True
         self.debugger.reset_buffer()
-    
+
     # ... existing evaluation loop ...
 
 def _eval_step(self, dp: Dict[str, Dict[str, Any]]) -> None:
     # ... existing code ...
-    
+
     # Add debug outputs (always during evaluation)
     if self.debugger and self.debugger.enabled:
         dp['debug'] = self.debugger(dp, self.model)
 
 def _after_eval_loop_(self):
     # ... existing saves ...
-    
+
     # Save debugger outputs
     if self.debugger and self.debugger.enabled:
         debugger_dir = os.path.join(self.work_dir, "debugger")
@@ -161,24 +161,24 @@ def _after_eval_loop_(self):
 ```python
 def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
     """Load all debug outputs for an epoch.
-    
+
     Args:
         epoch_dir: Path to epoch directory
-        
+
     Returns:
         Dict mapping datapoint_idx to debug_outputs, or None if not found
     """
     debugger_dir = os.path.join(epoch_dir, "debugger")
     if not os.path.exists(debugger_dir):
         return None
-    
+
     all_outputs = {}
     # Load all pages in order and merge
     page_files = sorted(glob.glob(os.path.join(debugger_dir, "page_*.pkl")))
     for page_file in page_files:
         page_data = joblib.load(page_file)  # This is now a dict
         all_outputs.update(page_data)  # Merge page dict into all_outputs
-    
+
     return all_outputs
 ```
 
@@ -187,12 +187,12 @@ def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
 ```python
 def display_datapoint_with_debug(datapoint: Dict[str, Any]) -> html.Div:
     """Display datapoint with debug outputs as fourth section."""
-    
+
     # First three sections: inputs, labels, meta_info
     inputs_section = display_inputs(datapoint['inputs'])
     labels_section = display_labels(datapoint['labels'])
     meta_info_section = display_meta_info(datapoint['meta_info'])
-    
+
     # Fourth section: debug outputs (if present)
     debug_section = []
     if 'debug' in datapoint and datapoint['debug']:
@@ -200,7 +200,7 @@ def display_datapoint_with_debug(datapoint: Dict[str, Any]) -> html.Div:
             html.H3("Debug Outputs"),
             display_debug_outputs(datapoint['debug'])
         ]
-    
+
     return html.Div([
         inputs_section,
         labels_section,
@@ -216,7 +216,7 @@ def display_datapoint_with_debug(datapoint: Dict[str, Any]) -> html.Div:
 ```python
 config = {
     'checkpoint_method': 5,  # Save checkpoints every 5 epochs
-    
+
     'debugger': {
         'class': SequentialDebugger,
         'args': {
@@ -320,7 +320,7 @@ work_dir/
 python main.py --config-filepath configs/my_training_config_with_debugger.py
 ```
 
-### Evaluation with Debug Outputs  
+### Evaluation with Debug Outputs
 ```bash
 python eval.py --config-filepath configs/my_evaluation_config_with_debugger.py
 ```

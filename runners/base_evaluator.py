@@ -112,7 +112,7 @@ class BaseEvaluator:
     def _init_debugger(self):
         """Initialize debugger and register forward hooks."""
         self.logger.info("Initializing debugger...")
-        
+
         if self.config.get('debugger', None):
             self.debugger = build_from_config(self.config['debugger'], model=self.model)
         else:
@@ -165,7 +165,7 @@ class BaseEvaluator:
         self.model.eval()
         self.metric.reset_buffer()
         self.logger.eval()
-        
+
         # Enable debugger for evaluation
         if self.debugger:
             self.debugger.enabled = True
@@ -205,7 +205,7 @@ class BaseEvaluator:
         self.metric.summarize(output_path=os.path.join(self.work_dir, "evaluation_scores.json"))
         with open(os.path.join(self.work_dir, "evaluation_scores.json"), mode='r') as f:
             _ = json.load(f)
-        
+
         # Save debugger outputs if enabled
         if self.debugger and self.debugger.enabled:
             debugger_dir = os.path.join(self.work_dir, "debugger")

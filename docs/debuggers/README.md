@@ -145,7 +145,7 @@ work_dir/
 ## Documentation Structure
 
 - **[examples.md](examples.md)**: Comprehensive debugger implementation examples
-- **[integration_guide.md](integration_guide.md)**: BaseTrainer/BaseEvaluator integration details  
+- **[integration_guide.md](integration_guide.md)**: BaseTrainer/BaseEvaluator integration details
 - **[testing_guide.md](testing_guide.md)**: Testing patterns and 79-test suite documentation
 - **[design_principles.md](design_principles.md)**: Core design philosophy and architectural decisions
 
@@ -253,7 +253,7 @@ pytest tests/debuggers/wrappers/sequential_debugger/ -v
 
 Tests cover:
 - **Initialization and configuration** (12 tests)
-- **Forward hook functionality** (18 tests)  
+- **Forward hook functionality** (18 tests)
 - **Buffer management and threading** (12 tests)
 - **API integration** (14 tests)
 - **Memory management with apply_tensor_op** (CPU conversion testing)

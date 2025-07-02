@@ -236,7 +236,7 @@ class BaseTrainer(ABC):
     def _init_checkpoint_indices(self) -> None:
         """Precompute epoch indices where checkpoints (and debug outputs) will be saved."""
         checkpoint_method = self.config.get('checkpoint_method', 'latest')
-        
+
         if checkpoint_method == 'all':
             self.checkpoint_indices = list(range(self.tot_epochs))
         elif checkpoint_method == 'latest':
@@ -252,7 +252,7 @@ class BaseTrainer(ABC):
     def _init_debugger(self):
         """Initialize debugger and register forward hooks."""
         self.logger.info("Initializing debugger...")
-        
+
         if self.config.get('debugger', None):
             self.debugger = build_from_config(self.config['debugger'], model=self.model)
         else:
@@ -450,7 +450,7 @@ class BaseTrainer(ABC):
         self.metric.reset_buffer()
         self.logger.eval()
         self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
-        
+
         # Enable/disable debugger based on checkpoint indices
         if self.debugger and self.cum_epochs in self.checkpoint_indices:
             self.debugger.enabled = True

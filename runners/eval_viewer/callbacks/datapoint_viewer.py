@@ -89,7 +89,7 @@ def register_datapoint_viewer_callbacks(
             collate_fn = dataloader.collate_fn
             datapoint = current_dataset[datapoint_idx]
             datapoint = collate_fn([datapoint])  # Apply collate function to single datapoint
-            
+
             # Load debug outputs if available
             log_dir = list(log_dir_infos.keys())[run_idx]
             if run_info.runner_type == 'trainer':
@@ -99,7 +99,7 @@ def register_datapoint_viewer_callbacks(
             else:
                 # For evaluator: load from root directory
                 debug_outputs = load_debug_outputs(log_dir)
-            
+
             # debug_outputs is a dict mapping datapoint_idx to debug_data, or None
             if debug_outputs and datapoint_idx in debug_outputs:
                 datapoint['debug'] = debug_outputs[datapoint_idx]
