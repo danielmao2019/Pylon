@@ -13,12 +13,12 @@ class MultiPartScheduler:
     # ====================================================================================================
     # ====================================================================================================
 
-    def state_dict(self, *args: Any, **kwargs: Any) -> Dict[str, Any]:
+    def state_dict(self) -> Dict[str, Dict[str, Any]]:
         return {
-            name: self.schedulers[name].state_dict(*args, **kwargs)
+            name: self.schedulers[name].state_dict()
             for name in self.schedulers
         }
 
-    def load_state_dict(self, *args: Any, **kwargs: Any) -> None:
+    def load_state_dict(self, state_dict: Dict[str, Dict[str, Any]]) -> None:
         for name in self.schedulers:
-            self.schedulers[name].load_state_dict(*args, **kwargs)
+            self.schedulers[name].load_state_dict(state_dict[name])
