@@ -1,7 +1,7 @@
 import os
 import torch
 from runners import BaseTrainer, SupervisedSingleTaskTrainer
-from utils.ops import buffer_allclose
+from utils.ops.dict_as_tensor import buffer_allclose
 
 
 class SimpleTrainer(BaseTrainer):
@@ -50,6 +50,6 @@ def test_sequential_vs_parallel_validation(test_dir, trainer_cfg):
     sequential_scores = sequential_trainer.metric.summarize()
     parallel_scores = parallel_trainer.metric.summarize()
 
-    # Compare using buffer_allclose utility
+    # Compare tensor results using utils from dict_as_tensor
     assert buffer_allclose(sequential_scores, parallel_scores), \
-        f"Sequential and parallel validation results differ:\nSequential: {sequential_scores}\nParallel: {parallel_scores}"
+        f"Sequential and parallel validation results should be identical\nSequential: {sequential_scores}\nParallel: {parallel_scores}"
