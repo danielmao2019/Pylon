@@ -67,7 +67,7 @@ def create_grid_and_colorbar(score_map, run_idx, num_datapoints, min_score, max_
     return run_idx, [button_grid, color_bar]
 
 
-def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: int, log_dir_infos: Dict[str, LogDirInfo], global_color_scale: tuple[float, float]):
+def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: int, log_dir_infos: Dict[str, LogDirInfo], per_metric_color_scales: np.ndarray):
     """
     Registers all callbacks for the app.
 
@@ -76,6 +76,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         metric_names: List of metric names
         num_datapoints: Number of datapoints in the dataset
         log_dir_infos: Dictionary mapping log directory paths to LogDirInfo objects
+        per_metric_color_scales: Array of shape (C, 2) with min/max values for each metric
     """
     @app.callback(
         Output('aggregated-scores-plot', 'children'),
@@ -174,8 +175,8 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
             else:
                 raise ValueError(f"Unknown runner type: {info.runner_type}")
 
-        # Use pre-computed global color scale for consistent coloring
-        min_score, max_score = global_color_scale
+        # Use pre-computed per-metric color scale for this specific metric
+        min_score, max_score = per_metric_color_scales[metric_idx]
 
         # Create button grids and color bars in parallel
         results = [None] * len(score_maps)  # Pre-allocate list to maintain order

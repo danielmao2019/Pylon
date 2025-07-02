@@ -27,20 +27,22 @@ def create_score_map(scores: List[float]) -> np.ndarray:
 
 def create_overlaid_score_map(score_maps: List[np.ndarray]) -> np.ndarray:
     """
-    Returns the normalized overlaid score map (failure rate map) as a 2D numpy array.
+    Returns the normalized overlaid score map (success rate map) as a 2D numpy array.
     Args:
         score_maps: List of 2D numpy arrays containing scores from different runs
         title: (Unused, kept for compatibility)
     Returns:
-        normalized: 2D numpy array of normalized failure rates
+        normalized: 2D numpy array of normalized success rates (1 - failure rates)
     """
     all_scores = np.concatenate([score_map.flatten() for score_map in score_maps])
     all_scores = all_scores[~np.isnan(all_scores)]
     failure_threshold = np.percentile(all_scores, 25)
     binary_maps = [score_map < failure_threshold for score_map in score_maps]
     aggregated = np.sum(binary_maps, axis=0)
-    normalized = aggregated / len(score_maps)
-    return normalized
+    failure_rates = aggregated / len(score_maps)
+    # Return success rates (1 - failure_rates) so higher values are better
+    success_rates = 1 - failure_rates
+    return success_rates
 
 
 def get_color_for_score(score: float, min_score: float, max_score: float) -> str:

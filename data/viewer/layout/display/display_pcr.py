@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
+from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
+from utils.point_cloud_ops.apply_transform import _normalize_transform
 from data.viewer.utils.point_cloud import create_point_cloud_figure
 
 
@@ -21,8 +23,8 @@ def create_union_visualization(
     """Create a visualization of the union of transformed source and target point clouds.
 
     Args:
-        src_pc_transformed: Transformed source point cloud
-        tgt_pc: Target point cloud
+        src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+        tgt_points: Target point cloud [M, 3] or [1, M, 3]
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
@@ -30,13 +32,17 @@ def create_union_visualization(
     Returns:
         Plotly figure showing the union visualization
     """
+    # Normalize points to unbatched format
+    src_points_normalized = _normalize_points(src_points)
+    tgt_points_normalized = _normalize_points(tgt_points)
+    
     # Combine points
-    union_points = torch.cat([src_points, tgt_points], dim=0)
+    union_points = torch.cat([src_points_normalized, tgt_points_normalized], dim=0)
 
     # Create colors for union (red for source, blue for target)
-    src_colors = torch.zeros((len(src_points), 3), device=src_points.device)
+    src_colors = torch.zeros((len(src_points_normalized), 3), device=src_points_normalized.device)
     src_colors[:, 0] = 1.0  # Red for source
-    tgt_colors = torch.zeros((len(tgt_points), 3), device=tgt_points.device)
+    tgt_colors = torch.zeros((len(tgt_points_normalized), 3), device=tgt_points_normalized.device)
     tgt_colors[:, 2] = 1.0  # Blue for target
     union_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
@@ -61,8 +67,8 @@ def create_symmetric_difference_visualization(
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
     Args:
-        src_pc_transformed: Transformed source point cloud
-        tgt_pc: Target point cloud
+        src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+        tgt_points: Target point cloud [M, 3] or [1, M, 3]
         radius: Radius for computing symmetric difference
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
@@ -71,13 +77,17 @@ def create_symmetric_difference_visualization(
     Returns:
         Plotly figure showing the symmetric difference visualization
     """
+    # Normalize points to unbatched format
+    src_points_normalized = _normalize_points(src_points)
+    tgt_points_normalized = _normalize_points(tgt_points)
+    
     # Find points in symmetric difference
-    src_indices, tgt_indices = pc_symmetric_difference(src_points, tgt_points, radius)
+    src_indices, tgt_indices = pc_symmetric_difference(src_points_normalized, tgt_points_normalized, radius)
 
     if len(src_indices) > 0 or len(tgt_indices) > 0:
         # Extract points in symmetric difference
-        src_diff = src_points[src_indices]
-        tgt_diff = tgt_points[tgt_indices]
+        src_diff = src_points_normalized[src_indices]
+        tgt_diff = tgt_points_normalized[tgt_indices]
 
         # Combine the points
         sym_diff_points = torch.cat([src_diff, tgt_diff], dim=0)
@@ -100,7 +110,7 @@ def create_symmetric_difference_visualization(
     else:
         # If no symmetric difference, show empty point cloud
         return create_point_cloud_figure(
-            torch.zeros((1, 3), device=src_points.device),
+            torch.zeros((1, 3), device=src_points_normalized.device),
             title="Symmetric Difference (Empty)",
             point_size=point_size,
             point_opacity=point_opacity,
@@ -119,9 +129,9 @@ def create_correspondence_visualization(
     """Create a visualization of correspondences between transformed source and target point clouds.
 
     Args:
-        src_pc_transformed: Transformed source point cloud
-        tgt_pc: Target point cloud
-        correspondence_radius: Radius for finding correspondences
+        src_points: Transformed source point cloud [N, 3] or [1, N, 3]
+        tgt_points: Target point cloud [M, 3] or [1, M, 3]
+        radius: Radius for finding correspondences
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
@@ -129,15 +139,19 @@ def create_correspondence_visualization(
     Returns:
         Plotly figure showing the correspondence visualization
     """
-    src_points_np = src_points.cpu().numpy()
-    tgt_points_np = tgt_points.cpu().numpy()
+    # Normalize points to unbatched format
+    src_points_normalized = _normalize_points(src_points)
+    tgt_points_normalized = _normalize_points(tgt_points)
+    
+    src_points_np = src_points_normalized.cpu().numpy()
+    tgt_points_np = tgt_points_normalized.cpu().numpy()
 
     # Find correspondences based on radius
-    correspondences = get_correspondences(src_points, tgt_points, None, radius)
+    correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
 
     # Create figure with both point clouds
     corr_fig = create_point_cloud_figure(
-        points=src_points,
+        points=src_points_normalized,
         title="Point Cloud Correspondences",
         point_size=point_size,
         point_opacity=point_opacity,
@@ -294,9 +308,12 @@ def display_pcr_datapoint_single(
     #     camera_state=camera_state,
     # ))
 
+    # Normalize transform to handle batched case
+    transform_normalized = _normalize_transform(transform, torch.Tensor)
+    
     # Compute rotation angle and translation magnitude
-    rotation_matrix = transform[:3, :3]
-    translation_vector = transform[:3, 3]
+    rotation_matrix = transform_normalized[:3, :3]
+    translation_vector = transform_normalized[:3, 3]
 
     # Compute rotation angle using the trace of the rotation matrix
     trace = torch.trace(rotation_matrix)
@@ -308,7 +325,7 @@ def display_pcr_datapoint_single(
     # Format the transformation matrix as a string
     transform_str = "Transform Matrix:\n"
     for i in range(4):
-        row = [f"{transform[i, j]:.4f}" for j in range(4)]
+        row = [f"{transform_normalized[i, j]:.4f}" for j in range(4)]
         transform_str += "  ".join(row) + "\n"
 
     # Create a grid layout for the five figures
