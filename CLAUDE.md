@@ -62,6 +62,18 @@ pytest tests/models/change_detection/test_change_star.py
 pytest -v --tb=short tests/
 ```
 
+**CRITICAL TESTING RULE:** ALWAYS run pytest from the project root directory (`~/repos/Pylon/`). NEVER run pytest from within subdirectories like `tests/debuggers/` or `tests/runners/`. This ensures proper module resolution and import paths.
+
+```bash
+# ✅ CORRECT - Always run from project root
+pytest tests/debuggers/test_forward_debugger.py
+pytest tests/runners/test_checkpoint_indices.py
+
+# ❌ WRONG - Never run from subdirectories
+cd tests/debuggers && pytest test_forward_debugger.py
+cd tests/runners && pytest test_checkpoint_indices.py
+```
+
 **IMPORTANT:** NEVER use the PYTHONPATH environment variable when running commands. This can interfere with Python's module resolution and cause import errors. The project structure handles imports correctly without it
 
 ### 2.2. Training
