@@ -1,6 +1,5 @@
 from typing import Any, Dict
 import pytest
-import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.cdd_dataset import CDDDataset

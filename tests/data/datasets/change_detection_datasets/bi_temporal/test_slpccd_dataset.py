@@ -1,7 +1,5 @@
 from typing import Dict, Any
 import pytest
-import random
-import os
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset
