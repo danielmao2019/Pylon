@@ -49,15 +49,9 @@ class HybridMetric(SingleTaskMetric):
         # Build DIRECTIONS from component metrics by collecting all their score keys
         self.DIRECTIONS = {}
         for i, component_metric in enumerate(self.metrics):
-            if hasattr(component_metric, 'DIRECTIONS'):
-                # Component has explicit DIRECTIONS dict - merge all keys
-                self.DIRECTIONS.update(component_metric.DIRECTIONS)
-            elif hasattr(component_metric, 'DIRECTION'):
-                # Component has legacy DIRECTION scalar - assign to metric index
-                # This is a fallback for metrics that don't define explicit score keys
-                self.DIRECTIONS[f"metric_{i}"] = component_metric.DIRECTION
-            else:
-                raise AttributeError(f"Component metric {i} ({type(component_metric)}) has no DIRECTION or DIRECTIONS attribute")
+            assert hasattr(component_metric, 'DIRECTIONS'), f"Component metric {i} ({type(component_metric)}) must have DIRECTIONS attribute"
+            # Component has explicit DIRECTIONS dict - merge all keys
+            self.DIRECTIONS.update(component_metric.DIRECTIONS)
 
     def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         """Override to properly handle component metrics that use the full datapoint."""
