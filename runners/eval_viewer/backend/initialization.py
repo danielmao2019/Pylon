@@ -409,42 +409,58 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
     return info
 
 
-def compute_global_color_scales(log_dir_infos: Dict[str, LogDirInfo]) -> Tuple[float, float]:
-    """Compute global min/max color scales across all data for all metrics.
+def compute_per_metric_color_scales(log_dir_infos: Dict[str, LogDirInfo]) -> np.ndarray:
+    """Compute per-metric min/max color scales across all data.
 
     Args:
         log_dir_infos: Dictionary of log directory information
 
     Returns:
-        Tuple of (global_min_score, global_max_score)
+        Array of shape (C, 2) where C is number of metrics
+        Each row contains [min_score, max_score] for that metric
     """
-    all_scores = []
+    if not log_dir_infos:
+        return np.array([[0.0, 1.0]])  # Default range if no data
+    
+    # Get number of metrics from first log dir info
+    first_info = list(log_dir_infos.values())[0]
+    num_metrics = len(first_info.metric_names)
+    
+    # Initialize arrays to collect scores for each metric
+    metric_scores = [[] for _ in range(num_metrics)]
 
     for info in log_dir_infos.values():
         if info.runner_type == 'trainer':
-            # For trainers: collect all scores from all epochs and metrics
-            # score_map shape: (N, C, H, W)
-            all_scores.extend(info.score_map.flatten())
+            # For trainers: score_map shape (N, C, H, W)
+            # Collect scores for each metric across all epochs and spatial locations
+            for metric_idx in range(num_metrics):
+                metric_data = info.score_map[:, metric_idx, :, :].flatten()
+                metric_scores[metric_idx].extend(metric_data)
         elif info.runner_type == 'evaluator':
-            # For evaluators: collect all scores from all metrics
-            # score_map shape: (C, H, W)
-            all_scores.extend(info.score_map.flatten())
+            # For evaluators: score_map shape (C, H, W)
+            # Collect scores for each metric across all spatial locations
+            for metric_idx in range(num_metrics):
+                metric_data = info.score_map[metric_idx, :, :].flatten()
+                metric_scores[metric_idx].extend(metric_data)
 
-    all_scores = np.array(all_scores)
-    # Filter out NaN values
-    valid_scores = all_scores[~np.isnan(all_scores)]
+    # Compute min/max for each metric
+    color_scales = np.zeros((num_metrics, 2))
+    for metric_idx in range(num_metrics):
+        scores = np.array(metric_scores[metric_idx])
+        # Filter out NaN values
+        valid_scores = scores[~np.isnan(scores)]
+        
+        if len(valid_scores) == 0:
+            # Default range if no valid scores for this metric
+            color_scales[metric_idx] = [0.0, 1.0]
+        else:
+            color_scales[metric_idx] = [float(np.min(valid_scores)), float(np.max(valid_scores))]
 
-    if len(valid_scores) == 0:
-        return 0.0, 1.0  # Default range if no valid scores
-
-    global_min = float(np.min(valid_scores))
-    global_max = float(np.max(valid_scores))
-
-    return global_min, global_max
+    return color_scales
 
 
 def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tuple[
-    int, Set[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], Tuple[float, float]
+    int, Set[str], int, Dict[str, Any], DatasetType, Dict[str, LogDirInfo], np.ndarray
 ]:
     """Initialize log directories and validate consistency.
 
@@ -453,7 +469,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
         force_reload: Whether to force reload from source files
 
     Returns:
-        Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, global_color_scale)
+        Tuple of (max_epoch, metrics, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales)
 
     Raises:
         ValueError: If log directories are invalid or inconsistent
@@ -513,7 +529,7 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     data_cfg = module.data_cfg
     dataset_cfg = data_cfg['val_dataset']
 
-    # Compute global color scales across all data
-    global_color_scale = compute_global_color_scales(log_dir_infos)
+    # Compute per-metric color scales across all data
+    per_metric_color_scales = compute_per_metric_color_scales(log_dir_infos)
 
-    return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, global_color_scale
+    return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales
