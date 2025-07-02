@@ -99,20 +99,14 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 @pytest.fixture
 def dataset(request):
     """Fixture for creating an ADE20KDataset instance."""
-    dataset_params = request.param
-    return ADE20KDataset(**dataset_params)
+    split = request.param
+    return ADE20KDataset(
+        data_root='./data/datasets/soft_links/ADE20K',
+        split=split,
+    )
 
 
-@pytest.mark.parametrize('dataset', [
-    {
-        'data_root': './data/datasets/soft_links/ADE20K',
-        'split': 'training',
-    },
-    {
-        'data_root': './data/datasets/soft_links/ADE20K',
-        'split': 'validation',
-    },
-], indirect=True)
+@pytest.mark.parametrize('dataset', ['training', 'validation'], indirect=True)
 def test_ade_20k(dataset, max_samples, get_samples_to_test):
 
     def validate_datapoint(idx: int) -> None:
