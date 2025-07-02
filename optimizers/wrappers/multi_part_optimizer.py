@@ -24,15 +24,15 @@ class MultiPartOptimizer(BaseOptimizer):
     # ====================================================================================================
     # ====================================================================================================
 
-    def state_dict(self, *args, **kwargs) -> dict:
+    def state_dict(self) -> Dict[str, Dict[str, Any]]:
         return {
-            name: self.optimizers[name].state_dict(*args, **kwargs)
+            name: self.optimizers[name].state_dict()
             for name in self.optimizers
         }
 
-    def load_state_dict(self, *args, **kwargs) -> None:
+    def load_state_dict(self, state_dict: Dict[str, Dict[str, Any]]) -> None:
         for name in self.optimizers:
-            self.optimizers[name].load_state_dict(*args, **kwargs)
+            self.optimizers[name].load_state_dict(state_dict[name])
 
     # ====================================================================================================
     # ====================================================================================================
