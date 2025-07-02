@@ -253,9 +253,6 @@ class BaseTrainer(ABC):
         """Initialize debugger and register forward hooks."""
         self.logger.info("Initializing debugger...")
         
-        # Precompute checkpoint indices
-        self._init_checkpoint_indices()
-        
         if self.config.get('debugger', None):
             self.debugger = build_from_config(self.config['debugger'], model=self.model)
         else:
@@ -624,6 +621,7 @@ class BaseTrainer(ABC):
         self._init_logger()
         self._init_determinism_()
         self._init_state_()
+        self._init_checkpoint_indices()  # Initialize checkpoint indices early
         self._init_dataloaders_()
         self._init_criterion_()
         self._init_metric_()
