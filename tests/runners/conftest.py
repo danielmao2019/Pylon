@@ -9,7 +9,7 @@ from metrics.wrappers.single_task_metric import SingleTaskMetric
 class SimpleMetric(SingleTaskMetric):
     """A simple metric implementation for testing."""
     
-    DIRECTION = -1  # Lower is better for MSE (loss metric)
+    DIRECTIONS = {"mse": -1}  # Lower is better for MSE (loss metric)
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Compute MSE score."""
