@@ -41,10 +41,14 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
         )
 
     def _init_scheduler(self):
+        # check dependencies
+        for name in ['logger', 'train_dataloader', 'optimizer']:
+            assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
+        
         self.logger.info("Initializing scheduler...")
         assert 'scheduler' in self.config
-        assert hasattr(self, 'train_dataloader') and isinstance(self.train_dataloader, torch.utils.data.DataLoader)
-        assert hasattr(self, 'optimizer') and isinstance(self.optimizer, optimizers.MTLOptimizer)
+        assert isinstance(self.train_dataloader, torch.utils.data.DataLoader)
+        assert isinstance(self.optimizer, optimizers.MTLOptimizer)
         self.config['scheduler']['args']['lr_lambda'] = build_from_config(
             steps=len(self.train_dataloader), config=self.config['scheduler']['args']['lr_lambda'],
         )

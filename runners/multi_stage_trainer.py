@@ -44,6 +44,9 @@ class MultiStageTrainer(BaseTrainer):
         self.tot_epochs = sum(self.stage_epochs)
 
     def _init_determinism(self):
+        # check dependencies
+        assert hasattr(self, 'logger') and self.logger is not None, "logger="
+        
         self.logger.info("Initializing determinism...")
         utils.determinism.set_determinism()
 

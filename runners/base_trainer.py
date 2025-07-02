@@ -67,6 +67,9 @@ class BaseTrainer(ABC):
         self.tot_epochs = tot_epochs
 
     def _init_logger(self) -> None:
+        # check dependencies
+        assert hasattr(self, 'work_dir') and self.work_dir is not None, "work_dir="
+        
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -96,6 +99,10 @@ class BaseTrainer(ABC):
         self.system_monitor.start()
 
     def _init_determinism(self) -> None:
+        # check dependencies
+        for name in ['logger', 'tot_epochs']:
+            assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
+        
         self.logger.info("Initializing determinism...")
         set_determinism()
 
@@ -193,6 +200,9 @@ class BaseTrainer(ABC):
         self.cum_epochs = load_idx + 1
 
     def _init_dataloaders(self) -> None:
+        # check dependencies
+        assert hasattr(self, 'logger') and self.logger is not None, "logger="
+        
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
         if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
@@ -224,6 +234,10 @@ class BaseTrainer(ABC):
             self.test_dataloader = None
 
     def _init_criterion(self) -> None:
+        # check dependencies
+        for name in ['logger', 'device']:
+            assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
+        
         self.logger.info("Initializing criterion...")
         if self.config.get('criterion', None):
             criterion = build_from_config(self.config['criterion'])
@@ -234,6 +248,9 @@ class BaseTrainer(ABC):
             self.criterion = None
 
     def _init_metric(self) -> None:
+        # check dependencies
+        assert hasattr(self, 'logger') and self.logger is not None, "logger="
+        
         self.logger.info("Initializing metric...")
         if self.config.get('metric', None):
             self.metric = build_from_config(self.config['metric'])
@@ -241,6 +258,10 @@ class BaseTrainer(ABC):
             self.metric = None
 
     def _init_model(self) -> None:
+        # check dependencies
+        for name in ['logger', 'device']:
+            assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
+        
         self.logger.info("Initializing model...")
         if self.config.get('model', None):
             model = build_from_config(self.config['model'])
