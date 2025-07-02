@@ -144,8 +144,12 @@ class SimpleTestMetric(BaseMetric):
     def __init__(self):
         super().__init__()
 
-    def __call__(self, y_pred: Dict[str, torch.Tensor], y_true: Dict[str, torch.Tensor], idx: int) -> Dict[str, torch.Tensor]:
-        """Calculate accuracy."""
+    def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, torch.Tensor]:
+        """Calculate accuracy from complete datapoint."""
+        # Extract components from datapoint
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
+        
         logits = y_pred['logits']
         targets = y_true['target']
 
@@ -156,11 +160,11 @@ class SimpleTestMetric(BaseMetric):
         correct = (predictions == targets).float()
         accuracy = correct.mean()
 
-        # Add to buffer for summarization with idx for order preservation
+        # Add to buffer for summarization
         self.add_to_buffer({
             'accuracy': accuracy,
             'num_samples': torch.tensor(len(targets), dtype=torch.float32)
-        }, idx=idx)
+        }, datapoint)
 
         return {
             'accuracy': accuracy,
