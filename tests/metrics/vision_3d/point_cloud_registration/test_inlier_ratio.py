@@ -30,7 +30,7 @@ def metric():
 def test_inlier_ratio_initialization():
     metric = InlierRatio(threshold=0.1)
     assert metric.threshold == 0.1
-    assert metric.DIRECTION == 1  # Higher is better
+    assert metric.DIRECTIONS == {'inlier_ratio': 1}  # Higher is better
 
 
 def test_inlier_ratio_perfect_match(metric):
