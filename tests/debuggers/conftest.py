@@ -62,6 +62,18 @@ class AnotherDummyDebugger(BaseDebugger):
 # NOTE: Forward debugger test classes are now defined directly in test_forward_debugger.py
 # conftest.py is for fixtures only, not class definitions
 
+# Simple forward debugger for fixture usage only
+from debuggers.forward_debugger import ForwardDebugger
+
+class SimpleForwardDebugger(ForwardDebugger):
+    """Simple forward debugger for fixture testing purposes only."""
+    
+    def process_forward(self, module, input, output):
+        return {
+            'layer_name': self.layer_name,
+            'output_shape': list(output.shape) if isinstance(output, torch.Tensor) else None
+        }
+
 
 @pytest.fixture
 def dummy_model():
@@ -157,7 +169,7 @@ def forward_debugger_config():
     return {
         'name': 'conv2_features',
         'debugger_config': {
-            'class': FeatureMapDebugger,
+            'class': SimpleForwardDebugger,
             'args': {
                 'layer_name': 'conv2'
             }
