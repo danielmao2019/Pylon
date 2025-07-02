@@ -485,13 +485,13 @@ torch.randint(0, 10, (2, 224, 224), dtype=torch.int64)
 - **Test organization**: For large test modules, split by test patterns into separate files:
   ```
   tests/criteria/base_criterion/
-  ├── __init__.py
   ├── test_initialization.py      # Initialization pattern
   ├── test_buffer_management.py   # Threading/async buffer tests
   ├── test_device_handling.py     # Device transfer tests
   ├── test_edge_cases.py          # Error handling and edge cases
   └── test_determinism.py         # Reproducibility tests
   ```
+- **NO __init__.py files**: Test directories should NOT contain `__init__.py` files - they are not Python packages
 
 **Examples of correct vs incorrect test patterns:**
 ```python
