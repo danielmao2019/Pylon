@@ -13,24 +13,12 @@ from utils.ops.dict_as_tensor import buffer_allclose
 class SimpleMetric(SingleTaskMetric):
     """A simple metric implementation for testing."""
 
-    DIRECTION = -1  # Lower is better for MSE
+    DIRECTIONS = {"mse": -1}  # Lower is better for MSE
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict[str, torch.Tensor]:
         """Compute MSE score."""
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
-
-    def __call__(self, datapoint: dict) -> dict[str, torch.Tensor]:
-        """Update the metric buffer with the current batch's score."""
-        # Extract outputs and labels from datapoint
-        y_pred = datapoint['outputs']
-        y_true = datapoint['labels']
-
-        score = self._compute_score(y_pred, y_true)
-        # Add to buffer
-        self.add_to_buffer(score, datapoint)
-        return score
-
 
 
 class SimpleDataset(torch.utils.data.Dataset):
