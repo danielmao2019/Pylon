@@ -133,8 +133,11 @@ class BaseTrainer(ABC):
 
     def _init_early_stopping(self) -> None:
         """Initialize early stopping after metric is available."""
-        if hasattr(self, 'logger'):
-            self.logger.info("Initializing early stopping...")
+        # check dependencies
+        for name in ['metric', 'logger']:
+            assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
+            
+        self.logger.info("Initializing early stopping...")
             
         early_stopping_config = self.config.get('early_stopping', None)
         if early_stopping_config is None:
@@ -149,15 +152,17 @@ class BaseTrainer(ABC):
             tot_epochs=self.tot_epochs,
             metric=self.metric,
             expected_files=self.expected_files,
-            logger=self.logger if hasattr(self, 'logger') else None
+            logger=self.logger
         )
         
         # Update with any existing scores
         self.early_stopping.update()
 
     def _init_state(self) -> None:
-        if hasattr(self, 'logger'):
-            self.logger.info("Initializing state...")
+        # check dependencies
+        assert hasattr(self, 'logger') and self.logger is not None, "logger="
+        
+        self.logger.info("Initializing state...")
         # Get self.cum_epochs
         if self.work_dir is None:
             self.cum_epochs = 0
@@ -180,8 +185,7 @@ class BaseTrainer(ABC):
         
         # resume state
         if load_idx is None:
-            if hasattr(self, 'logger'):
-                self.logger.info("Training from scratch.")
+            self.logger.info("Training from scratch.")
             self.cum_epochs = 0
             return
             
