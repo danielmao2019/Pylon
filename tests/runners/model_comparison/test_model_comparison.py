@@ -91,8 +91,8 @@ def test_get_metric_directions_multi_task_metric():
     metric = MultiTaskMetric(task_configs)
     directions = get_metric_directions(metric)
     expected = {
-        "classification": 1,  # From MockMetricWithDirection.DIRECTIONS first value
-        "regression": -1      # From MockMetricNegativeDirection.DIRECTIONS first value
+        "classification": {"accuracy": 1},  # Full DIRECTIONS from MockMetricWithDirection
+        "regression": {"loss": -1}          # Full DIRECTIONS from MockMetricNegativeDirection
     }
     assert directions == expected
 
@@ -224,11 +224,12 @@ def test_integration_complex_metric_with_early_stopping():
     # Test that directions can be extracted
     directions = get_metric_directions(metric)
     assert "segmentation" in directions
-    assert directions["segmentation"] == 1  # Higher is better
+    assert isinstance(directions["segmentation"], dict)  # Should be nested dict
+    assert "mean_IoU" in directions["segmentation"]     # Should contain semantic seg metrics
     
-    # Test score comparison - use simpler scalar scores for this test
-    scores1 = {"segmentation": 0.9}
-    scores2 = {"segmentation": 0.85}
+    # Test score comparison - use nested structure to match the directions
+    scores1 = {"segmentation": {"mean_IoU": 0.9, "accuracy": 0.85}}
+    scores2 = {"segmentation": {"mean_IoU": 0.85, "accuracy": 0.8}}
     
     # Test comparison (should indicate improvement since scores1 > scores2)
     result = compare_scores(scores1, scores2, True, directions)
