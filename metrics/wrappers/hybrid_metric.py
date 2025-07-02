@@ -50,6 +50,9 @@ class HybridMetric(SingleTaskMetric):
         self.DIRECTIONS = {}
         for i, component_metric in enumerate(self.metrics):
             assert hasattr(component_metric, 'DIRECTIONS'), f"Component metric {i} ({type(component_metric)}) must have DIRECTIONS attribute"
+            # Check for key overlaps to avoid ambiguity in merging
+            overlapping_keys = set(self.DIRECTIONS.keys()) & set(component_metric.DIRECTIONS.keys())
+            assert len(overlapping_keys) == 0, f"DIRECTIONS key overlap detected between component metrics: {overlapping_keys}"
             # Component has explicit DIRECTIONS dict - merge all keys
             self.DIRECTIONS.update(component_metric.DIRECTIONS)
 
