@@ -32,11 +32,12 @@ def compare_scores_vector(
     current_better = False
     best_better = False
     
+    # Get default direction if available
+    default_direction = metric_directions.get('__default__', 1)
+    
     for key in common_keys:
-        if key not in metric_directions:
-            continue
-            
-        direction = metric_directions[key]
+        # Use specific direction for key, or default direction
+        direction = metric_directions.get(key, default_direction)
         current_val = current_scores[key]
         best_val = best_scores[key]
         
@@ -87,17 +88,20 @@ def reduce_scores_to_scalar(
     """
     if order_config is True:
         # Equal-weight average of all scores
-        weights = {key: 1.0 for key in scores.keys() if key in metric_directions}
+        weights = {key: 1.0 for key in scores.keys()}
     elif isinstance(order_config, dict):
         # Use provided weights
         weights = order_config.copy()
     else:
         raise ValueError(f"Invalid order_config: {order_config}")
     
-    # Filter weights to only include valid metrics with directions
+    # Get default direction if available
+    default_direction = metric_directions.get('__default__', 1)
+    
+    # Filter weights to only include valid metrics 
     valid_weights = {}
     for key, weight in weights.items():
-        if key in scores and key in metric_directions:
+        if key in scores:
             assert weight >= 0, f"Negative weight not allowed: {key}={weight}"
             valid_weights[key] = weight
     
@@ -114,7 +118,8 @@ def reduce_scores_to_scalar(
     # Compute weighted average with DIRECTION applied
     weighted_sum = 0.0
     for key, weight in normalized_weights.items():
-        direction = metric_directions[key]
+        # Use specific direction for key, or default direction
+        direction = metric_directions.get(key, default_direction)
         value = scores[key]
         
         # Handle tensor values
@@ -148,6 +153,7 @@ def compare_scores(
     Returns:
         True if current_scores is better than best_scores
     """
+    # Unified comparison logic
     if order_config is False or order_config is None:
         # Vector comparison
         result = compare_scores_vector(current_scores, best_scores, metric_directions)
@@ -155,14 +161,14 @@ def compare_scores(
             # Incomparable - treat as "not improving"
             return False
         return result
-    else:
-        # Scalar comparison using reduction
-        current_scalar = reduce_scores_to_scalar(current_scores, order_config, metric_directions)
-        best_scalar = reduce_scores_to_scalar(best_scores, order_config, metric_directions)
-        return current_scalar > best_scalar
+    
+    # Scalar comparison using reduction (handles both True and Dict cases)
+    current_scalar = reduce_scores_to_scalar(current_scores, order_config, metric_directions)
+    best_scalar = reduce_scores_to_scalar(best_scores, order_config, metric_directions)
+    return current_scalar > best_scalar
 
 
-def extract_metric_directions(metric) -> Dict[str, int]:
+def get_metric_directions(metric) -> Dict[str, int]:
     """
     Extract DIRECTION attributes from metric classes.
     
@@ -172,12 +178,16 @@ def extract_metric_directions(metric) -> Dict[str, int]:
     Returns:
         Dict mapping metric names to DIRECTION values
     """
+    if metric is None:
+        return {}
+        
     directions = {}
     
     # Handle different metric types
     if hasattr(metric, 'DIRECTION'):
-        # Single metric with DIRECTION
-        directions['score'] = metric.DIRECTION
+        # Single metric with DIRECTION - apply to all score keys
+        # We use a special marker that will be applied to all keys during comparison
+        directions['__default__'] = metric.DIRECTION
     elif hasattr(metric, '__dict__'):
         # Check for nested metrics or metric collections
         for attr_name, attr_value in metric.__dict__.items():
@@ -186,6 +196,15 @@ def extract_metric_directions(metric) -> Dict[str, int]:
     
     # Default fallback - assume all metrics should be maximized
     if not directions:
-        directions = {'score': 1}
+        directions = {'__default__': 1}
         
     return directions
+
+
+def extract_metric_directions(metric) -> Dict[str, int]:
+    """
+    Extract DIRECTION attributes from metric classes.
+    
+    Deprecated: Use get_metric_directions instead.
+    """
+    return get_metric_directions(metric)
