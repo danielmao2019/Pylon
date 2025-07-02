@@ -5,7 +5,9 @@ from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 class PointInlierRatio(SingleTaskMetric):
 
-    DIRECTION = +1  # Higher is better
+    DIRECTIONS = {
+        'point_inlier_ratio': +1  # Higher is better
+    }
 
     def __init__(self, use_buffer: bool = True) -> None:
         """Initialize the PointInlierRatio metric.
