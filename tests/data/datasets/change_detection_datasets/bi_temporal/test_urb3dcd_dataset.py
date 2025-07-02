@@ -1,9 +1,7 @@
-from typing import Dict, Any, List, Optional, Union, Tuple
+from typing import Dict, Any
 import pytest
-import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
-from sklearn.neighbors import KDTree
 from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
 
 
@@ -43,7 +41,7 @@ def validate_point_count_consistency(pc1: Dict[str, torch.Tensor], change_map: t
         f"number of points in change_map ({change_map.size(0)})"
 
 
-def validate_inputs(inputs: Dict[str, Any], dataset: Urb3DCDDataset) -> None:
+def validate_inputs(inputs: Dict[str, Any]) -> None:
     """Validate the inputs of a datapoint."""
     assert isinstance(inputs, dict)
     assert set(inputs.keys()) == {'pc_1', 'pc_2'}
@@ -53,7 +51,7 @@ def validate_inputs(inputs: Dict[str, Any], dataset: Urb3DCDDataset) -> None:
     validate_point_cloud(inputs['pc_2'], 'pc_2')
 
 
-def validate_labels(labels: Dict[str, Any], dataset: Urb3DCDDataset) -> None:
+def validate_labels(labels: Dict[str, Any]) -> None:
     """Validate the labels of a datapoint."""
     assert isinstance(labels, dict)
     assert 'change_map' in labels
@@ -111,14 +109,13 @@ def test_urb3dcd_dataset(dataset, max_samples, get_samples_to_test) -> None:
         inputs = datapoint['inputs']
         labels = datapoint['labels']
         meta_info = datapoint['meta_info']
-        validate_inputs(inputs, dataset)
-        validate_labels(labels, dataset)
+        validate_inputs(inputs)
+        validate_labels(labels)
         validate_point_count_consistency(inputs['pc_2'], labels['change_map'])
         validate_meta_info(meta_info, idx)
 
-    # Use command line --samples if provided, otherwise test first 3 samples
-    num_samples = min(len(dataset), max_samples if max_samples is not None else 3)
-    indices = random.sample(range(len(dataset)), num_samples)
+    num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
+    indices = list(range(num_samples))
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
 
