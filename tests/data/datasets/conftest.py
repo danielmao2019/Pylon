@@ -1,9 +1,52 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, Tuple
 import pytest
 import torch
 from data.datasets.base_dataset import BaseDataset
 from data.transforms.compose import Compose
 from data.transforms.random_noise import RandomNoise
+
+
+def pytest_addoption(parser):
+    """Add custom command line options for dataset testing."""
+    parser.addoption(
+        "--samples",
+        action="store",
+        default=None,
+        type=int,
+        help="Maximum number of datapoints to test per dataset (default: test all or existing limits)"
+    )
+
+
+@pytest.fixture
+def max_samples(request):
+    """Fixture to get the maximum number of samples to test from command line."""
+    return request.config.getoption("--samples")
+
+
+@pytest.fixture
+def get_samples_to_test():
+    """
+    Fixture that provides helper function to determine how many samples to test.
+    """
+    def _get_samples_to_test(dataset_length: int, max_samples: int = None, default: int = None) -> int:
+        """
+        Helper function to determine how many samples to test based on command line args.
+
+        Args:
+            dataset_length: Total number of samples in the dataset
+            max_samples: Value from --samples command line argument (can be None)
+            default: Default number of samples to test if --samples not provided
+
+        Returns:
+            Number of samples to test
+        """
+        if max_samples is not None:
+            return min(dataset_length, max_samples)
+        elif default is not None:
+            return min(dataset_length, default)
+        else:
+            return dataset_length
+    return _get_samples_to_test
 
 
 @pytest.fixture
