@@ -5,7 +5,7 @@ from utils.input_checks import check_depth_estimation
 
 class DepthEstimationMetric(SingleTaskMetric):
 
-    DIRECTION = -1
+    DIRECTIONS = {"l1": -1}  # Lower L1 distance is better
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         r"""

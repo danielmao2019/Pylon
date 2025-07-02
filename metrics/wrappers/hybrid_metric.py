@@ -45,6 +45,19 @@ class HybridMetric(SingleTaskMetric):
         assert all(isinstance(m, BaseMetric) for m in self.metrics)
         assert all(not m.use_buffer for m in self.metrics), "Component metrics should not use buffer"
         assert all(not hasattr(m, 'buffer') for m in self.metrics), "Component metrics should not have buffer attribute"
+        
+        # Build DIRECTIONS from component metrics by collecting all their score keys
+        self.DIRECTIONS = {}
+        for i, component_metric in enumerate(self.metrics):
+            if hasattr(component_metric, 'DIRECTIONS'):
+                # Component has explicit DIRECTIONS dict - merge all keys
+                self.DIRECTIONS.update(component_metric.DIRECTIONS)
+            elif hasattr(component_metric, 'DIRECTION'):
+                # Component has legacy DIRECTION scalar - assign to metric index
+                # This is a fallback for metrics that don't define explicit score keys
+                self.DIRECTIONS[f"metric_{i}"] = component_metric.DIRECTION
+            else:
+                raise AttributeError(f"Component metric {i} ({type(component_metric)}) has no DIRECTION or DIRECTIONS attribute")
 
     def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         """Override to properly handle component metrics that use the full datapoint."""

@@ -16,6 +16,20 @@ class MultiTaskMetric(BaseMetric):
             for task in metric_configs.keys()
         }
         self.task_names = metric_configs.keys()
+        
+        # Build DIRECTIONS from component task metrics
+        self.DIRECTIONS = {}
+        for task_name, task_metric in self.task_metrics.items():
+            if hasattr(task_metric, 'DIRECTIONS'):
+                # Task metric has explicit DIRECTIONS dict - use first score's direction
+                # (assumes all scores in a task have same direction, which is typical)
+                self.DIRECTIONS[task_name] = list(task_metric.DIRECTIONS.values())[0]
+            elif hasattr(task_metric, 'DIRECTION'):
+                # Task metric has legacy DIRECTION scalar
+                self.DIRECTIONS[task_name] = task_metric.DIRECTION
+            else:
+                raise AttributeError(f"Task metric {task_name} ({type(task_metric)}) has no DIRECTION or DIRECTIONS attribute")
+        
         super(MultiTaskMetric, self).__init__()
 
     def reset_buffer(self):
