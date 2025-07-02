@@ -62,12 +62,9 @@ class MultiTaskMetric(BaseMetric):
         # Build DIRECTIONS from component task metrics (instance attribute)
         self.DIRECTIONS = {}
         for task_name, task_metric in self.task_metrics.items():
-            if hasattr(task_metric, 'DIRECTIONS'):
-                # Use first direction (assumes all scores in task have same direction)
-                self.DIRECTIONS[task_name] = list(task_metric.DIRECTIONS.values())[0]
-            elif hasattr(task_metric, 'DIRECTION'):
-                # Legacy fallback
-                self.DIRECTIONS[task_name] = task_metric.DIRECTION
+            assert hasattr(task_metric, 'DIRECTIONS'), f"Task metric {task_name} ({type(task_metric)}) must have DIRECTIONS attribute"
+            # Preserve the full DIRECTIONS structure for each task
+            self.DIRECTIONS[task_name] = task_metric.DIRECTIONS
 ```
 
 ### Hybrid Metrics (Dynamic DIRECTIONS)
@@ -82,13 +79,13 @@ class HybridMetric(SingleTaskMetric):
         
         # Build DIRECTIONS by merging all component directions (instance attribute)
         self.DIRECTIONS = {}
-        for component_metric in self.metrics:
-            if hasattr(component_metric, 'DIRECTIONS'):
-                # Merge all score keys from component
-                self.DIRECTIONS.update(component_metric.DIRECTIONS)
-            elif hasattr(component_metric, 'DIRECTION'):
-                # Legacy fallback
-                self.DIRECTIONS[f"metric_{i}"] = component_metric.DIRECTION
+        for i, component_metric in enumerate(self.metrics):
+            assert hasattr(component_metric, 'DIRECTIONS'), f"Component metric {i} ({type(component_metric)}) must have DIRECTIONS attribute"
+            # Check for key overlaps to avoid ambiguity in merging
+            overlapping_keys = set(self.DIRECTIONS.keys()) & set(component_metric.DIRECTIONS.keys())
+            assert len(overlapping_keys) == 0, f"DIRECTIONS key overlap detected between component metrics: {overlapping_keys}"
+            # Merge all score keys from component
+            self.DIRECTIONS.update(component_metric.DIRECTIONS)
 ```
 
 ## API Usage
@@ -113,7 +110,7 @@ nested_directions = ChangeStarMetric.DIRECTIONS
 task_configs = {'seg': {...}, 'det': {...}}
 metric = MultiTaskMetric(task_configs)
 directions = get_metric_directions(metric)  # Instance required
-# Returns: {'seg': 1, 'det': 1}
+# Returns: {'seg': {'mean_IoU': 1, 'accuracy': 1, ...}, 'det': {'AR': 1, ...}}
 
 # Use in early stopping
 early_stopping = EarlyStopping(metric=metric, ...)
