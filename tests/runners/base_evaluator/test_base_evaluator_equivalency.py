@@ -140,16 +140,18 @@ class ErrorTestDataset(torch.utils.data.Dataset):
 
 class SimpleTestMetric(BaseMetric):
     """Simple accuracy metric for testing."""
+    
+    DIRECTIONS = {"accuracy": 1, "num_samples": 1}  # Higher is better
 
     def __init__(self):
         super().__init__()
 
     def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, torch.Tensor]:
-        """Calculate accuracy from complete datapoint."""
-        # Extract components from datapoint
+        """Calculate accuracy."""
+        # Extract outputs and labels from datapoint
         y_pred = datapoint['outputs']
         y_true = datapoint['labels']
-
+        
         logits = y_pred['logits']
         targets = y_true['target']
 
@@ -160,16 +162,15 @@ class SimpleTestMetric(BaseMetric):
         correct = (predictions == targets).float()
         accuracy = correct.mean()
 
-        # Add to buffer for summarization
-        self.add_to_buffer({
-            'accuracy': accuracy,
-            'num_samples': torch.tensor(len(targets), dtype=torch.float32)
-        }, datapoint)
-
-        return {
+        scores = {
             'accuracy': accuracy,
             'num_samples': torch.tensor(len(targets), dtype=torch.float32)
         }
+
+        # Add to buffer for summarization
+        self.add_to_buffer(scores, datapoint)
+
+        return scores
 
     def summarize(self, output_path: str = None) -> Dict[str, Any]:
         """Summarize metrics across all batches following Pylon pattern."""
