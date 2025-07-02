@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict, Any
 import pytest
 import random
 import torch
@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from data.datasets import ADE20KDataset
 
 
-def validate_inputs(inputs: dict) -> None:
+def validate_inputs(inputs: Dict[str, Any]) -> None:
     assert isinstance(inputs, dict), f"{type(inputs)=}"
     assert inputs.keys() == {'image'}
     assert isinstance(inputs['image'], torch.Tensor), f"{type(inputs['image'])=}"
@@ -15,7 +15,7 @@ def validate_inputs(inputs: dict) -> None:
     assert inputs['image'].min() >= 0.0 and inputs['image'].max() <= 1.0, f"{inputs['image'].min()=}, {inputs['image'].max()=}"
 
 
-def validate_labels(labels: dict, image_resolution: Tuple[int, int]) -> None:
+def validate_labels(labels: Dict[str, Any], image_resolution: Tuple[int, int]) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert labels.keys() == {'object_cls_mask', 'object_ins_mask', 'parts_cls_masks', 'parts_ins_masks', 'objects', 'parts', 'amodal_masks'}
 
@@ -79,9 +79,10 @@ def validate_labels(labels: dict, image_resolution: Tuple[int, int]) -> None:
     assert all(x.shape == image_resolution for x in labels['amodal_masks']), f"{labels['amodal_masks']=}, {image_resolution=}"
 
 
-def validate_meta_info(meta_info: dict) -> None:
+def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert meta_info.keys() == {'image_filepath', 'object_mask_filepath', 'parts_masks_filepaths', 'attr_filepath', 'amodal_masks_filepaths', 'image_resolution'}
+    assert meta_info.keys() == {'idx', 'image_filepath', 'object_mask_filepath', 'parts_masks_filepaths', 'attr_filepath', 'amodal_masks_filepaths', 'image_resolution'}
+    assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] should match datapoint index: {meta_info['idx']=}, {datapoint_idx=}"
     assert isinstance(meta_info['image_filepath'], str), f"{meta_info['image_filepath']=}"
     assert isinstance(meta_info['object_mask_filepath'], str), f"{meta_info['object_mask_filepath']=}"
     assert isinstance(meta_info['parts_masks_filepaths'], list), f"{type(meta_info['parts_masks_filepaths'])=}"
@@ -95,22 +96,28 @@ def validate_meta_info(meta_info: dict) -> None:
     assert all(x > 0 for x in meta_info['image_resolution']), f"{meta_info['image_resolution']=}"
 
 
-@pytest.mark.parametrize('split', ['training', 'validation'])
-def test_ade_20k(split: str):
-    dataset = ADE20KDataset(
+@pytest.fixture
+def dataset(request):
+    """Fixture for creating an ADE20KDataset instance."""
+    split = request.param
+    return ADE20KDataset(
         data_root='./data/datasets/soft_links/ADE20K',
         split=split,
     )
-    assert dataset.split == split, f"{dataset.split=}, {split=}"
+
+
+@pytest.mark.parametrize('dataset', ['training', 'validation'], indirect=True)
+def test_ade_20k(dataset, max_samples, get_samples_to_test):
 
     def validate_datapoint(idx: int) -> None:
-        dp = dataset[idx]
-        assert isinstance(dp, dict), f"{type(dp)=}"
-        assert dp.keys() == {'inputs', 'labels', 'meta_info'}
-        validate_inputs(dp['inputs'])
-        validate_labels(dp['labels'], dp['meta_info']['image_resolution'])
-        validate_meta_info(dp['meta_info'])
+        datapoint = dataset[idx]
+        assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+        assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
+        validate_inputs(datapoint['inputs'])
+        validate_labels(datapoint['labels'], datapoint['meta_info']['image_resolution'])
+        validate_meta_info(datapoint['meta_info'], idx)
 
-    indices = random.sample(range(len(dataset)), 1000)
+    num_samples = get_samples_to_test(len(dataset), max_samples, default=1000)
+    indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)

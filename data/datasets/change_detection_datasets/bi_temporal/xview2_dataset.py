@@ -51,15 +51,27 @@ class xView2Dataset(BaseDataset):
     # ====================================================================================================
 
     def _init_annotations(self) -> None:
-        # gather filepaths
-        input_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, "images", "*.png")))
+        # determine which directories to search based on split
+        if self.split == 'train':
+            # For train split, search in both tier1 and tier3 directories
+            search_dirs = ['tier1', 'tier3']
+        else:
+            # For test/hold splits, use the split name directly
+            search_dirs = [self.split]
+        
+        # gather filepaths from all relevant directories
+        input_filepaths = []
+        label_filepaths = []
+        for search_dir in search_dirs:
+            input_filepaths.extend(sorted(glob.glob(os.path.join(self.data_root, search_dir, "images", "*.png"))))
+            label_filepaths.extend(sorted(glob.glob(os.path.join(self.data_root, search_dir, "targets", "*.png"))))
+        
         img_1_filepaths = list(filter(
             lambda x: os.path.basename(x).endswith("pre_disaster.png"), input_filepaths,
         ))
         img_2_filepaths = list(filter(
             lambda x: os.path.basename(x).endswith("post_disaster.png"), input_filepaths,
         ))
-        label_filepaths = sorted(glob.glob(os.path.join(self.data_root, self.split, "targets", "*.png")))
         lbl_1_filepaths = list(filter(
             lambda x: os.path.basename(x).endswith("pre_disaster_target.png"), label_filepaths,
         ))

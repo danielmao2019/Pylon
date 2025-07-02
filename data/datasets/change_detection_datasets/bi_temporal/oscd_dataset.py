@@ -101,8 +101,7 @@ class OSCDDataset(BaseDataset):
     ]:
         inputs = self._load_inputs(idx)
         labels = self._load_labels(idx)
-        meta_info = self.annotations[idx]
-        meta_info['idx'] = idx
+        meta_info = self.annotations[idx]['meta_info'].copy()
         return inputs, labels, meta_info
 
     def _load_inputs(self, idx: int) -> Dict[str, torch.Tensor]:

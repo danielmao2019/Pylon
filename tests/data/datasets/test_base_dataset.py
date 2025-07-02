@@ -1,10 +1,16 @@
-from typing import Any, Tuple, List, Dict, Optional
 import pytest
 import torch
-from utils.ops import buffer_equal
 
 
-@pytest.mark.parametrize("indices, expected_indices", [
+@pytest.fixture
+def dataset_with_params(request, SampleDataset):
+    """Fixture for creating a SampleDataset instance with parameters."""
+    indices, expected_indices = request.param
+    dataset = SampleDataset(split=None, indices=indices, device=torch.device('cpu'))
+    return dataset, expected_indices, indices
+
+
+@pytest.mark.parametrize("dataset_with_params", [
     (
         None,
         {'train': list(range(100)), 'val': list(range(100)), 'test': list(range(100)), 'weird': list(range(100))},
@@ -17,14 +23,12 @@ from utils.ops import buffer_equal
         {'train': [2], 'val': [2, 4], 'test': [2, 4, 6], 'weird': [2, 4, 6, 8]},
         {'train': [2], 'val': [2, 4], 'test': [2, 4, 6], 'weird': [2, 4, 6, 8]},
     ),
-])
+], indirect=True)
 def test_base_dataset_None(
-    indices: Optional[Dict[str, List[int]]],
-    expected_indices: Dict[str, List[int]],
-    SampleDataset,
+    dataset_with_params,
 ) -> None:
     # Create dataset with CPU device for testing
-    dataset = SampleDataset(split=None, indices=indices, device=torch.device('cpu'))
+    dataset, expected_indices, indices = dataset_with_params
     assert dataset.split is None and not hasattr(dataset, 'split_percentage')
     assert not hasattr(dataset, 'indices') and hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
@@ -52,7 +56,15 @@ def test_base_dataset_None(
             assert torch.allclose(input_tensor, expected_tensor)
 
 
-@pytest.mark.parametrize("split, expected", [
+@pytest.fixture
+def dataset_with_tuple_params(request, SampleDataset):
+    """Fixture for creating a SampleDataset instance with tuple split parameters."""
+    split, expected = request.param
+    dataset = SampleDataset(split=split, indices=None, device=torch.device('cpu'))
+    return dataset, expected
+
+
+@pytest.mark.parametrize("dataset_with_tuple_params", [
     (
         (0.8, 0.1, 0.1, 0.0),
         {'train': 80, 'val': 10, 'test': 10, 'weird': 0},
@@ -61,14 +73,12 @@ def test_base_dataset_None(
         (0.7, 0.1, 0.1, 0.1),
         {'train': 70, 'val': 10, 'test': 10, 'weird': 10},
     ),
-])
+], indirect=True)
 def test_base_dataset_tuple(
-    split: Tuple[float, ...],
-    expected: Dict[str, int],
-    SampleDataset,
+    dataset_with_tuple_params,
 ) -> None:
     # Create dataset with CPU device for testing
-    dataset = SampleDataset(split=split, indices=None, device=torch.device('cpu'))
+    dataset, expected = dataset_with_tuple_params
     assert not hasattr(dataset, 'split') and type(dataset.split_percentages) == tuple
     assert not hasattr(dataset, 'indices') and not hasattr(dataset, 'split_indices')
     assert hasattr(dataset, 'split_subsets')
