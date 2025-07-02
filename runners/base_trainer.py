@@ -521,32 +521,24 @@ class BaseTrainer(ABC):
             latest_checkpoint (str): Path to the latest checkpoint
             best_checkpoint (Optional[str]): Path to the best checkpoint if available
         """
-        # Determine which checkpoints to keep based on the checkpoint method
-        keep_checkpoints: List[str] = []
+        # Use precomputed checkpoint indices instead of recalculating
+        checkpoint_method = self.config.get('checkpoint_method', 'latest')
+        if checkpoint_method == 'all':
+            # Keep all checkpoints
+            return
 
-        # Keep the latest checkpoint
-        keep_checkpoints.append(latest_checkpoint)
+        # Determine which checkpoints to keep
+        keep_checkpoints: List[str] = [latest_checkpoint]
 
         # Keep the best checkpoint if available
         if best_checkpoint is not None:
             keep_checkpoints.append(best_checkpoint)
 
-        checkpoint_method = self.config.get('checkpoint_method', 'latest')
-        if checkpoint_method == 'all':
-            # Keep all checkpoints
-            return
-        elif checkpoint_method == 'latest':
-            # Only keeping latest and best (already added above)
-            pass
-        else:
-            # Handle interval-based checkpointing
-            assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
-            assert checkpoint_method > 0, "checkpoint_method interval must be positive"
-            keep_indices = list(range(checkpoint_method-1, self.tot_epochs, checkpoint_method))
-            keep_checkpoints.extend(list(map(
-                lambda x: os.path.join(self.work_dir, f"epoch_{x}", "checkpoint.pt"),
-                keep_indices,
-            )))
+        # Add checkpoints from precomputed indices
+        keep_checkpoints.extend([
+            os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")
+            for idx in self.checkpoint_indices
+        ])
 
         # Remove all checkpoints except the ones we want to keep
         existing_checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
