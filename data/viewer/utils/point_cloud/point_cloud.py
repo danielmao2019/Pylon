@@ -258,5 +258,3 @@ def get_init_script() -> str:
     js_file_path = os.path.join(os.path.dirname(__file__), 'webgl_init.js')
     with open(js_file_path, 'r', encoding='utf-8') as f:
         return f.read()
-
-
