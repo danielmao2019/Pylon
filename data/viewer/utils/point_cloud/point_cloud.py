@@ -94,7 +94,6 @@ def create_webgl_point_cloud_component(
         labels = point_cloud_to_numpy(labels)
     
     # Use all points - no downsampling
-    original_count = len(points)
     
     # Prepare data for WebGL
     webgl_data = prepare_point_cloud_data(points, colors, labels)
@@ -134,74 +133,23 @@ def create_webgl_point_cloud_component(
             }
         ),
         
-        # Load Three.js and WebGL Point Cloud renderer if not already loaded
-        html.Script(f"""
-        if (typeof THREE === 'undefined') {{
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js';
-            script.onload = function() {{
-                // Load OrbitControls
-                const controlsScript = document.createElement('script');
-                controlsScript.src = 'https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js';
-                controlsScript.onload = function() {{
-                    // Load our WebGL point cloud renderer
-                    const webglScript = document.createElement('script');
-                    webglScript.text = `{get_webgl_assets()}`;
-                    document.head.appendChild(webglScript);
-                }};
-                document.head.appendChild(controlsScript);
-            }};
-            document.head.appendChild(script);
-        }} else if (typeof initWebGLPointCloud === 'undefined') {{
-            // Three.js loaded but our renderer is not
-            const webglScript = document.createElement('script');
-            webglScript.text = `{get_webgl_assets()}`;
-            document.head.appendChild(webglScript);
-        }}
-        """),
+        # Load external dependencies
+        html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js'),
+        html.Script(src='https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js'),
         
-        # WebGL initialization script - delay execution to ensure Three.js is loaded
+        # Include our WebGL renderer and initialization helper
+        html.Script(get_webgl_assets()),
+        html.Script(get_init_script()),
+        
+        # Minimal inline code - just call the initialization with config
         html.Script(f"""
-        (function() {{
-            const containerId = '{component_id}';
-            
-            function initWhenReady() {{
-                const container = document.getElementById(containerId);
-                if (!container) return;
-                
-                // Check if Three.js is loaded
-                if (typeof THREE === 'undefined') {{
-                    setTimeout(initWhenReady, 100);
-                    return;
-                }}
-                
-                // WebGL data
-                const pointCloudData = {json.dumps(webgl_data)};
-                const pointSize = {point_size};
-                const pointOpacity = {point_opacity};
-                const cameraState = {json.dumps(camera_state)};
-                
-                // Initialize WebGL point cloud renderer
-                if (typeof initWebGLPointCloud === 'function') {{
-                    initWebGLPointCloud(container, pointCloudData, pointSize, pointOpacity, cameraState);
-                }} else {{
-                    // Fallback implementation
-                    container.innerHTML = `
-                        <div style="padding: 20px; text-align: center; color: #155724; background-color: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px;">
-                            <h5>🚀 WebGL Point Cloud (Basic)</h5>
-                            <p><strong>${{pointCloudData.point_count.toLocaleString()}}</strong> points loaded</p>
-                            <p>Bounding box: ${{pointCloudData.bbox_size.toFixed(2)}} units</p>
-                            <p>Point size: ${{pointSize}} • Opacity: ${{pointOpacity}}</p>
-                            <br>
-                            <p><em>Three.js WebGL renderer is initializing...</em></p>
-                            <p><small>Please wait for full WebGL support to load</small></p>
-                        </div>
-                    `;
-                }}
-            }}
-            
-            initWhenReady();
-        }})();
+        initWebGLPointCloudWithConfig({{
+            containerId: '{component_id}',
+            pointCloudData: {json.dumps(webgl_data)},
+            pointSize: {point_size},
+            pointOpacity: {point_opacity},
+            cameraState: {json.dumps(camera_state)}
+        }});
         """),
         
         # Controls info
@@ -325,19 +273,15 @@ def get_point_cloud_stats(
 
 def get_webgl_assets() -> str:
     """Get the WebGL JavaScript code for point cloud rendering."""
-    # Load JavaScript from external file
     js_file_path = os.path.join(os.path.dirname(__file__), 'webgl_point_cloud.js')
-    try:
-        with open(js_file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
-        # Fallback if file not found
-        return """
-        console.error('WebGL point cloud renderer not found');
-        function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
-            container.innerHTML = '<p>WebGL renderer not available</p>';
-        }
-        if (typeof window !== 'undefined') {
-            window.initWebGLPointCloud = initWebGLPointCloud;
-        }
-        """
+    with open(js_file_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+
+def get_init_script() -> str:
+    """Get the initialization helper JavaScript code."""
+    js_file_path = os.path.join(os.path.dirname(__file__), 'webgl_init.js')
+    with open(js_file_path, 'r', encoding='utf-8') as f:
+        return f.read()
+
+
