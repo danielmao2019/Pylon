@@ -5,20 +5,20 @@
 
 function initWebGLPointCloudWithConfig(config) {
     const { containerId, pointCloudData, pointSize, pointOpacity, cameraState } = config;
-    
+
     function tryInit() {
         // Check if all dependencies are loaded
-        if (typeof THREE !== 'undefined' && 
-            typeof THREE.OrbitControls !== 'undefined' && 
+        if (typeof THREE !== 'undefined' &&
+            typeof THREE.OrbitControls !== 'undefined' &&
             typeof initWebGLPointCloud === 'function') {
-            
+
             const container = document.getElementById(containerId);
             if (container) {
                 initWebGLPointCloud(
-                    container, 
-                    pointCloudData, 
-                    pointSize, 
-                    pointOpacity, 
+                    container,
+                    pointCloudData,
+                    pointSize,
+                    pointOpacity,
                     cameraState
                 );
             } else {
@@ -29,7 +29,7 @@ function initWebGLPointCloudWithConfig(config) {
             setTimeout(tryInit, 100);
         }
     }
-    
+
     // Start initialization
     tryInit();
 }

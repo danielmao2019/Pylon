@@ -35,7 +35,7 @@ def create_union_visualization(
     # Normalize points to unbatched format
     src_points_normalized = _normalize_points(src_points)
     tgt_points_normalized = _normalize_points(tgt_points)
-    
+
     # Combine points
     union_points = torch.cat([src_points_normalized, tgt_points_normalized], dim=0)
 
@@ -80,7 +80,7 @@ def create_symmetric_difference_visualization(
     # Normalize points to unbatched format
     src_points_normalized = _normalize_points(src_points)
     tgt_points_normalized = _normalize_points(tgt_points)
-    
+
     # Find points in symmetric difference
     src_indices, tgt_indices = pc_symmetric_difference(src_points_normalized, tgt_points_normalized, radius)
 
@@ -142,7 +142,7 @@ def create_correspondence_visualization(
     # Normalize points to unbatched format
     src_points_normalized = _normalize_points(src_points)
     tgt_points_normalized = _normalize_points(tgt_points)
-    
+
     src_points_np = src_points_normalized.cpu().numpy()
     tgt_points_np = tgt_points_normalized.cpu().numpy()
 
@@ -284,14 +284,14 @@ def display_pcr_datapoint_single(
     ]
 
     figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
-    
+
     with ThreadPoolExecutor(max_workers=4) as executor:
         # Submit all tasks
         future_to_index = {
-            executor.submit(task_func): idx 
+            executor.submit(task_func): idx
             for idx, task_func in enumerate(figure_tasks)
         }
-        
+
         # Collect results in order
         for future in as_completed(future_to_index):
             idx = future_to_index[future]
@@ -310,7 +310,7 @@ def display_pcr_datapoint_single(
 
     # Normalize transform to handle batched case
     transform_normalized = _normalize_transform(transform, torch.Tensor)
-    
+
     # Compute rotation angle and translation magnitude
     rotation_matrix = transform_normalized[:3, :3]
     translation_vector = transform_normalized[:3, 3]
@@ -452,19 +452,19 @@ def display_pcr_datapoint_batched(
             ]
 
             level_figures = [None] * len(figure_tasks)
-            
+
             with ThreadPoolExecutor(max_workers=4) as executor:
                 # Submit all tasks
                 future_to_index = {
-                    executor.submit(task_func): idx 
+                    executor.submit(task_func): idx
                     for idx, task_func in enumerate(figure_tasks)
                 }
-                
+
                 # Collect results in order
                 for future in as_completed(future_to_index):
                     idx = future_to_index[future]
                     level_figures[idx] = future.result()
-            
+
             figures.extend(level_figures)
 
             # TODO: Add correspondence visualization

@@ -83,16 +83,16 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
             return updated_figure
 
     updated_figures = [None] * len(all_figures)
-    
+
     # Use parallel processing for multiple figures
     if len(all_figures) > 1:
         with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
             # Submit all update tasks
             future_to_index = {
-                executor.submit(update_figure_camera, i, figure): i 
+                executor.submit(update_figure_camera, i, figure): i
                 for i, figure in enumerate(all_figures)
             }
-            
+
             # Collect results in order
             for future in as_completed(future_to_index):
                 idx = future_to_index[future]
@@ -141,16 +141,16 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
         return updated_figure
 
     updated_figures = [None] * len(all_figures)
-    
+
     # Use parallel processing for multiple figures
     if len(all_figures) > 1:
         with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
             # Submit all reset tasks
             future_to_index = {
-                executor.submit(reset_figure_camera, figure): i 
+                executor.submit(reset_figure_camera, figure): i
                 for i, figure in enumerate(all_figures)
             }
-            
+
             # Collect results in order
             for future in as_completed(future_to_index):
                 idx = future_to_index[future]
