@@ -16,15 +16,6 @@ def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
     return points
 
 
-
-
-def detect_webgl_support() -> bool:
-    """Detect if WebGL is supported in the current environment."""
-    # In a real implementation, this would be done client-side
-    # For now, assume WebGL is available (most modern browsers support it)
-    return True
-
-
 def prepare_point_cloud_data(
     points: np.ndarray,
     colors: Optional[np.ndarray] = None,
@@ -194,31 +185,15 @@ def create_point_cloud_figure(
         HTML Div containing WebGL point cloud visualization
     """
     
-    try:
-        return create_webgl_point_cloud_component(
-            points=points,
-            colors=colors,
-            labels=labels,
-            title=title,
-            point_size=point_size,
-            point_opacity=point_opacity,
-            camera_state=camera_state
-        )
-    except Exception as e:
-        # Fallback to simple HTML display on error
-        points_np = point_cloud_to_numpy(points)
-        return html.Div([
-            html.H4(f"{title} (Fallback Mode)", style={'color': '#d63384'}),
-            html.P(f"WebGL rendering failed: {str(e)}"),
-            html.P(f"Point cloud statistics: {len(points_np):,} points"),
-            html.P("Please check browser WebGL support or contact support.")
-        ], style={
-            'padding': '20px',
-            'border': '1px solid #f5c6cb',
-            'background-color': '#f8d7da',
-            'border-radius': '4px',
-            'color': '#721c24'
-        })
+    return create_webgl_point_cloud_component(
+        points=points,
+        colors=colors,
+        labels=labels,
+        title=title,
+        point_size=point_size,
+        point_opacity=point_opacity,
+        camera_state=camera_state
+    )
 
 
 def get_point_cloud_stats(
