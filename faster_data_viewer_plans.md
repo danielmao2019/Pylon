@@ -1179,6 +1179,7 @@ class UserPreferenceManager:
 **Tasks**:
 1. **Implement Adaptive Downsampling** (`data/viewer/utils/point_cloud.py`)
    - Add `adaptive_downsample()` function with voxel grid sampling
+   - Implement `geometric_simplification()` with curvature-based sampling
    - Modify `create_point_cloud_figure()` to auto-downsample large point clouds
    - Add downsampling controls to UI
    - **Expected Impact**: 5-10x performance improvement for large point clouds
@@ -1219,7 +1220,13 @@ class UserPreferenceManager:
    - GPU-based transformations
    - **Expected Impact**: Real-time interaction with massive datasets
 
-4. **Integrate with Existing UI**
+4. **Add Camera-Based Optimization**
+   - Implement frustum culling with octree integration
+   - Add motion-based LOD for smooth camera movement
+   - Screen-space optimization for pixel-level culling
+   - **Expected Impact**: 80-90% reduction in rendered points
+
+5. **Integrate with Existing UI**
    - Replace Plotly figures with WebGL components
    - Maintain existing callback structure
    - **Expected Impact**: Seamless upgrade path
