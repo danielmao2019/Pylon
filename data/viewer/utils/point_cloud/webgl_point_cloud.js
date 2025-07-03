@@ -4,7 +4,7 @@
  */
 
 // Global Three.js imports (assumes Three.js is loaded)
-const { Scene, PerspectiveCamera, WebGLRenderer, BufferGeometry, BufferAttribute, 
+const { Scene, PerspectiveCamera, WebGLRenderer, BufferGeometry, BufferAttribute,
         PointsMaterial, Points, Color, Vector3, Box3 } = THREE;
 
 // OrbitControls for camera interaction
@@ -22,7 +22,7 @@ function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
     // Check WebGL support
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    
+
     if (!gl) {
         // Fallback for no WebGL support
         container.innerHTML = `
@@ -43,35 +43,35 @@ function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
         // Set up camera
         const aspect = container.clientWidth / container.clientHeight;
         const camera = new PerspectiveCamera(75, aspect, 0.1, data.bbox_size * 10);
-        
+
         // Position camera based on provided state or defaults
         const cameraPos = cameraState.position || [data.bbox_size * 2, data.bbox_size * 2, data.bbox_size * 2];
         camera.position.set(cameraPos[0], cameraPos[1], cameraPos[2]);
-        
+
         // Set camera target
         const target = cameraState.target || data.bbox_center;
         camera.lookAt(new Vector3(target[0], target[1], target[2]));
 
         // Create WebGL renderer
-        const renderer = new WebGLRenderer({ 
+        const renderer = new WebGLRenderer({
             antialias: true,
             alpha: true,
             preserveDrawingBuffer: true
         });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // Limit for performance
-        
+
         // Clear container and add canvas
         container.innerHTML = '';
         container.appendChild(renderer.domElement);
 
         // Create point cloud geometry
         const geometry = new BufferGeometry();
-        
+
         // Set positions (convert flat array to Float32Array)
         const positions = new Float32Array(data.positions);
         geometry.setAttribute('position', new BufferAttribute(positions, 3));
-        
+
         // Set colors (convert flat array to Float32Array)
         const colors = new Float32Array(data.colors);
         geometry.setAttribute('color', new BufferAttribute(colors, 3));
@@ -97,11 +97,11 @@ function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
         controls.enablePan = true;
         controls.enableZoom = true;
         controls.enableRotate = true;
-        
+
         // Control limits
         controls.minDistance = data.bbox_size * 0.1;
         controls.maxDistance = data.bbox_size * 5;
-        
+
         // Performance optimizations
         controls.enableKeys = false; // Disable keyboard controls for performance
         controls.screenSpacePanning = false;
@@ -110,10 +110,10 @@ function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
         let animationId;
         function animate() {
             animationId = requestAnimationFrame(animate);
-            
+
             // Update controls
             controls.update();
-            
+
             // Render scene
             renderer.render(scene, camera);
         }
@@ -122,7 +122,7 @@ function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
         const resizeObserver = new ResizeObserver(entries => {
             const entry = entries[0];
             const { width, height } = entry.contentRect;
-            
+
             camera.aspect = width / height;
             camera.updateProjectionMatrix();
             renderer.setSize(width, height);
@@ -149,7 +149,7 @@ function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
                     break;
             }
         };
-        
+
         // Add event listeners
         document.addEventListener('keydown', keyHandler);
 
@@ -195,12 +195,12 @@ function initWebGLPointCloud(container, data, pointSize, opacity, cameraState) {
             }
             document.removeEventListener('keydown', keyHandler);
             resizeObserver.disconnect();
-            
+
             // Dispose Three.js resources
             geometry.dispose();
             material.dispose();
             renderer.dispose();
-            
+
             // Clear container
             container.innerHTML = '';
         };

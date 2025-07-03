@@ -22,14 +22,14 @@ def main() -> None:
     parser.add_argument("--debug", action="store_true", help="Run in debug mode")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8050, help="Port to bind to")
-    
+
     args = parser.parse_args()
-    
+
     # Print debug information
     print(f"Current working directory: {os.getcwd()}")
     print(f"Repository root (estimated): {repo_root}")
     print(f"Python sys.path: {sys.path}")
-    
+
     # Create and run the viewer
     viewer = DatasetViewer()
     viewer.run(debug=args.debug, host=args.host, port=args.port)

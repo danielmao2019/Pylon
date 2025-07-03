@@ -63,19 +63,19 @@ def display_3dcd_datapoint(
 
     # Prepare figure creation tasks
     figure_tasks = [
-        (points, labels, title) 
+        (points, labels, title)
         for points, labels, title in zip(points_list, labels_list, titles)
     ]
 
     figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
-    
+
     with ThreadPoolExecutor(max_workers=3) as executor:
         # Submit all tasks
         future_to_index = {
-            executor.submit(create_figure, points, labels, title): idx 
+            executor.submit(create_figure, points, labels, title): idx
             for idx, (points, labels, title) in enumerate(figure_tasks)
         }
-        
+
         # Collect results in order
         for future in as_completed(future_to_index):
             idx = future_to_index[future]

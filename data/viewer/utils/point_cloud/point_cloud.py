@@ -22,10 +22,10 @@ def prepare_point_cloud_data(
     labels: Optional[np.ndarray] = None
 ) -> Dict[str, Any]:
     """Prepare point cloud data for WebGL rendering."""
-    
+
     # Ensure points are float32 for WebGL
     points = points.astype(np.float32)
-    
+
     # Handle colors
     if colors is not None:
         colors = colors.astype(np.float32)
@@ -36,7 +36,7 @@ def prepare_point_cloud_data(
         # Convert labels to colors
         unique_labels = np.unique(labels)
         colors = np.zeros((len(points), 3), dtype=np.float32)
-        
+
         for label in unique_labels:
             mask = labels == label
             color_hex = get_color(label)
@@ -48,13 +48,13 @@ def prepare_point_cloud_data(
     else:
         # Default blue color
         colors = np.full((len(points), 3), [0.27, 0.51, 0.71], dtype=np.float32)  # steelblue
-    
+
     # Calculate bounding box for camera setup
     bbox_min = np.min(points, axis=0)
     bbox_max = np.max(points, axis=0)
     bbox_center = (bbox_min + bbox_max) / 2
     bbox_size = np.max(bbox_max - bbox_min)
-    
+
     return {
         'positions': points.flatten().tolist(),  # Flatten for WebGL buffer
         'colors': colors.flatten().tolist(),
@@ -76,19 +76,19 @@ def create_webgl_point_cloud_component(
     camera_state: Optional[Dict[str, Any]] = None
 ) -> html.Div:
     """Create a WebGL-based point cloud visualization component."""
-    
+
     # Convert inputs to numpy
     points = point_cloud_to_numpy(points)
     if colors is not None:
         colors = point_cloud_to_numpy(colors)
     if labels is not None:
         labels = point_cloud_to_numpy(labels)
-    
+
     # Use all points - no downsampling
-    
+
     # Prepare data for WebGL
     webgl_data = prepare_point_cloud_data(points, colors, labels)
-    
+
     # Default camera state
     if camera_state is None:
         camera_distance = webgl_data['bbox_size'] * 2
@@ -97,20 +97,20 @@ def create_webgl_point_cloud_component(
             'target': webgl_data['bbox_center'],
             'up': [0, 0, 1]
         }
-    
+
     # Generate unique ID for this component
     component_id = f"webgl-point-cloud-{uuid.uuid4().hex[:8]}"
-    
+
     # Create the WebGL component
     return html.Div([
         html.H4(title, style={'margin-bottom': '10px'}),
-        
+
         # Performance info
         html.Div([
             html.Span(f"Displaying {len(points):,} points"),
             html.Span(f" • Point size: {point_size} • Opacity: {point_opacity}")
         ], style={'font-size': '12px', 'color': '#666', 'margin-bottom': '5px'}),
-        
+
         # WebGL container
         html.Div(
             id=component_id,
@@ -123,15 +123,15 @@ def create_webgl_point_cloud_component(
                 'overflow': 'hidden'
             }
         ),
-        
+
         # Load external dependencies
         html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js'),
         html.Script(src='https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js'),
-        
+
         # Include our WebGL renderer and initialization helper
         html.Script(get_webgl_assets()),
         html.Script(get_init_script()),
-        
+
         # Minimal inline code - just call the initialization with config
         html.Script(f"""
         initWebGLPointCloudWithConfig({{
@@ -142,14 +142,14 @@ def create_webgl_point_cloud_component(
             cameraState: {json.dumps(camera_state)}
         }});
         """),
-        
+
         # Controls info
         html.Div([
             html.Strong("Controls: "),
             html.Span("Left click + drag: Rotate • Right click + drag: Pan • Scroll: Zoom • R: Reset view • +/-: Point size")
         ], style={
-            'font-size': '11px', 
-            'color': '#888', 
+            'font-size': '11px',
+            'color': '#888',
             'margin-top': '5px',
             'padding': '5px',
             'background-color': '#f8f9fa',
@@ -168,10 +168,10 @@ def create_point_cloud_figure(
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> html.Div:
     """Create a point cloud visualization.
-    
+
     This is the main entry point that replaces the old Plotly-based function.
     Returns a WebGL-based visualization component.
-    
+
     Args:
         points: Numpy array of shape (N, 3) containing XYZ coordinates
         colors: Optional numpy array of shape (N, 3) containing RGB color values
@@ -180,11 +180,11 @@ def create_point_cloud_figure(
         point_size: Size of the points
         point_opacity: Opacity of the points
         camera_state: Optional dictionary containing camera position state
-    
+
     Returns:
         HTML Div containing WebGL point cloud visualization
     """
-    
+
     return create_webgl_point_cloud_component(
         points=points,
         colors=colors,
