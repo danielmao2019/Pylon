@@ -3,11 +3,37 @@
 ## Table of Contents
 - [1. Current Performance Bottlenecks](#1-current-performance-bottlenecks)
 - [2. Core Performance Ideas](#2-core-performance-ideas)
-  - [2.1 Intelligent Data Management](#21-intelligent-data-management)
-  - [2.2 Camera-Aware Interaction Optimization](#22-camera-aware-interaction-optimization)
-  - [2.3 GPU-Accelerated Rendering](#23-gpu-accelerated-rendering)
-  - [2.4 Smart Memory Management](#24-smart-memory-management)
-  - [2.5 Adaptive Quality Control](#25-adaptive-quality-control)
+  - [2.1 Intelligent Point Reduction](#21-intelligent-point-reduction)
+    - [2.1.1 Adaptive Downsampling](#211-adaptive-downsampling)
+    - [2.1.2 Geometric Simplification and Decimation](#212-geometric-simplification-and-decimation)
+    - [2.1.3 Frustum Culling and Spatial Optimization](#213-frustum-culling-and-spatial-optimization)
+    - [2.1.4 Spatial Data Structures (Octree/KD-Tree)](#214-spatial-data-structures-octreekd-tree)
+    - [2.1.5 Level-of-Detail (LOD) System](#215-level-of-detail-lod-system)
+    - [2.1.6 Point Count Limits (Safety Net)](#216-point-count-limits-safety-net)
+    - [2.1.7 How These Techniques Work Together](#217-how-these-techniques-work-together)
+  - [2.2 Progressive Rendering](#22-progressive-rendering)
+    - [2.2.1 Progressive Data Streaming](#221-progressive-data-streaming)
+    - [2.2.2 Progressive Loading UI](#222-progressive-loading-ui)
+  - [2.3 Camera-Aware Interaction Optimization](#23-camera-aware-interaction-optimization)
+    - [2.3.1 Intelligent View State Management](#231-intelligent-view-state-management)
+    - [2.3.2 Unified Camera-Aware Optimization](#232-unified-camera-aware-optimization)
+    - [2.3.3 Interaction Pattern Learning](#233-interaction-pattern-learning)
+  - [2.4 GPU-Accelerated Rendering](#24-gpu-accelerated-rendering)
+    - [2.4.1 WebGL-Based Point Cloud Renderer](#241-webgl-based-point-cloud-renderer)
+    - [2.4.2 Instanced Rendering for Massive Point Clouds](#242-instanced-rendering-for-massive-point-clouds)
+    - [2.4.3 Hybrid 2D/3D Rendering](#243-hybrid-2d3d-rendering)
+    - [2.4.4 GPU Data Processing](#244-gpu-data-processing)
+    - [2.4.5 Custom Shaders for Point Cloud Effects](#245-custom-shaders-for-point-cloud-effects)
+  - [2.5 Smart Memory Management](#25-smart-memory-management)
+    - [2.5.1 Hierarchical Data Storage](#251-hierarchical-data-storage)
+    - [2.5.2 Memory-Mapped Caching](#252-memory-mapped-caching)
+    - [2.5.3 Data Compression Techniques](#253-data-compression-techniques)
+    - [2.5.4 Optimized Data Transfer Protocols](#254-optimized-data-transfer-protocols)
+    - [2.5.5 Asynchronous Background Processing](#255-asynchronous-background-processing)
+  - [2.6 Adaptive Quality Control](#26-adaptive-quality-control)
+    - [2.6.1 Performance Monitoring](#261-performance-monitoring)
+    - [2.6.2 Automatic Quality Adjustment](#262-automatic-quality-adjustment)
+    - [2.6.3 User Preference Management](#263-user-preference-management)
 - [3. Implementation Phases](#3-implementation-phases)
 - [4. Expected Performance Gains](#4-expected-performance-gains)
 
@@ -49,8 +75,8 @@
 
 ## 2. Core Performance Ideas
 
-### 2.1 Intelligent Data Management
-**Core Idea**: Optimize data delivery and rendering through spatial reduction, temporal streaming, and adaptive quality control.
+### 2.1 Intelligent Point Reduction
+**Core Idea**: Use spatial algorithms to intelligently reduce point density while preserving visual quality and important geometric features.
 
 #### 2.1.1 Adaptive Downsampling
 **Concept**: Intelligently reduce point density based on viewing context and performance requirements.
@@ -128,212 +154,7 @@ def calculate_importance_scores(points):
 - Better than random sampling for geometric data
 - Maintains perceptual quality at lower point counts
 
-#### 2.1.3 Spatial Data Structures (Octree/KD-Tree)
-**Concept**: Hierarchical spatial data structure that recursively subdivides 3D space for efficient spatial queries and frustum culling.
-
-**Technical Details**:
-- **Construction**: Recursively split space until each node contains ≤ threshold points
-- **Querying**: Efficiently find points within camera frustum or distance ranges
-- **Memory Efficiency**: Only store/render visible nodes
-- **Update Strategy**: Rebuild octree when dataset changes, cache for reuse
-
-**Implementation Strategy**:
-```python
-class OctreePointCloudViewer:
-    def __init__(self, points, max_points_per_node=10000):
-        self.octree = self.build_octree(points, max_points_per_node)
-        self.visible_nodes = set()
-    
-    def get_visible_points(self, camera_frustum, max_points=100000):
-        # Query octree for nodes intersecting camera frustum
-        candidate_nodes = self.octree.query_frustum(camera_frustum)
-        
-        # Apply LOD: use fewer points for distant nodes
-        visible_points = []
-        for node in candidate_nodes:
-            distance = self.compute_distance_to_camera(node, camera_frustum)
-            lod_factor = self.compute_lod_factor(distance)
-            node_points = self.sample_node_points(node, lod_factor)
-            visible_points.extend(node_points)
-        
-        return visible_points[:max_points]
-```
-
-**Benefits**:
-- Logarithmic query time instead of linear
-- Natural frustum culling capabilities
-- Enables efficient collision detection and spatial queries
-
-#### 2.1.4 Level-of-Detail (LOD) System
-**Concept**: Render different levels of detail based on distance from camera and importance.
-
-**Technical Details**:
-- **Distance-Based LOD**: Closer objects get full detail, distant objects get simplified
-- **Importance-Based LOD**: Semantically important points (e.g., edges, keypoints) get priority
-- **Temporal LOD**: Adjust detail based on camera movement speed
-- **Semantic LOD**: Different point types get different treatment
-
-**Implementation Strategy**:
-```python
-class LODManager:
-    def __init__(self):
-        self.lod_levels = {
-            'high': {'max_distance': 10, 'sampling_rate': 1.0},
-            'medium': {'max_distance': 50, 'sampling_rate': 0.5},
-            'low': {'max_distance': 200, 'sampling_rate': 0.1},
-            'minimal': {'max_distance': float('inf'), 'sampling_rate': 0.01}
-        }
-    
-    def compute_lod_points(self, points, camera_position):
-        lod_points = []
-        distances = compute_distances(points, camera_position)
-        
-        for level_name, level_config in self.lod_levels.items():
-            mask = distances <= level_config['max_distance']
-            level_points = points[mask]
-            
-            # Sample points based on LOD level
-            n_samples = int(len(level_points) * level_config['sampling_rate'])
-            if n_samples > 0:
-                sampled = self.sample_points(level_points, n_samples)
-                lod_points.extend(sampled)
-        
-        return lod_points
-```
-
-**Benefits**:
-- Maintains visual quality where it matters most
-- Dramatic reduction in rendered points
-- Smooth transitions between detail levels
-
-#### 2.1.5 Point Count Limits (Safety Net)
-**Concept**: Hard maximum limits to prevent system overload and browser crashes.
-
-**Technical Details**:
-- **Absolute Maximum**: Set hard limits (e.g., 100K points max)
-- **Graceful Degradation**: Show error messages or force downsampling
-- **User Controls**: Allow users to override limits with warnings
-- **Memory Monitoring**: Dynamic limits based on available system resources
-
-**Implementation Strategy**:
-```python
-def display_with_safety_limits(points, max_points=100000):
-    if len(points) > max_points:
-        if user_override_enabled:
-            show_warning(f"Large dataset ({len(points)} points). Performance may suffer.")
-        else:
-            return html.Div(f"Dataset too large ({len(points)} points). Max: {max_points}")
-    return create_point_cloud_figure(points)
-```
-
-**Benefits**:
-- Prevents browser crashes and system freezes
-- Provides predictable performance bounds
-- Clear user feedback about limitations
-- Emergency fallback for extreme datasets
-
-#### 2.1.6 How These Techniques Work Together
-**How They Work Together**:
-1. **Octree provides spatial structure** - Efficient spatial queries and organization
-2. **LOD determines detail level** - How many points to show at each distance
-3. **Adaptive downsampling implements LOD** - The actual point reduction mechanism
-
-**Workflow**:
-```
-Point Cloud → Octree Construction → Camera Frustum Query → 
-LOD Level Determination → Adaptive Downsampling → Rendered Points
-```
-
-**Example Integration**:
-```python
-def render_point_cloud_optimized(points, camera_state):
-    # 1. Build or query octree
-    visible_nodes = octree.query_frustum(camera_state.frustum)
-    
-    # 2. Determine LOD for each node
-    for node in visible_nodes:
-        distance = compute_distance(node, camera_state.position)
-        lod_level = lod_manager.get_lod_level(distance)
-        
-        # 3. Apply adaptive downsampling
-        target_points = lod_level.max_points
-        downsampled = adaptive_downsample(node.points, target_points)
-        
-        # 4. Render downsampled points
-        render_points(downsampled)
-```
-
-#### 2.1.7 Progressive Data Streaming
-**Concept**: Stream point cloud data in chunks, starting with the most important points.
-
-**Technical Details**:
-- **Initial Quick Display**: Send minimal representative points for immediate visualization
-- **Intelligent Prioritization**: Stream points based on camera view, importance, user interaction
-- **Adaptive Chunking**: Adjust chunk sizes based on network speed and system performance
-- **Background Enhancement**: Continue streaming additional detail while user explores
-
-**Implementation Strategy**:
-```python
-class ProgressivePointCloudStreamer:
-    def __init__(self, points, initial_density=0.1):
-        self.points = points
-        self.initial_density = initial_density
-        self.streamed_indices = set()
-        
-    def get_initial_display(self):
-        """Return immediate low-detail visualization using 2.1 techniques"""
-        n_initial = int(len(self.points) * self.initial_density)
-        # Use adaptive downsampling from Section 2.1
-        initial_points = adaptive_downsample(self.points, n_initial, method='fps')
-        self.streamed_indices.update(range(len(initial_points)))
-        return initial_points
-    
-    def stream_next_chunk(self, camera_state, chunk_size=10000):
-        """Stream next chunk based on current view"""
-        priority_points = self.get_view_priority_points(camera_state)
-        new_points = [p for p in priority_points if p not in self.streamed_indices]
-        chunk = new_points[:chunk_size]
-        self.streamed_indices.update(chunk)
-        return self.points[chunk]
-```
-
-#### 2.1.8 Progressive Loading UI
-**Concept**: Provide rich feedback during loading process with ability to interact immediately.
-
-**Technical Details**:
-- **Immediate Feedback**: Show basic visualization within 1 second
-- **Progress Indicators**: Clear progress bars with meaningful status messages
-- **Interactive During Loading**: Allow camera movement on partial data
-- **Cancellation Support**: Users can cancel long loading operations
-- **Quality Indicators**: Show current vs. target quality levels
-
-**Implementation Strategy**:
-```python
-class ProgressiveLoadingUI:
-    def show_immediate_preview(self, initial_points):
-        """Show low-quality preview immediately"""
-        return html.Div([
-            html.H4("Loading Point Cloud... (Preview)", className="loading-header"),
-            dcc.Graph(figure=create_basic_figure(initial_points)),
-            html.Div("Loading additional detail...", className="status-text")
-        ])
-    
-    def update_progress_with_interaction(self, current_points, progress, eta):
-        """Update visualization while maintaining interactivity"""
-        return html.Div([
-            dcc.Graph(figure=create_enhanced_figure(current_points)),
-            self.create_progress_indicator(progress, eta),
-            html.Button("Cancel Loading", id="cancel-btn")
-        ])
-```
-
-**Benefits**:
-- Immediate visual feedback (no waiting)
-- Users can start exploring while loading continues
-- Graceful degradation on slow networks
-- Better perceived performance
-
-#### 2.1.9 Frustum Culling and Spatial Optimization
+#### 2.1.3 Frustum Culling and Spatial Optimization
 **Concept**: Only render points that are visible within the camera's view frustum.
 
 **Technical Details**:
@@ -388,7 +209,224 @@ class CameraBasedOptimizer:
 - Automatic optimization based on view state
 - Scalable performance regardless of total dataset size
 
-#### 2.1.10 Intelligent View State Management
+#### 2.1.4 Spatial Data Structures (Octree/KD-Tree)
+**Concept**: Hierarchical spatial data structure that recursively subdivides 3D space for efficient spatial queries and frustum culling.
+
+**Technical Details**:
+- **Construction**: Recursively split space until each node contains ≤ threshold points
+- **Querying**: Efficiently find points within camera frustum or distance ranges
+- **Memory Efficiency**: Only store/render visible nodes
+- **Update Strategy**: Rebuild octree when dataset changes, cache for reuse
+
+**Implementation Strategy**:
+```python
+class OctreePointCloudViewer:
+    def __init__(self, points, max_points_per_node=10000):
+        self.octree = self.build_octree(points, max_points_per_node)
+        self.visible_nodes = set()
+    
+    def get_visible_points(self, camera_frustum, max_points=100000):
+        # Query octree for nodes intersecting camera frustum
+        candidate_nodes = self.octree.query_frustum(camera_frustum)
+        
+        # Apply LOD: use fewer points for distant nodes
+        visible_points = []
+        for node in candidate_nodes:
+            distance = self.compute_distance_to_camera(node, camera_frustum)
+            lod_factor = self.compute_lod_factor(distance)
+            node_points = self.sample_node_points(node, lod_factor)
+            visible_points.extend(node_points)
+        
+        return visible_points[:max_points]
+```
+
+**Benefits**:
+- Logarithmic query time instead of linear
+- Natural frustum culling capabilities
+- Enables efficient collision detection and spatial queries
+
+#### 2.1.5 Level-of-Detail (LOD) System
+**Concept**: Render different levels of detail based on distance from camera and importance.
+
+**Technical Details**:
+- **Distance-Based LOD**: Closer objects get full detail, distant objects get simplified
+- **Importance-Based LOD**: Semantically important points (e.g., edges, keypoints) get priority
+- **Temporal LOD**: Adjust detail based on camera movement speed
+- **Semantic LOD**: Different point types get different treatment
+
+**Implementation Strategy**:
+```python
+class LODManager:
+    def __init__(self):
+        self.lod_levels = {
+            'high': {'max_distance': 10, 'sampling_rate': 1.0},
+            'medium': {'max_distance': 50, 'sampling_rate': 0.5},
+            'low': {'max_distance': 200, 'sampling_rate': 0.1},
+            'minimal': {'max_distance': float('inf'), 'sampling_rate': 0.01}
+        }
+    
+    def compute_lod_points(self, points, camera_position):
+        lod_points = []
+        distances = compute_distances(points, camera_position)
+        
+        for level_name, level_config in self.lod_levels.items():
+            mask = distances <= level_config['max_distance']
+            level_points = points[mask]
+            
+            # Sample points based on LOD level
+            n_samples = int(len(level_points) * level_config['sampling_rate'])
+            if n_samples > 0:
+                sampled = self.sample_points(level_points, n_samples)
+                lod_points.extend(sampled)
+        
+        return lod_points
+```
+
+**Benefits**:
+- Maintains visual quality where it matters most
+- Dramatic reduction in rendered points
+- Smooth transitions between detail levels
+
+#### 2.1.6 Point Count Limits (Safety Net)
+**Concept**: Hard maximum limits to prevent system overload and browser crashes.
+
+**Technical Details**:
+- **Absolute Maximum**: Set hard limits (e.g., 100K points max)
+- **Graceful Degradation**: Show error messages or force downsampling
+- **User Controls**: Allow users to override limits with warnings
+- **Memory Monitoring**: Dynamic limits based on available system resources
+
+**Implementation Strategy**:
+```python
+def display_with_safety_limits(points, max_points=100000):
+    if len(points) > max_points:
+        if user_override_enabled:
+            show_warning(f"Large dataset ({len(points)} points). Performance may suffer.")
+        else:
+            return html.Div(f"Dataset too large ({len(points)} points). Max: {max_points}")
+    return create_point_cloud_figure(points)
+```
+
+**Benefits**:
+- Prevents browser crashes and system freezes
+- Provides predictable performance bounds
+- Clear user feedback about limitations
+- Emergency fallback for extreme datasets
+
+#### 2.1.7 How These Techniques Work Together
+**How They Work Together**:
+1. **Octree provides spatial structure** - Efficient spatial queries and organization
+2. **LOD determines detail level** - How many points to show at each distance
+3. **Adaptive downsampling implements LOD** - The actual point reduction mechanism
+
+**Workflow**:
+```
+Point Cloud → Octree Construction → Camera Frustum Query → 
+LOD Level Determination → Adaptive Downsampling → Rendered Points
+```
+
+**Example Integration**:
+```python
+def render_point_cloud_optimized(points, camera_state):
+    # 1. Build or query octree
+    visible_nodes = octree.query_frustum(camera_state.frustum)
+    
+    # 2. Determine LOD for each node
+    for node in visible_nodes:
+        distance = compute_distance(node, camera_state.position)
+        lod_level = lod_manager.get_lod_level(distance)
+        
+        # 3. Apply adaptive downsampling
+        target_points = lod_level.max_points
+        downsampled = adaptive_downsample(node.points, target_points)
+        
+        # 4. Render downsampled points
+        render_points(downsampled)
+```
+
+### 2.2 Progressive Rendering
+**Core Idea**: Stream and render point cloud data progressively, starting with the most important points for immediate visual feedback.
+
+#### 2.2.1 Progressive Data Streaming
+**Concept**: Stream point cloud data in chunks, starting with the most important points.
+
+**Technical Details**:
+- **Initial Quick Display**: Send minimal representative points for immediate visualization
+- **Intelligent Prioritization**: Stream points based on camera view, importance, user interaction
+- **Adaptive Chunking**: Adjust chunk sizes based on network speed and system performance
+- **Background Enhancement**: Continue streaming additional detail while user explores
+
+**Implementation Strategy**:
+```python
+class ProgressivePointCloudStreamer:
+    def __init__(self, points, initial_density=0.1):
+        self.points = points
+        self.initial_density = initial_density
+        self.streamed_indices = set()
+        
+    def get_initial_display(self):
+        """Return immediate low-detail visualization"""
+        n_initial = int(len(self.points) * self.initial_density)
+        # Use adaptive downsampling from Section 2.1
+        initial_points = adaptive_downsample(self.points, n_initial, method='fps')
+        self.streamed_indices.update(range(len(initial_points)))
+        return initial_points
+    
+    def stream_next_chunk(self, camera_state, chunk_size=10000):
+        """Stream next chunk based on current view"""
+        priority_points = self.get_view_priority_points(camera_state)
+        new_points = [p for p in priority_points if p not in self.streamed_indices]
+        chunk = new_points[:chunk_size]
+        self.streamed_indices.update(chunk)
+        return self.points[chunk]
+```
+
+**Benefits**:
+- Immediate visual feedback (no waiting)
+- Users can start exploring while loading continues
+- Graceful degradation on slow networks
+- Better perceived performance
+
+#### 2.2.2 Progressive Loading UI
+**Concept**: Provide rich feedback during loading process with ability to interact immediately.
+
+**Technical Details**:
+- **Immediate Feedback**: Show basic visualization within 1 second
+- **Progress Indicators**: Clear progress bars with meaningful status messages
+- **Interactive During Loading**: Allow camera movement on partial data
+- **Cancellation Support**: Users can cancel long loading operations
+- **Quality Indicators**: Show current vs. target quality levels
+
+**Implementation Strategy**:
+```python
+class ProgressiveLoadingUI:
+    def show_immediate_preview(self, initial_points):
+        """Show low-quality preview immediately"""
+        return html.Div([
+            html.H4("Loading Point Cloud... (Preview)", className="loading-header"),
+            dcc.Graph(figure=create_basic_figure(initial_points)),
+            html.Div("Loading additional detail...", className="status-text")
+        ])
+    
+    def update_progress_with_interaction(self, current_points, progress, eta):
+        """Update visualization while maintaining interactivity"""
+        return html.Div([
+            dcc.Graph(figure=create_enhanced_figure(current_points)),
+            self.create_progress_indicator(progress, eta),
+            html.Button("Cancel Loading", id="cancel-btn")
+        ])
+```
+
+**Benefits**:
+- Immediate visual feedback (no waiting)
+- Users can start exploring while loading continues
+- Graceful degradation on slow networks
+- Better perceived performance
+
+### 2.3 Camera-Aware Interaction Optimization
+**Core Idea**: Optimize UI responsiveness and interaction patterns based on camera state and user behavior.
+
+#### 2.3.1 Intelligent View State Management
 **Concept**: Optimize UI responsiveness by intelligently managing view states and minimizing unnecessary updates.
 
 **Technical Details**:
@@ -439,108 +477,153 @@ class CameraAwareOptimizer:
 ```
 
 **Benefits**:
-- Unified camera state management
-- Coordinated rendering and UI optimization
-- Smoother interactions during motion
+- Smoother user interactions
 - Reduced computational overhead
+- Better resource utilization
+- Predictive data loading
 
-### 2.2 Camera-Aware Interaction Optimization
-**Core Idea**: Optimize both rendering and UI updates based on camera state, movement, and user interaction patterns.
-
-The techniques in this section work together with the Intelligent Data Management techniques from Section 2.1, particularly the frustum culling and view state management approaches that have been integrated into the comprehensive data management pipeline.
-
-#### 2.2.1 Unified Camera-Aware Optimization
-**Concept**: Coordinate all camera-based optimizations into a single, efficient system.
+#### 2.3.2 Unified Camera-Aware Optimization
+**Concept**: Coordinate all camera-related optimizations through a single unified system.
 
 **Technical Details**:
-- **Integrated Approach**: Combine frustum culling, LOD, and view state management
-- **Performance Monitoring**: Track camera movement patterns and performance impact
-- **Adaptive Thresholds**: Adjust optimization aggressiveness based on system capabilities
-- **Cache Coordination**: Manage cached data based on camera state and movement patterns
+- **Centralized Camera State**: Single source of truth for camera position, movement, and view parameters
+- **Coordinated Optimization Pipeline**: Integrate frustum culling, LOD adjustment, and UI updates
+- **Performance Budget Management**: Dynamically allocate computational resources based on camera state
+- **Cross-System Communication**: Coordinate between rendering, streaming, and UI systems
 
 **Implementation Strategy**:
 ```python
 class UnifiedCameraOptimizer:
     def __init__(self):
-        self.data_manager = IntelligentDataManager()  # From Section 2.1
-        self.camera_state_tracker = CameraStateTracker()
-        self.performance_monitor = PerformanceMonitor()
+        self.camera_state = CameraState()
+        self.frustum_culler = FrustumCuller()
+        self.lod_manager = LODManager()
+        self.view_state_manager = ViewStateManager()
+        self.performance_budget = PerformanceBudget()
         
-    def optimize_for_camera_interaction(self, points, camera_state):
-        """Unified optimization combining all camera-aware techniques"""
-        # Track camera movement and update performance metrics
-        movement_info = self.camera_state_tracker.update(camera_state)
+    def process_camera_update(self, new_camera_state):
+        """Process camera update through unified optimization pipeline"""
+        # 1. Update camera state
+        movement_delta = self.camera_state.update(new_camera_state)
         
-        # Apply integrated optimization pipeline
-        optimized_points = self.data_manager.process_with_camera_context(
-            points, camera_state, movement_info)
+        # 2. Determine optimization strategy based on movement
+        if movement_delta.is_significant():
+            # During movement: prioritize performance
+            strategy = self.create_movement_strategy()
+        else:
+            # When static: prioritize quality
+            strategy = self.create_quality_strategy()
         
-        # Update performance metrics for adaptive tuning
-        self.performance_monitor.record_optimization_result(
-            len(points), len(optimized_points), movement_info)
-        
-        return optimized_points
+        # 3. Apply coordinated optimizations
+        return self.apply_optimization_strategy(strategy)
+    
+    def create_movement_strategy(self):
+        """Strategy optimized for smooth camera movement"""
+        return OptimizationStrategy(
+            frustum_culling=True,
+            lod_bias=2,  # Reduce quality more aggressively
+            ui_updates='debounced',
+            streaming_priority='visible_only'
+        )
+    
+    def create_quality_strategy(self):
+        """Strategy optimized for high visual quality"""
+        return OptimizationStrategy(
+            frustum_culling=True,
+            lod_bias=0,  # Full quality
+            ui_updates='immediate',
+            streaming_priority='progressive_enhancement'
+        )
 ```
 
 **Benefits**:
-- Single optimization pipeline for all camera-related techniques
-- Coordinated performance monitoring and adaptation
-- Simplified integration with existing systems
-- Optimal resource utilization
+- Centralized optimization decision making
+- Coordinated performance across all systems
+- Adaptive strategy based on interaction context
+- Simplified debugging and maintenance
 
-#### 2.2.2 Interaction Pattern Learning
-**Concept**: Learn from user interaction patterns to predict and preload likely-needed data.
+#### 2.3.3 Interaction Pattern Learning
+**Concept**: Learn from user interaction patterns to predict and preload optimal data.
 
 **Technical Details**:
-- **Movement Prediction**: Analyze camera movement patterns to predict likely future views
-- **Interaction Heatmaps**: Track frequently viewed areas for priority loading
-- **Session Learning**: Adapt optimization strategies based on user behavior
-- **Preloading Strategy**: Background load data for predicted camera positions
+- **Movement Pattern Recognition**: Detect common camera movement patterns (orbiting, zooming, panning)
+- **Predictive Preloading**: Preload point data for likely next camera positions
+- **Adaptive Sensitivity**: Adjust interaction thresholds based on user behavior
+- **Session Learning**: Improve predictions within a single session
+- **Cross-User Patterns**: Learn from aggregated user interaction data
 
 **Implementation Strategy**:
 ```python
 class InteractionPatternLearner:
     def __init__(self):
         self.movement_history = []
-        self.view_heatmap = {}
-        self.prediction_model = None
+        self.pattern_detector = PatternDetector()
+        self.prediction_engine = PredictionEngine()
+        self.preloader = DataPreloader()
         
-    def learn_from_interaction(self, camera_state, interaction_type):
-        """Learn from user interactions to improve predictions"""
-        self.movement_history.append({
-            'timestamp': time.time(),
+    def record_interaction(self, camera_state, interaction_type):
+        """Record user interaction for pattern learning"""
+        interaction = {
             'camera_state': camera_state,
-            'interaction_type': interaction_type
-        })
+            'type': interaction_type,  # 'orbit', 'zoom', 'pan', 'jump'
+            'timestamp': time.time(),
+            'context': self.get_interaction_context()
+        }
         
-        # Update view heatmap
-        view_key = self.discretize_camera_state(camera_state)
-        self.view_heatmap[view_key] = self.view_heatmap.get(view_key, 0) + 1
+        self.movement_history.append(interaction)
         
-        # Update prediction model periodically
-        if len(self.movement_history) % 100 == 0:
-            self.update_prediction_model()
-    
-    def predict_next_views(self, current_camera_state, num_predictions=3):
+        # Keep only recent history
+        if len(self.movement_history) > 1000:
+            self.movement_history = self.movement_history[-1000:]
+        
+        # Update pattern detection
+        self.update_patterns()
+        
+    def update_patterns(self):
+        """Update detected patterns based on recent interactions"""
+        recent_interactions = self.movement_history[-50:]  # Last 50 interactions
+        
+        # Detect common patterns
+        patterns = self.pattern_detector.detect_patterns(recent_interactions)
+        
+        # Update prediction models
+        for pattern in patterns:
+            self.prediction_engine.update_model(pattern)
+        
+    def predict_next_interactions(self, current_camera_state):
         """Predict likely next camera positions"""
-        if self.prediction_model is None:
-            return []
+        predictions = self.prediction_engine.predict(
+            current_camera_state, 
+            self.movement_history
+        )
         
-        # Use learned patterns to predict next views
-        predictions = self.prediction_model.predict(current_camera_state)
-        return predictions[:num_predictions]
+        # Trigger preloading for high-confidence predictions
+        for prediction in predictions:
+            if prediction.confidence > 0.7:
+                self.preloader.preload_for_camera_state(prediction.camera_state)
+        
+        return predictions
+    
+    def get_interaction_context(self):
+        """Get context information for better pattern learning"""
+        return {
+            'dataset_size': self.get_current_dataset_size(),
+            'time_of_day': datetime.now().hour,
+            'session_duration': self.get_session_duration(),
+            'performance_level': self.get_current_performance_level()
+        }
 ```
 
 **Benefits**:
-- Proactive data loading based on learned patterns
-- Reduced wait times for common interactions
-- Personalized optimization for different users
-- Improved perceived performance
+- Proactive performance optimization
+- Reduced perceived loading times
+- Personalized interaction experience
+- Improved user workflow efficiency
 
-### 2.3 GPU-Accelerated Rendering
+### 2.4 GPU-Accelerated Rendering
 **Core Idea**: Move rendering computation from CPU/DOM to GPU for massive performance gains.
 
-#### 2.3.1 WebGL-Based Point Cloud Renderer
+#### 2.4.1 WebGL-Based Point Cloud Renderer
 **Concept**: Replace Plotly with custom WebGL renderer for GPU-accelerated point rendering.
 
 **Technical Details**:
@@ -606,7 +689,7 @@ class WebGLPointCloudRenderer {
 - Supports millions of points smoothly
 - Custom shaders for advanced visual effects
 
-#### 2.3.2 Instanced Rendering for Massive Point Clouds
+#### 2.4.2 Instanced Rendering for Massive Point Clouds
 **Concept**: Use GPU instancing to render millions of identical objects (points) efficiently.
 
 **Technical Details**:
@@ -670,7 +753,7 @@ class InstancedPointRenderer {
 - Supports real-time updates
 - Scalable to millions of points
 
-#### 2.3.3 Hybrid 2D/3D Rendering
+#### 2.4.3 Hybrid 2D/3D Rendering
 **Concept**: Use 2D sprites for distant points and full 3D geometry for nearby points.
 
 **Technical Details**:
@@ -713,7 +796,7 @@ class HybridPointRenderer:
 - Reduces GPU memory usage
 - Enables larger scene complexity
 
-#### 2.3.4 GPU Data Processing
+#### 2.4.4 GPU Data Processing
 **Concept**: Use GPU acceleration for point cloud preprocessing operations.
 
 **Technical Details**:
@@ -749,7 +832,7 @@ class GPUPointCloudProcessor:
 - Reduced CPU load
 - Pipeline optimization
 
-#### 2.3.5 Custom Shaders for Point Cloud Effects
+#### 2.4.5 Custom Shaders for Point Cloud Effects
 **Concept**: Implement custom GPU shaders for advanced point cloud visualization effects.
 
 **Technical Details**:
@@ -811,10 +894,10 @@ void main() {
 - Efficient distance-based scaling
 - Advanced lighting and shading
 
-### 2.4 Smart Memory Management
+### 2.5 Smart Memory Management
 **Core Idea**: Optimize memory usage through intelligent caching, compression, and data organization.
 
-#### 2.4.1 Hierarchical Data Storage
+#### 2.5.1 Hierarchical Data Storage
 **Concept**: Store point cloud data in hierarchical format optimized for different levels of detail.
 
 **Technical Details**:
@@ -824,7 +907,7 @@ void main() {
 - **Compression per Level**: Different compression strategies for different LODs
 - **Format Optimization**: Use efficient binary formats instead of JSON
 
-#### 2.4.2 Memory-Mapped Caching
+#### 2.5.2 Memory-Mapped Caching
 **Concept**: Use OS-level memory mapping for efficient access to large point cloud datasets.
 
 **Technical Details**:
@@ -884,7 +967,7 @@ class MemoryMappedPointCloudCache:
 - Automatic memory management
 - Fast access to frequently used data
 
-#### 2.4.3 Data Compression Techniques
+#### 2.5.3 Data Compression Techniques
 **Concept**: Compress point cloud data to reduce memory footprint and transfer time.
 
 **Technical Details**:
@@ -949,7 +1032,7 @@ class PointCloudCompressor:
 - Configurable quality vs. size tradeoffs
 - Better network performance
 
-#### 2.4.4 Optimized Data Transfer Protocols
+#### 2.5.4 Optimized Data Transfer Protocols
 **Concept**: Use efficient protocols and formats for transferring point cloud data between backend and frontend.
 
 **Technical Details**:
@@ -994,7 +1077,7 @@ class OptimizedDataTransfer:
 - Lower bandwidth usage
 - Better handling of large datasets
 
-#### 2.4.5 Asynchronous Background Processing
+#### 2.5.5 Asynchronous Background Processing
 **Concept**: Perform expensive operations in background threads to maintain UI responsiveness.
 
 **Technical Details**:
@@ -1056,10 +1139,10 @@ class AsyncPointCloudProcessor:
 - Proactive preprocessing
 - Better user experience
 
-### 2.5 Adaptive Quality Control
+### 2.6 Adaptive Quality Control
 **Core Idea**: Automatically adjust rendering quality based on system performance and user preferences.
 
-#### 2.5.1 Performance Monitoring
+#### 2.6.1 Performance Monitoring
 **Concept**: Continuously monitor system performance metrics to make informed quality decisions.
 
 **Technical Details**:
@@ -1119,7 +1202,7 @@ class PerformanceMonitor:
         }
 ```
 
-#### 2.5.2 Automatic Quality Adjustment
+#### 2.6.2 Automatic Quality Adjustment
 **Concept**: Dynamically adjust rendering parameters based on performance feedback.
 
 **Technical Details**:
@@ -1201,7 +1284,7 @@ class AdaptiveQualityController:
             self.last_adjustment = current_time
 ```
 
-#### 2.5.3 User Preference Management
+#### 2.6.3 User Preference Management
 **Concept**: Allow users to customize and override automatic quality settings.
 
 **Technical Details**:
