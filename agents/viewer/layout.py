@@ -28,6 +28,8 @@ def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str
             })
         else:
             for proc in sorted(gpu['processes'], key=lambda x: x['user']):
+                if "python -c from multiprocessing.spawn import spawn_main; spawn_main" in proc['cmd']:
+                     continue
                 table_data.append({
                     "Server": gpu['server'],
                     "Resource": f"GPU-{gpu['index']}",
