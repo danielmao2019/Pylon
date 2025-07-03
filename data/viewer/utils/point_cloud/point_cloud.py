@@ -1,5 +1,6 @@
 """WebGL-based point cloud visualization utilities."""
 from typing import Dict, Optional, Union, Any
+import os
 import numpy as np
 import torch
 import json
