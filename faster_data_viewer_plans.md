@@ -5,10 +5,11 @@
 - [2. Core Performance Ideas](#2-core-performance-ideas)
   - [2.1 Intelligent Point Reduction](#21-intelligent-point-reduction)
   - [2.2 Progressive Rendering](#22-progressive-rendering)
-  - [2.3 GPU-Accelerated Rendering](#23-gpu-accelerated-rendering)
-  - [2.4 Smart Memory Management](#24-smart-memory-management)
-  - [2.5 Intelligent Interaction Optimization](#25-intelligent-interaction-optimization)
-  - [2.6 Adaptive Quality Control](#26-adaptive-quality-control)
+  - [2.3 Dynamic Camera-Based Optimization](#23-dynamic-camera-based-optimization)
+  - [2.4 GPU-Accelerated Rendering](#24-gpu-accelerated-rendering)
+  - [2.5 Smart Memory Management](#25-smart-memory-management)
+  - [2.6 Intelligent Interaction Optimization](#26-intelligent-interaction-optimization)
+  - [2.7 Adaptive Quality Control](#27-adaptive-quality-control)
 - [3. Implementation Phases](#3-implementation-phases)
 - [4. Expected Performance Gains](#4-expected-performance-gains)
 
@@ -82,8 +83,55 @@ def adaptive_downsample(points, target_points=50000, method='voxel_grid'):
 - Configurable based on available resources
 - Preserves spatial distribution of original data
 
-#### 2.1.2 Spatial Data Structures (Octree/KD-Tree)
-**Concept**: Hierarchical spatial data structure that recursively subdivides 3D space into octants.
+#### 2.1.2 Geometric Simplification and Decimation
+**Concept**: Intelligently remove redundant or less important points while preserving geometric features.
+
+**Technical Details**:
+- **Edge-Preserving Decimation**: Maintain important geometric features (edges, corners, boundaries)
+- **Curvature-Based Sampling**: Keep more points in high-curvature areas, fewer in flat regions
+- **Importance Scoring**: Assign importance scores based on local geometry, normals, curvature
+- **Mesh-Based Simplification**: For dense point clouds, temporarily create mesh and simplify
+- **Feature Detection**: Preserve keypoints, edges, and distinctive geometric structures
+
+**Implementation Strategy**:
+```python
+def geometric_simplification(points, target_points, preserve_features=True):
+    """Intelligent geometric simplification preserving important features"""
+    if len(points) <= target_points:
+        return points
+    
+    # Calculate geometric importance scores
+    importance_scores = calculate_importance_scores(points)
+    
+    if preserve_features:
+        # Detect and preserve geometric features
+        feature_points = detect_geometric_features(points)
+        importance_scores[feature_points] *= 2.0  # Boost feature importance
+    
+    # Select points based on importance scores
+    selected_indices = select_by_importance(importance_scores, target_points)
+    return points[selected_indices]
+
+def calculate_importance_scores(points):
+    """Calculate importance based on local geometry"""
+    # Use local point density, curvature, normal variation
+    curvature = estimate_curvature(points)
+    density = calculate_local_density(points) 
+    normal_variation = calculate_normal_variation(points)
+    
+    # Combine metrics (higher values = more important)
+    importance = curvature * 0.4 + (1.0 / density) * 0.3 + normal_variation * 0.3
+    return importance
+```
+
+**Benefits**:
+- Preserves geometric structure and visual quality
+- Intelligent feature preservation
+- Better than random sampling for geometric data
+- Maintains perceptual quality at lower point counts
+
+#### 2.1.3 Spatial Data Structures (Octree/KD-Tree)
+**Concept**: Hierarchical spatial data structure that recursively subdivides 3D space for efficient spatial queries and frustum culling.
 
 **Technical Details**:
 - **Construction**: Recursively split space until each node contains ≤ threshold points
@@ -118,7 +166,7 @@ class OctreePointCloudViewer:
 - Natural frustum culling capabilities
 - Enables efficient collision detection and spatial queries
 
-#### 2.1.3 Level-of-Detail (LOD) System
+#### 2.1.4 Level-of-Detail (LOD) System
 **Concept**: Render different levels of detail based on distance from camera and importance.
 
 **Technical Details**:
@@ -160,7 +208,7 @@ class LODManager:
 - Dramatic reduction in rendered points
 - Smooth transitions between detail levels
 
-#### 2.1.4 Point Count Limits (Safety Net)
+#### 2.1.5 Point Count Limits (Safety Net)
 **Concept**: Hard maximum limits to prevent system overload and browser crashes.
 
 **Technical Details**:
@@ -186,7 +234,7 @@ def display_with_safety_limits(points, max_points=100000):
 - Clear user feedback about limitations
 - Emergency fallback for extreme datasets
 
-#### 2.1.5 How These Techniques Work Together
+#### 2.1.6 How These Techniques Work Together
 **How They Work Together**:
 1. **Octree provides spatial structure** - Efficient spatial queries and organization
 2. **LOD determines detail level** - How many points to show at each distance
@@ -289,10 +337,68 @@ class ProgressiveLoadingUI:
 - Graceful degradation on slow networks
 - Better perceived performance
 
-### 2.3 GPU-Accelerated Rendering
+### 2.3 Dynamic Camera-Based Optimization
+**Core Idea**: Optimize rendering based on camera state, movement, and user interaction patterns.
+
+#### 2.3.1 Frustum Culling and View-Dependent Rendering
+**Concept**: Only render points that are visible within the camera's view frustum.
+
+**Technical Details**:
+- **View Frustum Calculation**: Compute camera's visible volume (near/far planes, field of view)
+- **Spatial Culling**: Use octree/spatial structures to quickly eliminate invisible points
+- **Depth Culling**: Remove points behind other geometry or outside depth range
+- **Screen-Space Optimization**: Points smaller than 1 pixel can be culled or merged
+- **Motion-Based LOD**: Reduce quality during camera movement, restore when static
+
+**Implementation Strategy**:
+```python
+class CameraBasedOptimizer:
+    def __init__(self):
+        self.last_camera_state = None
+        self.motion_threshold = 0.01
+        self.is_moving = False
+        
+    def optimize_for_camera(self, points, camera_state):
+        """Optimize point cloud based on current camera state"""
+        # Detect camera movement
+        self.is_moving = self._is_camera_moving(camera_state)
+        
+        # Apply frustum culling
+        visible_points = self._frustum_cull(points, camera_state)
+        
+        # Apply motion-based LOD
+        if self.is_moving:
+            # Reduce quality during movement for smooth interaction
+            visible_points = self._apply_motion_lod(visible_points)
+        
+        # Screen-space optimization
+        optimized_points = self._screen_space_optimize(visible_points, camera_state)
+        
+        return optimized_points
+    
+    def _frustum_cull(self, points, camera_state):
+        """Remove points outside camera frustum"""
+        frustum_planes = self._calculate_frustum_planes(camera_state)
+        
+        # Test each point against frustum planes
+        inside_frustum = np.ones(len(points), dtype=bool)
+        for plane in frustum_planes:
+            distances = np.dot(points, plane[:3]) + plane[3]
+            inside_frustum &= distances >= 0
+        
+        return points[inside_frustum]
+```
+
+**Benefits**:
+- Dramatic reduction in rendered points (often 80-90%)
+- Smooth camera movement even with large datasets
+- Automatic optimization based on view state
+- Scalable performance regardless of total dataset size
+
+### 2.4 GPU-Accelerated Rendering
 **Core Idea**: Move rendering computation from CPU/DOM to GPU for massive performance gains.
 
-#### 2.3.1 WebGL-Based Point Cloud Renderer
+#### 2.4.1 WebGL-Based Point Cloud Renderer
 **Concept**: Replace Plotly with custom WebGL renderer for GPU-accelerated point rendering.
 
 **Technical Details**:
@@ -358,7 +464,7 @@ class WebGLPointCloudRenderer {
 - Supports millions of points smoothly
 - Custom shaders for advanced visual effects
 
-#### 2.3.2 Instanced Rendering for Massive Point Clouds
+#### 2.4.2 Instanced Rendering for Massive Point Clouds
 **Concept**: Use GPU instancing to render millions of identical objects (points) efficiently.
 
 **Technical Details**:
@@ -422,7 +528,7 @@ class InstancedPointRenderer {
 - Supports real-time updates
 - Scalable to millions of points
 
-#### 2.3.3 Hybrid 2D/3D Rendering
+#### 2.4.3 Hybrid 2D/3D Rendering
 **Concept**: Use 2D sprites for distant points and full 3D geometry for nearby points.
 
 **Technical Details**:
@@ -465,7 +571,7 @@ class HybridPointRenderer:
 - Reduces GPU memory usage
 - Enables larger scene complexity
 
-#### 2.3.4 GPU Data Processing
+#### 2.4.4 GPU Data Processing
 **Concept**: Use GPU acceleration for point cloud preprocessing operations.
 
 **Technical Details**:
@@ -501,7 +607,7 @@ class GPUPointCloudProcessor:
 - Reduced CPU load
 - Pipeline optimization
 
-#### 2.3.5 Custom Shaders for Point Cloud Effects
+#### 2.4.5 Custom Shaders for Point Cloud Effects
 **Concept**: Implement custom GPU shaders for advanced point cloud visualization effects.
 
 **Technical Details**:
@@ -563,10 +669,10 @@ void main() {
 - Efficient distance-based scaling
 - Advanced lighting and shading
 
-### 2.4 Smart Memory Management
+### 2.5 Smart Memory Management
 **Core Idea**: Optimize memory usage through intelligent caching, compression, and data organization.
 
-#### 2.4.1 Hierarchical Data Storage
+#### 2.5.1 Hierarchical Data Storage
 **Concept**: Store point cloud data in hierarchical format optimized for different levels of detail.
 
 **Technical Details**:
@@ -576,7 +682,7 @@ void main() {
 - **Compression per Level**: Different compression strategies for different LODs
 - **Format Optimization**: Use efficient binary formats instead of JSON
 
-#### 2.4.2 Memory-Mapped Caching
+#### 2.5.2 Memory-Mapped Caching
 **Concept**: Use OS-level memory mapping for efficient access to large point cloud datasets.
 
 **Technical Details**:
@@ -636,7 +742,7 @@ class MemoryMappedPointCloudCache:
 - Automatic memory management
 - Fast access to frequently used data
 
-#### 2.4.3 Data Compression Techniques
+#### 2.5.3 Data Compression Techniques
 **Concept**: Compress point cloud data to reduce memory footprint and transfer time.
 
 **Technical Details**:
@@ -701,7 +807,7 @@ class PointCloudCompressor:
 - Configurable quality vs. size tradeoffs
 - Better network performance
 
-#### 2.4.4 Optimized Data Transfer Protocols
+#### 2.5.4 Optimized Data Transfer Protocols
 **Concept**: Use efficient protocols and formats for transferring point cloud data between backend and frontend.
 
 **Technical Details**:
@@ -746,7 +852,7 @@ class OptimizedDataTransfer:
 - Lower bandwidth usage
 - Better handling of large datasets
 
-#### 2.4.5 Asynchronous Background Processing
+#### 2.5.5 Asynchronous Background Processing
 **Concept**: Perform expensive operations in background threads to maintain UI responsiveness.
 
 **Technical Details**:
@@ -808,10 +914,10 @@ class AsyncPointCloudProcessor:
 - Proactive preprocessing
 - Better user experience
 
-### 2.5 Intelligent Interaction Optimization
+### 2.6 Intelligent Interaction Optimization
 **Core Idea**: Optimize user interactions and view state management for responsive experience.
 
-#### 2.5.1 View State Management
+#### 2.6.1 View State Management
 **Concept**: Optimize UI responsiveness by intelligently managing view states and minimizing unnecessary updates.
 
 **Technical Details**:
@@ -861,10 +967,10 @@ class IntelligentViewStateManager:
 - Better resource utilization
 - Predictive data loading
 
-### 2.6 Adaptive Quality Control
+### 2.7 Adaptive Quality Control
 **Core Idea**: Automatically adjust rendering quality based on system performance and user preferences.
 
-#### 2.6.1 Performance Monitoring
+#### 2.7.1 Performance Monitoring
 **Concept**: Continuously monitor system performance metrics to make informed quality decisions.
 
 **Technical Details**:
@@ -924,7 +1030,7 @@ class PerformanceMonitor:
         }
 ```
 
-#### 2.6.2 Automatic Quality Adjustment
+#### 2.7.2 Automatic Quality Adjustment
 **Concept**: Dynamically adjust rendering parameters based on performance feedback.
 
 **Technical Details**:
@@ -1006,7 +1112,7 @@ class AdaptiveQualityController:
             self.last_adjustment = current_time
 ```
 
-#### 2.6.3 User Preference Management
+#### 2.7.3 User Preference Management
 **Concept**: Allow users to customize and override automatic quality settings.
 
 **Technical Details**:
