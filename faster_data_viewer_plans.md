@@ -5,11 +5,10 @@
 - [2. Core Performance Ideas](#2-core-performance-ideas)
   - [2.1 Intelligent Point Reduction](#21-intelligent-point-reduction)
   - [2.2 Progressive Rendering](#22-progressive-rendering)
-  - [2.3 Dynamic Camera-Based Optimization](#23-dynamic-camera-based-optimization)
+  - [2.3 Camera-Aware Interaction Optimization](#23-camera-aware-interaction-optimization)
   - [2.4 GPU-Accelerated Rendering](#24-gpu-accelerated-rendering)
   - [2.5 Smart Memory Management](#25-smart-memory-management)
-  - [2.6 Intelligent Interaction Optimization](#26-intelligent-interaction-optimization)
-  - [2.7 Adaptive Quality Control](#27-adaptive-quality-control)
+  - [2.6 Adaptive Quality Control](#26-adaptive-quality-control)
 - [3. Implementation Phases](#3-implementation-phases)
 - [4. Expected Performance Gains](#4-expected-performance-gains)
 
@@ -337,10 +336,10 @@ class ProgressiveLoadingUI:
 - Graceful degradation on slow networks
 - Better perceived performance
 
-### 2.3 Dynamic Camera-Based Optimization
-**Core Idea**: Optimize rendering based on camera state, movement, and user interaction patterns.
+### 2.3 Camera-Aware Interaction Optimization
+**Core Idea**: Optimize both rendering and UI updates based on camera state, movement, and user interaction patterns.
 
-#### 2.3.1 Frustum Culling and View-Dependent Rendering
+#### 2.3.1 Frustum Culling and Spatial Optimization
 **Concept**: Only render points that are visible within the camera's view frustum.
 
 **Technical Details**:
@@ -394,6 +393,62 @@ class CameraBasedOptimizer:
 - Smooth camera movement even with large datasets
 - Automatic optimization based on view state
 - Scalable performance regardless of total dataset size
+
+#### 2.3.2 Intelligent View State Management
+**Concept**: Optimize UI responsiveness by intelligently managing view states and minimizing unnecessary updates.
+
+**Technical Details**:
+- **Debounced Updates**: Batch rapid user interactions to avoid excessive recomputation
+- **Motion Detection**: Integrate with frustum culling to detect camera movement
+- **Selective Updates**: Update only changed components, not entire scene
+- **State Persistence**: Remember user preferences and camera positions
+- **Interaction Prediction**: Preload data for likely user actions
+
+**Implementation Strategy**:
+```python
+class CameraAwareOptimizer:
+    def __init__(self, update_threshold=0.1, debounce_ms=100):
+        self.update_threshold = update_threshold
+        self.debounce_ms = debounce_ms
+        self.last_camera_state = None
+        self.is_moving = False
+        self.pending_updates = {}
+        
+    def optimize_interaction(self, points, camera_state):
+        """Unified camera-aware optimization"""
+        # 1. Detect camera movement
+        self.is_moving = self._is_camera_moving(camera_state)
+        
+        # 2. Apply spatial optimizations
+        if self.should_update_view(camera_state):
+            # Apply frustum culling
+            visible_points = self._frustum_cull(points, camera_state)
+            
+            # Apply motion-based LOD
+            if self.is_moving:
+                visible_points = self._apply_motion_lod(visible_points)
+            
+            return visible_points
+        
+        # 3. Skip expensive updates during rapid motion
+        return self.get_cached_points()
+    
+    def should_update_view(self, new_camera_state):
+        """Determine if view should be updated based on camera change"""
+        if self.last_camera_state is None:
+            return True
+        
+        movement_distance = self.calculate_camera_movement(
+            self.last_camera_state, new_camera_state)
+        
+        return movement_distance > self.update_threshold
+```
+
+**Benefits**:
+- Unified camera state management
+- Coordinated rendering and UI optimization
+- Smoother interactions during motion
+- Reduced computational overhead
 
 ### 2.4 GPU-Accelerated Rendering
 **Core Idea**: Move rendering computation from CPU/DOM to GPU for massive performance gains.
@@ -914,63 +969,10 @@ class AsyncPointCloudProcessor:
 - Proactive preprocessing
 - Better user experience
 
-### 2.6 Intelligent Interaction Optimization
-**Core Idea**: Optimize user interactions and view state management for responsive experience.
-
-#### 2.6.1 View State Management
-**Concept**: Optimize UI responsiveness by intelligently managing view states and minimizing unnecessary updates.
-
-**Technical Details**:
-- **Debounced Updates**: Batch rapid user interactions to avoid excessive recomputation
-- **View Frustum Tracking**: Only update when view changes significantly
-- **Selective Rendering**: Update only changed components, not entire scene
-- **State Persistence**: Remember user preferences and camera positions
-- **Interaction Prediction**: Preload data for likely user actions
-
-**Implementation Strategy**:
-```python
-class IntelligentViewStateManager:
-    def __init__(self, update_threshold=0.1, debounce_ms=100):
-        self.update_threshold = update_threshold
-        self.debounce_ms = debounce_ms
-        self.last_camera_state = None
-        self.pending_updates = {}
-        
-    def should_update_view(self, new_camera_state):
-        """Determine if view should be updated based on camera change"""
-        if self.last_camera_state is None:
-            return True
-        
-        # Calculate camera movement distance
-        movement_distance = self.calculate_camera_movement(
-            self.last_camera_state, new_camera_state)
-        
-        # Only update if camera moved significantly
-        return movement_distance > self.update_threshold
-    
-    def debounce_update(self, update_id, update_function, *args, **kwargs):
-        """Debounce rapid updates to prevent system overload"""
-        # Cancel previous pending update
-        if update_id in self.pending_updates:
-            self.pending_updates[update_id].cancel()
-        
-        # Schedule new update after debounce period
-        timer = threading.Timer(self.debounce_ms / 1000.0, 
-                               lambda: update_function(*args, **kwargs))
-        self.pending_updates[update_id] = timer
-        timer.start()
-```
-
-**Benefits**:
-- Smoother user interactions
-- Reduced computational overhead
-- Better resource utilization
-- Predictive data loading
-
-### 2.7 Adaptive Quality Control
+### 2.6 Adaptive Quality Control
 **Core Idea**: Automatically adjust rendering quality based on system performance and user preferences.
 
-#### 2.7.1 Performance Monitoring
+#### 2.6.1 Performance Monitoring
 **Concept**: Continuously monitor system performance metrics to make informed quality decisions.
 
 **Technical Details**:
@@ -1030,7 +1032,7 @@ class PerformanceMonitor:
         }
 ```
 
-#### 2.7.2 Automatic Quality Adjustment
+#### 2.6.2 Automatic Quality Adjustment
 **Concept**: Dynamically adjust rendering parameters based on performance feedback.
 
 **Technical Details**:
@@ -1112,7 +1114,7 @@ class AdaptiveQualityController:
             self.last_adjustment = current_time
 ```
 
-#### 2.7.3 User Preference Management
+#### 2.6.3 User Preference Management
 **Concept**: Allow users to customize and override automatic quality settings.
 
 **Technical Details**:
