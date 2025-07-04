@@ -15,6 +15,41 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def _find_webgl_component_ids(component):
+    """Recursively find WebGL component IDs in a Dash component tree."""
+    webgl_ids = []
+    
+    if hasattr(component, 'id') and component.id and isinstance(component.id, str):
+        if 'webgl-point-cloud' in component.id and not component.id.endswith(('-data', '-status', '-trigger')):
+            webgl_ids.append(component.id)
+    
+    if hasattr(component, 'children'):
+        if isinstance(component.children, list):
+            for child in component.children:
+                webgl_ids.extend(_find_webgl_component_ids(child))
+        elif component.children is not None:
+            webgl_ids.extend(_find_webgl_component_ids(component.children))
+    
+    return webgl_ids
+
+
+def _register_webgl_callbacks_for_display(app, display):
+    """Register WebGL callbacks for all WebGL components in a display."""
+    try:
+        from data.viewer.utils.point_cloud.point_cloud import register_webgl_callback
+        
+        webgl_ids = _find_webgl_component_ids(display)
+        for component_id in webgl_ids:
+            try:
+                register_webgl_callback(app, component_id)
+                logger.info(f"Registered WebGL callback for component: {component_id}")
+            except Exception as e:
+                logger.warning(f"Failed to register WebGL callback for {component_id}: {e}")
+                
+    except ImportError as e:
+        logger.warning(f"Could not import WebGL callback registration: {e}")
+
+
 # Mapping of dataset types to their display functions
 DISPLAY_FUNCTIONS = {
     'semseg': display_semseg_datapoint,
@@ -108,6 +143,9 @@ def register_datapoint_viewer_callbacks(
         display_func = DISPLAY_FUNCTIONS.get(dataset_type)
         assert display_func is not None, f"No display function found for dataset type: {dataset_type}"
         display = display_func(datapoint)
+        
+        # Register WebGL callbacks for any point cloud components in the display
+        _register_webgl_callbacks_for_display(app, display)
 
         # Create combined display with info and visualization
         return html.Div([
