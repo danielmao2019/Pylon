@@ -58,7 +58,7 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
     # Run training in main thread
     trainer.logger.page_break()
     # Run until end_epoch or interrupted
-    for idx in range(start_epoch, min(end_epoch, trainer.tot_epochs)):
+    for idx in range(start_epoch, end_epoch):
         if stop_training.is_set():
             break
         utils.determinism.set_seed(seed=trainer.train_seeds[idx])
@@ -89,12 +89,13 @@ def test_interrupt_and_resume() -> None:
     3. Runs until epoch 6
     4. Verifies files match against reference run
     """
+    # Clean up any existing test directories
     os.system(f"rm -rf {config['work_dir']}")
+    os.system("rm -rf ./logs/tests/supervised_single_task_trainer/reference_run")
 
     # Create reference run: train continuously from epoch 0 to 6
     reference_config = copy.deepcopy(config)
     reference_config['work_dir'] = "./logs/tests/supervised_single_task_trainer/reference_run"
-    os.system(f"rm -rf {reference_config['work_dir']}")
     train_until_epoch(reference_config, start_epoch=0, end_epoch=6)
 
     # Create interrupted run: train from epoch 0 to 3, then from 3 to 6
