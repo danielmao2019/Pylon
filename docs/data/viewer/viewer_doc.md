@@ -260,3 +260,20 @@ The viewer will automatically discover and load the dataset, making it available
 4. **Import errors**
    - Make sure all dependencies are available
    - Check that dataset class is properly imported in `__init__.py`
+
+5. **"Can't instantiate abstract class with abstract method _init_annotations"**
+   - Dataset class is missing required `_init_annotations()` method
+   - See [Custom Dataset Implementation Guide](../datasets/custom_dataset_implementation.md)
+
+6. **"Dataset class should not manually add 'idx' to meta_info"**
+   - Remove 'idx' from meta_info dictionary in `_load_datapoint()`
+   - BaseDataset adds 'idx' automatically
+
+7. **Dataset returns wrong data types**
+   - Check if transforms are causing issues
+   - Test with `transforms_cfg=None` in config file
+   - Verify `_load_datapoint()` returns proper tuple format
+
+8. **DATASET_SIZE validation errors**
+   - Ensure `DATASET_SIZE` values match actual annotation counts
+   - Use format: `DATASET_SIZE = {'train': N, 'val': M, 'test': K}`

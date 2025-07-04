@@ -16,53 +16,25 @@ class ToyCubeDataset(BaseDataset):
     LABEL_NAMES = ['transform']
     SHA1SUM = None
     
-    def __init__(self, split: str = 'train', cube_density: int = 8):
+    def __init__(self, cube_density: int = 8, **kwargs):
         """Initialize toy cube dataset.
         
         Args:
-            split: Dataset split (train/val/test)
             cube_density: Number of points per cube edge
+            **kwargs: Arguments passed to BaseDataset (including split)
         """
-        self.split = split
         self.cube_density = cube_density
-        super().__init__()
+        super().__init__(**kwargs)
         
     def _init_annotations(self) -> None:
         """Initialize annotations for the dataset."""
-        # Validate split
-        if self.split not in self.SPLIT_OPTIONS:
-            raise ValueError(f"Invalid split '{self.split}'. Must be one of {self.SPLIT_OPTIONS}")
-            
         if self.split == 'train':
-            # Single toy example
-            self.annotations = [{
-                'idx': 0,
-                'src_cube_id': 'source_cube',
-                'tgt_cube_id': 'target_cube',
-                'transform_id': 'rotation_translation'
-            }]
+            self.annotations = [{'cube_pair': 'source_target'}]
         else:
-            # Empty for val/test splits
             self.annotations = []
     
-    def __len__(self) -> int:
-        """Return dataset size."""
-        return len(self.annotations)
-    
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
-        """Load a single datapoint with source and target cubes.
-        
-        Args:
-            idx: Index of the datapoint
-            
-        Returns:
-            Tuple of (inputs, labels, meta_info)
-        """
-        if idx >= len(self.annotations):
-            raise IndexError(f"Index {idx} out of range for dataset with {len(self.annotations)} items")
-            
-        if len(self.annotations) == 0:
-            raise IndexError(f"Dataset split '{self.split}' is empty")
+        """Load a single datapoint with source and target cubes."""
         
         # Create source cube (6 colored faces)
         src_points, src_colors = self._create_cube_points(center=[0, 0, 0])
@@ -107,16 +79,9 @@ class ToyCubeDataset(BaseDataset):
         
         # Create meta_info dictionary
         meta_info = {
-            'idx': idx,
-            'src_cube_id': 'source_cube',
-            'tgt_cube_id': 'target_cube',
             'src_points_count': len(src_points),
             'tgt_points_count': len(tgt_points),
-            'transform_description': 'Rotation 30° + Translation [2, 1, 0.5]',
-            'src_indices': torch.arange(len(src_points), dtype=torch.long),
-            'tgt_indices': torch.arange(len(tgt_points), dtype=torch.long),
-            'src_path': 'synthetic_source_cube',
-            'tgt_path': 'synthetic_target_cube'
+            'transform_description': 'Rotation 30° + Translation [2, 1, 0.5]'
         }
         
         return inputs, labels, meta_info
@@ -144,11 +109,8 @@ class ToyCubeDataset(BaseDataset):
             [0, 1, 1],  # Cyan - Bottom face (y=0)
         ]
         
-        # Apply color shift and normalize
-        face_colors = []
-        for color in base_colors:
-            shifted = [(c + color_shift) % 1.0 for c in color]
-            face_colors.append(shifted)
+        # Apply color shift 
+        face_colors = [[(c + color_shift) % 1.0 for c in color] for color in base_colors]
         
         density = max(1, self.cube_density)  # Ensure minimum density of 1
         
