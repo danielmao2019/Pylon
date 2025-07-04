@@ -86,14 +86,18 @@ def test_interrupt_and_resume() -> None:
     """
     os.system(f"rm -rf {config['work_dir']}")
 
-    # First run: train from epoch 0 to 3
-    train_until_epoch(config, start_epoch=0, end_epoch=3)
+    # Create reference run: train continuously from epoch 0 to 6
+    reference_config = copy.deepcopy(config)
+    reference_config['work_dir'] = "./logs/tests/supervised_single_task_trainer/reference_run"
+    os.system(f"rm -rf {reference_config['work_dir']}")
+    train_until_epoch(reference_config, start_epoch=0, end_epoch=6)
 
-    # Second run: train from epoch 3 to 6
+    # Create interrupted run: train from epoch 0 to 3, then from 3 to 6
+    train_until_epoch(config, start_epoch=0, end_epoch=3)
     train_until_epoch(config, start_epoch=3, end_epoch=6)
 
     # Compare files against reference run
-    reference_dir = "logs/examples/linear"
+    reference_dir = reference_config['work_dir']
     for epoch in range(6):
         interrupted_epoch_dir = os.path.join(config['work_dir'], f"epoch_{epoch}")
         reference_epoch_dir = os.path.join(reference_dir, f"epoch_{epoch}")
