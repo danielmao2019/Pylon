@@ -1,11 +1,10 @@
 """WebGL-based point cloud visualization utilities."""
 from typing import Dict, Optional, Union, Any
-import os
 import numpy as np
 import torch
 import json
 import uuid
-from dash import html
+from dash import html, Input, Output, clientside_callback
 from data.viewer.utils.segmentation import get_color
 
 
@@ -66,17 +65,34 @@ def prepare_point_cloud_data(
     }
 
 
-def create_webgl_point_cloud_component(
+
+
+def create_point_cloud_figure(
     points: Union[torch.Tensor, np.ndarray],
     colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
     labels: Optional[Union[torch.Tensor, np.ndarray]] = None,
     title: str = "Point Cloud",
     point_size: float = 2,
     point_opacity: float = 0.8,
-    camera_state: Optional[Dict[str, Any]] = None
+    camera_state: Optional[Dict[str, Any]] = None,
 ) -> html.Div:
-    """Create a WebGL-based point cloud visualization component using clientside callbacks."""
+    """Create a point cloud visualization.
 
+    This is the main entry point that replaces the old Plotly-based function.
+    Returns a WebGL-based visualization component.
+
+    Args:
+        points: Numpy array of shape (N, 3) containing XYZ coordinates
+        colors: Optional numpy array of shape (N, 3) containing RGB color values
+        labels: Optional numpy array of shape (N,) containing labels
+        title: Title for the figure
+        point_size: Size of the points
+        point_opacity: Opacity of the points
+        camera_state: Optional dictionary containing camera position state
+
+    Returns:
+        HTML Div containing WebGL point cloud visualization
+    """
     # Convert inputs to numpy
     points = point_cloud_to_numpy(points)
     if colors is not None:
@@ -122,44 +138,6 @@ def create_webgl_point_cloud_component(
 
     # Create the WebGL component with callback-based initialization
     return _create_webgl_component_with_callback(component_id, title, len(points), config)
-
-
-def create_point_cloud_figure(
-    points: Union[torch.Tensor, np.ndarray],
-    colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    labels: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    title: str = "Point Cloud",
-    point_size: float = 2,
-    point_opacity: float = 0.8,
-    camera_state: Optional[Dict[str, Any]] = None,
-) -> html.Div:
-    """Create a point cloud visualization.
-
-    This is the main entry point that replaces the old Plotly-based function.
-    Returns a WebGL-based visualization component.
-
-    Args:
-        points: Numpy array of shape (N, 3) containing XYZ coordinates
-        colors: Optional numpy array of shape (N, 3) containing RGB color values
-        labels: Optional numpy array of shape (N,) containing labels
-        title: Title for the figure
-        point_size: Size of the points
-        point_opacity: Opacity of the points
-        camera_state: Optional dictionary containing camera position state
-
-    Returns:
-        HTML Div containing WebGL point cloud visualization
-    """
-
-    return create_webgl_point_cloud_component(
-        points=points,
-        colors=colors,
-        labels=labels,
-        title=title,
-        point_size=point_size,
-        point_opacity=point_opacity,
-        camera_state=camera_state
-    )
 
 
 def get_point_cloud_stats(
@@ -212,18 +190,6 @@ def get_point_cloud_stats(
     return html.Ul(stats_items)
 
 
-def get_webgl_assets() -> str:
-    """Get the WebGL JavaScript code for point cloud rendering."""
-    js_file_path = os.path.join(os.path.dirname(__file__), 'webgl_point_cloud.js')
-    with open(js_file_path, 'r', encoding='utf-8') as f:
-        return f.read()
-
-
-def get_init_script() -> str:
-    """Get the initialization helper JavaScript code."""
-    js_file_path = os.path.join(os.path.dirname(__file__), 'webgl_init.js')
-    with open(js_file_path, 'r', encoding='utf-8') as f:
-        return f.read()
 
 
 def _create_webgl_component_with_callback(component_id: str, title: str, point_count: int, config: Dict[str, Any]) -> html.Div:
