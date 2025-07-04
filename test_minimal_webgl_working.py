@@ -2,7 +2,7 @@
 """
 Minimal working example of WebGL point cloud visualization.
 
-This should show a colorful cube made of points that you can rotate with the mouse.
+This should show a colorful cube made of many points (point cloud) that auto-rotates.
 """
 
 import dash
@@ -21,7 +21,7 @@ app.layout = html.Div([
     html.Div(id='status', style={'textAlign': 'center', 'marginTop': '10px'}),
 ])
 
-# Simple clientside callback that renders points
+# Clientside callback that creates and renders a cube point cloud
 clientside_callback(
     """
     function() {
@@ -42,7 +42,7 @@ clientside_callback(
             
             void main() {
                 gl_Position = matrix * vec4(position, 1.0);
-                gl_PointSize = 5.0;
+                gl_PointSize = 3.0;
                 vColor = color;
             }
         `);
@@ -71,30 +71,54 @@ clientside_callback(
         const colorLoc = gl.getAttribLocation(program, 'color');
         const matrixLoc = gl.getUniformLocation(program, 'matrix');
         
-        // Create cube points (8 corners)
-        const positions = [
-            // Bottom face
-            -1, -1, -1,  // 0
-             1, -1, -1,  // 1
-             1,  1, -1,  // 2
-            -1,  1, -1,  // 3
-            // Top face
-            -1, -1,  1,  // 4
-             1, -1,  1,  // 5
-             1,  1,  1,  // 6
-            -1,  1,  1,  // 7
+        // Create cube point cloud (6 faces with many points each)
+        const positions = [];
+        const colors = [];
+        const density = 10; // 10x10 points per face
+        
+        // Face colors
+        const faceColors = [
+            [1, 0, 0], // Red - Front face (z=1)
+            [0, 1, 0], // Green - Back face (z=0)  
+            [0, 0, 1], // Blue - Right face (x=1)
+            [1, 1, 0], // Yellow - Left face (x=0)
+            [1, 0, 1], // Magenta - Top face (y=1)
+            [0, 1, 1], // Cyan - Bottom face (y=0)
         ];
         
-        const colors = [
-            1, 0, 0,  // Red
-            0, 1, 0,  // Green
-            0, 0, 1,  // Blue
-            1, 1, 0,  // Yellow
-            1, 0, 1,  // Magenta
-            0, 1, 1,  // Cyan
-            1, 1, 1,  // White
-            0, 0, 0,  // Black
-        ];
+        // Generate points for each face
+        for (let i = 0; i < density; i++) {
+            for (let j = 0; j < density; j++) {
+                const u = i / (density - 1); // 0 to 1
+                const v = j / (density - 1); // 0 to 1
+                
+                // Front face (z=1) - Red
+                positions.push(u, v, 1);
+                colors.push(...faceColors[0]);
+                
+                // Back face (z=0) - Green
+                positions.push(u, v, 0);
+                colors.push(...faceColors[1]);
+                
+                // Right face (x=1) - Blue
+                positions.push(1, u, v);
+                colors.push(...faceColors[2]);
+                
+                // Left face (x=0) - Yellow
+                positions.push(0, u, v);
+                colors.push(...faceColors[3]);
+                
+                // Top face (y=1) - Magenta
+                positions.push(u, 1, v);
+                colors.push(...faceColors[4]);
+                
+                // Bottom face (y=0) - Cyan
+                positions.push(u, 0, v);
+                colors.push(...faceColors[5]);
+            }
+        }
+        
+        const numPoints = positions.length / 3;
         
         // Create buffers
         const posBuffer = gl.createBuffer();
@@ -109,21 +133,21 @@ clientside_callback(
         let angle = 0;
         
         function render() {
-            // Clear
-            gl.clearColor(0.2, 0.2, 0.2, 1.0);
+            // Clear with dark background
+            gl.clearColor(0.1, 0.1, 0.1, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT);
             
             // Use program
             gl.useProgram(program);
             
-            // Create rotation matrix
+            // Create rotation matrix (rotate around Y axis)
             const c = Math.cos(angle);
             const s = Math.sin(angle);
             const matrix = new Float32Array([
                 c, 0, s, 0,
                 0, 1, 0, 0,
                 -s, 0, c, 0,
-                0, 0, 0, 1
+                -0.5, -0.5, -2, 1  // Translate to center and move back
             ]);
             
             // Set matrix
@@ -139,18 +163,18 @@ clientside_callback(
             gl.enableVertexAttribArray(colorLoc);
             gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, 0, 0);
             
-            // Draw points
-            gl.drawArrays(gl.POINTS, 0, 8);
+            // Draw all points
+            gl.drawArrays(gl.POINTS, 0, numPoints);
             
-            // Update angle
-            angle += 0.01;
+            // Update angle for auto-rotation
+            angle += 0.02;
             
             requestAnimationFrame(render);
         }
         
         render();
         
-        return '8 colorful points should be rotating!';
+        return 'Cube point cloud with ' + numPoints + ' colored points rotating!';
     }
     """,
     Output('status', 'children'),
