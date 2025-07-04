@@ -66,6 +66,7 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
         trainer._val_epoch_()
         trainer.logger.page_break()
         trainer.cum_epochs = idx + 1
+        time.sleep(3)  # allow some more time for stop_training to be set
     
     # Wait for any remaining after-loop operations to complete
     if trainer.after_train_thread and trainer.after_train_thread.is_alive():
