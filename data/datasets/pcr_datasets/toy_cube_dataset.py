@@ -150,13 +150,19 @@ class ToyCubeDataset(BaseDataset):
             shifted = [(c + color_shift) % 1.0 for c in color]
             face_colors.append(shifted)
         
-        density = self.cube_density
+        density = max(1, self.cube_density)  # Ensure minimum density of 1
+        
+        # Handle edge case of density=1
+        if density == 1:
+            step_values = [0.0]
+        else:
+            step_values = [i / (density - 1) for i in range(density)]
         
         # Generate points for each face
         for i in range(density):
             for j in range(density):
-                u = i / (density - 1)  # 0 to 1
-                v = j / (density - 1)  # 0 to 1
+                u = step_values[i]  # 0 to 1
+                v = step_values[j]  # 0 to 1
                 
                 # Front face (z=1) - Red
                 points.append([center[0] + u, center[1] + v, center[2] + 1])
