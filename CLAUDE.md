@@ -769,3 +769,30 @@ def _call_single_with_generator(self, *args, generator):
 - Emphasizes Python-native objects and inheritance for extensibility
 - Dictionary-as-tensor operations for flexible nested data structures
 - Async logging with thread-safe buffered writes
+
+### 7.1. Dash Web UI Framework
+**CRITICAL API Change**: Dash has updated its API and deprecated `app.run_server()`. 
+
+**Correct usage:**
+```python
+# ✅ CORRECT - Modern Dash API
+app = dash.Dash(__name__)
+app.run(debug=True, port=8050)
+
+# ❌ WRONG - Deprecated API (will throw ObsoleteAttributeException)
+app.run_server(debug=True, port=8050)
+```
+
+**Error signature to watch for:**
+```
+dash.exceptions.ObsoleteAttributeException: app.run_server has been replaced by app.run
+```
+
+**Impact areas:**
+- `data/viewer/cli.py` - Dataset viewer application
+- `runners/eval_viewer/` - Evaluation result viewer
+- Any standalone test files with Dash applications
+
+**When creating new Dash applications:**
+- Always use `app.run()` instead of `app.run_server()`
+- This affects all web-based visualization components in Pylon

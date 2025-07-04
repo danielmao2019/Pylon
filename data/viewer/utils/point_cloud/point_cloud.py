@@ -221,8 +221,8 @@ def _create_webgl_component_with_callback(component_id: str, title: str, point_c
                 children=json.dumps(config),
                 style={'display': 'none'}),
         
-        # Trigger for callback
-        html.Div(id=f"{component_id}-trigger", children="init"),
+        # Trigger for callback (hidden)
+        html.Div(id=f"{component_id}-trigger", children="init", style={'display': 'none'}),
 
         # WebGL container
         html.Div(

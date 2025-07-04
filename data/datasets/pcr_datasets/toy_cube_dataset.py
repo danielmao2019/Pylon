@@ -110,7 +110,7 @@ class ToyCubeDataset(BaseDataset):
         ]
         
         # Apply color shift 
-        face_colors = [[(c + color_shift) % 1.0 for c in color] for color in base_colors]
+        face_colors = [[min(1.0, c + color_shift) for c in color] for color in base_colors]
         
         density = max(1, self.cube_density)  # Ensure minimum density of 1
         
