@@ -116,31 +116,34 @@ from typing import Tuple, Dict, Any
 import torch
 from data.datasets.base_dataset import BaseDataset
 
-class ToyCubeDataset(BaseDataset):
-    """A toy PCR dataset for testing."""
+class MinimalPCRDataset(BaseDataset):
+    """A minimal PCR dataset example."""
     
-    def __init__(self, split: str = 'train', cube_density: int = 8):
-        self.split = split
-        self.cube_density = cube_density
-        super().__init__()
+    # Required class attributes
+    SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = {'train': 1, 'val': 0, 'test': 0}
+    INPUT_NAMES = ['src_pc', 'tgt_pc']
+    LABEL_NAMES = ['transform']
+    SHA1SUM = None
+    
+    def __init__(self, **kwargs):
+        # Store any custom parameters first
+        self.num_points = kwargs.pop('num_points', 100)
+        # Pass remaining kwargs to base class
+        super().__init__(**kwargs)
         
     def _init_annotations(self) -> None:
         """Initialize annotations for the dataset."""
         if self.split == 'train':
-            self.annotations = [{
-                'idx': 0,
-                'src_cube_id': 'source_cube',
-                'tgt_cube_id': 'target_cube',
-                'transform_id': 'rotation_translation'
-            }]
+            self.annotations = [{'sample_id': 0}]
         else:
             self.annotations = []
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a single datapoint."""
         # Create synthetic data
-        src_points = torch.randn(100, 3)
-        tgt_points = torch.randn(100, 3)
+        src_points = torch.randn(self.num_points, 3)
+        tgt_points = torch.randn(self.num_points, 3)
         transform = torch.eye(4)
         
         inputs = {
@@ -150,8 +153,8 @@ class ToyCubeDataset(BaseDataset):
         
         labels = {'transform': transform}
         
+        # Don't add 'idx' - BaseDataset adds automatically
         meta_info = {
-            'idx': idx,
             'src_points_count': len(src_points),
             'tgt_points_count': len(tgt_points)
         }
@@ -165,6 +168,44 @@ class ToyCubeDataset(BaseDataset):
 2. **Wrong constructor order**: Call `super().__init__()` AFTER setting instance variables
 3. **Empty annotations**: Make sure `self.annotations` is properly populated
 4. **Incorrect return format**: `_load_datapoint` must return exactly 3 dictionaries
+5. **Wrong constructor signature**: Must use `**kwargs` and pass to `super().__init__(**kwargs)`
+6. **Adding 'idx' to meta_info**: BaseDataset adds this automatically - will cause AssertionError
+7. **Incorrect DATASET_SIZE**: Must match actual annotation lengths or BaseDataset validation fails
+8. **Redundant validation**: BaseDataset handles split validation, index bounds, etc.
+9. **Redundant methods**: Don't override `__len__()` - BaseDataset implements as `len(self.annotations)`
+
+## BaseDataset Automatic Features
+
+**BaseDataset provides these automatically - don't reimplement:**
+
+- **Index validation**: Bounds checking in `__getitem__`
+- **Split validation**: Ensures split is in `SPLIT_OPTIONS`
+- **Length method**: `__len__()` returns `len(self.annotations)`
+- **Meta info 'idx'**: Automatically added to meta_info
+- **Dataset size validation**: Compares `len(annotations)` with `DATASET_SIZE`
+- **Return format**: Wraps your tuple as `{'inputs': ..., 'labels': ..., 'meta_info': ...}`
+
+## Common Error Messages and Solutions
+
+### `TypeError: Can't instantiate abstract class ToyCubeDataset with abstract method _init_annotations`
+**Cause**: Missing `_init_annotations()` method implementation
+**Solution**: Implement the required abstract method
+
+### `AssertionError: assert type(self.split) == tuple`
+**Cause**: Wrong `DATASET_SIZE` type when `self.split` is a string
+**Solution**: Use `DATASET_SIZE = {'train': N, 'val': M, 'test': K}` format
+
+### `AssertionError: Dataset class should not manually add 'idx' to meta_info`
+**Cause**: Adding 'idx' key to meta_info dictionary
+**Solution**: Remove 'idx' from meta_info - BaseDataset adds automatically
+
+### `AssertionError: assert len(self) == len(self.annotations) == self.DATASET_SIZE`
+**Cause**: Mismatch between actual annotation count and declared `DATASET_SIZE`
+**Solution**: Ensure `DATASET_SIZE[split]` matches `len(annotations)` for each split
+
+### Dataset returns strings instead of dictionaries
+**Cause**: Dataset transforms are processing the data incorrectly
+**Solution**: Check transforms configuration or set `transforms_cfg=None` for debugging
 
 ## Testing Your Dataset
 
