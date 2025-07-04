@@ -40,12 +40,6 @@ class BaseRandomDataset(BaseDataset):
                 assert isinstance(config[key1][key2][1], dict), f"{type(config[key1][key2][1])=}"
         self.gen_func_config = config
 
-    def _init_generator(self, initial_seed: Optional[int]) -> None:
-        self.generator = torch.Generator()
-        if initial_seed is not None:
-            self.generator.manual_seed(initial_seed)
-        self.initial_seed = self.generator.initial_seed()
-
     def _init_annotations_all_(
         self,
         split: Optional[Union[str, Tuple[float, ...]]],
@@ -66,14 +60,13 @@ class BaseRandomDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
-        if not (
-            hasattr(self, 'initial_seed') and hasattr(self, 'generator')
-        ):
-            self._init_generator(initial_seed=self.initial_seed)
-        seed = self.initial_seed + idx
-        self.generator.manual_seed(seed)
+        # Create generator locally to avoid pickle issues with multiprocessing
+        generator = torch.Generator(device=self.device)
+        seed = (self.initial_seed or 0) + idx
+        generator.manual_seed(seed)
+        
         inputs, labels = tuple({
-            key2: self.gen_func_config[key1][key2][0](**self.gen_func_config[key1][key2][1], generator=self.generator)
+            key2: self.gen_func_config[key1][key2][0](**self.gen_func_config[key1][key2][1], generator=generator)
             for key2 in self.gen_func_config[key1]
         } for key1 in ['inputs', 'labels'])
         meta_info = {'seed': seed}

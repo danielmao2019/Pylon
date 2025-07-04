@@ -12,6 +12,8 @@ import utils
 from utils.automation.run_status import check_epoch_finished
 from utils.ops import buffer_allclose
 from configs.examples.linear.config import config
+import copy
+config = copy.deepcopy(config)
 config['work_dir'] = "./logs/tests/supervised_single_task_trainer/interrupt_and_resume"
 
 
