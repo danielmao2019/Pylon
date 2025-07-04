@@ -26,6 +26,12 @@ These datasets are designed for change detection with a single temporal input or
 - [PPSL](change_detection/single_temporal/ppsl.md)
 - [Bi2SingleTemporal](change_detection/single_temporal/bi2single_temporal.md)
 
+## Point Cloud Registration Datasets
+
+These datasets are designed for point cloud registration tasks.
+
+- [KITTI](pcr_datasets/kitti.md)
+
 ## Multi-Task Datasets
 
 These datasets are designed for multi-task learning experiments with multiple objectives.
@@ -36,3 +42,7 @@ These datasets are designed for multi-task learning experiments with multiple ob
 - [NYU-v2](multi_task/nyu_v2.md)
 - [PASCAL Context](multi_task/pascal_context.md)
 - [Multi-MNIST](multi_task/multi_mnist.md)
+
+## Creating Custom Datasets
+
+For guidance on implementing custom datasets, see the [Custom Dataset Implementation Guide](custom_dataset_implementation.md).
