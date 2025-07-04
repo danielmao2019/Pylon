@@ -75,7 +75,7 @@ def create_webgl_point_cloud_component(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None
 ) -> html.Div:
-    """Create a WebGL-based point cloud visualization component."""
+    """Create a WebGL-based point cloud visualization component using clientside callbacks."""
 
     # Convert inputs to numpy
     points = point_cloud_to_numpy(points)
@@ -83,8 +83,6 @@ def create_webgl_point_cloud_component(
         colors = point_cloud_to_numpy(colors)
     if labels is not None:
         labels = point_cloud_to_numpy(labels)
-
-    # Use all points - no downsampling
 
     # Prepare data for WebGL
     webgl_data = prepare_point_cloud_data(points, colors, labels)
@@ -97,65 +95,33 @@ def create_webgl_point_cloud_component(
             'target': webgl_data['bbox_center'],
             'up': [0, 0, 1]
         }
+    else:
+        # Ensure camera state values are JSON-serializable
+        camera_state = {
+            'position': (camera_state['position'].tolist() 
+                        if hasattr(camera_state.get('position', []), 'tolist') 
+                        else list(camera_state.get('position', [0, 0, 0]))),
+            'target': (camera_state['target'].tolist() 
+                      if hasattr(camera_state.get('target', []), 'tolist') 
+                      else list(camera_state.get('target', [0, 0, 0]))),
+            'up': (camera_state['up'].tolist() 
+                  if hasattr(camera_state.get('up', []), 'tolist') 
+                  else list(camera_state.get('up', [0, 0, 1])))
+        }
 
     # Generate unique ID for this component
     component_id = f"webgl-point-cloud-{uuid.uuid4().hex[:8]}"
+    
+    # Prepare config for clientside callback
+    config = {
+        'pointCloudData': webgl_data,
+        'pointSize': point_size,
+        'pointOpacity': point_opacity,
+        'cameraState': camera_state
+    }
 
-    # Create the WebGL component
-    return html.Div([
-        html.H4(title, style={'margin-bottom': '10px'}),
-
-        # Performance info
-        html.Div([
-            html.Span(f"Displaying {len(points):,} points"),
-            html.Span(f" • Point size: {point_size} • Opacity: {point_opacity}")
-        ], style={'font-size': '12px', 'color': '#666', 'margin-bottom': '5px'}),
-
-        # WebGL container
-        html.Div(
-            id=component_id,
-            style={
-                'width': '100%',
-                'height': '500px',
-                'border': '1px solid #ddd',
-                'border-radius': '4px',
-                'position': 'relative',
-                'overflow': 'hidden'
-            }
-        ),
-
-        # Load external dependencies
-        html.Script(src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r158/three.min.js'),
-        html.Script(src='https://cdn.jsdelivr.net/npm/three@0.158.0/examples/js/controls/OrbitControls.js'),
-
-        # Include our WebGL renderer and initialization helper
-        html.Script(get_webgl_assets()),
-        html.Script(get_init_script()),
-
-        # Minimal inline code - just call the initialization with config
-        html.Script(f"""
-        initWebGLPointCloudWithConfig({{
-            containerId: '{component_id}',
-            pointCloudData: {json.dumps(webgl_data)},
-            pointSize: {point_size},
-            pointOpacity: {point_opacity},
-            cameraState: {json.dumps(camera_state)}
-        }});
-        """),
-
-        # Controls info
-        html.Div([
-            html.Strong("Controls: "),
-            html.Span("Left click + drag: Rotate • Right click + drag: Pan • Scroll: Zoom • R: Reset view • +/-: Point size")
-        ], style={
-            'font-size': '11px',
-            'color': '#888',
-            'margin-top': '5px',
-            'padding': '5px',
-            'background-color': '#f8f9fa',
-            'border-radius': '3px'
-        })
-    ])
+    # Create the WebGL component with callback-based initialization
+    return _create_webgl_component_with_callback(component_id, title, len(points), config)
 
 
 def create_point_cloud_figure(
@@ -258,3 +224,56 @@ def get_init_script() -> str:
     js_file_path = os.path.join(os.path.dirname(__file__), 'webgl_init.js')
     with open(js_file_path, 'r', encoding='utf-8') as f:
         return f.read()
+
+
+def _create_webgl_component_with_callback(component_id: str, title: str, point_count: int, config: Dict[str, Any]) -> html.Div:
+    """Create WebGL component using pattern-based callback for initialization."""
+    
+    return html.Div([
+        html.H4(title, style={'marginBottom': '10px'}),
+
+        # Performance info
+        html.Div([
+            html.Span(f"Displaying {point_count:,} points"),
+            html.Span(f" • Point size: {config['pointSize']} • Opacity: {config['pointOpacity']}")
+        ], style={'fontSize': '12px', 'color': '#666', 'marginBottom': '5px'}),
+
+        # Hidden data storage for callback
+        html.Div(id={'type': 'webgl-data', 'index': component_id}, 
+                children=json.dumps(config),
+                style={'display': 'none'}),
+        
+        # Trigger for callback
+        html.Div(id={'type': 'webgl-trigger', 'index': component_id}, children="init"),
+
+        # WebGL container
+        html.Div(
+            id={'type': 'webgl-container', 'index': component_id},
+            style={
+                'width': '100%',
+                'height': '500px',
+                'border': '1px solid #ddd',
+                'borderRadius': '4px',
+                'position': 'relative',
+                'overflow': 'hidden',
+                'backgroundColor': '#f8f8f8'
+            }
+        ),
+
+        # Status display
+        html.Div(id={'type': 'webgl-status', 'index': component_id},
+                style={'fontSize': '11px', 'color': '#666', 'marginTop': '5px'}),
+
+        # Controls info
+        html.Div([
+            html.Strong("Controls: "),
+            html.Span("Left click + drag: Rotate • Right click + drag: Pan • Scroll: Zoom • R: Reset view • +/-: Point size")
+        ], style={
+            'fontSize': '11px',
+            'color': '#888',
+            'marginTop': '5px',
+            'padding': '5px',
+            'backgroundColor': '#f8f9fa',
+            'borderRadius': '3px'
+        })
+    ])
