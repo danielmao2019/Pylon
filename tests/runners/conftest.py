@@ -4,6 +4,7 @@ import tempfile
 import shutil
 import torch
 from metrics.wrappers.single_task_metric import SingleTaskMetric
+from data.collators.base_collator import BaseCollator
 
 
 class SimpleMetric(SingleTaskMetric):
@@ -65,7 +66,7 @@ def test_dir():
 @pytest.fixture
 def dataloader(dataset):
     """Create a dataloader for testing."""
-    return torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+    return torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True, collate_fn=BaseCollator())
 
 
 @pytest.fixture
@@ -87,7 +88,11 @@ def trainer_cfg(dataloader, device):
             'class': torch.utils.data.DataLoader,
             'args': {
                 'batch_size': 1,
-                'shuffle': False
+                'shuffle': False,
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
             }
         },
         'metric': {
@@ -119,8 +124,12 @@ def evaluator_cfg(dataloader, device):
         'eval_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 1,  # Pylon evaluators expect batch_size=1
-                'shuffle': False
+                'batch_size': 32,
+                'shuffle': False,
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
             }
         },
         'metric': {
