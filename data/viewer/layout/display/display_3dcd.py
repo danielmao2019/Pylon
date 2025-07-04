@@ -97,19 +97,18 @@ def display_3dcd_datapoint(
 
     # Compile the complete display
     return html.Div([
-        # Point cloud displays
+        # Point cloud displays - using WebGL components (not Plotly)
         html.Div([
             html.Div([
-                dcc.Graph(figure=figures[0], id={'type': 'point-cloud-graph', 'index': 0})
+                figures[0]  # WebGL component, not Plotly figure
             ], style={'width': '33%', 'display': 'inline-block'}),
 
             html.Div([
-                dcc.Graph(figure=figures[1], id={'type': 'point-cloud-graph', 'index': 1})
+                figures[1]  # WebGL component, not Plotly figure
             ], style={'width': '33%', 'display': 'inline-block'}),
 
             html.Div([
-                dcc.Graph(figure=figures[2] if len(figures) > 2 else {},
-                         id={'type': 'point-cloud-graph', 'index': 2})
+                figures[2] if len(figures) > 2 else html.Div()  # WebGL component, not Plotly figure
             ], style={'width': '33%', 'display': 'inline-block'}),
         ]),
 

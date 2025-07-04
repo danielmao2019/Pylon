@@ -1,10 +1,8 @@
 """UI components for displaying point cloud registration dataset items."""
 from typing import Tuple, Dict, Optional, Any
-import random
 import numpy as np
 import torch
-from dash import dcc, html
-import plotly.graph_objects as go
+from dash import html
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
@@ -19,7 +17,7 @@ def create_union_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-) -> go.Figure:
+) -> html.Div:
     """Create a visualization of the union of transformed source and target point clouds.
 
     Args:
@@ -63,7 +61,7 @@ def create_symmetric_difference_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-) -> go.Figure:
+) -> html.Div:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
     Args:
@@ -125,8 +123,11 @@ def create_correspondence_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-) -> go.Figure:
+) -> html.Div:
     """Create a visualization of correspondences between transformed source and target point clouds.
+    
+    Note: This is a simplified WebGL version that shows both point clouds with different colors.
+    The correspondence lines cannot be easily rendered in WebGL without additional complexity.
 
     Args:
         src_points: Transformed source point cloud [N, 3] or [1, N, 3]
@@ -137,59 +138,35 @@ def create_correspondence_visualization(
         camera_state: Optional dictionary containing camera position state
 
     Returns:
-        Plotly figure showing the correspondence visualization
+        WebGL component showing both point clouds (correspondence lines not implemented)
     """
     # Normalize points to unbatched format
     src_points_normalized = _normalize_points(src_points)
     tgt_points_normalized = _normalize_points(tgt_points)
 
-    src_points_np = src_points_normalized.cpu().numpy()
-    tgt_points_np = tgt_points_normalized.cpu().numpy()
-
     # Find correspondences based on radius
     correspondences = get_correspondences(src_points_normalized, tgt_points_normalized, None, radius)
 
-    # Create figure with both point clouds
-    corr_fig = create_point_cloud_figure(
-        points=src_points_normalized,
-        title="Point Cloud Correspondences",
+    # Combine both point clouds for visualization
+    combined_points = torch.cat([src_points_normalized, tgt_points_normalized], dim=0)
+    
+    # Create colors (blue for source, red for target)
+    src_colors = torch.zeros((len(src_points_normalized), 3), device=src_points_normalized.device)
+    src_colors[:, 2] = 1.0  # Blue for source
+    tgt_colors = torch.zeros((len(tgt_points_normalized), 3), device=tgt_points_normalized.device)
+    tgt_colors[:, 0] = 1.0  # Red for target
+    combined_colors = torch.cat([src_colors, tgt_colors], dim=0)
+
+    # Create WebGL component with both point clouds
+    # TODO: Add correspondence lines rendering in WebGL (requires additional geometry)
+    return create_point_cloud_figure(
+        points=combined_points,
+        colors=combined_colors,
+        title=f"Point Cloud Correspondences ({len(correspondences)} matches) - Lines not shown",
         point_size=point_size,
         point_opacity=point_opacity,
         camera_state=camera_state
     )
-
-    # Add target points
-    corr_fig.add_trace(go.Scatter3d(
-        x=tgt_points_np[:, 0],
-        y=tgt_points_np[:, 1],
-        z=tgt_points_np[:, 2],
-        mode='markers',
-        marker=dict(size=point_size, color='red', opacity=point_opacity),
-        name='Target Points'
-    ))
-
-    # Create list of correspondence line traces
-    correspondence_traces = []
-    for src_idx, tgt_idx in correspondences:
-        src_point = src_points_np[src_idx]
-        tgt_point = tgt_points_np[tgt_idx]
-        correspondence_traces.append(go.Scatter3d(
-            x=[src_point[0], tgt_point[0]],
-            y=[src_point[1], tgt_point[1]],
-            z=[src_point[2], tgt_point[2]],
-            mode='lines',
-            line=dict(color='gray', width=1),
-            showlegend=False
-        ))
-
-    if len(correspondence_traces) > 10:
-        correspondence_traces = random.sample(correspondence_traces, 10)
-
-    # Add all correspondence traces at once
-    if correspondence_traces:
-        corr_fig.add_traces(correspondence_traces)
-
-    return corr_fig
 
 
 def display_pcr_datapoint_single(
@@ -332,14 +309,10 @@ def display_pcr_datapoint_single(
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
         html.Div([
-            # Create grid items using a for loop
+            # Create grid items using WebGL components (not Plotly)
             *[html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': i},
-                    figure=fig,
-                    style={'height': '400px'}
-                )
-            ], style={'width': '50%', 'display': 'inline-block'}) for i, fig in enumerate(figures)]
+                fig  # WebGL component, not Plotly figure
+            ], style={'width': '50%', 'display': 'inline-block'}) for fig in figures]
         ], style={'display': 'flex', 'flex-wrap': 'wrap'}),
 
         # Display transform information
@@ -421,18 +394,18 @@ def display_pcr_datapoint_batched(
                 )
 
             def create_union_figure():
-                union_fig = create_union_visualization(
+                # Note: title is set inside create_union_visualization
+                return create_union_visualization(
                     src_points,
                     tgt_points,
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                 )
-                union_fig.update_layout(title=f"Union (Level {level})")
-                return union_fig
 
             def create_sym_diff_figure():
-                sym_diff_fig = create_symmetric_difference_visualization(
+                # Note: title is set inside create_symmetric_difference_visualization  
+                return create_symmetric_difference_visualization(
                     src_points,
                     tgt_points,
                     radius=sym_diff_radius,
@@ -440,8 +413,6 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                 )
-                sym_diff_fig.update_layout(title=f"Symmetric Difference (Level {level})")
-                return sym_diff_fig
 
             # Create figures in parallel
             figure_tasks = [
@@ -499,14 +470,10 @@ def display_pcr_datapoint_batched(
 
     # Create grid layout
     grid_items = []
-    for i, fig in enumerate(figures):
+    for fig in figures:
         grid_items.append(
             html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': i},
-                    figure=fig,
-                    style={'height': '400px'}
-                )
+                fig  # WebGL component, not Plotly figure
             ], style={'width': '50%', 'display': 'inline-block'})
         )
 
