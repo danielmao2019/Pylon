@@ -137,7 +137,13 @@ def create_point_cloud_figure(
     }
 
     # Create the WebGL component with callback-based initialization
-    return _create_webgl_component_with_callback(component_id, title, len(points), config)
+    component = _create_webgl_component_with_callback(component_id, title, len(points), config)
+    
+    from data.viewer.callbacks.registry import registry
+    if hasattr(registry, 'viewer') and hasattr(registry.viewer, 'app'):
+        register_webgl_callback(registry.viewer.app, component_id)
+    
+    return component
 
 
 def get_point_cloud_stats(

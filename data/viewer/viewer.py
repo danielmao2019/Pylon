@@ -77,9 +77,6 @@ class DatasetViewer:
         registry.viewer = self
         # Register all callbacks with the app
         registry.register_callbacks(self.app)
-        # Register WebGL pattern callback for point cloud visualization
-        from data.viewer.callbacks.webgl_callbacks import register_webgl_callbacks
-        register_webgl_callbacks(self.app)
 
     def run(self, debug=False, host="0.0.0.0", port=8050):
         """Run the viewer application."""
