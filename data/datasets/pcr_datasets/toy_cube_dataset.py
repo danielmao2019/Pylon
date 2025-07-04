@@ -4,11 +4,17 @@ from typing import Tuple, Dict, Any
 import numpy as np
 import torch
 from data.datasets.base_dataset import BaseDataset
-from utils.point_cloud_ops.apply_transform import apply_transform
 
 
 class ToyCubeDataset(BaseDataset):
     """A toy PCR dataset containing just cube examples for testing visualization."""
+    
+    # Required class attributes from BaseDataset
+    SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = {'train': 1, 'val': 0, 'test': 0}
+    INPUT_NAMES = ['src_pc', 'tgt_pc']
+    LABEL_NAMES = ['transform']
+    SHA1SUM = None
     
     def __init__(self, split: str = 'train', cube_density: int = 8):
         """Initialize toy cube dataset.
@@ -23,6 +29,10 @@ class ToyCubeDataset(BaseDataset):
         
     def _init_annotations(self) -> None:
         """Initialize annotations for the dataset."""
+        # Validate split
+        if self.split not in self.SPLIT_OPTIONS:
+            raise ValueError(f"Invalid split '{self.split}'. Must be one of {self.SPLIT_OPTIONS}")
+            
         if self.split == 'train':
             # Single toy example
             self.annotations = [{
@@ -37,7 +47,7 @@ class ToyCubeDataset(BaseDataset):
     
     def __len__(self) -> int:
         """Return dataset size."""
-        return 1
+        return len(self.annotations)
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a single datapoint with source and target cubes.
@@ -48,8 +58,11 @@ class ToyCubeDataset(BaseDataset):
         Returns:
             Tuple of (inputs, labels, meta_info)
         """
-        if idx != 0:
-            raise IndexError(f"ToyCubeDataset only has 1 datapoint, got idx={idx}")
+        if idx >= len(self.annotations):
+            raise IndexError(f"Index {idx} out of range for dataset with {len(self.annotations)} items")
+            
+        if len(self.annotations) == 0:
+            raise IndexError(f"Dataset split '{self.split}' is empty")
         
         # Create source cube (6 colored faces)
         src_points, src_colors = self._create_cube_points(center=[0, 0, 0])
@@ -72,16 +85,19 @@ class ToyCubeDataset(BaseDataset):
             [0,      0,     0, 1.0]    # Homogeneous
         ], dtype=torch.float32)
         
-        # Create inputs dictionary
+        # Create inputs dictionary (matching PCR dataset format)
         inputs = {
             'src_pc': {
                 'pos': src_points,
+                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32),
                 'rgb': src_colors
             },
             'tgt_pc': {
                 'pos': tgt_points,
+                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
                 'rgb': tgt_colors
-            }
+            },
+            'correspondences': torch.empty(0, 2, dtype=torch.long)  # Empty correspondences for toy dataset
         }
         
         # Create labels dictionary
@@ -96,7 +112,11 @@ class ToyCubeDataset(BaseDataset):
             'tgt_cube_id': 'target_cube',
             'src_points_count': len(src_points),
             'tgt_points_count': len(tgt_points),
-            'transform_description': 'Rotation 30° + Translation [2, 1, 0.5]'
+            'transform_description': 'Rotation 30° + Translation [2, 1, 0.5]',
+            'src_indices': torch.arange(len(src_points), dtype=torch.long),
+            'tgt_indices': torch.arange(len(tgt_points), dtype=torch.long),
+            'src_path': 'synthetic_source_cube',
+            'tgt_path': 'synthetic_target_cube'
         }
         
         return inputs, labels, meta_info
