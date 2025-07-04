@@ -13,7 +13,7 @@ Key features:
 """
 
 import dash
-from dash import html, dcc, Input, Output, clientside_callback, ClientsideFunction
+from dash import html, Input, Output, clientside_callback
 import numpy as np
 
 # Create colored cube with 6 faces
@@ -84,7 +84,6 @@ app.layout = html.Div([
             }
         )
     ]),
-    html.Div(id='trigger', style={'display': 'none'}),  # Hidden trigger
     html.Div([
         html.P("Controls:", style={'fontWeight': 'bold'}),
         html.P("• Left mouse drag: Orbit camera (yaw/pitch)"),
@@ -94,18 +93,17 @@ app.layout = html.Div([
     ], style={'textAlign': 'center', 'marginTop': '20px'})
 ])
 
-# Register the WebGL callback with professional 3D navigation
+# Clientside callback that triggers on page load
 clientside_callback(
-    """
-    function(trigger) {
+    f"""
+    function() {{
         const canvas = document.getElementById('webgl-canvas');
-        if (!canvas) return '';
+        if (!canvas) return 'Canvas not found';
         
         const gl = canvas.getContext('webgl');
-        if (!gl) {
-            console.error('WebGL not supported');
+        if (!gl) {{
             return 'WebGL not supported';
-        }
+        }}
         
         // Vertex shader source
         const vertexShaderSource = `
@@ -114,11 +112,11 @@ clientside_callback(
             uniform mat4 u_matrix;
             varying vec3 v_color;
             
-            void main() {
+            void main() {{
                 gl_Position = u_matrix * vec4(a_position, 1.0);
-                gl_PointSize = 3.0;
+                gl_PointSize = 4.0;
                 v_color = a_color;
-            }
+            }}
         `;
         
         // Fragment shader source
@@ -126,24 +124,24 @@ clientside_callback(
             precision mediump float;
             varying vec3 v_color;
             
-            void main() {
+            void main() {{
                 gl_FragColor = vec4(v_color, 1.0);
-            }
+            }}
         `;
         
         // Shader compilation function
-        function createShader(gl, type, source) {
+        function createShader(gl, type, source) {{
             const shader = gl.createShader(type);
             gl.shaderSource(shader, source);
             gl.compileShader(shader);
             
-            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {{
                 console.error('Shader compilation error:', gl.getShaderInfoLog(shader));
                 gl.deleteShader(shader);
                 return null;
-            }
+            }}
             return shader;
-        }
+        }}
         
         // Create and link shader program
         const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
@@ -154,20 +152,19 @@ clientside_callback(
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
         
-        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {{
             console.error('Program linking error:', gl.getProgramInfoLog(program));
             return 'Program linking failed';
-        }
+        }}
         
         // Get attribute and uniform locations
         const positionLocation = gl.getAttribLocation(program, 'a_position');
         const colorLocation = gl.getAttribLocation(program, 'a_color');
         const matrixLocation = gl.getUniformLocation(program, 'u_matrix');
         
-        // Point cloud data""" + f"""
+        // Point cloud data
         const points = {points};
         const colors = {colors};
-        """ + """
         
         // Create and populate position buffer
         const positionBuffer = gl.createBuffer();
@@ -180,19 +177,19 @@ clientside_callback(
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors.flat()), gl.STATIC_DRAW);
         
         // Matrix math utilities
-        function multiplyMatrices(a, b) {
+        function multiplyMatrices(a, b) {{
             const result = new Array(16).fill(0);
-            for (let i = 0; i < 4; i++) {
-                for (let j = 0; j < 4; j++) {
-                    for (let k = 0; k < 4; k++) {
+            for (let i = 0; i < 4; i++) {{
+                for (let j = 0; j < 4; j++) {{
+                    for (let k = 0; k < 4; k++) {{
                         result[i * 4 + j] += a[i * 4 + k] * b[k * 4 + j];
-                    }
-                }
-            }
+                    }}
+                }}
+            }}
             return result;
-        }
+        }}
         
-        function perspectiveMatrix(fov, aspect, near, far) {
+        function perspectiveMatrix(fov, aspect, near, far) {{
             const f = Math.tan(Math.PI * 0.5 - 0.5 * fov);
             const rangeInv = 1.0 / (near - far);
             return [
@@ -201,9 +198,9 @@ clientside_callback(
                 0, 0, (near + far) * rangeInv, -1,
                 0, 0, near * far * rangeInv * 2, 0
             ];
-        }
+        }}
         
-        function lookAtMatrix(eye, target, up) {
+        function lookAtMatrix(eye, target, up) {{
             const zAxis = [eye[0] - target[0], eye[1] - target[1], eye[2] - target[2]];
             const zLen = Math.sqrt(zAxis[0]*zAxis[0] + zAxis[1]*zAxis[1] + zAxis[2]*zAxis[2]);
             zAxis[0] /= zLen; zAxis[1] /= zLen; zAxis[2] /= zLen;
@@ -231,25 +228,30 @@ clientside_callback(
                 -(zAxis[0] * eye[0] + zAxis[1] * eye[1] + zAxis[2] * eye[2]),
                 1
             ];
-        }
+        }}
         
-        // Set up 3D camera controls - orbit + pan + zoom navigation
-        let camera = {
+        // Camera state for 3D navigation
+        let camera = {{
             yaw: 0.5,      // Horizontal rotation around target
             pitch: 0.3,    // Vertical rotation around target  
             distance: 3,   // Distance from target
             targetX: 0.5, targetY: 0.5, targetZ: 0.5,  // Look-at point
             zoom: 1
-        };
+        }};
         
+        // Mouse interaction state
         let isMouseDown = false;
         let mouseButton = -1;
         let lastMouseX = 0;
         let lastMouseY = 0;
         
-        function render() {
+        // Render function
+        function render() {{
+            // Set viewport
+            gl.viewport(0, 0, canvas.width, canvas.height);
+            
             // Clear canvas
-            gl.clearColor(0.9, 0.9, 0.9, 1.0);
+            gl.clearColor(0.1, 0.1, 0.1, 1.0);  // Dark background
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             gl.enable(gl.DEPTH_TEST);
             
@@ -287,38 +289,38 @@ clientside_callback(
             
             // Draw points
             gl.drawArrays(gl.POINTS, 0, points.length);
-        }
+        }}
         
-        // Mouse event handlers
-        canvas.addEventListener('mousedown', (e) => {
+        // Mouse event handlers for 3D navigation
+        canvas.addEventListener('mousedown', (e) => {{
             isMouseDown = true;
             mouseButton = e.button;
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
             canvas.style.cursor = 'grabbing';
             e.preventDefault();
-        });
+        }});
         
-        canvas.addEventListener('mouseup', () => {
+        canvas.addEventListener('mouseup', () => {{
             isMouseDown = false;
             mouseButton = -1;
             canvas.style.cursor = 'grab';
-        });
+        }});
         
-        canvas.addEventListener('mouseleave', () => {
+        canvas.addEventListener('mouseleave', () => {{
             isMouseDown = false;
             mouseButton = -1;
             canvas.style.cursor = 'grab';
-        });
+        }});
         
-        canvas.addEventListener('mousemove', (e) => {
+        canvas.addEventListener('mousemove', (e) => {{
             if (!isMouseDown) return;
             
             const deltaX = e.clientX - lastMouseX;
             const deltaY = e.clientY - lastMouseY;
             const sensitivity = 0.01;
             
-            if (mouseButton === 0) {
+            if (mouseButton === 0) {{
                 // Left mouse: Orbit camera (yaw/pitch only)
                 camera.yaw -= deltaX * sensitivity;
                 camera.pitch += deltaY * sensitivity;
@@ -326,13 +328,8 @@ clientside_callback(
                 // Clamp pitch to avoid gimbal lock
                 camera.pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, camera.pitch));
                 
-            } else if (mouseButton === 2) {
-                // Right mouse: Pan in screen plane (reverse directions for intuitive control)
-                const camX = camera.distance * Math.cos(camera.pitch) * Math.cos(camera.yaw);
-                const camY = camera.distance * Math.cos(camera.pitch) * Math.sin(camera.yaw);
-                const camZ = camera.distance * Math.sin(camera.pitch);
-                
-                // Calculate screen-space right and up vectors
+            }} else if (mouseButton === 2) {{
+                // Right mouse: Pan in screen plane
                 const rightX = -Math.sin(camera.yaw);
                 const rightY = Math.cos(camera.yaw);
                 const rightZ = 0;
@@ -341,34 +338,34 @@ clientside_callback(
                 const upY = -Math.sin(camera.yaw) * Math.sin(camera.pitch);
                 const upZ = Math.cos(camera.pitch);
                 
-                // Apply pan movement (reverse directions for intuitive feel)
+                // Apply pan movement
                 camera.targetX += rightX * (-deltaX) * sensitivity - upX * (-deltaY) * sensitivity;
                 camera.targetY += rightY * (-deltaX) * sensitivity - upY * (-deltaY) * sensitivity;
                 camera.targetZ += rightZ * (-deltaX) * sensitivity - upZ * (-deltaY) * sensitivity;
                 
-            } else if (mouseButton === 1) {
-                // Middle mouse: Zoom with vertical movement (reverse direction)
+            }} else if (mouseButton === 1) {{
+                // Middle mouse: Zoom with vertical movement
                 camera.zoom *= (1 + (-deltaY) * sensitivity);
                 camera.zoom = Math.max(0.1, Math.min(5.0, camera.zoom));
-            }
+            }}
             
             lastMouseX = e.clientX;
             lastMouseY = e.clientY;
             render();
-        });
+        }});
         
         // Mouse wheel for zoom
-        canvas.addEventListener('wheel', (e) => {
+        canvas.addEventListener('wheel', (e) => {{
             const zoomSpeed = 0.1;
-            if (e.deltaY > 0) {
+            if (e.deltaY > 0) {{
                 camera.zoom *= (1 + zoomSpeed);
-            } else {
+            }} else {{
                 camera.zoom *= (1 - zoomSpeed);
-            }
+            }}
             camera.zoom = Math.max(0.1, Math.min(5.0, camera.zoom));
             render();
             e.preventDefault();
-        });
+        }});
         
         // Disable context menu
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -376,11 +373,11 @@ clientside_callback(
         // Initial render
         render();
         
-        return 'WebGL rendering active with professional 3D navigation!';
-    }
+        return 'WebGL cube rendered with ' + points.length + ' points!';
+    }}
     """,
-    Output('trigger', 'children'),
-    Input('trigger', 'id')
+    Output('webgl-canvas', 'title'),  # Use a simple output that doesn't need a trigger
+    Input('webgl-canvas', 'id')       # Trigger when canvas component is ready
 )
 
 if __name__ == '__main__':
