@@ -139,9 +139,15 @@ def create_point_cloud_figure(
     # Create the WebGL component with callback-based initialization
     component = _create_webgl_component_with_callback(component_id, title, len(points), config)
     
-    from data.viewer.callbacks.registry import registry
-    if hasattr(registry, 'viewer') and hasattr(registry.viewer, 'app'):
-        register_webgl_callback(registry.viewer.app, component_id)
+    # Try to register callback if app is available through registry
+    try:
+        from data.viewer.callbacks.registry import registry
+        if hasattr(registry, 'viewer') and hasattr(registry.viewer, 'app'):
+            register_webgl_callback(registry.viewer.app, component_id)
+    except (ImportError, AttributeError):
+        # Registry not available or no app, callback will need to be registered manually
+        # This is normal for eval_viewer and standalone usage
+        pass
     
     return component
 
@@ -266,7 +272,7 @@ def register_webgl_callback(app, component_id: str):
     clientside_callback(
         f"""
         function(trigger) {{
-            console.log('=== WebGL Clientside Callback Started for {component_id} ===');
+            console.log('=== Professional 3D Navigation WebGL for {component_id} ===');
             
             const container = document.getElementById('{component_id}');
             const dataDiv = document.getElementById('{component_id}-data');
@@ -285,65 +291,238 @@ def register_webgl_callback(app, component_id: str):
                 const config = JSON.parse(dataDiv.textContent);
                 console.log('Config loaded for {component_id}:', config.pointCloudData.point_count, 'points');
                 
-                // Create canvas with simple point cloud visualization
+                // Create canvas
                 const canvas = document.createElement('canvas');
                 canvas.width = container.clientWidth || 500;
                 canvas.height = container.clientHeight || 500;
                 canvas.style.width = '100%';
                 canvas.style.height = '100%';
-                canvas.style.backgroundColor = '#87CEEB';  // Sky blue
+                canvas.style.backgroundColor = '#87CEEB';
                 
                 container.innerHTML = '';
                 container.appendChild(canvas);
                 
-                // Draw points on canvas
-                const ctx = canvas.getContext('2d');
-                if (ctx) {{
-                    // Draw title
+                // Set up 3D camera controls - orbit + pan + zoom navigation
+                let camera = {{
+                    // Orbit controls (yaw/pitch only)
+                    yaw: 0.5,      // Horizontal rotation around target
+                    pitch: 0.3,    // Vertical rotation around target  
+                    distance: config.pointCloudData.bbox_size * 2,   // Distance from target
+                    
+                    // Pan controls (screen space translation)
+                    targetX: config.pointCloudData.bbox_center[0],  // Look-at point
+                    targetY: config.pointCloudData.bbox_center[1],
+                    targetZ: config.pointCloudData.bbox_center[2],
+                    
+                    // Zoom
+                    zoom: 1
+                }};
+                
+                let mouseState = {{
+                    isLeftDragging: false,
+                    isRightDragging: false, 
+                    isMiddleDragging: false,
+                    lastX: 0,
+                    lastY: 0
+                }};
+                
+                // Mouse event handlers for 3D navigation
+                canvas.addEventListener('mousedown', (e) => {{
+                    e.preventDefault();
+                    
+                    if (e.button === 0) {{  // Left mouse button
+                        mouseState.isLeftDragging = true;
+                        canvas.style.cursor = 'grabbing';
+                    }} else if (e.button === 1) {{  // Middle mouse button
+                        mouseState.isMiddleDragging = true;
+                        canvas.style.cursor = 'ns-resize';
+                    }} else if (e.button === 2) {{  // Right mouse button
+                        mouseState.isRightDragging = true;
+                        canvas.style.cursor = 'move';
+                    }}
+                    
+                    mouseState.lastX = e.clientX;
+                    mouseState.lastY = e.clientY;
+                }});
+                
+                canvas.addEventListener('mousemove', (e) => {{
+                    const deltaX = e.clientX - mouseState.lastX;
+                    const deltaY = e.clientY - mouseState.lastY;
+                    
+                    if (mouseState.isLeftDragging) {{
+                        // Left mouse: Orbit camera (yaw/pitch only)
+                        const sensitivity = 0.01;
+                        camera.yaw -= deltaX * sensitivity;
+                        camera.pitch += deltaY * sensitivity;
+                        
+                        // Clamp pitch to prevent flipping
+                        camera.pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, camera.pitch));
+                        
+                        drawScene();
+                    }} else if (mouseState.isRightDragging) {{
+                        // Right mouse: Pan in screen plane (reverse directions for intuitive control)
+                        const sensitivity = 0.002 * camera.distance;
+                        
+                        // Calculate camera right and up vectors for screen-space panning
+                        const yawCos = Math.cos(camera.yaw);
+                        const yawSin = Math.sin(camera.yaw);
+                        const pitchCos = Math.cos(camera.pitch);
+                        
+                        // Right vector (perpendicular to view direction in XZ plane)
+                        const rightX = -yawSin;
+                        const rightZ = yawCos;
+                        
+                        // Up vector (screen up, accounting for pitch)
+                        const upX = -yawCos * Math.sin(camera.pitch);
+                        const upY = Math.cos(camera.pitch);
+                        const upZ = -yawSin * Math.sin(camera.pitch);
+                        
+                        // Apply panning (reverse directions for intuitive control)
+                        camera.targetX += rightX * (-deltaX) * sensitivity - upX * (-deltaY) * sensitivity;
+                        camera.targetY += -upY * (-deltaY) * sensitivity;
+                        camera.targetZ += rightZ * (-deltaX) * sensitivity - upZ * (-deltaY) * sensitivity;
+                        
+                        drawScene();
+                    }} else if (mouseState.isMiddleDragging) {{
+                        // Middle mouse: Zoom with vertical movement (reverse direction)
+                        const sensitivity = 0.01;
+                        camera.zoom *= (1 + (-deltaY) * sensitivity);  // Reverse: drag up = zoom in
+                        camera.zoom = Math.max(0.1, Math.min(5, camera.zoom));
+                        
+                        drawScene();
+                    }}
+                    
+                    mouseState.lastX = e.clientX;
+                    mouseState.lastY = e.clientY;
+                }});
+                
+                canvas.addEventListener('mouseup', (e) => {{
+                    mouseState.isLeftDragging = false;
+                    mouseState.isRightDragging = false;
+                    mouseState.isMiddleDragging = false;
+                    canvas.style.cursor = 'default';
+                }});
+                
+                // Disable context menu on right click
+                canvas.addEventListener('contextmenu', (e) => {{
+                    e.preventDefault();
+                }});
+                
+                canvas.addEventListener('wheel', (e) => {{
+                    e.preventDefault();
+                    camera.zoom *= (e.deltaY > 0) ? 0.9 : 1.1;  // Reverse zoom: scroll up = zoom in, scroll down = zoom out
+                    camera.zoom = Math.max(0.1, Math.min(5, camera.zoom));
+                    drawScene();
+                }});
+                
+                canvas.style.cursor = 'default';
+                
+                // Function to draw the 3D scene with orbit camera
+                function drawScene() {{
+                    const ctx = canvas.getContext('2d');
+                    if (!ctx) return;
+                    
+                    // Clear canvas
+                    ctx.fillStyle = '#87CEEB';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Title
                     ctx.fillStyle = '#333';
                     ctx.font = '16px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText('WebGL Point Cloud (Fallback Mode)', canvas.width/2, 30);
+                    ctx.fillText('Interactive Point Cloud', canvas.width/2, 25);
                     
-                    // Draw point count
-                    ctx.font = '14px Arial';
-                    ctx.fillText(config.pointCloudData.point_count + ' points loaded', canvas.width/2, 60);
+                    // Controls info
+                    ctx.font = '11px Arial';
+                    ctx.fillText('Left: Orbit • Right: Pan • Scroll/Middle: Zoom', canvas.width/2, 45);
                     
-                    // Draw some sample points
+                    // Calculate camera position from yaw/pitch/distance
+                    const yawCos = Math.cos(camera.yaw);
+                    const yawSin = Math.sin(camera.yaw);
+                    const pitchCos = Math.cos(camera.pitch);
+                    const pitchSin = Math.sin(camera.pitch);
+                    
+                    const cameraDistance = camera.distance / camera.zoom;
+                    const cameraX = camera.targetX + cameraDistance * pitchCos * yawCos;
+                    const cameraY = camera.targetY + cameraDistance * pitchSin;
+                    const cameraZ = camera.targetZ + cameraDistance * pitchCos * yawSin;
+                    
+                    // Transform and project all points using orbit camera
                     const positions = config.pointCloudData.positions;
                     const colors = config.pointCloudData.colors;
-                    const pointSize = config.pointSize || 2;
+                    const transformedPoints = [];
                     
-                    // Map 3D coordinates to 2D canvas
-                    const centerX = canvas.width / 2;
-                    const centerY = canvas.height / 2;
-                    const scale = Math.min(canvas.width, canvas.height) / 4;
+                    // Calculate camera view vectors
+                    const viewDirX = camera.targetX - cameraX;
+                    const viewDirY = camera.targetY - cameraY;
+                    const viewDirZ = camera.targetZ - cameraZ;
+                    const viewLength = Math.sqrt(viewDirX*viewDirX + viewDirY*viewDirY + viewDirZ*viewDirZ);
                     
-                    // Draw sample of points (max 1000 for performance)
-                    const maxPoints = Math.min(1000, positions.length / 3);
-                    const step = Math.max(1, Math.floor(positions.length / 3 / maxPoints));
+                    // Normalize view direction
+                    const vx = viewDirX / viewLength;
+                    const vy = viewDirY / viewLength;
+                    const vz = viewDirZ / viewLength;
                     
-                    for (let i = 0; i < positions.length; i += 3 * step) {{
-                        const x = centerX + positions[i] * scale;
-                        const y = centerY - positions[i + 1] * scale;  // Flip Y for canvas
+                    // Right vector (perpendicular to view in XZ plane)
+                    const rx = -yawSin;
+                    const rz = yawCos;
+                    
+                    // Up vector (cross product of right and view)
+                    const ux = -yawCos * pitchSin;
+                    const uy = pitchCos;
+                    const uz = -yawSin * pitchSin;
+                    
+                    for (let i = 0; i < positions.length; i += 3) {{
+                        // Get world coordinates
+                        const worldX = positions[i];
+                        const worldY = positions[i + 1];
+                        const worldZ = positions[i + 2];
                         
-                        // Use point color
-                        const r = Math.floor(colors[i] * 255);
-                        const g = Math.floor(colors[i + 1] * 255);
-                        const b = Math.floor(colors[i + 2] * 255);
+                        // Transform to camera space
+                        const dx = worldX - cameraX;
+                        const dy = worldY - cameraY;
+                        const dz = worldZ - cameraZ;
                         
-                        ctx.fillStyle = `rgb(${{r}},${{g}},${{b}})`;
-                        ctx.beginPath();
-                        ctx.arc(x, y, pointSize * 2, 0, 2 * Math.PI);
-                        ctx.fill();
+                        // Project to camera-relative coordinates
+                        const camX = dx * rx + dz * rz;  // Right component
+                        const camY = dx * ux + dy * uy + dz * uz;  // Up component  
+                        const camZ = dx * vx + dy * vy + dz * vz;  // Depth component
+                        
+                        // Perspective projection
+                        if (camZ > 0.1) {{  // Only render points in front of camera
+                            const fov = 400;
+                            const screenX = canvas.width/2 + (camX * fov) / camZ;
+                            const screenY = canvas.height/2 - (camY * fov) / camZ;
+                            
+                            transformedPoints.push({{
+                                x: screenX,
+                                y: screenY,
+                                z: camZ,
+                                r: Math.floor(colors[i] * 255),
+                                g: Math.floor(colors[i + 1] * 255),
+                                b: Math.floor(colors[i + 2] * 255)
+                            }});
+                        }}
                     }}
                     
-                    console.log('Canvas point cloud drawn for {component_id}');
-                    return 'WebGL callback completed - ' + config.pointCloudData.point_count + ' points visualized';
-                }} else {{
-                    console.error('Could not get canvas context for {component_id}');
-                    return 'Error: Could not get canvas context';
+                    // Sort by Z depth (far to near)
+                    transformedPoints.sort((a, b) => b.z - a.z);
+                    
+                    // Draw points
+                    transformedPoints.forEach(point => {{
+                        const size = Math.max(1, (config.pointSize || 2) * 5 / point.z);
+                        ctx.fillStyle = `rgb(${{point.r}},${{point.g}},${{point.b}})`;
+                        ctx.beginPath();
+                        ctx.arc(point.x, point.y, size, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }});
                 }}
+                
+                // Initial draw
+                drawScene();
+                
+                console.log('Professional 3D navigation setup complete for {component_id}');
+                return 'SUCCESS: Interactive 3D point cloud with ' + config.pointCloudData.point_count + ' points';
                 
             }} catch (error) {{
                 console.error('WebGL callback error for {component_id}:', error);
