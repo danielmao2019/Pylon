@@ -66,7 +66,7 @@ class BaseRandomDataset(BaseDataset):
         generator.manual_seed(seed)
         
         inputs, labels = tuple({
-            key2: self.gen_func_config[key1][key2][0](**self.gen_func_config[key1][key2][1], generator=generator)
+            key2: self.gen_func_config[key1][key2][0](**self.gen_func_config[key1][key2][1], device=self.device, generator=generator)
             for key2 in self.gen_func_config[key1]
         } for key1 in ['inputs', 'labels'])
         meta_info = {'seed': seed}
