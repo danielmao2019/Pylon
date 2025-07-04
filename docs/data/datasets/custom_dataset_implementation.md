@@ -216,9 +216,33 @@ Always test your dataset implementation:
 dataset = YourDataset(split='train')
 print(f"Dataset length: {len(dataset)}")
 
-# Load first datapoint
-inputs, labels, meta_info = dataset[0]
-print(f"Inputs keys: {inputs.keys()}")
-print(f"Labels keys: {labels.keys()}")
-print(f"Meta info: {meta_info}")
+# Load first datapoint (BaseDataset returns dict format)
+result = dataset[0]
+inputs = result['inputs']
+labels = result['labels'] 
+meta_info = result['meta_info']
+print(f"Inputs keys: {list(inputs.keys())}")
+print(f"Labels keys: {list(labels.keys())}")
+print(f"Meta info keys: {list(meta_info.keys())}")
+
+# Test with data viewer
+# 1. Add to data/datasets/__init__.py
+# 2. Create config in configs/common/datasets/{type}/train/{name}_data_cfg.py
+# 3. Add to DATASET_GROUPS in data/viewer/backend/backend.py
+# 4. Run: python -m data.viewer.cli
 ```
+
+## Integration with Data Viewer
+
+**Quick checklist for data viewer integration:**
+
+1. ✅ **Dataset class** in appropriate module (e.g., `pcr_datasets/`)
+2. ✅ **Export** in `data/datasets/__init__.py` (import + `__all__`)
+3. ✅ **Config file** in `configs/common/datasets/{type}/train/{name}_data_cfg.py`
+4. ✅ **Register** in `DATASET_GROUPS` in `data/viewer/backend/backend.py`
+5. ✅ **Test** with `python -m data.viewer.cli`
+
+**Common data viewer issues:**
+- **"init" text visible**: Add `style={'display': 'none'}` to trigger divs
+- **White/blank visualization**: Check color data isn't all zeros
+- **Dataset not in dropdown**: Verify all 4 integration steps above
