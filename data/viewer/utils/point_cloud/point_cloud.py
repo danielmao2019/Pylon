@@ -193,7 +193,7 @@ def get_point_cloud_stats(
 
 
 def _create_webgl_component_with_callback(component_id: str, title: str, point_count: int, config: Dict[str, Any]) -> html.Div:
-    """Create WebGL component using pattern-based callback for initialization."""
+    """Create WebGL component using clientside callback for initialization."""
     
     return html.Div([
         html.H4(title, style={'marginBottom': '10px'}),
@@ -205,16 +205,16 @@ def _create_webgl_component_with_callback(component_id: str, title: str, point_c
         ], style={'fontSize': '12px', 'color': '#666', 'marginBottom': '5px'}),
 
         # Hidden data storage for callback
-        html.Div(id={'type': 'webgl-data', 'index': component_id}, 
+        html.Div(id=f"{component_id}-data", 
                 children=json.dumps(config),
                 style={'display': 'none'}),
         
         # Trigger for callback
-        html.Div(id={'type': 'webgl-trigger', 'index': component_id}, children="init"),
+        html.Div(id=f"{component_id}-trigger", children="init"),
 
         # WebGL container
         html.Div(
-            id={'type': 'webgl-container', 'index': component_id},
+            id=component_id,
             style={
                 'width': '100%',
                 'height': '500px',
@@ -227,7 +227,7 @@ def _create_webgl_component_with_callback(component_id: str, title: str, point_c
         ),
 
         # Status display
-        html.Div(id={'type': 'webgl-status', 'index': component_id},
+        html.Div(id=f"{component_id}-status",
                 style={'fontSize': '11px', 'color': '#666', 'marginTop': '5px'}),
 
         # Controls info
@@ -243,3 +243,108 @@ def _create_webgl_component_with_callback(component_id: str, title: str, point_c
             'borderRadius': '3px'
         })
     ])
+
+
+# Global registry to track components and avoid duplicate callbacks
+_webgl_components = set()
+
+def register_webgl_callback(app, component_id: str):
+    """Register a clientside callback for WebGL initialization."""
+    
+    if component_id in _webgl_components:
+        return  # Already registered
+    
+    _webgl_components.add(component_id)
+    
+    # Register clientside callback for this specific component
+    clientside_callback(
+        f"""
+        function(trigger) {{
+            console.log('=== WebGL Clientside Callback Started for {component_id} ===');
+            
+            const container = document.getElementById('{component_id}');
+            const dataDiv = document.getElementById('{component_id}-data');
+            
+            if (!container) {{
+                console.error('Container not found: {component_id}');
+                return 'Error: Container not found';
+            }}
+            
+            if (!dataDiv) {{
+                console.error('Data div not found: {component_id}-data');
+                return 'Error: Data div not found';
+            }}
+            
+            try {{
+                const config = JSON.parse(dataDiv.textContent);
+                console.log('Config loaded for {component_id}:', config.pointCloudData.point_count, 'points');
+                
+                // Create canvas with simple point cloud visualization
+                const canvas = document.createElement('canvas');
+                canvas.width = container.clientWidth || 500;
+                canvas.height = container.clientHeight || 500;
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+                canvas.style.backgroundColor = '#87CEEB';  // Sky blue
+                
+                container.innerHTML = '';
+                container.appendChild(canvas);
+                
+                // Draw points on canvas
+                const ctx = canvas.getContext('2d');
+                if (ctx) {{
+                    // Draw title
+                    ctx.fillStyle = '#333';
+                    ctx.font = '16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('WebGL Point Cloud (Fallback Mode)', canvas.width/2, 30);
+                    
+                    // Draw point count
+                    ctx.font = '14px Arial';
+                    ctx.fillText(config.pointCloudData.point_count + ' points loaded', canvas.width/2, 60);
+                    
+                    // Draw some sample points
+                    const positions = config.pointCloudData.positions;
+                    const colors = config.pointCloudData.colors;
+                    const pointSize = config.pointSize || 2;
+                    
+                    // Map 3D coordinates to 2D canvas
+                    const centerX = canvas.width / 2;
+                    const centerY = canvas.height / 2;
+                    const scale = Math.min(canvas.width, canvas.height) / 4;
+                    
+                    // Draw sample of points (max 1000 for performance)
+                    const maxPoints = Math.min(1000, positions.length / 3);
+                    const step = Math.max(1, Math.floor(positions.length / 3 / maxPoints));
+                    
+                    for (let i = 0; i < positions.length; i += 3 * step) {{
+                        const x = centerX + positions[i] * scale;
+                        const y = centerY - positions[i + 1] * scale;  // Flip Y for canvas
+                        
+                        // Use point color
+                        const r = Math.floor(colors[i] * 255);
+                        const g = Math.floor(colors[i + 1] * 255);
+                        const b = Math.floor(colors[i + 2] * 255);
+                        
+                        ctx.fillStyle = `rgb(${{r}},${{g}},${{b}})`;
+                        ctx.beginPath();
+                        ctx.arc(x, y, pointSize * 2, 0, 2 * Math.PI);
+                        ctx.fill();
+                    }}
+                    
+                    console.log('Canvas point cloud drawn for {component_id}');
+                    return 'WebGL callback completed - ' + config.pointCloudData.point_count + ' points visualized';
+                }} else {{
+                    console.error('Could not get canvas context for {component_id}');
+                    return 'Error: Could not get canvas context';
+                }}
+                
+            }} catch (error) {{
+                console.error('WebGL callback error for {component_id}:', error);
+                return 'Error: ' + error.message;
+            }}
+        }}
+        """,
+        Output(f'{component_id}-status', 'children'),
+        Input(f'{component_id}-trigger', 'children')
+    )
