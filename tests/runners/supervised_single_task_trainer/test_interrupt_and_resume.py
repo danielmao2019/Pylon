@@ -57,8 +57,8 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
 
     # Run training in main thread
     trainer.logger.page_break()
-    # Run until interrupted
-    for idx in range(start_epoch, trainer.tot_epochs):
+    # Run until end_epoch or interrupted
+    for idx in range(start_epoch, min(end_epoch, trainer.tot_epochs)):
         if stop_training.is_set():
             break
         utils.determinism.set_seed(seed=trainer.train_seeds[idx])
@@ -66,7 +66,12 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
         trainer._val_epoch_()
         trainer.logger.page_break()
         trainer.cum_epochs = idx + 1
-        time.sleep(3)  # allow some more time for stop_training to be set
+    
+    # Wait for any remaining after-loop operations to complete
+    if trainer.after_train_thread and trainer.after_train_thread.is_alive():
+        trainer.after_train_thread.join()
+    if trainer.after_val_thread and trainer.after_val_thread.is_alive():
+        trainer.after_val_thread.join()
 
     # Signal observer thread to stop
     stop_observing.set()
