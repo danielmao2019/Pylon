@@ -17,19 +17,23 @@ class ToyCubeDataset(BaseDataset):
             split: Dataset split (train/val/test)
             cube_density: Number of points per cube edge
         """
-        super().__init__()
         self.split = split
         self.cube_density = cube_density
+        super().__init__()
         
-        # Create annotation for single datapoint
-        self.annotations = [
-            {
+    def _init_annotations(self) -> None:
+        """Initialize annotations for the dataset."""
+        if self.split == 'train':
+            # Single toy example
+            self.annotations = [{
                 'idx': 0,
                 'src_cube_id': 'source_cube',
                 'tgt_cube_id': 'target_cube',
                 'transform_id': 'rotation_translation'
-            }
-        ]
+            }]
+        else:
+            # Empty for val/test splits
+            self.annotations = []
     
     def __len__(self) -> int:
         """Return dataset size."""
