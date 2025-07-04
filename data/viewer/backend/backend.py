@@ -19,7 +19,7 @@ DATASET_GROUPS = {
     'semseg': ['coco_stuff_164k'],
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3dcd': ['urb3dcd', 'slpccd'],
-    'pcr': ['synth_pcr', 'real_pcr', 'kitti'],
+    'pcr': ['toy_cube', 'synth_pcr', 'real_pcr', 'kitti'],
 }
 
 # Dataset format specifications by type
