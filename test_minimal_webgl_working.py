@@ -192,13 +192,13 @@ clientside_callback(
                 
                 // Create rotation around Y axis (horizontal mouse movement = yaw)
                 if (Math.abs(deltaX) > 0.1) {
-                    const yRotation = createRotationMatrix(0, 1, 0, -deltaX * sensitivity);
+                    const yRotation = createRotationMatrix(0, 1, 0, deltaX * sensitivity);
                     rotationMatrix = multiplyMatrix3(rotationMatrix, yRotation);
                 }
                 
                 // Create rotation around X axis (vertical mouse movement = pitch)
                 if (Math.abs(deltaY) > 0.1) {
-                    const xRotation = createRotationMatrix(1, 0, 0, -deltaY * sensitivity);
+                    const xRotation = createRotationMatrix(1, 0, 0, deltaY * sensitivity);
                     rotationMatrix = multiplyMatrix3(rotationMatrix, xRotation);
                 }
                 
