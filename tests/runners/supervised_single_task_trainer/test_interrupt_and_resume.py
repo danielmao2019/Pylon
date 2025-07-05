@@ -15,6 +15,7 @@ from configs.examples.linear.config import config
 import copy
 config = copy.deepcopy(config)
 config['work_dir'] = "./logs/tests/supervised_single_task_trainer/interrupt_and_resume"
+config['checkpoint_method'] = 'all'  # Save all checkpoints for comparison
 
 
 def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:

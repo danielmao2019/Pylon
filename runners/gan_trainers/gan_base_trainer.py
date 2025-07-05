@@ -5,7 +5,7 @@ from utils.builders import build_from_config
 
 class GAN_BaseTrainer(BaseTrainer):
 
-    def _init_optimizer_(self) -> None:
+    def _init_optimizer(self) -> None:
         r"""Requires self.model and self.logger.
         """
         # check dependencies
@@ -20,7 +20,7 @@ class GAN_BaseTrainer(BaseTrainer):
             optimizer_config['args']['optimizer_cfgs'][name]['args']['optimizer_config']['args']['params'] = params
         self.optimizer = build_from_config(optimizer_config)
 
-    def _init_scheduler_(self) -> None:
+    def _init_scheduler(self) -> None:
         # check dependencies
         for name in ['optimizer', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None

@@ -12,7 +12,7 @@ class ChamferDistance(PointCloudMetric):
     measure that's commonly used to evaluate the quality of point cloud registration.
     """
 
-    DIRECTION = -1  # Lower is better
+    DIRECTIONS = {"chamfer_distance": -1}  # Lower is better
 
     def __init__(self, bidirectional: bool = True) -> None:
         """

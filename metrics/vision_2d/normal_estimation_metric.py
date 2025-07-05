@@ -9,7 +9,9 @@ NUMERICAL_STABILITY = 1.0e-05
 
 class NormalEstimationMetric(SingleTaskMetric):
 
-    DIRECTION = -1
+    DIRECTIONS = {
+        'angle': -1  # Lower is better (smaller angle between predicted and true normals)
+    }
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         r"""

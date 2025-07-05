@@ -1,63 +1,23 @@
 import pytest
-from typing import Dict
+from typing import Dict, List, Any
 import tempfile
 import shutil
 import torch
-from metrics.base_metric import BaseMetric
-from utils.io import save_json
+from metrics.wrappers.single_task_metric import SingleTaskMetric
+from data.collators.base_collator import BaseCollator
 
 
-class SimpleMetric(BaseMetric):
+class SimpleMetric(SingleTaskMetric):
     """A simple metric implementation for testing."""
+
+    DIRECTIONS = {"mse": -1}  # Lower is better for MSE (loss metric)
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Compute MSE score."""
+        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
-
-    def __call__(self, datapoint: Dict) -> Dict[str, torch.Tensor]:
-        """Update the metric buffer with the current batch's score."""
-        # Extract tensors from datapoint (outputs added by evaluator, labels from dataset)
-        y_pred = datapoint['outputs']  # Model output is a tensor
-        y_true = datapoint['labels']   # Dataset labels is a tensor
-
-        score = self._compute_score(y_pred, y_true)
-        # Detach and move to CPU
-        score = {k: v.detach().cpu() for k, v in score.items()}
-        # Add to buffer
-        self.add_to_buffer(score, datapoint)
-        return score
-
-    def summarize(self, output_path=None) -> Dict[str, Dict[str, torch.Tensor]]:
-        """Calculate average score from buffer following Pylon pattern."""
-        # Wait for buffer to be processed
-        self._buffer_queue.join()
-
-        # Get ordered scores from buffer
-        ordered_scores = self.get_buffer()
-
-        # Extract MSE scores as tensors
-        mse_scores = torch.stack([score["mse"] for score in ordered_scores])
-
-        # Calculate aggregated result
-        avg_score = mse_scores.mean()
-
-        # Create result with proper Pylon structure
-        # CRITICAL: per_datapoint keys must exactly match aggregated keys
-        result = {
-            "aggregated": {
-                "mse": avg_score
-            },
-            "per_datapoint": {
-                "mse": mse_scores
-            }
-        }
-
-        # Save to file if path is provided
-        if output_path:
-            save_json(obj=result, filepath=output_path)
-
-        return result
 
 
 class SimpleDataset(torch.utils.data.Dataset):
@@ -74,9 +34,9 @@ class SimpleDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            'inputs': self.data[idx],
-            'labels': self.labels[idx],
-            'meta_info': {'idx': idx}
+            'inputs': {'data': self.data[idx]},  # Structure inputs properly
+            'labels': {'target': self.labels[idx]},  # Structure labels properly
+            'meta_info': {'idx': idx}  # Keep idx as int
         }
 
     def set_base_seed(self, seed: int) -> None:
@@ -91,8 +51,9 @@ class SimpleModel(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(10, 1)
 
-    def forward(self, x):
-        return self.linear(x)
+    def forward(self, inputs):
+        x = inputs['data']
+        return {'output': self.linear(x)}
 
 
 @pytest.fixture
@@ -106,20 +67,20 @@ def test_dir():
 
 @pytest.fixture
 def device():
-    """Get the device to use for testing."""
-    return 'cuda'
+    """Create device for testing."""
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 @pytest.fixture
 def dataset(device):
     """Create a simple dataset for testing."""
-    return SimpleDataset(device=device)
+    return SimpleDataset(size=100, device=device)
 
 
 @pytest.fixture
 def dataloader(dataset):
     """Create a dataloader for testing."""
-    return torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True)
+    return torch.utils.data.DataLoader(dataset, batch_size=32, shuffle=True, collate_fn=BaseCollator())
 
 
 @pytest.fixture
@@ -140,8 +101,12 @@ def trainer_cfg(dataloader, device):
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 1,  # Pylon evaluators expect batch_size=1
-                'shuffle': False
+                'batch_size': 1,  # MUST use batch_size=1 for validation/evaluation
+                'shuffle': False,
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
             }
         },
         'metric': {
@@ -153,8 +118,8 @@ def trainer_cfg(dataloader, device):
         'epochs': 1,
         'init_seed': 42,
         'train_seeds': [42],
-        'val_seeds': [42],  # Add missing val_seeds
-        'test_seed': 42  # Add missing test_seed
+        'val_seeds': [42],
+        'test_seed': 42
     }
 
 
@@ -173,8 +138,12 @@ def evaluator_cfg(dataloader, device):
         'eval_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 1,  # Pylon evaluators expect batch_size=1
-                'shuffle': False
+                'batch_size': 1,  # MUST use batch_size=1 for validation/evaluation
+                'shuffle': False,
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
             }
         },
         'metric': {
