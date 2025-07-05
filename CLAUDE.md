@@ -15,11 +15,13 @@
   - [3.4. Data Pipeline Design](#34-data-pipeline-design)
   - [3.5. Asynchronous Buffer Pattern](#35-asynchronous-buffer-pattern)
   - [3.6. Configuration-Driven Architecture](#36-configuration-driven-architecture)
-  - [3.7. Multi-Task Learning Architecture](#37-multi-task-learning-architecture)
-  - [3.8. Training Loop Architecture](#38-training-loop-architecture)
-  - [3.9. Key Directories and Components](#39-key-directories-and-components)
-  - [3.10. Special Utilities](#310-special-utilities)
-  - [3.11. C++ Extensions](#311-c-extensions)
+  - [3.7. Single-Task Component API Contracts](#37-single-task-component-api-contracts)
+  - [3.8. Multi-Task Learning Architecture](#38-multi-task-learning-architecture)
+  - [3.9. Training Loop Architecture](#39-training-loop-architecture)
+  - [3.10. Metric DIRECTIONS Requirements](#310-metric-directions-requirements)
+  - [3.11. Key Directories and Components](#311-key-directories-and-components)
+  - [3.12. Special Utilities](#312-special-utilities)
+  - [3.13. C++ Extensions](#313-c-extensions)
 - [4. Project-Wide Conventions](#4-project-wide-conventions)
   - [4.1. Tensor Type Assumptions](#41-tensor-type-assumptions)
 - [5. About Testing](#5-about-testing)
@@ -30,6 +32,7 @@
     - [5.1.4. **Dummy Data Generation for Tests**](#514-dummy-data-generation-for-tests)
   - [5.2. Testing Implementation Guidelines](#52-testing-implementation-guidelines)
   - [5.3. Testing Focus](#53-testing-focus)
+  - [5.4. Critical Testing Patterns for Pylon Components](#54-critical-testing-patterns-for-pylon-components)
 - [6. Code Style Guidelines](#6-code-style-guidelines)
   - [6.1. Import Statements](#61-import-statements)
     - [6.1.1. Order](#611-order)
@@ -87,6 +90,13 @@ cd tests/runners && pytest test_checkpoint_indices.py
   - Define them directly in the test file (recommended for test-specific classes)
   - Import them from actual source modules
   - Define them as fixtures in conftest.py if they need setup/teardown
+
+**Batch Size Requirements for Testing:**
+- **Validation/Evaluation batch size**: ALWAYS use batch_size=1 during validation and evaluation
+  - This ensures per-datapoint metric tracking works correctly
+  - BaseCollator operates correctly with batch_size=1 
+  - The framework is optimized for this pattern with efficient parallel evaluation
+  - Use BaseCollator for all test cases, not default PyTorch collate_fn
 
 ### 2.2. Training
 ```bash
@@ -256,33 +266,69 @@ obj = build_from_config(config)
 - Parameter merging and preservation
 - Supports PyTorch parameter special handling
 
-### 3.7. Multi-Task Learning Architecture
+### 3.7. Single-Task Component API Contracts
+**Critical API contracts for SingleTaskMetric and SingleTaskCriterion:**
+- `SingleTaskMetric._compute_score()` receives pure tensors (y_pred, y_true), not dictionaries
+- `SingleTaskCriterion._compute_loss()` receives pure tensors (y_pred, y_true), not dictionaries
+- Dictionary unwrapping is handled by the wrapper classes automatically
+- Both classes extract single tensor from single-key dictionaries before calling _compute_* methods
+- Example: `{'output': tensor}` → `tensor` before calling `_compute_score(tensor, y_true)`
+- These are the base components that MultiTask wrappers build upon
+
+### 3.8. Multi-Task Learning Architecture
 **Wrapper pattern for orchestrating multiple tasks:**
 - `MultiTaskCriterion` uses `torch.nn.ModuleDict` for task-specific criteria
 - `MultiTaskMetric` aggregates results from individual task metrics
 - `MTLOptimizer` implements gradient manipulation (PCGrad, MGDA, GradNorm)
 - Each task component maintains its own buffer and state
 
-### 3.8. Training Loop Architecture
+### 3.9. Training Loop Architecture
 **Sophisticated training orchestration:**
 - **Deterministic execution**: Per-epoch seeding with separate train/val/test seeds
 - **Continuous epoch numbering**: Maintains count across resumptions and multi-stage training
 - **Asynchronous I/O**: Threaded checkpoint saving and validation scoring
 - **GPU monitoring**: Real-time resource tracking during training
 - **Robust resumption**: Automatic detection and resumption from last checkpoint
+- **Component initialization order**: Critical order in BaseTrainer._init_components_()
+  - Metric must be initialized before early stopping (early stopping depends on metric.DIRECTIONS)
+  - Debugger must be initialized before checkpoint loading
+  - Dependencies between components must be carefully managed
+- **Validation/Evaluation batch size**: ALWAYS use batch_size=1 during validation and evaluation
+  - This ensures per-datapoint metric tracking works correctly
+  - BaseCollator operates correctly with batch_size=1 and handles meta_info properly
+  - The framework is optimized for this pattern with efficient parallel evaluation
 
-### 3.9. Key Directories and Components
+### 3.10. Metric DIRECTIONS Requirements
+**CRITICAL: All metrics must have DIRECTIONS attribute for early stopping and model comparison:**
+- **Class-level DIRECTIONS**: For metrics with fixed output structure (e.g., `SemanticSegmentationMetric`)
+  ```python
+  class SimpleMetric(SingleTaskMetric):
+      DIRECTIONS = {"mse": -1}  # Lower is better for MSE
+  ```
+- **Instance-level DIRECTIONS**: For wrapper metrics with dynamic structure (e.g., `MultiTaskMetric`, `HybridMetric`)
+  ```python
+  def __init__(self, metric_configs):
+      self.DIRECTIONS = {}
+      for task_name, task_metric in self.task_metrics.items():
+          self.DIRECTIONS[task_name] = task_metric.DIRECTIONS
+  ```
+- **DIRECTIONS values**: Must be `1` (higher is better) or `-1` (lower is better)
+- **Key relationship**: DIRECTIONS keys correspond to score keys for comparison and optimization
+- **Wrapper propagation**: MultiTaskMetric and HybridMetric build DIRECTIONS from component metrics
+- See `docs/metrics/metric_directions.md` for complete implementation guide
+
+### 3.11. Key Directories and Components
 - `/configs/`: Template-based experiment configurations with automated generation
 - `/data/`: Datasets with caching, transforms, collators, and interactive viewer
 - `/criteria/`: Loss functions with asynchronous buffer pattern
-- `/metrics/`: Evaluation metrics with threading and buffer management
+- `/metrics/`: Evaluation metrics with threading and buffer management (ALL require DIRECTIONS attribute)
 - `/optimizers/`: Standard and multi-task optimizers with gradient manipulation
 - `/runners/`: Training loops with deterministic execution and GPU monitoring
 - `/runners/eval_viewer/`: Web-based evaluation result visualization
 - `/schedulers/`: Learning rate schedulers with warmup and multi-component support
 - `/utils/`: Core utilities including builders, automation, determinism, and monitoring
 
-### 3.10. Special Utilities
+### 3.12. Special Utilities
 **Automation and Distributed Training:**
 - **SSH connection pooling**: Thread-safe multi-server experiment management
 - **GPU monitoring**: Real-time utilization tracking across servers
@@ -295,7 +341,7 @@ obj = build_from_config(config)
 - **Validation**: Extensive configuration and type checking
 - **CRITICAL RULE**: Global seeding (`torch.manual_seed()`, `numpy.random.seed()`, etc.) must ONLY be done through `utils.determinism.set_seed()` in trainer/evaluator classes. Always use local `torch.Generator` objects for dataset-level randomness to avoid interfering with global deterministic state.
 
-### 3.11. C++ Extensions
+### 3.13. C++ Extensions
 Some modules require building:
 ```bash
 # GeoTransformer
@@ -532,6 +578,34 @@ def test_model_different_batch_sizes(batch_size):
   - No need to verify mathematical correctness against papers
 
 **Note**: We do not write separate tests for "official_implementation" - all integrated code is tested as "your implementation".
+
+### 5.4. Critical Testing Patterns for Pylon Components
+
+**Test Configuration Requirements:**
+```python
+# ✅ CORRECT - Always use batch_size=1 for validation/evaluation tests
+'val_dataloader': {
+    'class': torch.utils.data.DataLoader,
+    'args': {
+        'batch_size': 1,  # REQUIRED for validation/evaluation
+        'shuffle': False,
+        'collate_fn': {
+            'class': BaseCollator,  # REQUIRED - never use default collate_fn
+            'args': {},
+        },
+    }
+},
+
+# ❌ WRONG - These patterns will cause test failures
+'batch_size': 32,  # Wrong for validation/evaluation
+'collate_fn': None,  # Wrong - breaks meta_info handling
+```
+
+**Component Testing Dependencies:**
+- **Metric classes**: Must have DIRECTIONS attribute before testing
+- **Trainer classes**: Initialize metric before early stopping
+- **API contracts**: SingleTaskMetric._compute_score receives tensors, not dicts
+- **Error fixing**: Fix root causes, don't hide errors with try-except blocks
 
 ## 6. Code Style Guidelines
 
