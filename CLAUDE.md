@@ -165,6 +165,11 @@ The main contribution of Pylon are the follows:
 - Async tensor operations: Detach from computation graph and move to CPU in background
 - `add_to_buffer()` is non-blocking; `summarize()` waits for queue to empty
 
+**CRITICAL Metric Structure Requirement:**
+- **Metric `summarize()` output must have matching keys** between `scores['per_datapoint']` and `scores['aggregated']`
+- This requirement is enforced by evaluation viewer assertions: `assert metric_names_aggregated == metric_names_per_datapoint`
+- Example: If aggregated has `{"mse": 0.5}`, then per_datapoint must have same keys: `{"mse": [0.4, 0.6]}`
+
 ### 3.5. Configuration-Driven Architecture
 **`build_from_config()` pattern enables flexible component instantiation:**
 ```python
