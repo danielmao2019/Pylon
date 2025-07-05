@@ -144,8 +144,19 @@ except Exception:
     return None  # WRONG - hides bugs!
 ```
 
-**✅ CORRECT - Fail Fast:**
+**✅ CORRECT - Fail Fast with Assertions:**
 ```python
+# Use assertions to enforce contracts - fail fast if violated
+def process_tensor(tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+    assert isinstance(tensor, torch.Tensor), f"Expected torch.Tensor, got {type(tensor)}"
+    assert tensor.numel() > 0, "Tensor must not be empty"
+    
+    return {
+        'mean': tensor.mean(),
+        'std': tensor.std(),
+        'shape': list(tensor.shape)
+    }
+
 # Let it crash if assumptions are violated - this reveals bugs!
 result = process(data)  # Will crash if data is None - GOOD!
 return summarize(buffer)  # Will crash if buffer empty - GOOD!
@@ -185,6 +196,12 @@ The main contribution of Pylon are the follows:
 3. Use helper methods like `_load_seg_labels()`, `_load_amodal_masks()` for modular loading
 4. `meta_info` = `self.annotations` + lightweight additional information
 
+**CRITICAL Device Handling Rule:**
+- **Datasets must NEVER manually handle device transfers** - BaseDataset handles this intelligently
+- **Always create tensors on CPU** in `_load_datapoint()` without device parameter
+- **Never use `.to(device)` in datasets** - trust the framework's established pattern
+- BaseDataset uses spawn method and intelligent device transfer to handle multiprocessing correctly
+
 ### 3.4. Data Pipeline Design
 **Memory-efficient and reproducible data loading:**
 
@@ -203,6 +220,12 @@ The main contribution of Pylon are the follows:
 - **LRU caching**: Memory-aware caching with system monitoring
 - **Transform composition**: Functional composition with seed propagation
 - **Collation strategy**: Nested dictionary support with custom per-key collators
+
+**CRITICAL Pickle/Serialization Rules:**
+- **Never store torch.Generator as instance attributes** - will cause `TypeError: cannot pickle 'torch._C.Generator' object`
+- **Create generators locally in `_load_datapoint()`** to avoid multiprocessing pickle issues
+- **Use deterministic per-index seeding**: `generator.manual_seed((self.initial_seed or 0) + idx)`
+- **Other non-picklable objects to avoid**: Open file handles, database connections, CUDA tensors in certain configs
 
 ### 3.5. Asynchronous Buffer Pattern
 **Critical for GPU utilization:** Criteria, metrics, and optimizers use asynchronous buffers to prevent blocking training loops:
