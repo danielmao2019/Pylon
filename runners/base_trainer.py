@@ -724,13 +724,14 @@ class BaseTrainer(ABC):
         self._init_determinism()
         self._init_state()
         self._init_checkpoint_indices()
-        self._init_early_stopping()
         self._init_dataloaders()
         self._init_criterion()
         self._init_metric()
         self._init_model()
         self._init_optimizer()
         self._init_scheduler()
+        self._init_debugger()
+        self._init_early_stopping()  # Initialize early stopping after metric
         self._load_checkpoint()
 
     def run(self) -> None:

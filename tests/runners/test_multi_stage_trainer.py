@@ -1,4 +1,5 @@
 """Test cases for MultiStageTrainer comparing with SupervisedSingleTaskTrainer."""
+from typing import Dict, List, Any
 import os
 import json
 import torch
@@ -18,6 +19,8 @@ class SimpleMetric(SingleTaskMetric):
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict[str, torch.Tensor]:
         """Compute MSE score."""
+        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
 
@@ -36,8 +39,8 @@ class SimpleDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            'inputs': self.data[idx], 
-            'labels': self.labels[idx],
+            'inputs': {'data': self.data[idx]}, 
+            'labels': {'target': self.labels[idx]},
             'meta_info': {'idx': idx}
         }
     
@@ -55,8 +58,9 @@ class SimpleModel(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(10, 1)
 
-    def forward(self, x):
-        return self.linear(x)
+    def forward(self, inputs):
+        x = inputs['data']
+        return {'output': self.linear(x)}
 
 
 class SimpleCriterion(SingleTaskCriterion):
@@ -67,6 +71,8 @@ class SimpleCriterion(SingleTaskCriterion):
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """Compute MSE loss."""
+        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
         return self.mse(y_pred, y_true)
 
 
@@ -100,10 +106,7 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
             'args': {
                 'batch_size': 1,
                 'shuffle': True,
-                'collate_fn': {
-                    'class': BaseCollator,
-                    'args': {},
-                },
+                'collate_fn': None,  # Use default PyTorch collate_fn for simple test cases
             },
         },
         'criterion': {
@@ -119,10 +122,7 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
             'args': {
                 'batch_size': 1,
                 'shuffle': False,
-                'collate_fn': {
-                    'class': BaseCollator,
-                    'args': {},
-                },
+                'collate_fn': None,  # Use default PyTorch collate_fn for simple test cases
             },
         },
         'metric': {

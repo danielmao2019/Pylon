@@ -16,6 +16,7 @@ class SequentialEvaluator(BaseEvaluator):
         # do validation loop
         self.model.eval()
         self.metric.reset_buffer()
+        self.logger.eval()
 
         # Process evaluation data sequentially
         for idx, dp in enumerate(self.eval_dataloader):

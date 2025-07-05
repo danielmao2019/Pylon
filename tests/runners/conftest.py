@@ -1,5 +1,5 @@
 import pytest
-from typing import Dict
+from typing import Dict, List, Any
 import tempfile
 import shutil
 import torch
@@ -14,6 +14,8 @@ class SimpleMetric(SingleTaskMetric):
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """Compute MSE score."""
+        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
 
@@ -32,9 +34,9 @@ class SimpleDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            'inputs': self.data[idx],
-            'labels': self.labels[idx],
-            'meta_info': {'idx': idx}
+            'inputs': {'data': self.data[idx]},  # Structure inputs properly
+            'labels': {'target': self.labels[idx]},  # Structure labels properly  
+            'meta_info': {'idx': idx}  # Keep idx as int
         }
 
     def set_base_seed(self, seed: int) -> None:
@@ -49,10 +51,12 @@ class SimpleModel(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(10, 1)
 
-    def forward(self, x):
-        return self.linear(x)
+    def forward(self, inputs):
+        x = inputs['data']
+        return {'output': self.linear(x)}
 
 
+@pytest.fixture
 def test_dir():
     """Create a temporary directory for test outputs."""
     temp_dir = tempfile.mkdtemp()
@@ -61,6 +65,16 @@ def test_dir():
     shutil.rmtree(temp_dir)
 
 
+@pytest.fixture
+def device():
+    """Create device for testing."""
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+
+@pytest.fixture
+def dataset(device):
+    """Create a simple dataset for testing."""
+    return SimpleDataset(size=100, device=device)
 
 
 @pytest.fixture
@@ -87,7 +101,7 @@ def trainer_cfg(dataloader, device):
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 1,
+                'batch_size': 1,  # MUST use batch_size=1 for validation/evaluation
                 'shuffle': False,
                 'collate_fn': {
                     'class': BaseCollator,
@@ -124,7 +138,7 @@ def evaluator_cfg(dataloader, device):
         'eval_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 32,
+                'batch_size': 1,  # MUST use batch_size=1 for validation/evaluation
                 'shuffle': False,
                 'collate_fn': {
                     'class': BaseCollator,
