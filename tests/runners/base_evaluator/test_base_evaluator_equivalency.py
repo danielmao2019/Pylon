@@ -149,7 +149,7 @@ class SimpleTestMetric(BaseMetric):
         # Extract components from datapoint
         y_pred = datapoint['outputs']
         y_true = datapoint['labels']
-        
+
         logits = y_pred['logits']
         targets = y_true['target']
 

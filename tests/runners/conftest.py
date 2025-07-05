@@ -20,7 +20,7 @@ class SimpleMetric(BaseMetric):
         # Extract tensors from datapoint (outputs added by evaluator, labels from dataset)
         y_pred = datapoint['outputs']  # Model output is a tensor
         y_true = datapoint['labels']   # Dataset labels is a tensor
-        
+
         score = self._compute_score(y_pred, y_true)
         # Detach and move to CPU
         score = {k: v.detach().cpu() for k, v in score.items()}
@@ -32,23 +32,23 @@ class SimpleMetric(BaseMetric):
         """Calculate average score from buffer following Pylon pattern."""
         # Wait for buffer to be processed
         self._buffer_queue.join()
-        
+
         # Get ordered scores from buffer
         ordered_scores = self.get_buffer()
-        
+
         if not ordered_scores:
             # Return empty result with proper structure
             return {
                 "aggregated": {"mse": torch.tensor(0.0), "reduced": torch.tensor(0.0)},
                 "per_datapoint": {"mse": torch.tensor([])}
             }
-        
+
         # Extract MSE scores as tensors
         mse_scores = torch.stack([score["mse"] for score in ordered_scores])
-        
+
         # Calculate aggregated result
         avg_score = mse_scores.mean()
-        
+
         # Create result with proper Pylon structure
         result = {
             "aggregated": {
@@ -81,11 +81,11 @@ class SimpleDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            'inputs': self.data[idx], 
-            'labels': self.labels[idx], 
+            'inputs': self.data[idx],
+            'labels': self.labels[idx],
             'meta_info': {'idx': idx}
         }
-    
+
     def set_base_seed(self, seed: int) -> None:
         """Set the base seed for deterministic behavior."""
         self.base_seed = seed

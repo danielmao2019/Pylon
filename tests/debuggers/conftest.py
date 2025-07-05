@@ -67,7 +67,7 @@ from debuggers.forward_debugger import ForwardDebugger
 
 class SimpleForwardDebugger(ForwardDebugger):
     """Simple forward debugger for fixture testing purposes only."""
-    
+
     def process_forward(self, module, input, output):
         return {
             'layer_name': self.layer_name,

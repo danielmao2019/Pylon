@@ -25,7 +25,7 @@ class SimpleMetric(SingleTaskMetric):
         # Extract outputs and labels from datapoint
         y_pred = datapoint['outputs']
         y_true = datapoint['labels']
-        
+
         score = self._compute_score(y_pred, y_true)
         # Add to buffer
         self.add_to_buffer(score, datapoint)
@@ -47,11 +47,11 @@ class SimpleDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            'inputs': self.data[idx], 
+            'inputs': self.data[idx],
             'labels': self.labels[idx],
             'meta_info': {'idx': idx}  # Add meta_info for proper structure
         }
-    
+
     def set_base_seed(self, seed: int) -> None:
         """Set the base seed for deterministic behavior."""
         self.base_seed = seed
@@ -233,7 +233,7 @@ def test_multi_stage_vs_single_stage(test_dir):
             single_scores = json.load(f)
         with open(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
             multi_scores = json.load(f)
-        
+
         # Compare validation scores using buffer_allclose utility
         assert buffer_allclose(single_scores, multi_scores, rtol=1e-6, atol=1e-6), \
             f"Validation scores don't match at epoch {epoch}: {single_scores} vs {multi_scores}"
