@@ -272,7 +272,7 @@ def register_webgl_callback(app, component_id: str):
     clientside_callback(
         f"""
         function(trigger) {{
-            console.log('=== Professional 3D Navigation WebGL for {component_id} ===');
+            console.log('=== Professional 3D WebGL Viewer for {component_id} ===');
             
             const container = document.getElementById('{component_id}');
             const dataDiv = document.getElementById('{component_id}-data');
@@ -297,232 +297,332 @@ def register_webgl_callback(app, component_id: str):
                 canvas.height = container.clientHeight || 500;
                 canvas.style.width = '100%';
                 canvas.style.height = '100%';
-                canvas.style.backgroundColor = '#87CEEB';
                 
                 container.innerHTML = '';
                 container.appendChild(canvas);
                 
-                // Set up 3D camera controls - orbit + pan + zoom navigation
-                let camera = {{
-                    // Orbit controls (yaw/pitch only)
-                    yaw: 0.5,      // Horizontal rotation around target
-                    pitch: 0.3,    // Vertical rotation around target  
-                    distance: config.pointCloudData.bbox_size * 2,   // Distance from target
+                // ===== WEBGL INITIALIZATION =====
+                const gl = canvas.getContext('webgl');
+                
+                if (!gl) {{
+                    console.error('WebGL not supported');
+                    return 'Error: WebGL not supported in this browser';
+                }}
+                
+                // ===== SHADER SOURCES =====
+                const vertexShaderSource = `
+                    attribute vec3 aPosition;
+                    attribute vec3 aColor;
+                    uniform mat3 uRotationMatrix;
+                    uniform vec2 uTranslation;
+                    uniform float uDepth;
+                    varying vec3 vColor;
                     
-                    // Pan controls (screen space translation)
-                    targetX: config.pointCloudData.bbox_center[0],  // Look-at point
-                    targetY: config.pointCloudData.bbox_center[1],
-                    targetZ: config.pointCloudData.bbox_center[2],
+                    void main() {{
+                        // Apply world-space rotation matrix
+                        vec3 rotated = uRotationMatrix * aPosition;
+                        
+                        // Apply screen-space translation
+                        rotated.x += uTranslation.x;
+                        rotated.y += uTranslation.y;
+                        
+                        // Perspective projection with adjustable camera distance
+                        float z = rotated.z + uDepth;
+                        gl_Position = vec4(rotated.x / z, rotated.y / z, 0.0, 1.0);
+                        gl_PointSize = ${{config.pointSize * 2.0}};
+                        vColor = aColor;
+                    }}
+                `;
+                
+                const fragmentShaderSource = `
+                    precision mediump float;
+                    varying vec3 vColor;
+                    void main() {{
+                        gl_FragColor = vec4(vColor, 1.0);
+                    }}
+                `;
+                
+                // ===== SHADER COMPILATION =====
+                function createShader(type, source) {{
+                    const shader = gl.createShader(type);
+                    gl.shaderSource(shader, source);
+                    gl.compileShader(shader);
                     
-                    // Zoom
-                    zoom: 1
+                    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {{
+                        const error = gl.getShaderInfoLog(shader);
+                        gl.deleteShader(shader);
+                        throw new Error('Shader compilation error: ' + error);
+                    }}
+                    
+                    return shader;
+                }}
+                
+                let program;
+                try {{
+                    const vertexShader = createShader(gl.VERTEX_SHADER, vertexShaderSource);
+                    const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
+                    
+                    // Create and link program
+                    program = gl.createProgram();
+                    gl.attachShader(program, vertexShader);
+                    gl.attachShader(program, fragmentShader);
+                    gl.linkProgram(program);
+                    
+                    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {{
+                        throw new Error('Program linking error: ' + gl.getProgramInfoLog(program));
+                    }}
+                    
+                    // Clean up shaders
+                    gl.deleteShader(vertexShader);
+                    gl.deleteShader(fragmentShader);
+                }} catch (error) {{
+                    console.error('Shader error:', error);
+                    return 'Shader Error: ' + error.message;
+                }}
+                
+                // ===== BUFFER CREATION =====
+                const positions = config.pointCloudData.positions;
+                const colors = config.pointCloudData.colors;
+                const pointCount = config.pointCloudData.point_count;
+                
+                const positionBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+                
+                const colorBuffer = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+                
+                // ===== SHADER LOCATIONS =====
+                const locations = {{
+                    attributes: {{
+                        position: gl.getAttribLocation(program, 'aPosition'),
+                        color: gl.getAttribLocation(program, 'aColor')
+                    }},
+                    uniforms: {{
+                        rotationMatrix: gl.getUniformLocation(program, 'uRotationMatrix'),
+                        translation: gl.getUniformLocation(program, 'uTranslation'),
+                        depth: gl.getUniformLocation(program, 'uDepth')
+                    }}
                 }};
                 
-                let mouseState = {{
+                // ===== NAVIGATION STATE =====
+                const navigation = {{
+                    // World-space rotation matrix (identity initially)
+                    rotationMatrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
+                    
+                    // Screen-space translation
+                    translation: [0, 0],
+                    
+                    // Camera distance (adjust based on bounding box)
+                    depth: config.pointCloudData.bbox_size * 2.0,
+                    
+                    // Sensitivity settings
+                    sensitivity: {{
+                        rotation: 0.01,
+                        translation: 0.002,
+                        depth: 0.1
+                    }}
+                }};
+                
+                // Mouse interaction state
+                const mouse = {{
                     isLeftDragging: false,
-                    isRightDragging: false, 
-                    isMiddleDragging: false,
+                    isRightDragging: false,
                     lastX: 0,
                     lastY: 0
                 }};
                 
-                // Mouse event handlers for 3D navigation
+                // ===== MATRIX UTILITIES =====
+                const MatrixUtils = {{
+                    // Create rotation matrix around arbitrary axis using Rodrigues' formula
+                    createRotation(axisX, axisY, axisZ, angle) {{
+                        const c = Math.cos(angle);
+                        const s = Math.sin(angle);
+                        const t = 1 - c;
+                        
+                        return [
+                            t*axisX*axisX + c,       t*axisX*axisY - s*axisZ, t*axisX*axisZ + s*axisY,
+                            t*axisX*axisY + s*axisZ, t*axisY*axisY + c,       t*axisY*axisZ - s*axisX,
+                            t*axisX*axisZ - s*axisY, t*axisY*axisZ + s*axisX, t*axisZ*axisZ + c
+                        ];
+                    }},
+                    
+                    // Multiply two 3x3 matrices: result = a * b
+                    multiply(a, b) {{
+                        return [
+                            a[0]*b[0] + a[1]*b[3] + a[2]*b[6], a[0]*b[1] + a[1]*b[4] + a[2]*b[7], a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
+                            a[3]*b[0] + a[4]*b[3] + a[5]*b[6], a[3]*b[1] + a[4]*b[4] + a[5]*b[7], a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
+                            a[6]*b[0] + a[7]*b[3] + a[8]*b[6], a[6]*b[1] + a[7]*b[4] + a[8]*b[7], a[6]*b[2] + a[7]*b[5] + a[8]*b[8]
+                        ];
+                    }}
+                }};
+                
+                // ===== RENDERING SYSTEM =====
+                const RenderSystem = {{
+                    // One-time setup of vertex attributes
+                    setupVertexAttributes() {{
+                        // Position attribute
+                        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                        gl.enableVertexAttribArray(locations.attributes.position);
+                        gl.vertexAttribPointer(locations.attributes.position, 3, gl.FLOAT, false, 0, 0);
+                        
+                        // Color attribute
+                        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+                        gl.enableVertexAttribArray(locations.attributes.color);
+                        gl.vertexAttribPointer(locations.attributes.color, 3, gl.FLOAT, false, 0, 0);
+                    }},
+                    
+                    // Main rendering function
+                    render() {{
+                        // Clear canvas with dark background
+                        gl.clearColor(0.12, 0.12, 0.15, 1.0);
+                        gl.clear(gl.COLOR_BUFFER_BIT);
+                        
+                        // Use shader program
+                        gl.useProgram(program);
+                        
+                        // Update uniforms
+                        gl.uniformMatrix3fv(locations.uniforms.rotationMatrix, false, navigation.rotationMatrix);
+                        gl.uniform2f(locations.uniforms.translation, ...navigation.translation);
+                        gl.uniform1f(locations.uniforms.depth, navigation.depth);
+                        
+                        // Draw geometry
+                        gl.drawArrays(gl.POINTS, 0, pointCount);
+                    }}
+                }};
+                
+                // ===== INTERACTION SYSTEM =====
+                const InteractionSystem = {{
+                    // Constants for interaction
+                    DRAG_THRESHOLD: 0.1,
+                    DEPTH_LIMITS: {{ min: 0.5, max: 20.0 }},
+                    
+                    // Mouse button mappings
+                    MOUSE_BUTTONS: {{
+                        LEFT: 0,
+                        MIDDLE: 1,
+                        RIGHT: 2
+                    }},
+                    
+                    // Handle rotation input
+                    handleRotation(deltaX, deltaY) {{
+                        const {{ rotation: sensitivity }} = navigation.sensitivity;
+                        let needsRedraw = false;
+                        
+                        // Yaw rotation (around world Y-axis)
+                        if (Math.abs(deltaX) > this.DRAG_THRESHOLD) {{
+                            const yRotation = MatrixUtils.createRotation(0, 1, 0, deltaX * sensitivity);
+                            navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, yRotation);
+                            needsRedraw = true;
+                        }}
+                        
+                        // Pitch rotation (around world X-axis)
+                        if (Math.abs(deltaY) > this.DRAG_THRESHOLD) {{
+                            const xRotation = MatrixUtils.createRotation(1, 0, 0, deltaY * sensitivity);
+                            navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, xRotation);
+                            needsRedraw = true;
+                        }}
+                        
+                        return needsRedraw;
+                    }},
+                    
+                    // Handle translation input
+                    handleTranslation(deltaX, deltaY) {{
+                        const {{ translation: sensitivity }} = navigation.sensitivity;
+                        
+                        navigation.translation[0] += deltaX * sensitivity;
+                        navigation.translation[1] -= deltaY * sensitivity;  // Invert Y for intuitive control
+                        
+                        return true; // Always redraw for translation
+                    }},
+                    
+                    // Handle depth input
+                    handleDepth(wheelDelta) {{
+                        const {{ depth: sensitivity }} = navigation.sensitivity;
+                        
+                        // Scroll up = move forward (decrease depth), scroll down = move backward
+                        navigation.depth += (wheelDelta > 0) ? sensitivity : -sensitivity;
+                        navigation.depth = Math.max(this.DEPTH_LIMITS.min, Math.min(this.DEPTH_LIMITS.max, navigation.depth));
+                        
+                        return true; // Always redraw for depth change
+                    }}
+                }};
+                
+                // ===== EVENT LISTENERS =====
                 canvas.addEventListener('mousedown', (e) => {{
                     e.preventDefault();
                     
-                    if (e.button === 0) {{  // Left mouse button
-                        mouseState.isLeftDragging = true;
-                        canvas.style.cursor = 'grabbing';
-                    }} else if (e.button === 1) {{  // Middle mouse button
-                        mouseState.isMiddleDragging = true;
-                        canvas.style.cursor = 'ns-resize';
-                    }} else if (e.button === 2) {{  // Right mouse button
-                        mouseState.isRightDragging = true;
-                        canvas.style.cursor = 'move';
+                    const {{ MOUSE_BUTTONS }} = InteractionSystem;
+                    
+                    switch (e.button) {{
+                        case MOUSE_BUTTONS.LEFT:
+                            mouse.isLeftDragging = true;
+                            canvas.style.cursor = 'grabbing';
+                            break;
+                        case MOUSE_BUTTONS.RIGHT:
+                            mouse.isRightDragging = true;
+                            canvas.style.cursor = 'move';
+                            break;
                     }}
                     
-                    mouseState.lastX = e.clientX;
-                    mouseState.lastY = e.clientY;
+                    mouse.lastX = e.clientX;
+                    mouse.lastY = e.clientY;
                 }});
                 
                 canvas.addEventListener('mousemove', (e) => {{
-                    const deltaX = e.clientX - mouseState.lastX;
-                    const deltaY = e.clientY - mouseState.lastY;
+                    const deltaX = e.clientX - mouse.lastX;
+                    const deltaY = e.clientY - mouse.lastY;
                     
-                    if (mouseState.isLeftDragging) {{
-                        // Left mouse: Orbit camera (yaw/pitch only)
-                        const sensitivity = 0.01;
-                        camera.yaw -= deltaX * sensitivity;
-                        camera.pitch += deltaY * sensitivity;
-                        
-                        // Clamp pitch to prevent flipping
-                        camera.pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, camera.pitch));
-                        
-                        drawScene();
-                    }} else if (mouseState.isRightDragging) {{
-                        // Right mouse: Pan in screen plane (reverse directions for intuitive control)
-                        const sensitivity = 0.002 * camera.distance;
-                        
-                        // Calculate camera right and up vectors for screen-space panning
-                        const yawCos = Math.cos(camera.yaw);
-                        const yawSin = Math.sin(camera.yaw);
-                        const pitchCos = Math.cos(camera.pitch);
-                        
-                        // Right vector (perpendicular to view direction in XZ plane)
-                        const rightX = -yawSin;
-                        const rightZ = yawCos;
-                        
-                        // Up vector (screen up, accounting for pitch)
-                        const upX = -yawCos * Math.sin(camera.pitch);
-                        const upY = Math.cos(camera.pitch);
-                        const upZ = -yawSin * Math.sin(camera.pitch);
-                        
-                        // Apply panning (reverse directions for intuitive control)
-                        camera.targetX += rightX * (-deltaX) * sensitivity - upX * (-deltaY) * sensitivity;
-                        camera.targetY += -upY * (-deltaY) * sensitivity;
-                        camera.targetZ += rightZ * (-deltaX) * sensitivity - upZ * (-deltaY) * sensitivity;
-                        
-                        drawScene();
-                    }} else if (mouseState.isMiddleDragging) {{
-                        // Middle mouse: Zoom with vertical movement (reverse direction)
-                        const sensitivity = 0.01;
-                        camera.zoom *= (1 + (-deltaY) * sensitivity);  // Reverse: drag up = zoom in
-                        camera.zoom = Math.max(0.1, Math.min(5, camera.zoom));
-                        
-                        drawScene();
+                    let needsRedraw = false;
+                    
+                    if (mouse.isLeftDragging) {{
+                        needsRedraw = InteractionSystem.handleRotation(deltaX, deltaY);
+                    }} else if (mouse.isRightDragging) {{
+                        needsRedraw = InteractionSystem.handleTranslation(deltaX, deltaY);
                     }}
                     
-                    mouseState.lastX = e.clientX;
-                    mouseState.lastY = e.clientY;
+                    if (needsRedraw) {{
+                        RenderSystem.render();
+                    }}
+                    
+                    mouse.lastX = e.clientX;
+                    mouse.lastY = e.clientY;
                 }});
                 
-                canvas.addEventListener('mouseup', (e) => {{
-                    mouseState.isLeftDragging = false;
-                    mouseState.isRightDragging = false;
-                    mouseState.isMiddleDragging = false;
+                canvas.addEventListener('mouseup', () => {{
+                    mouse.isLeftDragging = false;
+                    mouse.isRightDragging = false;
                     canvas.style.cursor = 'default';
                 }});
                 
-                // Disable context menu on right click
-                canvas.addEventListener('contextmenu', (e) => {{
-                    e.preventDefault();
-                }});
+                canvas.addEventListener('contextmenu', (e) => e.preventDefault());
                 
                 canvas.addEventListener('wheel', (e) => {{
                     e.preventDefault();
-                    camera.zoom *= (e.deltaY > 0) ? 0.9 : 1.1;  // Reverse zoom: scroll up = zoom in, scroll down = zoom out
-                    camera.zoom = Math.max(0.1, Math.min(5, camera.zoom));
-                    drawScene();
+                    
+                    if (InteractionSystem.handleDepth(e.deltaY)) {{
+                        RenderSystem.render();
+                    }}
                 }});
                 
-                canvas.style.cursor = 'default';
-                
-                // Function to draw the 3D scene with orbit camera
-                function drawScene() {{
-                    const ctx = canvas.getContext('2d');
-                    if (!ctx) return;
+                // ===== INITIALIZATION =====
+                try {{
+                    // Setup vertex attributes once (performance optimization)
+                    RenderSystem.setupVertexAttributes();
                     
-                    // Clear canvas
-                    ctx.fillStyle = '#87CEEB';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    // Initial render
+                    RenderSystem.render();
                     
-                    // Title
-                    ctx.fillStyle = '#333';
-                    ctx.font = '16px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('Interactive Point Cloud', canvas.width/2, 25);
+                    // Return success message with system info
+                    const webglInfo = gl.getParameter(gl.VERSION);
+                    console.log('WebGL viewer initialized for {component_id}:', pointCount, 'points');
+                    return `✓ Professional WebGL Viewer Ready • ${{pointCount}} points • ${{webglInfo}}`;
                     
-                    // Controls info
-                    ctx.font = '11px Arial';
-                    ctx.fillText('Left: Orbit • Right: Pan • Scroll/Middle: Zoom', canvas.width/2, 45);
-                    
-                    // Calculate camera position from yaw/pitch/distance
-                    const yawCos = Math.cos(camera.yaw);
-                    const yawSin = Math.sin(camera.yaw);
-                    const pitchCos = Math.cos(camera.pitch);
-                    const pitchSin = Math.sin(camera.pitch);
-                    
-                    const cameraDistance = camera.distance / camera.zoom;
-                    const cameraX = camera.targetX + cameraDistance * pitchCos * yawCos;
-                    const cameraY = camera.targetY + cameraDistance * pitchSin;
-                    const cameraZ = camera.targetZ + cameraDistance * pitchCos * yawSin;
-                    
-                    // Transform and project all points using orbit camera
-                    const positions = config.pointCloudData.positions;
-                    const colors = config.pointCloudData.colors;
-                    const transformedPoints = [];
-                    
-                    // Calculate camera view vectors
-                    const viewDirX = camera.targetX - cameraX;
-                    const viewDirY = camera.targetY - cameraY;
-                    const viewDirZ = camera.targetZ - cameraZ;
-                    const viewLength = Math.sqrt(viewDirX*viewDirX + viewDirY*viewDirY + viewDirZ*viewDirZ);
-                    
-                    // Normalize view direction
-                    const vx = viewDirX / viewLength;
-                    const vy = viewDirY / viewLength;
-                    const vz = viewDirZ / viewLength;
-                    
-                    // Right vector (perpendicular to view in XZ plane)
-                    const rx = -yawSin;
-                    const rz = yawCos;
-                    
-                    // Up vector (cross product of right and view)
-                    const ux = -yawCos * pitchSin;
-                    const uy = pitchCos;
-                    const uz = -yawSin * pitchSin;
-                    
-                    for (let i = 0; i < positions.length; i += 3) {{
-                        // Get world coordinates
-                        const worldX = positions[i];
-                        const worldY = positions[i + 1];
-                        const worldZ = positions[i + 2];
-                        
-                        // Transform to camera space
-                        const dx = worldX - cameraX;
-                        const dy = worldY - cameraY;
-                        const dz = worldZ - cameraZ;
-                        
-                        // Project to camera-relative coordinates
-                        const camX = dx * rx + dz * rz;  // Right component
-                        const camY = dx * ux + dy * uy + dz * uz;  // Up component  
-                        const camZ = dx * vx + dy * vy + dz * vz;  // Depth component
-                        
-                        // Perspective projection
-                        if (camZ > 0.1) {{  // Only render points in front of camera
-                            const fov = 400;
-                            const screenX = canvas.width/2 + (camX * fov) / camZ;
-                            const screenY = canvas.height/2 - (camY * fov) / camZ;
-                            
-                            transformedPoints.push({{
-                                x: screenX,
-                                y: screenY,
-                                z: camZ,
-                                r: Math.floor(colors[i] * 255),
-                                g: Math.floor(colors[i + 1] * 255),
-                                b: Math.floor(colors[i + 2] * 255)
-                            }});
-                        }}
-                    }}
-                    
-                    // Sort by Z depth (far to near)
-                    transformedPoints.sort((a, b) => b.z - a.z);
-                    
-                    // Draw points
-                    transformedPoints.forEach(point => {{
-                        const size = Math.max(1, (config.pointSize || 2) * 5 / point.z);
-                        ctx.fillStyle = `rgb(${{point.r}},${{point.g}},${{point.b}})`;
-                        ctx.beginPath();
-                        ctx.arc(point.x, point.y, size, 0, 2 * Math.PI);
-                        ctx.fill();
-                    }});
+                }} catch (error) {{
+                    console.error('WebGL initialization error for {component_id}:', error);
+                    return `✗ Initialization Error: ${{error.message}}`;
                 }}
-                
-                // Initial draw
-                drawScene();
-                
-                console.log('Professional 3D navigation setup complete for {component_id}');
-                return 'SUCCESS: Interactive 3D point cloud with ' + config.pointCloudData.point_count + ' points';
                 
             }} catch (error) {{
                 console.error('WebGL callback error for {component_id}:', error);
