@@ -3,8 +3,10 @@ from data.datasets.random_datasets import BaseRandomDataset
 from data.transforms import Compose
 
 
-torch.manual_seed(0)
+# Global device setting
 device = torch.device('cuda')
+
+torch.manual_seed(0)
 gt = torch.rand(size=(2, 2), dtype=torch.float32, device=device)
 
 
@@ -17,6 +19,7 @@ dataset_cfg = {
     'args': {
         'num_examples': 10,
         'initial_seed': 0,
+        'device': device,
         'gen_func_config': {
             'inputs': {
                 'x': (
@@ -43,6 +46,5 @@ dataset_cfg = {
                 ],
             },
         },
-        'device': device,
     },
 }

@@ -9,7 +9,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
     __doc__ = r"""Trainer class for supervised single-task learning.
     """
 
-    def _init_optimizer_(self) -> None:
+    def _init_optimizer(self) -> None:
         r"""Requires self.model and self.logger.
         """
         if not self.config.get('optimizer', None):
@@ -26,7 +26,7 @@ class SupervisedSingleTaskTrainer(BaseTrainer):
         optimizer_config['args']['optimizer_config']['args']['params'] = list(self.model.parameters())
         self.optimizer = utils.builders.build_from_config(optimizer_config)
 
-    def _init_scheduler_(self):
+    def _init_scheduler(self):
         if not self.config.get('scheduler', None):
             self.logger.warning("No scheduler specified in config, skipping scheduler initialization.")
             return

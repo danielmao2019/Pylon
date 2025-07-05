@@ -20,7 +20,7 @@ def metric():
 
 def test_point_inlier_ratio_initialization():
     metric = PointInlierRatio()
-    assert metric.DIRECTION == 1  # Higher is better
+    assert metric.DIRECTIONS == {'point_inlier_ratio': 1}  # Higher is better
 
 
 def test_point_inlier_ratio_perfect_match(metric):

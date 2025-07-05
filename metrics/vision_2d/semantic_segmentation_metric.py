@@ -10,7 +10,14 @@ from utils.ops import transpose_buffer
 
 class SemanticSegmentationMetric(SingleTaskMetric):
 
-    DIRECTION = +1
+    # Define explicit directions for all score keys this metric produces
+    DIRECTIONS = {
+        'mean_IoU': 1,          # Higher is better
+        'accuracy': 1,          # Higher is better  
+        'mean_precision': 1,    # Higher is better
+        'mean_recall': 1,       # Higher is better
+        'mean_f1': 1,          # Higher is better
+    }
 
     def __init__(self, num_classes: int, ignore_index: Optional[int] = None, use_buffer: bool = True) -> None:
         super(SemanticSegmentationMetric, self).__init__(use_buffer=use_buffer)

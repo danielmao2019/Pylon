@@ -16,6 +16,14 @@ class MultiTaskMetric(BaseMetric):
             for task in metric_configs.keys()
         }
         self.task_names = metric_configs.keys()
+        
+        # Build DIRECTIONS from component task metrics
+        self.DIRECTIONS = {}
+        for task_name, task_metric in self.task_metrics.items():
+            assert hasattr(task_metric, 'DIRECTIONS'), f"Task metric {task_name} ({type(task_metric)}) must have DIRECTIONS attribute"
+            # Preserve the full DIRECTIONS structure for each task
+            self.DIRECTIONS[task_name] = task_metric.DIRECTIONS
+        
         super(MultiTaskMetric, self).__init__()
 
     def reset_buffer(self):

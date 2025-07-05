@@ -11,7 +11,7 @@ from utils.ops import transpose_buffer
 
 class ObjectDetectionMetric(SingleTaskMetric):
 
-    DIRECTION = +1
+    DIRECTIONS = {"AR": +1}  # Higher average recall is better
 
     AREA_RANGES = {
         "all": [0**2, 1e5**2],

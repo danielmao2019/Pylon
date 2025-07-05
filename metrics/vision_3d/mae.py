@@ -12,7 +12,7 @@ class MAE(PointCloudMetric):
     in the target cloud and compute the absolute distance.
     """
 
-    DIRECTION = -1  # Lower is better
+    DIRECTIONS = {"mae": -1}  # Lower is better
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         """

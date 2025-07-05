@@ -132,17 +132,22 @@ def test_config_parameter_merging(dummy_metric):
 
 def test_recursive_building_preservation(dummy_metric):
     """Test that recursive building preserves object references correctly."""
-    # Create config with shared references
-    shared_metric_config = {
+    # Create configs with different metric names to avoid DIRECTIONS overlap
+    shared_metric_config_1 = {
         'class': dummy_metric.__class__,
-        'args': {'metric_name': 'shared', 'use_buffer': False}
+        'args': {'metric_name': 'shared_1', 'use_buffer': False}
+    }
+    
+    shared_metric_config_2 = {
+        'class': dummy_metric.__class__,
+        'args': {'metric_name': 'shared_2', 'use_buffer': False}
     }
 
-    # Use the same config reference in multiple places
+    # Use different configs to avoid key overlap
     hybrid_config = {
         'class': HybridMetric,
         'args': {
-            'metrics_cfg': [shared_metric_config, shared_metric_config]
+            'metrics_cfg': [shared_metric_config_1, shared_metric_config_2]
         }
     }
 

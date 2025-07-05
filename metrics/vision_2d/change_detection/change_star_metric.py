@@ -8,6 +8,13 @@ from utils.ops.dict_as_tensor import transpose_buffer
 
 
 class ChangeStarMetric(SingleTaskMetric):
+    # Define explicit directions as class attribute matching the output structure
+    # Each task has its own set of metric directions
+    DIRECTIONS = {
+        'change': SemanticSegmentationMetric.DIRECTIONS,
+        'semantic_1': SemanticSegmentationMetric.DIRECTIONS,
+        'semantic_2': SemanticSegmentationMetric.DIRECTIONS,
+    }
 
     def __init__(self) -> None:
         super(ChangeStarMetric, self).__init__()

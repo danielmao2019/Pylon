@@ -21,7 +21,9 @@ class TransformInlierRatio(BaseMetric):
         threshold: Distance threshold for considering a point as inlier
     """
 
-    DIRECTION = +1  # Higher is better
+    DIRECTIONS = {
+        'inlier_ratio': +1  # Higher is better
+    }
 
     def __init__(self, threshold: float = 0.1, use_buffer: bool = True) -> None:
         """Initialize the TransformInlierRatio metric.

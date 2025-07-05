@@ -1,4 +1,5 @@
 """Test cases for MultiStageTrainer comparing with SupervisedSingleTaskTrainer."""
+from typing import Dict, List, Any
 import os
 import json
 import torch
@@ -8,29 +9,20 @@ from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 import optimizers
 from utils.ops.dict_as_tensor import buffer_allclose
+from data.collators.base_collator import BaseCollator
 
 
 class SimpleMetric(SingleTaskMetric):
     """A simple metric implementation for testing."""
 
-    DIRECTION = -1  # Lower is better for MSE
+    DIRECTIONS = {"mse": -1}  # Lower is better for MSE
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict[str, torch.Tensor]:
         """Compute MSE score."""
+        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
-
-    def __call__(self, datapoint: dict) -> dict[str, torch.Tensor]:
-        """Update the metric buffer with the current batch's score."""
-        # Extract outputs and labels from datapoint
-        y_pred = datapoint['outputs']
-        y_true = datapoint['labels']
-
-        score = self._compute_score(y_pred, y_true)
-        # Add to buffer
-        self.add_to_buffer(score, datapoint)
-        return score
-
 
 
 class SimpleDataset(torch.utils.data.Dataset):
@@ -40,20 +32,22 @@ class SimpleDataset(torch.utils.data.Dataset):
         self.device = device
         self.data = torch.randn(size, 10, device=device)
         self.labels = torch.randn(size, 1, device=device)
-        self.base_seed = 0  # Add base_seed attribute
+        self.base_seed = 0
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
         return {
-            'inputs': self.data[idx],
-            'labels': self.labels[idx],
-            'meta_info': {'idx': idx}  # Add meta_info for proper structure
+            'inputs': {'data': self.data[idx]},
+            'labels': {'target': self.labels[idx]},
+            'meta_info': {'idx': idx}
         }
 
-    def set_base_seed(self, seed: int) -> None:
-        """Set the base seed for deterministic behavior."""
+    def set_base_seed(self, seed):
+        """Set the base seed for the dataset."""
+        if not isinstance(seed, int):
+            seed = hash(seed) % (2**32)  # Ensure it's a 32-bit integer
         self.base_seed = seed
 
 
@@ -64,8 +58,9 @@ class SimpleModel(torch.nn.Module):
         super().__init__()
         self.linear = torch.nn.Linear(10, 1)
 
-    def forward(self, x):
-        return self.linear(x)
+    def forward(self, inputs):
+        x = inputs['data']
+        return {'output': self.linear(x)}
 
 
 class SimpleCriterion(SingleTaskCriterion):
@@ -76,6 +71,8 @@ class SimpleCriterion(SingleTaskCriterion):
 
     def _compute_loss(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor:
         """Compute MSE loss."""
+        assert isinstance(y_pred, torch.Tensor), f"Expected torch.Tensor, got {type(y_pred)}"
+        assert isinstance(y_true, torch.Tensor), f"Expected torch.Tensor, got {type(y_true)}"
         return self.mse(y_pred, y_true)
 
 
@@ -97,8 +94,8 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'init_seed': 42,
         'epochs': epochs,
         'train_seeds': [42] * epochs,
-        'val_seeds': [42] * epochs,  # Add missing val_seeds
-        'test_seed': 42,  # Add missing test_seed
+        'val_seeds': [42] * epochs,
+        'test_seed': 42,
         'checkpoint_method': 'all',
         'train_dataset': {
             'class': dataset,
@@ -107,9 +104,13 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'train_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 32,
-                'shuffle': True
-            }
+                'batch_size': 1,
+                'shuffle': True,
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
+            },
         },
         'criterion': {
             'class': SimpleCriterion,
@@ -122,9 +123,13 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 1,  # Pylon evaluators expect batch_size=1
-                'shuffle': False
-            }
+                'batch_size': 1,
+                'shuffle': False,
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
+            },
         },
         'metric': {
             'class': metric,

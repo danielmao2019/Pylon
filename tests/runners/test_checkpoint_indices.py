@@ -26,22 +26,10 @@ class TestableBaseTrainer(BaseTrainer):
         self.logger.info = Mock()
 
     # Implement abstract methods (minimal implementations for testing)
-    def _init_components_(self):
+    def _init_optimizer(self):
         pass
 
-    def _load_checkpoint_(self):
-        pass
-
-    def _train_epoch_(self):
-        pass
-
-    def _eval_epoch_(self):
-        pass
-
-    def _init_optimizer_(self):
-        pass
-
-    def _init_scheduler_(self):
+    def _init_scheduler(self):
         pass
 
     def _set_gradients_(self, dp):

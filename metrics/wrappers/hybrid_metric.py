@@ -45,6 +45,16 @@ class HybridMetric(SingleTaskMetric):
         assert all(isinstance(m, BaseMetric) for m in self.metrics)
         assert all(not m.use_buffer for m in self.metrics), "Component metrics should not use buffer"
         assert all(not hasattr(m, 'buffer') for m in self.metrics), "Component metrics should not have buffer attribute"
+        
+        # Build DIRECTIONS from component metrics by collecting all their score keys
+        self.DIRECTIONS = {}
+        for i, component_metric in enumerate(self.metrics):
+            assert hasattr(component_metric, 'DIRECTIONS'), f"Component metric {i} ({type(component_metric)}) must have DIRECTIONS attribute"
+            # Check for key overlaps to avoid ambiguity in merging
+            overlapping_keys = set(self.DIRECTIONS.keys()) & set(component_metric.DIRECTIONS.keys())
+            assert len(overlapping_keys) == 0, f"DIRECTIONS key overlap detected between component metrics: {overlapping_keys}"
+            # Component has explicit DIRECTIONS dict - merge all keys
+            self.DIRECTIONS.update(component_metric.DIRECTIONS)
 
     def __call__(self, datapoint: Dict[str, Dict[str, Any]]) -> Dict[str, torch.Tensor]:
         """Override to properly handle component metrics that use the full datapoint."""

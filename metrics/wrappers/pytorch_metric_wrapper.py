@@ -5,6 +5,8 @@ from metrics.wrappers.single_task_metric import SingleTaskMetric
 
 class PyTorchMetricWrapper(SingleTaskMetric):
 
+    DIRECTIONS = {"score": -1}  # Default to lower is better (loss-like metrics)
+
     def __init__(
         self,
         metric: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],

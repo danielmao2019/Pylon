@@ -13,7 +13,9 @@ class InlierRatio(SingleTaskMetric):
     the target point cloud after applying the predicted transformation.
     """
 
-    DIRECTION = +1  # Higher is better
+    DIRECTIONS = {
+        'inlier_ratio': +1  # Higher is better
+    }
 
     def __init__(self, threshold: float, use_buffer: bool = True) -> None:
         """

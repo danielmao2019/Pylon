@@ -8,7 +8,7 @@ from utils.ops.dict_as_tensor import transpose_buffer
 
 class SingleTaskMetric(BaseMetric):
 
-    DIRECTION: int
+    DIRECTIONS: Dict[str, int]
 
     def __call__(self, datapoint: Dict[str, Dict[str, Union[torch.Tensor, Dict[str, torch.Tensor]]]]) -> Dict[str, torch.Tensor]:
         r"""This method assumes `_compute_score` is implemented and both y_pred

@@ -5,10 +5,12 @@ from metrics.base_metric import BaseMetric
 
 class DummyMetric(BaseMetric):
     """A dummy metric that returns simple scores for testing."""
-
+    
     def __init__(self, metric_name: str = "test_metric", use_buffer: bool = True):
         super().__init__(use_buffer=use_buffer)
         self.metric_name = metric_name
+        # Set DIRECTIONS dynamically based on metric_name
+        self.DIRECTIONS = {metric_name: 1}  # Higher is better
 
     def __call__(self, datapoint: dict) -> dict:
         # Simple dummy score computation
@@ -29,10 +31,12 @@ class DummyMetric(BaseMetric):
 
 class AnotherDummyMetric(BaseMetric):
     """Another dummy metric for testing combinations."""
-
+    
     def __init__(self, metric_name: str = "another_metric", use_buffer: bool = True):
         super().__init__(use_buffer=use_buffer)
         self.metric_name = metric_name
+        # Set DIRECTIONS dynamically based on metric_name
+        self.DIRECTIONS = {metric_name: -1}  # Lower is better
 
     def __call__(self, datapoint: dict) -> dict:
         # Different dummy score computation
