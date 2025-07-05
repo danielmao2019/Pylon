@@ -423,11 +423,11 @@ def compute_per_metric_color_scales(log_dir_infos: Dict[str, LogDirInfo]) -> np.
     """
     if not log_dir_infos:
         return np.array([[0.0, 1.0]])  # Default range if no data
-    
+
     # Get number of metrics from first log dir info
     first_info = list(log_dir_infos.values())[0]
     num_metrics = len(first_info.metric_names)
-    
+
     # Initialize arrays to collect scores for each metric
     metric_scores = [[] for _ in range(num_metrics)]
 
@@ -451,7 +451,7 @@ def compute_per_metric_color_scales(log_dir_infos: Dict[str, LogDirInfo]) -> np.
         scores = np.array(metric_scores[metric_idx])
         # Filter out NaN values
         valid_scores = scores[~np.isnan(scores)]
-        
+
         if len(valid_scores) == 0:
             # Default range if no valid scores for this metric
             color_scales[metric_idx] = [0.0, 1.0]

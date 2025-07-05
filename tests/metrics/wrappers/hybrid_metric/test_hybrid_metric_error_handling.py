@@ -40,12 +40,9 @@ def test_no_key_overlap_assertion(sample_tensor, sample_target, dummy_metric, an
         }
     ]
 
-    hybrid_metric = HybridMetric(metrics_cfg=overlapping_metrics_cfg)
-
-    # This should raise an assertion error due to key overlap
-    with pytest.raises(AssertionError, match="Key overlap detected"):
-        datapoint = create_datapoint(sample_tensor, sample_target)
-        hybrid_metric(datapoint)
+    # This should raise an assertion error during initialization due to DIRECTIONS key overlap
+    with pytest.raises(AssertionError, match="DIRECTIONS key overlap detected"):
+        hybrid_metric = HybridMetric(metrics_cfg=overlapping_metrics_cfg)
 
 
 def test_invalid_metric_config():
@@ -119,11 +116,6 @@ def test_complex_key_overlap_scenarios(dummy_metric, another_dummy_metric):
         }
     ]
 
-    hybrid_metric = HybridMetric(metrics_cfg=complex_overlapping_cfg)
-
-    sample_input = torch.randn(2, 3, 4, 4, dtype=torch.float32)
-    sample_target = torch.randn(2, 3, 4, 4, dtype=torch.float32)
-
-    with pytest.raises(AssertionError, match="Key overlap detected"):
-        datapoint = create_datapoint(sample_input, sample_target)
-        hybrid_metric(datapoint)
+    # This should raise an assertion error during initialization due to DIRECTIONS key overlap
+    with pytest.raises(AssertionError, match="DIRECTIONS key overlap detected"):
+        hybrid_metric = HybridMetric(metrics_cfg=complex_overlapping_cfg)

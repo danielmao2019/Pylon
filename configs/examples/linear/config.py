@@ -5,6 +5,7 @@ from criteria.wrappers import PyTorchCriterionWrapper
 from metrics.wrappers import PyTorchMetricWrapper
 from optimizers import SingleTaskOptimizer
 from schedulers.lr_lambdas import ConstantLambda
+from runners.early_stopping import EarlyStopping
 
 from configs.examples.linear.dataset_cfg import dataset_cfg
 
@@ -89,6 +90,14 @@ config = {
                 'class': ConstantLambda,
                 'args': {},
             },
+        },
+    },
+    # Early stopping configuration (optional)
+    'early_stopping': {
+        'class': EarlyStopping,
+        'args': {
+            'enabled': True,
+            'epochs': 5,  # Patience
         },
     },
 }
