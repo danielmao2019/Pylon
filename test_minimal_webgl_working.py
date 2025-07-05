@@ -12,7 +12,7 @@ app.layout = html.Div([
     html.H1("WebGL 3D Cube with Yaw/Pitch Rotation"),
     html.Canvas(id='canvas', width=400, height=400, style={'border': '1px solid black'}),
     html.Div(id='output'),
-    html.P("Left mouse drag to rotate: left/right = yaw, up/down = pitch")
+    html.P("Left drag: Rotate • Right drag: Pan • No roll behavior")
 ])
 
 clientside_callback(
@@ -25,15 +25,20 @@ clientside_callback(
             return 'WebGL not supported';
         }
         
-        // Vertex shader with rotation matrix
+        // Vertex shader with rotation matrix and translation
         const vertexShaderSource = `
             attribute vec3 aPosition;
             attribute vec3 aColor;
             uniform mat3 uRotationMatrix;
+            uniform vec2 uTranslation;
             varying vec3 vColor;
             void main() {
                 // Apply rotation matrix
                 vec3 rotated = uRotationMatrix * aPosition;
+                
+                // Apply translation in screen space
+                rotated.x += uTranslation.x;
+                rotated.y += uTranslation.y;
                 
                 // Simple 3D to 2D projection
                 float z = rotated.z + 3.0;
@@ -130,16 +135,22 @@ clientside_callback(
         const positionLocation = gl.getAttribLocation(program, 'aPosition');
         const colorLocation = gl.getAttribLocation(program, 'aColor');
         const rotationMatrixLocation = gl.getUniformLocation(program, 'uRotationMatrix');
+        const translationLocation = gl.getUniformLocation(program, 'uTranslation');
         
-        // Rotation state - use incremental rotation matrix
+        // Rotation and translation state
         let rotationMatrix = [
             1, 0, 0,
             0, 1, 0,
             0, 0, 1
         ];
-        let isDragging = false;
-        let lastMouseX = 0;
-        let lastMouseY = 0;
+        let translation = [0, 0];  // Screen space translation [x, y]
+        
+        let mouseState = {
+            isLeftDragging: false,
+            isRightDragging: false,
+            lastX: 0,
+            lastY: 0
+        };
         
         // Helper function to create rotation matrix around axis
         function createRotationMatrix(axisX, axisY, axisZ, angle) {
@@ -173,45 +184,66 @@ clientside_callback(
         gl.enableVertexAttribArray(colorLocation);
         gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
         
-        // Mouse event handlers for rotation
+        // Mouse event handlers for rotation and translation
         canvas.addEventListener('mousedown', (e) => {
-            if (e.button === 0) {  // Left mouse button only
-                isDragging = true;
-                lastMouseX = e.clientX;
-                lastMouseY = e.clientY;
+            e.preventDefault();
+            
+            if (e.button === 0) {  // Left mouse button - rotation
+                mouseState.isLeftDragging = true;
                 canvas.style.cursor = 'grabbing';
+            } else if (e.button === 2) {  // Right mouse button - translation
+                mouseState.isRightDragging = true;
+                canvas.style.cursor = 'move';
             }
+            
+            mouseState.lastX = e.clientX;
+            mouseState.lastY = e.clientY;
         });
         
         canvas.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                const deltaX = e.clientX - lastMouseX;
-                const deltaY = e.clientY - lastMouseY;
-                
-                const sensitivity = 0.01;
+            const deltaX = e.clientX - mouseState.lastX;
+            const deltaY = e.clientY - mouseState.lastY;
+            
+            if (mouseState.isLeftDragging) {
+                // Left mouse: Rotation (yaw and pitch)
+                const rotationSensitivity = 0.01;
                 
                 // Create rotation around Y axis (horizontal mouse movement = yaw)
                 if (Math.abs(deltaX) > 0.1) {
-                    const yRotation = createRotationMatrix(0, 1, 0, deltaX * sensitivity);
+                    const yRotation = createRotationMatrix(0, 1, 0, deltaX * rotationSensitivity);
                     rotationMatrix = multiplyMatrix3(rotationMatrix, yRotation);
                 }
                 
                 // Create rotation around X axis (vertical mouse movement = pitch)
                 if (Math.abs(deltaY) > 0.1) {
-                    const xRotation = createRotationMatrix(1, 0, 0, deltaY * sensitivity);
+                    const xRotation = createRotationMatrix(1, 0, 0, deltaY * rotationSensitivity);
                     rotationMatrix = multiplyMatrix3(rotationMatrix, xRotation);
                 }
                 
                 drawScene();
+            } else if (mouseState.isRightDragging) {
+                // Right mouse: Translation in screen plane
+                const translationSensitivity = 0.002;
                 
-                lastMouseX = e.clientX;
-                lastMouseY = e.clientY;
+                translation[0] += deltaX * translationSensitivity;
+                translation[1] -= deltaY * translationSensitivity;  // Invert Y for intuitive control
+                
+                drawScene();
             }
+            
+            mouseState.lastX = e.clientX;
+            mouseState.lastY = e.clientY;
         });
         
         canvas.addEventListener('mouseup', () => {
-            isDragging = false;
+            mouseState.isLeftDragging = false;
+            mouseState.isRightDragging = false;
             canvas.style.cursor = 'default';
+        });
+        
+        // Disable context menu on right click
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
         });
         
         function drawScene() {
@@ -229,8 +261,9 @@ clientside_callback(
             gl.clear(gl.COLOR_BUFFER_BIT);
             gl.useProgram(program);
             
-            // Set rotation matrix uniform
+            // Set rotation matrix and translation uniforms
             gl.uniformMatrix3fv(rotationMatrixLocation, false, rotationMatrix);
+            gl.uniform2f(translationLocation, translation[0], translation[1]);
             
             gl.drawArrays(gl.POINTS, 0, pointCount);
         }
