@@ -48,14 +48,14 @@ def prepare_point_cloud_data(
         # Default blue color
         colors = np.full((len(points), 3), [0.27, 0.51, 0.71], dtype=np.float32)  # steelblue
 
-    # Calculate bounding box for camera setup
+    # Calculate bounding box for camera setup (don't modify points)
     bbox_min = np.min(points, axis=0)
     bbox_max = np.max(points, axis=0)
     bbox_center = (bbox_min + bbox_max) / 2
     bbox_size = np.max(bbox_max - bbox_min)
 
     return {
-        'positions': points.flatten().tolist(),  # Flatten for WebGL buffer
+        'positions': points.flatten().tolist(),  # Keep original points
         'colors': colors.flatten().tolist(),
         'point_count': len(points),
         'bbox_min': bbox_min.tolist(),
@@ -329,7 +329,7 @@ def register_webgl_callback(app, component_id: str):
                         // Perspective projection with adjustable camera distance
                         float z = rotated.z + uDepth;
                         gl_Position = vec4(rotated.x / z, rotated.y / z, 0.0, 1.0);
-                        gl_PointSize = ${{config.pointSize * 2.0}};
+                        gl_PointSize = 8.0;
                         vColor = aColor;
                     }}
                 `;
@@ -414,8 +414,8 @@ def register_webgl_callback(app, component_id: str):
                     // Screen-space translation
                     translation: [0, 0],
                     
-                    // Camera distance (adjust based on bounding box)
-                    depth: config.pointCloudData.bbox_size * 2.0,
+                    // Camera distance (match working example)
+                    depth: 3.0,
                     
                     // Sensitivity settings
                     sensitivity: {{
