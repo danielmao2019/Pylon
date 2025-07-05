@@ -106,7 +106,10 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
             'args': {
                 'batch_size': 1,
                 'shuffle': True,
-                'collate_fn': None,  # Use default PyTorch collate_fn for simple test cases
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
             },
         },
         'criterion': {
@@ -122,7 +125,10 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
             'args': {
                 'batch_size': 1,
                 'shuffle': False,
-                'collate_fn': None,  # Use default PyTorch collate_fn for simple test cases
+                'collate_fn': {
+                    'class': BaseCollator,
+                    'args': {},
+                },
             },
         },
         'metric': {
