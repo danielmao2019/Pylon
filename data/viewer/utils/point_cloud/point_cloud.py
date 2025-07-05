@@ -316,11 +316,19 @@ def register_webgl_callback(app, component_id: str):
                     uniform mat3 uRotationMatrix;
                     uniform vec2 uTranslation;
                     uniform float uDepth;
+                    uniform vec3 uBboxCenter;
+                    uniform float uBboxSize;
                     varying vec3 vColor;
                     
                     void main() {{
+                        // Center the position around origin for proper rotation
+                        vec3 centered = aPosition - uBboxCenter;
+                        
+                        // Normalize to reasonable scale
+                        vec3 normalized = centered / (uBboxSize * 0.5);
+                        
                         // Apply world-space rotation matrix
-                        vec3 rotated = uRotationMatrix * aPosition;
+                        vec3 rotated = uRotationMatrix * normalized;
                         
                         // Apply screen-space translation
                         rotated.x += uTranslation.x;
@@ -402,7 +410,9 @@ def register_webgl_callback(app, component_id: str):
                     uniforms: {{
                         rotationMatrix: gl.getUniformLocation(program, 'uRotationMatrix'),
                         translation: gl.getUniformLocation(program, 'uTranslation'),
-                        depth: gl.getUniformLocation(program, 'uDepth')
+                        depth: gl.getUniformLocation(program, 'uDepth'),
+                        bboxCenter: gl.getUniformLocation(program, 'uBboxCenter'),
+                        bboxSize: gl.getUniformLocation(program, 'uBboxSize')
                     }}
                 }};
                 
@@ -414,8 +424,8 @@ def register_webgl_callback(app, component_id: str):
                     // Screen-space translation
                     translation: [0, 0],
                     
-                    // Camera distance (match working example)
-                    depth: 3.0,
+                    // Camera distance (adaptive based on data)
+                    depth: Math.max(3.0, config.pointCloudData.bbox_size * 2.0),
                     
                     // Sensitivity settings
                     sensitivity: {{
@@ -486,6 +496,8 @@ def register_webgl_callback(app, component_id: str):
                         gl.uniformMatrix3fv(locations.uniforms.rotationMatrix, false, navigation.rotationMatrix);
                         gl.uniform2f(locations.uniforms.translation, ...navigation.translation);
                         gl.uniform1f(locations.uniforms.depth, navigation.depth);
+                        gl.uniform3f(locations.uniforms.bboxCenter, ...config.pointCloudData.bbox_center);
+                        gl.uniform1f(locations.uniforms.bboxSize, config.pointCloudData.bbox_size);
                         
                         // Draw geometry
                         gl.drawArrays(gl.POINTS, 0, pointCount);
