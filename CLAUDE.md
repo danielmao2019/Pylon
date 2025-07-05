@@ -569,6 +569,12 @@ def _call_single_with_generator(self, *args, generator):
 - This is especially critical in data loading pipelines where efficiency matters
 - The `.to()` method should only be used when truly necessary (e.g., loading pre-existing tensors from disk)
 
+**DataLoader multiprocessing:**
+- **BaseDataset handles multiprocessing automatically** with `torch.multiprocessing.set_start_method('spawn', force=True)`
+- **Datasets should create tensors on CPU** in `_load_datapoint()` without device parameter
+- **BaseDataset handles device transfer** intelligently - skips CUDA transfer in worker processes, applies it in main process
+- **Never manually handle device transfer in datasets** - trust the framework's established pattern
+
 ## 7. Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8
 - Follows OpenMMLab conventions (mmengine, mmcv, mmdet)
