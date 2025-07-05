@@ -36,14 +36,6 @@ class SimpleMetric(BaseMetric):
         # Get ordered scores from buffer
         ordered_scores = self.get_buffer()
 
-        if not ordered_scores:
-            # Return empty result with proper structure
-            # CRITICAL: per_datapoint keys must exactly match aggregated keys
-            return {
-                "aggregated": {"mse": torch.tensor(0.0)},
-                "per_datapoint": {"mse": torch.tensor([])}
-            }
-
         # Extract MSE scores as tensors
         mse_scores = torch.stack([score["mse"] for score in ordered_scores])
 
