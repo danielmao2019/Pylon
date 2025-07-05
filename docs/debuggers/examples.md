@@ -20,19 +20,19 @@ class FeatureMapDebugger(ForwardDebugger):
 
     def process_forward(self, module: torch.nn.Module, input: Any, output: Any) -> Dict[str, Any]:
         """Extract and process feature maps."""
-        if isinstance(output, torch.Tensor):
-            return {
-                'feature_map': output.detach().cpu(),
-                'stats': {
-                    'mean': float(output.mean()),
-                    'std': float(output.std()),
-                    'min': float(output.min()),
-                    'max': float(output.max()),
-                    'shape': list(output.shape)
-                },
-                'layer_name': self.layer_name
-            }
-        return {'error': 'Output is not a tensor'}
+        # Use assertion to enforce contract - fail fast if violated
+        assert isinstance(output, torch.Tensor), f"Expected torch.Tensor, got {type(output)}"
+        return {
+            'feature_map': output.detach().cpu(),
+            'stats': {
+                'mean': float(output.mean()),
+                'std': float(output.std()),
+                'min': float(output.min()),
+                'max': float(output.max()),
+                'shape': list(output.shape)
+            },
+            'layer_name': self.layer_name
+        }
 ```
 
 ### 2. AttentionDebugger
@@ -49,23 +49,22 @@ class AttentionDebugger(ForwardDebugger):
 
     def process_forward(self, module: torch.nn.Module, input: Any, output: Any) -> Dict[str, Any]:
         """Extract attention patterns."""
-        if isinstance(output, torch.Tensor):
-            # Assume output is attention weights
-            attention = output.detach().cpu()
+        # Use assertion to enforce contract - fail fast if violated
+        assert isinstance(output, torch.Tensor), f"Expected torch.Tensor, got {type(output)}"
+        attention = output.detach().cpu()
 
-            # Get attention statistics
-            attention_stats = {
-                'entropy': float(-torch.sum(attention * torch.log(attention + 1e-8), dim=-1).mean()),
-                'max_attention': float(attention.max()),
-                'attention_distribution': attention.mean(dim=0) if len(attention.shape) > 1 else attention
-            }
+        # Get attention statistics
+        attention_stats = {
+            'entropy': float(-torch.sum(attention * torch.log(attention + 1e-8), dim=-1).mean()),
+            'max_attention': float(attention.max()),
+            'attention_distribution': attention.mean(dim=0) if len(attention.shape) > 1 else attention
+        }
 
-            return {
-                'attention_map': attention,
-                'attention_stats': attention_stats,
-                'layer_name': self.layer_name
-            }
-        return {'error': 'Output is not a tensor'}
+        return {
+            'attention_map': attention,
+            'attention_stats': attention_stats,
+            'layer_name': self.layer_name
+        }
 ```
 
 ### 3. ActivationStatsDebugger
@@ -82,37 +81,37 @@ class ActivationStatsDebugger(ForwardDebugger):
 
     def process_forward(self, module: torch.nn.Module, input: Any, output: Any) -> Dict[str, Any]:
         """Collect detailed activation statistics."""
-        if isinstance(output, torch.Tensor):
-            activation = output.detach().cpu()
+        # Use assertion to enforce contract - fail fast if violated
+        assert isinstance(output, torch.Tensor), f"Expected torch.Tensor, got {type(output)}"
+        activation = output.detach().cpu()
 
-            # Compute comprehensive statistics
-            stats = {
-                'shape': list(activation.shape),
-                'mean': float(activation.mean()),
-                'std': float(activation.std()),
-                'min': float(activation.min()),
-                'max': float(activation.max()),
-                'l1_norm': float(activation.abs().mean()),
-                'l2_norm': float(activation.norm()),
-                'sparsity': float((activation == 0).float().mean()),
-                'positive_ratio': float((activation > 0).float().mean()),
-                'saturation_low': float((activation <= -1).float().mean()),
-                'saturation_high': float((activation >= 1).float().mean()),
-            }
+        # Compute comprehensive statistics
+        stats = {
+            'shape': list(activation.shape),
+            'mean': float(activation.mean()),
+            'std': float(activation.std()),
+            'min': float(activation.min()),
+            'max': float(activation.max()),
+            'l1_norm': float(activation.abs().mean()),
+            'l2_norm': float(activation.norm()),
+            'sparsity': float((activation == 0).float().mean()),
+            'positive_ratio': float((activation > 0).float().mean()),
+            'saturation_low': float((activation <= -1).float().mean()),
+            'saturation_high': float((activation >= 1).float().mean()),
+        }
 
-            # Add channel-wise statistics if applicable
-            if len(activation.shape) >= 3:  # Has channel dimension
-                channel_means = activation.mean(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.mean(dim=0)
-                stats['channel_means'] = channel_means.tolist()
-                stats['channel_stds'] = (activation.std(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.std(dim=0)).tolist()
+        # Add channel-wise statistics if applicable
+        if len(activation.shape) >= 3:  # Has channel dimension
+            channel_means = activation.mean(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.mean(dim=0)
+            stats['channel_means'] = channel_means.tolist()
+            stats['channel_stds'] = (activation.std(dim=(0, 2, 3)) if len(activation.shape) == 4 else activation.std(dim=0)).tolist()
 
-            return {
-                'layer_name': self.layer_name,
-                'module_type': type(module).__name__,
-                'activation_stats': stats,
-                'sample_values': activation.flatten()[:100].tolist()  # First 100 values for inspection
-            }
-        return {'error': 'Output is not a tensor'}
+        return {
+            'layer_name': self.layer_name,
+            'module_type': type(module).__name__,
+            'activation_stats': stats,
+            'sample_values': activation.flatten()[:100].tolist()  # First 100 values for inspection
+        }
 ```
 
 ### 4. LayerOutputDebugger
@@ -134,28 +133,28 @@ class LayerOutputDebugger(ForwardDebugger):
 
     def process_forward(self, module: torch.nn.Module, input: Any, output: Any) -> Dict[str, Any]:
         """Save layer output with optional downsampling."""
-        if isinstance(output, torch.Tensor):
-            output_cpu = output.detach().cpu()
+        # Use assertion to enforce contract - fail fast if violated
+        assert isinstance(output, torch.Tensor), f"Expected torch.Tensor, got {type(output)}"
+        output_cpu = output.detach().cpu()
 
-            # Downsample if output is too large
-            if len(output_cpu.shape) >= 3 and self.downsample_factor > 1:
-                if len(output_cpu.shape) == 4:  # (B, C, H, W)
-                    downsampled = F.avg_pool2d(output_cpu, self.downsample_factor)
-                elif len(output_cpu.shape) == 3:  # (B, H, W) or (C, H, W)
-                    downsampled = F.avg_pool2d(output_cpu.unsqueeze(0), self.downsample_factor).squeeze(0)
-                else:
-                    downsampled = output_cpu
+        # Downsample if output is too large
+        if len(output_cpu.shape) >= 3 and self.downsample_factor > 1:
+            if len(output_cpu.shape) == 4:  # (B, C, H, W)
+                downsampled = F.avg_pool2d(output_cpu, self.downsample_factor)
+            elif len(output_cpu.shape) == 3:  # (B, H, W) or (C, H, W)
+                downsampled = F.avg_pool2d(output_cpu.unsqueeze(0), self.downsample_factor).squeeze(0)
             else:
                 downsampled = output_cpu
+        else:
+            downsampled = output_cpu
 
-            return {
-                'layer_name': self.layer_name,
-                'original_shape': list(output_cpu.shape),
-                'output': downsampled,
-                'downsampled': self.downsample_factor > 1,
-                'downsample_factor': self.downsample_factor
-            }
-        return {'error': 'Output is not a tensor'}
+        return {
+            'layer_name': self.layer_name,
+            'original_shape': list(output_cpu.shape),
+            'output': downsampled,
+            'downsampled': self.downsample_factor > 1,
+            'downsample_factor': self.downsample_factor
+        }
 ```
 
 ## BaseDebugger Examples
@@ -187,27 +186,27 @@ class GradCAMDebugger(BaseDebugger):
         # Now we have access to the model for gradient computation
         # In practice, you'd use the model to compute gradients and apply GradCAM algorithm
         # For demonstration, we'll create a simple mock GradCAM
-        if isinstance(outputs, torch.Tensor):
-            # Mock GradCAM as attention over the spatial dimensions
-            B, C = outputs.shape[:2]
-            if len(outputs.shape) >= 4:  # Has spatial dimensions
-                H, W = outputs.shape[2:4]
-                gradcam = torch.rand(B, H, W)  # Mock GradCAM
-            else:
-                gradcam = torch.rand(B, 8, 8)  # Mock spatial GradCAM
-
-            return {
-                'gradcam': gradcam.detach().cpu(),
-                'target_layer': self.target_layer,
-                'target_class': self.target_class,
-                'gradcam_stats': {
-                    'mean': float(gradcam.mean()),
-                    'std': float(gradcam.std()),
-                    'shape': list(gradcam.shape)
-                }
-            }
+        # Use assertion to enforce contract - fail fast if violated
+        assert isinstance(outputs, torch.Tensor), f"Expected torch.Tensor, got {type(outputs)}"
+        
+        # Mock GradCAM as attention over the spatial dimensions
+        B, C = outputs.shape[:2]
+        if len(outputs.shape) >= 4:  # Has spatial dimensions
+            H, W = outputs.shape[2:4]
+            gradcam = torch.rand(B, H, W)  # Mock GradCAM
         else:
-            return {'error': 'Model output is not a tensor'}
+            gradcam = torch.rand(B, 8, 8)  # Mock spatial GradCAM
+
+        return {
+            'gradcam': gradcam.detach().cpu(),
+            'target_layer': self.target_layer,
+            'target_class': self.target_class,
+            'gradcam_stats': {
+                'mean': float(gradcam.mean()),
+                'std': float(gradcam.std()),
+                'shape': list(gradcam.shape)
+            }
+        }
 ```
 
 ## Usage Examples
@@ -278,7 +277,7 @@ config = {
 1. **ForwardDebugger Pattern**: Use when you need to capture intermediate outputs during forward pass
    - Implement `process_forward()` method
    - Always call `output.detach().cpu()` to avoid memory issues
-   - Handle non-tensor outputs gracefully
+   - Use assertions to enforce tensor contracts: `assert isinstance(output, torch.Tensor)`
 
 2. **BaseDebugger Pattern**: Use when you need access to complete datapoint
    - Implement `__call__()` method taking full datapoint
@@ -292,9 +291,9 @@ config = {
    - CPU conversion happens in background threads to avoid blocking training
 
 4. **Error Handling**:
-   - Use explicit type checking (e.g., `isinstance(output, torch.Tensor)`)
-   - Return error messages in dict format for graceful failure handling
-   - Use assertions for input validation where appropriate
+   - **NO defensive programming** - assume inputs are correct types (e.g., outputs are always tensors)
+   - **Fail fast and loud** - let code crash with clear error messages if assumptions are violated
    - Follow CLAUDE.md section 6.5: avoid unnecessary try-catch blocks
+   - **Philosophy**: Code should enforce contracts through natural failures, not defensive handling
 
 These examples provide a solid foundation for implementing custom debuggers tailored to your specific research needs.
