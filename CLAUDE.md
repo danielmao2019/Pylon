@@ -533,6 +533,26 @@ def some_function(arg1: int, arg2: str) -> bool:
 - **Let errors propagate naturally** - Python's stack traces show exact error locations
 - **Only use try-except when necessary** for specific functionality, not for general "robustness"
 
+### 6.6. NO Defensive Programming
+**CRITICAL PRINCIPLE: Defensive programming is explicitly discouraged:**
+
+- **DO NOT add checks for conditions that should never occur** - if they occur, it indicates a bug that should fail loudly
+- **DO NOT handle "impossible" cases** - let the code crash with clear error messages instead of masking bugs
+- **Examples of what NOT to do:**
+  ```python
+  # ❌ WRONG - defensive programming
+  if data is None:
+      return {"error": "no data"}
+  
+  if len(buffer) == 0:
+      return empty_result()
+  
+  # ✅ CORRECT - let it fail if assumptions are violated
+  result = process(data)  # Will crash if data is None - good!
+  return summarize(buffer)  # Will crash if buffer empty - good!
+  ```
+- **Philosophy**: Code should enforce contracts through assertions and natural failures, not through defensive handling of invalid states
+
 **Examples of necessary try-except usage:**
 ```python
 # Example 1: _call_with_seed method - API compatibility for seed parameter
