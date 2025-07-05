@@ -38,8 +38,9 @@ class SimpleMetric(BaseMetric):
 
         if not ordered_scores:
             # Return empty result with proper structure
+            # CRITICAL: per_datapoint keys must exactly match aggregated keys
             return {
-                "aggregated": {"mse": torch.tensor(0.0), "reduced": torch.tensor(0.0)},
+                "aggregated": {"mse": torch.tensor(0.0)},
                 "per_datapoint": {"mse": torch.tensor([])}
             }
 
@@ -50,10 +51,10 @@ class SimpleMetric(BaseMetric):
         avg_score = mse_scores.mean()
 
         # Create result with proper Pylon structure
+        # CRITICAL: per_datapoint keys must exactly match aggregated keys
         result = {
             "aggregated": {
-                "mse": avg_score,
-                "reduced": avg_score  # For compatibility with BaseTrainer._find_best_checkpoint_
+                "mse": avg_score
             },
             "per_datapoint": {
                 "mse": mse_scores
