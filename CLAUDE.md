@@ -10,15 +10,16 @@
   - [2.4. Code Quality](#24-code-quality)
 - [3. Design Ideas](#3-design-ideas)
   - [3.1. Core Design Philosophy](#31-core-design-philosophy)
-  - [3.2. Dataset Design Pattern](#32-dataset-design-pattern)
-  - [3.3. Data Pipeline Design](#33-data-pipeline-design)
-  - [3.4. Asynchronous Buffer Pattern](#34-asynchronous-buffer-pattern)
-  - [3.5. Configuration-Driven Architecture](#35-configuration-driven-architecture)
-  - [3.6. Multi-Task Learning Architecture](#36-multi-task-learning-architecture)
-  - [3.7. Training Loop Architecture](#37-training-loop-architecture)
-  - [3.8. Key Directories and Components](#38-key-directories-and-components)
-  - [3.9. Special Utilities](#39-special-utilities)
-  - [3.10. C++ Extensions](#310-c-extensions)
+  - [3.2. Framework Design Philosophy](#32-framework-design-philosophy)
+  - [3.3. Dataset Design Pattern](#33-dataset-design-pattern)
+  - [3.4. Data Pipeline Design](#34-data-pipeline-design)
+  - [3.5. Asynchronous Buffer Pattern](#35-asynchronous-buffer-pattern)
+  - [3.6. Configuration-Driven Architecture](#36-configuration-driven-architecture)
+  - [3.7. Multi-Task Learning Architecture](#37-multi-task-learning-architecture)
+  - [3.8. Training Loop Architecture](#38-training-loop-architecture)
+  - [3.9. Key Directories and Components](#39-key-directories-and-components)
+  - [3.10. Special Utilities](#310-special-utilities)
+  - [3.11. C++ Extensions](#311-c-extensions)
 - [4. Project-Wide Conventions](#4-project-wide-conventions)
   - [4.1. Tensor Type Assumptions](#41-tensor-type-assumptions)
 - [5. About Testing](#5-about-testing)
@@ -62,7 +63,28 @@ pytest tests/models/change_detection/test_change_star.py
 pytest -v --tb=short tests/
 ```
 
+**CRITICAL TESTING RULE:** ALWAYS run pytest from the project root directory (`~/repos/Pylon/`). NEVER run pytest from within subdirectories like `tests/debuggers/` or `tests/runners/`. This ensures proper module resolution and import paths.
+
+```bash
+# ✅ CORRECT - Always run from project root
+pytest tests/debuggers/test_forward_debugger.py
+pytest tests/runners/test_checkpoint_indices.py
+
+# ❌ WRONG - Never run from subdirectories
+cd tests/debuggers && pytest test_forward_debugger.py
+cd tests/runners && pytest test_checkpoint_indices.py
+```
+
 **IMPORTANT:** NEVER use the PYTHONPATH environment variable when running commands. This can interfere with Python's module resolution and cause import errors. The project structure handles imports correctly without it
+
+**conftest.py Usage:**
+- conftest.py files are for pytest fixtures ONLY, not general class definitions
+- Classes defined in conftest.py are NOT automatically available in test files
+- Only fixtures (functions decorated with `@pytest.fixture`) are auto-discovered
+- For test helper classes, either:
+  - Define them directly in the test file (recommended for test-specific classes)
+  - Import them from actual source modules
+  - Define them as fixtures in conftest.py if they need setup/teardown
 
 ### 2.2. Training
 ```bash
@@ -95,6 +117,63 @@ flake8 .
 ## 3. Design Ideas
 
 ### 3.1. Core Design Philosophy
+
+## ⚠️ CRITICAL CODING PRINCIPLES ⚠️
+
+### **NO DEFENSIVE PROGRAMMING - FAIL FAST AND LOUD**
+
+**THIS IS THE MOST IMPORTANT PRINCIPLE IN THIS CODEBASE:**
+
+- **NEVER add checks for conditions that should never occur** - let the code crash with clear error messages
+- **NEVER handle "impossible" cases** - bugs should fail loudly, not be masked  
+- **NEVER use try-catch to hide errors** - only use when you expect different behavior in different cases
+
+**❌ WRONG - Defensive Programming:**
+```python
+# DON'T check for "impossible" conditions
+if data is None:
+    return {"error": "no data"}
+    
+if len(buffer) == 0:
+    return empty_result()
+
+# DON'T use try-catch to hide unexpected errors  
+try:
+    result = process(data)
+except Exception:
+    return None  # WRONG - hides bugs!
+```
+
+**✅ CORRECT - Fail Fast with Assertions:**
+```python
+# Use assertions to enforce contracts - fail fast if violated
+def process_tensor(tensor: torch.Tensor) -> Dict[str, torch.Tensor]:
+    assert isinstance(tensor, torch.Tensor), f"Expected torch.Tensor, got {type(tensor)}"
+    assert tensor.numel() > 0, "Tensor must not be empty"
+    
+    return {
+        'mean': tensor.mean(),
+        'std': tensor.std(),
+        'shape': list(tensor.shape)
+    }
+
+# Let it crash if assumptions are violated - this reveals bugs!
+result = process(data)  # Will crash if data is None - GOOD!
+return summarize(buffer)  # Will crash if buffer empty - GOOD!
+
+# Only use try-catch when you expect different cases
+try:
+    return func(args, new_parameter=value)
+except TypeError as e:
+    if "unexpected keyword argument" in str(e):
+        return func(args)  # Handle API compatibility case
+    else:
+        raise  # Re-raise unexpected errors
+```
+
+**PHILOSOPHY: Code should enforce contracts through assertions and natural failures, not through defensive handling of invalid states.**
+
+### 3.2. Framework Design Philosophy
 Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research.
 The `models` module is mostly copied from official repos and is meant for integrating official model implementations into Pylon.
 Some of the code in the `criteria`, `metrics`, `optimizers`, and `runners` are other-project-specific, meaning that they are also copied from official implementations of other released work.
@@ -105,7 +184,7 @@ The main contribution of Pylon are the follows:
 4. While integrating project-specific code (mainly the project-specific model, criterion, and metric), Pylon maintains them and makes sure that the integrated code from external sources are up-to-date with the advancement of package versions.
 5. Pylon provides robust debugging toolkit including data viewer and evaluation results viewer.
 
-### 3.2. Dataset Design Pattern
+### 3.3. Dataset Design Pattern
 **Every dataset follows the three-field structure:**
 - `inputs`: Dictionary with actual input data (images, point clouds, etc.)
 - `labels`: Dictionary with ground truth labels for supervision
@@ -117,7 +196,13 @@ The main contribution of Pylon are the follows:
 3. Use helper methods like `_load_seg_labels()`, `_load_amodal_masks()` for modular loading
 4. `meta_info` = `self.annotations` + lightweight additional information
 
-### 3.3. Data Pipeline Design
+**CRITICAL Device Handling Rule:**
+- **Datasets must NEVER manually handle device transfers** - BaseDataset handles this intelligently
+- **Always create tensors on CPU** in `_load_datapoint()` without device parameter
+- **Never use `.to(device)` in datasets** - trust the framework's established pattern
+- BaseDataset uses spawn method and intelligent device transfer to handle multiprocessing correctly
+
+### 3.4. Data Pipeline Design
 **Memory-efficient and reproducible data loading:**
 
 - **Lazy loading**: Data loading happens in two phases for memory efficiency:
@@ -136,7 +221,13 @@ The main contribution of Pylon are the follows:
 - **Transform composition**: Functional composition with seed propagation
 - **Collation strategy**: Nested dictionary support with custom per-key collators
 
-### 3.4. Asynchronous Buffer Pattern
+**CRITICAL Pickle/Serialization Rules:**
+- **Never store torch.Generator as instance attributes** - will cause `TypeError: cannot pickle 'torch._C.Generator' object`
+- **Create generators locally in `_load_datapoint()`** to avoid multiprocessing pickle issues
+- **Use deterministic per-index seeding**: `generator.manual_seed((self.initial_seed or 0) + idx)`
+- **Other non-picklable objects to avoid**: Open file handles, database connections, CUDA tensors in certain configs
+
+### 3.5. Asynchronous Buffer Pattern
 **Critical for GPU utilization:** Criteria, metrics, and optimizers use asynchronous buffers to prevent blocking training loops:
 - Background thread: `threading.Thread(target=self._buffer_worker, daemon=True)`
 - Thread-safe queue: `queue.Queue()` for non-blocking data collection
@@ -144,7 +235,12 @@ The main contribution of Pylon are the follows:
 - Async tensor operations: Detach from computation graph and move to CPU in background
 - `add_to_buffer()` is non-blocking; `summarize()` waits for queue to empty
 
-### 3.5. Configuration-Driven Architecture
+**CRITICAL Metric Structure Requirement:**
+- **Metric `summarize()` output must have matching keys** between `scores['per_datapoint']` and `scores['aggregated']`
+- This requirement is enforced by evaluation viewer assertions: `assert metric_names_aggregated == metric_names_per_datapoint`
+- Example: If aggregated has `{"mse": 0.5}`, then per_datapoint must have same keys: `{"mse": [0.4, 0.6]}`
+
+### 3.6. Configuration-Driven Architecture
 **`build_from_config()` pattern enables flexible component instantiation:**
 ```python
 config = {
@@ -158,14 +254,14 @@ obj = build_from_config(config)
 - Parameter merging and preservation
 - Supports PyTorch parameter special handling
 
-### 3.6. Multi-Task Learning Architecture
+### 3.7. Multi-Task Learning Architecture
 **Wrapper pattern for orchestrating multiple tasks:**
 - `MultiTaskCriterion` uses `torch.nn.ModuleDict` for task-specific criteria
 - `MultiTaskMetric` aggregates results from individual task metrics
 - `MTLOptimizer` implements gradient manipulation (PCGrad, MGDA, GradNorm)
 - Each task component maintains its own buffer and state
 
-### 3.7. Training Loop Architecture
+### 3.8. Training Loop Architecture
 **Sophisticated training orchestration:**
 - **Deterministic execution**: Per-epoch seeding with separate train/val/test seeds
 - **Continuous epoch numbering**: Maintains count across resumptions and multi-stage training
@@ -173,7 +269,7 @@ obj = build_from_config(config)
 - **GPU monitoring**: Real-time resource tracking during training
 - **Robust resumption**: Automatic detection and resumption from last checkpoint
 
-### 3.8. Key Directories and Components
+### 3.9. Key Directories and Components
 - `/configs/`: Template-based experiment configurations with automated generation
 - `/data/`: Datasets with caching, transforms, collators, and interactive viewer
 - `/criteria/`: Loss functions with asynchronous buffer pattern
@@ -184,7 +280,7 @@ obj = build_from_config(config)
 - `/schedulers/`: Learning rate schedulers with warmup and multi-component support
 - `/utils/`: Core utilities including builders, automation, determinism, and monitoring
 
-### 3.9. Special Utilities
+### 3.10. Special Utilities
 **Automation and Distributed Training:**
 - **SSH connection pooling**: Thread-safe multi-server experiment management
 - **GPU monitoring**: Real-time utilization tracking across servers
@@ -192,11 +288,12 @@ obj = build_from_config(config)
 - **Config generation**: Automated creation of experiment variants with different seeds
 
 **Determinism and Reproducibility:**
-- **Comprehensive seeding**: Per-epoch, per-phase random seed management
+- **Comprehensive seeding**: Per-epoch, per-phase random seed management via `utils.determinism.set_seed()`
 - **State preservation**: Robust checkpoint and resumption handling
 - **Validation**: Extensive configuration and type checking
+- **CRITICAL RULE**: Global seeding (`torch.manual_seed()`, `numpy.random.seed()`, etc.) must ONLY be done through `utils.determinism.set_seed()` in trainer/evaluator classes. Always use local `torch.Generator` objects for dataset-level randomness to avoid interfering with global deterministic state.
 
-### 3.10. C++ Extensions
+### 3.11. C++ Extensions
 Some modules require building:
 ```bash
 # GeoTransformer
@@ -499,14 +596,47 @@ def some_function(arg1: int, arg2: str) -> bool:
 - **Long files**: Split into multiple files and organize as modules (folders with `__init__.py`)
 - **Test organization**: Group tests by patterns/philosophies rather than single large files
 
-### 6.5. Error Handling
-**Avoid unnecessary try-except blocks - only use when truly necessary:**
+### 6.5. Error Handling and Try-Catch Usage
+**CRITICAL: Try-catch blocks are frequently misused for defensive programming - AVOID THIS:**
 
-- **DO NOT add try-except blocks by default** - they hide error sources and make debugging inefficient
-- **Let errors propagate naturally** - Python's stack traces show exact error locations
-- **Only use try-except when necessary** for specific functionality, not for general "robustness"
+- **DO NOT use try-catch to hide errors that shouldn't happen** - this masks bugs and makes debugging impossible
+- **DO NOT add try-catch blocks "just in case"** - if you don't expect an exception, don't catch it
+- **ONLY use try-catch when you legitimately expect different behavior in different cases**
 
-**Examples of necessary try-except usage:**
+**❌ WRONG - Using try-catch for defensive programming:**
+```python
+# DON'T catch exceptions you don't expect
+try:
+    model = build_model(config)
+except Exception:
+    return None  # WRONG - hides configuration bugs!
+
+# DON'T catch to handle "impossible" cases  
+try:
+    result = buffer[idx]
+except IndexError:
+    return empty_result()  # WRONG - idx should always be valid!
+```
+
+**✅ CORRECT - Only catch expected exceptions:**
+```python
+# Catch when you expect API differences
+try:
+    return transform(image, seed=seed)
+except TypeError as e:
+    if "unexpected keyword argument 'seed'" in str(e):
+        return transform(image)  # Handle old API
+    else:
+        raise  # Re-raise unexpected errors
+
+# Catch for legitimate conditional behavior
+try:
+    checkpoint = torch.load(path)
+except FileNotFoundError:
+    checkpoint = None  # File missing is expected case
+```
+
+**Examples of legitimate try-except usage:**
 ```python
 # Example 1: _call_with_seed method - API compatibility for seed parameter
 def _call_with_seed(func, op_inputs, seed=None):
@@ -538,6 +668,20 @@ def _call_single_with_generator(self, *args, generator):
 **Key principles:**
 - Use assertions for input validation instead of try-except
 - Prefer explicit checks over catching exceptions
+
+### 6.6. PyTorch Best Practices
+**Tensor creation and device placement:**
+- **ALWAYS create tensors directly on the target device** - avoid using `.to()` method
+- **Bad practice**: `tensor = torch.randn(size).to(device)` - creates on CPU then moves
+- **Good practice**: `tensor = torch.randn(size, device=device)` - creates directly on target device
+- This is especially critical in data loading pipelines where efficiency matters
+- The `.to()` method should only be used when truly necessary (e.g., loading pre-existing tensors from disk)
+
+**DataLoader multiprocessing:**
+- **BaseDataset handles multiprocessing automatically** with `torch.multiprocessing.set_start_method('spawn', force=True)`
+- **Datasets should create tensors on CPU** in `_load_datapoint()` without device parameter
+- **BaseDataset handles device transfer** intelligently - skips CUDA transfer in worker processes, applies it in main process
+- **Never manually handle device transfer in datasets** - trust the framework's established pattern
 
 ## 7. Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8

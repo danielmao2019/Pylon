@@ -1,9 +1,11 @@
-from typing import List, Dict, Set, Tuple, NamedTuple, Any, Literal
+from typing import List, Dict, Set, Tuple, NamedTuple, Any, Literal, Optional
 import importlib.util
 import os
 import json
+import glob
 import numpy as np
 import pickle
+import joblib
 from pathlib import Path
 from data.viewer.backend.backend import DatasetType, DATASET_GROUPS
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -533,3 +535,29 @@ def initialize_log_dirs(log_dirs: List[str], force_reload: bool = False) -> Tupl
     per_metric_color_scales = compute_per_metric_color_scales(log_dir_infos)
 
     return max_epochs, metric_names, num_datapoints, dataset_cfg, dataset_type, log_dir_infos, per_metric_color_scales
+
+
+def load_debug_outputs(epoch_dir: str) -> Optional[Dict[int, Any]]:
+    """Load all debug outputs for an epoch.
+
+    Args:
+        epoch_dir: Path to epoch directory
+
+    Returns:
+        Dict mapping datapoint_idx to debug_outputs, or None if not found
+    """
+    debugger_dir = os.path.join(epoch_dir, "debugger")
+    if not os.path.exists(debugger_dir):
+        return None
+
+    all_outputs = {}
+    # Load all pages in order and merge
+    page_files = sorted(glob.glob(os.path.join(debugger_dir, "page_*.pkl")))
+    for page_file in page_files:
+        page_data = joblib.load(page_file)  # This is now a dict
+        # Assert no overlapping keys between pages
+        overlapping_keys = set(all_outputs.keys()).intersection(set(page_data.keys()))
+        assert len(overlapping_keys) == 0, f"Overlapping keys found between pages: {overlapping_keys}"
+        all_outputs.update(page_data)  # Merge page dict into all_outputs
+
+    return all_outputs

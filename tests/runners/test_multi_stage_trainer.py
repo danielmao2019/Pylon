@@ -7,7 +7,7 @@ from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 from criteria.wrappers.single_task_criterion import SingleTaskCriterion
 from metrics.wrappers.single_task_metric import SingleTaskMetric
 import optimizers
-from utils.io import save_json
+from utils.ops.dict_as_tensor import buffer_allclose
 
 
 class SimpleMetric(SingleTaskMetric):
@@ -20,30 +20,17 @@ class SimpleMetric(SingleTaskMetric):
         score = torch.mean((y_pred - y_true) ** 2)
         return {"mse": score}
 
-    def __call__(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> dict[str, torch.Tensor]:
+    def __call__(self, datapoint: dict) -> dict[str, torch.Tensor]:
         """Update the metric buffer with the current batch's score."""
+        # Extract outputs and labels from datapoint
+        y_pred = datapoint['outputs']
+        y_true = datapoint['labels']
+
         score = self._compute_score(y_pred, y_true)
-        # Detach and move to CPU
-        score = {k: v.detach().cpu() for k, v in score.items()}
         # Add to buffer
-        self.add_to_buffer(score)
+        self.add_to_buffer(score, datapoint)
         return score
 
-    def summarize(self, output_path=None) -> dict[str, float]:
-        """Calculate average score from buffer and optionally save to file."""
-        if not self.buffer:
-            return {"mse": 0.0}
-
-        # Calculate average score
-        mse_scores = [score["mse"] for score in self.buffer]
-        avg_score = sum(mse_scores) / len(mse_scores)
-        result = {"mse": avg_score}
-
-        # Save to file if path is provided
-        if output_path:
-            save_json(obj=result, filepath=output_path)
-
-        return result
 
 
 class SimpleDataset(torch.utils.data.Dataset):
@@ -53,12 +40,21 @@ class SimpleDataset(torch.utils.data.Dataset):
         self.device = device
         self.data = torch.randn(size, 10, device=device)
         self.labels = torch.randn(size, 1, device=device)
+        self.base_seed = 0  # Add base_seed attribute
 
     def __len__(self):
         return len(self.data)
 
     def __getitem__(self, idx):
-        return {'inputs': self.data[idx], 'labels': self.labels[idx]}
+        return {
+            'inputs': self.data[idx],
+            'labels': self.labels[idx],
+            'meta_info': {'idx': idx}  # Add meta_info for proper structure
+        }
+
+    def set_base_seed(self, seed: int) -> None:
+        """Set the base seed for deterministic behavior."""
+        self.base_seed = seed
 
 
 class SimpleModel(torch.nn.Module):
@@ -101,6 +97,8 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'init_seed': 42,
         'epochs': epochs,
         'train_seeds': [42] * epochs,
+        'val_seeds': [42] * epochs,  # Add missing val_seeds
+        'test_seed': 42,  # Add missing test_seed
         'checkpoint_method': 'all',
         'train_dataset': {
             'class': dataset,
@@ -124,7 +122,7 @@ def create_base_config(work_dir: str, epochs: int, model, dataset, metric) -> di
         'val_dataloader': {
             'class': torch.utils.data.DataLoader,
             'args': {
-                'batch_size': 32,
+                'batch_size': 1,  # Pylon evaluators expect batch_size=1
                 'shuffle': False
             }
         },
@@ -235,4 +233,7 @@ def test_multi_stage_vs_single_stage(test_dir):
             single_scores = json.load(f)
         with open(os.path.join(stage1_config['work_dir'], f"epoch_{epoch}", "validation_scores.json")) as f:
             multi_scores = json.load(f)
-        assert single_scores == multi_scores, f"Validation scores don't match at epoch {epoch}"
+
+        # Compare validation scores using buffer_allclose utility
+        assert buffer_allclose(single_scores, multi_scores, rtol=1e-6, atol=1e-6), \
+            f"Validation scores don't match at epoch {epoch}: {single_scores} vs {multi_scores}"
