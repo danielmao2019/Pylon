@@ -61,13 +61,18 @@ class BaseRandomDataset(BaseDataset):
         Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
     ]:
         # Create generator locally to avoid pickle issues with multiprocessing
-        generator = torch.Generator(device=self.device)
+        generator = torch.Generator()
         seed = (self.initial_seed or 0) + idx
         generator.manual_seed(seed)
         
+        # Always create tensors on CPU - BaseDataset handles device transfer
         inputs, labels = tuple({
-            key2: self.gen_func_config[key1][key2][0](**self.gen_func_config[key1][key2][1], device=self.device, generator=generator)
+            key2: self.gen_func_config[key1][key2][0](
+                **self.gen_func_config[key1][key2][1],
+                generator=generator,
+            )
             for key2 in self.gen_func_config[key1]
         } for key1 in ['inputs', 'labels'])
+        
         meta_info = {'seed': seed}
         return inputs, labels, meta_info

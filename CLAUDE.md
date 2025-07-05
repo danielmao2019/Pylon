@@ -213,9 +213,10 @@ obj = build_from_config(config)
 - **Config generation**: Automated creation of experiment variants with different seeds
 
 **Determinism and Reproducibility:**
-- **Comprehensive seeding**: Per-epoch, per-phase random seed management
+- **Comprehensive seeding**: Per-epoch, per-phase random seed management via `utils.determinism.set_seed()`
 - **State preservation**: Robust checkpoint and resumption handling
 - **Validation**: Extensive configuration and type checking
+- **CRITICAL RULE**: Global seeding (`torch.manual_seed()`, `numpy.random.seed()`, etc.) must ONLY be done through `utils.determinism.set_seed()` in trainer/evaluator classes. Always use local `torch.Generator` objects for dataset-level randomness to avoid interfering with global deterministic state.
 
 ### 3.10. C++ Extensions
 Some modules require building:
@@ -559,6 +560,14 @@ def _call_single_with_generator(self, *args, generator):
 **Key principles:**
 - Use assertions for input validation instead of try-except
 - Prefer explicit checks over catching exceptions
+
+### 6.6. PyTorch Best Practices
+**Tensor creation and device placement:**
+- **ALWAYS create tensors directly on the target device** - avoid using `.to()` method
+- **Bad practice**: `tensor = torch.randn(size).to(device)` - creates on CPU then moves
+- **Good practice**: `tensor = torch.randn(size, device=device)` - creates directly on target device
+- This is especially critical in data loading pipelines where efficiency matters
+- The `.to()` method should only be used when truly necessary (e.g., loading pre-existing tensors from disk)
 
 ## 7. Important Implementation Notes
 - Uses PyTorch 2.0.0 with CUDA 11.8
