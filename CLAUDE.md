@@ -313,7 +313,11 @@ obj = build_from_config(config)
           self.DIRECTIONS[task_name] = task_metric.DIRECTIONS
   ```
 - **DIRECTIONS values**: Must be `1` (higher is better) or `-1` (lower is better)
-- **Key relationship**: DIRECTIONS keys correspond to score keys for comparison and optimization
+- **Key relationship**: DIRECTIONS keys must be a subset of score keys used in comparisons
+  - Not all score keys need directions - only those used for early stopping/model comparison
+  - Extra score keys beyond DIRECTIONS are ignored during comparison
+  - Missing directions for compared keys cause assertion failures with clear error messages
+  - This allows metrics to provide rich diagnostic outputs while only requiring directions for optimization-relevant keys
 - **Wrapper propagation**: MultiTaskMetric and HybridMetric build DIRECTIONS from component metrics
 - See `docs/metrics/metric_directions.md` for complete implementation guide
 
