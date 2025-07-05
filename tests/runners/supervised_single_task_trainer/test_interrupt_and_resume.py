@@ -12,6 +12,8 @@ import utils
 from utils.automation.run_status import check_epoch_finished
 from utils.ops import buffer_allclose
 from configs.examples.linear.config import config
+import copy
+config = copy.deepcopy(config)
 config['work_dir'] = "./logs/tests/supervised_single_task_trainer/interrupt_and_resume"
 
 
@@ -55,8 +57,8 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
 
     # Run training in main thread
     trainer.logger.page_break()
-    # Run until interrupted
-    for idx in range(start_epoch, trainer.tot_epochs):
+    # Run until end_epoch or interrupted
+    for idx in range(start_epoch, end_epoch):
         if stop_training.is_set():
             break
         utils.determinism.set_seed(seed=trainer.train_seeds[idx])
@@ -64,7 +66,13 @@ def train_until_epoch(config: dict, start_epoch: int, end_epoch: int) -> None:
         trainer._val_epoch_()
         trainer.logger.page_break()
         trainer.cum_epochs = idx + 1
-        time.sleep(3)  # allow some more time for stop_training to be set
+        time.sleep(1)  # allow some more time for stop_training to be set
+
+    # Wait for any remaining after-loop operations to complete
+    if trainer.after_train_thread and trainer.after_train_thread.is_alive():
+        trainer.after_train_thread.join()
+    if trainer.after_val_thread and trainer.after_val_thread.is_alive():
+        trainer.after_val_thread.join()
 
     # Signal observer thread to stop
     stop_observing.set()
@@ -82,16 +90,21 @@ def test_interrupt_and_resume() -> None:
     3. Runs until epoch 6
     4. Verifies files match against reference run
     """
+    # Clean up any existing test directories
     os.system(f"rm -rf {config['work_dir']}")
+    os.system("rm -rf ./logs/tests/supervised_single_task_trainer/reference_run")
 
-    # First run: train from epoch 0 to 3
+    # Create reference run: train continuously from epoch 0 to 6
+    reference_config = copy.deepcopy(config)
+    reference_config['work_dir'] = "./logs/tests/supervised_single_task_trainer/reference_run"
+    train_until_epoch(reference_config, start_epoch=0, end_epoch=6)
+
+    # Create interrupted run: train from epoch 0 to 3, then from 3 to 6
     train_until_epoch(config, start_epoch=0, end_epoch=3)
-
-    # Second run: train from epoch 3 to 6
     train_until_epoch(config, start_epoch=3, end_epoch=6)
 
     # Compare files against reference run
-    reference_dir = "logs/examples/linear"
+    reference_dir = reference_config['work_dir']
     for epoch in range(6):
         interrupted_epoch_dir = os.path.join(config['work_dir'], f"epoch_{epoch}")
         reference_epoch_dir = os.path.join(reference_dir, f"epoch_{epoch}")

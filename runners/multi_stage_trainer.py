@@ -47,6 +47,12 @@ class MultiStageTrainer(BaseTrainer):
         self.logger.info("Initializing determinism...")
         utils.determinism.set_determinism()
 
+        # Set init seed (use init_seed from first stage)
+        assert 'init_seed' in self.stage_configs[0].keys()
+        init_seed = self.stage_configs[0]['init_seed']
+        assert type(init_seed) == int, f"{type(init_seed)=}"
+        utils.determinism.set_seed(seed=init_seed)
+
         # Get training seeds
         self.train_seeds = []
         for stage_config in self.stage_configs:
@@ -57,6 +63,23 @@ class MultiStageTrainer(BaseTrainer):
             assert len(train_seeds) == stage_config['epochs'], f"{len(train_seeds)=}, {stage_config['epochs']=}"
             self.train_seeds.extend(train_seeds)
         assert len(self.train_seeds) == self.tot_epochs, f"{len(self.train_seeds)=}, {self.tot_epochs=}"
+
+        # Get validation seeds
+        self.val_seeds = []
+        for stage_config in self.stage_configs:
+            assert 'val_seeds' in stage_config.keys()
+            val_seeds = stage_config['val_seeds']
+            assert type(val_seeds) == list, f"{type(val_seeds)=}"
+            assert all(type(seed) == int for seed in val_seeds), f"{val_seeds=}"
+            assert len(val_seeds) == stage_config['epochs'], f"{len(val_seeds)=}, {stage_config['epochs']=}"
+            self.val_seeds.extend(val_seeds)
+        assert len(self.val_seeds) == self.tot_epochs, f"{len(self.val_seeds)=}, {self.tot_epochs=}"
+
+        # Get test seed (use test_seed from first stage)
+        assert 'test_seed' in self.stage_configs[0].keys()
+        test_seed = self.stage_configs[0]['test_seed']
+        assert type(test_seed) == int, f"{type(test_seed)=}"
+        self.test_seed = test_seed
 
     def _get_stage_for_epoch(self, epoch: int) -> int:
         """Get the stage index for a given epoch number."""

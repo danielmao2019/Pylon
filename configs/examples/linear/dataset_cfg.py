@@ -4,9 +4,11 @@ from data.transforms import Compose
 
 
 torch.manual_seed(0)
-gt = torch.rand(size=(2, 2), dtype=torch.float32)
+device = torch.device('cuda')
+gt = torch.rand(size=(2, 2), dtype=torch.float32, device=device)
 
-def gt_func(x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
+
+def gt_func(x: torch.Tensor, noise: torch.Tensor, seed=None) -> torch.Tensor:
     return gt @ x + noise * 0.001
 
 
@@ -41,5 +43,6 @@ dataset_cfg = {
                 ],
             },
         },
+        'device': device,
     },
 }

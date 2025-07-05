@@ -233,6 +233,31 @@ class BaseTrainer(ABC):
         self.optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
         self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
+    def _init_checkpoint_indices(self) -> None:
+        """Precompute epoch indices where checkpoints (and debug outputs) will be saved."""
+        checkpoint_method = self.config.get('checkpoint_method', 'latest')
+
+        if checkpoint_method == 'all':
+            self.checkpoint_indices = list(range(self.tot_epochs))
+        elif checkpoint_method == 'latest':
+            self.checkpoint_indices = [self.tot_epochs - 1]  # Only last epoch
+        else:
+            # Interval-based: every N epochs
+            assert isinstance(checkpoint_method, int) and checkpoint_method > 0
+            self.checkpoint_indices = list(range(checkpoint_method-1, self.tot_epochs, checkpoint_method))
+            # Always include the last epoch
+            if self.tot_epochs - 1 not in self.checkpoint_indices:
+                self.checkpoint_indices.append(self.tot_epochs - 1)
+
+    def _init_debugger(self):
+        """Initialize debugger and register forward hooks."""
+        self.logger.info("Initializing debugger...")
+
+        if self.config.get('debugger', None):
+            self.debugger = build_from_config(self.config['debugger'], model=self.model)
+        else:
+            self.debugger = None
+
     # ====================================================================================================
     # iteration-level methods
     # ====================================================================================================
@@ -280,6 +305,10 @@ class BaseTrainer(ABC):
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])
         dp['scores'] = self.metric(dp)
+
+        # Add debug outputs (only during validation/test at checkpoint indices)
+        if self.debugger and self.debugger.enabled:
+            dp['debug'] = self.debugger(dp, self.model)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))
@@ -422,6 +451,14 @@ class BaseTrainer(ABC):
         self.logger.eval()
         self.val_dataloader.dataset.set_base_seed(self.val_seeds[self.cum_epochs])
 
+        # Enable/disable debugger based on checkpoint indices
+        if self.debugger and self.cum_epochs in self.checkpoint_indices:
+            self.debugger.enabled = True
+            self.debugger.reset_buffer()
+            self.logger.info(f"Debugger enabled for epoch {self.cum_epochs}")
+        elif self.debugger:
+            self.debugger.enabled = False
+
     def _after_val_loop_(self) -> None:
         if self.work_dir is None:
             return
@@ -446,6 +483,11 @@ class BaseTrainer(ABC):
                 os.system(' '.join(["ln", "-s", os.path.relpath(path=best_checkpoint, start=self.work_dir), soft_link]))
             except:
                 best_checkpoint = None
+
+            # Save debugger outputs if enabled
+            if self.debugger and self.debugger.enabled:
+                debugger_dir = os.path.join(epoch_root, "debugger")
+                self.debugger.save_all(debugger_dir)
 
             # cleanup checkpoints
             self._clean_checkpoints(
@@ -479,32 +521,24 @@ class BaseTrainer(ABC):
             latest_checkpoint (str): Path to the latest checkpoint
             best_checkpoint (Optional[str]): Path to the best checkpoint if available
         """
-        # Determine which checkpoints to keep based on the checkpoint method
-        keep_checkpoints: List[str] = []
+        # Use precomputed checkpoint indices instead of recalculating
+        checkpoint_method = self.config.get('checkpoint_method', 'latest')
+        if checkpoint_method == 'all':
+            # Keep all checkpoints
+            return
 
-        # Keep the latest checkpoint
-        keep_checkpoints.append(latest_checkpoint)
+        # Determine which checkpoints to keep
+        keep_checkpoints: List[str] = [latest_checkpoint]
 
         # Keep the best checkpoint if available
         if best_checkpoint is not None:
             keep_checkpoints.append(best_checkpoint)
 
-        checkpoint_method = self.config.get('checkpoint_method', 'latest')
-        if checkpoint_method == 'all':
-            # Keep all checkpoints
-            return
-        elif checkpoint_method == 'latest':
-            # Only keeping latest and best (already added above)
-            pass
-        else:
-            # Handle interval-based checkpointing
-            assert isinstance(checkpoint_method, int), "checkpoint_method must be 'all', 'latest', or a positive integer"
-            assert checkpoint_method > 0, "checkpoint_method interval must be positive"
-            keep_indices = list(range(checkpoint_method-1, self.tot_epochs, checkpoint_method))
-            keep_checkpoints.extend(list(map(
-                lambda x: os.path.join(self.work_dir, f"epoch_{x}", "checkpoint.pt"),
-                keep_indices,
-            )))
+        # Add checkpoints from precomputed indices
+        keep_checkpoints.extend([
+            os.path.join(self.work_dir, f"epoch_{idx}", "checkpoint.pt")
+            for idx in self.checkpoint_indices
+        ])
 
         # Remove all checkpoints except the ones we want to keep
         existing_checkpoints: List[str] = glob.glob(os.path.join(self.work_dir, "epoch_*", "checkpoint.pt"))
@@ -579,6 +613,7 @@ class BaseTrainer(ABC):
         self._init_logger()
         self._init_determinism_()
         self._init_state_()
+        self._init_checkpoint_indices()  # Initialize checkpoint indices early
         self._init_dataloaders_()
         self._init_criterion_()
         self._init_metric_()
@@ -586,6 +621,7 @@ class BaseTrainer(ABC):
         self._init_optimizer_()
         self._init_scheduler_()
         self._load_checkpoint_()
+        self._init_debugger()  # After model is initialized
 
     def run(self) -> None:
         # initialize run

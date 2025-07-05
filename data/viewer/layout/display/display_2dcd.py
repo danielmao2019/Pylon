@@ -4,6 +4,7 @@ from dash import dcc, html
 import torch
 from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.image import create_image_figure, get_image_stats
+from data.viewer.utils.debug import display_debug_outputs
 
 
 def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
@@ -18,7 +19,11 @@ def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     """
     assert datapoint is not None, f"{datapoint=}"
     assert isinstance(datapoint, dict), f"{datapoint=}"
-    assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}, f"{datapoint.keys()=}"
+    expected_keys = {'inputs', 'labels', 'meta_info'}
+    # Debug outputs are optional
+    if 'debug' in datapoint:
+        expected_keys.add('debug')
+    assert datapoint.keys() == expected_keys, f"{datapoint.keys()=}"
     assert datapoint['inputs'].keys() == {'img_1', 'img_2'}, f"{datapoint['inputs'].keys()=}"
     assert datapoint['labels'].keys() == {'change_map'}, f"{datapoint['labels'].keys()=}"
 
@@ -71,6 +76,11 @@ def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
                             'overflow-y': 'auto', 'border-radius': '5px'})
         ]
 
+    # Extract debug outputs (fourth section)
+    debug_display = []
+    if 'debug' in datapoint and datapoint['debug']:
+        debug_display = [display_debug_outputs(datapoint['debug'])]
+
     # Compile the complete display
     return html.Div([
         # Image displays
@@ -80,5 +90,8 @@ def display_2dcd_datapoint(datapoint: Dict[str, Any]) -> html.Div:
         html.Div([
             html.Div(stats_components),
             html.Div(meta_display, style={'margin-top': '20px'})
-        ], style={'margin-top': '20px'})
+        ], style={'margin-top': '20px'}),
+
+        # Debug section (only included if debug outputs exist)
+        html.Div(debug_display, style={'margin-top': '20px'}) if debug_display else html.Div()
     ])

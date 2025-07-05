@@ -109,6 +109,15 @@ class BaseEvaluator:
         else:
             self.metric = None
 
+    def _init_debugger(self):
+        """Initialize debugger and register forward hooks."""
+        self.logger.info("Initializing debugger...")
+
+        if self.config.get('debugger', None):
+            self.debugger = build_from_config(self.config['debugger'], model=self.model)
+        else:
+            self.debugger = None
+
     @property
     def expected_files(self) -> List[str]:
         return ["evaluation_scores.json"]
@@ -129,6 +138,10 @@ class BaseEvaluator:
         # Run model inference
         dp['outputs'] = self.model(dp['inputs'])
         dp['scores'] = self.metric(dp)
+
+        # Add debug outputs (always enabled for evaluator)
+        if self.debugger and self.debugger.enabled:
+            dp['debug'] = self.debugger(dp, self.model)
 
         # Log scores
         self.logger.update_buffer(log_scores(scores=dp['scores']))
@@ -152,6 +165,12 @@ class BaseEvaluator:
         self.model.eval()
         self.metric.reset_buffer()
         self.logger.eval()
+
+        # Enable debugger for evaluation
+        if self.debugger:
+            self.debugger.enabled = True
+            self.debugger.reset_buffer()
+            self.logger.info("Debugger enabled for evaluation")
 
         if self.eval_n_jobs == 1:
             self.logger.info("Running evaluation sequentially...")
@@ -187,6 +206,11 @@ class BaseEvaluator:
         with open(os.path.join(self.work_dir, "evaluation_scores.json"), mode='r') as f:
             _ = json.load(f)
 
+        # Save debugger outputs if enabled
+        if self.debugger and self.debugger.enabled:
+            debugger_dir = os.path.join(self.work_dir, "debugger")
+            self.debugger.save_all(debugger_dir)
+
     # ====================================================================================================
     # ====================================================================================================
 
@@ -196,6 +220,7 @@ class BaseEvaluator:
         self._init_dataloaders_()
         self._init_model_()
         self._init_metric_()
+        self._init_debugger()  # After model is initialized
 
     def run(self):
         # initialize run
