@@ -276,7 +276,7 @@ def register_webgl_callback(app, component_id: str):
     clientside_callback(
         f"""
         function(trigger) {{
-            console.log('=== Professional 3D WebGL Viewer for {component_id} ===');
+            console.log('=== BABY STEP 4: Real Cube Data for {component_id} ===');
             
             const container = document.getElementById('{component_id}');
             const dataDiv = document.getElementById('{component_id}-data');
@@ -292,8 +292,15 @@ def register_webgl_callback(app, component_id: str):
             }}
             
             try {{
+                // Load the real cube data
                 const config = JSON.parse(dataDiv.textContent);
-                console.log('Config loaded for {component_id}:', config.pointCloudData.point_count, 'points');
+                const positions = config.pointCloudData.positions;
+                const colors = config.pointCloudData.colors;
+                const pointCount = config.pointCloudData.point_count;
+                
+                console.log('Loaded real cube data:', pointCount, 'points');
+                console.log('Position data length:', positions.length);
+                console.log('Color data length:', colors.length);
                 
                 // Create canvas
                 const canvas = document.createElement('canvas');
@@ -305,7 +312,7 @@ def register_webgl_callback(app, component_id: str):
                 container.innerHTML = '';
                 container.appendChild(canvas);
                 
-                // ===== WEBGL INITIALIZATION =====
+                // Get WebGL context
                 const gl = canvas.getContext('webgl');
                 
                 if (!gl) {{
@@ -313,26 +320,14 @@ def register_webgl_callback(app, component_id: str):
                     return 'Error: WebGL not supported in this browser';
                 }}
                 
-                // ===== SHADER SOURCES =====
+                // Simple shaders for point cloud
                 const vertexShaderSource = `
                     attribute vec3 aPosition;
                     attribute vec3 aColor;
-                    uniform mat3 uRotationMatrix;
-                    uniform vec2 uTranslation;
-                    uniform float uDepth;
                     varying vec3 vColor;
                     
                     void main() {{
-                        // Apply world-space rotation matrix (EXACT COPY FROM WORKING EXAMPLE)
-                        vec3 rotated = uRotationMatrix * aPosition;
-                        
-                        // Apply screen-space translation
-                        rotated.x += uTranslation.x;
-                        rotated.y += uTranslation.y;
-                        
-                        // Perspective projection with adjustable camera distance
-                        float z = rotated.z + uDepth;
-                        gl_Position = vec4(rotated.x / z, rotated.y / z, 0.0, 1.0);
+                        gl_Position = vec4(aPosition, 1.0);
                         gl_PointSize = 8.0;
                         vColor = aColor;
                     }}
@@ -346,7 +341,7 @@ def register_webgl_callback(app, component_id: str):
                     }}
                 `;
                 
-                // ===== SHADER COMPILATION =====
+                // Create shaders
                 function createShader(type, source) {{
                     const shader = gl.createShader(type);
                     gl.shaderSource(shader, source);
@@ -361,34 +356,20 @@ def register_webgl_callback(app, component_id: str):
                     return shader;
                 }}
                 
-                let program;
-                try {{
-                    const vertexShader = createShader(gl.VERTEX_SHADER, vertexShaderSource);
-                    const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
-                    
-                    // Create and link program
-                    program = gl.createProgram();
-                    gl.attachShader(program, vertexShader);
-                    gl.attachShader(program, fragmentShader);
-                    gl.linkProgram(program);
-                    
-                    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {{
-                        throw new Error('Program linking error: ' + gl.getProgramInfoLog(program));
-                    }}
-                    
-                    // Clean up shaders
-                    gl.deleteShader(vertexShader);
-                    gl.deleteShader(fragmentShader);
-                }} catch (error) {{
-                    console.error('Shader error:', error);
-                    return 'Shader Error: ' + error.message;
+                const vertexShader = createShader(gl.VERTEX_SHADER, vertexShaderSource);
+                const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
+                
+                // Create program
+                const program = gl.createProgram();
+                gl.attachShader(program, vertexShader);
+                gl.attachShader(program, fragmentShader);
+                gl.linkProgram(program);
+                
+                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {{
+                    throw new Error('Program linking error: ' + gl.getProgramInfoLog(program));
                 }}
                 
-                // ===== BUFFER CREATION =====
-                const positions = config.pointCloudData.positions;
-                const colors = config.pointCloudData.colors;
-                const pointCount = config.pointCloudData.point_count;
-                
+                // Create buffers with real data
                 const positionBuffer = gl.createBuffer();
                 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
@@ -397,239 +378,35 @@ def register_webgl_callback(app, component_id: str):
                 gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
                 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
                 
-                // ===== SHADER LOCATIONS =====
-                const locations = {{
-                    attributes: {{
-                        position: gl.getAttribLocation(program, 'aPosition'),
-                        color: gl.getAttribLocation(program, 'aColor')
-                    }},
-                    uniforms: {{
-                        rotationMatrix: gl.getUniformLocation(program, 'uRotationMatrix'),
-                        translation: gl.getUniformLocation(program, 'uTranslation'),
-                        depth: gl.getUniformLocation(program, 'uDepth')
-                    }}
-                }};
+                // Get attribute locations
+                const positionLocation = gl.getAttribLocation(program, 'aPosition');
+                const colorLocation = gl.getAttribLocation(program, 'aColor');
                 
-                // ===== NAVIGATION STATE =====
-                const navigation = {{
-                    // World-space rotation matrix (identity initially)
-                    rotationMatrix: [1, 0, 0, 0, 1, 0, 0, 0, 1],
-                    
-                    // Screen-space translation
-                    translation: [0, 0],
-                    
-                    // Camera distance (match working example exactly)
-                    depth: 3.0,
-                    
-                    // Sensitivity settings
-                    sensitivity: {{
-                        rotation: 0.01,
-                        translation: 0.002,
-                        depth: 0.1
-                    }}
-                }};
+                // Set sky blue background and clear
+                gl.clearColor(0.53, 0.81, 0.98, 1.0); // Sky blue
+                gl.clear(gl.COLOR_BUFFER_BIT);
                 
-                // Mouse interaction state
-                const mouse = {{
-                    isLeftDragging: false,
-                    isRightDragging: false,
-                    lastX: 0,
-                    lastY: 0
-                }};
+                // Use the program
+                gl.useProgram(program);
                 
-                // ===== MATRIX UTILITIES =====
-                const MatrixUtils = {{
-                    // Create rotation matrix around arbitrary axis using Rodrigues' formula
-                    createRotation(axisX, axisY, axisZ, angle) {{
-                        const c = Math.cos(angle);
-                        const s = Math.sin(angle);
-                        const t = 1 - c;
-                        
-                        return [
-                            t*axisX*axisX + c,       t*axisX*axisY - s*axisZ, t*axisX*axisZ + s*axisY,
-                            t*axisX*axisY + s*axisZ, t*axisY*axisY + c,       t*axisY*axisZ - s*axisX,
-                            t*axisX*axisZ - s*axisY, t*axisY*axisZ + s*axisX, t*axisZ*axisZ + c
-                        ];
-                    }},
-                    
-                    // Multiply two 3x3 matrices: result = a * b
-                    multiply(a, b) {{
-                        return [
-                            a[0]*b[0] + a[1]*b[3] + a[2]*b[6], a[0]*b[1] + a[1]*b[4] + a[2]*b[7], a[0]*b[2] + a[1]*b[5] + a[2]*b[8],
-                            a[3]*b[0] + a[4]*b[3] + a[5]*b[6], a[3]*b[1] + a[4]*b[4] + a[5]*b[7], a[3]*b[2] + a[4]*b[5] + a[5]*b[8],
-                            a[6]*b[0] + a[7]*b[3] + a[8]*b[6], a[6]*b[1] + a[7]*b[4] + a[8]*b[7], a[6]*b[2] + a[7]*b[5] + a[8]*b[8]
-                        ];
-                    }}
-                }};
+                // Set up position attribute
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                gl.enableVertexAttribArray(positionLocation);
+                gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
                 
-                // ===== RENDERING SYSTEM =====
-                const RenderSystem = {{
-                    // One-time setup of vertex attributes
-                    setupVertexAttributes() {{
-                        // Position attribute
-                        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-                        gl.enableVertexAttribArray(locations.attributes.position);
-                        gl.vertexAttribPointer(locations.attributes.position, 3, gl.FLOAT, false, 0, 0);
-                        
-                        // Color attribute
-                        gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-                        gl.enableVertexAttribArray(locations.attributes.color);
-                        gl.vertexAttribPointer(locations.attributes.color, 3, gl.FLOAT, false, 0, 0);
-                    }},
-                    
-                    // Main rendering function
-                    render() {{
-                        // Clear canvas with dark background
-                        gl.clearColor(0.12, 0.12, 0.15, 1.0);
-                        gl.clear(gl.COLOR_BUFFER_BIT);
-                        
-                        // Use shader program
-                        gl.useProgram(program);
-                        
-                        // Update uniforms (EXACT COPY FROM WORKING EXAMPLE)
-                        gl.uniformMatrix3fv(locations.uniforms.rotationMatrix, false, navigation.rotationMatrix);
-                        gl.uniform2f(locations.uniforms.translation, ...navigation.translation);
-                        gl.uniform1f(locations.uniforms.depth, navigation.depth);
-                        
-                        // Draw geometry
-                        gl.drawArrays(gl.POINTS, 0, pointCount);
-                    }}
-                }};
+                // Set up color attribute
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+                gl.enableVertexAttribArray(colorLocation);
+                gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
                 
-                // ===== INTERACTION SYSTEM =====
-                const InteractionSystem = {{
-                    // Constants for interaction
-                    DRAG_THRESHOLD: 0.1,
-                    DEPTH_LIMITS: {{ min: 0.5, max: 20.0 }},
-                    
-                    // Mouse button mappings
-                    MOUSE_BUTTONS: {{
-                        LEFT: 0,
-                        MIDDLE: 1,
-                        RIGHT: 2
-                    }},
-                    
-                    // Handle rotation input
-                    handleRotation(deltaX, deltaY) {{
-                        const {{ rotation: sensitivity }} = navigation.sensitivity;
-                        let needsRedraw = false;
-                        
-                        // Yaw rotation (around world Y-axis)
-                        if (Math.abs(deltaX) > this.DRAG_THRESHOLD) {{
-                            const yRotation = MatrixUtils.createRotation(0, 1, 0, deltaX * sensitivity);
-                            navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, yRotation);
-                            needsRedraw = true;
-                        }}
-                        
-                        // Pitch rotation (around world X-axis)
-                        if (Math.abs(deltaY) > this.DRAG_THRESHOLD) {{
-                            const xRotation = MatrixUtils.createRotation(1, 0, 0, deltaY * sensitivity);
-                            navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, xRotation);
-                            needsRedraw = true;
-                        }}
-                        
-                        return needsRedraw;
-                    }},
-                    
-                    // Handle translation input
-                    handleTranslation(deltaX, deltaY) {{
-                        const {{ translation: sensitivity }} = navigation.sensitivity;
-                        
-                        navigation.translation[0] += deltaX * sensitivity;
-                        navigation.translation[1] -= deltaY * sensitivity;  // Invert Y for intuitive control
-                        
-                        return true; // Always redraw for translation
-                    }},
-                    
-                    // Handle depth input
-                    handleDepth(wheelDelta) {{
-                        const {{ depth: sensitivity }} = navigation.sensitivity;
-                        
-                        // Scroll up = move forward (decrease depth), scroll down = move backward
-                        navigation.depth += (wheelDelta > 0) ? sensitivity : -sensitivity;
-                        navigation.depth = Math.max(this.DEPTH_LIMITS.min, Math.min(this.DEPTH_LIMITS.max, navigation.depth));
-                        
-                        return true; // Always redraw for depth change
-                    }}
-                }};
+                // Draw the real point cloud
+                gl.drawArrays(gl.POINTS, 0, pointCount);
                 
-                // ===== EVENT LISTENERS =====
-                canvas.addEventListener('mousedown', (e) => {{
-                    e.preventDefault();
-                    
-                    const {{ MOUSE_BUTTONS }} = InteractionSystem;
-                    
-                    switch (e.button) {{
-                        case MOUSE_BUTTONS.LEFT:
-                            mouse.isLeftDragging = true;
-                            canvas.style.cursor = 'grabbing';
-                            break;
-                        case MOUSE_BUTTONS.RIGHT:
-                            mouse.isRightDragging = true;
-                            canvas.style.cursor = 'move';
-                            break;
-                    }}
-                    
-                    mouse.lastX = e.clientX;
-                    mouse.lastY = e.clientY;
-                }});
-                
-                canvas.addEventListener('mousemove', (e) => {{
-                    const deltaX = e.clientX - mouse.lastX;
-                    const deltaY = e.clientY - mouse.lastY;
-                    
-                    let needsRedraw = false;
-                    
-                    if (mouse.isLeftDragging) {{
-                        needsRedraw = InteractionSystem.handleRotation(deltaX, deltaY);
-                    }} else if (mouse.isRightDragging) {{
-                        needsRedraw = InteractionSystem.handleTranslation(deltaX, deltaY);
-                    }}
-                    
-                    if (needsRedraw) {{
-                        RenderSystem.render();
-                    }}
-                    
-                    mouse.lastX = e.clientX;
-                    mouse.lastY = e.clientY;
-                }});
-                
-                canvas.addEventListener('mouseup', () => {{
-                    mouse.isLeftDragging = false;
-                    mouse.isRightDragging = false;
-                    canvas.style.cursor = 'default';
-                }});
-                
-                canvas.addEventListener('contextmenu', (e) => e.preventDefault());
-                
-                canvas.addEventListener('wheel', (e) => {{
-                    e.preventDefault();
-                    
-                    if (InteractionSystem.handleDepth(e.deltaY)) {{
-                        RenderSystem.render();
-                    }}
-                }});
-                
-                // ===== INITIALIZATION =====
-                try {{
-                    // Setup vertex attributes once (performance optimization)
-                    RenderSystem.setupVertexAttributes();
-                    
-                    // Initial render
-                    RenderSystem.render();
-                    
-                    // Return success message with system info
-                    const webglInfo = gl.getParameter(gl.VERSION);
-                    console.log('WebGL viewer initialized for {component_id}:', pointCount, 'points');
-                    return `✓ Professional WebGL Viewer Ready • ${{pointCount}} points • ${{webglInfo}}`;
-                    
-                }} catch (error) {{
-                    console.error('WebGL initialization error for {component_id}:', error);
-                    return `✗ Initialization Error: ${{error.message}}`;
-                }}
+                console.log('Step 4 complete: Real cube data displayed');
+                return `✓ Step 4: Real cube data displayed (${{pointCount}} points)`;
                 
             }} catch (error) {{
-                console.error('WebGL callback error for {component_id}:', error);
+                console.error('Baby step 4 error for {component_id}:', error);
                 return 'Error: ' + error.message;
             }}
         }}
