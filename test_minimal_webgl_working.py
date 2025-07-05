@@ -24,14 +24,16 @@ clientside_callback(
             return 'WebGL not supported';
         }
         
-        // Vertex shader with position and color attributes
+        // Vertex shader with 3D position and color attributes
         const vertexShaderSource = `
-            attribute vec2 aPosition;
+            attribute vec3 aPosition;
             attribute vec3 aColor;
             varying vec3 vColor;
             void main() {
-                gl_Position = vec4(aPosition, 0.0, 1.0);
-                gl_PointSize = 20.0;
+                // Simple 3D to 2D projection (no rotation yet)
+                float z = aPosition.z + 3.0;
+                gl_Position = vec4(aPosition.x / z, aPosition.y / z, 0.0, 1.0);
+                gl_PointSize = 8.0;
                 vColor = aColor;
             }
         `;
@@ -60,21 +62,54 @@ clientside_callback(
         gl.attachShader(program, fragmentShader);
         gl.linkProgram(program);
         
-        // Define 4 points in a square pattern
-        const positions = [
-            -0.5, -0.5,  // Bottom left
-             0.5, -0.5,  // Bottom right
-             0.5,  0.5,  // Top right
-            -0.5,  0.5   // Top left
+        // Create cube faces with moderate density sampling
+        const density = 6; // Points per edge
+        const positions = [];
+        const colors = [];
+        
+        // Define 6 face colors
+        const faceColors = [
+            [1.0, 0.0, 0.0],  // Red - Front face (z=0.5)
+            [0.0, 1.0, 0.0],  // Green - Back face (z=-0.5)
+            [0.0, 0.0, 1.0],  // Blue - Right face (x=0.5)
+            [1.0, 1.0, 0.0],  // Yellow - Left face (x=-0.5)
+            [1.0, 0.0, 1.0],  // Magenta - Top face (y=0.5)
+            [0.0, 1.0, 1.0]   // Cyan - Bottom face (y=-0.5)
         ];
         
-        // Define colors for each point (RGB)
-        const colors = [
-            1.0, 0.0, 0.0,  // Red - Bottom left
-            0.0, 1.0, 0.0,  // Green - Bottom right
-            0.0, 0.0, 1.0,  // Blue - Top right
-            1.0, 1.0, 0.0   // Yellow - Top left
-        ];
+        // Generate points for each face
+        for (let i = 0; i < density; i++) {
+            for (let j = 0; j < density; j++) {
+                const u = (i / (density - 1)) - 0.5; // -0.5 to 0.5
+                const v = (j / (density - 1)) - 0.5; // -0.5 to 0.5
+                
+                // Front face (z=0.5) - Red
+                positions.push(u, v, 0.5);
+                colors.push(...faceColors[0]);
+                
+                // Back face (z=-0.5) - Green
+                positions.push(u, v, -0.5);
+                colors.push(...faceColors[1]);
+                
+                // Right face (x=0.5) - Blue
+                positions.push(0.5, u, v);
+                colors.push(...faceColors[2]);
+                
+                // Left face (x=-0.5) - Yellow
+                positions.push(-0.5, u, v);
+                colors.push(...faceColors[3]);
+                
+                // Top face (y=0.5) - Magenta
+                positions.push(u, 0.5, v);
+                colors.push(...faceColors[4]);
+                
+                // Bottom face (y=-0.5) - Cyan
+                positions.push(u, -0.5, v);
+                colors.push(...faceColors[5]);
+            }
+        }
+        
+        const pointCount = positions.length / 3;
         
         // Create position buffer
         const positionBuffer = gl.createBuffer();
@@ -93,7 +128,7 @@ clientside_callback(
         // Set up position attribute
         gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
         gl.enableVertexAttribArray(positionLocation);
-        gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
         
         // Set up color attribute
         gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
@@ -104,9 +139,9 @@ clientside_callback(
         gl.clearColor(0.2, 0.2, 0.2, 1.0);
         gl.clear(gl.COLOR_BUFFER_BIT);
         gl.useProgram(program);
-        gl.drawArrays(gl.POINTS, 0, 4);  // Draw 4 points
+        gl.drawArrays(gl.POINTS, 0, pointCount);  // Draw all cube face points
         
-        return 'Should see 4 colored points: red, green, blue, yellow';
+        return 'Should see cube with ' + pointCount + ' colored face points';
     }
     """,
     Output('output', 'children'),
