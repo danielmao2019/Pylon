@@ -235,47 +235,112 @@ clientside_callback(
             }
         };
         
-        // ===== RENDERING FUNCTIONS =====
-        function setupAttributes() {
-            // Set up position attribute
-            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-            gl.enableVertexAttribArray(locations.attributes.position);
-            gl.vertexAttribPointer(locations.attributes.position, 3, gl.FLOAT, false, 0, 0);
+        // ===== RENDERING SYSTEM =====
+        const RenderSystem = {
+            // One-time setup of vertex attributes (performance optimization)
+            setupVertexAttributes() {
+                // Position attribute
+                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+                gl.enableVertexAttribArray(locations.attributes.position);
+                gl.vertexAttribPointer(locations.attributes.position, 3, gl.FLOAT, false, 0, 0);
+                
+                // Color attribute
+                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+                gl.enableVertexAttribArray(locations.attributes.color);
+                gl.vertexAttribPointer(locations.attributes.color, 3, gl.FLOAT, false, 0, 0);
+            },
             
-            // Set up color attribute
-            gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-            gl.enableVertexAttribArray(locations.attributes.color);
-            gl.vertexAttribPointer(locations.attributes.color, 3, gl.FLOAT, false, 0, 0);
-        }
+            // Main rendering function
+            render() {
+                // Clear canvas with dark background
+                gl.clearColor(0.12, 0.12, 0.15, 1.0);
+                gl.clear(gl.COLOR_BUFFER_BIT);
+                
+                // Use shader program
+                gl.useProgram(program);
+                
+                // Update uniforms
+                gl.uniformMatrix3fv(locations.uniforms.rotationMatrix, false, navigation.rotationMatrix);
+                gl.uniform2f(locations.uniforms.translation, ...navigation.translation);
+                gl.uniform1f(locations.uniforms.depth, navigation.depth);
+                
+                // Draw geometry
+                gl.drawArrays(gl.POINTS, 0, pointCount);
+            }
+        };
         
-        function drawScene() {
-            // Set up vertex attributes
-            setupAttributes();
+        // ===== INTERACTION SYSTEM =====
+        const InteractionSystem = {
+            // Constants for interaction
+            DRAG_THRESHOLD: 0.1,
+            DEPTH_LIMITS: { min: 0.5, max: 10.0 },
             
-            // Clear canvas
-            gl.clearColor(0.15, 0.15, 0.15, 1.0);
-            gl.clear(gl.COLOR_BUFFER_BIT);
-            gl.useProgram(program);
+            // Mouse button mappings
+            MOUSE_BUTTONS: {
+                LEFT: 0,
+                MIDDLE: 1,
+                RIGHT: 2
+            },
             
-            // Set uniforms
-            gl.uniformMatrix3fv(locations.uniforms.rotationMatrix, false, navigation.rotationMatrix);
-            gl.uniform2f(locations.uniforms.translation, navigation.translation[0], navigation.translation[1]);
-            gl.uniform1f(locations.uniforms.depth, navigation.depth);
+            // Handle rotation input
+            handleRotation(deltaX, deltaY) {
+                const { rotation: sensitivity } = navigation.sensitivity;
+                let needsRedraw = false;
+                
+                // Yaw rotation (around world Y-axis)
+                if (Math.abs(deltaX) > this.DRAG_THRESHOLD) {
+                    const yRotation = MatrixUtils.createRotation(0, 1, 0, deltaX * sensitivity);
+                    navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, yRotation);
+                    needsRedraw = true;
+                }
+                
+                // Pitch rotation (around world X-axis)
+                if (Math.abs(deltaY) > this.DRAG_THRESHOLD) {
+                    const xRotation = MatrixUtils.createRotation(1, 0, 0, deltaY * sensitivity);
+                    navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, xRotation);
+                    needsRedraw = true;
+                }
+                
+                return needsRedraw;
+            },
             
-            // Draw points
-            gl.drawArrays(gl.POINTS, 0, pointCount);
-        }
+            // Handle translation input
+            handleTranslation(deltaX, deltaY) {
+                const { translation: sensitivity } = navigation.sensitivity;
+                
+                navigation.translation[0] += deltaX * sensitivity;
+                navigation.translation[1] -= deltaY * sensitivity;  // Invert Y for intuitive control
+                
+                return true; // Always redraw for translation
+            },
+            
+            // Handle depth input
+            handleDepth(wheelDelta) {
+                const { depth: sensitivity } = navigation.sensitivity;
+                
+                // Scroll up = move forward (decrease depth), scroll down = move backward
+                navigation.depth += (wheelDelta > 0) ? sensitivity : -sensitivity;
+                navigation.depth = Math.max(this.DEPTH_LIMITS.min, Math.min(this.DEPTH_LIMITS.max, navigation.depth));
+                
+                return true; // Always redraw for depth change
+            }
+        };
         
-        // ===== MOUSE EVENT HANDLERS =====
+        // ===== EVENT LISTENERS =====
         canvas.addEventListener('mousedown', (e) => {
             e.preventDefault();
             
-            if (e.button === 0) {  // Left mouse - rotation
-                mouse.isLeftDragging = true;
-                canvas.style.cursor = 'grabbing';
-            } else if (e.button === 2) {  // Right mouse - panning
-                mouse.isRightDragging = true;
-                canvas.style.cursor = 'move';
+            const { MOUSE_BUTTONS } = InteractionSystem;
+            
+            switch (e.button) {
+                case MOUSE_BUTTONS.LEFT:
+                    mouse.isLeftDragging = true;
+                    canvas.style.cursor = 'grabbing';
+                    break;
+                case MOUSE_BUTTONS.RIGHT:
+                    mouse.isRightDragging = true;
+                    canvas.style.cursor = 'move';
+                    break;
             }
             
             mouse.lastX = e.clientX;
@@ -286,31 +351,16 @@ clientside_callback(
             const deltaX = e.clientX - mouse.lastX;
             const deltaY = e.clientY - mouse.lastY;
             
+            let needsRedraw = false;
+            
             if (mouse.isLeftDragging) {
-                // Left mouse: World-space rotation (yaw and pitch only)
-                const { rotation: sensitivity } = navigation.sensitivity;
-                
-                // Yaw rotation (around world Y-axis)
-                if (Math.abs(deltaX) > 0.1) {
-                    const yRotation = MatrixUtils.createRotation(0, 1, 0, deltaX * sensitivity);
-                    navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, yRotation);
-                }
-                
-                // Pitch rotation (around world X-axis)
-                if (Math.abs(deltaY) > 0.1) {
-                    const xRotation = MatrixUtils.createRotation(1, 0, 0, deltaY * sensitivity);
-                    navigation.rotationMatrix = MatrixUtils.multiply(navigation.rotationMatrix, xRotation);
-                }
-                
-                drawScene();
+                needsRedraw = InteractionSystem.handleRotation(deltaX, deltaY);
             } else if (mouse.isRightDragging) {
-                // Right mouse: Screen-space translation
-                const { translation: sensitivity } = navigation.sensitivity;
-                
-                navigation.translation[0] += deltaX * sensitivity;
-                navigation.translation[1] -= deltaY * sensitivity;  // Invert Y for intuitive control
-                
-                drawScene();
+                needsRedraw = InteractionSystem.handleTranslation(deltaX, deltaY);
+            }
+            
+            if (needsRedraw) {
+                RenderSystem.render();
             }
             
             mouse.lastX = e.clientX;
@@ -323,30 +373,31 @@ clientside_callback(
             canvas.style.cursor = 'default';
         });
         
-        // Disable right-click context menu
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         
-        // Mouse wheel for depth control (forward/backward movement)
         canvas.addEventListener('wheel', (e) => {
             e.preventDefault();
             
-            const { depth: sensitivity } = navigation.sensitivity;
-            
-            // Scroll up = move forward (decrease depth), scroll down = move backward (increase depth)
-            navigation.depth += (e.deltaY > 0) ? sensitivity : -sensitivity;
-            
-            // Clamp to reasonable range
-            navigation.depth = Math.max(0.5, Math.min(10.0, navigation.depth));
-            
-            drawScene();
+            if (InteractionSystem.handleDepth(e.deltaY)) {
+                RenderSystem.render();
+            }
         });
         
         // ===== INITIALIZATION =====
-        // Initial render
-        drawScene();
-        
-        // Return success message
-        return `✓ Professional 3D viewer loaded: ${pointCount} points • WebGL enabled`;
+        try {
+            // Setup vertex attributes once (performance optimization)
+            RenderSystem.setupVertexAttributes();
+            
+            // Initial render
+            RenderSystem.render();
+            
+            // Return success message with system info
+            const webglInfo = gl.getParameter(gl.VERSION);
+            return `✓ Professional 3D Viewer Ready • ${pointCount} points • ${webglInfo}`;
+            
+        } catch (error) {
+            return `✗ Initialization Error: ${error.message}`;
+        }
     }
     """,
     Output('output', 'children'),
