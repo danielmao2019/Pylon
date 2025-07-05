@@ -49,7 +49,7 @@ class BaseEvaluator:
     def _init_logger(self) -> None:
         # check dependencies
         assert hasattr(self, 'work_dir') and self.work_dir is not None, "work_dir="
-        
+
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "eval*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -76,7 +76,7 @@ class BaseEvaluator:
     def _init_determinism_(self) -> None:
         # check dependencies
         assert hasattr(self, 'logger') and self.logger is not None, "logger="
-        
+
         self.logger.info("Initializing determinism...")
         set_determinism()
         # get seed for initialization steps
@@ -88,7 +88,7 @@ class BaseEvaluator:
     def _init_dataloaders_(self) -> None:
         # check dependencies
         assert hasattr(self, 'logger') and self.logger is not None, "logger="
-        
+
         self.logger.info("Initializing dataloaders...")
         # initialize validation dataloader
         if self.config.get('eval_dataset', None) and self.config.get('eval_dataloader', None):
@@ -105,7 +105,7 @@ class BaseEvaluator:
         # check dependencies
         for name in ['logger', 'device']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
-        
+
         self.logger.info("Initializing model...")
         if self.config.get('model', None):
             model = build_from_config(self.config['model'])
@@ -118,7 +118,7 @@ class BaseEvaluator:
     def _init_metric_(self) -> None:
         # check dependencies
         assert hasattr(self, 'logger') and self.logger is not None, "logger="
-        
+
         self.logger.info("Initializing metric...")
         if self.config.get('metric', None):
             self.metric = build_from_config(self.config['metric'])

@@ -140,7 +140,7 @@ class ErrorTestDataset(torch.utils.data.Dataset):
 
 class SimpleTestMetric(BaseMetric):
     """Simple accuracy metric for testing."""
-    
+
     DIRECTIONS = {"accuracy": 1, "num_samples": 1}  # Higher is better
 
     def __init__(self):
@@ -151,7 +151,7 @@ class SimpleTestMetric(BaseMetric):
         # Extract outputs and labels from datapoint
         y_pred = datapoint['outputs']
         y_true = datapoint['labels']
-        
+
         logits = y_pred['logits']
         targets = y_true['target']
 

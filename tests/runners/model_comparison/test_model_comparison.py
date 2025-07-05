@@ -11,7 +11,7 @@ from metrics.vision_2d.semantic_segmentation_metric import SemanticSegmentationM
 class MockMetricWithDirection(SingleTaskMetric):
     """Mock metric with DIRECTIONS attribute."""
     DIRECTIONS = {"accuracy": 1}
-    
+
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {"accuracy": torch.tensor(0.95)}
 
@@ -19,32 +19,32 @@ class MockMetricWithDirection(SingleTaskMetric):
 class MockMetricNegativeDirection(SingleTaskMetric):
     """Mock metric with negative DIRECTIONS."""
     DIRECTIONS = {"loss": -1}
-    
+
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {"loss": torch.tensor(0.1)}
 
 
 class MockNoDirectionMetric:
     """Mock metric with no DIRECTION attribute anywhere."""
-    
+
     def __init__(self):
         self.value = 42
 
 
 class MockChangeStarLikeMetric(SingleTaskMetric):
     """Mock metric similar to ChangeStarMetric structure."""
-    
+
     # Define explicit directions for what this metric actually produces
     DIRECTIONS = {
-        'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1, 
+        'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1,
         'mean_recall': 1, 'mean_f1': 1
     }
-    
+
     def __init__(self):
         super().__init__()
         self.change_metric = SemanticSegmentationMetric(num_classes=2, use_buffer=False)
         self.semantic_metric = SemanticSegmentationMetric(num_classes=5, use_buffer=False)
-    
+
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
         return {"combined_score": torch.tensor(0.8)}
 
@@ -67,10 +67,10 @@ def test_get_metric_directions_nested_metrics():
     """Test get_metric_directions with nested metrics (ChangeStarMetric-like structure)."""
     metric = MockChangeStarLikeMetric()
     directions = get_metric_directions(metric)
-    
+
     # Should use the MockChangeStarLikeMetric's own DIRECTIONS
     expected = {
-        'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1, 
+        'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1,
         'mean_recall': 1, 'mean_f1': 1
     }
     assert directions == expected
@@ -111,7 +111,7 @@ def test_get_metric_directions_hybrid_metric():
     ]
     metric = HybridMetric(metrics_cfg=metrics_cfg)
     directions = get_metric_directions(metric)
-    
+
     # HybridMetric merges all DIRECTIONS from component metrics
     expected = {
         "accuracy": 1,  # From MockMetricWithDirection.DIRECTIONS
@@ -125,7 +125,7 @@ def test_get_metric_directions_semantic_segmentation_metric():
     metric = SemanticSegmentationMetric(num_classes=10, use_buffer=False)
     directions = get_metric_directions(metric)
     expected = {
-        'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1, 
+        'mean_IoU': 1, 'accuracy': 1, 'mean_precision': 1,
         'mean_recall': 1, 'mean_f1': 1
     }
     assert directions == expected
@@ -148,7 +148,7 @@ def test_get_metric_directions_invalid_direction_value():
     """Test that get_metric_directions fails with invalid DIRECTIONS values."""
     class InvalidDirectionMetric:
         DIRECTIONS = {"score": 0}  # Invalid - should be 1 or -1
-    
+
     metric = InvalidDirectionMetric()
     with pytest.raises(AssertionError, match="DIRECTION at 'score' must be -1 or 1"):
         get_metric_directions(metric)
@@ -163,7 +163,7 @@ def test_get_metric_directions_invalid_direction_value():
 ])
 def test_compare_scores_with_complex_directions(metric_directions, scores1, scores2, expected):
     """Test compare_scores with various direction configurations."""
-    # Use True for order_config (equal weight average) 
+    # Use True for order_config (equal weight average)
     result = compare_scores(scores1, scores2, True, metric_directions)
     assert result == expected
 
@@ -177,7 +177,7 @@ def test_reduce_scores_to_scalar_multiple_metrics():
     }
     order_config = {"accuracy": 0.5, "f1_score": 0.3, "precision": 0.2}
     metric_directions = {"accuracy": 1, "f1_score": 1, "precision": 1}
-    
+
     result = reduce_scores_to_scalar(scores, order_config, metric_directions)
     expected = 0.9 * 0.5 + 0.85 * 0.3 + 0.88 * 0.2
     assert abs(result - expected) < 1e-6
@@ -190,7 +190,7 @@ def test_reduce_scores_to_scalar_equal_weights():
         "metric2": torch.tensor(0.9)
     }
     metric_directions = {"metric1": 1, "metric2": 1}
-    
+
     result = reduce_scores_to_scalar(scores, True, metric_directions)
     expected = (0.8 + 0.9) / 2
     assert abs(result - expected) < 1e-6
@@ -204,7 +204,7 @@ def test_reduce_scores_to_scalar_with_explicit_directions():
     }
     # Explicit directions for each score key
     metric_directions = {"accuracy": 1, "f1_score": 1}
-    
+
     result = reduce_scores_to_scalar(scores, True, metric_directions)
     expected = (0.9 + 0.85) / 2
     assert abs(result - expected) < 1e-6
@@ -220,17 +220,17 @@ def test_integration_complex_metric_with_early_stopping():
         }
     }
     metric = MultiTaskMetric(task_configs)
-    
+
     # Test that directions can be extracted
     directions = get_metric_directions(metric)
     assert "segmentation" in directions
     assert isinstance(directions["segmentation"], dict)  # Should be nested dict
     assert "mean_IoU" in directions["segmentation"]     # Should contain semantic seg metrics
-    
+
     # Test score comparison - use nested structure to match the directions
     scores1 = {"segmentation": {"mean_IoU": 0.9, "accuracy": 0.85}}
     scores2 = {"segmentation": {"mean_IoU": 0.85, "accuracy": 0.8}}
-    
+
     # Test comparison (should indicate improvement since scores1 > scores2)
     result = compare_scores(scores1, scores2, True, directions)
     assert result == True

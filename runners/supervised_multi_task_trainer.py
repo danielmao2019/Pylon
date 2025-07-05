@@ -44,7 +44,7 @@ class SupervisedMultiTaskTrainer(BaseTrainer):
         # check dependencies
         for name in ['logger', 'train_dataloader', 'optimizer']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
-        
+
         self.logger.info("Initializing scheduler...")
         assert 'scheduler' in self.config
         assert isinstance(self.train_dataloader, torch.utils.data.DataLoader)

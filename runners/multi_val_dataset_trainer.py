@@ -15,7 +15,7 @@ class MultiValDatasetTrainer(SupervisedSingleTaskTrainer):
     def _init_dataloaders_(self):
         # check dependencies
         assert hasattr(self, 'logger') and self.logger is not None, "logger="
-        
+
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
         if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):

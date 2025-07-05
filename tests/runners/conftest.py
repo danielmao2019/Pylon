@@ -9,7 +9,7 @@ from data.collators.base_collator import BaseCollator
 
 class SimpleMetric(SingleTaskMetric):
     """A simple metric implementation for testing."""
-    
+
     DIRECTIONS = {"mse": -1}  # Lower is better for MSE (loss metric)
 
     def _compute_score(self, y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -35,7 +35,7 @@ class SimpleDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return {
             'inputs': {'data': self.data[idx]},  # Structure inputs properly
-            'labels': {'target': self.labels[idx]},  # Structure labels properly  
+            'labels': {'target': self.labels[idx]},  # Structure labels properly
             'meta_info': {'idx': idx}  # Keep idx as int
         }
 

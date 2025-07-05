@@ -39,11 +39,11 @@ class SimpleDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         return {
-            'inputs': {'data': self.data[idx]}, 
+            'inputs': {'data': self.data[idx]},
             'labels': {'target': self.labels[idx]},
             'meta_info': {'idx': idx}
         }
-    
+
     def set_base_seed(self, seed):
         """Set the base seed for the dataset."""
         if not isinstance(seed, int):

@@ -69,7 +69,7 @@ class BaseTrainer(ABC):
     def _init_logger(self) -> None:
         # check dependencies
         assert hasattr(self, 'work_dir') and self.work_dir is not None, "work_dir="
-        
+
         session_idx: int = len(glob.glob(os.path.join(self.work_dir, "train_val*.log")))
         # git log
         git_log = os.path.join(self.work_dir, f"git_{session_idx}.log")
@@ -102,7 +102,7 @@ class BaseTrainer(ABC):
         # check dependencies
         for name in ['logger', 'tot_epochs']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
-        
+
         self.logger.info("Initializing determinism...")
         set_determinism()
 
@@ -143,15 +143,15 @@ class BaseTrainer(ABC):
         # check dependencies
         for name in ['metric', 'logger']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
-            
+
         self.logger.info("Initializing early stopping...")
-            
+
         early_stopping_config = self.config.get('early_stopping', None)
         if early_stopping_config is None:
             # Early stopping disabled if not configured
             self.early_stopping = None
             return
-            
+
         # Use build_from_config pattern with additional kwargs
         self.early_stopping = build_from_config(
             config=early_stopping_config,
@@ -161,48 +161,48 @@ class BaseTrainer(ABC):
             expected_files=self.expected_files,
             logger=self.logger
         )
-        
+
         # Update with any existing scores
         self.early_stopping.update()
 
     def _init_state(self) -> None:
         # check dependencies
         assert hasattr(self, 'logger') and self.logger is not None, "logger="
-        
+
         self.logger.info("Initializing state...")
         # Get self.cum_epochs
         if self.work_dir is None:
             self.cum_epochs = 0
             return
-        
+
         # determine where to resume from
         load_idx: Optional[int] = None
-        
+
         for idx in range(self.tot_epochs):
             epoch_dir = os.path.join(self.work_dir, f"epoch_{idx}")
-            
+
             if not check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=self.expected_files,
             ):
                 break
-                
+
             if os.path.isfile(os.path.join(epoch_dir, "checkpoint.pt")):
                 load_idx = idx
-        
+
         # resume state
         if load_idx is None:
             self.logger.info("Training from scratch.")
             self.cum_epochs = 0
             return
-            
+
         # Resume from next epoch after last checkpoint
         self.cum_epochs = load_idx + 1
 
     def _init_dataloaders(self) -> None:
         # check dependencies
         assert hasattr(self, 'logger') and self.logger is not None, "logger="
-        
+
         self.logger.info("Initializing dataloaders...")
         # initialize training dataloader
         if self.config.get('train_dataset', None) and self.config.get('train_dataloader', None):
@@ -237,7 +237,7 @@ class BaseTrainer(ABC):
         # check dependencies
         for name in ['logger', 'device']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
-        
+
         self.logger.info("Initializing criterion...")
         if self.config.get('criterion', None):
             criterion = build_from_config(self.config['criterion'])
@@ -250,7 +250,7 @@ class BaseTrainer(ABC):
     def _init_metric(self) -> None:
         # check dependencies
         assert hasattr(self, 'logger') and self.logger is not None, "logger="
-        
+
         self.logger.info("Initializing metric...")
         if self.config.get('metric', None):
             self.metric = build_from_config(self.config['metric'])
@@ -261,7 +261,7 @@ class BaseTrainer(ABC):
         # check dependencies
         for name in ['logger', 'device']:
             assert hasattr(self, name) and getattr(self, name) is not None, f"{name=}"
-        
+
         self.logger.info("Initializing model...")
         if self.config.get('model', None):
             model = build_from_config(self.config['model'])
@@ -571,31 +571,31 @@ class BaseTrainer(ABC):
         # Get metric directions and order configuration
         metric_directions = get_metric_directions(self.metric)
         order_config = self.config.get('order', False)  # Default to False (vector comparison)
-        
+
         # Find best checkpoint by going through completed epochs
         best_epoch_dir = None
         best_scores = None
-        
+
         epoch_idx = 0
         while epoch_idx < self.tot_epochs:
             epoch_dir = os.path.join(self.work_dir, f"epoch_{epoch_idx}")
-            
+
             # Check if epoch is completed
             if not check_epoch_finished(
                 epoch_dir=epoch_dir,
                 expected_files=self.expected_files
             ):
                 break
-                
+
             # Load validation scores (check_epoch_finished already verified file exists)
             scores_path = os.path.join(epoch_dir, "validation_scores.json")
             with open(scores_path, mode='r') as f:
                 validation_scores = json.load(f)
-            
+
             # Extract aggregated scores for comparison
             current_scores = validation_scores.get('aggregated', {})
             assert current_scores, f"Missing 'aggregated' scores in {scores_path} - this should not happen"
-                
+
             # Compare with current best
             if best_scores is None:
                 # First valid epoch
@@ -609,16 +609,16 @@ class BaseTrainer(ABC):
                     order_config=order_config,
                     metric_directions=metric_directions
                 )
-                
+
                 if is_better:
                     best_epoch_dir = epoch_dir
                     best_scores = current_scores
-                    
+
             epoch_idx += 1
-        
+
         if best_epoch_dir is None:
             raise ValueError("No validation scores found for checkpoint selection")
-        
+
         # Return the best checkpoint path
         best_checkpoint = os.path.join(best_epoch_dir, "checkpoint.pt")
         assert os.path.isfile(best_checkpoint), f"{best_checkpoint=}"
@@ -745,12 +745,12 @@ class BaseTrainer(ABC):
             if self.early_stopping and self.early_stopping.should_stop():
                 self.logger.info(f"Training stopped early at epoch {idx}")
                 break
-                
+
             set_seed(seed=self.train_seeds[idx])
             self._train_epoch_()
             self._val_epoch_()
             self.cum_epochs = idx + 1
-            
+
             self.logger.page_break()
 
         # Wait for any remaining after-loop operations to complete before testing
