@@ -12,7 +12,7 @@ app.layout = html.Div([
     html.H1("WebGL 3D Cube with Yaw/Pitch Rotation"),
     html.Canvas(id='canvas', width=400, height=400, style={'border': '1px solid black'}),
     html.Div(id='output'),
-    html.P("Left drag: Rotate • Right drag: Pan • No roll behavior")
+    html.P("Left drag: Rotate • Right drag: Pan • Scroll: Forward/Backward")
 ])
 
 clientside_callback(
@@ -25,12 +25,13 @@ clientside_callback(
             return 'WebGL not supported';
         }
         
-        // Vertex shader with rotation matrix and translation
+        // Vertex shader with rotation, translation, and depth
         const vertexShaderSource = `
             attribute vec3 aPosition;
             attribute vec3 aColor;
             uniform mat3 uRotationMatrix;
             uniform vec2 uTranslation;
+            uniform float uDepth;
             varying vec3 vColor;
             void main() {
                 // Apply rotation matrix
@@ -40,8 +41,8 @@ clientside_callback(
                 rotated.x += uTranslation.x;
                 rotated.y += uTranslation.y;
                 
-                // Simple 3D to 2D projection
-                float z = rotated.z + 3.0;
+                // Simple 3D to 2D projection with adjustable depth
+                float z = rotated.z + uDepth;
                 gl_Position = vec4(rotated.x / z, rotated.y / z, 0.0, 1.0);
                 gl_PointSize = 8.0;
                 vColor = aColor;
@@ -136,14 +137,16 @@ clientside_callback(
         const colorLocation = gl.getAttribLocation(program, 'aColor');
         const rotationMatrixLocation = gl.getUniformLocation(program, 'uRotationMatrix');
         const translationLocation = gl.getUniformLocation(program, 'uTranslation');
+        const depthLocation = gl.getUniformLocation(program, 'uDepth');
         
-        // Rotation and translation state
+        // Rotation, translation, and depth state
         let rotationMatrix = [
             1, 0, 0,
             0, 1, 0,
             0, 0, 1
         ];
         let translation = [0, 0];  // Screen space translation [x, y]
+        let depth = 3.0;  // Camera distance (3.0 = default)
         
         let mouseState = {
             isLeftDragging: false,
@@ -246,6 +249,26 @@ clientside_callback(
             e.preventDefault();
         });
         
+        // Mouse wheel for forward/backward movement
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            
+            const sensitivity = 0.1;
+            
+            // Scroll up = move forward (decrease depth)
+            // Scroll down = move backward (increase depth)
+            if (e.deltaY > 0) {
+                depth += sensitivity;  // Move backward
+            } else {
+                depth -= sensitivity;  // Move forward
+            }
+            
+            // Clamp depth to reasonable limits
+            depth = Math.max(0.5, Math.min(10.0, depth));
+            
+            drawScene();
+        });
+        
         function drawScene() {
             // Set up attributes
             gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -261,9 +284,10 @@ clientside_callback(
             gl.clear(gl.COLOR_BUFFER_BIT);
             gl.useProgram(program);
             
-            // Set rotation matrix and translation uniforms
+            // Set rotation matrix, translation, and depth uniforms
             gl.uniformMatrix3fv(rotationMatrixLocation, false, rotationMatrix);
             gl.uniform2f(translationLocation, translation[0], translation[1]);
+            gl.uniform1f(depthLocation, depth);
             
             gl.drawArrays(gl.POINTS, 0, pointCount);
         }
