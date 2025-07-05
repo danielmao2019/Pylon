@@ -46,6 +46,5 @@ dataset_cfg = {
                 ],
             },
         },
-        'device': device,
     },
 }
