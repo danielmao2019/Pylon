@@ -126,8 +126,8 @@ def create_correspondence_visualization(
 ) -> html.Div:
     """Create a visualization of correspondences between transformed source and target point clouds.
     
-    Note: This is a simplified WebGL version that shows both point clouds with different colors.
-    The correspondence lines cannot be easily rendered in WebGL without additional complexity.
+    Note: This shows both point clouds with different colors.
+    The correspondence lines cannot be easily rendered without additional complexity.
 
     Args:
         src_points: Transformed source point cloud [N, 3] or [1, N, 3]
@@ -138,7 +138,7 @@ def create_correspondence_visualization(
         camera_state: Optional dictionary containing camera position state
 
     Returns:
-        WebGL component showing both point clouds (correspondence lines not implemented)
+        Component showing both point clouds (correspondence lines not implemented)
     """
     # Normalize points to unbatched format
     src_points_normalized = _normalize_points(src_points)
@@ -157,8 +157,8 @@ def create_correspondence_visualization(
     tgt_colors[:, 0] = 1.0  # Red for target
     combined_colors = torch.cat([src_colors, tgt_colors], dim=0)
 
-    # Create WebGL component with both point clouds
-    # TODO: Add correspondence lines rendering in WebGL (requires additional geometry)
+    # Create component with both point clouds
+    # TODO: Add correspondence lines rendering (requires additional geometry)
     return create_point_cloud_figure(
         points=combined_points,
         colors=combined_colors,
@@ -190,13 +190,8 @@ def display_pcr_datapoint_single(
     Returns:
         html.Div containing the visualization
     """
-    print(f"=== DISPLAY_PCR_DATAPOINT_SINGLE CALLED ===")
-    
     # Check if the inputs have the expected structure
     inputs = datapoint['inputs']
-    print(f"=== CHECKING INPUT STRUCTURE ===")
-    print(f"Has src_pc: {'src_pc' in inputs}")
-    print(f"Has tgt_pc: {'tgt_pc' in inputs}")
     
     assert 'src_pc' in inputs and 'tgt_pc' in inputs, "Source point cloud (src_pc) and target point cloud (tgt_pc) must be present in the inputs"
     assert isinstance(inputs['src_pc'], dict) and isinstance(inputs['tgt_pc'], dict), "Point clouds must be dictionaries"
@@ -205,30 +200,18 @@ def display_pcr_datapoint_single(
     # Extract point clouds
     src_pc = inputs['src_pc']['pos']  # Source point cloud
     tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
-    
-    print(f"=== POINT CLOUDS EXTRACTED ===")
-    print(f"Source PC shape: {src_pc.shape}")
-    print(f"Target PC shape: {tgt_pc.shape}")
 
     # Extract RGB colors if available
     src_rgb = inputs['src_pc'].get('rgb')
     tgt_rgb = inputs['tgt_pc'].get('rgb')
-    
-    print(f"Source RGB: {src_rgb.shape if src_rgb is not None else 'None'}")
-    print(f"Target RGB: {tgt_rgb.shape if tgt_rgb is not None else 'None'}")
 
     # Extract transform if available
     transform = datapoint['labels'].get('transform')
     if transform is None:
         transform = torch.eye(4)  # Default to identity transform if not provided
-        
-    print(f"=== TRANSFORM: {transform.shape if transform is not None else 'None'} ===")
 
     # Apply transform to source point cloud
     src_pc_transformed = apply_transform(src_pc, transform)
-    print(f"=== TRANSFORMED SOURCE PC SHAPE: {src_pc_transformed.shape} ===")
-
-    print(f"=== ABOUT TO CREATE POINT CLOUD FIGURES ===")
 
     # Create the point cloud views in parallel for better performance
     def create_source_figure():
@@ -539,16 +522,10 @@ def display_pcr_datapoint(
     Returns:
         html.Div containing the visualization
     """
-    print(f"=== DISPLAY_PCR_DATAPOINT CALLED ===")
-    print(f"Datapoint type: {type(datapoint)}")
-    print(f"Datapoint keys: {list(datapoint.keys()) if isinstance(datapoint, dict) else 'Not a dict'}")
-    
     inputs = datapoint['inputs']
-    print(f"=== PCR INPUTS KEYS: {list(inputs.keys())} ===")
 
     # Check if we have hierarchical data (from collators)
     if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
-        print(f"=== USING BATCHED PCR DISPLAY ===")
         return display_pcr_datapoint_batched(
             datapoint,
             point_size=point_size,
@@ -558,7 +535,6 @@ def display_pcr_datapoint(
             corr_radius=corr_radius,
         )
     else:
-        print(f"=== USING SINGLE PCR DISPLAY ===")
         return display_pcr_datapoint_single(
             datapoint,
             point_size=point_size,
