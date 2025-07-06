@@ -16,7 +16,8 @@ THREE_D_DATASET_TYPES = ['3dcd', 'pcr']
         Input('point-size-slider', 'value'),
         Input('point-opacity-slider', 'value'),
         Input('radius-slider', 'value'),
-        Input('correspondence-radius-slider', 'value')
+        Input('correspondence-radius-slider', 'value'),
+        Input('lod-enabled-checkbox', 'value')
     ],
     group="3d_settings"
 )
@@ -24,18 +25,23 @@ def update_3d_settings(
     point_size: float,
     point_opacity: float,
     radius: float,
-    correspondence_radius: float
+    correspondence_radius: float,
+    lod_enabled: bool
 ) -> List[Dict[str, Union[str, int, float, bool]]]:
     """Update 3D settings store when slider values change."""
     if point_size is None or point_opacity is None:
         raise PreventUpdate
+
+    # LOD is enabled if checkbox is checked
+    lod_is_enabled = bool(lod_enabled)
 
     # Update backend state with new 3D settings
     registry.viewer.backend.update_state(
         point_size=point_size,
         point_opacity=point_opacity,
         radius=radius or 0.05,
-        correspondence_radius=correspondence_radius or 0.1
+        correspondence_radius=correspondence_radius or 0.1,
+        lod_enabled=lod_is_enabled
     )
 
     # Store all 3D settings in the store
@@ -43,7 +49,8 @@ def update_3d_settings(
         'point_size': point_size,
         'point_opacity': point_opacity,
         'radius': radius or 0.05,  # Default radius
-        'correspondence_radius': correspondence_radius or 0.1  # Default correspondence radius
+        'correspondence_radius': correspondence_radius or 0.1,  # Default correspondence radius
+        'lod_enabled': lod_is_enabled
     }
 
     return [settings]

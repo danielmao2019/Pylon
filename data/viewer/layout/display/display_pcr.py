@@ -19,6 +19,7 @@ def create_union_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
+    lod_enabled: bool = True,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -28,6 +29,7 @@ def create_union_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
+        lod_enabled: Whether LOD optimization is enabled
 
     Returns:
         Plotly figure showing the union visualization
@@ -53,6 +55,8 @@ def create_union_visualization(
         point_size=point_size,
         point_opacity=point_opacity,
         camera_state=camera_state,
+        lod_enabled=lod_enabled,
+        point_cloud_id="union_visualization",
     )
 
 

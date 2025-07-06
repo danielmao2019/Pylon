@@ -2,7 +2,7 @@
 from dash import dcc, html
 
 
-def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_radius=0.05, corr_radius=0.1):
+def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_radius=0.05, corr_radius=0.1, lod_enabled=True):
     """
     Create 3D visualization controls.
 
@@ -12,6 +12,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
         point_opacity: Initial point opacity
         sym_diff_radius: Initial radius for symmetric difference computation
         corr_radius: Initial radius for correspondence visualization
+        lod_enabled: Whether LOD optimization is initially enabled
 
     Returns:
         html.Div containing 3D controls
@@ -21,7 +22,18 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
     return html.Div([
         html.H3("3D View Controls", style={'margin-top': '0'}),
 
-        # Camera controls (moved to top)
+        # LOD Controls
+        html.Div([
+            dcc.Checkbox(
+                id='lod-enabled-checkbox',
+                children=' Enable Level of Detail (LOD) optimization',
+                value=lod_enabled,
+                style={'margin-bottom': '10px'}
+            ),
+            html.Div(id='lod-info-display', style={'font-size': '12px', 'color': '#666', 'margin-bottom': '15px'})
+        ]),
+
+        # Camera controls
         html.Button(
             'Reset Camera View',
             id='reset-camera-button',

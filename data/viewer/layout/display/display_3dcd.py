@@ -11,7 +11,8 @@ def display_3dcd_datapoint(
     point_size: float = 2,
     point_opacity: float = 0.8,
     class_names: Optional[Dict[int, str]] = None,
-    camera_state: Optional[Dict[str, Any]] = None
+    camera_state: Optional[Dict[str, Any]] = None,
+    lod_enabled: bool = True
 ) -> html.Div:
     """Display a 3D point cloud datapoint with all relevant information.
 
@@ -21,6 +22,7 @@ def display_3dcd_datapoint(
         point_opacity: Opacity of points in visualization
         class_names: Optional dictionary mapping class indices to names
         camera_state: Optional dictionary containing camera position state
+        lod_enabled: Whether LOD optimization is enabled
 
     Returns:
         html.Div containing the visualization
@@ -51,7 +53,7 @@ def display_3dcd_datapoint(
     titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
 
     # Create figures in parallel for better performance
-    def create_figure(points, labels, title):
+    def create_figure(points, labels, title, pc_id):
         return create_point_cloud_figure(
             points=points,
             labels=labels,
@@ -59,12 +61,14 @@ def display_3dcd_datapoint(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
+            lod_enabled=lod_enabled,
+            point_cloud_id=pc_id,
         )
 
-    # Prepare figure creation tasks
+    # Prepare figure creation tasks with unique IDs
     figure_tasks = [
-        (points, labels, title) 
-        for points, labels, title in zip(points_list, labels_list, titles)
+        (points, labels, title, f"3dcd_{idx}") 
+        for idx, (points, labels, title) in enumerate(zip(points_list, labels_list, titles))
     ]
 
     figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
@@ -72,8 +76,8 @@ def display_3dcd_datapoint(
     with ThreadPoolExecutor(max_workers=3) as executor:
         # Submit all tasks
         future_to_index = {
-            executor.submit(create_figure, points, labels, title): idx 
-            for idx, (points, labels, title) in enumerate(figure_tasks)
+            executor.submit(create_figure, points, labels, title, pc_id): idx 
+            for idx, (points, labels, title, pc_id) in enumerate(figure_tasks)
         }
         
         # Collect results in order
