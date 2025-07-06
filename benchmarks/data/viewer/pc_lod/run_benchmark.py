@@ -14,6 +14,8 @@ def main():
                        help="Benchmark mode: 'synthetic' (all synthetic tests) or 'real' (real dataset tests)")
     parser.add_argument("--data-root", type=str, default=None,
                        help="Path to dataset root directory (required for real mode)")
+    parser.add_argument("--num-configs", type=int, default=None,
+                       help="Number of configurations to test (for quick testing)")
     
     args = parser.parse_args()
     
@@ -31,7 +33,7 @@ def main():
         quick_results = synthetic_orchestrator.run_quick_benchmark()
         
         print("\n📊 Running comprehensive benchmark...")
-        comprehensive_results = synthetic_orchestrator.run_comprehensive_benchmark()
+        comprehensive_results = synthetic_orchestrator.run_comprehensive_benchmark(args.num_configs)
         
         # Generate reports
         print("\n📊 Generating synthetic benchmark reports...")

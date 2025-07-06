@@ -22,14 +22,14 @@ class SyntheticBenchmarkOrchestrator:
         self.camera_pose_sampler = CameraPoseSampler()
         self.benchmark_runner = LODBenchmarkRunner()
     
-    def run_comprehensive_benchmark(self) -> Dict[str, List[BenchmarkStats]]:
+    def run_comprehensive_benchmark(self, num_configs: int = None) -> Dict[str, List[BenchmarkStats]]:
         """Run comprehensive synthetic benchmark across all configurations."""
         print("📊 Running comprehensive synthetic benchmark...")
         
         # Group results by configuration category
         results_by_category = {}
         
-        for sample in self.point_cloud_streamer.stream_point_clouds():
+        for sample in self.point_cloud_streamer.stream_point_clouds(num_configs):
             print(f"  🔍 Testing {sample.name}...")
             
             # Generate camera poses (use far distance for comprehensive test)
