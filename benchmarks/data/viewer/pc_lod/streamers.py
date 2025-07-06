@@ -166,7 +166,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
             data_root=self.data_root,
             split='train',
             patched=False,
-            deterministic_seed=self.seed
+            radius=20  # Required when patched=False
         )
         
         total_samples = min(len(dataset), num_samples * 5)
@@ -197,8 +197,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         dataset = SLPCCDDataset(
             data_root=self.data_root,
             split='train',
-            use_hierarchy=False,
-            deterministic_seed=self.seed
+            use_hierarchy=False
         )
         
         total_samples = min(len(dataset), num_samples * 5)
@@ -236,8 +235,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         """Load samples from KITTI dataset."""
         dataset = KITTIDataset(
             data_root=self.data_root,
-            split='train',
-            deterministic_seed=self.seed
+            split='train'
         )
         
         total_samples = min(len(dataset), num_samples * 5)
