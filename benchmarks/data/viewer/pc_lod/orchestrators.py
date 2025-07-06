@@ -22,36 +22,38 @@ class SyntheticBenchmarkOrchestrator:
         self.camera_pose_sampler = CameraPoseSampler()
         self.benchmark_runner = LODBenchmarkRunner()
     
-    def run_comprehensive_benchmark(self, num_configs: int = None) -> Dict[str, List[BenchmarkStats]]:
+    def run_comprehensive_benchmark(self, num_configs: int = None) -> Dict[str, Dict[str, List[BenchmarkStats]]]:
         """Run comprehensive synthetic benchmark across all configurations."""
         print("📊 Running comprehensive synthetic benchmark...")
         
-        # Group results by configuration category
-        results_by_category = {}
+        # Group results by dataset and distance group
+        results_by_dataset = {}
         
         for sample in self.point_cloud_streamer.stream_point_clouds(num_configs):
             print(f"  🔍 Testing {sample.name}...")
             
-            # Generate camera poses (use far distance for comprehensive test)
+            # Generate camera poses for all distance groups (1 pose per distance for speed)
             camera_poses = self.camera_pose_sampler.generate_poses_for_point_cloud(sample.points, num_poses_per_distance=1)
-            far_poses = [pose for pose in camera_poses if pose.distance_group == 'far']
             
-            if far_poses:
-                # Use the first far pose for comprehensive benchmark
-                camera_pose = far_poses[0]
-                
-                # Run benchmark
+            dataset_name = sample.metadata['dataset']  # e.g., 'small', 'medium', 'large', 'xlarge'
+            
+            if dataset_name not in results_by_dataset:
+                results_by_dataset[dataset_name] = {'close': [], 'medium': [], 'far': []}
+            
+            # Run benchmark for each camera pose
+            for camera_pose in camera_poses:
                 stats = self.benchmark_runner.benchmark_single_pose(sample, camera_pose)
+                results_by_dataset[dataset_name][camera_pose.distance_group].append(stats)
                 
-                # Group by category
-                category = sample.metadata['category']
-                if category not in results_by_category:
-                    results_by_category[category] = []
-                results_by_category[category].append(stats)
-                
-                print(f"    📈 {stats.speedup_ratio:.2f}x speedup, {stats.point_reduction_pct:.1f}% reduction")
+            # Print summary for this sample (use far pose for feedback)
+            far_poses = [pose for pose in camera_poses if pose.distance_group == 'far']
+            if far_poses:
+                far_stats = results_by_dataset[dataset_name]['far'][-len(far_poses):]  # Latest far results
+                avg_speedup = np.mean([s.speedup_ratio for s in far_stats])
+                avg_reduction = np.mean([s.point_reduction_pct for s in far_stats])
+                print(f"    📈 {avg_speedup:.2f}x speedup, {avg_reduction:.1f}% reduction")
         
-        return results_by_category
+        return results_by_dataset
     
     def run_quick_benchmark(self) -> List[BenchmarkStats]:
         """Run quick synthetic benchmark on selected configurations."""
@@ -107,12 +109,11 @@ class RealDataBenchmarkOrchestrator:
         self.camera_pose_sampler = CameraPoseSampler()
         self.benchmark_runner = LODBenchmarkRunner()
     
-    def run_real_data_benchmark(self, data_root: str, num_samples: int = 10, 
+    def run_real_data_benchmark(self, num_samples: int = 10, 
                                num_poses_per_distance: int = 3) -> Dict[str, Dict[str, List[BenchmarkStats]]]:
         """Run LOD benchmark on real datasets.
         
         Args:
-            data_root: Path to dataset root directory
             num_samples: Number of datapoints to sample from each dataset
             num_poses_per_distance: Number of camera poses per distance group
             
@@ -122,7 +123,7 @@ class RealDataBenchmarkOrchestrator:
         print("🏗️ Running real data benchmark...")
         
         # Initialize real data streamer
-        real_data_streamer = RealDataPointCloudStreamer(data_root)
+        real_data_streamer = RealDataPointCloudStreamer()
         
         # Group results by dataset and distance group
         all_results = {}

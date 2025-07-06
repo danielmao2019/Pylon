@@ -73,49 +73,29 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
         """Create various test configurations for synthetic point clouds."""
         configs = []
         
-        # Point count variations
-        for num_points in [10000, 25000, 50000, 100000, 200000]:
-            configs.append({
-                'num_points': num_points,
-                'spatial_size': 10.0,
-                'shape': 'sphere',
-                'density_factor': 1.0,
-                'name': f'{num_points//1000}K_points',
-                'category': 'point_count'
-            })
+        # Define point count groups (datasets)
+        point_count_groups = {
+            'small': [10000, 15000, 20000, 25000],
+            'medium': [30000, 35000, 40000, 45000, 50000],
+            'large': [75000, 100000, 125000, 150000],
+            'xlarge': [175000, 200000, 225000, 250000]
+        }
         
-        # Spatial size variations
-        for size in [1.0, 5.0, 10.0, 20.0, 50.0]:
-            configs.append({
-                'num_points': 50000,
-                'spatial_size': size,
-                'shape': 'cube',
-                'density_factor': 1.0,
-                'name': f'size_{size}',
-                'category': 'spatial_size'
-            })
+        # Generate configurations for each point count group
+        shapes = ['sphere', 'cube', 'gaussian', 'plane']
         
-        # Shape variations
-        for shape in ['sphere', 'cube', 'gaussian', 'plane']:
-            configs.append({
-                'num_points': 50000,
-                'spatial_size': 10.0,
-                'shape': shape,
-                'density_factor': 1.0,
-                'name': shape,
-                'category': 'shape'
-            })
-        
-        # Density variations
-        for density in [0.5, 1.0, 1.5, 2.0]:
-            configs.append({
-                'num_points': 50000,
-                'spatial_size': 10.0,
-                'shape': 'gaussian',
-                'density_factor': density,
-                'name': f'density_{density}',
-                'category': 'density'
-            })
+        for group_name, point_counts in point_count_groups.items():
+            for num_points in point_counts:
+                for shape in shapes:
+                    configs.append({
+                        'num_points': num_points,
+                        'spatial_size': 10.0,
+                        'shape': shape,
+                        'density_factor': 1.0,
+                        'name': f'{group_name}_{num_points//1000}K_{shape}',
+                        'category': group_name,
+                        'dataset': group_name  # This is our "dataset" for synthetic data
+                    })
         
         return configs
     
@@ -153,8 +133,13 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
 class RealDataPointCloudStreamer(PointCloudStreamer):
     """Streams point clouds from real datasets."""
     
-    def __init__(self, data_root: str, seed: int = 42):
-        self.data_root = data_root
+    def __init__(self, seed: int = 42):
+        # Hard-coded data roots from config files
+        self.data_roots = {
+            'urb3dcd': './data/datasets/soft_links/Urb3DCD',
+            'slpccd': './data/datasets/soft_links/SLPCCD', 
+            'kitti': './data/datasets/soft_links/KITTI'
+        }
         self.seed = seed
         random.seed(seed)
         np.random.seed(seed)
@@ -163,7 +148,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
     def _load_urb3dcd_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from URB3DCD dataset."""
         dataset = Urb3DCDDataset(
-            data_root=self.data_root,
+            data_root=self.data_roots['urb3dcd'],
             split='train',
             patched=False,
             radius=20  # Required when patched=False
@@ -195,7 +180,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
     def _load_slpccd_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from SLPCCD dataset."""
         dataset = SLPCCDDataset(
-            data_root=self.data_root,
+            data_root=self.data_roots['slpccd'],
             split='train',
             use_hierarchy=False
         )
@@ -234,7 +219,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
     def _load_kitti_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from KITTI dataset."""
         dataset = KITTIDataset(
-            data_root=self.data_root,
+            data_root=self.data_roots['kitti'],
             split='train'
         )
         
