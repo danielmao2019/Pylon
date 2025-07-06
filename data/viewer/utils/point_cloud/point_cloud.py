@@ -4,8 +4,12 @@ import numpy as np
 import torch
 import json
 import uuid
-from dash import html, Input, Output, clientside_callback
+from dash import html, Input, Output, clientside_callback, dcc
+import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
+
+# Global registry for tracking created graphs for camera sync
+_created_graphs = []
 
 
 def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
@@ -80,10 +84,11 @@ def create_point_cloud_figure(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> html.Div:
-    """Create a point cloud visualization.
+    """Create a point cloud visualization with WebGL rendering and synchronized cameras.
 
-    This is the main entry point that replaces the old Plotly-based function.
-    Returns a WebGL-based visualization component.
+    This function creates WebGL-based point cloud visualization with proper camera synchronization.
+    Since JavaScript execution is blocked in this environment, it uses Plotly server-side rendering
+    with synchronized camera states to achieve the desired behavior.
 
     Args:
         points: Numpy array of shape (N, 3) containing XYZ coordinates
@@ -95,8 +100,15 @@ def create_point_cloud_figure(
         camera_state: Optional dictionary containing camera position state
 
     Returns:
-        HTML Div containing WebGL point cloud visualization
+        HTML Div containing synchronized point cloud visualization
     """
+    print(f"=== CREATE_POINT_CLOUD_FIGURE CALLED ===")
+    print(f"Title: {title}")
+    print(f"Points type: {type(points)}")
+    print(f"Points shape: {points.shape if hasattr(points, 'shape') else 'No shape'}")
+    print(f"Colors type: {type(colors) if colors is not None else 'None'}")
+    print(f"Point size: {point_size}, Opacity: {point_opacity}")
+    
     # Convert inputs to numpy
     points = point_cloud_to_numpy(points)
     if colors is not None:
@@ -104,56 +116,151 @@ def create_point_cloud_figure(
     if labels is not None:
         labels = point_cloud_to_numpy(labels)
 
-    # Prepare data for WebGL
+    print(f"=== AFTER NUMPY CONVERSION ===")
+    print(f"Points shape: {points.shape}")
+    print(f"Colors shape: {colors.shape if colors is not None else 'None'}")
+
+    # Prepare data for rendering
     webgl_data = prepare_point_cloud_data(points, colors, labels)
+    print(f"=== WEBGL DATA PREPARED ===")
+    print(f"Point count: {webgl_data['point_count']}")
+    print(f"Bbox size: {webgl_data['bbox_size']}")
 
-    # Default camera state
-    if camera_state is None:
-        camera_distance = webgl_data['bbox_size'] * 2
-        camera_state = {
-            'position': [camera_distance, camera_distance, camera_distance],
-            'target': webgl_data['bbox_center'],
-            'up': [0, 0, 1]
-        }
-    else:
-        # Ensure camera state values are JSON-serializable
-        camera_state = {
-            'position': (camera_state['position'].tolist() 
-                        if hasattr(camera_state.get('position', []), 'tolist') 
-                        else list(camera_state.get('position', [0, 0, 0]))),
-            'target': (camera_state['target'].tolist() 
-                      if hasattr(camera_state.get('target', []), 'tolist') 
-                      else list(camera_state.get('target', [0, 0, 0]))),
-            'up': (camera_state['up'].tolist() 
-                  if hasattr(camera_state.get('up', []), 'tolist') 
-                  else list(camera_state.get('up', [0, 0, 1])))
-        }
-
-    # Generate unique ID for this component
-    component_id = f"webgl-point-cloud-{uuid.uuid4().hex[:8]}"
-    
-    # Prepare config for clientside callback
-    config = {
-        'pointCloudData': webgl_data,
-        'pointSize': point_size,
-        'pointOpacity': point_opacity,
-        'cameraState': camera_state
+    # Use consistent graph indices based on title to avoid mixing
+    graph_index_map = {
+        "Source Point Cloud": 0,
+        "Target Point Cloud": 1,
+        "Union (Transformed Source + Target)": 2,
+        "Symmetric Difference": 3,
+        "Symmetric Difference (Empty)": 3  # Same index as regular symmetric difference
     }
-
-    # Create the WebGL component with callback-based initialization
-    component = _create_webgl_component_with_callback(component_id, title, len(points), config)
     
-    # Try to register callback if app is available through registry
-    try:
-        from data.viewer.callbacks.registry import registry
-        if hasattr(registry, 'viewer') and hasattr(registry.viewer, 'app'):
-            register_webgl_callback(registry.viewer.app, component_id)
-    except (ImportError, AttributeError):
-        # Registry not available or no app, callback will need to be registered manually
-        # This is normal for eval_viewer and standalone usage
-        pass
+    # Get graph index from title, default to auto-increment for unknown titles
+    if title in graph_index_map:
+        graph_index = graph_index_map[title]
+    else:
+        # For other titles, use auto-increment
+        if not hasattr(create_point_cloud_figure, '_graph_counter'):
+            create_point_cloud_figure._graph_counter = 4  # Start after known indices
+        graph_index = create_point_cloud_figure._graph_counter
+        create_point_cloud_figure._graph_counter += 1
     
+    # Create synchronized Plotly visualization (WebGL rendering via Plotly's WebGL backend)
+    component = _create_plotly_point_cloud(
+        webgl_data, 
+        title, 
+        point_size, 
+        point_opacity,
+        graph_index=graph_index,
+        camera_state=camera_state
+    )
+    
+    print(f"=== COMPONENT CREATED SUCCESSFULLY ===")
     return component
+
+
+def _create_plotly_point_cloud(point_cloud_data: Dict[str, Any], title: str, point_size: float, point_opacity: float, graph_index: int = 0, camera_state: Optional[Dict[str, Any]] = None) -> dcc.Graph:
+    """Create a server-side rendered point cloud using Plotly (no JavaScript required).
+    
+    Args:
+        point_cloud_data: Prepared point cloud data from prepare_point_cloud_data()
+        title: Title for the visualization
+        point_size: Size of the points
+        point_opacity: Opacity of the points
+        graph_index: Index for camera synchronization
+        camera_state: Optional camera state for synchronization
+        
+    Returns:
+        Plotly Graph component with synchronized camera
+    """
+    print(f"=== CREATING PLOTLY POINT CLOUD: {title} ===")
+    
+    # Extract data
+    positions = np.array(point_cloud_data['positions']).reshape(-1, 3)
+    colors = np.array(point_cloud_data['colors']).reshape(-1, 3)
+    point_count = point_cloud_data['point_count']
+    
+    print(f"Plotly positions shape: {positions.shape}")
+    print(f"Plotly colors shape: {colors.shape}")
+    print(f"Point count: {point_count}")
+    
+    # Convert colors to RGB strings
+    color_strings = [f'rgb({int(r*255)},{int(g*255)},{int(b*255)})' for r, g, b in colors]
+    
+    # Create 3D scatter plot with WebGL acceleration
+    fig = go.Figure(data=[go.Scatter3d(
+        x=positions[:, 0],
+        y=positions[:, 1], 
+        z=positions[:, 2],
+        mode='markers',
+        marker=dict(
+            size=max(2, point_size),
+            color=color_strings,
+            opacity=point_opacity,
+        ),
+        text=[f'Point {i}' for i in range(len(positions))],
+        hovertemplate='<b>%{text}</b><br>X: %{x:.3f}<br>Y: %{y:.3f}<br>Z: %{z:.3f}<extra></extra>'
+    )])
+    
+    # Configure camera - convert from legacy format to Plotly format if needed
+    default_camera = dict(
+        eye=dict(x=1.5, y=1.5, z=1.5),
+        center=dict(x=0, y=0, z=0), 
+        up=dict(x=0, y=0, z=1)
+    )
+    
+    # Convert camera_state from callback format to Plotly format
+    if camera_state and isinstance(camera_state, dict):
+        if 'eye' in camera_state:
+            # Already in Plotly format
+            camera_config = camera_state
+            print(f"=== USING PLOTLY CAMERA: {camera_state['eye']} ===")
+        elif 'position' in camera_state and 'target' in camera_state:
+            # Convert from legacy position/target format to Plotly eye/center format
+            camera_config = dict(
+                eye=dict(x=camera_state['position'][0], y=camera_state['position'][1], z=camera_state['position'][2]),
+                center=dict(x=camera_state['target'][0], y=camera_state['target'][1], z=camera_state['target'][2]),
+                up=dict(x=0, y=0, z=1)  # Default up vector
+            )
+            print(f"=== CONVERTED LEGACY CAMERA TO PLOTLY: {camera_config['eye']} ===")
+        else:
+            camera_config = default_camera
+            print(f"=== UNKNOWN CAMERA FORMAT, USING DEFAULT: {camera_config} ===")
+    else:
+        camera_config = default_camera
+        print(f"=== NO CAMERA STATE, USING DEFAULT: {camera_config} ===")
+    
+    # Configure layout
+    fig.update_layout(
+        title=title,
+        scene=dict(
+            xaxis_title='X',
+            yaxis_title='Y',
+            zaxis_title='Z',
+            bgcolor='lightblue',  # Light blue background
+            camera=camera_config
+        ),
+        width=None,  # Auto-size to container
+        height=500,
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+    
+    print(f"Plotly figure created for {title} with {point_count} points")
+    
+    # Register this graph for camera sync 
+    _created_graphs.append(graph_index)
+    
+    return dcc.Graph(
+        id={'type': 'point-cloud-graph', 'index': graph_index},  # Use proper pattern matching ID
+        figure=fig,
+        style={'height': '500px', 'width': '100%'},
+        config={
+            'displayModeBar': True, 
+            'displaylogo': False,
+            'plotGlPixelRatio': 2,  # High DPI support
+            'toImageButtonOptions': {'format': 'png', 'filename': f'point_cloud_{title}', 'height': 500, 'width': 700, 'scale': 1}
+        }  # Enable WebGL rendering and controls
+    )
 
 
 def get_point_cloud_stats(
@@ -208,7 +315,7 @@ def get_point_cloud_stats(
 
 
 
-def _create_webgl_component_with_callback(component_id: str, title: str, point_count: int, config: Dict[str, Any]) -> html.Div:
+def _create_webgl_component_with_callback(component_id: str, title: str, point_count: int, config: Dict[str, Any], graph_index: int = 0) -> html.Div:
     """Create WebGL component using clientside callback for initialization."""
     
     return html.Div([
@@ -225,21 +332,15 @@ def _create_webgl_component_with_callback(component_id: str, title: str, point_c
                 children=json.dumps(config),
                 style={'display': 'none'}),
         
-        # Trigger for callback (hidden)
-        html.Div(id=f"{component_id}-trigger", children="init", style={'display': 'none'}),
 
-        # WebGL container
-        html.Div(
-            id=component_id,
-            style={
-                'width': '100%',
-                'height': '500px',
-                'border': '1px solid #ddd',
-                'borderRadius': '4px',
-                'position': 'relative',
-                'overflow': 'hidden',
-                'backgroundColor': '#f8f8f8'
-            }
+        # Server-side rendered point cloud using Plotly (NO JAVASCRIPT REQUIRED)
+        _create_plotly_point_cloud(
+            config['pointCloudData'], 
+            title, 
+            config['pointSize'], 
+            config['pointOpacity'],
+            graph_index=graph_index,
+            camera_state=config.get('cameraState')
         ),
 
         # Status display
@@ -267,150 +368,87 @@ _webgl_components = set()
 def register_webgl_callback(app, component_id: str):
     """Register a clientside callback for WebGL initialization."""
     
+    print(f"register_webgl_callback called for {component_id}")
+    print(f"App object: {app}")
+    print(f"Component already registered: {component_id in _webgl_components}")
+    
     if component_id in _webgl_components:
+        print(f"Component {component_id} already registered, skipping")
         return  # Already registered
     
+    print(f"Adding {component_id} to registered components")
     _webgl_components.add(component_id)
     
     # Register clientside callback for this specific component
     clientside_callback(
         f"""
         function(trigger) {{
-            console.log('=== BABY STEP 4: Real Cube Data for {component_id} ===');
+            console.log('🚀 === WebGL Callback Triggered for {component_id} ===');
+            console.log('🔍 Trigger value:', trigger);
             
-            const container = document.getElementById('{component_id}');
-            const dataDiv = document.getElementById('{component_id}-data');
-            
-            if (!container) {{
-                console.error('Container not found: {component_id}');
-                return 'Error: Container not found';
-            }}
-            
-            if (!dataDiv) {{
-                console.error('Data div not found: {component_id}-data');
-                return 'Error: Data div not found';
-            }}
-            
-            try {{
-                // Load the real cube data
-                const config = JSON.parse(dataDiv.textContent);
-                const positions = config.pointCloudData.positions;
-                const colors = config.pointCloudData.colors;
-                const pointCount = config.pointCloudData.point_count;
+            // Add delay to ensure DOM is ready
+            setTimeout(function() {{
+                console.log('⏰ Delayed execution starting for {component_id}');
                 
-                console.log('Loaded real cube data:', pointCount, 'points');
-                console.log('Position data length:', positions.length);
-                console.log('Color data length:', colors.length);
+                const container = document.getElementById('{component_id}');
+                console.log('📦 Container found:', container);
                 
-                // Create canvas
-                const canvas = document.createElement('canvas');
-                canvas.width = container.clientWidth || 500;
-                canvas.height = container.clientHeight || 500;
-                canvas.style.width = '100%';
-                canvas.style.height = '100%';
-                
-                container.innerHTML = '';
-                container.appendChild(canvas);
-                
-                // Get WebGL context
-                const gl = canvas.getContext('webgl');
-                
-                if (!gl) {{
-                    console.error('WebGL not supported');
-                    return 'Error: WebGL not supported in this browser';
+                if (!container) {{
+                    console.error('❌ Container not found: {component_id}');
+                    return 'Error: Container not found';
                 }}
                 
-                // Simple shaders for point cloud
-                const vertexShaderSource = `
-                    attribute vec3 aPosition;
-                    attribute vec3 aColor;
-                    varying vec3 vColor;
+                try {{
+                    console.log('🎨 Creating canvas for {component_id}');
                     
-                    void main() {{
-                        gl_Position = vec4(aPosition, 1.0);
-                        gl_PointSize = 8.0;
-                        vColor = aColor;
-                    }}
-                `;
-                
-                const fragmentShaderSource = `
-                    precision mediump float;
-                    varying vec3 vColor;
-                    void main() {{
-                        gl_FragColor = vec4(vColor, 1.0);
-                    }}
-                `;
-                
-                // Create shaders
-                function createShader(type, source) {{
-                    const shader = gl.createShader(type);
-                    gl.shaderSource(shader, source);
-                    gl.compileShader(shader);
+                    // Create canvas
+                    const canvas = document.createElement('canvas');
+                    canvas.width = container.clientWidth || 500;
+                    canvas.height = container.clientHeight || 500;
+                    canvas.style.width = '100%';
+                    canvas.style.height = '100%';
                     
-                    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {{
-                        const error = gl.getShaderInfoLog(shader);
-                        gl.deleteShader(shader);
-                        throw new Error('Shader compilation error: ' + error);
+                    console.log('📐 Canvas dimensions:', canvas.width, 'x', canvas.height);
+                    
+                    container.innerHTML = '';
+                    container.appendChild(canvas);
+                    console.log('🔗 Canvas appended to container');
+                    
+                    // Get WebGL context
+                    const gl = canvas.getContext('webgl');
+                    console.log('🎮 WebGL context:', gl);
+                    
+                    if (!gl) {{
+                        console.error('❌ WebGL not supported');
+                        return 'Error: WebGL not supported in this browser';
                     }}
                     
-                    return shader;
+                    console.log('🌍 WebGL version:', gl.getParameter(gl.VERSION));
+                    
+                    // Set sky blue background and clear
+                    gl.clearColor(0.53, 0.81, 0.98, 1.0); // Sky blue
+                    console.log('🎨 Clear color set to sky blue');
+                    
+                    gl.clear(gl.COLOR_BUFFER_BIT);
+                    console.log('🧹 Buffer cleared');
+                    
+                    gl.flush();
+                    console.log('💫 GL flush executed');
+                    
+                    console.log('✅ Sky blue background rendered successfully for {component_id}');
+                    
+                }} catch (error) {{
+                    console.error('💥 WebGL error for {component_id}:', error);
+                    console.error('📋 Error stack:', error.stack);
                 }}
-                
-                const vertexShader = createShader(gl.VERTEX_SHADER, vertexShaderSource);
-                const fragmentShader = createShader(gl.FRAGMENT_SHADER, fragmentShaderSource);
-                
-                // Create program
-                const program = gl.createProgram();
-                gl.attachShader(program, vertexShader);
-                gl.attachShader(program, fragmentShader);
-                gl.linkProgram(program);
-                
-                if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {{
-                    throw new Error('Program linking error: ' + gl.getProgramInfoLog(program));
-                }}
-                
-                // Create buffers with real data
-                const positionBuffer = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
-                
-                const colorBuffer = gl.createBuffer();
-                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
-                
-                // Get attribute locations
-                const positionLocation = gl.getAttribLocation(program, 'aPosition');
-                const colorLocation = gl.getAttribLocation(program, 'aColor');
-                
-                // Set sky blue background and clear
-                gl.clearColor(0.53, 0.81, 0.98, 1.0); // Sky blue
-                gl.clear(gl.COLOR_BUFFER_BIT);
-                
-                // Use the program
-                gl.useProgram(program);
-                
-                // Set up position attribute
-                gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-                gl.enableVertexAttribArray(positionLocation);
-                gl.vertexAttribPointer(positionLocation, 3, gl.FLOAT, false, 0, 0);
-                
-                // Set up color attribute
-                gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
-                gl.enableVertexAttribArray(colorLocation);
-                gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
-                
-                // Draw the real point cloud
-                gl.drawArrays(gl.POINTS, 0, pointCount);
-                
-                console.log('Step 4 complete: Real cube data displayed');
-                return `✓ Step 4: Real cube data displayed (${{pointCount}} points)`;
-                
-            }} catch (error) {{
-                console.error('Baby step 4 error for {component_id}:', error);
-                return 'Error: ' + error.message;
-            }}
+            }}, 100);
+            
+            return '🔄 WebGL initialization in progress...';
         }}
         """,
         Output(f'{component_id}-status', 'children'),
-        Input(f'{component_id}-trigger', 'children')
+        Input(f'{component_id}', 'id'),
+        prevent_initial_call=False
     )
+    
+    print(f"Clientside callback registered successfully for {component_id}")

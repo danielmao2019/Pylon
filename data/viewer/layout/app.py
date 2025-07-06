@@ -57,6 +57,7 @@ def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
 
             # Right main display area
             html.Div([
+                # Main datapoint display - this is where ToyCubeDataset will appear
                 html.Div(id='datapoint-display', style={'padding': '10px'})
             ], style={'width': '75%', 'padding': '20px', 'background-color': '#ffffff', 'border-radius': '5px'})
         ], style={'display': 'flex', 'gap': '20px'})

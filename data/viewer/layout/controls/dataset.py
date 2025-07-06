@@ -17,7 +17,7 @@ def create_dataset_selector(available_datasets: Dict[str, Any]) -> html.Div:
         html.Label("Select Dataset:"),
         dcc.Dropdown(
             id='dataset-dropdown',
-            options=[{'label': name, 'value': name} for name in sorted(available_datasets.keys())],
+            options=[{'label': label, 'value': name} for name, label in sorted(available_datasets.items())],
             value=None,
             style={'width': '100%'}
         )
