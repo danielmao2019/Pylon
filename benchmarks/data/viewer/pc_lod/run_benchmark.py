@@ -3,8 +3,8 @@
 
 import argparse
 
-from orchestrators import SyntheticBenchmarkOrchestrator, RealDataBenchmarkOrchestrator
-from report_generator import ComprehensiveBenchmarkReportGenerator
+from .orchestrators import SyntheticBenchmarkOrchestrator, RealDataBenchmarkOrchestrator
+from .report_generator import ComprehensiveBenchmarkReportGenerator
 
 
 def main():

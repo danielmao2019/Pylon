@@ -4,7 +4,7 @@ from typing import List
 import torch
 import numpy as np
 
-from data_types import CameraPose
+from .data_types import CameraPose
 
 
 class CameraPoseSampler:

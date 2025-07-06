@@ -16,7 +16,7 @@ from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import 
 from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset  
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 
-from data_types import PointCloudSample
+from .data_types import PointCloudSample
 
 
 class PointCloudStreamer(ABC):

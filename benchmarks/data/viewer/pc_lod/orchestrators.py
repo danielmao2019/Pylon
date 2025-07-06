@@ -5,10 +5,10 @@ import torch
 import numpy as np
 from pathlib import Path
 
-from data_types import PointCloudSample, BenchmarkStats
-from streamers import SyntheticPointCloudStreamer, RealDataPointCloudStreamer
-from camera_poses import CameraPoseSampler
-from benchmark_runner import LODBenchmarkRunner
+from .data_types import PointCloudSample, BenchmarkStats
+from .streamers import SyntheticPointCloudStreamer, RealDataPointCloudStreamer
+from .camera_poses import CameraPoseSampler
+from .benchmark_runner import LODBenchmarkRunner
 
 
 class SyntheticBenchmarkOrchestrator:
