@@ -4,7 +4,7 @@
 import argparse
 
 from .orchestrators import SyntheticBenchmarkOrchestrator, RealDataBenchmarkOrchestrator
-from .report_generator_redesign import ComprehensiveBenchmarkReportGenerator
+from .report_generator import ComprehensiveBenchmarkReportGenerator
 
 
 def main():

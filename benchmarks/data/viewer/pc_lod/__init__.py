@@ -5,7 +5,7 @@ from .streamers import PointCloudStreamer, SyntheticPointCloudStreamer, RealData
 from .camera_poses import CameraPoseSampler
 from .benchmark_runner import LODBenchmarkRunner
 from .orchestrators import SyntheticBenchmarkOrchestrator, RealDataBenchmarkOrchestrator
-from .report_generator import BenchmarkReportGenerator
+from .report_generator import ComprehensiveBenchmarkReportGenerator
 
 __all__ = [
     'PointCloudSample',
@@ -18,5 +18,5 @@ __all__ = [
     'LODBenchmarkRunner',
     'SyntheticBenchmarkOrchestrator',
     'RealDataBenchmarkOrchestrator',
-    'BenchmarkReportGenerator'
+    'ComprehensiveBenchmarkReportGenerator'
 ]
