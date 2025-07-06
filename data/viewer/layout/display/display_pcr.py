@@ -190,8 +190,14 @@ def display_pcr_datapoint_single(
     Returns:
         html.Div containing the visualization
     """
+    print(f"=== DISPLAY_PCR_DATAPOINT_SINGLE CALLED ===")
+    
     # Check if the inputs have the expected structure
     inputs = datapoint['inputs']
+    print(f"=== CHECKING INPUT STRUCTURE ===")
+    print(f"Has src_pc: {'src_pc' in inputs}")
+    print(f"Has tgt_pc: {'tgt_pc' in inputs}")
+    
     assert 'src_pc' in inputs and 'tgt_pc' in inputs, "Source point cloud (src_pc) and target point cloud (tgt_pc) must be present in the inputs"
     assert isinstance(inputs['src_pc'], dict) and isinstance(inputs['tgt_pc'], dict), "Point clouds must be dictionaries"
     assert 'pos' in inputs['src_pc'] and 'pos' in inputs['tgt_pc'], "Point clouds must have 'pos' field"
@@ -199,18 +205,30 @@ def display_pcr_datapoint_single(
     # Extract point clouds
     src_pc = inputs['src_pc']['pos']  # Source point cloud
     tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
+    
+    print(f"=== POINT CLOUDS EXTRACTED ===")
+    print(f"Source PC shape: {src_pc.shape}")
+    print(f"Target PC shape: {tgt_pc.shape}")
 
     # Extract RGB colors if available
     src_rgb = inputs['src_pc'].get('rgb')
     tgt_rgb = inputs['tgt_pc'].get('rgb')
+    
+    print(f"Source RGB: {src_rgb.shape if src_rgb is not None else 'None'}")
+    print(f"Target RGB: {tgt_rgb.shape if tgt_rgb is not None else 'None'}")
 
     # Extract transform if available
     transform = datapoint['labels'].get('transform')
     if transform is None:
         transform = torch.eye(4)  # Default to identity transform if not provided
+        
+    print(f"=== TRANSFORM: {transform.shape if transform is not None else 'None'} ===")
 
     # Apply transform to source point cloud
     src_pc_transformed = apply_transform(src_pc, transform)
+    print(f"=== TRANSFORMED SOURCE PC SHAPE: {src_pc_transformed.shape} ===")
+
+    print(f"=== ABOUT TO CREATE POINT CLOUD FIGURES ===")
 
     # Create the point cloud views in parallel for better performance
     def create_source_figure():
@@ -308,10 +326,27 @@ def display_pcr_datapoint_single(
     # Create a grid layout for the five figures
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
+        
+        # Render method info
         html.Div([
-            # Create grid items using WebGL components (not Plotly)
+            html.Div([
+                html.Strong("🎯 Rendering: "),
+                html.Span("Using Plotly WebGL 3D scatter plots with synchronized camera controls. All graphs share the same camera perspective - control any graph to move all views together.")
+            ], style={
+                'padding': '8px 12px',
+                'backgroundColor': '#e8f5e8',
+                'border': '1px solid #4caf50',
+                'borderRadius': '4px',
+                'fontSize': '13px',
+                'color': '#2e7d32',
+                'marginBottom': '15px'
+            })
+        ]),
+        
+        html.Div([
+            # Create grid items using Plotly 3D scatter plots
             *[html.Div([
-                fig  # WebGL component, not Plotly figure
+                fig  # Plotly 3D scatter component
             ], style={'width': '50%', 'display': 'inline-block'}) for fig in figures]
         ], style={'display': 'flex', 'flex-wrap': 'wrap'}),
 
@@ -504,10 +539,16 @@ def display_pcr_datapoint(
     Returns:
         html.Div containing the visualization
     """
+    print(f"=== DISPLAY_PCR_DATAPOINT CALLED ===")
+    print(f"Datapoint type: {type(datapoint)}")
+    print(f"Datapoint keys: {list(datapoint.keys()) if isinstance(datapoint, dict) else 'Not a dict'}")
+    
     inputs = datapoint['inputs']
+    print(f"=== PCR INPUTS KEYS: {list(inputs.keys())} ===")
 
     # Check if we have hierarchical data (from collators)
     if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
+        print(f"=== USING BATCHED PCR DISPLAY ===")
         return display_pcr_datapoint_batched(
             datapoint,
             point_size=point_size,
@@ -517,6 +558,7 @@ def display_pcr_datapoint(
             corr_radius=corr_radius,
         )
     else:
+        print(f"=== USING SINGLE PCR DISPLAY ===")
         return display_pcr_datapoint_single(
             datapoint,
             point_size=point_size,
