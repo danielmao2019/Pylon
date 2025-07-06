@@ -167,3 +167,105 @@ The viewer supports several dataset types:
    - Images with segmentation masks
    - Class labels
    - Example: COCO Stuff 164K
+
+## Dataset Configuration
+
+The viewer automatically discovers datasets from config files in specific directories. To add a new dataset:
+
+### 1. Create Dataset Class
+
+Implement your dataset class inheriting from `BaseDataset` (see [Custom Dataset Implementation Guide](../datasets/custom_dataset_implementation.md)).
+
+### 2. Add Dataset to Module
+
+Add your dataset to `data/datasets/__init__.py`:
+
+```python
+# Add import
+from data.datasets.your_module.your_dataset import YourDataset
+
+# Add to __all__
+__all__ = (
+    # ... existing datasets
+    'YourDataset',
+)
+```
+
+### 3. Create Config File
+
+Create a config file in the appropriate directory:
+
+- **Semantic Segmentation**: `configs/common/datasets/semantic_segmentation/train/your_dataset_data_cfg.py`
+- **2D Change Detection**: `configs/common/datasets/change_detection/train/your_dataset_data_cfg.py`
+- **3D Change Detection**: `configs/common/datasets/change_detection/train/your_dataset_data_cfg.py`
+- **Point Cloud Registration**: `configs/common/datasets/point_cloud_registration/train/your_dataset_data_cfg.py`
+
+Config file format:
+```python
+import data
+
+data_cfg = {
+    'train_dataset': {
+        'class': data.datasets.YourDataset,
+        'args': {
+            'split': 'train',
+            'param1': 'value1',
+            'param2': 'value2',
+        },
+    },
+}
+```
+
+### 4. Register Dataset Type
+
+Add your dataset to the appropriate group in `data/viewer/backend/backend.py`:
+
+```python
+DATASET_GROUPS = {
+    'semseg': ['coco_stuff_164k'],
+    '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
+    '3dcd': ['urb3dcd', 'slpccd'],
+    'pcr': ['synth_pcr', 'real_pcr', 'kitti', 'your_dataset'],  # Add here
+}
+```
+
+### Example: ToyCubeDataset
+
+Here's how the `ToyCubeDataset` was added:
+
+1. **Created dataset class** in `data/datasets/pcr_datasets/toy_cube_dataset.py`
+2. **Added to module** in `data/datasets/__init__.py`
+3. **Created config file** as `configs/common/datasets/point_cloud_registration/train/toy_cube_data_cfg.py`
+4. **Registered in backend** by adding `'toy_cube'` to the `'pcr'` group
+
+The viewer will automatically discover and load the dataset, making it available in the UI dropdown.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Can't instantiate abstract class"**
+   - Make sure your dataset implements `_init_annotations()` method
+   - Call `super().__init__()` after setting instance variables
+
+2. **Dataset not appearing in viewer**
+   - Check config file is in the correct directory
+   - Verify dataset is added to `DATASET_GROUPS` in backend
+   - Ensure dataset is properly exported from `data.datasets`
+
+3. **Config file not found**
+   - Config filename must match pattern: `{dataset_name}_data_cfg.py`
+   - Place in the correct subdirectory based on dataset type
+
+4. **Import errors**
+   - Make sure all dependencies are available
+   - Check that dataset class is properly imported in `__init__.py`
+
+5. **WebGL visualization issues**
+   - "init" text showing: Check trigger divs have `style={'display': 'none'}`
+   - White/blank figures: Verify dataset returns proper color data (not all zeros)
+   - Point cloud not rendering: Check browser console for WebGL errors
+
+6. **For detailed dataset implementation issues**
+   - See [Custom Dataset Implementation Guide](../datasets/custom_dataset_implementation.md)
+   - Common errors: missing `_init_annotations()`, wrong `DATASET_SIZE`, adding 'idx' to meta_info

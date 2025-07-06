@@ -41,6 +41,7 @@ from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import
 from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
 
 # Point Cloud Registration
+from data.datasets.pcr_datasets.toy_cube_dataset import ToyCubeDataset
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
@@ -81,6 +82,7 @@ __all__ = (
     'I3PEDataset',
     'PPSLDataset',
     # Point Cloud Registration
+    'ToyCubeDataset',
     'SynthPCRDataset',
     'RealPCRDataset',
     'KITTIDataset',

@@ -4,10 +4,10 @@ from typing import Dict, Any, Tuple
 
 class MockDataset:
     """A mock dataset for testing purposes."""
-    
+
     def __init__(self, size: int = 10):
         """Initialize mock dataset.
-        
+
         Args:
             size: Number of items in the dataset
         """
@@ -31,12 +31,12 @@ class MockDataset:
 
     def get_item_size(self, idx: int) -> Tuple[int, int]:
         """Get the size of images at given index.
-        
+
         Args:
             idx: Index of the item
-            
+
         Returns:
             Tuple of (height, width)
         """
         item = self.data[idx]
-        return item['image1'].shape[:2] 
+        return item['image1'].shape[:2]

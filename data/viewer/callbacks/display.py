@@ -67,32 +67,45 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     # Extract new camera state
     new_camera = relayout_data['scene.camera']
 
-    # Update all figures with the new camera state in parallel
+    # Update all figures with the new camera state
     def update_figure_camera(i, figure):
-        if i == triggered_index or not figure:
-            # Don't update the triggering graph or empty figures
+        if not figure:
+            # Skip empty figures
             return dash.no_update
-        else:
-            # Create updated figure with new camera state
-            updated_figure = figure.copy()
-            if 'layout' not in updated_figure:
-                updated_figure['layout'] = {}
-            if 'scene' not in updated_figure['layout']:
-                updated_figure['layout']['scene'] = {}
-            updated_figure['layout']['scene']['camera'] = new_camera
-            return updated_figure
+        
+        # Always update all figures including the triggered one to ensure consistency
+        # Deep copy the figure to avoid reference issues
+        import copy
+        updated_figure = copy.deepcopy(figure)
+        
+        # Ensure layout structure exists
+        if 'layout' not in updated_figure:
+            updated_figure['layout'] = {}
+        if 'scene' not in updated_figure['layout']:
+            updated_figure['layout']['scene'] = {}
+            
+        # Update camera for all figures
+        updated_figure['layout']['scene']['camera'] = new_camera
+        
+        # Preserve other scene properties to avoid display mixing
+        if 'scene' in figure.get('layout', {}):
+            for key, value in figure['layout']['scene'].items():
+                if key != 'camera':
+                    updated_figure['layout']['scene'][key] = value
+        
+        return updated_figure
 
     updated_figures = [None] * len(all_figures)
-    
+
     # Use parallel processing for multiple figures
     if len(all_figures) > 1:
         with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
             # Submit all update tasks
             future_to_index = {
-                executor.submit(update_figure_camera, i, figure): i 
+                executor.submit(update_figure_camera, i, figure): i
                 for i, figure in enumerate(all_figures)
             }
-            
+
             # Collect results in order
             for future in as_completed(future_to_index):
                 idx = future_to_index[future]
@@ -141,16 +154,16 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
         return updated_figure
 
     updated_figures = [None] * len(all_figures)
-    
+
     # Use parallel processing for multiple figures
     if len(all_figures) > 1:
         with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
             # Submit all reset tasks
             future_to_index = {
-                executor.submit(reset_figure_camera, figure): i 
+                executor.submit(reset_figure_camera, figure): i
                 for i, figure in enumerate(all_figures)
             }
-            
+
             # Collect results in order
             for future in as_completed(future_to_index):
                 idx = future_to_index[future]

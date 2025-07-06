@@ -77,6 +77,10 @@ class DatasetViewer:
         registry.viewer = self
         # Register all callbacks with the app
         registry.register_callbacks(self.app)
+        
+        # Register clientside callbacks for WebGL
+        from data.viewer.callbacks.webgl_test import register_webgl_clientside_callback
+        register_webgl_clientside_callback(self.app)
 
     def run(self, debug=False, host="0.0.0.0", port=8050):
         """Run the viewer application."""
