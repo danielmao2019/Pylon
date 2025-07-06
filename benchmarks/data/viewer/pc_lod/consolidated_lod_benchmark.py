@@ -16,9 +16,20 @@ from typing import Dict, List, Tuple, Any
 from pathlib import Path
 import json
 import gc
+import random
 from dataclasses import dataclass, asdict
 from data.viewer.utils.point_cloud import create_point_cloud_figure
 from data.viewer.utils.camera_lod import get_lod_manager
+
+# Import the dataset classes
+try:
+    from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
+    from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset  
+    from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
+    REAL_DATA_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: Could not import dataset classes: {e}")
+    REAL_DATA_AVAILABLE = False
 
 
 @dataclass
@@ -56,6 +67,31 @@ class BenchmarkResult:
     speedup_ratio: float
     render_speedup: float
     initialization_overhead: float
+
+
+@dataclass  
+class RealDataBenchmarkResult:
+    """Results from real dataset benchmark runs."""
+    dataset_name: str
+    camera_distance_group: str  # 'close', 'medium', 'far'
+    camera_distance_value: float
+    
+    # Timing breakdowns (averaged across datapoints and camera poses)
+    no_lod_total_time: float
+    lod_total_time: float
+    
+    # LOD information (averaged)
+    avg_lod_level: float
+    avg_original_points: float
+    avg_final_points: float
+    avg_point_reduction_pct: float
+    
+    # Performance metrics
+    speedup_ratio: float
+    
+    # Statistical info
+    num_datapoints: int
+    num_camera_poses: int
 
 
 class PointCloudGenerator:
@@ -130,6 +166,310 @@ class PointCloudGenerator:
         return {'pos': points, 'rgb': colors}
 
 
+class RealDataLoader:
+    """Loads point clouds from real datasets for benchmarking."""
+    
+    def __init__(self, data_root: str = None):
+        self.data_root = data_root
+        
+    def load_dataset_samples(self, dataset_name: str, num_samples: int = 10, seed: int = 42) -> List[Dict[str, Any]]:
+        """Load random samples from a real dataset.
+        
+        Args:
+            dataset_name: Name of dataset ('urb3dcd', 'slpccd', 'kitti')
+            num_samples: Number of datapoints to sample
+            seed: Random seed for reproducible sampling
+            
+        Returns:
+            List of dictionaries containing point cloud data
+        """
+        if not REAL_DATA_AVAILABLE:
+            print(f"Warning: Real datasets not available, skipping {dataset_name}")
+            return []
+            
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        
+        try:
+            if dataset_name == 'urb3dcd':
+                return self._load_urb3dcd_samples(num_samples)
+            elif dataset_name == 'slpccd':
+                return self._load_slpccd_samples(num_samples)
+            elif dataset_name == 'kitti':
+                return self._load_kitti_samples(num_samples)
+            else:
+                raise ValueError(f"Unknown dataset: {dataset_name}")
+        except Exception as e:
+            print(f"Error loading {dataset_name} dataset: {e}")
+            return []
+    
+    def _load_urb3dcd_samples(self, num_samples: int) -> List[Dict[str, Any]]:
+        """Load samples from URB3DCD dataset."""
+        if self.data_root is None:
+            print("Warning: No data_root provided, cannot load URB3DCD dataset")
+            return []
+            
+        try:
+            dataset = Urb3DCDDataset(
+                data_root=self.data_root,
+                split='train',
+                patched=False,  # Load full point clouds
+                deterministic_seed=42
+            )
+            
+            # Randomly sample datapoint indices
+            total_samples = min(len(dataset), num_samples * 5)  # Sample more to account for loading failures
+            sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+            
+            samples = []
+            for idx in sample_indices:
+                try:
+                    inputs, labels, meta_info = dataset[idx]
+                    
+                    # Extract both point clouds from each datapoint
+                    pc_1 = inputs['pc_1']['pos']
+                    pc_2 = inputs['pc_2']['pos']
+                    
+                    # Create color data (use ones if no color available)
+                    colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
+                    colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
+                    
+                    samples.append({
+                        'name': f'urb3dcd_datapoint_{idx}_pc1',
+                        'points': pc_1,
+                        'colors': colors_1,
+                        'source': 'urb3dcd'
+                    })
+                    
+                    samples.append({
+                        'name': f'urb3dcd_datapoint_{idx}_pc2', 
+                        'points': pc_2,
+                        'colors': colors_2,
+                        'source': 'urb3dcd'
+                    })
+                    
+                    if len(samples) >= num_samples * 2:  # Two point clouds per datapoint
+                        break
+                        
+                except Exception as e:
+                    print(f"Failed to load URB3DCD sample {idx}: {e}")
+                    continue
+            
+            return samples[:num_samples * 2]  # Return up to num_samples * 2 point clouds
+            
+        except Exception as e:
+            print(f"Failed to initialize URB3DCD dataset: {e}")
+            return []
+    
+    def _load_slpccd_samples(self, num_samples: int) -> List[Dict[str, Any]]:
+        """Load samples from SLPCCD dataset."""
+        if self.data_root is None:
+            print("Warning: No data_root provided, cannot load SLPCCD dataset")
+            return []
+            
+        try:
+            dataset = SLPCCDDataset(
+                data_root=self.data_root,
+                split='train',
+                use_hierarchy=False,  # Disable hierarchy for simple point cloud access
+                deterministic_seed=42
+            )
+            
+            # Randomly sample datapoint indices
+            total_samples = min(len(dataset), num_samples * 5)
+            sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+            
+            samples = []
+            for idx in sample_indices:
+                try:
+                    inputs, labels, meta_info = dataset[idx]
+                    
+                    # Extract both point clouds
+                    if 'xyz' in inputs['pc_1']:
+                        pc_1 = inputs['pc_1']['xyz']
+                        pc_2 = inputs['pc_2']['xyz']
+                    else:
+                        pc_1 = inputs['pc_1']['pos'] if 'pos' in inputs['pc_1'] else inputs['pc_1']['xyz']
+                        pc_2 = inputs['pc_2']['pos'] if 'pos' in inputs['pc_2'] else inputs['pc_2']['xyz']
+                    
+                    # Extract features as colors if available
+                    if 'feat' in inputs['pc_1'] and inputs['pc_1']['feat'].shape[1] >= 3:
+                        colors_1 = inputs['pc_1']['feat'][:, :3]
+                        colors_2 = inputs['pc_2']['feat'][:, :3]
+                    else:
+                        colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
+                        colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
+                    
+                    samples.append({
+                        'name': f'slpccd_datapoint_{idx}_pc1',
+                        'points': pc_1,
+                        'colors': colors_1,
+                        'source': 'slpccd'
+                    })
+                    
+                    samples.append({
+                        'name': f'slpccd_datapoint_{idx}_pc2',
+                        'points': pc_2, 
+                        'colors': colors_2,
+                        'source': 'slpccd'
+                    })
+                    
+                    if len(samples) >= num_samples * 2:
+                        break
+                        
+                except Exception as e:
+                    print(f"Failed to load SLPCCD sample {idx}: {e}")
+                    continue
+            
+            return samples[:num_samples * 2]
+            
+        except Exception as e:
+            print(f"Failed to initialize SLPCCD dataset: {e}")
+            return []
+    
+    def _load_kitti_samples(self, num_samples: int) -> List[Dict[str, Any]]:
+        """Load samples from KITTI dataset."""
+        if self.data_root is None:
+            print("Warning: No data_root provided, cannot load KITTI dataset")
+            return []
+            
+        try:
+            dataset = KITTIDataset(
+                data_root=self.data_root,
+                split='train',
+                deterministic_seed=42
+            )
+            
+            # Randomly sample datapoint indices
+            total_samples = min(len(dataset), num_samples * 5)
+            sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+            
+            samples = []
+            for idx in sample_indices:
+                try:
+                    inputs, labels, meta_info = dataset[idx]
+                    
+                    # Extract source and target point clouds
+                    src_pc = inputs['src_pc']['pos']
+                    tgt_pc = inputs['tgt_pc']['pos']
+                    
+                    # Use reflectance as color if available, otherwise use ones
+                    if 'reflectance' in inputs['src_pc']:
+                        src_refl = inputs['src_pc']['reflectance']
+                        tgt_refl = inputs['tgt_pc']['reflectance']
+                        # Convert single-channel reflectance to 3-channel color
+                        colors_src = src_refl.repeat(1, 3)
+                        colors_tgt = tgt_refl.repeat(1, 3)
+                    else:
+                        colors_src = torch.ones(src_pc.shape[0], 3, dtype=torch.float32)
+                        colors_tgt = torch.ones(tgt_pc.shape[0], 3, dtype=torch.float32)
+                    
+                    samples.append({
+                        'name': f'kitti_datapoint_{idx}_src',
+                        'points': src_pc,
+                        'colors': colors_src,
+                        'source': 'kitti'
+                    })
+                    
+                    samples.append({
+                        'name': f'kitti_datapoint_{idx}_tgt',
+                        'points': tgt_pc,
+                        'colors': colors_tgt,
+                        'source': 'kitti'
+                    })
+                    
+                    if len(samples) >= num_samples * 2:
+                        break
+                        
+                except Exception as e:
+                    print(f"Failed to load KITTI sample {idx}: {e}")
+                    continue
+            
+            return samples[:num_samples * 2]
+            
+        except Exception as e:
+            print(f"Failed to initialize KITTI dataset: {e}")
+            return []
+
+
+class CameraPoseGenerator:
+    """Generates camera poses for benchmarking point cloud rendering."""
+    
+    def __init__(self, seed: int = 42):
+        self.rng = np.random.RandomState(seed)
+        
+    def generate_camera_poses(self, point_cloud: torch.Tensor, num_poses_per_distance: int = 5) -> Dict[str, List[Dict[str, Any]]]:
+        """Generate camera poses at different distances from point cloud.
+        
+        Args:
+            point_cloud: Point cloud tensor of shape (N, 3)
+            num_poses_per_distance: Number of camera poses to generate per distance group
+            
+        Returns:
+            Dictionary with distance groups as keys and lists of camera poses as values
+        """
+        # Calculate point cloud center and bounds
+        pc_center = point_cloud.mean(dim=0).numpy()
+        pc_bounds = (point_cloud.min().item(), point_cloud.max().item())
+        pc_size = pc_bounds[1] - pc_bounds[0]
+        
+        # Define distance groups based on point cloud size
+        distance_groups = {
+            'close': pc_size * 0.5,      # Close viewing
+            'medium': pc_size * 2.0,     # Medium distance  
+            'far': pc_size * 5.0         # Far viewing (should trigger LOD)
+        }
+        
+        camera_poses = {}
+        
+        for group_name, base_distance in distance_groups.items():
+            poses = []
+            
+            for i in range(num_poses_per_distance):
+                # Generate camera position facing toward the point cloud
+                # Start with a view direction toward the center
+                theta = self.rng.uniform(0, 2 * np.pi)  # Azimuth angle
+                phi = self.rng.uniform(np.pi/6, np.pi/3)  # Elevation angle (avoid top-down)
+                
+                # Convert spherical to cartesian coordinates
+                x = base_distance * np.sin(phi) * np.cos(theta)
+                y = base_distance * np.sin(phi) * np.sin(theta) 
+                z = base_distance * np.cos(phi)
+                
+                # Add some translation to the side (perpendicular to view direction)
+                # This simulates the case where point cloud is not exactly centered
+                side_offset = self.rng.uniform(-pc_size * 0.3, pc_size * 0.3, 3)
+                side_offset[2] *= 0.2  # Less vertical offset
+                
+                camera_pos = pc_center + np.array([x, y, z]) + side_offset
+                
+                # Camera always looks toward the point cloud center
+                camera_state = {
+                    'eye': {
+                        'x': float(camera_pos[0]),
+                        'y': float(camera_pos[1]),
+                        'z': float(camera_pos[2])
+                    },
+                    'center': {
+                        'x': float(pc_center[0]), 
+                        'y': float(pc_center[1]),
+                        'z': float(pc_center[2])
+                    },
+                    'up': {'x': 0, 'y': 0, 'z': 1}  # Z-up convention
+                }
+                
+                poses.append({
+                    'camera_state': camera_state,
+                    'distance': base_distance,
+                    'pose_id': i
+                })
+            
+            camera_poses[group_name] = poses
+        
+        return camera_poses
+
+
 class ConsolidatedLODBenchmark:
     """Comprehensive LOD performance benchmark with multiple test modes."""
     
@@ -144,6 +484,10 @@ class ConsolidatedLODBenchmark:
         # Benchmark configuration
         self.num_runs = 3
         self.camera_distances = [0.1, 2.0, 10.0]  # Close, medium, far
+        
+        # Real data configuration
+        self.real_data_loader = RealDataLoader()
+        self.camera_pose_generator = CameraPoseGenerator(seed=42)
         
     def create_point_cloud_configs(self) -> Dict[str, List[PointCloudConfig]]:
         """Create different point cloud configurations for testing."""
@@ -541,9 +885,252 @@ class ConsolidatedLODBenchmark:
         
         return results
     
+    def run_real_data_benchmark(self, data_root: str = None, num_samples: int = 10, 
+                               num_poses_per_distance: int = 3) -> Dict[str, List[RealDataBenchmarkResult]]:
+        """Run LOD benchmark on real datasets.
+        
+        Args:
+            data_root: Path to dataset root directory
+            num_samples: Number of datapoints to sample from each dataset
+            num_poses_per_distance: Number of camera poses per distance group
+            
+        Returns:
+            Dictionary with dataset names as keys and benchmark results as values
+        """
+        if not REAL_DATA_AVAILABLE:
+            print("⚠️ Real datasets not available, skipping real data benchmark")
+            return {}
+            
+        print("🏗️ Running real data benchmark...")
+        
+        # Set data root for loader
+        if data_root:
+            self.real_data_loader.data_root = data_root
+        
+        datasets = ['urb3dcd', 'slpccd', 'kitti']
+        all_results = {}
+        
+        for dataset_name in datasets:
+            print(f"\n📊 Benchmarking {dataset_name.upper()} dataset...")
+            
+            # Load samples from dataset
+            samples = self.real_data_loader.load_dataset_samples(dataset_name, num_samples)
+            
+            if not samples:
+                print(f"  ⚠️ No samples loaded from {dataset_name}, skipping...")
+                continue
+            
+            print(f"  📦 Loaded {len(samples)} point clouds from {dataset_name}")
+            
+            # Run benchmark for this dataset
+            dataset_results = self._benchmark_real_dataset(dataset_name, samples, num_poses_per_distance)
+            all_results[dataset_name] = dataset_results
+        
+        return all_results
+    
+    def _benchmark_real_dataset(self, dataset_name: str, samples: List[Dict[str, Any]], 
+                               num_poses_per_distance: int) -> List[RealDataBenchmarkResult]:
+        """Benchmark a single real dataset.
+        
+        Args:
+            dataset_name: Name of the dataset
+            samples: List of point cloud samples
+            num_poses_per_distance: Number of camera poses per distance group
+            
+        Returns:
+            List of benchmark results grouped by camera distance
+        """
+        # Group results by distance
+        distance_groups = {'close': [], 'medium': [], 'far': []}
+        
+        for sample_idx, sample in enumerate(samples):
+            print(f"    🔍 Processing sample {sample_idx + 1}/{len(samples)}: {sample['name']}")
+            
+            points = sample['points']
+            colors = sample['colors']
+            
+            # Generate camera poses for this point cloud
+            camera_poses = self.camera_pose_generator.generate_camera_poses(
+                points, num_poses_per_distance
+            )
+            
+            # Benchmark each distance group
+            for distance_group, poses in camera_poses.items():
+                group_results = []
+                
+                for pose in poses:
+                    # Benchmark this specific pose
+                    no_lod_times = []
+                    lod_times = []
+                    lod_info = {'level': 0, 'final_points': len(points)}
+                    
+                    for run in range(self.num_runs):
+                        gc.collect()  # Clean memory
+                        
+                        # Test without LOD
+                        start_time = time.perf_counter()
+                        fig_no_lod = create_point_cloud_figure(
+                            points=points,
+                            colors=colors,
+                            title=f"No LOD {run}",
+                            camera_state=pose['camera_state'],
+                            lod_enabled=False
+                        )
+                        no_lod_time = time.perf_counter() - start_time
+                        no_lod_times.append(no_lod_time)
+                        
+                        # Test with LOD
+                        start_time = time.perf_counter()
+                        fig_lod = create_point_cloud_figure(
+                            points=points,
+                            colors=colors,
+                            title=f"LOD {run}",
+                            camera_state=pose['camera_state'],
+                            lod_enabled=True,
+                            point_cloud_id=f"{dataset_name}_{sample_idx}_{distance_group}_{pose['pose_id']}"
+                        )
+                        lod_time = time.perf_counter() - start_time
+                        lod_times.append(lod_time)
+                        
+                        # Extract LOD info on first run
+                        if run == 0:
+                            title = fig_lod.layout.title.text
+                            if "LOD" in title:
+                                try:
+                                    lod_part = title.split("(LOD ")[1].split(":")[0].strip()
+                                    lod_info['level'] = int(lod_part)
+                                    points_part = title.split(": ")[1].split("/")[0]
+                                    lod_info['final_points'] = int(points_part.replace(",", ""))
+                                except:
+                                    pass
+                    
+                    # Calculate averages for this pose
+                    avg_no_lod_time = np.mean(no_lod_times)
+                    avg_lod_time = np.mean(lod_times)
+                    
+                    group_results.append({
+                        'no_lod_time': avg_no_lod_time,
+                        'lod_time': avg_lod_time,
+                        'lod_level': lod_info['level'],
+                        'original_points': len(points),
+                        'final_points': lod_info['final_points'],
+                        'distance': pose['distance']
+                    })
+                
+                # Store results for this distance group
+                distance_groups[distance_group].extend(group_results)
+        
+        # Create aggregated results for each distance group
+        aggregated_results = []
+        
+        for distance_group, group_data in distance_groups.items():
+            if not group_data:
+                continue
+                
+            # Calculate averages across all samples and poses in this distance group
+            avg_no_lod_time = np.mean([r['no_lod_time'] for r in group_data])
+            avg_lod_time = np.mean([r['lod_time'] for r in group_data])
+            avg_lod_level = np.mean([r['lod_level'] for r in group_data])
+            avg_original_points = np.mean([r['original_points'] for r in group_data])
+            avg_final_points = np.mean([r['final_points'] for r in group_data])
+            avg_distance = np.mean([r['distance'] for r in group_data])
+            
+            avg_point_reduction = (avg_original_points - avg_final_points) / avg_original_points * 100
+            speedup_ratio = avg_no_lod_time / avg_lod_time if avg_lod_time > 0 else 1.0
+            
+            result = RealDataBenchmarkResult(
+                dataset_name=dataset_name,
+                camera_distance_group=distance_group,
+                camera_distance_value=avg_distance,
+                no_lod_total_time=avg_no_lod_time,
+                lod_total_time=avg_lod_time,
+                avg_lod_level=avg_lod_level,
+                avg_original_points=avg_original_points,
+                avg_final_points=avg_final_points,
+                avg_point_reduction_pct=avg_point_reduction,
+                speedup_ratio=speedup_ratio,
+                num_datapoints=len(samples),
+                num_camera_poses=len(group_data)
+            )
+            
+            aggregated_results.append(result)
+            
+            print(f"      📈 {distance_group.capitalize()}: {speedup_ratio:.2f}x speedup, "
+                  f"{avg_point_reduction:.1f}% reduction")
+        
+        return aggregated_results
+    
+    def create_real_data_plots(self, real_data_results: Dict[str, List[RealDataBenchmarkResult]]):
+        """Create plots for real dataset benchmark results."""
+        if not real_data_results:
+            return
+            
+        print("📊 Creating real data performance plots...")
+        
+        # Set up plotting style
+        plt.style.use('seaborn-v0_8')
+        colors = {'lod': '#2E86C1', 'no_lod': '#E74C3C'}
+        
+        # Create a figure for each dataset
+        for dataset_name, results in real_data_results.items():
+            if not results:
+                continue
+                
+            fig, ax = plt.subplots(figsize=(10, 6))
+            fig.suptitle(f'LOD Performance on {dataset_name.upper()} Dataset', fontsize=14, fontweight='bold')
+            
+            # Extract data for plotting
+            distance_groups = [r.camera_distance_group for r in results]
+            no_lod_times = [r.no_lod_total_time for r in results]
+            lod_times = [r.lod_total_time for r in results]
+            speedups = [r.speedup_ratio for r in results]
+            
+            # Create paired bar chart
+            x = np.arange(len(distance_groups))
+            width = 0.35
+            
+            bars1 = ax.bar(x - width/2, no_lod_times, width, label='No LOD', 
+                          color=colors['no_lod'], alpha=0.8)
+            bars2 = ax.bar(x + width/2, lod_times, width, label='With LOD', 
+                          color=colors['lod'], alpha=0.8)
+            
+            # Add speedup annotations
+            for i, (bar1, bar2, speedup) in enumerate(zip(bars1, bars2, speedups)):
+                height = max(bar1.get_height(), bar2.get_height())
+                ax.annotate(f'{speedup:.1f}x', 
+                           xy=(i, height + height*0.05),
+                           ha='center', va='bottom', fontweight='bold',
+                           color='green' if speedup > 1.1 else 'gray')
+            
+            ax.set_xlabel('Camera Distance Group')
+            ax.set_ylabel('Rendering Time (seconds)')
+            ax.set_title(f'Average Performance Across {results[0].num_datapoints} Datapoints')
+            ax.set_xticks(x)
+            ax.set_xticklabels([g.capitalize() for g in distance_groups])
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+            
+            # Add statistics text
+            avg_speedup = np.mean(speedups)
+            avg_reduction = np.mean([r.avg_point_reduction_pct for r in results])
+            
+            stats_text = f"Average Speedup: {avg_speedup:.2f}x\nAverage Point Reduction: {avg_reduction:.1f}%"
+            ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=10,
+                   verticalalignment='top', bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+            
+            plt.tight_layout()
+            
+            # Save plot
+            plot_file = self.output_dir / f"real_data_{dataset_name}_performance.png"
+            plt.savefig(plot_file, dpi=300, bbox_inches='tight')
+            plt.close()
+            
+            print(f"  📈 Saved {dataset_name} plot: {plot_file}")
+    
     def create_comprehensive_plots(self, results: Dict[str, List[BenchmarkResult]], 
                                   quick_results: Dict[str, List[float]] = None,
-                                  distance_results: Dict[str, List[float]] = None):
+                                  distance_results: Dict[str, List[float]] = None,
+                                  real_data_results: Dict[str, List[RealDataBenchmarkResult]] = None):
         """Create comprehensive performance visualization plots."""
         print("📊 Creating comprehensive performance visualization plots...")
         
@@ -565,6 +1152,10 @@ class ConsolidatedLODBenchmark:
         # Create distance analysis plot
         if distance_results:
             self._create_distance_analysis_plot(distance_results, colors)
+        
+        # Create real data plots
+        if real_data_results:
+            self.create_real_data_plots(real_data_results)
     
     def _create_main_performance_plots(self, results: Dict[str, List[BenchmarkResult]], colors: dict):
         """Create main comprehensive performance plots."""
@@ -811,7 +1402,8 @@ class ConsolidatedLODBenchmark:
     
     def save_results(self, comprehensive_results: Dict[str, List[BenchmarkResult]] = None,
                     quick_results: Dict[str, List[float]] = None,
-                    distance_results: Dict[str, List[float]] = None):
+                    distance_results: Dict[str, List[float]] = None,
+                    real_data_results: Dict[str, List[RealDataBenchmarkResult]] = None):
         """Save all benchmark results to JSON files."""
         print("💾 Saving benchmark results...")
         
@@ -843,10 +1435,22 @@ class ConsolidatedLODBenchmark:
             with open(output_file, 'w') as f:
                 json.dump(distance_results, f, indent=2)
             print(f"  📍 Distance results: {output_file}")
+        
+        if real_data_results:
+            # Convert real data results to serializable format
+            serializable_real_data = {}
+            for dataset_name, result_list in real_data_results.items():
+                serializable_real_data[dataset_name] = [asdict(result) for result in result_list]
+            
+            output_file = self.output_dir / "real_data_benchmark_results.json"
+            with open(output_file, 'w') as f:
+                json.dump(serializable_real_data, f, indent=2)
+            print(f"  🏗️ Real data results: {output_file}")
     
     def create_summary_report(self, comprehensive_results: Dict[str, List[BenchmarkResult]] = None,
                              quick_results: Dict[str, List[float]] = None,
-                             distance_results: Dict[str, List[float]] = None):
+                             distance_results: Dict[str, List[float]] = None,
+                             real_data_results: Dict[str, List[RealDataBenchmarkResult]] = None):
         """Create a comprehensive summary report."""
         print("📋 Creating summary report...")
         
@@ -922,6 +1526,36 @@ class ConsolidatedLODBenchmark:
             report_lines.append(f"- **Average speedup across all distances**: {avg_speedup:.2f}x")
             report_lines.append(f"- **Best speedup**: {max_speedup:.2f}x")
             report_lines.append("")
+        
+        # Real data results analysis
+        if real_data_results:
+            report_lines.append("## Real Dataset Benchmark Results")
+            report_lines.append("")
+            
+            for dataset_name, result_list in real_data_results.items():
+                report_lines.append(f"### {dataset_name.upper()} Dataset")
+                report_lines.append("")
+                
+                speedups = [r.speedup_ratio for r in result_list]
+                reductions = [r.avg_point_reduction_pct for r in result_list]
+                
+                overall_speedups.extend(speedups)
+                overall_reductions.extend(reductions)
+                
+                avg_speedup = np.mean(speedups)
+                max_speedup = max(speedups)
+                avg_reduction = np.mean(reductions)
+                
+                report_lines.append(f"- **Average speedup**: {avg_speedup:.2f}x")
+                report_lines.append(f"- **Best speedup**: {max_speedup:.2f}x")
+                report_lines.append(f"- **Average point reduction**: {avg_reduction:.1f}%")
+                report_lines.append(f"- **Datapoints tested**: {result_list[0].num_datapoints}")
+                
+                # Distance group breakdown
+                for result in result_list:
+                    report_lines.append(f"  - **{result.camera_distance_group.capitalize()}**: {result.speedup_ratio:.2f}x speedup")
+                
+                report_lines.append("")
         
         # Overall summary
         if overall_speedups:
@@ -1001,17 +1635,19 @@ class ConsolidatedLODBenchmark:
         
         print("="*80)
     
-    def run_all_benchmarks(self, mode: str = "comprehensive"):
+    def run_all_benchmarks(self, mode: str = "comprehensive", data_root: str = None):
         """Run all benchmark modes based on the specified mode.
         
         Args:
-            mode: "quick", "comprehensive", "distance", or "all"
+            mode: "quick", "comprehensive", "distance", "real_data", or "all"
+            data_root: Path to dataset root directory (required for real_data mode)
         """
         print(f"🚀 Starting consolidated LOD benchmark in '{mode}' mode...")
         
         comprehensive_results = None
         quick_results = None
         distance_results = None
+        real_data_results = None
         
         if mode in ["quick", "all"]:
             print("\n⚡ Running quick benchmark...")
@@ -1025,14 +1661,21 @@ class ConsolidatedLODBenchmark:
             print("\n📍 Running detailed distance benchmark...")
             distance_results = self.run_detailed_distance_benchmark()
         
+        if mode in ["real_data", "all"]:
+            if data_root is None:
+                print("\n⚠️ data_root required for real_data mode, skipping...")
+            else:
+                print("\n🏗️ Running real data benchmark...")
+                real_data_results = self.run_real_data_benchmark(data_root, num_samples=5, num_poses_per_distance=3)
+        
         # Create visualizations
-        self.create_comprehensive_plots(comprehensive_results, quick_results, distance_results)
+        self.create_comprehensive_plots(comprehensive_results, quick_results, distance_results, real_data_results)
         
         # Save results
-        self.save_results(comprehensive_results, quick_results, distance_results)
+        self.save_results(comprehensive_results, quick_results, distance_results, real_data_results)
         
         # Create summary report
-        self.create_summary_report(comprehensive_results, quick_results, distance_results)
+        self.create_summary_report(comprehensive_results, quick_results, distance_results, real_data_results)
         
         # Print summaries
         if distance_results:
@@ -1050,16 +1693,18 @@ def main():
     import argparse
     
     parser = argparse.ArgumentParser(description="Consolidated LOD Benchmark Suite")
-    parser.add_argument("--mode", choices=["quick", "comprehensive", "distance", "all"], 
+    parser.add_argument("--mode", choices=["quick", "comprehensive", "distance", "real_data", "all"], 
                        default="comprehensive",
                        help="Benchmark mode to run (default: comprehensive)")
+    parser.add_argument("--data-root", type=str, default=None,
+                       help="Path to dataset root directory (required for real_data mode)")
     
     args = parser.parse_args()
     
     print("🚀 Starting consolidated LOD benchmark with visual reports...")
     
     benchmark = ConsolidatedLODBenchmark()
-    benchmark.run_all_benchmarks(mode=args.mode)
+    benchmark.run_all_benchmarks(mode=args.mode, data_root=args.data_root)
 
 
 if __name__ == "__main__":
