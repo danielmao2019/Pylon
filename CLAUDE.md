@@ -114,6 +114,10 @@ python -m data.viewer.cli
 
 # Custom host/port
 python -m data.viewer.cli --host 0.0.0.0 --port 8050
+
+# Run LOD performance benchmarks
+python -m benchmarks.data.viewer.pc_lod synthetic  # Synthetic point cloud benchmarks
+python -m benchmarks.data.viewer.pc_lod real      # Real dataset benchmarks
 ```
 
 ### 2.4. Code Quality
@@ -195,6 +199,7 @@ The main contribution of Pylon are the follows:
 3. Pylon provides robust experiment management system, implemented via the `agent` module.
 4. While integrating project-specific code (mainly the project-specific model, criterion, and metric), Pylon maintains them and makes sure that the integrated code from external sources are up-to-date with the advancement of package versions.
 5. Pylon provides robust debugging toolkit including data viewer and evaluation results viewer.
+6. Pylon includes advanced visualization optimizations like the Level of Detail (LOD) system for point clouds, providing up to 70x performance improvements for large datasets.
 
 ### 3.3. Dataset Design Pattern
 **Every dataset follows the three-field structure:**
@@ -324,6 +329,7 @@ obj = build_from_config(config)
 ### 3.11. Key Directories and Components
 - `/configs/`: Template-based experiment configurations with automated generation
 - `/data/`: Datasets with caching, transforms, collators, and interactive viewer
+- `/data/viewer/`: Web-based dataset visualization with LOD system for point clouds
 - `/criteria/`: Loss functions with asynchronous buffer pattern
 - `/metrics/`: Evaluation metrics with threading and buffer management (ALL require DIRECTIONS attribute)
 - `/optimizers/`: Standard and multi-task optimizers with gradient manipulation
@@ -331,6 +337,7 @@ obj = build_from_config(config)
 - `/runners/eval_viewer/`: Web-based evaluation result visualization
 - `/schedulers/`: Learning rate schedulers with warmup and multi-component support
 - `/utils/`: Core utilities including builders, automation, determinism, and monitoring
+- `/benchmarks/data/viewer/pc_lod/`: Comprehensive LOD performance benchmarking system
 
 ### 3.12. Special Utilities
 **Automation and Distributed Training:**

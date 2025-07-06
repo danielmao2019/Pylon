@@ -21,6 +21,12 @@ All critical coding principles are now integrated into [CLAUDE.md](../CLAUDE.md)
 
 - [Debuggers Module](debuggers/README.md) - Framework for capturing and visualizing debugging outputs during training and evaluation
 
+## Data Visualization
+
+- [Dataset Viewer](data/viewer/viewer_doc.md) - Interactive web-based dataset visualization tool
+- [Viewer Architecture](data/viewer/architecture.md) - Technical architecture and design patterns
+- [Level of Detail (LOD) System](data/viewer/lod_system.md) - Performance optimization for large point cloud visualization
+
 ## Models
 
 ### Change Detection
