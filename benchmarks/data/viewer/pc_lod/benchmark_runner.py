@@ -14,7 +14,7 @@ sys.path.insert(0, project_root)
 from data.viewer.utils.point_cloud import create_point_cloud_figure
 from data.viewer.utils.camera_lod import get_lod_manager
 
-from .types import PointCloudSample, CameraPose, BenchmarkStats
+from data_types import PointCloudSample, CameraPose, BenchmarkStats
 
 
 class LODBenchmarkRunner:

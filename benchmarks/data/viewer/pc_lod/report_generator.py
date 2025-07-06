@@ -9,7 +9,7 @@ from pathlib import Path
 from dataclasses import asdict
 from collections import defaultdict
 
-from .types import BenchmarkStats
+from data_types import BenchmarkStats
 
 
 class ComprehensiveBenchmarkReportGenerator:
