@@ -1,10 +1,8 @@
-"""WebGL-based point cloud visualization utilities."""
+"""Point cloud visualization utilities using Plotly."""
 from typing import Dict, Optional, Union, Any
 import numpy as np
 import torch
-import json
-import uuid
-from dash import html, Input, Output, clientside_callback, dcc
+from dash import html, dcc
 import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
 
@@ -24,9 +22,8 @@ def prepare_point_cloud_data(
     colors: Optional[np.ndarray] = None,
     labels: Optional[np.ndarray] = None
 ) -> Dict[str, Any]:
-    """Prepare point cloud data for WebGL rendering."""
-
-    # Ensure points are float32 for WebGL
+    """Prepare point cloud data for rendering."""
+    # Ensure points are float32
     points = points.astype(np.float32)
 
     # Handle colors
@@ -84,11 +81,7 @@ def create_point_cloud_figure(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
 ) -> html.Div:
-    """Create a point cloud visualization with WebGL rendering and synchronized cameras.
-
-    This function creates WebGL-based point cloud visualization with proper camera synchronization.
-    Since JavaScript execution is blocked in this environment, it uses Plotly server-side rendering
-    with synchronized camera states to achieve the desired behavior.
+    """Create a point cloud visualization with Plotly and synchronized cameras.
 
     Args:
         points: Numpy array of shape (N, 3) containing XYZ coordinates
@@ -100,15 +93,8 @@ def create_point_cloud_figure(
         camera_state: Optional dictionary containing camera position state
 
     Returns:
-        HTML Div containing synchronized point cloud visualization
+        Plotly Graph component with synchronized camera
     """
-    print(f"=== CREATE_POINT_CLOUD_FIGURE CALLED ===")
-    print(f"Title: {title}")
-    print(f"Points type: {type(points)}")
-    print(f"Points shape: {points.shape if hasattr(points, 'shape') else 'No shape'}")
-    print(f"Colors type: {type(colors) if colors is not None else 'None'}")
-    print(f"Point size: {point_size}, Opacity: {point_opacity}")
-    
     # Convert inputs to numpy
     points = point_cloud_to_numpy(points)
     if colors is not None:
@@ -116,15 +102,8 @@ def create_point_cloud_figure(
     if labels is not None:
         labels = point_cloud_to_numpy(labels)
 
-    print(f"=== AFTER NUMPY CONVERSION ===")
-    print(f"Points shape: {points.shape}")
-    print(f"Colors shape: {colors.shape if colors is not None else 'None'}")
-
     # Prepare data for rendering
-    webgl_data = prepare_point_cloud_data(points, colors, labels)
-    print(f"=== WEBGL DATA PREPARED ===")
-    print(f"Point count: {webgl_data['point_count']}")
-    print(f"Bbox size: {webgl_data['bbox_size']}")
+    point_cloud_data = prepare_point_cloud_data(points, colors, labels)
 
     # Use consistent graph indices based on title to avoid mixing
     graph_index_map = {
@@ -145,22 +124,19 @@ def create_point_cloud_figure(
         graph_index = create_point_cloud_figure._graph_counter
         create_point_cloud_figure._graph_counter += 1
     
-    # Create synchronized Plotly visualization (WebGL rendering via Plotly's WebGL backend)
-    component = _create_plotly_point_cloud(
-        webgl_data, 
+    # Create synchronized Plotly visualization
+    return _create_plotly_point_cloud(
+        point_cloud_data, 
         title, 
         point_size, 
         point_opacity,
         graph_index=graph_index,
         camera_state=camera_state
     )
-    
-    print(f"=== COMPONENT CREATED SUCCESSFULLY ===")
-    return component
 
 
 def _create_plotly_point_cloud(point_cloud_data: Dict[str, Any], title: str, point_size: float, point_opacity: float, graph_index: int = 0, camera_state: Optional[Dict[str, Any]] = None) -> dcc.Graph:
-    """Create a server-side rendered point cloud using Plotly (no JavaScript required).
+    """Create a point cloud using Plotly.
     
     Args:
         point_cloud_data: Prepared point cloud data from prepare_point_cloud_data()
@@ -173,16 +149,12 @@ def _create_plotly_point_cloud(point_cloud_data: Dict[str, Any], title: str, poi
     Returns:
         Plotly Graph component with synchronized camera
     """
-    print(f"=== CREATING PLOTLY POINT CLOUD: {title} ===")
     
     # Extract data
     positions = np.array(point_cloud_data['positions']).reshape(-1, 3)
     colors = np.array(point_cloud_data['colors']).reshape(-1, 3)
     point_count = point_cloud_data['point_count']
     
-    print(f"Plotly positions shape: {positions.shape}")
-    print(f"Plotly colors shape: {colors.shape}")
-    print(f"Point count: {point_count}")
     
     # Convert colors to RGB strings
     color_strings = [f'rgb({int(r*255)},{int(g*255)},{int(b*255)})' for r, g, b in colors]
@@ -214,7 +186,6 @@ def _create_plotly_point_cloud(point_cloud_data: Dict[str, Any], title: str, poi
         if 'eye' in camera_state:
             # Already in Plotly format
             camera_config = camera_state
-            print(f"=== USING PLOTLY CAMERA: {camera_state['eye']} ===")
         elif 'position' in camera_state and 'target' in camera_state:
             # Convert from legacy position/target format to Plotly eye/center format
             camera_config = dict(
@@ -222,13 +193,10 @@ def _create_plotly_point_cloud(point_cloud_data: Dict[str, Any], title: str, poi
                 center=dict(x=camera_state['target'][0], y=camera_state['target'][1], z=camera_state['target'][2]),
                 up=dict(x=0, y=0, z=1)  # Default up vector
             )
-            print(f"=== CONVERTED LEGACY CAMERA TO PLOTLY: {camera_config['eye']} ===")
         else:
             camera_config = default_camera
-            print(f"=== UNKNOWN CAMERA FORMAT, USING DEFAULT: {camera_config} ===")
     else:
         camera_config = default_camera
-        print(f"=== NO CAMERA STATE, USING DEFAULT: {camera_config} ===")
     
     # Configure layout
     fig.update_layout(
@@ -245,8 +213,6 @@ def _create_plotly_point_cloud(point_cloud_data: Dict[str, Any], title: str, poi
         margin=dict(l=0, r=0, t=30, b=0)
     )
     
-    print(f"Plotly figure created for {title} with {point_count} points")
-    
     # Register this graph for camera sync 
     _created_graphs.append(graph_index)
     
@@ -259,7 +225,7 @@ def _create_plotly_point_cloud(point_cloud_data: Dict[str, Any], title: str, poi
             'displaylogo': False,
             'plotGlPixelRatio': 2,  # High DPI support
             'toImageButtonOptions': {'format': 'png', 'filename': f'point_cloud_{title}', 'height': 500, 'width': 700, 'scale': 1}
-        }  # Enable WebGL rendering and controls
+        }
     )
 
 
