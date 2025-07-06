@@ -203,21 +203,13 @@ def update_datapoint(
     Update the displayed datapoint based on the slider value.
     Also handles 3D point cloud visualization settings.
     """
-    print(f"=== UPDATE_DATAPOINT CALLED ===")
-    print(f"Dataset info: {dataset_info}")
-    print(f"Datapoint index: {datapoint_idx}")
-    print(f"Transform values: {transform_values}")
-    print(f"Point size: {point_size}, Opacity: {point_opacity}, Radius: {radius}")
-    
     logger.info(f"Display update callback triggered - Dataset info: {dataset_info}, Index: {datapoint_idx}")
 
     if dataset_info is None or dataset_info == {}:
-        print("=== NO DATASET INFO - RETURNING EARLY ===")
         logger.warning("No dataset info available")
         return [html.Div("No dataset loaded.")]
 
     dataset_name: str = dataset_info.get('name', 'unknown')
-    print(f"=== DATASET NAME: {dataset_name} ===")
     logger.info(f"Attempting to get dataset: {dataset_name}")
 
     # Get list of selected transform indices
@@ -225,23 +217,15 @@ def update_datapoint(
         idx for values in transform_values
         for idx in values  # values will be a list containing the index if checked, empty if not
     ]
-    print(f"=== SELECTED TRANSFORM INDICES: {selected_indices} ===")
 
     # Get datapoint from backend through registry
-    print(f"=== GETTING DATAPOINT FROM BACKEND ===")
     datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
-    print(f"=== DATAPOINT RETRIEVED - TYPE: {type(datapoint)} ===")
-    if isinstance(datapoint, dict):
-        print(f"=== DATAPOINT KEYS: {list(datapoint.keys())} ===")
-        if 'inputs' in datapoint:
-            print(f"=== DATAPOINT INPUTS KEYS: {list(datapoint['inputs'].keys())} ===")
 
     # Get dataset type from dataset info
     dataset_type = dataset_info.get('type')
     if dataset_type is None:
         raise ValueError("Dataset type not available")
 
-    print(f"=== DATASET TYPE: {dataset_type} ===")
     logger.info(f"Dataset type: {dataset_type}")
 
     # Get class labels if available
@@ -252,31 +236,22 @@ def update_datapoint(
     # Get the appropriate display function
     display_func = DISPLAY_FUNCTIONS.get(dataset_type)
     if display_func is None:
-        print(f"=== NO DISPLAY FUNCTION FOR TYPE: {dataset_type} ===")
         logger.error(f"No display function found for dataset type: {dataset_type}")
         return [html.Div(f"Error: Unsupported dataset type: {dataset_type}")]
 
-    print(f"=== FOUND DISPLAY FUNCTION: {display_func} ===")
     # Call the display function with appropriate parameters
     logger.info(f"Creating {dataset_type} display")
     if dataset_type == 'semseg':
-        print(f"=== CALLING SEMSEG DISPLAY ===")
         display = display_func(datapoint)
     elif dataset_type == '2dcd':
-        print(f"=== CALLING 2DCD DISPLAY ===")
         display = display_func(datapoint)
     elif dataset_type == '3dcd':
-        print(f"=== CALLING 3DCD DISPLAY ===")
         display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state)
     elif dataset_type == 'pcr':
-        print(f"=== CALLING PCR DISPLAY ===")
-        print(f"PCR Display function args: datapoint={type(datapoint)}, point_size={point_size}, point_opacity={point_opacity}, camera_state={camera_state}, radius={radius}")
         display = display_func(datapoint, point_size, point_opacity, camera_state, radius)
-        print(f"=== PCR DISPLAY RETURNED: {type(display)} ===")
     else:
         assert 0, f"{dataset_type=}"
 
-    print(f"=== DISPLAY CREATED SUCCESSFULLY - TYPE: {type(display)} ===")
     logger.info("Display created successfully")
     return [display]
 
