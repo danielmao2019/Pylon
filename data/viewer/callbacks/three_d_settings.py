@@ -32,16 +32,13 @@ def update_3d_settings(
     if point_size is None or point_opacity is None:
         raise PreventUpdate
 
-    # LOD is enabled if checkbox is checked
-    lod_is_enabled = bool(lod_enabled)
-
     # Update backend state with new 3D settings
     registry.viewer.backend.update_state(
         point_size=point_size,
         point_opacity=point_opacity,
         radius=radius or 0.05,
         correspondence_radius=correspondence_radius or 0.1,
-        lod_enabled=lod_is_enabled
+        lod_enabled=lod_enabled
     )
 
     # Store all 3D settings in the store
@@ -50,7 +47,7 @@ def update_3d_settings(
         'point_opacity': point_opacity,
         'radius': radius or 0.05,  # Default radius
         'correspondence_radius': correspondence_radius or 0.1,  # Default correspondence radius
-        'lod_enabled': lod_is_enabled
+        'lod_enabled': lod_enabled
     }
 
     return [settings]
