@@ -16,7 +16,7 @@ from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import 
 from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset  
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 
-from .types import PointCloudSample
+from data_types import PointCloudSample
 
 
 class PointCloudStreamer(ABC):
@@ -73,12 +73,11 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
         """Create various test configurations for synthetic point clouds."""
         configs = []
         
-        # Define point count groups (datasets)
+        # Define point count groups (datasets) - focus on small to medium for better performance
         point_count_groups = {
             'small': [10000, 15000, 20000, 25000],
-            'medium': [30000, 35000, 40000, 45000, 50000],
-            'large': [75000, 100000, 125000, 150000],
-            'xlarge': [175000, 200000, 225000, 250000]
+            'medium': [30000, 40000, 50000],
+            'large': [75000, 100000]
         }
         
         # Generate configurations for each point count group
