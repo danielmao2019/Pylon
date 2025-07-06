@@ -24,14 +24,9 @@ from data.viewer.utils.point_cloud import create_point_cloud_figure
 from data.viewer.utils.camera_lod import get_lod_manager
 
 # Import the dataset classes
-try:
-    from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
-    from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset  
-    from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
-    REAL_DATA_AVAILABLE = True
-except ImportError as e:
-    print(f"Warning: Could not import dataset classes: {e}")
-    REAL_DATA_AVAILABLE = False
+from data.datasets.change_detection_datasets.bi_temporal.urb3dcd_dataset import Urb3DCDDataset
+from data.datasets.change_detection_datasets.bi_temporal.slpccd_dataset import SLPCCDDataset  
+from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 
 
 @dataclass
@@ -215,149 +210,110 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
     
     def _load_urb3dcd_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from URB3DCD dataset."""
-        if not REAL_DATA_AVAILABLE:
-            return []
+        dataset = Urb3DCDDataset(
+            data_root=self.data_root,
+            split='train',
+            patched=False,
+            deterministic_seed=self.seed
+        )
+        
+        total_samples = min(len(dataset), num_samples * 5)
+        sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+        
+        samples = []
+        for idx in sample_indices:
+            inputs, labels, meta_info = dataset[idx]
             
-        try:
-            dataset = Urb3DCDDataset(
-                data_root=self.data_root,
-                split='train',
-                patched=False,
-                deterministic_seed=self.seed
-            )
+            pc_1 = inputs['pc_1']['pos']
+            pc_2 = inputs['pc_2']['pos']
             
-            total_samples = min(len(dataset), num_samples * 5)
-            sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+            colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
+            colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
             
-            samples = []
-            for idx in sample_indices:
-                try:
-                    inputs, labels, meta_info = dataset[idx]
-                    
-                    pc_1 = inputs['pc_1']['pos']
-                    pc_2 = inputs['pc_2']['pos']
-                    
-                    colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
-                    colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
-                    
-                    samples.extend([
-                        PointCloudSample(f'urb3dcd_dp{idx}_pc1', pc_1, colors_1, 'urb3dcd', {'datapoint': idx, 'pc_type': 'pc1'}),
-                        PointCloudSample(f'urb3dcd_dp{idx}_pc2', pc_2, colors_2, 'urb3dcd', {'datapoint': idx, 'pc_type': 'pc2'})
-                    ])
-                    
-                    if len(samples) >= num_samples * 2:
-                        break
-                        
-                except Exception as e:
-                    print(f"Failed to load URB3DCD sample {idx}: {e}")
-                    continue
+            samples.extend([
+                PointCloudSample(f'urb3dcd_dp{idx}_pc1', pc_1, colors_1, 'urb3dcd', {'datapoint': idx, 'pc_type': 'pc1'}),
+                PointCloudSample(f'urb3dcd_dp{idx}_pc2', pc_2, colors_2, 'urb3dcd', {'datapoint': idx, 'pc_type': 'pc2'})
+            ])
             
-            return samples[:num_samples * 2]
-            
-        except Exception as e:
-            print(f"Failed to initialize URB3DCD dataset: {e}")
-            return []
+            if len(samples) >= num_samples * 2:
+                break
+        
+        return samples[:num_samples * 2]
     
     def _load_slpccd_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from SLPCCD dataset."""
-        if not REAL_DATA_AVAILABLE:
-            return []
+        dataset = SLPCCDDataset(
+            data_root=self.data_root,
+            split='train',
+            use_hierarchy=False,
+            deterministic_seed=self.seed
+        )
+        
+        total_samples = min(len(dataset), num_samples * 5)
+        sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+        
+        samples = []
+        for idx in sample_indices:
+            inputs, labels, meta_info = dataset[idx]
             
-        try:
-            dataset = SLPCCDDataset(
-                data_root=self.data_root,
-                split='train',
-                use_hierarchy=False,
-                deterministic_seed=self.seed
-            )
+            if 'xyz' in inputs['pc_1']:
+                pc_1 = inputs['pc_1']['xyz']
+                pc_2 = inputs['pc_2']['xyz']
+            else:
+                pc_1 = inputs['pc_1']['pos'] if 'pos' in inputs['pc_1'] else inputs['pc_1']['xyz']
+                pc_2 = inputs['pc_2']['pos'] if 'pos' in inputs['pc_2'] else inputs['pc_2']['xyz']
             
-            total_samples = min(len(dataset), num_samples * 5)
-            sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+            if 'feat' in inputs['pc_1'] and inputs['pc_1']['feat'].shape[1] >= 3:
+                colors_1 = inputs['pc_1']['feat'][:, :3]
+                colors_2 = inputs['pc_2']['feat'][:, :3]
+            else:
+                colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
+                colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
             
-            samples = []
-            for idx in sample_indices:
-                try:
-                    inputs, labels, meta_info = dataset[idx]
-                    
-                    if 'xyz' in inputs['pc_1']:
-                        pc_1 = inputs['pc_1']['xyz']
-                        pc_2 = inputs['pc_2']['xyz']
-                    else:
-                        pc_1 = inputs['pc_1']['pos'] if 'pos' in inputs['pc_1'] else inputs['pc_1']['xyz']
-                        pc_2 = inputs['pc_2']['pos'] if 'pos' in inputs['pc_2'] else inputs['pc_2']['xyz']
-                    
-                    if 'feat' in inputs['pc_1'] and inputs['pc_1']['feat'].shape[1] >= 3:
-                        colors_1 = inputs['pc_1']['feat'][:, :3]
-                        colors_2 = inputs['pc_2']['feat'][:, :3]
-                    else:
-                        colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
-                        colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
-                    
-                    samples.extend([
-                        PointCloudSample(f'slpccd_dp{idx}_pc1', pc_1, colors_1, 'slpccd', {'datapoint': idx, 'pc_type': 'pc1'}),
-                        PointCloudSample(f'slpccd_dp{idx}_pc2', pc_2, colors_2, 'slpccd', {'datapoint': idx, 'pc_type': 'pc2'})
-                    ])
-                    
-                    if len(samples) >= num_samples * 2:
-                        break
-                        
-                except Exception as e:
-                    print(f"Failed to load SLPCCD sample {idx}: {e}")
-                    continue
+            samples.extend([
+                PointCloudSample(f'slpccd_dp{idx}_pc1', pc_1, colors_1, 'slpccd', {'datapoint': idx, 'pc_type': 'pc1'}),
+                PointCloudSample(f'slpccd_dp{idx}_pc2', pc_2, colors_2, 'slpccd', {'datapoint': idx, 'pc_type': 'pc2'})
+            ])
             
-            return samples[:num_samples * 2]
-            
-        except Exception as e:
-            print(f"Failed to initialize SLPCCD dataset: {e}")
-            return []
+            if len(samples) >= num_samples * 2:
+                break
+        
+        return samples[:num_samples * 2]
     
     def _load_kitti_samples(self, num_samples: int) -> List[PointCloudSample]:
         """Load samples from KITTI dataset."""
-        if not REAL_DATA_AVAILABLE:
-            return []
+        dataset = KITTIDataset(
+            data_root=self.data_root,
+            split='train',
+            deterministic_seed=self.seed
+        )
+        
+        total_samples = min(len(dataset), num_samples * 5)
+        sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+        
+        samples = []
+        for idx in sample_indices:
+            inputs, labels, meta_info = dataset[idx]
             
-        try:
-            dataset = KITTIDataset(
-                data_root=self.data_root,
-                split='train',
-                deterministic_seed=self.seed
-            )
+            src_pc = inputs['src_pc']['pos']
+            tgt_pc = inputs['tgt_pc']['pos']
             
-            total_samples = min(len(dataset), num_samples * 5)
-            sample_indices = random.sample(range(total_samples), min(total_samples, num_samples))
+            if 'reflectance' in inputs['src_pc']:
+                colors_src = inputs['src_pc']['reflectance'].repeat(1, 3)
+                colors_tgt = inputs['tgt_pc']['reflectance'].repeat(1, 3)
+            else:
+                colors_src = torch.ones(src_pc.shape[0], 3, dtype=torch.float32)
+                colors_tgt = torch.ones(tgt_pc.shape[0], 3, dtype=torch.float32)
             
-            samples = []
-            for idx in sample_indices:
-                try:
-                    inputs, labels, meta_info = dataset[idx]
-                    
-                    src_pc = inputs['src_pc']['pos']
-                    tgt_pc = inputs['tgt_pc']['pos']
-                    
-                    if 'reflectance' in inputs['src_pc']:
-                        colors_src = inputs['src_pc']['reflectance'].repeat(1, 3)
-                        colors_tgt = inputs['tgt_pc']['reflectance'].repeat(1, 3)
-                    else:
-                        colors_src = torch.ones(src_pc.shape[0], 3, dtype=torch.float32)
-                        colors_tgt = torch.ones(tgt_pc.shape[0], 3, dtype=torch.float32)
-                    
-                    samples.extend([
-                        PointCloudSample(f'kitti_dp{idx}_src', src_pc, colors_src, 'kitti', {'datapoint': idx, 'pc_type': 'src'}),
-                        PointCloudSample(f'kitti_dp{idx}_tgt', tgt_pc, colors_tgt, 'kitti', {'datapoint': idx, 'pc_type': 'tgt'})
-                    ])
-                    
-                    if len(samples) >= num_samples * 2:
-                        break
-                        
-                except Exception as e:
-                    print(f"Failed to load KITTI sample {idx}: {e}")
-                    continue
+            samples.extend([
+                PointCloudSample(f'kitti_dp{idx}_src', src_pc, colors_src, 'kitti', {'datapoint': idx, 'pc_type': 'src'}),
+                PointCloudSample(f'kitti_dp{idx}_tgt', tgt_pc, colors_tgt, 'kitti', {'datapoint': idx, 'pc_type': 'tgt'})
+            ])
             
-            return samples[:num_samples * 2]
-            
-        except Exception as e:
-            print(f"Failed to initialize KITTI dataset: {e}")
-            return []
+            if len(samples) >= num_samples * 2:
+                break
+        
+        return samples[:num_samples * 2]
     
     def stream_point_clouds(self, num_samples: int) -> Iterator[PointCloudSample]:
         """Stream real dataset point cloud samples."""
@@ -528,13 +484,10 @@ class LODBenchmarkRunner:
             if run == 0:
                 title = fig_lod.layout.title.text
                 if "LOD" in title:
-                    try:
-                        lod_part = title.split("(LOD ")[1].split(":")[0].strip()
-                        lod_info['level'] = int(lod_part)
-                        points_part = title.split(": ")[1].split("/")[0]
-                        lod_info['final_points'] = int(points_part.replace(",", ""))
-                    except:
-                        pass
+                    lod_part = title.split("(LOD ")[1].split(":")[0].strip()
+                    lod_info['level'] = int(lod_part)
+                    points_part = title.split(": ")[1].split("/")[0]
+                    lod_info['final_points'] = int(points_part.replace(",", ""))
         
         # Calculate statistics
         avg_no_lod_time = np.mean(no_lod_times)
@@ -671,10 +624,6 @@ class RealDataBenchmarkOrchestrator:
         Returns:
             Nested dictionary: {dataset_name: {distance_group: [BenchmarkStats]}}
         """
-        if not REAL_DATA_AVAILABLE:
-            print("⚠️ Real datasets not available, skipping real data benchmark")
-            return {}
-            
         print("🏗️ Running real data benchmark...")
         
         # Initialize real data streamer
