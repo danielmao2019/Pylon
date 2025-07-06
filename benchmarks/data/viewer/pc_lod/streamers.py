@@ -174,7 +174,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         
         samples = []
         for idx in sample_indices:
-            inputs, labels, meta_info = dataset[idx]
+            inputs, _, _ = dataset[idx]
             
             pc_1 = inputs['pc_1']['pos']
             pc_2 = inputs['pc_2']['pos']
@@ -205,7 +205,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         
         samples = []
         for idx in sample_indices:
-            inputs, labels, meta_info = dataset[idx]
+            inputs, _, _ = dataset[idx]
             
             if 'xyz' in inputs['pc_1']:
                 pc_1 = inputs['pc_1']['xyz']
@@ -243,7 +243,7 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         
         samples = []
         for idx in sample_indices:
-            inputs, labels, meta_info = dataset[idx]
+            inputs, _, _ = dataset[idx]
             
             src_pc = inputs['src_pc']['pos']
             tgt_pc = inputs['tgt_pc']['pos']
