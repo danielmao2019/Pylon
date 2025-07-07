@@ -24,6 +24,53 @@ DISPLAY_FUNCTIONS = {
     'pcr': display_pcr_datapoint,
 }
 
+
+def _extract_3d_settings(settings_3d: Optional[Dict[str, Union[str, int, float, bool]]], context: str = "") -> Dict[str, Union[float, bool]]:
+    """Extract 3D settings with validation."""
+    if settings_3d is None:
+        raise ValueError(f"3D settings store is not initialized{' in ' + context if context else ''}")
+    
+    return {
+        'point_size': settings_3d['point_size'],
+        'point_opacity': settings_3d['point_opacity'],
+        'radius': settings_3d['radius'],
+        'correspondence_radius': settings_3d['correspondence_radius'],
+        'lod_enabled': settings_3d['lod_enabled']
+    }
+
+
+def _create_display(
+    dataset_type: str,
+    display_func: Any,
+    datapoint: Dict[str, Any], 
+    point_size: float,
+    point_opacity: float,
+    class_labels: Optional[Dict[int, str]],
+    camera_state: Dict[str, Any],
+    radius: float,
+    correspondence_radius: float,
+    lod_enabled: bool
+) -> html.Div:
+    """Create display based on dataset type with appropriate parameters."""
+    if dataset_type == 'semseg':
+        return display_func(datapoint)
+    elif dataset_type == '2dcd':
+        return display_func(datapoint)
+    elif dataset_type == '3dcd':
+        return display_func(datapoint, point_size, point_opacity, class_labels, camera_state, lod_enabled)
+    elif dataset_type == 'pcr':
+        return display_func(
+            datapoint=datapoint, 
+            point_size=point_size, 
+            point_opacity=point_opacity, 
+            camera_state=camera_state, 
+            sym_diff_radius=radius, 
+            corr_radius=correspondence_radius, 
+            lod_enabled=lod_enabled
+        )
+    else:
+        raise ValueError(f"Unsupported dataset type: {dataset_type}")
+
 @callback(
     outputs=[
         Output({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
@@ -204,54 +251,23 @@ def update_datapoint(
     # Get datapoint from backend through registry
     datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
 
-    # Get dataset type from dataset info
-    dataset_type = dataset_info.get('type')
-    if dataset_type is None:
-        raise ValueError("Dataset type not available")
-
+    # Get dataset type and display function
+    dataset_type = dataset_info['type']  # Will raise KeyError if missing - that's a bug that should be caught
+    display_func = DISPLAY_FUNCTIONS[dataset_type]  # Will raise KeyError if unsupported - that's a bug that should be caught
+    
     logger.info(f"Dataset type: {dataset_type}")
 
-    # Get class labels if available
-    if dataset_type in ['semseg', '3dcd']:
-        assert 'class_labels' in dataset_info, f"{dataset_info.keys()=}"
-        class_labels: Dict[int, str] = dataset_info['class_labels']
-
-    # Extract all 3D settings (should always be available)
-    if settings_3d is None:
-        raise ValueError("3D settings store is not initialized")
-    
-    point_size = settings_3d['point_size']
-    point_opacity = settings_3d['point_opacity'] 
-    radius = settings_3d['radius']
-    correspondence_radius = settings_3d['correspondence_radius']
-    lod_enabled = settings_3d['lod_enabled']
-
-    # Get the appropriate display function
-    display_func = DISPLAY_FUNCTIONS.get(dataset_type)
-    if display_func is None:
-        logger.error(f"No display function found for dataset type: {dataset_type}")
-        return [html.Div(f"Error: Unsupported dataset type: {dataset_type}")]
+    # Extract 3D settings and class labels
+    settings = _extract_3d_settings(settings_3d)
+    class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
 
     # Call the display function with appropriate parameters
     logger.info(f"Creating {dataset_type} display")
-    if dataset_type == 'semseg':
-        display = display_func(datapoint)
-    elif dataset_type == '2dcd':
-        display = display_func(datapoint)
-    elif dataset_type == '3dcd':
-        display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state, lod_enabled)
-    elif dataset_type == 'pcr':
-        display = display_func(
-            datapoint=datapoint, 
-            point_size=point_size, 
-            point_opacity=point_opacity, 
-            camera_state=camera_state, 
-            sym_diff_radius=radius, 
-            corr_radius=correspondence_radius, 
-            lod_enabled=lod_enabled
-        )
-    else:
-        assert 0, f"{dataset_type=}"
+    display = _create_display(
+        dataset_type, display_func, datapoint, 
+        settings['point_size'], settings['point_opacity'], class_labels, camera_state, 
+        settings['radius'], settings['correspondence_radius'], settings['lod_enabled']
+    )
 
     logger.info("Display created successfully")
     return [display]
@@ -293,42 +309,19 @@ def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int]
     # Get transformed datapoint using backend
     datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, all_transform_indices)
 
-    # Get dataset type and determine display function
+    # Get dataset type and display function  
     dataset_type = dataset_info['type']
+    display_func = DISPLAY_FUNCTIONS[dataset_type]  # Will raise KeyError if unsupported - that's a bug that should be caught
 
-    # Get the appropriate display function
-    display_func = DISPLAY_FUNCTIONS.get(dataset_type)
-    if display_func is None:
-        return [transforms_section, [html.Div(f"Error: Unsupported dataset type: {dataset_type}")]]
-
-    # Extract 3D settings (should always be available)
-    if settings_3d is None:
-        raise ValueError("3D settings store is not initialized in update_transforms")
-    
-    point_size = settings_3d['point_size']
-    point_opacity = settings_3d['point_opacity']
-    radius = settings_3d['radius']
-    correspondence_radius = settings_3d['correspondence_radius']
-    lod_enabled = settings_3d['lod_enabled']
+    # Extract 3D settings and class labels
+    settings = _extract_3d_settings(settings_3d, "update_transforms")
+    class_labels = dataset_info.get('class_labels', {}) if dataset_type in ['semseg', '3dcd'] else None
 
     # Call the display function with current 3D settings
-    if dataset_type == 'semseg':
-        display = display_func(datapoint)
-    elif dataset_type == '2dcd':
-        display = display_func(datapoint)
-    elif dataset_type == '3dcd':
-        display = display_func(datapoint, point_size, point_opacity, dataset_info.get('class_labels', {}), camera_state, lod_enabled)
-    elif dataset_type == 'pcr':
-        display = display_func(
-            datapoint=datapoint, 
-            point_size=point_size, 
-            point_opacity=point_opacity, 
-            camera_state=camera_state, 
-            sym_diff_radius=radius, 
-            corr_radius=correspondence_radius,
-            lod_enabled=lod_enabled
-        )
-    else:
-        raise ValueError(f"Unsupported dataset type: {dataset_type}")
+    display = _create_display(
+        dataset_type, display_func, datapoint, 
+        settings['point_size'], settings['point_opacity'], class_labels, camera_state, 
+        settings['radius'], settings['correspondence_radius'], settings['lod_enabled']
+    )
 
     return [transforms_section, [display]]
