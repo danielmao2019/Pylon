@@ -55,18 +55,18 @@ def _create_display(
     elif dataset_type == '3dcd':
         return display_func(
             datapoint, 
-            settings_3d['point_size'], 
-            settings_3d['point_opacity'], 
             class_labels, 
             camera_state, 
+            settings_3d['point_size'], 
+            settings_3d['point_opacity'], 
             settings_3d['lod_enabled']
         )
     elif dataset_type == 'pcr':
         return display_func(
             datapoint=datapoint, 
+            camera_state=camera_state, 
             point_size=settings_3d['point_size'], 
             point_opacity=settings_3d['point_opacity'], 
-            camera_state=camera_state, 
             sym_diff_radius=settings_3d['radius'], 
             corr_radius=settings_3d['correspondence_radius'], 
             lod_enabled=settings_3d['lod_enabled']

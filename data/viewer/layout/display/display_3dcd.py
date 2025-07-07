@@ -10,20 +10,20 @@ from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_c
 
 def display_3dcd_datapoint(
     datapoint: Dict[str, Any],
-    point_size: float = 2,
-    point_opacity: float = 0.8,
     class_names: Optional[Dict[int, str]] = None,
     camera_state: Optional[Dict[str, Any]] = None,
+    point_size: float = 2,
+    point_opacity: float = 0.8,
     lod_enabled: bool = True
 ) -> html.Div:
     """Display a 3D point cloud datapoint with all relevant information.
 
     Args:
         datapoint: Dictionary containing inputs, labels, and meta_info
-        point_size: Size of points in visualization
-        point_opacity: Opacity of points in visualization
         class_names: Optional dictionary mapping class indices to names
         camera_state: Optional dictionary containing camera position state
+        point_size: Size of points in visualization
+        point_opacity: Opacity of points in visualization
         lod_enabled: Whether LOD optimization is enabled
 
     Returns:

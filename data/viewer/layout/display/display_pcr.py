@@ -574,9 +574,9 @@ def display_pcr_datapoint_batched(
 
 def display_pcr_datapoint(
     datapoint: Dict[str, Any],
+    camera_state: Optional[Dict[str, Any]] = None,
     point_size: float = 2,
     point_opacity: float = 0.8,
-    camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
     lod_enabled: bool = True
