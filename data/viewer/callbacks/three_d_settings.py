@@ -53,8 +53,8 @@ def update_3d_settings(
     registry.viewer.backend.update_state(
         point_size=point_size,
         point_opacity=point_opacity,
-        radius=radius or 0.05,
-        correspondence_radius=correspondence_radius or 0.1,
+        sym_diff_radius=radius or 0.05,
+        corr_radius=correspondence_radius or 0.1,
         lod_enabled=lod_is_enabled
     )
 
@@ -62,8 +62,8 @@ def update_3d_settings(
     settings = {
         'point_size': point_size,
         'point_opacity': point_opacity,
-        'radius': radius or 0.05,  # Default radius
-        'correspondence_radius': correspondence_radius or 0.1,  # Default correspondence radius
+        'sym_diff_radius': radius or 0.05,  # Default symmetric difference radius
+        'corr_radius': correspondence_radius or 0.1,  # Default correspondence radius
         'lod_enabled': lod_is_enabled
     }
 

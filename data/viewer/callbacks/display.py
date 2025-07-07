@@ -33,8 +33,8 @@ def _extract_3d_settings(settings_3d: Optional[Dict[str, Union[str, int, float, 
     return {
         'point_size': settings_3d['point_size'],
         'point_opacity': settings_3d['point_opacity'],
-        'radius': settings_3d['radius'],
-        'correspondence_radius': settings_3d['correspondence_radius'],
+        'sym_diff_radius': settings_3d['sym_diff_radius'],
+        'corr_radius': settings_3d['corr_radius'],
         'lod_enabled': settings_3d['lod_enabled']
     }
 
@@ -67,8 +67,8 @@ def _create_display(
             camera_state=camera_state, 
             point_size=settings_3d['point_size'], 
             point_opacity=settings_3d['point_opacity'], 
-            sym_diff_radius=settings_3d['radius'], 
-            corr_radius=settings_3d['correspondence_radius'], 
+            sym_diff_radius=settings_3d['sym_diff_radius'], 
+            corr_radius=settings_3d['corr_radius'], 
             lod_enabled=settings_3d['lod_enabled']
         )
     else:

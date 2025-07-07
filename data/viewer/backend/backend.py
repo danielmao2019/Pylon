@@ -65,8 +65,8 @@ class ViewerBackend:
         self.current_index: int = 0
         self.point_size: float = 2.0
         self.point_opacity: float = 0.8
-        self.radius: float = 0.05
-        self.correspondence_radius: float = 0.1
+        self.sym_diff_radius: float = 0.05
+        self.corr_radius: float = 0.1
 
         # Initialize dataset configurations
         self._init_dataset_configs()
