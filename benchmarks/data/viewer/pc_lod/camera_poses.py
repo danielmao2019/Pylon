@@ -24,17 +24,33 @@ class CameraPoseSampler:
         Returns:
             List of camera poses across all distance groups
         """
-        # Calculate point cloud center and bounds
+        # Calculate point cloud center and proper spatial bounds
         pc_center = point_cloud.mean(dim=0).cpu().numpy()
-        pc_bounds = (point_cloud.min().item(), point_cloud.max().item())
-        pc_size = pc_bounds[1] - pc_bounds[0]
         
-        # Define distance groups based on point cloud size
+        # Calculate bounding box dimensions in each axis
+        pc_min = point_cloud.min(dim=0)[0].cpu().numpy()
+        pc_max = point_cloud.max(dim=0)[0].cpu().numpy()
+        pc_extents = pc_max - pc_min
+        
+        # Use the maximum extent as the characteristic size
+        pc_size = np.max(pc_extents)
+        
+        # Calculate diagonal distance for better scale reference
+        diagonal_size = np.sqrt(np.sum(pc_extents**2))
+        
+        # Define distance groups based on diagonal size for proper 3D scaling
         distance_groups = {
-            'close': pc_size * 0.5,      # Close viewing
-            'medium': pc_size * 2.0,     # Medium distance  
-            'far': pc_size * 5.0         # Far viewing (should trigger LOD)
+            'close': diagonal_size * 0.75,   # Close viewing - can see details
+            'medium': diagonal_size * 2.5,   # Medium distance - balanced view
+            'far': diagonal_size * 6.0       # Far viewing - should trigger LOD
         }
+        
+        # Debug info (can be removed later)
+        print(f"  Point cloud spatial analysis:")
+        print(f"    Extents: {pc_extents}")
+        print(f"    Max extent: {pc_size:.2f}")
+        print(f"    Diagonal: {diagonal_size:.2f}")
+        print(f"    Distance groups: close={distance_groups['close']:.2f}, medium={distance_groups['medium']:.2f}, far={distance_groups['far']:.2f}")
         
         all_poses = []
         
@@ -50,8 +66,9 @@ class CameraPoseSampler:
                 z = base_distance * np.cos(phi)
                 
                 # Add some translation to the side (perpendicular to view direction)
-                side_offset = self.rng.uniform(-pc_size * 0.3, pc_size * 0.3, 3)
-                side_offset[2] *= 0.2  # Less vertical offset
+                # Use proper spatial extents for realistic offset scaling
+                side_offset = self.rng.uniform(-diagonal_size * 0.2, diagonal_size * 0.2, 3)
+                side_offset[2] *= 0.3  # Moderate vertical offset
                 
                 camera_pos = pc_center + np.array([x, y, z]) + side_offset
                 
