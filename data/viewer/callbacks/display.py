@@ -170,10 +170,8 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
         Input('dataset-info', 'data'),
         Input('datapoint-index-slider', 'value'),
         Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
-        Input('point-size-slider', 'value'),
-        Input('point-opacity-slider', 'value'),
-        Input('radius-slider', 'value'),
-        Input('camera-state', 'data')
+        Input('camera-state', 'data'),
+        Input('3d-settings-store', 'data')
     ],
     group="display"
 )
@@ -181,10 +179,8 @@ def update_datapoint(
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
     datapoint_idx: int,
     transform_values: List[List[int]],
-    point_size: float,
-    point_opacity: float,
-    radius: float,
-    camera_state: Dict
+    camera_state: Dict,
+    settings_3d: Optional[Dict[str, Union[str, int, float, bool]]]
 ) -> List[html.Div]:
     """
     Update the displayed datapoint based on the slider value.
@@ -220,6 +216,16 @@ def update_datapoint(
         assert 'class_labels' in dataset_info, f"{dataset_info.keys()=}"
         class_labels: Dict[int, str] = dataset_info['class_labels']
 
+    # Extract all 3D settings (should always be available)
+    if settings_3d is None:
+        raise ValueError("3D settings store is not initialized")
+    
+    point_size = settings_3d['point_size']
+    point_opacity = settings_3d['point_opacity'] 
+    radius = settings_3d['radius']
+    correspondence_radius = settings_3d['correspondence_radius']
+    lod_enabled = settings_3d['lod_enabled']
+
     # Get the appropriate display function
     display_func = DISPLAY_FUNCTIONS.get(dataset_type)
     if display_func is None:
@@ -233,9 +239,17 @@ def update_datapoint(
     elif dataset_type == '2dcd':
         display = display_func(datapoint)
     elif dataset_type == '3dcd':
-        display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state)
+        display = display_func(datapoint, point_size, point_opacity, class_labels, camera_state, lod_enabled)
     elif dataset_type == 'pcr':
-        display = display_func(datapoint, point_size, point_opacity, camera_state, radius)
+        display = display_func(
+            datapoint=datapoint, 
+            point_size=point_size, 
+            point_opacity=point_opacity, 
+            camera_state=camera_state, 
+            sym_diff_radius=radius, 
+            corr_radius=correspondence_radius, 
+            lod_enabled=lod_enabled
+        )
     else:
         assert 0, f"{dataset_type=}"
 
@@ -249,10 +263,13 @@ def update_datapoint(
         Output('datapoint-display', 'children', allow_duplicate=True)
     ],
     inputs=[Input('dataset-info', 'data')],
-    states=[State('datapoint-index-slider', 'value')],
+    states=[
+        State('datapoint-index-slider', 'value'),
+        State('3d-settings-store', 'data')
+    ],
     group="display"
 )
-def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int]) -> List[Union[html.Div, List[html.Div]]]:
+def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int], settings_3d: Optional[Dict[str, Union[str, int, float, bool]]]) -> List[Union[html.Div, List[html.Div]]]:
     """Update the transforms section when dataset info changes and display datapoint with all transforms applied."""
     # If no dataset is selected, maintain current state
     if not dataset_info:
@@ -283,15 +300,33 @@ def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int]
     if display_func is None:
         return [transforms_section, [html.Div(f"Error: Unsupported dataset type: {dataset_type}")]]
 
-    # Call the display function with appropriate parameters (using default 3D settings)
+    # Extract 3D settings (should always be available)
+    if settings_3d is None:
+        raise ValueError("3D settings store is not initialized in update_transforms")
+    
+    point_size = settings_3d['point_size']
+    point_opacity = settings_3d['point_opacity']
+    radius = settings_3d['radius']
+    correspondence_radius = settings_3d['correspondence_radius']
+    lod_enabled = settings_3d['lod_enabled']
+
+    # Call the display function with current 3D settings
     if dataset_type == 'semseg':
         display = display_func(datapoint)
     elif dataset_type == '2dcd':
         display = display_func(datapoint)
     elif dataset_type == '3dcd':
-        display = display_func(datapoint, 1.0, 1.0, dataset_info.get('class_labels', {}), {})
+        display = display_func(datapoint, point_size, point_opacity, dataset_info.get('class_labels', {}), {}, lod_enabled)
     elif dataset_type == 'pcr':
-        display = display_func(datapoint, 1.0, 1.0, {}, 1.0)
+        display = display_func(
+            datapoint=datapoint, 
+            point_size=point_size, 
+            point_opacity=point_opacity, 
+            camera_state={}, 
+            sym_diff_radius=radius, 
+            corr_radius=correspondence_radius,
+            lod_enabled=lod_enabled
+        )
     else:
         raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
