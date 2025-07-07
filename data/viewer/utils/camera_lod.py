@@ -21,8 +21,8 @@ class LODManager:
     def __init__(
         self, 
         target_points_per_pixel: float = 2.0,
-        min_quality_ratio: float = 0.01,
-        max_reduction_ratio: float = 0.95,
+        min_quality_ratio: float = 0.2,  # Conservative: never less than 20%
+        max_reduction_ratio: float = 0.8,  # Conservative: max 80% reduction
         hysteresis_factor: float = 0.15
     ):
         """Initialize the LOD manager.
@@ -78,15 +78,15 @@ class LODManager:
         # Factor 4: Size-adaptive scaling
         size_factor = self._calculate_size_adaptive_factor(total_points)
         
-        # Combine all factors
+        # Combine all factors with bounds checking
         target = int(
             screen_target * distance_factor * complexity_factor * size_factor
         )
         
-        # Apply quality constraints
+        # Apply conservative quality constraints
         min_points = max(
             int(total_points * self.min_quality_ratio),
-            1000  # Absolute minimum for shape preservation
+            2000  # Absolute minimum for shape preservation
         )
         max_points = int(total_points * (1.0 - self.max_reduction_ratio))
         
@@ -107,11 +107,7 @@ class LODManager:
         camera_state: Dict[str, Any],
         viewport_size: Tuple[int, int]
     ) -> int:
-        """Calculate target points based on screen space coverage.
-        
-        Core insight: Points should be distributed roughly 2-3 per screen pixel
-        for optimal visual quality without oversaturation.
-        """
+        """Calculate target points based on screen space coverage."""
         points = point_cloud['pos']
         
         # Calculate point cloud bounding box
@@ -124,14 +120,12 @@ class LODManager:
         camera_pos = np.array([eye['x'], eye['y'], eye['z']])
         
         # Estimate screen space coverage using simple projection
-        # This is a simplified calculation - could be made more sophisticated
         camera_distance = np.linalg.norm(camera_pos - center)
         bbox_size = np.linalg.norm(max_coords - min_coords)
         
         # Estimate screen coverage as fraction of viewport
-        # Closer objects or larger objects cover more screen space
         fov_factor = 60.0  # Assume 60 degree field of view
-        angular_size = 2 * math.atan(bbox_size / (2 * camera_distance))
+        angular_size = 2 * math.atan(bbox_size / (2 * max(camera_distance, 1e-6)))
         screen_coverage_ratio = angular_size / math.radians(fov_factor)
         screen_coverage_ratio = min(1.0, screen_coverage_ratio)  # Cap at 100%
         
@@ -141,18 +135,14 @@ class LODManager:
         # Target points per pixel
         target_points = int(screen_pixels * self.target_points_per_pixel)
         
-        return max(target_points, 1000)  # Minimum threshold
+        return max(target_points, 2000)  # Minimum threshold
         
     def _calculate_distance_quality_factor(
         self,
         point_cloud: Dict[str, torch.Tensor],
         camera_state: Dict[str, Any]
     ) -> float:
-        """Calculate quality factor based on camera distance.
-        
-        Closer objects need more detail, farther objects can be reduced more.
-        Uses modified inverse relationship to avoid extreme values.
-        """
+        """Calculate quality factor based on camera distance."""
         points = point_cloud['pos']
         center = points.mean(dim=0).cpu().numpy()
         bbox_size = (points.max(dim=0)[0] - points.min(dim=0)[0]).norm().item()
@@ -165,22 +155,17 @@ class LODManager:
         normalized_distance = distance / max(bbox_size, 1e-6)
         
         # Modified inverse relationship: closer = more detail needed
-        # Use smooth curve to avoid extreme jumps
-        distance_factor = 1.0 / (1.0 + normalized_distance * 0.5)
+        # Conservative approach: don't reduce too aggressively
+        distance_factor = 1.0 / (1.0 + normalized_distance * 0.3)  # Reduced from 0.5
         
-        # Clamp to reasonable range
-        return max(0.2, min(1.0, distance_factor))
+        # Clamp to conservative range
+        return max(0.5, min(1.0, distance_factor))  # Never less than 50%
         
     def _calculate_complexity_factor(self, point_cloud: Dict[str, torch.Tensor]) -> float:
-        """Calculate factor based on point cloud geometric complexity.
-        
-        More complex point clouds need more points to preserve features.
-        Complexity estimated by spatial distribution variance.
-        """
+        """Calculate factor based on point cloud geometric complexity."""
         points = point_cloud['pos']
         
         # Estimate complexity using coordinate variance
-        # Higher variance = more spread out = potentially more complex
         coord_std = points.std(dim=0).mean().item()
         coord_range = (points.max(dim=0)[0] - points.min(dim=0)[0]).mean().item()
         
@@ -188,28 +173,25 @@ class LODManager:
         complexity_ratio = coord_std / max(coord_range, 1e-6)
         
         # Convert to factor: more complex = preserve more points
-        complexity_factor = 0.7 + 0.3 * min(1.0, complexity_ratio * 10.0)
+        # Conservative: bias towards preserving more points
+        complexity_factor = 0.8 + 0.2 * min(1.0, complexity_ratio * 5.0)  # Reduced scaling
         
         return complexity_factor
         
     def _calculate_size_adaptive_factor(self, total_points: int) -> float:
-        """Calculate factor based on original point cloud size.
-        
-        Very large point clouds can afford more aggressive reduction.
-        Small point clouds need gentler reduction to preserve shape.
-        """
+        """Calculate factor based on original point cloud size."""
         if total_points < 10000:
             # Small clouds: preserve most points
             return 1.0
-        elif total_points < 100000:
+        elif total_points < 50000:
             # Medium clouds: moderate reduction
-            return 0.8
-        elif total_points < 1000000:
+            return 0.9
+        elif total_points < 200000:
             # Large clouds: can reduce more
-            return 0.6
+            return 0.8
         else:
-            # Very large clouds: aggressive reduction possible
-            return 0.4
+            # Very large clouds: more aggressive reduction possible
+            return 0.7
             
     def _apply_hysteresis(
         self,
@@ -279,19 +261,22 @@ class LODManager:
         
         # Estimate volume and density
         volume = torch.prod(bbox_size).item()
+        if volume <= 0:
+            return 0.1  # Fallback for degenerate cases
+            
         current_density = points.shape[0] / volume
         target_density = target_points / volume
         
         # Calculate voxel size based on density ratio
         if current_density > 0:
             density_ratio = target_density / current_density
-            voxel_size = 1.0 / math.pow(density_ratio, 1/3)  # Cube root for 3D
+            voxel_size = 1.0 / math.pow(max(density_ratio, 1e-6), 1/3)  # Cube root for 3D
         else:
             voxel_size = 1.0
             
         # Apply reasonable bounds
         max_bbox_dim = torch.max(bbox_size).item()
-        min_voxel = max_bbox_dim / 1000  # At least 1000 voxels per dimension
+        min_voxel = max_bbox_dim / 500   # At least 500 voxels per dimension
         max_voxel = max_bbox_dim / 5     # At most 5 voxels per dimension
         
         voxel_size = max(min_voxel, min(max_voxel, voxel_size))
@@ -334,3 +319,12 @@ def calculate_point_cloud_bounds(points: Union[torch.Tensor, np.ndarray]) -> Tup
     diagonal_size = np.sqrt(np.sum(bbox_extents**2))
     
     return center, diagonal_size
+
+
+# Global LOD manager instance for proper caching
+_global_lod_manager = LODManager()
+
+
+def get_lod_manager() -> LODManager:
+    """Get the global LOD manager instance to ensure caching works."""
+    return _global_lod_manager
