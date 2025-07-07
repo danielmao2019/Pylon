@@ -1,4 +1,12 @@
-# Level of Detail (LOD) System for Point Cloud Visualization
+# DEPRECATED: Legacy LOD System
+
+**⚠️ WARNING: This document describes the old, deprecated LOD implementation that used discrete LOD levels (0-3) and fixed distance thresholds. This system has been completely replaced.**
+
+**📖 For current documentation, see: [LOD System Documentation](lod_system.md)**
+
+---
+
+# Legacy Level of Detail (LOD) System for Point Cloud Visualization
 
 ## Overview
 

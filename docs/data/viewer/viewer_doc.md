@@ -70,7 +70,7 @@ data/viewer/
 4. **CallbackRegistry**: Manages callback registration and dependencies
 5. **UI Components**: Modular components for controls and display
 6. **TransformManager**: Handles data transformations and preprocessing
-7. **CameraLODManager**: Manages Level of Detail for efficient point cloud rendering
+7. **LODManager**: Manages intelligent Level of Detail for efficient point cloud rendering
 
 ## API Reference
 

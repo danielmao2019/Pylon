@@ -15,32 +15,36 @@ from data.transforms.vision_3d.downsample import DownSample
 from utils.input_checks.point_cloud import check_point_cloud
 
 
+# Default LOD configuration
+DEFAULT_LOD_CONFIG = {
+    'target_points_per_pixel': 2.0,
+    'min_quality_ratio': 0.2,  # Conservative: never less than 20%
+    'max_reduction_ratio': 0.8,  # Conservative: max 80% reduction
+    'hysteresis_factor': 0.15,
+    'distance_scaling_factor': 0.3,
+    'complexity_base_factor': 0.8,
+    'complexity_scaling': 0.2,
+    'size_small_threshold': 10000,
+    'size_medium_threshold': 50000,
+    'size_large_threshold': 200000,
+}
+
+
 class LODManager:
     """Level of Detail manager that dynamically calculates optimal point reduction."""
     
-    def __init__(
-        self, 
-        target_points_per_pixel: float = 2.0,
-        min_quality_ratio: float = 0.2,  # Conservative: never less than 20%
-        max_reduction_ratio: float = 0.8,  # Conservative: max 80% reduction
-        hysteresis_factor: float = 0.15
-    ):
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
         """Initialize the LOD manager.
         
         Args:
-            target_points_per_pixel: Target number of points per screen pixel for optimal quality
-            min_quality_ratio: Minimum fraction of points to preserve (quality constraint)
-            max_reduction_ratio: Maximum reduction allowed (prevent over-aggressive downsampling)
-            hysteresis_factor: Factor to prevent LOD flickering during camera movement
+            config: LOD configuration parameters dictionary
         """
-        self.target_points_per_pixel = target_points_per_pixel
-        self.min_quality_ratio = min_quality_ratio
-        self.max_reduction_ratio = max_reduction_ratio
-        self.hysteresis_factor = hysteresis_factor
+        self.config = {**DEFAULT_LOD_CONFIG, **(config or {})}
         
         # Cache for downsampled point clouds and LOD decisions
-        self._lod_cache = {}
-        self._current_target_points = {}  # Track current target for hysteresis
+        self._lod_cache: Dict[str, Dict[str, torch.Tensor]] = {}
+        self._current_target_points: Dict[str, int] = {}  # Track current target for hysteresis
+        self._complexity_cache: Dict[int, Tuple[float, float]] = {}  # Cache expensive calculations
         
     def calculate_target_points(
         self,
@@ -85,10 +89,10 @@ class LODManager:
         
         # Apply conservative quality constraints
         min_points = max(
-            int(total_points * self.min_quality_ratio),
+            int(total_points * self.config['min_quality_ratio']),
             2000  # Absolute minimum for shape preservation
         )
-        max_points = int(total_points * (1.0 - self.max_reduction_ratio))
+        max_points = int(total_points * (1.0 - self.config['max_reduction_ratio']))
         
         # Clamp to constraints
         constrained_target = max(min_points, min(max_points, target))
@@ -133,7 +137,7 @@ class LODManager:
         screen_pixels = viewport_size[0] * viewport_size[1] * screen_coverage_ratio
         
         # Target points per pixel
-        target_points = int(screen_pixels * self.target_points_per_pixel)
+        target_points = int(screen_pixels * self.config['target_points_per_pixel'])
         
         return max(target_points, 2000)  # Minimum threshold
         
@@ -156,48 +160,48 @@ class LODManager:
         
         # Modified inverse relationship: closer = more detail needed
         # Conservative approach: don't reduce too aggressively
-        distance_factor = 1.0 / (1.0 + normalized_distance * 0.3)  # Reduced from 0.5
+        distance_factor = 1.0 / (1.0 + normalized_distance * self.config['distance_scaling_factor'])
         
         # Clamp to conservative range
         return max(0.5, min(1.0, distance_factor))  # Never less than 50%
         
     def _calculate_complexity_factor(self, point_cloud: Dict[str, torch.Tensor]) -> float:
-        """Calculate factor based on point cloud geometric complexity."""
+        """Calculate factor based on point cloud geometric complexity with caching."""
         points = point_cloud['pos']
         
-        # Estimate complexity using coordinate variance
-        coord_std = points.std(dim=0).mean().item()
-        coord_range = (points.max(dim=0)[0] - points.min(dim=0)[0]).mean().item()
+        # Use cache for expensive std/range calculations
+        cache_key = id(points)
+        if cache_key not in self._complexity_cache:
+            coord_std = points.std(dim=0).mean().item()
+            coord_range = (points.max(dim=0)[0] - points.min(dim=0)[0]).mean().item()
+            self._complexity_cache[cache_key] = (coord_std, coord_range)
         
-        # Normalized complexity metric
+        coord_std, coord_range = self._complexity_cache[cache_key]
         complexity_ratio = coord_std / max(coord_range, 1e-6)
         
         # Convert to factor: more complex = preserve more points
-        # Conservative: bias towards preserving more points
-        complexity_factor = 0.8 + 0.2 * min(1.0, complexity_ratio * 5.0)  # Reduced scaling
+        complexity_factor = (
+            self.config['complexity_base_factor'] + 
+            self.config['complexity_scaling'] * min(1.0, complexity_ratio * 5.0)
+        )
         
         return complexity_factor
         
     def _calculate_size_adaptive_factor(self, total_points: int) -> float:
         """Calculate factor based on original point cloud size."""
-        if total_points < 10000:
-            # Small clouds: preserve most points
-            return 1.0
-        elif total_points < 50000:
-            # Medium clouds: moderate reduction
-            return 0.9
-        elif total_points < 200000:
-            # Large clouds: can reduce more
-            return 0.8
+        if total_points < self.config['size_small_threshold']:
+            return 1.0  # Small clouds: preserve most points
+        elif total_points < self.config['size_medium_threshold']:
+            return 0.9  # Medium clouds: moderate reduction
+        elif total_points < self.config['size_large_threshold']:
+            return 0.8  # Large clouds: can reduce more
         else:
-            # Very large clouds: more aggressive reduction possible
-            return 0.7
+            return 0.7  # Very large clouds: more aggressive reduction possible
             
     def _apply_hysteresis(
         self,
         point_cloud_id: str,
-        new_target: int,
-        total_points: int
+        new_target: int
     ) -> int:
         """Apply hysteresis to prevent LOD flickering during camera movement."""
         current_target = self._current_target_points.get(point_cloud_id, new_target)
@@ -207,7 +211,7 @@ class LODManager:
             relative_change = abs(new_target - current_target) / current_target
             
             # Only change if relative change is significant
-            if relative_change < self.hysteresis_factor:
+            if relative_change < self.config['hysteresis_factor']:
                 return current_target
                 
         # Update and return new target
@@ -229,8 +233,8 @@ class LODManager:
         if target_points >= current_points:
             return point_cloud
             
-        # Check cache
-        cache_key = f"{point_cloud_id}_lod_{target_points}"
+        # Check cache with optimized key generation
+        cache_key = f"{point_cloud_id}_{target_points}"
         if cache_key in self._lod_cache:
             return self._lod_cache[cache_key]
             
@@ -288,6 +292,7 @@ class LODManager:
         if point_cloud_id is None:
             self._lod_cache.clear()
             self._current_target_points.clear()
+            self._complexity_cache.clear()
         else:
             # Clear cache entries for specific point cloud
             keys_to_remove = [k for k in self._lod_cache.keys() if point_cloud_id in k]
@@ -301,6 +306,7 @@ class LODManager:
         return {
             'cached_lods': len(self._lod_cache),
             'tracked_point_clouds': len(self._current_target_points),
+            'complexity_cache_size': len(self._complexity_cache),
             'current_targets': dict(self._current_target_points)
         }
 

@@ -9,6 +9,102 @@ from data.viewer.utils.segmentation import get_color
 from data.viewer.utils.camera_lod import get_lod_manager
 
 
+def _convert_to_tensor(data: Optional[Union[torch.Tensor, np.ndarray]]) -> Optional[torch.Tensor]:
+    """Convert numpy array or tensor to tensor format."""
+    if data is None:
+        return None
+    if isinstance(data, np.ndarray):
+        return torch.from_numpy(data)
+    return data
+
+
+def _get_point_count(points: Union[torch.Tensor, np.ndarray]) -> int:
+    """Get point count from tensor or array."""
+    return len(points) if isinstance(points, (np.ndarray, list)) else points.shape[0]
+
+
+def _prepare_point_cloud_dict(
+    points: Union[torch.Tensor, np.ndarray],
+    colors: Optional[Union[torch.Tensor, np.ndarray]],
+    labels: Optional[Union[torch.Tensor, np.ndarray]]
+) -> Dict[str, torch.Tensor]:
+    """Prepare point cloud dictionary for LOD processing."""
+    pc_dict = {'pos': _convert_to_tensor(points).float()}
+    
+    colors_tensor = _convert_to_tensor(colors)
+    if colors_tensor is not None:
+        pc_dict['rgb'] = colors_tensor
+        
+    labels_tensor = _convert_to_tensor(labels)
+    if labels_tensor is not None:
+        pc_dict['labels'] = labels_tensor
+        
+    return pc_dict
+
+
+def _calculate_target_points(
+    pc_dict: Dict[str, torch.Tensor],
+    camera_state: Dict[str, Any],
+    point_cloud_id: str,
+    lod_level: Optional[int],
+    original_count: int
+) -> int:
+    """Calculate target points for LOD processing."""
+    lod_manager = get_lod_manager()
+    
+    if lod_level is not None:
+        # Convert old LOD levels to approximate target points for compatibility
+        level_to_points = {0: original_count, 1: 50000, 2: 25000, 3: 10000}
+        return min(level_to_points.get(lod_level, original_count), original_count)
+    
+    # Calculate target points based on viewing conditions
+    target = lod_manager.calculate_target_points(pc_dict, camera_state, point_cloud_id)
+    return max(2000, min(target, original_count))
+
+
+def _apply_downsampling(
+    pc_dict: Dict[str, torch.Tensor],
+    target_points: int,
+    point_cloud_id: str
+) -> Dict[str, torch.Tensor]:
+    """Apply downsampling if meaningful reduction is possible."""
+    original_count = pc_dict['pos'].shape[0]
+    
+    # Only apply LOD if meaningful reduction (>5%)
+    if target_points < original_count * 0.95:
+        lod_manager = get_lod_manager()
+        return lod_manager.get_downsampled_point_cloud(pc_dict, target_points, point_cloud_id)
+    
+    return pc_dict
+
+
+def _extract_processed_data(
+    downsampled_pc: Dict[str, torch.Tensor],
+    original_colors: Optional[Union[torch.Tensor, np.ndarray]],
+    original_labels: Optional[Union[torch.Tensor, np.ndarray]]
+) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
+    """Extract processed data from downsampled point cloud."""
+    processed_points = point_cloud_to_numpy(downsampled_pc['pos'])
+    
+    # Use downsampled colors/labels if available, otherwise preserve originals
+    processed_colors = original_colors
+    if 'rgb' in downsampled_pc:
+        processed_colors = point_cloud_to_numpy(downsampled_pc['rgb'])
+        
+    processed_labels = original_labels
+    if 'labels' in downsampled_pc:
+        processed_labels = point_cloud_to_numpy(downsampled_pc['labels'])
+        
+    return processed_points, processed_colors, processed_labels
+
+
+def _create_updated_title(title: str, original_count: int, current_count: int) -> str:
+    """Create updated title with LOD information."""
+    if current_count != original_count:
+        return f"{title} (LOD: {current_count:,}/{original_count:,})"
+    return title
+
+
 def _apply_lod_to_point_cloud(
     points: Union[torch.Tensor, np.ndarray],
     colors: Optional[Union[torch.Tensor, np.ndarray]],
@@ -26,91 +122,24 @@ def _apply_lod_to_point_cloud(
         labels: Optional label data  
         camera_state: Camera viewing state
         point_cloud_id: Unique identifier for caching
-        title: Title for debug logging
+        title: Title for logging
         lod_level: Force specific LOD level, None for automatic
         
     Returns:
         Tuple of (processed_points, processed_colors, processed_labels, updated_title, lod_time_ms)
     """
-    original_point_count = len(points) if isinstance(points, (np.ndarray, list)) else points.shape[0]
-    
-    # Convert to tensor format for LOD processing
-    if isinstance(points, np.ndarray):
-        points_tensor = torch.from_numpy(points).float()
-    else:
-        points_tensor = points.float()
-        
-    # Create point cloud dictionary for LOD manager
-    pc_dict = {'pos': points_tensor}
-    if colors is not None:
-        if isinstance(colors, np.ndarray):
-            pc_dict['rgb'] = torch.from_numpy(colors)
-        else:
-            pc_dict['rgb'] = colors
-    if labels is not None:
-        if isinstance(labels, np.ndarray):
-            pc_dict['labels'] = torch.from_numpy(labels)
-        else:
-            pc_dict['labels'] = labels
-            
-    # Get the global LOD manager instance for proper caching
-    lod_manager = get_lod_manager()
+    original_count = _get_point_count(points)
+    pc_dict = _prepare_point_cloud_dict(points, colors, labels)
     
     lod_start = time.time()
-    
-    # Force specific LOD level if provided (backward compatibility)
-    if lod_level is not None:
-        # Convert old LOD levels to approximate target points for compatibility
-        level_to_points = {0: original_point_count, 1: 50000, 2: 25000, 3: 10000}
-        target_points = min(level_to_points.get(lod_level, original_point_count), original_point_count)
-        print(f"[LOD DEBUG] {title} - FORCED LOD level {lod_level} → target: {target_points:,} points")
-    else:
-        # Calculate target points based on viewing conditions
-        target_points = lod_manager.calculate_target_points(
-            pc_dict, camera_state, point_cloud_id
-        )
-        
-    # Validate target points
-    target_points = max(2000, min(target_points, original_point_count))
-    reduction_pct = (1 - target_points/original_point_count) * 100
-    print(f"[LOD DEBUG] {title} - Original: {original_point_count:,}, Target: {target_points:,} points ({reduction_pct:.1f}% reduction)")
-    
-    # Apply downsampling only if meaningful reduction
-    if target_points < original_point_count * 0.95:  # Only if reducing by >5%
-        downsampled_pc = lod_manager.get_downsampled_point_cloud(
-            pc_dict, target_points, point_cloud_id
-        )
-    else:
-        # Skip LOD for minimal reduction to avoid overhead
-        downsampled_pc = pc_dict
+    target_points = _calculate_target_points(pc_dict, camera_state, point_cloud_id, lod_level, original_count)
+    downsampled_pc = _apply_downsampling(pc_dict, target_points, point_cloud_id)
     lod_time = time.time() - lod_start
     
-    # Convert back to numpy
-    processed_points = point_cloud_to_numpy(downsampled_pc['pos'])
-    processed_colors = colors  # Preserve original if not in downsampled
-    processed_labels = labels  # Preserve original if not in downsampled
+    processed_data = _extract_processed_data(downsampled_pc, colors, labels)
+    updated_title = _create_updated_title(title, original_count, len(processed_data[0]))
     
-    if 'rgb' in downsampled_pc:
-        processed_colors = point_cloud_to_numpy(downsampled_pc['rgb'])
-    if 'labels' in downsampled_pc:
-        processed_labels = point_cloud_to_numpy(downsampled_pc['labels'])
-        
-    # Update title with LOD info and performance analysis
-    current_point_count = len(processed_points)
-    actual_reduction = (original_point_count - current_point_count) / original_point_count
-    
-    # Performance analysis
-    lod_overhead_ms = lod_time * 1000
-    estimated_rendering_speedup = max(1.0, original_point_count / current_point_count)
-    
-    print(f"[LOD DEBUG] {title} - Final: {current_point_count:,} points ({actual_reduction*100:.1f}% reduction)")
-    print(f"[LOD PERF] {title} - LOD overhead: {lod_overhead_ms:.1f}ms, Est. speedup: {estimated_rendering_speedup:.1f}x")
-    
-    updated_title = title
-    if current_point_count != original_point_count:
-        updated_title += f" (LOD: {current_point_count:,}/{original_point_count:,})"
-        
-    return processed_points, processed_colors, processed_labels, updated_title, lod_overhead_ms
+    return *processed_data, updated_title, lod_time * 1000
 
 
 
@@ -151,27 +180,20 @@ def create_point_cloud_figure(
     Returns:
         Plotly Figure object with potentially downsampled point cloud
     """
-    # Store original point count for logging
-    original_point_count = len(points) if isinstance(points, (np.ndarray, list)) else points.shape[0]
-    
     start_time = time.time()
-    print(f"[LOD DEBUG] {title} - Original points: {original_point_count:,}, LOD enabled: {lod_enabled}, Camera state: {camera_state is not None}, PC ID: {point_cloud_id}")
     
     # Apply LOD if enabled and required conditions are met
     if lod_enabled and camera_state is not None and point_cloud_id is not None:
         points, colors, labels, title, _ = _apply_lod_to_point_cloud(
             points, colors, labels, camera_state, point_cloud_id, title, lod_level
         )
-    else:
-        print(f"[LOD DEBUG] {title} - LOD NOT APPLIED - LOD enabled: {lod_enabled}, Camera state: {camera_state is not None}, PC ID: {point_cloud_id}")
+    # LOD conditions not met - use original data
     
     # Convert input data to numpy arrays and validate
     points = point_cloud_to_numpy(points)
     
-    # Validate point cloud is not empty
+    # Handle empty point clouds
     if len(points) == 0:
-        print(f"[LOD WARNING] {title} - Empty point cloud provided")
-        # Create a minimal point cloud for display
         points = np.array([[0, 0, 0]], dtype=np.float32)
     
     # Process colors and labels
@@ -234,8 +256,8 @@ def create_point_cloud_figure(
         height=500,
     )
 
-    total_time = time.time() - start_time
-    print(f"[LOD DEBUG] {title} - TOTAL create_point_cloud_figure time: {total_time:.3f}s")
+    # Performance monitoring available if needed
+    _ = time.time() - start_time
     
     return fig
 

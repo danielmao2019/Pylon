@@ -28,8 +28,8 @@ graph TD
     E --> O[3D Settings]
     E --> P[LOD Manager]
     
-    P --> Q[Camera Distance Calc]
-    P --> R[LOD Level Selection]
+    P --> Q[Adaptive LOD Calculation]
+    P --> R[Screen Coverage Analysis]
     P --> S[Point Cloud Downsampling]
 ```
 
@@ -206,7 +206,7 @@ The architecture includes several performance optimizations:
    - Automatic LOD level selection based on viewing distance
    - Hysteresis to prevent LOD flickering
    - Cached downsampled point clouds for reuse
-   - Performance gains of 20-70x for large point clouds
+   - Performance gains of 2-5x for large point clouds with conservative quality preservation
 
 ## Security
 
