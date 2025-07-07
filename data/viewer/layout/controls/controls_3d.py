@@ -24,6 +24,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
 
         # LOD Controls
         html.Div([
+            # Use Checklist with single option as Dash doesn't have a standalone Checkbox component
             dcc.Checklist(
                 id='lod-enabled-checkbox',
                 options=[{'label': ' Enable Level of Detail (LOD) optimization', 'value': 'enabled'}],
