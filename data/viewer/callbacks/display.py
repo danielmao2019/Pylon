@@ -265,11 +265,12 @@ def update_datapoint(
     inputs=[Input('dataset-info', 'data')],
     states=[
         State('datapoint-index-slider', 'value'),
-        State('3d-settings-store', 'data')
+        State('3d-settings-store', 'data'),
+        State('camera-state', 'data')
     ],
     group="display"
 )
-def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int], settings_3d: Optional[Dict[str, Union[str, int, float, bool]]]) -> List[Union[html.Div, List[html.Div]]]:
+def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int], settings_3d: Optional[Dict[str, Union[str, int, float, bool]]], camera_state: Dict[str, Any]) -> List[Union[html.Div, List[html.Div]]]:
     """Update the transforms section when dataset info changes and display datapoint with all transforms applied."""
     # If no dataset is selected, maintain current state
     if not dataset_info:
@@ -316,13 +317,13 @@ def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int]
     elif dataset_type == '2dcd':
         display = display_func(datapoint)
     elif dataset_type == '3dcd':
-        display = display_func(datapoint, point_size, point_opacity, dataset_info.get('class_labels', {}), {}, lod_enabled)
+        display = display_func(datapoint, point_size, point_opacity, dataset_info.get('class_labels', {}), camera_state, lod_enabled)
     elif dataset_type == 'pcr':
         display = display_func(
             datapoint=datapoint, 
             point_size=point_size, 
             point_opacity=point_opacity, 
-            camera_state={}, 
+            camera_state=camera_state, 
             sym_diff_radius=radius, 
             corr_radius=correspondence_radius,
             lod_enabled=lod_enabled
