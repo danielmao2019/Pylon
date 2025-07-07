@@ -80,21 +80,19 @@ def _apply_downsampling(
 
 
 def _extract_processed_data(
-    downsampled_pc: Dict[str, torch.Tensor],
-    original_colors: Optional[Union[torch.Tensor, np.ndarray]],
-    original_labels: Optional[Union[torch.Tensor, np.ndarray]]
+    downsampled_pc: Dict[str, torch.Tensor]
 ) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
     """Extract processed data from downsampled point cloud."""
     processed_points = point_cloud_to_numpy(downsampled_pc['pos'])
     
-    # Use downsampled data if available, otherwise preserve originals
+    # Extract colors/labels if they exist in downsampled data
     processed_colors = (
         point_cloud_to_numpy(downsampled_pc['rgb']) if 'rgb' in downsampled_pc 
-        else original_colors
+        else None
     )
     processed_labels = (
         point_cloud_to_numpy(downsampled_pc['labels']) if 'labels' in downsampled_pc 
-        else original_labels
+        else None
     )
         
     return processed_points, processed_colors, processed_labels
@@ -138,7 +136,7 @@ def _apply_lod_to_point_cloud(
     downsampled_pc = _apply_downsampling(pc_dict, target_points, point_cloud_id)
     lod_time = time.time() - lod_start
     
-    processed_data = _extract_processed_data(downsampled_pc, colors, labels)
+    processed_data = _extract_processed_data(downsampled_pc)
     updated_title = _create_updated_title(title, original_count, len(processed_data[0]))
     
     return *processed_data, updated_title, lod_time * 1000
