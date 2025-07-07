@@ -25,7 +25,7 @@ class CameraPoseSampler:
             List of camera poses across all distance groups
         """
         # Calculate point cloud center and bounds
-        pc_center = point_cloud.mean(dim=0).numpy()
+        pc_center = point_cloud.mean(dim=0).cpu().numpy()
         pc_bounds = (point_cloud.min().item(), point_cloud.max().item())
         pc_size = pc_bounds[1] - pc_bounds[0]
         
