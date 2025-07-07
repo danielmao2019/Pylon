@@ -43,13 +43,9 @@ def _create_display(
     dataset_type: str,
     display_func: Any,
     datapoint: Dict[str, Any], 
-    point_size: float,
-    point_opacity: float,
     class_labels: Optional[Dict[int, str]],
     camera_state: Dict[str, Any],
-    radius: float,
-    correspondence_radius: float,
-    lod_enabled: bool
+    settings_3d: Dict[str, Union[float, bool]]
 ) -> html.Div:
     """Create display based on dataset type with appropriate parameters."""
     if dataset_type == 'semseg':
@@ -57,16 +53,23 @@ def _create_display(
     elif dataset_type == '2dcd':
         return display_func(datapoint)
     elif dataset_type == '3dcd':
-        return display_func(datapoint, point_size, point_opacity, class_labels, camera_state, lod_enabled)
+        return display_func(
+            datapoint, 
+            settings_3d['point_size'], 
+            settings_3d['point_opacity'], 
+            class_labels, 
+            camera_state, 
+            settings_3d['lod_enabled']
+        )
     elif dataset_type == 'pcr':
         return display_func(
             datapoint=datapoint, 
-            point_size=point_size, 
-            point_opacity=point_opacity, 
+            point_size=settings_3d['point_size'], 
+            point_opacity=settings_3d['point_opacity'], 
             camera_state=camera_state, 
-            sym_diff_radius=radius, 
-            corr_radius=correspondence_radius, 
-            lod_enabled=lod_enabled
+            sym_diff_radius=settings_3d['radius'], 
+            corr_radius=settings_3d['correspondence_radius'], 
+            lod_enabled=settings_3d['lod_enabled']
         )
     else:
         raise ValueError(f"Unsupported dataset type: {dataset_type}")
@@ -263,11 +266,7 @@ def update_datapoint(
 
     # Call the display function with appropriate parameters
     logger.info(f"Creating {dataset_type} display")
-    display = _create_display(
-        dataset_type, display_func, datapoint, 
-        settings['point_size'], settings['point_opacity'], class_labels, camera_state, 
-        settings['radius'], settings['correspondence_radius'], settings['lod_enabled']
-    )
+    display = _create_display(dataset_type, display_func, datapoint, class_labels, camera_state, settings)
 
     logger.info("Display created successfully")
     return [display]
@@ -318,10 +317,6 @@ def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int]
     class_labels = dataset_info.get('class_labels', {}) if dataset_type in ['semseg', '3dcd'] else None
 
     # Call the display function with current 3D settings
-    display = _create_display(
-        dataset_type, display_func, datapoint, 
-        settings['point_size'], settings['point_opacity'], class_labels, camera_state, 
-        settings['radius'], settings['correspondence_radius'], settings['lod_enabled']
-    )
+    display = _create_display(dataset_type, display_func, datapoint, class_labels, camera_state, settings)
 
     return [transforms_section, [display]]
