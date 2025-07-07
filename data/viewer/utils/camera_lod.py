@@ -15,6 +15,13 @@ from data.transforms.vision_3d.downsample import DownSample
 from utils.input_checks.point_cloud import check_point_cloud
 
 
+# LOD system constants
+MIN_SHAPE_PRESERVATION_POINTS = 2000
+MIN_REDUCTION_THRESHOLD = 0.95  # Only apply LOD if reducing by >5%
+FOV_DEGREES = 60.0  # Assumed field of view for screen coverage calculation
+COMPLEXITY_SCALING_FACTOR = 5.0  # Scaling factor for complexity ratio
+DISTANCE_FACTOR_MIN = 0.5  # Never reduce distance factor below 50%
+
 # Default LOD configuration
 DEFAULT_LOD_CONFIG = {
     'target_points_per_pixel': 2.0,
@@ -90,7 +97,7 @@ class LODManager:
         # Apply conservative quality constraints
         min_points = max(
             int(total_points * self.config['min_quality_ratio']),
-            2000  # Absolute minimum for shape preservation
+            MIN_SHAPE_PRESERVATION_POINTS
         )
         max_points = int(total_points * (1.0 - self.config['max_reduction_ratio']))
         
@@ -126,9 +133,8 @@ class LODManager:
         bbox_size = np.linalg.norm(max_coords - min_coords)
         
         # Estimate screen coverage as fraction of viewport
-        fov_factor = 60.0  # Assume 60 degree field of view
         angular_size = 2 * math.atan(bbox_size / (2 * max(camera_distance, 1e-6)))
-        screen_coverage_ratio = angular_size / math.radians(fov_factor)
+        screen_coverage_ratio = angular_size / math.radians(FOV_DEGREES)
         screen_coverage_ratio = min(1.0, screen_coverage_ratio)  # Cap at 100%
         
         # Calculate screen pixels covered
@@ -137,7 +143,7 @@ class LODManager:
         # Target points per pixel
         target_points = int(screen_pixels * self.config['target_points_per_pixel'])
         
-        return max(target_points, 2000)  # Minimum threshold
+        return max(target_points, MIN_SHAPE_PRESERVATION_POINTS)
         
     def _calculate_distance_quality_factor(
         self,
@@ -161,7 +167,7 @@ class LODManager:
         distance_factor = 1.0 / (1.0 + normalized_distance * self.config['distance_scaling_factor'])
         
         # Clamp to conservative range
-        return max(0.5, min(1.0, distance_factor))  # Never less than 50%
+        return max(DISTANCE_FACTOR_MIN, min(1.0, distance_factor))
         
     def _calculate_complexity_factor(self, point_cloud: Dict[str, torch.Tensor]) -> float:
         """Calculate factor based on point cloud geometric complexity with caching."""
@@ -180,7 +186,7 @@ class LODManager:
         # Convert to factor: more complex = preserve more points
         complexity_factor = (
             self.config['complexity_base_factor'] + 
-            self.config['complexity_scaling'] * min(1.0, complexity_ratio * 5.0)
+            self.config['complexity_scaling'] * min(1.0, complexity_ratio * COMPLEXITY_SCALING_FACTOR)
         )
         
         return complexity_factor
@@ -264,7 +270,7 @@ class LODManager:
         # Estimate volume and density
         volume = torch.prod(bbox_size).item()
         if volume <= 0:
-            return 0.1  # Fallback for degenerate cases
+            return 0.1  # Fallback for degenerate/flat point clouds
             
         current_density = points.shape[0] / volume
         target_density = target_points / volume

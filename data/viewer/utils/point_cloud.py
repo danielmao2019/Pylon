@@ -71,7 +71,8 @@ def _apply_downsampling(
     original_count = pc_dict['pos'].shape[0]
     
     # Only apply LOD if meaningful reduction (>5%)
-    if target_points < original_count * 0.95:
+    MIN_REDUCTION_THRESHOLD = 0.95  # Import not needed for single constant
+    if target_points < original_count * MIN_REDUCTION_THRESHOLD:
         lod_manager = get_lod_manager()
         return lod_manager.get_downsampled_point_cloud(pc_dict, target_points, point_cloud_id)
     
@@ -86,14 +87,15 @@ def _extract_processed_data(
     """Extract processed data from downsampled point cloud."""
     processed_points = point_cloud_to_numpy(downsampled_pc['pos'])
     
-    # Use downsampled colors/labels if available, otherwise preserve originals
-    processed_colors = original_colors
-    if 'rgb' in downsampled_pc:
-        processed_colors = point_cloud_to_numpy(downsampled_pc['rgb'])
-        
-    processed_labels = original_labels
-    if 'labels' in downsampled_pc:
-        processed_labels = point_cloud_to_numpy(downsampled_pc['labels'])
+    # Use downsampled data if available, otherwise preserve originals
+    processed_colors = (
+        point_cloud_to_numpy(downsampled_pc['rgb']) if 'rgb' in downsampled_pc 
+        else original_colors
+    )
+    processed_labels = (
+        point_cloud_to_numpy(downsampled_pc['labels']) if 'labels' in downsampled_pc 
+        else original_labels
+    )
         
     return processed_points, processed_colors, processed_labels
 
@@ -187,12 +189,12 @@ def create_point_cloud_figure(
         points, colors, labels, title, _ = _apply_lod_to_point_cloud(
             points, colors, labels, camera_state, point_cloud_id, title, lod_level
         )
-    # LOD conditions not met - use original data
+    # LOD conditions not met - continue with original data
     
     # Convert input data to numpy arrays and validate
     points = point_cloud_to_numpy(points)
     
-    # Handle empty point clouds
+    # Handle edge case of empty point clouds
     if len(points) == 0:
         points = np.array([[0, 0, 0]], dtype=np.float32)
     
@@ -256,7 +258,7 @@ def create_point_cloud_figure(
         height=500,
     )
 
-    # Performance monitoring available if needed
+    # Performance tracking available via timing if needed
     _ = time.time() - start_time
     
     return fig
