@@ -99,9 +99,7 @@ class LODManager:
         constrained_target = min(constrained_target, total_points)
         
         # Apply hysteresis to prevent flickering
-        final_target = self._apply_hysteresis(
-            point_cloud_id, constrained_target, total_points
-        )
+        final_target = self._apply_hysteresis(point_cloud_id, constrained_target)
         
         return final_target
         
