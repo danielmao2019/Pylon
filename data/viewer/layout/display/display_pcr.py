@@ -1,6 +1,7 @@
 """UI components for displaying point cloud registration dataset items."""
 from typing import Tuple, Dict, Optional, Any
 import random
+import time
 import numpy as np
 import torch
 from dash import dcc, html
@@ -10,7 +11,7 @@ from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
-from data.viewer.utils.point_cloud import create_point_cloud_figure
+from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
 
 
 def create_union_visualization(
@@ -217,6 +218,8 @@ def display_pcr_datapoint_single(
     Returns:
         html.Div containing the visualization
     """
+    start_time = time.time()
+    print(f"[PCR Display] Starting display_pcr_datapoint_single callback at {start_time:.4f}")
     # Check if the inputs have the expected structure
     inputs = datapoint['inputs']
     assert 'src_pc' in inputs and 'tgt_pc' in inputs, "Source point cloud (src_pc) and target point cloud (tgt_pc) must be present in the inputs"
@@ -289,6 +292,7 @@ def display_pcr_datapoint_single(
 
     figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
     
+    figure_start = time.time()
     with ThreadPoolExecutor(max_workers=4) as executor:
         # Submit all tasks
         future_to_index = {
@@ -300,6 +304,8 @@ def display_pcr_datapoint_single(
         for future in as_completed(future_to_index):
             idx = future_to_index[future]
             figures[idx] = future.result()
+    figure_time = time.time() - figure_start
+    print(f"[PCR Display] Figure creation took {figure_time:.4f}s")
 
     # TODO: Add correspondence visualization
     # # 5. Correspondence visualization
@@ -326,6 +332,10 @@ def display_pcr_datapoint_single(
     # Compute translation magnitude
     translation_magnitude = torch.norm(translation_vector)
 
+    # Get point cloud statistics
+    src_stats_children = get_point_cloud_stats(src_pc)
+    tgt_stats_children = get_point_cloud_stats(tgt_pc)
+
     # Format the transformation matrix as a string
     transform_str = "Transform Matrix:\n"
     for i in range(4):
@@ -333,7 +343,7 @@ def display_pcr_datapoint_single(
         transform_str += "  ".join(row) + "\n"
 
     # Create a grid layout for the five figures
-    return html.Div([
+    result = html.Div([
         html.H3("Point Cloud Registration Visualization"),
         html.Div([
             # Create grid items using a for loop
@@ -352,8 +362,26 @@ def display_pcr_datapoint_single(
             html.Pre(transform_str),
             html.P(f"Rotation Angle: {rotation_angle:.2f} degrees"),
             html.P(f"Translation Magnitude: {translation_magnitude:.4f}")
+        ], style={'margin-top': '20px'}),
+
+        # Point cloud statistics
+        html.Div([
+            html.Div([
+                html.H4("Source Point Cloud Statistics:"),
+                html.Div(src_stats_children)
+            ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top', 'margin-right': '2%'}),
+            
+            html.Div([
+                html.H4("Target Point Cloud Statistics:"),
+                html.Div(tgt_stats_children)
+            ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top'})
         ], style={'margin-top': '20px'})
     ])
+    
+    total_time = time.time() - start_time
+    print(f"[PCR Display] Total display_pcr_datapoint_single time: {total_time:.4f}s")
+    
+    return result
 
 
 def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -393,6 +421,8 @@ def display_pcr_datapoint_batched(
     Returns:
         html.Div containing the visualization
     """
+    start_time = time.time()
+    print(f"[PCR Display] Starting display_pcr_datapoint_batched callback at {start_time:.4f}")
     inputs = datapoint['inputs']
     figures = []
 
@@ -514,10 +544,15 @@ def display_pcr_datapoint_batched(
             ], style={'width': '50%', 'display': 'inline-block'})
         )
 
-    return html.Div([
+    result = html.Div([
         html.H3("Point Cloud Registration Visualization (Hierarchical)"),
         html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'})
     ])
+    
+    total_time = time.time() - start_time
+    print(f"[PCR Display] Total display_pcr_datapoint_batched time: {total_time:.4f}s")
+    
+    return result
 
 
 def display_pcr_datapoint(
@@ -541,11 +576,13 @@ def display_pcr_datapoint(
     Returns:
         html.Div containing the visualization
     """
+    start_time = time.time()
+    print(f"[PCR Display] Starting display_pcr_datapoint callback at {start_time:.4f}")
     inputs = datapoint['inputs']
 
     # Check if we have hierarchical data (from collators)
     if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
-        return display_pcr_datapoint_batched(
+        result = display_pcr_datapoint_batched(
             datapoint,
             point_size=point_size,
             point_opacity=point_opacity,
@@ -554,7 +591,7 @@ def display_pcr_datapoint(
             corr_radius=corr_radius,
         )
     else:
-        return display_pcr_datapoint_single(
+        result = display_pcr_datapoint_single(
             datapoint,
             point_size=point_size,
             point_opacity=point_opacity,
@@ -562,3 +599,8 @@ def display_pcr_datapoint(
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
         )
+    
+    total_time = time.time() - start_time
+    print(f"[PCR Display] Total display_pcr_datapoint time: {total_time:.4f}s")
+    
+    return result

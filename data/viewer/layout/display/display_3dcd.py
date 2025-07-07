@@ -1,5 +1,7 @@
 """UI components for displaying dataset items."""
 from typing import Dict, Optional, Any
+import time
+import torch
 from dash import dcc, html
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from data.viewer.utils.dataset_utils import format_value
@@ -27,6 +29,8 @@ def display_3dcd_datapoint(
     Returns:
         html.Div containing the visualization
     """
+    start_time = time.time()
+    print(f"[3DCD Display] Starting display_3dcd_datapoint callback at {start_time:.4f}")
     # Check if the inputs have the expected structure
     inputs = datapoint['inputs']
     assert 'pc_1' in inputs and 'pc_2' in inputs, "Point cloud 1 (pc_1) and point cloud 2 (pc_2) must be present in the inputs"
@@ -37,9 +41,12 @@ def display_3dcd_datapoint(
     change_map = datapoint['labels']['change_map']
 
     # Get stats for point clouds
+    stats_start = time.time()
     pc_1_stats_children = get_point_cloud_stats(points_1, class_names=class_names)
     pc_2_stats_children = get_point_cloud_stats(points_2, class_names=class_names)
     change_stats_children = get_point_cloud_stats(points_1, change_map, class_names=class_names)
+    stats_time = time.time() - stats_start
+    print(f"[3DCD Display] Point cloud stats computation took {stats_time:.4f}s")
 
     # Create figures for point clouds
     points_list = [points_1, points_2]
@@ -73,6 +80,7 @@ def display_3dcd_datapoint(
 
     figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
     
+    figure_start = time.time()
     with ThreadPoolExecutor(max_workers=3) as executor:
         # Submit all tasks
         future_to_index = {
@@ -84,6 +92,8 @@ def display_3dcd_datapoint(
         for future in as_completed(future_to_index):
             idx = future_to_index[future]
             figures[idx] = future.result()
+    figure_time = time.time() - figure_start
+    print(f"[3DCD Display] Figure creation took {figure_time:.4f}s")
 
     # Extract metadata
     meta_info = datapoint.get('meta_info', {})
@@ -100,7 +110,7 @@ def display_3dcd_datapoint(
         ]
 
     # Compile the complete display
-    return html.Div([
+    result = html.Div([
         # Point cloud displays
         html.Div([
             html.Div([
@@ -141,3 +151,8 @@ def display_3dcd_datapoint(
             html.Div(meta_display, style={'margin-top': '20px'})
         ], style={'margin-top': '20px'})
     ])
+    
+    total_time = time.time() - start_time
+    print(f"[3DCD Display] Total display_3dcd_datapoint time: {total_time:.4f}s")
+    
+    return result
