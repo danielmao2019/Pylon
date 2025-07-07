@@ -158,13 +158,14 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         
         samples = []
         for idx in sample_indices:
-            inputs, _, _ = dataset[idx]
+            datapoint = dataset[idx]
+            inputs = datapoint['inputs']
             
             pc_1 = inputs['pc_1']['pos']
             pc_2 = inputs['pc_2']['pos']
             
-            colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
-            colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
+            colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32, device=pc_1.device)
+            colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32, device=pc_2.device)
             
             samples.extend([
                 PointCloudSample(f'urb3dcd_dp{idx}_pc1', pc_1, colors_1, 'urb3dcd', {'datapoint': idx, 'pc_type': 'pc1'}),
