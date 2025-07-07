@@ -1,11 +1,118 @@
 """Utility functions for point cloud visualization."""
-from typing import Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any, Tuple
+import time
 import numpy as np
 import torch
 from dash import html
 import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
-from data.viewer.utils.camera_lod import get_lod_manager, calculate_point_cloud_bounds
+from data.viewer.utils.camera_lod import get_lod_manager
+
+
+def _apply_lod_to_point_cloud(
+    points: Union[torch.Tensor, np.ndarray],
+    colors: Optional[Union[torch.Tensor, np.ndarray]],
+    labels: Optional[Union[torch.Tensor, np.ndarray]],
+    camera_state: Dict[str, Any],
+    point_cloud_id: str,
+    title: str,
+    lod_level: Optional[int] = None
+) -> Tuple[Union[torch.Tensor, np.ndarray], Optional[Union[torch.Tensor, np.ndarray]], Optional[Union[torch.Tensor, np.ndarray]], str, float]:
+    """Apply LOD processing to point cloud data.
+    
+    Args:
+        points: Point cloud positions
+        colors: Optional color data
+        labels: Optional label data  
+        camera_state: Camera viewing state
+        point_cloud_id: Unique identifier for caching
+        title: Title for debug logging
+        lod_level: Force specific LOD level, None for automatic
+        
+    Returns:
+        Tuple of (processed_points, processed_colors, processed_labels, updated_title, lod_time_ms)
+    """
+    original_point_count = len(points) if isinstance(points, (np.ndarray, list)) else points.shape[0]
+    
+    # Convert to tensor format for LOD processing
+    if isinstance(points, np.ndarray):
+        points_tensor = torch.from_numpy(points).float()
+    else:
+        points_tensor = points.float()
+        
+    # Create point cloud dictionary for LOD manager
+    pc_dict = {'pos': points_tensor}
+    if colors is not None:
+        if isinstance(colors, np.ndarray):
+            pc_dict['rgb'] = torch.from_numpy(colors)
+        else:
+            pc_dict['rgb'] = colors
+    if labels is not None:
+        if isinstance(labels, np.ndarray):
+            pc_dict['labels'] = torch.from_numpy(labels)
+        else:
+            pc_dict['labels'] = labels
+            
+    # Get the global LOD manager instance for proper caching
+    lod_manager = get_lod_manager()
+    
+    lod_start = time.time()
+    
+    # Force specific LOD level if provided (backward compatibility)
+    if lod_level is not None:
+        # Convert old LOD levels to approximate target points for compatibility
+        level_to_points = {0: original_point_count, 1: 50000, 2: 25000, 3: 10000}
+        target_points = min(level_to_points.get(lod_level, original_point_count), original_point_count)
+        print(f"[LOD DEBUG] {title} - FORCED LOD level {lod_level} → target: {target_points:,} points")
+    else:
+        # Calculate target points based on viewing conditions
+        target_points = lod_manager.calculate_target_points(
+            pc_dict, camera_state, point_cloud_id
+        )
+        
+    # Validate target points
+    target_points = max(2000, min(target_points, original_point_count))
+    reduction_pct = (1 - target_points/original_point_count) * 100
+    print(f"[LOD DEBUG] {title} - Original: {original_point_count:,}, Target: {target_points:,} points ({reduction_pct:.1f}% reduction)")
+    
+    # Apply downsampling only if meaningful reduction
+    if target_points < original_point_count * 0.95:  # Only if reducing by >5%
+        downsampled_pc = lod_manager.get_downsampled_point_cloud(
+            pc_dict, target_points, point_cloud_id
+        )
+    else:
+        # Skip LOD for minimal reduction to avoid overhead
+        downsampled_pc = pc_dict
+    lod_time = time.time() - lod_start
+    
+    # Convert back to numpy
+    processed_points = point_cloud_to_numpy(downsampled_pc['pos'])
+    processed_colors = colors  # Preserve original if not in downsampled
+    processed_labels = labels  # Preserve original if not in downsampled
+    
+    if 'rgb' in downsampled_pc:
+        processed_colors = point_cloud_to_numpy(downsampled_pc['rgb'])
+    if 'labels' in downsampled_pc:
+        processed_labels = point_cloud_to_numpy(downsampled_pc['labels'])
+        
+    # Update title with LOD info and performance analysis
+    current_point_count = len(processed_points)
+    actual_reduction = (original_point_count - current_point_count) / original_point_count
+    
+    # Performance analysis
+    lod_overhead_ms = lod_time * 1000
+    estimated_rendering_speedup = max(1.0, original_point_count / current_point_count)
+    
+    print(f"[LOD DEBUG] {title} - Final: {current_point_count:,} points ({actual_reduction*100:.1f}% reduction)")
+    print(f"[LOD PERF] {title} - LOD overhead: {lod_overhead_ms:.1f}ms, Est. speedup: {estimated_rendering_speedup:.1f}x")
+    
+    updated_title = title
+    if current_point_count != original_point_count:
+        updated_title += f" (LOD: {current_point_count:,}/{original_point_count:,})"
+        
+    return processed_points, processed_colors, processed_labels, updated_title, lod_overhead_ms
+
+
 
 
 def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
@@ -44,53 +151,30 @@ def create_point_cloud_figure(
     Returns:
         Plotly Figure object with potentially downsampled point cloud
     """
-    # Store original point count for LOD info
+    # Store original point count for logging
     original_point_count = len(points) if isinstance(points, (np.ndarray, list)) else points.shape[0]
     
-    # Apply LOD if enabled
-    if lod_enabled and camera_state is not None and point_cloud_id is not None:
-        # Convert to tensor format for LOD processing
-        if isinstance(points, np.ndarray):
-            points_tensor = torch.from_numpy(points).float()
-        else:
-            points_tensor = points.float()
-            
-        # Create point cloud dictionary for LOD manager
-        pc_dict = {'pos': points_tensor}
-        if colors is not None:
-            if isinstance(colors, np.ndarray):
-                pc_dict['rgb'] = torch.from_numpy(colors)
-            else:
-                pc_dict['rgb'] = colors
-        if labels is not None:
-            if isinstance(labels, np.ndarray):
-                pc_dict['labels'] = torch.from_numpy(labels)
-            else:
-                pc_dict['labels'] = labels
-                
-        # Calculate camera distance and LOD level
-        lod_manager = get_lod_manager()
-        center, bounds = calculate_point_cloud_bounds(points_tensor)
-        camera_distance = lod_manager.calculate_camera_distance(camera_state, center, bounds)
-        auto_lod_level = lod_manager.get_lod_level(camera_distance, point_cloud_id, lod_level)
-        
-        # Apply LOD downsampling
-        downsampled_pc = lod_manager.get_downsampled_point_cloud(pc_dict, auto_lod_level, point_cloud_id)
-        
-        # Convert back to numpy
-        points = point_cloud_to_numpy(downsampled_pc['pos'])
-        if 'rgb' in downsampled_pc:
-            colors = point_cloud_to_numpy(downsampled_pc['rgb'])
-        if 'labels' in downsampled_pc:
-            labels = point_cloud_to_numpy(downsampled_pc['labels'])
-            
-        # Update title with LOD info
-        current_point_count = len(points)
-        if current_point_count != original_point_count:
-            title += f" (LOD {auto_lod_level}: {current_point_count:,}/{original_point_count:,} points)"
+    start_time = time.time()
+    print(f"[LOD DEBUG] {title} - Original points: {original_point_count:,}, LOD enabled: {lod_enabled}, Camera state: {camera_state is not None}, PC ID: {point_cloud_id}")
     
-    # Convert input data to numpy arrays
+    # Apply LOD if enabled and required conditions are met
+    if lod_enabled and camera_state is not None and point_cloud_id is not None:
+        points, colors, labels, title, _ = _apply_lod_to_point_cloud(
+            points, colors, labels, camera_state, point_cloud_id, title, lod_level
+        )
+    else:
+        print(f"[LOD DEBUG] {title} - LOD NOT APPLIED - LOD enabled: {lod_enabled}, Camera state: {camera_state is not None}, PC ID: {point_cloud_id}")
+    
+    # Convert input data to numpy arrays and validate
     points = point_cloud_to_numpy(points)
+    
+    # Validate point cloud is not empty
+    if len(points) == 0:
+        print(f"[LOD WARNING] {title} - Empty point cloud provided")
+        # Create a minimal point cloud for display
+        points = np.array([[0, 0, 0]], dtype=np.float32)
+    
+    # Process colors and labels
     if colors is not None:
         colors = point_cloud_to_numpy(colors)
         assert colors.shape == points.shape, f"{colors.shape=}, {points.shape=}"
@@ -150,6 +234,9 @@ def create_point_cloud_figure(
         height=500,
     )
 
+    total_time = time.time() - start_time
+    print(f"[LOD DEBUG] {title} - TOTAL create_point_cloud_figure time: {total_time:.3f}s")
+    
     return fig
 
 
