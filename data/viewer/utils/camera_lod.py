@@ -1,6 +1,6 @@
-"""Adaptive Camera-dependent Level of Detail utilities for point cloud visualization.
+"""Camera-dependent Level of Detail utilities for point cloud visualization.
 
-This module implements an intelligent, adaptive LOD system that dynamically determines
+This module implements an intelligent LOD system that dynamically determines
 optimal point cloud reduction based on:
 1. Camera distance and viewing angle
 2. Point cloud characteristics (size, density, complexity)
@@ -15,8 +15,8 @@ from data.transforms.vision_3d.downsample import DownSample
 from utils.input_checks.point_cloud import check_point_cloud
 
 
-class AdaptiveLODManager:
-    """Adaptive Level of Detail manager that dynamically calculates optimal point reduction."""
+class LODManager:
+    """Level of Detail manager that dynamically calculates optimal point reduction."""
     
     def __init__(
         self, 
@@ -25,7 +25,7 @@ class AdaptiveLODManager:
         max_reduction_ratio: float = 0.95,
         hysteresis_factor: float = 0.15
     ):
-        """Initialize the adaptive LOD manager.
+        """Initialize the LOD manager.
         
         Args:
             target_points_per_pixel: Target number of points per screen pixel for optimal quality
@@ -42,14 +42,14 @@ class AdaptiveLODManager:
         self._lod_cache = {}
         self._current_target_points = {}  # Track current target for hysteresis
         
-    def calculate_adaptive_target_points(
+    def calculate_target_points(
         self,
         point_cloud: Dict[str, torch.Tensor],
         camera_state: Dict[str, Any],
         point_cloud_id: str,
         viewport_size: Tuple[int, int] = (800, 600)
     ) -> int:
-        """Calculate optimal target point count based on adaptive factors.
+        """Calculate optimal target point count based on viewing factors.
         
         Args:
             point_cloud: Point cloud dictionary with 'pos' key
@@ -79,7 +79,7 @@ class AdaptiveLODManager:
         size_factor = self._calculate_size_adaptive_factor(total_points)
         
         # Combine all factors
-        adaptive_target = int(
+        target = int(
             screen_target * distance_factor * complexity_factor * size_factor
         )
         
@@ -91,7 +91,7 @@ class AdaptiveLODManager:
         max_points = int(total_points * (1.0 - self.max_reduction_ratio))
         
         # Clamp to constraints
-        constrained_target = max(min_points, min(max_points, adaptive_target))
+        constrained_target = max(min_points, min(max_points, target))
         constrained_target = min(constrained_target, total_points)
         
         # Apply hysteresis to prevent flickering
@@ -232,13 +232,13 @@ class AdaptiveLODManager:
         self._current_target_points[point_cloud_id] = new_target
         return new_target
         
-    def get_adaptive_downsampled_point_cloud(
+    def get_downsampled_point_cloud(
         self,
         point_cloud: Dict[str, torch.Tensor],
         target_points: int,
         point_cloud_id: str
     ) -> Dict[str, torch.Tensor]:
-        """Get downsampled point cloud with adaptive target point count."""
+        """Get downsampled point cloud with target point count."""
         check_point_cloud(point_cloud)
         
         current_points = point_cloud['pos'].shape[0]
@@ -248,12 +248,12 @@ class AdaptiveLODManager:
             return point_cloud
             
         # Check cache
-        cache_key = f"{point_cloud_id}_adaptive_{target_points}"
+        cache_key = f"{point_cloud_id}_lod_{target_points}"
         if cache_key in self._lod_cache:
             return self._lod_cache[cache_key]
             
         # Calculate voxel size for target point count
-        voxel_size = self._calculate_adaptive_voxel_size(point_cloud, target_points)
+        voxel_size = self._calculate_voxel_size(point_cloud, target_points)
         
         # Perform downsampling
         downsampler = DownSample(voxel_size)
@@ -264,7 +264,7 @@ class AdaptiveLODManager:
         
         return downsampled_pc
         
-    def _calculate_adaptive_voxel_size(
+    def _calculate_voxel_size(
         self,
         point_cloud: Dict[str, torch.Tensor],
         target_points: int
@@ -334,12 +334,3 @@ def calculate_point_cloud_bounds(points: Union[torch.Tensor, np.ndarray]) -> Tup
     diagonal_size = np.sqrt(np.sum(bbox_extents**2))
     
     return center, diagonal_size
-
-
-# Global adaptive LOD manager instance
-_adaptive_lod_manager = AdaptiveLODManager()
-
-
-def get_adaptive_lod_manager() -> AdaptiveLODManager:
-    """Get the global adaptive LOD manager instance."""
-    return _adaptive_lod_manager
