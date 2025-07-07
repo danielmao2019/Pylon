@@ -60,14 +60,12 @@ def create_point_cloud_figure(
         z=points[:, 2],
         mode='markers',
         marker=dict(size=point_size, opacity=point_opacity),
-        hoverinfo='text',
+        hoverinfo='skip',  # Disable hover for performance - was causing massive memory overhead
     )
     if colors is not None:
         scatter3d_kwargs['marker']['color'] = colors
-        scatter3d_kwargs['text'] = [f"Point {i}<br>Value: {c}" for i, c in enumerate(colors)]
     else:
         scatter3d_kwargs['marker']['color'] = 'steelblue'
-        scatter3d_kwargs['text'] = [f"Point {i}" for i in range(len(points))]
     fig = go.Figure()
     fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
 
