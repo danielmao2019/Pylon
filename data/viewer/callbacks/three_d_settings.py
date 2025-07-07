@@ -1,6 +1,6 @@
 """3D settings-related callbacks for the viewer."""
 from typing import Dict, List, Optional, Union
-from dash import Input, Output, html
+from dash import Input, Output
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 
@@ -26,11 +26,28 @@ def update_3d_settings(
     point_opacity: float,
     radius: float,
     correspondence_radius: float,
-    lod_enabled: bool
+    lod_enabled: List[str]
 ) -> List[Dict[str, Union[str, int, float, bool]]]:
-    """Update 3D settings store when slider values change."""
+    """Update 3D settings store when slider values change.
+    
+    Args:
+        point_size: Size of points in the 3D visualization
+        point_opacity: Opacity of points (0.0 to 1.0)
+        radius: Radius for symmetric difference computation
+        correspondence_radius: Radius for correspondence visualization
+        lod_enabled: List of selected checkbox values from dcc.Checklist component.
+                    Contains ['enabled'] when checked, empty list when unchecked.
+                    This is a List[str] because Dash's dcc.Checklist always returns
+                    a list of selected values, even for single checkboxes.
+    
+    Returns:
+        List containing a dictionary of all 3D settings with lod_enabled converted to bool
+    """
     if point_size is None or point_opacity is None:
         raise PreventUpdate
+
+    # Convert checklist value to boolean
+    lod_is_enabled = 'enabled' in lod_enabled if lod_enabled else False
 
     # Update backend state with new 3D settings
     registry.viewer.backend.update_state(
@@ -38,7 +55,7 @@ def update_3d_settings(
         point_opacity=point_opacity,
         radius=radius or 0.05,
         correspondence_radius=correspondence_radius or 0.1,
-        lod_enabled=lod_enabled
+        lod_enabled=lod_is_enabled
     )
 
     # Store all 3D settings in the store
@@ -47,7 +64,7 @@ def update_3d_settings(
         'point_opacity': point_opacity,
         'radius': radius or 0.05,  # Default radius
         'correspondence_radius': correspondence_radius or 0.1,  # Default correspondence radius
-        'lod_enabled': lod_enabled
+        'lod_enabled': lod_is_enabled
     }
 
     return [settings]

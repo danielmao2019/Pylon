@@ -24,10 +24,10 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
 
         # LOD Controls
         html.Div([
-            dcc.Checkbox(
+            dcc.Checklist(
                 id='lod-enabled-checkbox',
-                children=' Enable Level of Detail (LOD) optimization',
-                value=lod_enabled,
+                options=[{'label': ' Enable Level of Detail (LOD) optimization', 'value': 'enabled'}],
+                value=['enabled'] if lod_enabled else [],
                 style={'margin-bottom': '10px'}
             ),
             html.Div(id='lod-info-display', style={'font-size': '12px', 'color': '#666', 'margin-bottom': '15px'})
