@@ -24,8 +24,8 @@ THREE_D_DATASET_TYPES = ['3dcd', 'pcr']
 def update_3d_settings(
     point_size: float,
     point_opacity: float,
-    radius: float,
-    correspondence_radius: float,
+    sym_diff_radius: float,
+    corr_radius: float,
     lod_enabled: List[str]
 ) -> List[Dict[str, Union[str, int, float, bool]]]:
     """Update 3D settings store when slider values change.
@@ -33,8 +33,8 @@ def update_3d_settings(
     Args:
         point_size: Size of points in the 3D visualization
         point_opacity: Opacity of points (0.0 to 1.0)
-        radius: Radius for symmetric difference computation
-        correspondence_radius: Radius for correspondence visualization
+        sym_diff_radius: Radius for symmetric difference computation
+        corr_radius: Radius for correspondence visualization
         lod_enabled: List of selected checkbox values from dcc.Checklist component.
                     Contains ['enabled'] when checked, empty list when unchecked.
                     This is a List[str] because Dash's dcc.Checklist always returns
@@ -53,8 +53,8 @@ def update_3d_settings(
     registry.viewer.backend.update_state(
         point_size=point_size,
         point_opacity=point_opacity,
-        sym_diff_radius=radius or 0.05,
-        corr_radius=correspondence_radius or 0.1,
+        sym_diff_radius=sym_diff_radius or 0.05,
+        corr_radius=corr_radius or 0.1,
         lod_enabled=lod_is_enabled
     )
 
@@ -62,8 +62,8 @@ def update_3d_settings(
     settings = {
         'point_size': point_size,
         'point_opacity': point_opacity,
-        'sym_diff_radius': radius or 0.05,  # Default symmetric difference radius
-        'corr_radius': correspondence_radius or 0.1,  # Default correspondence radius
+        'sym_diff_radius': sym_diff_radius or 0.05,  # Default symmetric difference radius
+        'corr_radius': corr_radius or 0.1,  # Default correspondence radius
         'lod_enabled': lod_is_enabled
     }
 
