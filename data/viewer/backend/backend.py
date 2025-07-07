@@ -67,6 +67,7 @@ class ViewerBackend:
         self.point_opacity: float = 0.8
         self.sym_diff_radius: float = 0.05
         self.corr_radius: float = 0.1
+        self.lod_enabled: bool = True
 
         # Initialize dataset configurations
         self._init_dataset_configs()
@@ -297,6 +298,7 @@ class ViewerBackend:
             'current_index': self.current_index,
             'point_size': self.point_size,
             'point_opacity': self.point_opacity,
-            'radius': self.radius,
-            'correspondence_radius': self.correspondence_radius
+            'sym_diff_radius': self.sym_diff_radius,
+            'corr_radius': self.corr_radius,
+            'lod_enabled': self.lod_enabled
         }

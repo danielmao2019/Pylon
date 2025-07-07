@@ -68,6 +68,7 @@ def create_symmetric_difference_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
+    lod_enabled: bool = True,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -111,6 +112,8 @@ def create_symmetric_difference_visualization(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
+            lod_enabled=lod_enabled,
+            point_cloud_id="pcr_symmetric_difference",
         )
     else:
         # If no symmetric difference, show empty point cloud
@@ -119,7 +122,9 @@ def create_symmetric_difference_visualization(
             title="Symmetric Difference (Empty)",
             point_size=point_size,
             point_opacity=point_opacity,
-            camera_state=camera_state
+            camera_state=camera_state,
+            lod_enabled=lod_enabled,
+            point_cloud_id="pcr_symmetric_difference_empty",
         )
 
 
@@ -287,6 +292,7 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
+            lod_enabled=lod_enabled,
         )
 
     # Create figures in parallel

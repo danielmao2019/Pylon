@@ -19,12 +19,13 @@ class CameraLODManager:
     }
     
     # Distance thresholds for automatic LOD selection
-    # These are normalized by point cloud size
+    # These are normalized by point cloud diagonal size (corrected calculation)
+    # TODO: Adjust based on actual corrected camera distances from viewer testing
     DISTANCE_THRESHOLDS = {
         0: 0.0,    # Very close: full detail
-        1: 0.5,    # Close: high detail
-        2: 2.0,    # Medium: medium detail  
-        3: 5.0,    # Far: low detail
+        1: 0.02,   # Close: high detail (50K points) - TEMPORARY, adjust after testing
+        2: 0.05,   # Medium: medium detail (25K points) - TEMPORARY, adjust after testing
+        3: 0.10,   # Far: low detail (10K points) - TEMPORARY, adjust after testing
     }
     
     def __init__(self, hysteresis_factor: float = 0.2):
@@ -41,17 +42,17 @@ class CameraLODManager:
         self, 
         camera_state: Dict[str, Any], 
         point_cloud_center: np.ndarray,
-        point_cloud_bounds: Tuple[float, float]
+        point_cloud_diagonal_size: float
     ) -> float:
         """Calculate normalized distance from camera to point cloud.
         
         Args:
             camera_state: Plotly camera state with 'eye', 'center', 'up'
             point_cloud_center: 3D center point of the point cloud
-            point_cloud_bounds: (min_extent, max_extent) of point cloud
+            point_cloud_diagonal_size: Diagonal size of the point cloud bounding box
             
         Returns:
-            Normalized distance (distance / point_cloud_size)
+            Normalized distance (distance / point_cloud_diagonal_size)
         """
         # Extract camera eye position
         eye = camera_state.get('eye', {'x': 1.5, 'y': 1.5, 'z': 1.5})
@@ -60,8 +61,8 @@ class CameraLODManager:
         # Calculate euclidean distance
         distance = np.linalg.norm(camera_pos - point_cloud_center)
         
-        # Normalize by point cloud size (max extent)
-        pc_size = max(point_cloud_bounds[1] - point_cloud_bounds[0], 1e-6)  # Avoid division by zero
+        # Normalize by point cloud diagonal size
+        pc_size = max(point_cloud_diagonal_size, 1e-6)  # Avoid division by zero
         normalized_distance = distance / pc_size
         
         return normalized_distance
@@ -238,14 +239,14 @@ class CameraLODManager:
         }
 
 
-def calculate_point_cloud_bounds(points: Union[torch.Tensor, np.ndarray]) -> Tuple[np.ndarray, Tuple[float, float]]:
-    """Calculate point cloud center and bounds for LOD calculations.
+def calculate_point_cloud_bounds(points: Union[torch.Tensor, np.ndarray]) -> Tuple[np.ndarray, float]:
+    """Calculate point cloud center and spatial size for LOD calculations.
     
     Args:
         points: Point cloud positions (N, 3)
         
     Returns:
-        Tuple of (center, (min_extent, max_extent))
+        Tuple of (center, diagonal_size)
     """
     if isinstance(points, torch.Tensor):
         points = points.detach().cpu().numpy()
@@ -254,7 +255,11 @@ def calculate_point_cloud_bounds(points: Union[torch.Tensor, np.ndarray]) -> Tup
     min_coords = points.min(axis=0)
     max_coords = points.max(axis=0)
     
-    return center, (min_coords.min(), max_coords.max())
+    # Calculate the diagonal distance of the bounding box (true spatial extent)
+    bbox_extents = max_coords - min_coords
+    diagonal_size = np.sqrt(np.sum(bbox_extents**2))
+    
+    return center, diagonal_size
 
 
 # Global LOD manager instance
