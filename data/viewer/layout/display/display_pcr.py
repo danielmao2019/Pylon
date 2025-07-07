@@ -203,7 +203,8 @@ def display_pcr_datapoint_single(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
-    corr_radius: float = 0.1
+    corr_radius: float = 0.1,
+    lod_enabled: bool = True
 ) -> html.Div:
     """Display a single point cloud registration datapoint.
 
@@ -214,6 +215,7 @@ def display_pcr_datapoint_single(
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
+        lod_enabled: Whether LOD optimization is enabled
 
     Returns:
         html.Div containing the visualization
@@ -251,6 +253,8 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
+            lod_enabled=lod_enabled,
+            point_cloud_id="pcr_source",
         )
 
     def create_target_figure():
@@ -261,6 +265,8 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
+            lod_enabled=lod_enabled,
+            point_cloud_id="pcr_target",
         )
 
     def create_union_figure():
@@ -270,6 +276,7 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
+            lod_enabled=lod_enabled,
         )
 
     def create_sym_diff_figure():
@@ -406,7 +413,8 @@ def display_pcr_datapoint_batched(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
-    corr_radius: float = 0.1
+    corr_radius: float = 0.1,
+    lod_enabled: bool = True
 ) -> html.Div:
     """Display a batched point cloud registration datapoint.
 
@@ -443,6 +451,8 @@ def display_pcr_datapoint_batched(
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
+                    lod_enabled=lod_enabled,
+                    point_cloud_id=f"pcr_batched_src_{level}",
                 )
 
             def create_target_figure():
@@ -452,6 +462,8 @@ def display_pcr_datapoint_batched(
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
+                    lod_enabled=lod_enabled,
+                    point_cloud_id=f"pcr_batched_tgt_{level}",
                 )
 
             def create_union_figure():
@@ -461,6 +473,7 @@ def display_pcr_datapoint_batched(
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
+                    lod_enabled=lod_enabled,
                 )
                 union_fig.update_layout(title=f"Union (Level {level})")
                 return union_fig
@@ -520,7 +533,9 @@ def display_pcr_datapoint_batched(
                 title=f"Source Point Cloud (Level {level})",
                 point_size=point_size,
                 point_opacity=point_opacity,
-                camera_state=camera_state
+                camera_state=camera_state,
+                lod_enabled=lod_enabled,
+                point_cloud_id=f"pcr_batched_src_{level}",
             ))
 
             figures.append(create_point_cloud_figure(
@@ -528,7 +543,9 @@ def display_pcr_datapoint_batched(
                 title=f"Target Point Cloud (Level {level})",
                 point_size=point_size,
                 point_opacity=point_opacity,
-                camera_state=camera_state
+                camera_state=camera_state,
+                lod_enabled=lod_enabled,
+                point_cloud_id=f"pcr_batched_tgt_{level}",
             ))
 
     # Create grid layout
@@ -561,7 +578,8 @@ def display_pcr_datapoint(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
-    corr_radius: float = 0.1
+    corr_radius: float = 0.1,
+    lod_enabled: bool = True
 ) -> html.Div:
     """Display a point cloud registration datapoint.
 
@@ -589,6 +607,7 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
+            lod_enabled=lod_enabled,
         )
     else:
         result = display_pcr_datapoint_single(
@@ -598,6 +617,7 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
+            lod_enabled=lod_enabled,
         )
     
     total_time = time.time() - start_time
