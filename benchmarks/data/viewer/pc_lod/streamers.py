@@ -190,7 +190,8 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         
         samples = []
         for idx in sample_indices:
-            inputs, _, _ = dataset[idx]
+            datapoint = dataset[idx]
+            inputs = datapoint['inputs']
             
             if 'xyz' in inputs['pc_1']:
                 pc_1 = inputs['pc_1']['xyz']
@@ -203,8 +204,8 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
                 colors_1 = inputs['pc_1']['feat'][:, :3]
                 colors_2 = inputs['pc_2']['feat'][:, :3]
             else:
-                colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32)
-                colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32)
+                colors_1 = torch.ones(pc_1.shape[0], 3, dtype=torch.float32, device=pc_1.device)
+                colors_2 = torch.ones(pc_2.shape[0], 3, dtype=torch.float32, device=pc_2.device)
             
             samples.extend([
                 PointCloudSample(f'slpccd_dp{idx}_pc1', pc_1, colors_1, 'slpccd', {'datapoint': idx, 'pc_type': 'pc1'}),
@@ -228,7 +229,8 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
         
         samples = []
         for idx in sample_indices:
-            inputs, _, _ = dataset[idx]
+            datapoint = dataset[idx]
+            inputs = datapoint['inputs']
             
             src_pc = inputs['src_pc']['pos']
             tgt_pc = inputs['tgt_pc']['pos']
@@ -237,8 +239,8 @@ class RealDataPointCloudStreamer(PointCloudStreamer):
                 colors_src = inputs['src_pc']['reflectance'].repeat(1, 3)
                 colors_tgt = inputs['tgt_pc']['reflectance'].repeat(1, 3)
             else:
-                colors_src = torch.ones(src_pc.shape[0], 3, dtype=torch.float32)
-                colors_tgt = torch.ones(tgt_pc.shape[0], 3, dtype=torch.float32)
+                colors_src = torch.ones(src_pc.shape[0], 3, dtype=torch.float32, device=src_pc.device)
+                colors_tgt = torch.ones(tgt_pc.shape[0], 3, dtype=torch.float32, device=tgt_pc.device)
             
             samples.extend([
                 PointCloudSample(f'kitti_dp{idx}_src', src_pc, colors_src, 'kitti', {'datapoint': idx, 'pc_type': 'src'}),
