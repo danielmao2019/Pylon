@@ -92,5 +92,3 @@ def update_view_controls(
             pcr_controls_style = {'display': 'block'}
 
     return [view_controls_style, pcr_controls_style]
-
-
