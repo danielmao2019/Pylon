@@ -27,6 +27,7 @@ def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
         # Backend sync stores (dummy outputs for pure backend sync callbacks)
         dcc.Store(id='backend-sync-3d-settings', data={}),
         dcc.Store(id='backend-sync-dataset', data={}),
+        dcc.Store(id='backend-sync-navigation', data={}),
 
         # Header
         html.Div([

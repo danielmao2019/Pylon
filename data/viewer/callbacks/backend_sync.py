@@ -85,3 +85,39 @@ def sync_dataset_to_backend(dataset_info: Optional[Dict[str, Union[str, int, boo
     
     # Return minimal sync signal (not used for UI)
     return [{'synced': True, 'dataset': dataset_info.get('name')}]
+
+
+@callback(
+    outputs=[
+        Output('backend-sync-navigation', 'data')  # Dummy output for sync signal
+    ],
+    inputs=[
+        Input('datapoint-index-slider', 'value')
+    ],
+    states=[
+        State('dataset-info', 'data')
+    ],
+    group="backend_sync"
+)
+def sync_navigation_to_backend(
+    datapoint_idx: int,
+    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
+) -> List[Dict[str, Any]]:
+    """Sync navigation index from UI to backend state.
+    
+    This callback is purely for backend synchronization - it doesn't render UI.
+    It listens to changes in the navigation index and updates backend accordingly.
+    """
+    if datapoint_idx is None or not dataset_info:
+        raise PreventUpdate
+    
+    logger.info(f"Syncing navigation index to backend: {datapoint_idx}")
+    
+    # Update backend state with current index
+    registry.viewer.backend.update_state(current_index=datapoint_idx)
+    
+    logger.info("Navigation index synced to backend successfully")
+    
+    # Return minimal sync signal (not used for UI)
+    return [{'synced': True, 'index': datapoint_idx}]
+
