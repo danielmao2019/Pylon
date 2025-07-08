@@ -67,6 +67,7 @@ class LODBenchmarkRunner:
                 title=f"ContinuousLOD {run}",
                 camera_state=camera_pose.camera_state,
                 lod_type="continuous",
+                lod_config={"use_spatial_binning": False},  # Use fast LOD configuration
                 point_cloud_id=f"{point_cloud_sample.name}_{camera_pose.distance_group}_{camera_pose.pose_id}"
             )
             end_time = time.perf_counter()
