@@ -1,11 +1,14 @@
 """UI components for displaying semantic segmentation dataset items."""
-from typing import Dict, List, Union, Any
+from typing import Dict, Union, Any
 import torch
 from dash import dcc, html
-from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.image import create_image_figure, get_image_stats
 from data.viewer.utils.segmentation import create_segmentation_figure, get_segmentation_stats
-from data.viewer.utils.debug import display_debug_outputs
+from data.viewer.utils.display_utils import (
+    DisplayStyles,
+    create_standard_datapoint_layout,
+    create_statistics_display
+)
 
 
 def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
@@ -32,61 +35,33 @@ def display_semseg_datapoint(datapoint: Dict[str, Any]) -> html.Div:
     assert 'image' in datapoint['inputs'], f"{datapoint['inputs'].keys()=}"
     assert 'label' in datapoint['labels'], f"{datapoint['labels'].keys()=}"
 
-    # Get the image and segmentation map
+    # Extract data
     image: torch.Tensor = datapoint['inputs']['image']
     seg: Union[torch.Tensor, Dict[str, Any]] = datapoint['labels']['label']
 
-    # Create the figures
-    fig_components: List[html.Div] = [
+    # Create figure components
+    fig_components = [
         html.Div([
             dcc.Graph(figure=create_image_figure(image, title="Image"))
-        ], style={'width': '50%', 'display': 'inline-block'}),
+        ], style=DisplayStyles.GRID_ITEM_50),
 
         html.Div([
             dcc.Graph(figure=create_segmentation_figure(seg, title="Segmentation Map"))
-        ], style={'width': '50%', 'display': 'inline-block'})
+        ], style=DisplayStyles.GRID_ITEM_50)
     ]
 
-    # Get statistics
-    stats_components: List[html.Div] = [
-        html.Div([
-            html.H4("Image Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_image_stats(image).items()])
-        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'}),
-
-        html.Div([
-            html.H4("Segmentation Statistics:"),
-            html.Ul([html.Li(f"{k}: {v}") for k, v in get_segmentation_stats(seg).items()])
-        ], style={'width': '50%', 'display': 'inline-block', 'vertical-align': 'top'})
+    # Create statistics components
+    stats_data = [
+        get_image_stats(image),
+        get_segmentation_stats(seg)
     ]
+    titles = ["Image Statistics", "Segmentation Statistics"]
+    stats_components = create_statistics_display(stats_data, titles, width_style="50%")
 
-    # Extract metadata
-    meta_info: Dict[str, Any] = datapoint.get('meta_info', {})
-    meta_display: List[Union[html.H4, html.Pre]] = []
-    if meta_info:
-        meta_display = [
-            html.H4("Metadata:"),
-            html.Pre(format_value(meta_info),
-                    style={'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px',
-                            'overflow-y': 'auto', 'border-radius': '5px'})
-        ]
-
-    # Extract debug outputs (fourth section)
-    debug_display = []
-    if 'debug' in datapoint and datapoint['debug']:
-        debug_display = [display_debug_outputs(datapoint['debug'])]
-
-    # Compile the complete display
-    return html.Div([
-        # Image displays
-        html.Div(fig_components),
-
-        # Info section
-        html.Div([
-            html.Div(stats_components),
-            html.Div(meta_display, style={'margin-top': '20px'})
-        ], style={'margin-top': '20px'}),
-
-        # Debug section (only included if debug outputs exist)
-        html.Div(debug_display, style={'margin-top': '20px'}) if debug_display else html.Div()
-    ])
+    # Create complete layout
+    return create_standard_datapoint_layout(
+        figure_components=fig_components,
+        stats_components=stats_components,
+        meta_info=datapoint.get('meta_info', {}),
+        debug_outputs=datapoint.get('debug')
+    )

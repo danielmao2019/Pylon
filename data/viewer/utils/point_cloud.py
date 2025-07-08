@@ -1,86 +1,256 @@
-"""Utility functions for point cloud visualization."""
-from typing import Dict, Optional, Union, Any
+"""Utility functions for point cloud visualization.
+
+API Design Principles:
+- torch.Tensor: Used for ALL computational operations (LOD processing, distance calculations)
+- numpy.ndarray: Used ONLY for final Plotly visualization (at the very end)
+- Clear boundaries: Both APIs only accept torch.Tensor inputs
+- Fail fast: Use assertions to enforce API contracts
+
+Data Flow:
+1. Dataset → torch.Tensor (CPU)
+2. apply_lod_to_point_cloud → torch.Tensor ONLY (enforced by assertions)
+3. create_point_cloud_figure → torch.Tensor ONLY (enforced by assertions)
+4. Plotly visualization → numpy conversion (internal, at the very end)
+"""
+from typing import Dict, Optional, Union, Any, Tuple
 import numpy as np
 import torch
 from dash import html
 import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
+from data.viewer.utils.continuous_lod import ContinuousLOD
+from data.viewer.utils.discrete_lod import DiscreteLOD
 
 
 def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
-    """Convert a PyTorch tensor to a displayable point cloud."""
+    """Convert a PyTorch tensor to a numpy array."""
     if isinstance(points, torch.Tensor):
         return points.cpu().numpy()
     return points
 
 
+def _convert_labels_to_colors_torch(labels: torch.Tensor) -> torch.Tensor:
+    """Convert integer labels to RGB colors using torch tensors.
+    
+    Args:
+        labels: Integer label tensor of shape (N,)
+        
+    Returns:
+        RGB color tensor of shape (N, 3) with values in [0, 255]
+    """
+    assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
+    assert labels.ndim == 1, f"labels must be 1D, got shape {labels.shape}"
+    
+    device = labels.device
+    unique_labels = torch.unique(labels)
+    
+    # Create color mapping
+    colors = torch.zeros((len(labels), 3), dtype=torch.uint8, device=device)
+    
+    for label in unique_labels:
+        # Get color string from segmentation utility
+        color_hex = get_color(label.item())
+        
+        # Convert hex to RGB
+        r = int(color_hex[1:3], 16)
+        g = int(color_hex[3:5], 16)
+        b = int(color_hex[5:7], 16)
+        
+        # Apply to matching labels
+        mask = (labels == label)
+        colors[mask, :] = torch.tensor([r, g, b], dtype=torch.uint8, device=device)
+    
+    return colors
+
+
+def apply_lod_to_point_cloud(
+    points: torch.Tensor,
+    colors: Optional[torch.Tensor] = None,
+    labels: Optional[torch.Tensor] = None,
+    camera_state: Optional[Dict[str, Any]] = None,
+    lod_type: Optional[str] = None,
+    lod_config: Optional[Dict[str, Any]] = None,
+    point_cloud_id: Optional[str] = None,
+) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+    """Apply Level of Detail processing to point cloud data.
+    
+    This function works entirely with torch tensors for optimal performance.
+    All inputs must be torch tensors - use numpy→torch conversion before calling.
+    
+    Args:
+        points: Point cloud positions as torch.Tensor (N, 3)
+        colors: Optional color data as torch.Tensor (N, 3) or (N, C)
+        labels: Optional label data as torch.Tensor (N,)
+        camera_state: Camera viewing state dictionary
+        lod_type: Type of LOD ("continuous", "discrete", or None)
+        lod_config: Optional LOD configuration parameters
+        point_cloud_id: Unique identifier for discrete LOD caching
+        
+    Returns:
+        Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
+    """
+    # Strict input validation - API contract enforcement
+    assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
+    assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
+    
+    if colors is not None:
+        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
+        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
+    
+    if labels is not None:
+        assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
+        assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
+    
+    # Ensure float type for computations
+    points = points.float()
+    
+    # If no LOD requested, return tensors as-is
+    if lod_type is None or lod_type == "none" or camera_state is None:
+        return points, colors, labels
+        
+    # Prepare point cloud dictionary for LOD processing
+    pc_dict = {'pos': points}
+    if colors is not None:
+        pc_dict['rgb'] = colors
+    if labels is not None:
+        pc_dict['labels'] = labels
+    
+    # Apply LOD based on type
+    if lod_type == "continuous":
+        lod = ContinuousLOD(**(lod_config or {}))
+        downsampled = lod.subsample(pc_dict, camera_state)
+    elif lod_type == "discrete":
+        if point_cloud_id is None:
+            # Fall back to continuous LOD if no ID provided
+            lod = ContinuousLOD(**(lod_config or {}))
+            downsampled = lod.subsample(pc_dict, camera_state)
+        else:
+            lod = DiscreteLOD(**(lod_config or {}))
+            if not lod.has_levels(point_cloud_id):
+                lod.precompute_levels(pc_dict, point_cloud_id)
+            downsampled = lod.select_level(point_cloud_id, camera_state)
+    else:
+        downsampled = pc_dict
+        
+    # Return downsampled data as torch tensors
+    processed_points = downsampled['pos']
+    processed_colors = downsampled.get('rgb')
+    processed_labels = downsampled.get('labels')
+    
+    return processed_points, processed_colors, processed_labels
+
+
 def create_point_cloud_figure(
-    points: Union[torch.Tensor, np.ndarray],
-    colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    labels: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    points: torch.Tensor,
+    colors: Optional[torch.Tensor] = None,
+    labels: Optional[torch.Tensor] = None,
     title: str = "Point Cloud",
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
+    lod_type: Optional[str] = "continuous",
+    lod_config: Optional[Dict[str, Any]] = None,
+    point_cloud_id: Optional[str] = None,
 ) -> go.Figure:
-    """Create a 3D point cloud visualization figure.
+    """Create a 3D point cloud visualization figure with optional LOD.
+
+    This function works with torch tensors throughout processing and only converts
+    to numpy arrays at the very end for Plotly visualization.
 
     Args:
-        points: Numpy array of shape (N, 3) containing XYZ coordinates
-        colors: Optional numpy array of shape (N, 3) containing RGB color values
-        labels: Optional numpy array of shape (N,) containing labels
+        points: Point cloud positions as torch.Tensor (N, 3)
+        colors: Optional color data as torch.Tensor (N, 3) or (N, C)
+        labels: Optional label data as torch.Tensor (N,)
         title: Title for the figure
         point_size: Size of the points
         point_opacity: Opacity of the points
         camera_state: Optional dictionary containing camera position state
+        lod_type: Type of LOD ("continuous", "discrete", or None for no LOD)
+        lod_config: Optional LOD configuration parameters
+        point_cloud_id: Unique identifier for discrete LOD caching
 
     Returns:
-        Plotly Figure object
+        Plotly Figure object with potentially downsampled point cloud
     """
-    # Convert input data to numpy arrays
-    points = point_cloud_to_numpy(points)
+    # Input validation
+    assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
+    assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
+    
     if colors is not None:
-        colors = point_cloud_to_numpy(colors)
-        assert colors.shape == points.shape, f"{colors.shape=}, {points.shape=}"
-    elif labels is not None:
-        labels = point_cloud_to_numpy(labels)
-        assert labels.shape == points.shape[:-1], f"{labels.shape=}, {points.shape=}"
-        unique_labels = np.unique(labels)
-        unique_colors = [get_color(label) for label in unique_labels]
-        colors = np.zeros((len(points), 3), dtype=np.uint8)
-        for label, color in zip(unique_labels, unique_colors):
-            mask = labels == label
-            r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
-            colors[mask, :] = np.array([r, g, b], dtype=np.uint8)
-
-    # Add point cloud
+        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
+        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
+    
+    if labels is not None:
+        assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
+        assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
+    
+    original_count = len(points)
+    
+    # Apply LOD processing (pure torch tensor operations)
+    points_tensor, colors_tensor, labels_tensor = apply_lod_to_point_cloud(
+        points=points,
+        colors=colors,
+        labels=labels,
+        camera_state=camera_state,
+        lod_type=lod_type,
+        lod_config=lod_config,
+        point_cloud_id=point_cloud_id
+    )
+    
+    # Update title with LOD info
+    if lod_type and lod_type != "none" and len(points_tensor) < original_count:
+        lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
+        title = f"{title}{lod_suffix}"
+    
+    # Handle edge case of empty point clouds
+    if len(points_tensor) == 0:
+        points_tensor = torch.tensor([[0, 0, 0]], dtype=torch.float32)
+    
+    # Process colors from labels if needed (keep in torch tensors)
+    if colors_tensor is not None:
+        assert colors_tensor.shape[0] == points_tensor.shape[0], f"colors length {colors_tensor.shape[0]} != points length {points_tensor.shape[0]}"
+        final_colors = colors_tensor
+    elif labels_tensor is not None:
+        assert labels_tensor.shape[0] == points_tensor.shape[0], f"labels length {labels_tensor.shape[0]} != points length {points_tensor.shape[0]}"
+        # Convert labels to colors (in torch)
+        final_colors = _convert_labels_to_colors_torch(labels_tensor)
+    else:
+        final_colors = None
+    
+    # Convert to numpy ONLY for Plotly (at the absolute final moment)
+    points_np = point_cloud_to_numpy(points_tensor)
+    colors_np = point_cloud_to_numpy(final_colors) if final_colors is not None else None
+    
+    # Create Plotly scatter plot 
     scatter3d_kwargs = dict(
-        x=points[:, 0],
-        y=points[:, 1],
-        z=points[:, 2],
+        x=points_np[:, 0],
+        y=points_np[:, 1],
+        z=points_np[:, 2],
         mode='markers',
         marker=dict(size=point_size, opacity=point_opacity),
-        hoverinfo='skip',  # Disable hover for performance - was causing massive memory overhead
+        hoverinfo='skip',  # Disable hover for performance
     )
-    if colors is not None:
-        scatter3d_kwargs['marker']['color'] = colors
+    
+    if colors_np is not None:
+        scatter3d_kwargs['marker']['color'] = colors_np
     else:
         scatter3d_kwargs['marker']['color'] = 'steelblue'
+    
     fig = go.Figure()
     fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
-
+    
     # Calculate bounding box
-    x_range = [points[:, 0].min(), points[:, 0].max()]
-    y_range = [points[:, 1].min(), points[:, 1].max()]
-    z_range = [points[:, 2].min(), points[:, 2].max()]
-
+    x_range = [points_np[:, 0].min(), points_np[:, 0].max()]
+    y_range = [points_np[:, 1].min(), points_np[:, 1].max()]
+    z_range = [points_np[:, 2].min(), points_np[:, 2].max()]
+    
     # Set layout
     camera = camera_state if camera_state else {
         'up': {'x': 0, 'y': 0, 'z': 1},
         'center': {'x': 0, 'y': 0, 'z': 0},
         'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
     }
-
+    
     fig.update_layout(
         title=title,
         uirevision='camera',  # This ensures camera views stay in sync
@@ -97,7 +267,7 @@ def create_point_cloud_figure(
         margin=dict(l=0, r=40, b=0, t=40),
         height=500,
     )
-
+    
     return fig
 
 
@@ -116,7 +286,15 @@ def get_point_cloud_stats(
     Returns:
         List of html components with point cloud statistics
     """
-    # Basic stats
+    # Input validation
+    assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
+    assert points.ndim == 2 and points.shape[1] >= 3, f"points must be (N, 3+), got {points.shape}"
+    
+    if change_map is not None:
+        assert isinstance(change_map, torch.Tensor), f"change_map must be torch.Tensor, got {type(change_map)}"
+        assert change_map.shape[0] == points.shape[0], f"change_map length {change_map.shape[0]} != points length {points.shape[0]}"
+    
+    # Convert to numpy for stats computation
     points_np = points.detach().cpu().numpy()
     stats_items = [
         html.Li(f"Total Points: {len(points_np)}"),

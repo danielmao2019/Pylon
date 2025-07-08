@@ -7,6 +7,9 @@ from data.viewer.callbacks import dataset
 from data.viewer.callbacks import navigation
 from data.viewer.callbacks import display
 from data.viewer.callbacks import three_d_settings
+from data.viewer.callbacks import camera
+from data.viewer.callbacks import transforms
+from data.viewer.callbacks import backend_sync
 
 
 __all__ = (
@@ -16,4 +19,7 @@ __all__ = (
     'navigation',
     'display',
     'three_d_settings',
+    'camera',
+    'transforms',
+    'backend_sync',
 )

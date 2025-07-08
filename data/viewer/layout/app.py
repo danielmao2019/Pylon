@@ -4,6 +4,7 @@ from dash import dcc, html
 from data.viewer.layout.controls.controls_3d import create_3d_controls
 from data.viewer.layout.controls.dataset import create_dataset_selector, create_reload_button
 from data.viewer.layout.controls.navigation import create_navigation_controls
+from data.viewer.utils.camera_utils import get_default_camera_state
 
 
 def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
@@ -21,11 +22,12 @@ def create_app_layout(available_datasets: Dict[str, Any]) -> html.Div:
         dcc.Store(id='dataset-info', data={}),
         dcc.Store(id='transforms-store', data={}),
         dcc.Store(id='3d-settings-store', data={}),
-        dcc.Store(id='camera-state', data={
-            'up': {'x': 0, 'y': 0, 'z': 1},
-            'center': {'x': 0, 'y': 0, 'z': 0},
-            'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
-        }),
+        dcc.Store(id='camera-state', data=get_default_camera_state()),
+        
+        # Backend sync stores (dummy outputs for pure backend sync callbacks)
+        dcc.Store(id='backend-sync-3d-settings', data={}),
+        dcc.Store(id='backend-sync-dataset', data={}),
+        dcc.Store(id='backend-sync-navigation', data={}),
 
         # Header
         html.Div([

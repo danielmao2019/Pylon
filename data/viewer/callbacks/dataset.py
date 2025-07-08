@@ -25,14 +25,19 @@ logger = logging.getLogger(__name__)
     group="dataset"
 )
 def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, html.Div]]:
-    """Load a selected dataset and reset the datapoint slider."""
+    """Load a selected dataset and reset the datapoint slider.
+    
+    This is now a PURE UI callback - it only updates UI components.
+    Backend synchronization happens in backend_sync.py automatically.
+    """
     logger.info(f"Dataset loading callback triggered with dataset: {dataset_key}")
 
     if dataset_key is None:
         logger.info("No dataset selected")
-        registry.viewer.backend.current_dataset = None
+        # PURE UI PATTERN: Only return UI components
+        # Backend sync happens automatically in backend_sync.py
         return [
-            {},  # dataset-info
+            {},  # dataset-info (empty triggers backend sync to clear state)
             0,   # min
             0,   # max
             0,   # value
@@ -42,16 +47,12 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
             create_transforms_section(),  # transforms-section
         ]
 
-    # Load dataset using backend
+    # Load dataset using backend (read-only operation)
     logger.info(f"Attempting to load dataset: {dataset_key}")
     dataset_info = registry.viewer.backend.load_dataset(dataset_key)
 
-    # Update backend state
-    logger.info(f"Updating backend state with dataset info: {dataset_info}")
-    registry.viewer.backend.update_state(
-        current_dataset=dataset_info['name'],
-        current_index=0
-    )
+    # PURE UI PATTERN: Only prepare UI components
+    # Backend sync happens automatically in backend_sync.py when dataset-info changes
 
     # Create slider marks
     marks = {}
@@ -76,6 +77,27 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
         create_dataset_info_display(dataset_info),  # dataset-info-display
         create_transforms_section(dataset_info['transforms']),  # transforms-section
     ]
+
+
+@callback(
+    outputs=[
+        Output('transforms-section', 'children', allow_duplicate=True),
+    ],
+    inputs=[Input('dataset-info', 'data')],
+    group="dataset"
+)
+def update_transforms_section(dataset_info: Dict[str, Any]) -> List[html.Div]:
+    """Update the transforms section when dataset info changes."""
+    # If no dataset is selected, maintain current state
+    if not dataset_info:
+        raise PreventUpdate
+
+    transforms = dataset_info.get('transforms', [])
+
+    # Create updated transforms section
+    transforms_section = create_transforms_section(transforms)
+
+    return [transforms_section]
 
 
 @callback(

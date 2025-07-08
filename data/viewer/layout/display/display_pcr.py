@@ -5,12 +5,12 @@ import numpy as np
 import torch
 from dash import dcc, html
 import plotly.graph_objects as go
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
-from data.viewer.utils.point_cloud import create_point_cloud_figure
+from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
+from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
 
 
 def create_union_visualization(
@@ -19,6 +19,7 @@ def create_union_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
+    lod_type: str = "continuous",
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -28,6 +29,7 @@ def create_union_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         Plotly figure showing the union visualization
@@ -53,6 +55,8 @@ def create_union_visualization(
         point_size=point_size,
         point_opacity=point_opacity,
         camera_state=camera_state,
+        lod_type=lod_type,
+        point_cloud_id="union_visualization",
     )
 
 
@@ -63,6 +67,7 @@ def create_symmetric_difference_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
+    lod_type: str = "continuous",
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -73,6 +78,7 @@ def create_symmetric_difference_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         Plotly figure showing the symmetric difference visualization
@@ -106,6 +112,8 @@ def create_symmetric_difference_visualization(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id="pcr_symmetric_difference",
         )
     else:
         # If no symmetric difference, show empty point cloud
@@ -114,7 +122,9 @@ def create_symmetric_difference_visualization(
             title="Symmetric Difference (Empty)",
             point_size=point_size,
             point_opacity=point_opacity,
-            camera_state=camera_state
+            camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id="pcr_symmetric_difference_empty",
         )
 
 
@@ -192,13 +202,68 @@ def create_correspondence_visualization(
     return corr_fig
 
 
+def _compute_transform_info(transform: torch.Tensor) -> Dict[str, Any]:
+    """Compute transform information including rotation angle and translation magnitude."""
+    # Normalize transform to handle batched case
+    transform_normalized = _normalize_transform(transform, torch.Tensor)
+    
+    # Compute rotation angle and translation magnitude
+    rotation_matrix = transform_normalized[:3, :3]
+    translation_vector = transform_normalized[:3, 3]
+
+    # Compute rotation angle using the trace of the rotation matrix
+    trace = torch.trace(rotation_matrix)
+    rotation_angle = torch.acos((trace - 1) / 2) * 180 / np.pi  # Convert to degrees
+
+    # Compute translation magnitude
+    translation_magnitude = torch.norm(translation_vector)
+
+    # Format the transformation matrix as a string
+    transform_str = "Transform Matrix:\n"
+    for i in range(4):
+        row = [f"{transform_normalized[i, j]:.4f}" for j in range(4)]
+        transform_str += "  ".join(row) + "\n"
+
+    return {
+        'transform_str': transform_str,
+        'rotation_angle': rotation_angle,
+        'translation_magnitude': translation_magnitude
+    }
+
+
+def _create_transform_info_section(transform_info: Dict[str, Any]) -> html.Div:
+    """Create transform information section."""
+    return html.Div([
+        html.H4("Transform Information:"),
+        html.Pre(transform_info['transform_str']),
+        html.P(f"Rotation Angle: {transform_info['rotation_angle']:.2f} degrees"),
+        html.P(f"Translation Magnitude: {transform_info['translation_magnitude']:.4f}")
+    ], style={'margin-top': '20px'})
+
+
+def _create_statistics_section(src_stats_children: Any, tgt_stats_children: Any) -> html.Div:
+    """Create point cloud statistics section."""
+    return html.Div([
+        html.Div([
+            html.H4("Source Point Cloud Statistics:"),
+            html.Div(src_stats_children)
+        ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top', 'margin-right': '2%'}),
+        
+        html.Div([
+            html.H4("Target Point Cloud Statistics:"),
+            html.Div(tgt_stats_children)
+        ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top'})
+    ], style={'margin-top': '20px'})
+
+
 def display_pcr_datapoint_single(
     datapoint: Dict[str, Any],
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
-    corr_radius: float = 0.1
+    corr_radius: float = 0.1,
+    lod_type: str = "continuous"
 ) -> html.Div:
     """Display a single point cloud registration datapoint.
 
@@ -209,11 +274,12 @@ def display_pcr_datapoint_single(
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         html.Div containing the visualization
     """
-    # Check if the inputs have the expected structure
+    # Validate inputs
     inputs = datapoint['inputs']
     assert 'src_pc' in inputs and 'tgt_pc' in inputs, "Source point cloud (src_pc) and target point cloud (tgt_pc) must be present in the inputs"
     assert isinstance(inputs['src_pc'], dict) and isinstance(inputs['tgt_pc'], dict), "Point clouds must be dictionaries"
@@ -235,70 +301,52 @@ def display_pcr_datapoint_single(
     # Apply transform to source point cloud
     src_pc_transformed = apply_transform(src_pc, transform)
 
-    # Create the point cloud views in parallel for better performance
-    def create_source_figure():
-        return create_point_cloud_figure(
+    # Define figure creation tasks
+    figure_tasks = [
+        lambda: create_point_cloud_figure(
             points=src_pc,
             colors=src_rgb,
             title="Source Point Cloud",
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-        )
-
-    def create_target_figure():
-        return create_point_cloud_figure(
+            lod_type=lod_type,
+            point_cloud_id="pcr_source",
+        ),
+        lambda: create_point_cloud_figure(
             points=tgt_pc,
             colors=tgt_rgb,
             title="Target Point Cloud",
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-        )
-
-    def create_union_figure():
-        return create_union_visualization(
+            lod_type=lod_type,
+            point_cloud_id="pcr_target",
+        ),
+        lambda: create_union_visualization(
             src_pc_transformed,
             tgt_pc,
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-        )
-
-    def create_sym_diff_figure():
-        return create_symmetric_difference_visualization(
+            lod_type=lod_type,
+        ),
+        lambda: create_symmetric_difference_visualization(
             src_pc_transformed,
             tgt_pc,
             radius=sym_diff_radius,
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-        )
-
-    # Create figures in parallel
-    figure_tasks = [
-        create_source_figure,
-        create_target_figure,
-        create_union_figure,
-        create_sym_diff_figure,
+            lod_type=lod_type,
+        ),
     ]
 
-    figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
-    
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        # Submit all tasks
-        future_to_index = {
-            executor.submit(task_func): idx 
-            for idx, task_func in enumerate(figure_tasks)
-        }
-        
-        # Collect results in order
-        for future in as_completed(future_to_index):
-            idx = future_to_index[future]
-            figures[idx] = future.result()
+    # Create figures in parallel using centralized utility
+    figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+    figures = figure_creator.create_figures_parallel(figure_tasks)
 
     # TODO: Add correspondence visualization
-    # # 5. Correspondence visualization
     # figures.append(create_correspondence_visualization(
     #     src_pc_transformed,
     #     tgt_pc,
@@ -308,47 +356,21 @@ def display_pcr_datapoint_single(
     #     camera_state=camera_state,
     # ))
 
-    # Normalize transform to handle batched case
-    transform_normalized = _normalize_transform(transform, torch.Tensor)
+    # Compute transform information
+    transform_info = _compute_transform_info(transform)
     
-    # Compute rotation angle and translation magnitude
-    rotation_matrix = transform_normalized[:3, :3]
-    translation_vector = transform_normalized[:3, 3]
+    # Get point cloud statistics
+    src_stats_children = get_point_cloud_stats(src_pc)
+    tgt_stats_children = get_point_cloud_stats(tgt_pc)
 
-    # Compute rotation angle using the trace of the rotation matrix
-    trace = torch.trace(rotation_matrix)
-    rotation_angle = torch.acos((trace - 1) / 2) * 180 / np.pi  # Convert to degrees
-
-    # Compute translation magnitude
-    translation_magnitude = torch.norm(translation_vector)
-
-    # Format the transformation matrix as a string
-    transform_str = "Transform Matrix:\n"
-    for i in range(4):
-        row = [f"{transform_normalized[i, j]:.4f}" for j in range(4)]
-        transform_str += "  ".join(row) + "\n"
-
-    # Create a grid layout for the five figures
+    # Create layout using centralized utilities
+    grid_items = create_figure_grid(figures, width_style="50%")
+    
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
-        html.Div([
-            # Create grid items using a for loop
-            *[html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': i},
-                    figure=fig,
-                    style={'height': '400px'}
-                )
-            ], style={'width': '50%', 'display': 'inline-block'}) for i, fig in enumerate(figures)]
-        ], style={'display': 'flex', 'flex-wrap': 'wrap'}),
-
-        # Display transform information
-        html.Div([
-            html.H4("Transform Information:"),
-            html.Pre(transform_str),
-            html.P(f"Rotation Angle: {rotation_angle:.2f} degrees"),
-            html.P(f"Translation Magnitude: {translation_magnitude:.4f}")
-        ], style={'margin-top': '20px'})
+        html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'}),
+        _create_transform_info_section(transform_info),
+        _create_statistics_section(src_stats_children, tgt_stats_children)
     ])
 
 
@@ -368,13 +390,49 @@ def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tupl
     return src_points, tgt_points
 
 
+def _create_union_with_title(
+    src_points: torch.Tensor,
+    tgt_points: torch.Tensor,
+    title: str,
+    point_size: float,
+    point_opacity: float,
+    camera_state: Optional[Dict[str, Any]],
+    lod_type: str
+) -> go.Figure:
+    """Create union visualization with custom title."""
+    union_fig = create_union_visualization(
+        src_points, tgt_points, point_size, point_opacity, camera_state, lod_type
+    )
+    union_fig.update_layout(title=title)
+    return union_fig
+
+
+def _create_sym_diff_with_title(
+    src_points: torch.Tensor,
+    tgt_points: torch.Tensor,
+    title: str,
+    radius: float,
+    point_size: float,
+    point_opacity: float,
+    camera_state: Optional[Dict[str, Any]],
+    lod_type: str
+) -> go.Figure:
+    """Create symmetric difference visualization with custom title."""
+    sym_diff_fig = create_symmetric_difference_visualization(
+        src_points, tgt_points, radius, point_size, point_opacity, camera_state, lod_type
+    )
+    sym_diff_fig.update_layout(title=title)
+    return sym_diff_fig
+
+
 def display_pcr_datapoint_batched(
     datapoint: Dict[str, Any],
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
-    corr_radius: float = 0.1
+    corr_radius: float = 0.1,
+    lod_type: str = "continuous"
 ) -> html.Div:
     """Display a batched point cloud registration datapoint.
 
@@ -385,12 +443,13 @@ def display_pcr_datapoint_batched(
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         html.Div containing the visualization
     """
     inputs = datapoint['inputs']
-    figures = []
+    all_figures = []
 
     # Process each level in the hierarchy
     for level in range(len(inputs['points'])):
@@ -401,115 +460,72 @@ def display_pcr_datapoint_batched(
 
         # For top level (level 0), show all visualizations
         if level == 0:
-            # Create visualization functions
-            def create_source_figure():
-                return create_point_cloud_figure(
+            figure_tasks = [
+                lambda src=src_points, lvl=level: create_point_cloud_figure(
+                    points=src,
+                    title=f"Source Point Cloud (Level {lvl})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_src_{lvl}",
+                ),
+                lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
+                    points=tgt,
+                    title=f"Target Point Cloud (Level {lvl})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_tgt_{lvl}",
+                ),
+                lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
+                    src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type
+                ),
+                lambda src=src_points, tgt=tgt_points, lvl=level: _create_sym_diff_with_title(
+                    src, tgt, f"Symmetric Difference (Level {lvl})", sym_diff_radius, 
+                    point_size, point_opacity, camera_state, lod_type
+                ),
+            ]
+
+            # Create figures in parallel using centralized utility
+            figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+            level_figures = figure_creator.create_figures_parallel(figure_tasks)
+            all_figures.extend(level_figures)
+
+            # TODO: Add correspondence visualization
+            # corr_fig = create_correspondence_visualization(
+            #     src_points, tgt_points, radius=corr_radius, point_size=point_size,
+            #     point_opacity=point_opacity, camera_state=camera_state,
+            # )
+            # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
+            # all_figures.append(corr_fig)
+        else:
+            # For lower levels, only show source and target
+            all_figures.extend([
+                create_point_cloud_figure(
                     points=src_points,
                     title=f"Source Point Cloud (Level {level})",
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
-                )
-
-            def create_target_figure():
-                return create_point_cloud_figure(
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_src_{level}",
+                ),
+                create_point_cloud_figure(
                     points=tgt_points,
                     title=f"Target Point Cloud (Level {level})",
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_tgt_{level}",
                 )
+            ])
 
-            def create_union_figure():
-                union_fig = create_union_visualization(
-                    src_points,
-                    tgt_points,
-                    point_size=point_size,
-                    point_opacity=point_opacity,
-                    camera_state=camera_state,
-                )
-                union_fig.update_layout(title=f"Union (Level {level})")
-                return union_fig
-
-            def create_sym_diff_figure():
-                sym_diff_fig = create_symmetric_difference_visualization(
-                    src_points,
-                    tgt_points,
-                    radius=sym_diff_radius,
-                    point_size=point_size,
-                    point_opacity=point_opacity,
-                    camera_state=camera_state,
-                )
-                sym_diff_fig.update_layout(title=f"Symmetric Difference (Level {level})")
-                return sym_diff_fig
-
-            # Create figures in parallel
-            figure_tasks = [
-                create_source_figure,
-                create_target_figure,
-                create_union_figure,
-                create_sym_diff_figure,
-            ]
-
-            level_figures = [None] * len(figure_tasks)
-            
-            with ThreadPoolExecutor(max_workers=4) as executor:
-                # Submit all tasks
-                future_to_index = {
-                    executor.submit(task_func): idx 
-                    for idx, task_func in enumerate(figure_tasks)
-                }
-                
-                # Collect results in order
-                for future in as_completed(future_to_index):
-                    idx = future_to_index[future]
-                    level_figures[idx] = future.result()
-            
-            figures.extend(level_figures)
-
-            # TODO: Add correspondence visualization
-            # # Correspondence visualization
-            # corr_fig = create_correspondence_visualization(
-            #     src_points,
-            #     tgt_points,
-            #     radius=corr_radius,
-            #     point_size=point_size,
-            #     point_opacity=point_opacity,
-            #     camera_state=camera_state,
-            # )
-            # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
-            # figures.append(corr_fig)
-        else:
-            # For lower levels, only show source and target
-            figures.append(create_point_cloud_figure(
-                points=src_points,
-                title=f"Source Point Cloud (Level {level})",
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state
-            ))
-
-            figures.append(create_point_cloud_figure(
-                points=tgt_points,
-                title=f"Target Point Cloud (Level {level})",
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state
-            ))
-
-    # Create grid layout
-    grid_items = []
-    for i, fig in enumerate(figures):
-        grid_items.append(
-            html.Div([
-                dcc.Graph(
-                    id={'type': 'point-cloud-graph', 'index': i},
-                    figure=fig,
-                    style={'height': '400px'}
-                )
-            ], style={'width': '50%', 'display': 'inline-block'})
-        )
-
+    # Create grid layout using centralized utilities
+    grid_items = create_figure_grid(all_figures, width_style="50%")
+    
     return html.Div([
         html.H3("Point Cloud Registration Visualization (Hierarchical)"),
         html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'})
@@ -518,11 +534,12 @@ def display_pcr_datapoint_batched(
 
 def display_pcr_datapoint(
     datapoint: Dict[str, Any],
+    camera_state: Optional[Dict[str, Any]] = None,
     point_size: float = 2,
     point_opacity: float = 0.8,
-    camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
-    corr_radius: float = 0.1
+    corr_radius: float = 0.1,
+    lod_type: str = "continuous"
 ) -> html.Div:
     """Display a point cloud registration datapoint.
 
@@ -533,6 +550,7 @@ def display_pcr_datapoint(
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         html.Div containing the visualization
@@ -548,6 +566,7 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
+            lod_type=lod_type,
         )
     else:
         return display_pcr_datapoint_single(
@@ -557,4 +576,5 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
+            lod_type=lod_type,
         )
