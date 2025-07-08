@@ -10,8 +10,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
-
 @callback(
     outputs=[
         Output('datapoint-display', 'children'),

@@ -1,9 +1,9 @@
 """Camera pose and synchronization callbacks for the viewer."""
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Any, Tuple
 import json
 from dash import Input, Output, State, callback_context, ALL
 from dash.exceptions import PreventUpdate
-from data.viewer.callbacks.registry import callback, registry
+from data.viewer.callbacks.registry import callback
 from data.viewer.utils.camera_utils import (
     update_figures_parallel,
     update_figure_camera,
@@ -25,7 +25,7 @@ from data.viewer.utils.settings_config import ViewerSettings
     ],
     group="camera"
 )
-def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]], _: Dict[str, Any]) -> List[Any]:
+def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]], _: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs."""
     ctx = callback_context
     if not ctx.triggered:
@@ -78,7 +78,7 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     ],
     group="camera"
 )
-def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]) -> List[Any]:
+def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Reset camera view to default position for all point cloud graphs."""
     if n_clicks is None or n_clicks == 0:
         raise PreventUpdate
