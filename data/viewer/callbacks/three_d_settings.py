@@ -2,7 +2,7 @@
 from typing import Dict, List, Optional, Union
 from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
-from data.viewer.callbacks.registry import callback, registry
+from data.viewer.callbacks.registry import callback
 from data.viewer.utils.settings_config import ViewerSettings
 
 
@@ -28,6 +28,9 @@ def update_3d_settings(
 ) -> List[Dict[str, Union[str, int, float, bool]]]:
     """Update 3D settings store when slider values change.
     
+    This is now a PURE UI callback - it only updates the UI store.
+    Backend synchronization happens in backend_sync.py automatically.
+    
     Args:
         point_size: Size of points in the 3D visualization
         point_opacity: Opacity of points (0.0 to 1.0)
@@ -36,7 +39,7 @@ def update_3d_settings(
         lod_type: Type of LOD to use ("continuous", "discrete", or "none")
     
     Returns:
-        List containing a dictionary of all 3D settings
+        List containing a dictionary of all 3D settings for UI store
     """
     if point_size is None or point_opacity is None:
         raise PreventUpdate
@@ -55,9 +58,8 @@ def update_3d_settings(
         ViewerSettings.get_3d_settings_with_defaults(raw_settings)
     )
 
-    # Update backend state with validated settings
-    registry.viewer.backend.update_state(**settings)
-
+    # PURE UI PATTERN: Only return UI store data
+    # Backend sync happens automatically in backend_sync.py
     return [settings]
 
 
