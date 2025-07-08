@@ -79,6 +79,27 @@ def load_dataset(dataset_key: Optional[str]) -> List[Union[Dict[str, Any], int, 
 
 
 @callback(
+    outputs=[
+        Output('transforms-section', 'children', allow_duplicate=True),
+    ],
+    inputs=[Input('dataset-info', 'data')],
+    group="dataset"
+)
+def update_transforms_section(dataset_info: Dict[str, Any]) -> List[html.Div]:
+    """Update the transforms section when dataset info changes."""
+    # If no dataset is selected, maintain current state
+    if not dataset_info:
+        raise PreventUpdate
+
+    transforms = dataset_info.get('transforms', [])
+
+    # Create updated transforms section
+    transforms_section = create_transforms_section(transforms)
+
+    return [transforms_section]
+
+
+@callback(
     outputs=Output('dataset-dropdown', 'options'),
     inputs=[Input('reload-button', 'n_clicks')],
     group="dataset"
