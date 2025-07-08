@@ -6,7 +6,6 @@ from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_c
 from data.viewer.utils.display_utils import (
     DisplayStyles,
     ParallelFigureCreator,
-    PerformanceTimer,
     create_standard_datapoint_layout,
     create_statistics_display
 )
@@ -33,10 +32,6 @@ def display_3dcd_datapoint(
     Returns:
         html.Div containing the visualization
     """
-    # Initialize performance timer
-    timer = PerformanceTimer("3DCD Display", enabled=True)
-    timer.start()
-    
     # Validate inputs
     inputs = datapoint['inputs']
     assert 'pc_1' in inputs and 'pc_2' in inputs, "Point cloud 1 (pc_1) and point cloud 2 (pc_2) must be present in the inputs"

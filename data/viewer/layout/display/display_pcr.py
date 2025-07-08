@@ -279,99 +279,98 @@ def display_pcr_datapoint_single(
     Returns:
         html.Div containing the visualization
     """
-    with PerformanceTimer("PCR single datapoint display"):
-        # Validate inputs
-        inputs = datapoint['inputs']
-        assert 'src_pc' in inputs and 'tgt_pc' in inputs, "Source point cloud (src_pc) and target point cloud (tgt_pc) must be present in the inputs"
-        assert isinstance(inputs['src_pc'], dict) and isinstance(inputs['tgt_pc'], dict), "Point clouds must be dictionaries"
-        assert 'pos' in inputs['src_pc'] and 'pos' in inputs['tgt_pc'], "Point clouds must have 'pos' field"
+    # Validate inputs
+    inputs = datapoint['inputs']
+    assert 'src_pc' in inputs and 'tgt_pc' in inputs, "Source point cloud (src_pc) and target point cloud (tgt_pc) must be present in the inputs"
+    assert isinstance(inputs['src_pc'], dict) and isinstance(inputs['tgt_pc'], dict), "Point clouds must be dictionaries"
+    assert 'pos' in inputs['src_pc'] and 'pos' in inputs['tgt_pc'], "Point clouds must have 'pos' field"
 
-        # Extract point clouds
-        src_pc = inputs['src_pc']['pos']  # Source point cloud
-        tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
+    # Extract point clouds
+    src_pc = inputs['src_pc']['pos']  # Source point cloud
+    tgt_pc = inputs['tgt_pc']['pos']  # Target point cloud
 
-        # Extract RGB colors if available
-        src_rgb = inputs['src_pc'].get('rgb')
-        tgt_rgb = inputs['tgt_pc'].get('rgb')
+    # Extract RGB colors if available
+    src_rgb = inputs['src_pc'].get('rgb')
+    tgt_rgb = inputs['tgt_pc'].get('rgb')
 
-        # Extract transform if available
-        transform = datapoint['labels'].get('transform')
-        if transform is None:
-            transform = torch.eye(4)  # Default to identity transform if not provided
+    # Extract transform if available
+    transform = datapoint['labels'].get('transform')
+    if transform is None:
+        transform = torch.eye(4)  # Default to identity transform if not provided
 
-        # Apply transform to source point cloud
-        src_pc_transformed = apply_transform(src_pc, transform)
+    # Apply transform to source point cloud
+    src_pc_transformed = apply_transform(src_pc, transform)
 
-        # Define figure creation tasks
-        figure_tasks = [
-            lambda: create_point_cloud_figure(
-                points=src_pc,
-                colors=src_rgb,
-                title="Source Point Cloud",
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-                lod_type=lod_type,
-                point_cloud_id="pcr_source",
-            ),
-            lambda: create_point_cloud_figure(
-                points=tgt_pc,
-                colors=tgt_rgb,
-                title="Target Point Cloud",
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-                lod_type=lod_type,
-                point_cloud_id="pcr_target",
-            ),
-            lambda: create_union_visualization(
-                src_pc_transformed,
-                tgt_pc,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-                lod_type=lod_type,
-            ),
-            lambda: create_symmetric_difference_visualization(
-                src_pc_transformed,
-                tgt_pc,
-                radius=sym_diff_radius,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-                lod_type=lod_type,
-            ),
-        ]
+    # Define figure creation tasks
+    figure_tasks = [
+        lambda: create_point_cloud_figure(
+            points=src_pc,
+            colors=src_rgb,
+            title="Source Point Cloud",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id="pcr_source",
+        ),
+        lambda: create_point_cloud_figure(
+            points=tgt_pc,
+            colors=tgt_rgb,
+            title="Target Point Cloud",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id="pcr_target",
+        ),
+        lambda: create_union_visualization(
+            src_pc_transformed,
+            tgt_pc,
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+        ),
+        lambda: create_symmetric_difference_visualization(
+            src_pc_transformed,
+            tgt_pc,
+            radius=sym_diff_radius,
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+        ),
+    ]
 
-        # Create figures in parallel using centralized utility
-        figures = ParallelFigureCreator.create_figures_parallel(figure_tasks, max_workers=4)
+    # Create figures in parallel using centralized utility
+    figures = ParallelFigureCreator.create_figures_parallel(figure_tasks, max_workers=4)
 
-        # TODO: Add correspondence visualization
-        # figures.append(create_correspondence_visualization(
-        #     src_pc_transformed,
-        #     tgt_pc,
-        #     radius=corr_radius,
-        #     point_size=point_size,
-        #     point_opacity=point_opacity,
-        #     camera_state=camera_state,
-        # ))
+    # TODO: Add correspondence visualization
+    # figures.append(create_correspondence_visualization(
+    #     src_pc_transformed,
+    #     tgt_pc,
+    #     radius=corr_radius,
+    #     point_size=point_size,
+    #     point_opacity=point_opacity,
+    #     camera_state=camera_state,
+    # ))
 
-        # Compute transform information
-        transform_info = _compute_transform_info(transform)
-        
-        # Get point cloud statistics
-        src_stats_children = get_point_cloud_stats(src_pc)
-        tgt_stats_children = get_point_cloud_stats(tgt_pc)
+    # Compute transform information
+    transform_info = _compute_transform_info(transform)
+    
+    # Get point cloud statistics
+    src_stats_children = get_point_cloud_stats(src_pc)
+    tgt_stats_children = get_point_cloud_stats(tgt_pc)
 
-        # Create layout using centralized utilities
-        grid_items = ParallelFigureCreator.create_grid_items(figures, DisplayStyles.GRID_ITEM_50)
-        
-        return html.Div([
-            html.H3("Point Cloud Registration Visualization"),
-            html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'}),
-            _create_transform_info_section(transform_info),
-            _create_statistics_section(src_stats_children, tgt_stats_children)
-        ])
+    # Create layout using centralized utilities
+    grid_items = ParallelFigureCreator.create_grid_items(figures, DisplayStyles.GRID_ITEM_50)
+    
+    return html.Div([
+        html.H3("Point Cloud Registration Visualization"),
+        html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'}),
+        _create_transform_info_section(transform_info),
+        _create_statistics_section(src_stats_children, tgt_stats_children)
+    ])
 
 
 def split_points_by_lengths(points: torch.Tensor, lengths: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -448,88 +447,87 @@ def display_pcr_datapoint_batched(
     Returns:
         html.Div containing the visualization
     """
-    with PerformanceTimer("PCR batched datapoint display"):
-        inputs = datapoint['inputs']
-        all_figures = []
+    inputs = datapoint['inputs']
+    all_figures = []
 
-        # Process each level in the hierarchy
-        for level in range(len(inputs['points'])):
-            # Split points into source and target
-            src_points, tgt_points = split_points_by_lengths(
-                inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
-            )
+    # Process each level in the hierarchy
+    for level in range(len(inputs['points'])):
+        # Split points into source and target
+        src_points, tgt_points = split_points_by_lengths(
+            inputs['points'][level], inputs.get('lengths', inputs['stack_lengths'])[level],
+        )
 
-            # For top level (level 0), show all visualizations
-            if level == 0:
-                figure_tasks = [
-                    lambda src=src_points, lvl=level: create_point_cloud_figure(
-                        points=src,
-                        title=f"Source Point Cloud (Level {lvl})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        point_cloud_id=f"pcr_batched_src_{lvl}",
-                    ),
-                    lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
-                        points=tgt,
-                        title=f"Target Point Cloud (Level {lvl})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        point_cloud_id=f"pcr_batched_tgt_{lvl}",
-                    ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
-                        src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type
-                    ),
-                    lambda src=src_points, tgt=tgt_points, lvl=level: _create_sym_diff_with_title(
-                        src, tgt, f"Symmetric Difference (Level {lvl})", sym_diff_radius, 
-                        point_size, point_opacity, camera_state, lod_type
-                    ),
-                ]
+        # For top level (level 0), show all visualizations
+        if level == 0:
+            figure_tasks = [
+                lambda src=src_points, lvl=level: create_point_cloud_figure(
+                    points=src,
+                    title=f"Source Point Cloud (Level {lvl})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_src_{lvl}",
+                ),
+                lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
+                    points=tgt,
+                    title=f"Target Point Cloud (Level {lvl})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_tgt_{lvl}",
+                ),
+                lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
+                    src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type
+                ),
+                lambda src=src_points, tgt=tgt_points, lvl=level: _create_sym_diff_with_title(
+                    src, tgt, f"Symmetric Difference (Level {lvl})", sym_diff_radius, 
+                    point_size, point_opacity, camera_state, lod_type
+                ),
+            ]
 
-                # Create figures in parallel using centralized utility
-                level_figures = ParallelFigureCreator.create_figures_parallel(figure_tasks, max_workers=4)
-                all_figures.extend(level_figures)
+            # Create figures in parallel using centralized utility
+            level_figures = ParallelFigureCreator.create_figures_parallel(figure_tasks, max_workers=4)
+            all_figures.extend(level_figures)
 
-                # TODO: Add correspondence visualization
-                # corr_fig = create_correspondence_visualization(
-                #     src_points, tgt_points, radius=corr_radius, point_size=point_size,
-                #     point_opacity=point_opacity, camera_state=camera_state,
-                # )
-                # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
-                # all_figures.append(corr_fig)
-            else:
-                # For lower levels, only show source and target
-                all_figures.extend([
-                    create_point_cloud_figure(
-                        points=src_points,
-                        title=f"Source Point Cloud (Level {level})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        point_cloud_id=f"pcr_batched_src_{level}",
-                    ),
-                    create_point_cloud_figure(
-                        points=tgt_points,
-                        title=f"Target Point Cloud (Level {level})",
-                        point_size=point_size,
-                        point_opacity=point_opacity,
-                        camera_state=camera_state,
-                        lod_type=lod_type,
-                        point_cloud_id=f"pcr_batched_tgt_{level}",
-                    )
-                ])
+            # TODO: Add correspondence visualization
+            # corr_fig = create_correspondence_visualization(
+            #     src_points, tgt_points, radius=corr_radius, point_size=point_size,
+            #     point_opacity=point_opacity, camera_state=camera_state,
+            # )
+            # corr_fig.update_layout(title=f"Point Cloud Correspondences (Level {level})")
+            # all_figures.append(corr_fig)
+        else:
+            # For lower levels, only show source and target
+            all_figures.extend([
+                create_point_cloud_figure(
+                    points=src_points,
+                    title=f"Source Point Cloud (Level {level})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_src_{level}",
+                ),
+                create_point_cloud_figure(
+                    points=tgt_points,
+                    title=f"Target Point Cloud (Level {level})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    point_cloud_id=f"pcr_batched_tgt_{level}",
+                )
+            ])
 
-        # Create grid layout using centralized utilities
-        grid_items = ParallelFigureCreator.create_grid_items(all_figures, DisplayStyles.GRID_ITEM_50)
-        
-        return html.Div([
-            html.H3("Point Cloud Registration Visualization (Hierarchical)"),
-            html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'})
-        ])
+    # Create grid layout using centralized utilities
+    grid_items = ParallelFigureCreator.create_grid_items(all_figures, DisplayStyles.GRID_ITEM_50)
+    
+    return html.Div([
+        html.H3("Point Cloud Registration Visualization (Hierarchical)"),
+        html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'})
+    ])
 
 
 def display_pcr_datapoint(
