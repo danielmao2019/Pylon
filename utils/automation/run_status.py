@@ -53,7 +53,7 @@ def get_run_status(
     # Determine status based on metrics
     if is_running_status:
         status: _RunStatus = 'running'
-    elif progress == epochs:
+    elif progress >= epochs:
         # Check if finished run is outdated
         if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
             status = 'outdated'
