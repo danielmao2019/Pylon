@@ -30,8 +30,9 @@ def compare_scores_vector(
     flat_current = _flatten_scores(current_scores)
     flat_best = _flatten_scores(best_scores)
 
-    # Get common metric keys
-    common_keys = set(flat_current.keys()) & set(flat_best.keys())
+    # Get common metric keys that have directions defined
+    # Only compare metrics that have directions - ignore others
+    common_keys = set(flat_current.keys()) & set(flat_best.keys()) & set(flat_directions.keys())
     if not common_keys:
         return None
 
@@ -40,9 +41,8 @@ def compare_scores_vector(
     best_better = False
 
     for key in common_keys:
-        # Look up direction for this key
-        direction = flat_directions.get(key)
-        assert direction is not None, f"No direction found for metric key '{key}' in {flat_directions}"
+        # Look up direction for this key (guaranteed to exist due to filtering above)
+        direction = flat_directions[key]
         current_val = flat_current[key]
         best_val = flat_best[key]
 
@@ -105,10 +105,10 @@ def reduce_scores_to_scalar(
     else:
         raise ValueError(f"Invalid order_config: {order_config}")
 
-    # Filter weights to only include valid metrics
+    # Filter weights to only include valid metrics that have directions
     valid_weights = {}
     for key, weight in weights.items():
-        if key in flat_scores:
+        if key in flat_scores and key in flat_directions:
             assert weight >= 0, f"Negative weight not allowed: {key}={weight}"
             valid_weights[key] = weight
 
@@ -125,9 +125,8 @@ def reduce_scores_to_scalar(
     # Compute weighted average with DIRECTION applied
     weighted_sum = 0.0
     for key, weight in normalized_weights.items():
-        # Look up direction for this key
-        direction = flat_directions.get(key)
-        assert direction is not None, f"No direction found for metric key '{key}' in {flat_directions}"
+        # Look up direction for this key (guaranteed to exist due to filtering above)
+        direction = flat_directions[key]
         value = flat_scores[key]
 
         # Handle tensor values
