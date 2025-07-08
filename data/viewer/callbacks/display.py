@@ -74,7 +74,3 @@ def create_display(
     
     params = display_params[dataset_type]
     return display_func(*params['args'], **params['kwargs'])
-
-
-
-
