@@ -122,10 +122,8 @@ class ContinuousLOD:
         # Calculate average distances and sampling rates for all bins
         bin_avg_distances = bin_distance_sums / torch.clamp(bin_counts, min=1)
         
-        # Vectorized sampling rate calculation for all bins
-        clamped_distances = torch.clamp(bin_avg_distances, self.near_distance, self.far_distance)
-        t = (clamped_distances - self.near_distance) / (self.far_distance - self.near_distance)
-        bin_sampling_rates = self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)
+        # Reuse existing sampling rate calculation method
+        bin_sampling_rates = self._calculate_sampling_rates(bin_avg_distances)
         
         # Map sampling rates back to points
         point_sampling_rates = bin_sampling_rates[inverse_indices]
