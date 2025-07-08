@@ -1,6 +1,6 @@
 """3D settings-related callbacks for the viewer."""
 from typing import Dict, List, Optional, Union
-from dash import Input, Output, State
+from dash import Input, Output
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
 from data.viewer.utils.settings_config import ViewerSettings
@@ -94,3 +94,26 @@ def update_view_controls(
             pcr_controls_style = {'display': 'block'}
 
     return [view_controls_style, pcr_controls_style]
+
+
+@callback(
+    outputs=[
+        Output('lod-info-display', 'children')
+    ],
+    inputs=[
+        Input('lod-type-dropdown', 'value')
+    ],
+    group="3d_settings"
+)
+def update_lod_info_display(lod_type: str) -> str:
+    """Update LOD information display based on selected LOD type."""
+    if not lod_type:
+        return ""
+    
+    lod_descriptions = {
+        'continuous': 'Real-time adaptive sampling based on camera distance. Provides smooth performance scaling.',
+        'discrete': 'Fixed LOD levels with 2x downsampling per level. Predictable performance.',
+        'none': 'No level of detail - shows all points. May impact performance with large datasets.'
+    }
+    
+    return lod_descriptions.get(lod_type, f"Unknown LOD type: {lod_type}")

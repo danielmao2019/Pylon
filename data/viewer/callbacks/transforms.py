@@ -15,21 +15,21 @@ logger = logging.getLogger(__name__)
     ],
     inputs=[
         Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
+        Input('3d-settings-store', 'data')
     ],
     states=[
         State('dataset-info', 'data'),
         State('datapoint-index-slider', 'value'),
-        State('camera-state', 'data'),
-        State('3d-settings-store', 'data')
+        State('camera-state', 'data')
     ],
     group="transforms"
 )
 def update_datapoint_from_transforms(
     transform_values: List[List[int]],
+    settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
     datapoint_idx: int,
-    camera_state: Dict,
-    settings_3d: Optional[Dict[str, Union[str, int, float, bool]]]
+    camera_state: Dict
 ) -> List[html.Div]:
     """
     Update the displayed datapoint when transform selections change.

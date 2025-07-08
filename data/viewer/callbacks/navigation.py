@@ -66,19 +66,19 @@ def update_current_index(current_idx: int) -> List[str]:
     ],
     inputs=[
         Input('datapoint-index-slider', 'value'),
+        Input('3d-settings-store', 'data')
     ],
     states=[
         State('dataset-info', 'data'),
-        State('camera-state', 'data'),
-        State('3d-settings-store', 'data')
+        State('camera-state', 'data')
     ],
     group="navigation"
 )
 def update_datapoint_from_navigation(
     datapoint_idx: int,
+    settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
-    camera_state: Dict,
-    settings_3d: Optional[Dict[str, Union[str, int, float, bool]]]
+    camera_state: Dict
 ) -> List[html.Div]:
     """
     Update the displayed datapoint when navigation index changes.
