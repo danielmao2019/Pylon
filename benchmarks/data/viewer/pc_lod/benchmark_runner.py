@@ -12,7 +12,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 sys.path.insert(0, project_root)
 
 from data.viewer.utils.point_cloud import create_point_cloud_figure
-# LOD imports not needed since point_cloud.py handles it internally
+from data.viewer.utils.discrete_lod import DiscreteLOD
 
 from .data_types import PointCloudSample, CameraPose, BenchmarkStats
 
@@ -52,7 +52,7 @@ class LODBenchmarkRunner:
                 colors=colors,
                 title=f"No LOD {run}",
                 camera_state=camera_pose.camera_state,
-                lod_enabled=False
+                lod_type=None
             )
             end_time = time.perf_counter()
             
@@ -71,7 +71,7 @@ class LODBenchmarkRunner:
                 colors=colors,
                 title=f"LOD {run}",
                 camera_state=camera_pose.camera_state,
-                lod_enabled=True,
+                lod_type="continuous",
                 point_cloud_id=f"{point_cloud_sample.name}_{camera_pose.distance_group}_{camera_pose.pose_id}"
             )
             end_time = time.perf_counter()
@@ -81,16 +81,21 @@ class LODBenchmarkRunner:
             # Extract LOD info on first run
             if run == 0:
                 title = fig_lod.layout.title.text
-                if "LOD" in title and "(LOD " in title and ":" in title:
-                    title_parts = title.split("(LOD ")
-                    if len(title_parts) > 1:
-                        lod_part = title_parts[1].split(":")[0].strip()
-                        lod_info['level'] = int(lod_part)
-                        
-                        colon_parts = title.split(": ")
-                        if len(colon_parts) > 1:
-                            points_part = colon_parts[1].split("/")[0]
-                            lod_info['final_points'] = int(points_part.replace(",", ""))
+                if "LOD:" in title and "/" in title:
+                    # Parse format like "LOD Run (Continuous LOD: 1,234/5,678)"
+                    # Let it crash if parsing fails - this reveals title format bugs!
+                    lod_part = title.split("LOD: ")[1]  # Get "1,234/5,678)"
+                    points_part = lod_part.split(")")[0]  # Get "1,234/5,678"
+                    final_points_str = points_part.split("/")[0]  # Get "1,234"
+                    lod_info['final_points'] = int(final_points_str.replace(",", ""))
+                    
+                    # Extract LOD type for level (continuous=1, discrete=2, etc.)
+                    if "Continuous" in title:
+                        lod_info['level'] = 1
+                    elif "Discrete" in title:
+                        lod_info['level'] = 2
+                    else:
+                        lod_info['level'] = 0
         
         # Calculate statistics
         avg_no_lod_time = np.mean(no_lod_times)
