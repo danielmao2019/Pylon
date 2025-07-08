@@ -1,9 +1,22 @@
-"""Display-related callbacks for the viewer."""
+"""Pure display update callbacks for the viewer.
+
+This module handles only display rendering updates triggered by:
+- Dataset info changes
+- Datapoint index changes  
+- Camera state changes
+- 3D settings changes
+
+Other callback types are handled in separate modules:
+- dataset.py: Dataset selection and transforms section updates
+- transforms.py: Transform checkbox selection
+- navigation.py: Datapoint navigation (prev/next buttons)
+- three_d_settings.py: 3D control sliders and visibility
+- camera.py: Camera pose changes from 3D graph interactions
+"""
 from typing import Dict, List, Optional, Union, Any
-from dash import Input, Output, State, html, ALL
+from dash import Input, Output, State, html
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
-from data.viewer.layout.controls.transforms import create_transforms_section
 from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
 from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
@@ -71,111 +84,5 @@ def _create_display(
     return display_func(*params['args'], **params['kwargs'])
 
 
-@callback(
-    outputs=[
-        Output('datapoint-display', 'children'),
-    ],
-    inputs=[
-        Input('dataset-info', 'data'),
-        Input('datapoint-index-slider', 'value'),
-        Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
-        Input('camera-state', 'data'),
-        Input('3d-settings-store', 'data')
-    ],
-    group="display"
-)
-def update_datapoint(
-    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
-    datapoint_idx: int,
-    transform_values: List[List[int]],
-    camera_state: Dict,
-    settings_3d: Optional[Dict[str, Union[str, int, float, bool]]]
-) -> List[html.Div]:
-    """
-    Update the displayed datapoint based on the slider value.
-    Also handles 3D point cloud visualization settings.
-    """
-    logger.info(f"Display update callback triggered - Dataset info: {dataset_info}, Index: {datapoint_idx}")
-
-    if dataset_info is None or dataset_info == {}:
-        logger.warning("No dataset info available")
-        return [html.Div("No dataset loaded.")]
-
-    dataset_name: str = dataset_info.get('name', 'unknown')
-    logger.info(f"Attempting to get dataset: {dataset_name}")
-
-    # Get list of selected transform indices
-    selected_indices = [
-        idx for values in transform_values
-        for idx in values  # values will be a list containing the index if checked, empty if not
-    ]
-
-    # Get datapoint from backend through registry
-    datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
-
-    # Get dataset type and display function
-    dataset_type = dataset_info['type']  # Will raise KeyError if missing - that's a bug that should be caught
-    display_func = DISPLAY_FUNCTIONS[dataset_type]  # Will raise KeyError if unsupported - that's a bug that should be caught
-    
-    logger.info(f"Dataset type: {dataset_type}")
-
-    # Extract 3D settings and class labels using centralized configuration
-    settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
-    class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
-
-    # Call the display function with appropriate parameters
-    logger.info(f"Creating {dataset_type} display")
-    display = _create_display(dataset_type, display_func, datapoint, class_labels, camera_state, settings)
-
-    logger.info("Display created successfully")
-    return [display]
 
 
-@callback(
-    outputs=[
-        Output('transforms-section', 'children', allow_duplicate=True),
-        Output('datapoint-display', 'children', allow_duplicate=True)
-    ],
-    inputs=[Input('dataset-info', 'data')],
-    states=[
-        State('datapoint-index-slider', 'value'),
-        State('3d-settings-store', 'data'),
-        State('camera-state', 'data')
-    ],
-    group="display"
-)
-def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int], settings_3d: Optional[Dict[str, Union[str, int, float, bool]]], camera_state: Dict[str, Any]) -> List[Union[html.Div, List[html.Div]]]:
-    """Update the transforms section when dataset info changes and display datapoint with all transforms applied."""
-    # If no dataset is selected, maintain current state
-    if not dataset_info:
-        raise PreventUpdate
-
-    dataset_name = dataset_info['name']
-    transforms = dataset_info.get('transforms', [])
-
-    # Use index 0 if datapoint_idx is None (first dataset selection)
-    if datapoint_idx is None:
-        datapoint_idx = 0
-
-    # Create updated transforms section
-    transforms_section = create_transforms_section(transforms)
-
-    # Display datapoint with all transforms applied by default
-    # Get all transform indices to apply all transforms by default
-    all_transform_indices = [transform['index'] for transform in transforms]
-
-    # Get transformed datapoint using backend
-    datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, all_transform_indices)
-
-    # Get dataset type and display function  
-    dataset_type = dataset_info['type']
-    display_func = DISPLAY_FUNCTIONS[dataset_type]  # Will raise KeyError if unsupported - that's a bug that should be caught
-
-    # Extract 3D settings and class labels using centralized configuration
-    settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
-    class_labels = dataset_info.get('class_labels', {}) if dataset_type in ['semseg', '3dcd'] else None
-
-    # Call the display function with current 3D settings
-    display = _create_display(dataset_type, display_func, datapoint, class_labels, camera_state, settings)
-
-    return [transforms_section, [display]]
