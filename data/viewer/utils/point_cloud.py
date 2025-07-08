@@ -39,30 +39,27 @@ def apply_lod_to_point_cloud(
     Returns:
         Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
     """
-    # If no LOD requested, return originals converted to torch tensors
-    if lod_type is None or lod_type == "none" or camera_state is None:
-        points_tensor = torch.from_numpy(points).float() if isinstance(points, np.ndarray) else points.float()
-        colors_tensor = (torch.from_numpy(colors) if isinstance(colors, np.ndarray) else colors) if colors is not None else None
-        labels_tensor = (torch.from_numpy(labels) if isinstance(labels, np.ndarray) else labels) if labels is not None else None
-        return points_tensor, colors_tensor, labels_tensor
-        
-    # Prepare point cloud dictionary - convert to torch tensors
+    # Handle mixed input types efficiently - prefer torch tensors
     if isinstance(points, np.ndarray):
-        pc_dict = {'pos': torch.from_numpy(points).float()}
+        points = torch.from_numpy(points).float()
     else:
-        pc_dict = {'pos': points.float()}
+        points = points.float()
         
+    if colors is not None and isinstance(colors, np.ndarray):
+        colors = torch.from_numpy(colors)
+    if labels is not None and isinstance(labels, np.ndarray):
+        labels = torch.from_numpy(labels)
+    
+    # If no LOD requested, return tensors
+    if lod_type is None or lod_type == "none" or camera_state is None:
+        return points, colors, labels
+        
+    # Prepare point cloud dictionary
+    pc_dict = {'pos': points}
     if colors is not None:
-        if isinstance(colors, np.ndarray):
-            pc_dict['rgb'] = torch.from_numpy(colors)
-        else:
-            pc_dict['rgb'] = colors
-            
+        pc_dict['rgb'] = colors
     if labels is not None:
-        if isinstance(labels, np.ndarray):
-            pc_dict['labels'] = torch.from_numpy(labels)
-        else:
-            pc_dict['labels'] = labels
+        pc_dict['labels'] = labels
     
     # Apply LOD based on type
     if lod_type == "continuous":

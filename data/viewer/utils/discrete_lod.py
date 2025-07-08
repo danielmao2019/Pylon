@@ -89,12 +89,14 @@ class DiscreteLOD:
             
     def _select_by_distance(self, levels: Dict[int, Dict[str, torch.Tensor]], camera_state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         """Select level based on camera distance."""
-        camera_pos = get_camera_position(camera_state)
         original_pc = levels[0]
         points = original_pc['pos']
         
+        # Get camera position on same device as points
+        camera_pos = get_camera_position(camera_state, device=points.device, dtype=points.dtype)
+        
         # Calculate average distance
-        distances = torch.norm(points - camera_pos.to(points.device), dim=1)
+        distances = torch.norm(points - camera_pos, dim=1)
         avg_distance = distances.mean().item()
         
         # Distance-based level selection using configurable thresholds
