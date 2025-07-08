@@ -86,8 +86,8 @@ class ContinuousLOD:
         coords_cam = self._transform_to_camera_space(points, camera_state)
         bin_indices = self._coords_to_bin_indices(coords_cam)
         
-        # Step 2: Apply distance-based sampling
-        return self._vectorized_distance_sampling(distances)
+        # Step 2: Apply per-bin distance-based sampling
+        return self._vectorized_bin_sampling(distances, bin_indices)
     
     def _simple_distance_pipeline(self, distances: torch.Tensor) -> torch.Tensor:
         """Simple distance-based sampling without spatial binning for maximum performance."""
@@ -102,6 +102,38 @@ class ContinuousLOD:
         sampling_rates = self._calculate_sampling_rates(distances)
         random_values = torch.rand(len(distances), device=distances.device)
         selected_mask = random_values < sampling_rates
+        return torch.nonzero(selected_mask, as_tuple=True)[0]
+    
+    def _vectorized_bin_sampling(self, distances: torch.Tensor, bin_indices: torch.Tensor) -> torch.Tensor:
+        """Apply truly vectorized per-bin distance-based sampling."""
+        device = distances.device
+        
+        # Calculate per-bin average distances using scatter operations
+        unique_bins, inverse_indices = torch.unique(bin_indices, return_inverse=True)
+        num_bins = len(unique_bins)
+        
+        # Compute average distance per bin using scatter_add
+        bin_distance_sums = torch.zeros(num_bins, device=device)
+        bin_counts = torch.zeros(num_bins, device=device)
+        
+        bin_distance_sums.scatter_add_(0, inverse_indices, distances)
+        bin_counts.scatter_add_(0, inverse_indices, torch.ones_like(distances))
+        
+        # Calculate average distances and sampling rates for all bins
+        bin_avg_distances = bin_distance_sums / torch.clamp(bin_counts, min=1)
+        
+        # Vectorized sampling rate calculation for all bins
+        clamped_distances = torch.clamp(bin_avg_distances, self.near_distance, self.far_distance)
+        t = (clamped_distances - self.near_distance) / (self.far_distance - self.near_distance)
+        bin_sampling_rates = self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)
+        
+        # Map sampling rates back to points
+        point_sampling_rates = bin_sampling_rates[inverse_indices]
+        
+        # Apply vectorized random sampling
+        random_values = torch.rand(len(distances), device=device)
+        selected_mask = random_values < point_sampling_rates
+        
         return torch.nonzero(selected_mask, as_tuple=True)[0]
     
     def _calculate_sampling_rates(self, distances: torch.Tensor) -> torch.Tensor:
