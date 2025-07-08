@@ -2,6 +2,7 @@
 from typing import Dict, Optional, Any
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
+from data.viewer.utils.lod_utils import get_camera_position
 
 
 class DiscreteLOD:
@@ -76,44 +77,45 @@ class DiscreteLOD:
         levels = self._lod_cache[point_cloud_id]
         
         if target_points is not None:
-            # Find closest level to target points
-            best_level = 0
-            best_diff = float('inf')
-            
-            for level, pc in levels.items():
-                point_count = pc['pos'].shape[0]
-                diff = abs(point_count - target_points)
-                if diff < best_diff:
-                    best_diff = diff
-                    best_level = level
-                    
-            return levels[best_level]
+            return self._select_by_target_points(levels, target_points)
         else:
-            # Use distance-based level selection
-            camera_pos = self._get_camera_position(camera_state)
-            original_pc = levels[0]
-            points = original_pc['pos']
+            return self._select_by_distance(levels, camera_state)
             
-            # Calculate average distance to determine appropriate level
-            distances = torch.norm(points - camera_pos.to(points.device), dim=1)
-            avg_distance = distances.mean().item()
-            
-            # Simple distance-based level selection
-            if avg_distance < 2.0:
-                level = 0  # Close: use original
-            elif avg_distance < 5.0:
-                level = 1  # Medium close
-            elif avg_distance < 10.0:
-                level = 2  # Medium far
-            else:
-                level = min(3, self.num_levels)  # Far: use aggressive reduction
+    def _select_by_target_points(self, levels: Dict[int, Dict[str, torch.Tensor]], target_points: int) -> Dict[str, torch.Tensor]:
+        """Select level closest to target point count."""
+        best_level = 0
+        best_diff = float('inf')
+        
+        for level, pc in levels.items():
+            point_count = pc['pos'].shape[0]
+            diff = abs(point_count - target_points)
+            if diff < best_diff:
+                best_diff = diff
+                best_level = level
                 
-            return levels[level]
+        return levels[best_level]
+        
+    def _select_by_distance(self, levels: Dict[int, Dict[str, torch.Tensor]], camera_state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
+        """Select level based on camera distance."""
+        camera_pos = get_camera_position(camera_state)
+        original_pc = levels[0]
+        points = original_pc['pos']
+        
+        # Calculate average distance
+        distances = torch.norm(points - camera_pos.to(points.device), dim=1)
+        avg_distance = distances.mean().item()
+        
+        # Distance-based level selection
+        if avg_distance < 2.0:
+            level = 0  # Close: use original
+        elif avg_distance < 5.0:
+            level = 1  # Medium close
+        elif avg_distance < 10.0:
+            level = 2  # Medium far
+        else:
+            level = min(3, self.num_levels)  # Far: aggressive reduction
             
-    def _get_camera_position(self, camera_state: Dict[str, Any]) -> torch.Tensor:
-        """Extract camera position from camera state."""
-        eye = camera_state.get('eye', {'x': 1.5, 'y': 1.5, 'z': 1.5})
-        return torch.tensor([eye['x'], eye['y'], eye['z']], dtype=torch.float32)
+        return levels[level]
         
     def _voxel_downsample(
         self, 
@@ -157,20 +159,29 @@ class DiscreteLOD:
             
         selected_indices = torch.tensor(selected_indices, device=points.device, dtype=torch.long)
         
-        # If we have too few points, add random points to reach target
-        if len(selected_indices) < target_points:
-            remaining = target_points - len(selected_indices)
-            all_indices = torch.arange(points.shape[0], device=points.device)
-            available_mask = torch.ones(points.shape[0], dtype=torch.bool, device=points.device)
-            available_mask[selected_indices] = False
-            available_indices = all_indices[available_mask]
-            
-            if len(available_indices) > 0:
-                additional_count = min(remaining, len(available_indices))
-                additional = available_indices[torch.randperm(len(available_indices))[:additional_count]]
-                selected_indices = torch.cat([selected_indices, additional])
+        # Add random points if needed to reach target
+        selected_indices = self._fill_to_target(selected_indices, target_points, points.shape[0])
                 
         return {key: tensor[selected_indices] for key, tensor in point_cloud.items()}
+        
+    def _fill_to_target(self, selected_indices: torch.Tensor, target_points: int, total_points: int) -> torch.Tensor:
+        """Fill selected indices to reach target count with random points."""
+        if len(selected_indices) >= target_points:
+            return selected_indices
+            
+        device = selected_indices.device
+        remaining = target_points - len(selected_indices)
+        all_indices = torch.arange(total_points, device=device)
+        available_mask = torch.ones(total_points, dtype=torch.bool, device=device)
+        available_mask[selected_indices] = False
+        available_indices = all_indices[available_mask]
+        
+        if len(available_indices) > 0:
+            additional_count = min(remaining, len(available_indices))
+            additional = available_indices[torch.randperm(len(available_indices))[:additional_count]]
+            selected_indices = torch.cat([selected_indices, additional])
+            
+        return selected_indices
         
     def clear_cache(self, point_cloud_id: Optional[str] = None):
         """Clear pre-computed LOD levels."""

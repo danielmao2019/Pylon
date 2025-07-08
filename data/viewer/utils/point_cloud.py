@@ -1,5 +1,5 @@
 """Utility functions for point cloud visualization."""
-from typing import Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any, Tuple
 import numpy as np
 import torch
 from dash import html
@@ -55,10 +55,9 @@ def apply_lod_to_point_cloud(
     
     # Apply LOD based on type
     if lod_type == "continuous":
-        # Continuous LOD with adaptive target calculation
+        # Continuous LOD with distance-based sampling
         lod = ContinuousLOD(**(lod_config or {}))
-        target_points = lod.calculate_target_points(pc_dict, camera_state)
-        downsampled = lod.subsample(pc_dict, camera_state, target_points)
+        downsampled = lod.subsample(pc_dict, camera_state)
     elif lod_type == "discrete" and point_cloud_id is not None:
         # Discrete LOD with pre-computed levels
         lod = DiscreteLOD(**(lod_config or {}))
