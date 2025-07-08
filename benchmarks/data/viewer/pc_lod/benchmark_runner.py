@@ -12,7 +12,7 @@ project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../..
 sys.path.insert(0, project_root)
 
 from data.viewer.utils.point_cloud import create_point_cloud_figure
-from data.viewer.utils.camera_lod import get_lod_manager
+# LOD imports not needed since point_cloud.py handles it internally
 
 from .data_types import PointCloudSample, CameraPose, BenchmarkStats
 
@@ -23,9 +23,9 @@ class LODBenchmarkRunner:
     def __init__(self, num_runs: int = 3):
         self.num_runs = num_runs
         
-        # Clear LOD cache
-        lod_manager = get_lod_manager()
-        lod_manager.clear_cache()
+        # Clear LOD cache for discrete LOD
+        discrete_lod = DiscreteLOD()
+        discrete_lod.clear_cache()
     
     def benchmark_single_pose(self, point_cloud_sample: PointCloudSample, 
                              camera_pose: CameraPose) -> BenchmarkStats:
