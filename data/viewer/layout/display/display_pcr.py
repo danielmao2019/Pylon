@@ -10,7 +10,7 @@ from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
 from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
-from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator
+from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
 
 
 def create_union_visualization(
@@ -343,7 +343,8 @@ def display_pcr_datapoint_single(
     ]
 
     # Create figures in parallel using centralized utility
-    figures = ParallelFigureCreator.create_figures_parallel(figure_tasks, max_workers=4)
+    figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+    figures = figure_creator.create_figures_parallel(figure_tasks)
 
     # TODO: Add correspondence visualization
     # figures.append(create_correspondence_visualization(
@@ -363,7 +364,7 @@ def display_pcr_datapoint_single(
     tgt_stats_children = get_point_cloud_stats(tgt_pc)
 
     # Create layout using centralized utilities
-    grid_items = ParallelFigureCreator.create_grid_items(figures, DisplayStyles.GRID_ITEM_50)
+    grid_items = create_figure_grid(figures, width_style="50%")
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
@@ -488,7 +489,8 @@ def display_pcr_datapoint_batched(
             ]
 
             # Create figures in parallel using centralized utility
-            level_figures = ParallelFigureCreator.create_figures_parallel(figure_tasks, max_workers=4)
+            figure_creator = ParallelFigureCreator(max_workers=4, enable_timing=False)
+            level_figures = figure_creator.create_figures_parallel(figure_tasks)
             all_figures.extend(level_figures)
 
             # TODO: Add correspondence visualization
@@ -522,7 +524,7 @@ def display_pcr_datapoint_batched(
             ])
 
     # Create grid layout using centralized utilities
-    grid_items = ParallelFigureCreator.create_grid_items(all_figures, DisplayStyles.GRID_ITEM_50)
+    grid_items = create_figure_grid(all_figures, width_style="50%")
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization (Hierarchical)"),
