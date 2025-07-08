@@ -8,6 +8,7 @@ from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
 from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from data.viewer.layout.display.display_semseg import display_semseg_datapoint
+from data.viewer.utils.settings_config import ViewerSettings
 
 import logging
 logger = logging.getLogger(__name__)
@@ -22,20 +23,6 @@ DISPLAY_FUNCTIONS = {
 }
 
 
-def _extract_3d_settings(settings_3d: Optional[Dict[str, Union[str, int, float, bool]]], context: str = "") -> Dict[str, Union[float, str]]:
-    """Extract 3D settings with validation."""
-    if settings_3d is None:
-        raise ValueError(f"3D settings store is not initialized{' in ' + context if context else ''}")
-    
-    return {
-        'point_size': settings_3d['point_size'],
-        'point_opacity': settings_3d['point_opacity'],
-        'sym_diff_radius': settings_3d['sym_diff_radius'],
-        'corr_radius': settings_3d['corr_radius'],
-        'lod_type': settings_3d.get('lod_type', 'continuous')  # Default to continuous for compatibility
-    }
-
-
 def _create_display(
     dataset_type: str,
     display_func: Any,
@@ -45,31 +32,43 @@ def _create_display(
     settings_3d: Dict[str, Union[float, str]]
 ) -> html.Div:
     """Create display based on dataset type with appropriate parameters."""
-    if dataset_type == 'semseg':
-        return display_func(datapoint)
-    elif dataset_type == '2dcd':
-        return display_func(datapoint)
-    elif dataset_type == '3dcd':
-        return display_func(
-            datapoint, 
-            class_labels, 
-            camera_state, 
-            settings_3d['point_size'], 
-            settings_3d['point_opacity'], 
-            settings_3d['lod_type']
-        )
-    elif dataset_type == 'pcr':
-        return display_func(
-            datapoint=datapoint, 
-            camera_state=camera_state, 
-            point_size=settings_3d['point_size'], 
-            point_opacity=settings_3d['point_opacity'], 
-            sym_diff_radius=settings_3d['sym_diff_radius'], 
-            corr_radius=settings_3d['corr_radius'], 
-            lod_type=settings_3d['lod_type']
-        )
-    else:
+    # Define parameter mappings for each dataset type
+    display_params = {
+        'semseg': {
+            'args': (datapoint,),
+            'kwargs': {}
+        },
+        '2dcd': {
+            'args': (datapoint,),
+            'kwargs': {}
+        },
+        '3dcd': {
+            'args': (datapoint, class_labels, camera_state),
+            'kwargs': {
+                'point_size': settings_3d['point_size'],
+                'point_opacity': settings_3d['point_opacity'],
+                'lod_type': settings_3d['lod_type']
+            }
+        },
+        'pcr': {
+            'args': (),
+            'kwargs': {
+                'datapoint': datapoint,
+                'camera_state': camera_state,
+                'point_size': settings_3d['point_size'],
+                'point_opacity': settings_3d['point_opacity'],
+                'sym_diff_radius': settings_3d['sym_diff_radius'],
+                'corr_radius': settings_3d['corr_radius'],
+                'lod_type': settings_3d['lod_type']
+            }
+        }
+    }
+    
+    if dataset_type not in display_params:
         raise ValueError(f"Unsupported dataset type: {dataset_type}")
+    
+    params = display_params[dataset_type]
+    return display_func(*params['args'], **params['kwargs'])
 
 
 @callback(
@@ -120,8 +119,8 @@ def update_datapoint(
     
     logger.info(f"Dataset type: {dataset_type}")
 
-    # Extract 3D settings and class labels
-    settings = _extract_3d_settings(settings_3d)
+    # Extract 3D settings and class labels using centralized configuration
+    settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
     class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
 
     # Call the display function with appropriate parameters
@@ -172,8 +171,8 @@ def update_transforms(dataset_info: Dict[str, Any], datapoint_idx: Optional[int]
     dataset_type = dataset_info['type']
     display_func = DISPLAY_FUNCTIONS[dataset_type]  # Will raise KeyError if unsupported - that's a bug that should be caught
 
-    # Extract 3D settings and class labels
-    settings = _extract_3d_settings(settings_3d, "update_transforms")
+    # Extract 3D settings and class labels using centralized configuration
+    settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
     class_labels = dataset_info.get('class_labels', {}) if dataset_type in ['semseg', '3dcd'] else None
 
     # Call the display function with current 3D settings

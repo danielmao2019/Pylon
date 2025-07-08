@@ -9,6 +9,7 @@ import logging
 import importlib.util
 from data.transforms.compose import Compose
 from utils.builders import build_from_config
+from data.viewer.utils.settings_config import ViewerSettings
 
 
 # Dataset type definitions
@@ -63,11 +64,14 @@ class ViewerBackend:
         # State management
         self.current_dataset: Optional[str] = None
         self.current_index: int = 0
-        self.point_size: float = 2.0
-        self.point_opacity: float = 0.8
-        self.sym_diff_radius: float = 0.05
-        self.corr_radius: float = 0.1
-        self.lod_type: str = "continuous"
+        
+        # Initialize 3D settings from centralized configuration
+        default_settings = ViewerSettings.DEFAULT_3D_SETTINGS
+        self.point_size: float = default_settings['point_size']
+        self.point_opacity: float = default_settings['point_opacity']
+        self.sym_diff_radius: float = default_settings['sym_diff_radius']
+        self.corr_radius: float = default_settings['corr_radius']
+        self.lod_type: str = default_settings['lod_type']
 
         # Initialize dataset configurations
         self._init_dataset_configs()

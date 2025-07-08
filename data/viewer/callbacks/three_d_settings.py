@@ -3,13 +3,14 @@ from typing import Dict, List, Optional, Union, Any
 import json
 from dash import Input, Output, State, callback_context, ALL
 from dash.exceptions import PreventUpdate
-import dash
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from data.viewer.callbacks.registry import callback, registry
-
-
-# Dataset types that use 3D visualization
-THREE_D_DATASET_TYPES = ['3dcd', 'pcr']
+from data.viewer.utils.camera_utils import (
+    update_figures_parallel,
+    update_figure_camera,
+    reset_figure_camera,
+    get_default_camera_state
+)
+from data.viewer.utils.settings_config import ViewerSettings
 
 
 @callback(
@@ -47,23 +48,22 @@ def update_3d_settings(
     if point_size is None or point_opacity is None:
         raise PreventUpdate
 
-    # Update backend state with new 3D settings
-    registry.viewer.backend.update_state(
-        point_size=point_size,
-        point_opacity=point_opacity,
-        sym_diff_radius=sym_diff_radius or 0.05,
-        corr_radius=corr_radius or 0.1,
-        lod_type=lod_type or "continuous"
-    )
-
-    # Store all 3D settings in the store
-    settings = {
+    # Create settings dictionary with provided values
+    raw_settings = {
         'point_size': point_size,
         'point_opacity': point_opacity,
-        'sym_diff_radius': sym_diff_radius or 0.05,  # Default symmetric difference radius
-        'corr_radius': corr_radius or 0.1,  # Default correspondence radius
-        'lod_type': lod_type or "continuous"  # Default to continuous LOD
+        'sym_diff_radius': sym_diff_radius,
+        'corr_radius': corr_radius,
+        'lod_type': lod_type
     }
+    
+    # Validate and apply defaults using centralized configuration
+    settings = ViewerSettings.validate_3d_settings(
+        ViewerSettings.get_3d_settings_with_defaults(raw_settings)
+    )
+
+    # Update backend state with validated settings
+    registry.viewer.backend.update_state(**settings)
 
     return [settings]
 
@@ -90,8 +90,8 @@ def update_view_controls(
     view_controls_style = {'display': 'none'}
     pcr_controls_style = {'display': 'none'}
 
-    # Show 3D controls for 3D datasets
-    if dataset_type in THREE_D_DATASET_TYPES:
+    # Show 3D controls for 3D datasets using proper API
+    if ViewerSettings.requires_3d_visualization(dataset_type):
         view_controls_style = {'display': 'block'}
 
         # Show PCR controls only for PCR datasets
@@ -144,39 +144,13 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     # Extract new camera state
     new_camera = relayout_data['scene.camera']
 
-    # Update all figures with the new camera state in parallel
-    def update_figure_camera(i, figure):
-        if i == triggered_index or not figure:
-            # Don't update the triggering graph or empty figures
-            return dash.no_update
-        else:
-            # Create updated figure with new camera state
-            updated_figure = figure.copy()
-            if 'layout' not in updated_figure:
-                updated_figure['layout'] = {}
-            if 'scene' not in updated_figure['layout']:
-                updated_figure['layout']['scene'] = {}
-            updated_figure['layout']['scene']['camera'] = new_camera
-            return updated_figure
-
-    updated_figures = [None] * len(all_figures)
-    
-    # Use parallel processing for multiple figures
-    if len(all_figures) > 1:
-        with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
-            # Submit all update tasks
-            future_to_index = {
-                executor.submit(update_figure_camera, i, figure): i 
-                for i, figure in enumerate(all_figures)
-            }
-            
-            # Collect results in order
-            for future in as_completed(future_to_index):
-                idx = future_to_index[future]
-                updated_figures[idx] = future.result()
-    else:
-        # For single figure, just update directly
-        updated_figures = [update_figure_camera(i, figure) for i, figure in enumerate(all_figures)]
+    # Update all figures with the new camera state using centralized utility
+    update_func = update_figure_camera(triggered_index, new_camera)
+    updated_figures = update_figures_parallel(
+        all_figures, 
+        update_func, 
+        ViewerSettings.PERFORMANCE_SETTINGS['max_thread_workers']
+    )
 
     return updated_figures, new_camera
 
@@ -197,43 +171,15 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
     if n_clicks is None or n_clicks == 0:
         raise PreventUpdate
 
-    # Default camera state
-    default_camera = {
-        'up': {'x': 0, 'y': 0, 'z': 1},
-        'center': {'x': 0, 'y': 0, 'z': 0},
-        'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
-    }
+    # Get default camera state from centralized configuration
+    default_camera = get_default_camera_state()
 
-    # Update all figures with default camera state in parallel
-    def reset_figure_camera(figure):
-        if not figure:
-            return dash.no_update
-
-        updated_figure = figure.copy()
-        if 'layout' not in updated_figure:
-            updated_figure['layout'] = {}
-        if 'scene' not in updated_figure['layout']:
-            updated_figure['layout']['scene'] = {}
-        updated_figure['layout']['scene']['camera'] = default_camera
-        return updated_figure
-
-    updated_figures = [None] * len(all_figures)
-    
-    # Use parallel processing for multiple figures
-    if len(all_figures) > 1:
-        with ThreadPoolExecutor(max_workers=min(len(all_figures), 4)) as executor:
-            # Submit all reset tasks
-            future_to_index = {
-                executor.submit(reset_figure_camera, figure): i 
-                for i, figure in enumerate(all_figures)
-            }
-            
-            # Collect results in order
-            for future in as_completed(future_to_index):
-                idx = future_to_index[future]
-                updated_figures[idx] = future.result()
-    else:
-        # For single figure, just update directly
-        updated_figures = [reset_figure_camera(figure) for figure in all_figures]
+    # Update all figures with default camera state using centralized utility
+    reset_func = reset_figure_camera(default_camera)
+    updated_figures = update_figures_parallel(
+        all_figures, 
+        reset_func, 
+        ViewerSettings.PERFORMANCE_SETTINGS['max_thread_workers']
+    )
 
     return updated_figures, default_camera
