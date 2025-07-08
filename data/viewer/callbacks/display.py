@@ -1,30 +1,19 @@
-"""Pure display update callbacks for the viewer.
+"""Display utility module for the viewer.
 
-This module handles only display rendering updates triggered by:
-- Dataset info changes
-- Datapoint index changes  
-- Camera state changes
-- 3D settings changes
+This module provides centralized display creation utilities used by other callback modules.
+The actual display update callbacks are distributed across:
+- dataset.py: Dataset selection triggered display updates
+- transforms.py: Transform checkbox triggered display updates  
+- navigation.py: Datapoint navigation triggered display updates
 
-Other callback types are handled in separate modules:
-- dataset.py: Dataset selection and transforms section updates
-- transforms.py: Transform checkbox selection
-- navigation.py: Datapoint navigation (prev/next buttons)
-- three_d_settings.py: 3D control sliders and visibility
-- camera.py: Camera pose changes from 3D graph interactions
+This module contains only shared utilities, no actual callbacks.
 """
-from typing import Dict, List, Optional, Union, Any
-from dash import Input, Output, State, html
-from dash.exceptions import PreventUpdate
-from data.viewer.callbacks.registry import callback, registry
+from typing import Dict, Optional, Union, Any
+from dash import html
 from data.viewer.layout.display.display_2dcd import display_2dcd_datapoint
 from data.viewer.layout.display.display_3dcd import display_3dcd_datapoint
 from data.viewer.layout.display.display_pcr import display_pcr_datapoint
 from data.viewer.layout.display.display_semseg import display_semseg_datapoint
-from data.viewer.utils.settings_config import ViewerSettings
-
-import logging
-logger = logging.getLogger(__name__)
 
 
 # Mapping of dataset types to their display functions
@@ -36,15 +25,21 @@ DISPLAY_FUNCTIONS = {
 }
 
 
-def _create_display(
+def create_display(
     dataset_type: str,
-    display_func: Any,
     datapoint: Dict[str, Any], 
     class_labels: Optional[Dict[int, str]],
     camera_state: Dict[str, Any],
     settings_3d: Dict[str, Union[float, str]]
 ) -> html.Div:
-    """Create display based on dataset type with appropriate parameters."""
+    """Create display based on dataset type with appropriate parameters.
+    
+    This is a shared utility function used by multiple callback modules.
+    """
+    display_func = DISPLAY_FUNCTIONS.get(dataset_type)
+    if not display_func:
+        raise ValueError(f"Unsupported dataset type: {dataset_type}")
+    
     # Define parameter mappings for each dataset type
     display_params = {
         'semseg': {
@@ -76,9 +71,6 @@ def _create_display(
             }
         }
     }
-    
-    if dataset_type not in display_params:
-        raise ValueError(f"Unsupported dataset type: {dataset_type}")
     
     params = display_params[dataset_type]
     return display_func(*params['args'], **params['kwargs'])
