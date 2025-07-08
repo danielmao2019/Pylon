@@ -20,7 +20,7 @@ def create_union_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    lod_enabled: bool = True,
+    lod_type: str = "continuous",
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -30,7 +30,7 @@ def create_union_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
-        lod_enabled: Whether LOD optimization is enabled
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         Plotly figure showing the union visualization
@@ -56,7 +56,7 @@ def create_union_visualization(
         point_size=point_size,
         point_opacity=point_opacity,
         camera_state=camera_state,
-        lod_enabled=lod_enabled,
+        lod_type=lod_type,
         point_cloud_id="union_visualization",
     )
 
@@ -68,7 +68,7 @@ def create_symmetric_difference_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    lod_enabled: bool = True,
+    lod_type: str = "continuous",
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -79,6 +79,7 @@ def create_symmetric_difference_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         Plotly figure showing the symmetric difference visualization
@@ -112,7 +113,7 @@ def create_symmetric_difference_visualization(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
             point_cloud_id="pcr_symmetric_difference",
         )
     else:
@@ -123,7 +124,7 @@ def create_symmetric_difference_visualization(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
             point_cloud_id="pcr_symmetric_difference_empty",
         )
 
@@ -209,7 +210,7 @@ def display_pcr_datapoint_single(
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_enabled: bool = True
+    lod_type: str = "continuous"
 ) -> html.Div:
     """Display a single point cloud registration datapoint.
 
@@ -220,7 +221,7 @@ def display_pcr_datapoint_single(
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
-        lod_enabled: Whether LOD optimization is enabled
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         html.Div containing the visualization
@@ -258,7 +259,7 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
             point_cloud_id="pcr_source",
         )
 
@@ -270,7 +271,7 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
             point_cloud_id="pcr_target",
         )
 
@@ -281,7 +282,7 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
         )
 
     def create_sym_diff_figure():
@@ -292,7 +293,7 @@ def display_pcr_datapoint_single(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
         )
 
     # Create figures in parallel
@@ -420,7 +421,7 @@ def display_pcr_datapoint_batched(
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_enabled: bool = True
+    lod_type: str = "continuous"
 ) -> html.Div:
     """Display a batched point cloud registration datapoint.
 
@@ -431,6 +432,7 @@ def display_pcr_datapoint_batched(
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         html.Div containing the visualization
@@ -457,7 +459,7 @@ def display_pcr_datapoint_batched(
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
-                    lod_enabled=lod_enabled,
+                    lod_type=lod_type,
                     point_cloud_id=f"pcr_batched_src_{level}",
                 )
 
@@ -468,7 +470,7 @@ def display_pcr_datapoint_batched(
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
-                    lod_enabled=lod_enabled,
+                    lod_type=lod_type,
                     point_cloud_id=f"pcr_batched_tgt_{level}",
                 )
 
@@ -479,7 +481,7 @@ def display_pcr_datapoint_batched(
                     point_size=point_size,
                     point_opacity=point_opacity,
                     camera_state=camera_state,
-                    lod_enabled=lod_enabled,
+                    lod_type=lod_type,
                 )
                 union_fig.update_layout(title=f"Union (Level {level})")
                 return union_fig
@@ -540,7 +542,7 @@ def display_pcr_datapoint_batched(
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
-                lod_enabled=lod_enabled,
+                lod_type=lod_type,
                 point_cloud_id=f"pcr_batched_src_{level}",
             ))
 
@@ -550,7 +552,7 @@ def display_pcr_datapoint_batched(
                 point_size=point_size,
                 point_opacity=point_opacity,
                 camera_state=camera_state,
-                lod_enabled=lod_enabled,
+                lod_type=lod_type,
                 point_cloud_id=f"pcr_batched_tgt_{level}",
             ))
 
@@ -585,7 +587,7 @@ def display_pcr_datapoint(
     point_opacity: float = 0.8,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_enabled: bool = True
+    lod_type: str = "continuous"
 ) -> html.Div:
     """Display a point cloud registration datapoint.
 
@@ -596,6 +598,7 @@ def display_pcr_datapoint(
         camera_state: Optional dictionary containing camera position state
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         html.Div containing the visualization
@@ -613,7 +616,7 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
         )
     else:
         result = display_pcr_datapoint_single(
@@ -623,7 +626,7 @@ def display_pcr_datapoint(
             camera_state=camera_state,
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
         )
     
     total_time = time.time() - start_time

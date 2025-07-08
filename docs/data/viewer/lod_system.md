@@ -22,10 +22,12 @@ The LOD system provides two complementary approaches for efficient point cloud r
 
 ```python
 # Continuous LOD - Real-time adaptive sampling
+from data.viewer.utils.continuous_lod import ContinuousLOD
 continuous_lod = ContinuousLOD(spatial_bins=64, distance_exponent=2.0)
 subsampled_pc = continuous_lod.subsample(point_cloud, camera_state, target_points)
 
 # Discrete LOD - Pre-computed level selection  
+from data.viewer.utils.discrete_lod import DiscreteLOD
 discrete_lod = DiscreteLOD(reduction_factor=0.5, num_levels=4)
 discrete_lod.precompute_levels(point_cloud, "pc_id")
 subsampled_pc = discrete_lod.select_level("pc_id", camera_state)

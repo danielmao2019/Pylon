@@ -14,7 +14,7 @@ def display_3dcd_datapoint(
     camera_state: Optional[Dict[str, Any]] = None,
     point_size: float = 2,
     point_opacity: float = 0.8,
-    lod_enabled: bool = True
+    lod_type: str = "continuous"
 ) -> html.Div:
     """Display a 3D point cloud datapoint with all relevant information.
 
@@ -24,7 +24,7 @@ def display_3dcd_datapoint(
         camera_state: Optional dictionary containing camera position state
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
-        lod_enabled: Whether LOD optimization is enabled
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
 
     Returns:
         html.Div containing the visualization
@@ -68,7 +68,7 @@ def display_3dcd_datapoint(
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
-            lod_enabled=lod_enabled,
+            lod_type=lod_type,
             point_cloud_id=pc_id,
         )
 

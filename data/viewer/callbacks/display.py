@@ -25,7 +25,7 @@ DISPLAY_FUNCTIONS = {
 }
 
 
-def _extract_3d_settings(settings_3d: Optional[Dict[str, Union[str, int, float, bool]]], context: str = "") -> Dict[str, Union[float, bool]]:
+def _extract_3d_settings(settings_3d: Optional[Dict[str, Union[str, int, float, bool]]], context: str = "") -> Dict[str, Union[float, str]]:
     """Extract 3D settings with validation."""
     if settings_3d is None:
         raise ValueError(f"3D settings store is not initialized{' in ' + context if context else ''}")
@@ -35,7 +35,7 @@ def _extract_3d_settings(settings_3d: Optional[Dict[str, Union[str, int, float, 
         'point_opacity': settings_3d['point_opacity'],
         'sym_diff_radius': settings_3d['sym_diff_radius'],
         'corr_radius': settings_3d['corr_radius'],
-        'lod_enabled': settings_3d['lod_enabled']
+        'lod_type': settings_3d.get('lod_type', 'continuous')  # Default to continuous for compatibility
     }
 
 
@@ -45,7 +45,7 @@ def _create_display(
     datapoint: Dict[str, Any], 
     class_labels: Optional[Dict[int, str]],
     camera_state: Dict[str, Any],
-    settings_3d: Dict[str, Union[float, bool]]
+    settings_3d: Dict[str, Union[float, str]]
 ) -> html.Div:
     """Create display based on dataset type with appropriate parameters."""
     if dataset_type == 'semseg':
@@ -59,7 +59,7 @@ def _create_display(
             camera_state, 
             settings_3d['point_size'], 
             settings_3d['point_opacity'], 
-            settings_3d['lod_enabled']
+            settings_3d['lod_type']
         )
     elif dataset_type == 'pcr':
         return display_func(
@@ -69,7 +69,7 @@ def _create_display(
             point_opacity=settings_3d['point_opacity'], 
             sym_diff_radius=settings_3d['sym_diff_radius'], 
             corr_radius=settings_3d['corr_radius'], 
-            lod_enabled=settings_3d['lod_enabled']
+            lod_type=settings_3d['lod_type']
         )
     else:
         raise ValueError(f"Unsupported dataset type: {dataset_type}")
