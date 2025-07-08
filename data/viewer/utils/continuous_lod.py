@@ -2,6 +2,7 @@
 from typing import Dict, Any, Tuple, Optional
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
+from utils.point_cloud_ops.select import Select
 from data.viewer.utils.lod_utils import get_camera_position
 
 
@@ -66,8 +67,8 @@ class ContinuousLOD:
             distances, bin_indices
         )
         
-        # Return subsampled point cloud
-        return {key: tensor[selected_indices] for key, tensor in point_cloud.items()}
+        # Return subsampled point cloud using established point cloud operations
+        return Select(selected_indices)(point_cloud)
 
     # Main processing methods (in order of execution)
     

@@ -2,6 +2,7 @@
 from typing import Dict, Optional, Any
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
+from utils.point_cloud_ops.select import Select
 from data.viewer.utils.lod_utils import get_camera_position
 
 
@@ -123,15 +124,14 @@ class DiscreteLOD:
         point count reductions. This ensures discrete LOD levels have
         exact target point counts.
         """
-        points = point_cloud['pos']
-        current_count = len(points)
+        current_count = len(point_cloud['pos'])
         
         if target_points >= current_count:
             return point_cloud
         
-        # Use uniform random sampling for predictable results
-        indices = torch.randperm(current_count, device=points.device)[:target_points]
-        return {key: tensor[indices] for key, tensor in point_cloud.items()}
+        # Use established point cloud operations for consistency
+        indices = torch.randperm(current_count, device=point_cloud['pos'].device)[:target_points]
+        return Select(indices)(point_cloud)
         
     def _fill_to_target(self, selected_indices: torch.Tensor, target_points: int, total_points: int) -> torch.Tensor:
         """Fill selected indices to reach target count with random points."""
