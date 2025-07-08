@@ -2,7 +2,7 @@
 from typing import Dict, Optional, Any
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
-from utils.point_cloud_ops.select import Select
+from utils.point_cloud_ops.random_select import RandomSelect
 from data.viewer.utils.lod_utils import get_camera_position
 
 
@@ -118,20 +118,19 @@ class DiscreteLOD:
         point_cloud: Dict[str, torch.Tensor], 
         target_points: int
     ) -> Dict[str, torch.Tensor]:
-        """Simple uniform random downsampling for pre-computation.
+        """Random downsampling for pre-computation using established point cloud operations.
         
-        Uses uniform random sampling instead of voxel grid for predictable
-        point count reductions. This ensures discrete LOD levels have
-        exact target point counts.
+        Uses RandomSelect for clean percentage-based sampling that ensures
+        discrete LOD levels have predictable point count reductions.
         """
         current_count = len(point_cloud['pos'])
         
         if target_points >= current_count:
             return point_cloud
         
-        # Use established point cloud operations for consistency
-        indices = torch.randperm(current_count, device=point_cloud['pos'].device)[:target_points]
-        return Select(indices)(point_cloud)
+        # Calculate sampling percentage and use RandomSelect
+        percentage = target_points / current_count
+        return RandomSelect(percentage)(point_cloud)
         
     def _fill_to_target(self, selected_indices: torch.Tensor, target_points: int, total_points: int) -> torch.Tensor:
         """Fill selected indices to reach target count with random points."""
