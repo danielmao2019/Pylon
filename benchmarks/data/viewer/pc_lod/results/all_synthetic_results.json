@@ -1,0 +1,46 @@
+{
+  "small": {
+    "close": [
+      {
+        "point_cloud_name": "small_10K_sphere",
+        "camera_pose_info": "close_0",
+        "original_points": 10000,
+        "final_points": 10000,
+        "point_reduction_pct": 0.0,
+        "lod_level": 0,
+        "no_lod_time": 0.45725719566689804,
+        "lod_time": 0.46787982831786695,
+        "speedup_ratio": 0.9772962371787652,
+        "num_runs": 3
+      }
+    ],
+    "medium": [
+      {
+        "point_cloud_name": "small_10K_sphere",
+        "camera_pose_info": "medium_0",
+        "original_points": 10000,
+        "final_points": 10000,
+        "point_reduction_pct": 0.0,
+        "lod_level": 0,
+        "no_lod_time": 0.4566399473308896,
+        "lod_time": 0.4443450693312722,
+        "speedup_ratio": 1.027669662269733,
+        "num_runs": 3
+      }
+    ],
+    "far": [
+      {
+        "point_cloud_name": "small_10K_sphere",
+        "camera_pose_info": "far_0",
+        "original_points": 10000,
+        "final_points": 10000,
+        "point_reduction_pct": 0.0,
+        "lod_level": 0,
+        "no_lod_time": 0.4512193806585856,
+        "lod_time": 0.46754280033443746,
+        "speedup_ratio": 0.9650867906335514,
+        "num_runs": 3
+      }
+    ]
+  }
+}

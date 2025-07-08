@@ -1,27 +1,41 @@
 """UI components for 3D visualization controls."""
 from dash import dcc, html
+from data.viewer.utils.settings_config import ViewerSettings
 
 
-def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_radius=0.05, corr_radius=0.1):
+def create_3d_controls(visible=False, **kwargs):
     """
     Create 3D visualization controls.
 
     Args:
         visible: Whether the controls should be visible
-        point_size: Initial point size
-        point_opacity: Initial point opacity
-        sym_diff_radius: Initial radius for symmetric difference computation
-        corr_radius: Initial radius for correspondence visualization
+        **kwargs: Optional overrides for default settings
 
     Returns:
         html.Div containing 3D controls
     """
+    # Get default settings and apply any overrides
+    settings = ViewerSettings.get_3d_settings_with_defaults(kwargs)
+    
     style = {'display': 'block' if visible else 'none', 'margin-top': '20px'}
 
     return html.Div([
         html.H3("3D View Controls", style={'margin-top': '0'}),
 
-        # Camera controls (moved to top)
+        # LOD Controls
+        html.Div([
+            html.Label("Level of Detail (LOD) Mode", style={'font-weight': 'bold', 'margin-bottom': '5px'}),
+            dcc.Dropdown(
+                id='lod-type-dropdown',
+                options=ViewerSettings.LOD_TYPE_OPTIONS,
+                value=settings['lod_type'],
+                clearable=False,
+                style={'margin-bottom': '10px'}
+            ),
+            html.Div(id='lod-info-display', style={'font-size': '12px', 'color': '#666', 'margin-bottom': '15px'})
+        ]),
+
+        # Camera controls
         html.Button(
             'Reset Camera View',
             id='reset-camera-button',
@@ -33,7 +47,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
             id='point-size-slider',
             min=1,
             max=10,
-            value=point_size,
+            value=settings['point_size'],
             marks={i: str(i) for i in [1, 3, 5, 7, 10]},
             step=0.5
         ),
@@ -43,7 +57,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
             id='point-opacity-slider',
             min=0.1,
             max=1.0,
-            value=point_opacity,
+            value=settings['point_opacity'],
             marks={i/10: str(i/10) for i in range(1, 11, 2)},
             step=0.1
         ),
@@ -56,7 +70,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
                 id='radius-slider',
                 min=0.0,
                 max=1.0,
-                value=sym_diff_radius,
+                value=settings['sym_diff_radius'],
                 marks={i/10: str(i/10) for i in range(0, 11, 2)},
                 step=0.01
             ),
@@ -67,7 +81,7 @@ def create_3d_controls(visible=False, point_size=2, point_opacity=0.8, sym_diff_
                 id='correspondence-radius-slider',
                 min=0.0,
                 max=1.0,
-                value=corr_radius,
+                value=settings['corr_radius'],
                 marks={i/10: str(i/10) for i in range(0, 11, 2)},
                 step=0.01
             ),
