@@ -29,6 +29,40 @@ def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
     return points
 
 
+def _convert_labels_to_colors_torch(labels: torch.Tensor) -> torch.Tensor:
+    """Convert integer labels to RGB colors using torch tensors.
+    
+    Args:
+        labels: Integer label tensor of shape (N,)
+        
+    Returns:
+        RGB color tensor of shape (N, 3) with values in [0, 255]
+    """
+    assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
+    assert labels.ndim == 1, f"labels must be 1D, got shape {labels.shape}"
+    
+    device = labels.device
+    unique_labels = torch.unique(labels)
+    
+    # Create color mapping
+    colors = torch.zeros((len(labels), 3), dtype=torch.uint8, device=device)
+    
+    for label in unique_labels:
+        # Get color string from segmentation utility
+        color_hex = get_color(label.item())
+        
+        # Convert hex to RGB
+        r = int(color_hex[1:3], 16)
+        g = int(color_hex[3:5], 16)
+        b = int(color_hex[5:7], 16)
+        
+        # Apply to matching labels
+        mask = (labels == label)
+        colors[mask, :] = torch.tensor([r, g, b], dtype=torch.uint8, device=device)
+    
+    return colors
+
+
 def apply_lod_to_point_cloud(
     points: torch.Tensor,
     colors: Optional[torch.Tensor] = None,
@@ -163,35 +197,31 @@ def create_point_cloud_figure(
         point_cloud_id=point_cloud_id
     )
     
-    # Convert to numpy ONLY for Plotly visualization (at the very end)
-    points_np = point_cloud_to_numpy(points_tensor)
-    colors_np = point_cloud_to_numpy(colors_tensor) if colors_tensor is not None else None
-    labels_np = point_cloud_to_numpy(labels_tensor) if labels_tensor is not None else None
-    
     # Update title with LOD info
-    if lod_type and lod_type != "none" and len(points_np) < original_count:
-        lod_suffix = f" ({lod_type.title()} LOD: {len(points_np):,}/{original_count:,})"
+    if lod_type and lod_type != "none" and len(points_tensor) < original_count:
+        lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
         title = f"{title}{lod_suffix}"
     
     # Handle edge case of empty point clouds
-    if len(points_np) == 0:
-        points_np = np.array([[0, 0, 0]], dtype=np.float32)
+    if len(points_tensor) == 0:
+        points_tensor = torch.tensor([[0, 0, 0]], dtype=torch.float32)
     
-    # Process colors from labels if needed  
-    if colors_np is not None:
-        assert colors_np.shape == points_np.shape, f"{colors_np.shape=}, {points_np.shape=}"
-    elif labels_np is not None:
-        assert labels_np.shape == points_np.shape[:-1], f"{labels_np.shape=}, {points_np.shape=}"
-        # Convert labels to colors
-        unique_labels = np.unique(labels_np)
-        unique_colors = [get_color(label) for label in unique_labels]
-        colors_np = np.zeros((len(points_np), 3), dtype=np.uint8)
-        for label, color in zip(unique_labels, unique_colors):
-            mask = labels_np == label
-            r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
-            colors_np[mask, :] = np.array([r, g, b], dtype=np.uint8)
+    # Process colors from labels if needed (keep in torch tensors)
+    if colors_tensor is not None:
+        assert colors_tensor.shape[0] == points_tensor.shape[0], f"colors length {colors_tensor.shape[0]} != points length {points_tensor.shape[0]}"
+        final_colors = colors_tensor
+    elif labels_tensor is not None:
+        assert labels_tensor.shape[0] == points_tensor.shape[0], f"labels length {labels_tensor.shape[0]} != points length {points_tensor.shape[0]}"
+        # Convert labels to colors (in torch)
+        final_colors = _convert_labels_to_colors_torch(labels_tensor)
+    else:
+        final_colors = None
     
-    # Create Plotly scatter plot (uses numpy arrays)
+    # Convert to numpy ONLY for Plotly (at the absolute final moment)
+    points_np = point_cloud_to_numpy(points_tensor)
+    colors_np = point_cloud_to_numpy(final_colors) if final_colors is not None else None
+    
+    # Create Plotly scatter plot 
     scatter3d_kwargs = dict(
         x=points_np[:, 0],
         y=points_np[:, 1],
