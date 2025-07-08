@@ -120,15 +120,11 @@ def apply_lod_to_point_cloud(
         lod = ContinuousLOD(**(lod_config or {}))
         downsampled = lod.subsample(pc_dict, camera_state)
     elif lod_type == "discrete":
-        if point_cloud_id is None:
-            # Fall back to continuous LOD if no ID provided
-            lod = ContinuousLOD(**(lod_config or {}))
-            downsampled = lod.subsample(pc_dict, camera_state)
-        else:
-            lod = DiscreteLOD(**(lod_config or {}))
-            if not lod.has_levels(point_cloud_id):
-                lod.precompute_levels(pc_dict, point_cloud_id)
-            downsampled = lod.select_level(point_cloud_id, camera_state)
+        assert point_cloud_id is not None, "point_cloud_id is required for discrete LOD"
+        lod = DiscreteLOD(**(lod_config or {}))
+        if not lod.has_levels(point_cloud_id):
+            lod.precompute_levels(pc_dict, point_cloud_id)
+        downsampled = lod.select_level(point_cloud_id, camera_state)
     else:
         downsampled = pc_dict
         
