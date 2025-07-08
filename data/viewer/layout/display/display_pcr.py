@@ -555,27 +555,26 @@ def display_pcr_datapoint(
     Returns:
         html.Div containing the visualization
     """
-    with PerformanceTimer("PCR datapoint display"):
-        inputs = datapoint['inputs']
+    inputs = datapoint['inputs']
 
-        # Check if we have hierarchical data (from collators)
-        if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
-            return display_pcr_datapoint_batched(
-                datapoint,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-                sym_diff_radius=sym_diff_radius,
-                corr_radius=corr_radius,
-                lod_type=lod_type,
-            )
-        else:
-            return display_pcr_datapoint_single(
-                datapoint,
-                point_size=point_size,
-                point_opacity=point_opacity,
-                camera_state=camera_state,
-                sym_diff_radius=sym_diff_radius,
-                corr_radius=corr_radius,
-                lod_type=lod_type,
-            )
+    # Check if we have hierarchical data (from collators)
+    if 'points' in inputs and ('lengths' in inputs or 'stack_lengths' in inputs):
+        return display_pcr_datapoint_batched(
+            datapoint,
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            sym_diff_radius=sym_diff_radius,
+            corr_radius=corr_radius,
+            lod_type=lod_type,
+        )
+    else:
+        return display_pcr_datapoint_single(
+            datapoint,
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            sym_diff_radius=sym_diff_radius,
+            corr_radius=corr_radius,
+            lod_type=lod_type,
+        )
