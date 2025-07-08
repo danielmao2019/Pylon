@@ -82,6 +82,8 @@ cd tests/runners && pytest test_checkpoint_indices.py
 
 **IMPORTANT:** NEVER use the PYTHONPATH environment variable when running commands. This can interfere with Python's module resolution and cause import errors. The project structure handles imports correctly without it
 
+**CRITICAL LOGS FOLDER RULE:** NEVER attempt to modify anything in the `./logs/` folder. This contains experiment outputs, checkpoints, and results that should never be altered. For testing, always use dummy test data and test objects in the `tests/` directory.
+
 **conftest.py Usage:**
 - conftest.py files are for pytest fixtures ONLY, not general class definitions
 - Classes defined in conftest.py are NOT automatically available in test files
