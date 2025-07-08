@@ -1,11 +1,15 @@
 """UI components for displaying dataset items."""
 from typing import Dict, Optional, Any
-import time
 import torch
 from dash import dcc, html
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from data.viewer.utils.dataset_utils import format_value
 from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
+from data.viewer.utils.display_utils import (
+    DisplayStyles,
+    ParallelFigureCreator,
+    PerformanceTimer,
+    create_standard_datapoint_layout,
+    create_statistics_display
+)
 
 
 def display_3dcd_datapoint(
@@ -29,39 +33,31 @@ def display_3dcd_datapoint(
     Returns:
         html.Div containing the visualization
     """
-    start_time = time.time()
-    print(f"[3DCD Display] Starting display_3dcd_datapoint callback at {start_time:.4f}")
-    # Check if the inputs have the expected structure
+    # Initialize performance timer
+    timer = PerformanceTimer("3DCD Display", enabled=True)
+    timer.start()
+    
+    # Validate inputs
     inputs = datapoint['inputs']
     assert 'pc_1' in inputs and 'pc_2' in inputs, "Point cloud 1 (pc_1) and point cloud 2 (pc_2) must be present in the inputs"
     assert isinstance(inputs['pc_1'], dict) and isinstance(inputs['pc_2'], dict), "Point clouds must be dictionaries"
 
+    # Extract data
     points_1 = inputs['pc_1']['pos']  # First point cloud
     points_2 = inputs['pc_2']['pos']  # Second point cloud
     change_map = datapoint['labels']['change_map']
 
-    # Get stats for point clouds
-    stats_start = time.time()
-    pc_1_stats_children = get_point_cloud_stats(points_1, class_names=class_names)
-    pc_2_stats_children = get_point_cloud_stats(points_2, class_names=class_names)
-    change_stats_children = get_point_cloud_stats(points_1, change_map, class_names=class_names)
-    stats_time = time.time() - stats_start
-    print(f"[3DCD Display] Point cloud stats computation took {stats_time:.4f}s")
+    # Get statistics for point clouds
+    stats_data = [
+        get_point_cloud_stats(points_1, class_names=class_names),
+        get_point_cloud_stats(points_2, class_names=class_names),
+        get_point_cloud_stats(points_1, change_map, class_names=class_names)
+    ]
+    timer.checkpoint("Point cloud stats computation")
 
-    # Create figures for point clouds
-    points_list = [points_1, points_2]
-    labels_list = [None, None]
-
-    # For change map visualization, we'll use pc_1 with colors from change_map
-    if change_map is not None:
-        points_list.append(points_2)
-        labels_list.append(change_map.float())  # Convert to float for proper coloring
-
-    titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
-
-    # Create figures in parallel for better performance
-    def create_figure(points, labels, title, pc_id):
-        return create_point_cloud_figure(
+    # Prepare figure creation tasks
+    def create_figure_task(points, labels, title, pc_id):
+        return lambda: create_point_cloud_figure(
             points=points,
             labels=labels,
             title=title,
@@ -72,87 +68,84 @@ def display_3dcd_datapoint(
             point_cloud_id=pc_id,
         )
 
-    # Prepare figure creation tasks with unique IDs
+    # Prepare data for figures
+    points_list = [points_1, points_2]
+    labels_list = [None, None]
+    
+    # For change map visualization, use pc_1 with colors from change_map
+    if change_map is not None:
+        points_list.append(points_2)
+        labels_list.append(change_map.float())  # Convert to float for proper coloring
+
+    titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
+
+    # Create figure tasks
     figure_tasks = [
-        (points, labels, title, f"3dcd_{idx}") 
+        create_figure_task(points, labels, title, f"3dcd_{idx}")
         for idx, (points, labels, title) in enumerate(zip(points_list, labels_list, titles))
     ]
 
-    figures = [None] * len(figure_tasks)  # Pre-allocate list to maintain order
-    
-    figure_start = time.time()
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        # Submit all tasks
-        future_to_index = {
-            executor.submit(create_figure, points, labels, title, pc_id): idx 
-            for idx, (points, labels, title, pc_id) in enumerate(figure_tasks)
-        }
-        
-        # Collect results in order
-        for future in as_completed(future_to_index):
-            idx = future_to_index[future]
-            figures[idx] = future.result()
-    figure_time = time.time() - figure_start
-    print(f"[3DCD Display] Figure creation took {figure_time:.4f}s")
+    # Create figures in parallel
+    figure_creator = ParallelFigureCreator(max_workers=3, enable_timing=True)
+    figures = figure_creator.create_figures_parallel(figure_tasks, "3DCD Display")
 
-    # Extract metadata
-    meta_info = datapoint.get('meta_info', {})
-    meta_display = []
-    if meta_info:
-        meta_display = [
-            html.H4("Metadata:"),
-            html.Pre(
-                format_value(meta_info),
-                style={
-                    'background-color': '#f0f0f0', 'padding': '10px', 'max-height': '200px',
-                    'overflow-y': 'auto', 'border-radius': '5px',
-                })
-        ]
-
-    # Compile the complete display
-    result = html.Div([
-        # Point cloud displays
+    # Create figure components
+    fig_components = [
         html.Div([
-            html.Div([
-                dcc.Graph(figure=figures[0], id={'type': 'point-cloud-graph', 'index': 0})
-            ], style={'width': '33%', 'display': 'inline-block'}),
+            dcc.Graph(figure=figures[0], id={'type': 'point-cloud-graph', 'index': 0})
+        ], style=DisplayStyles.GRID_ITEM_33),
 
-            html.Div([
-                dcc.Graph(figure=figures[1], id={'type': 'point-cloud-graph', 'index': 1})
-            ], style={'width': '33%', 'display': 'inline-block'}),
-
-            html.Div([
-                dcc.Graph(figure=figures[2] if len(figures) > 2 else {},
-                         id={'type': 'point-cloud-graph', 'index': 2})
-            ], style={'width': '33%', 'display': 'inline-block'}),
-        ]),
-
-        # Info section
         html.Div([
-            # Point cloud statistics
-            html.Div([
-                html.Div([
-                    html.H4("Point Cloud 1 Statistics:"),
-                    html.Div(pc_1_stats_children)
-                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+            dcc.Graph(figure=figures[1], id={'type': 'point-cloud-graph', 'index': 1})
+        ], style=DisplayStyles.GRID_ITEM_33),
 
-                html.Div([
-                    html.H4("Point Cloud 2 Statistics:"),
-                    html.Div(pc_2_stats_children)
-                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
+        html.Div([
+            dcc.Graph(figure=figures[2] if len(figures) > 2 else {},
+                     id={'type': 'point-cloud-graph', 'index': 2})
+        ], style=DisplayStyles.GRID_ITEM_33),
+    ]
 
-                html.Div([
-                    html.H4("Change Statistics:"),
-                    html.Div(change_stats_children)
-                ], style={'width': '33%', 'display': 'inline-block', 'vertical-align': 'top'}),
-            ]),
+    # Create statistics components
+    # Convert HTML components to dictionary format for create_statistics_display
+    stats_dict_data = []
+    for stats in stats_data:
+        if hasattr(stats, 'children'):
+            # Convert HTML.Ul to dict format for consistency
+            stats_dict = {}
+            for child in stats.children:
+                if hasattr(child, 'children'):
+                    stats_dict[f"Stat {len(stats_dict)}"] = str(child.children)
+            stats_dict_data.append(stats_dict)
+        else:
+            stats_dict_data.append(stats)
 
-            # Metadata
-            html.Div(meta_display, style={'margin-top': '20px'})
-        ], style={'margin-top': '20px'})
-    ])
+    titles = ["Point Cloud 1 Statistics", "Point Cloud 2 Statistics", "Change Statistics"]
     
-    total_time = time.time() - start_time
-    print(f"[3DCD Display] Total display_3dcd_datapoint time: {total_time:.4f}s")
+    # Create custom statistics display since we have HTML components
+    stats_components = [
+        html.Div([
+            html.H4("Point Cloud 1 Statistics:"),
+            html.Div(stats_data[0])
+        ], style=DisplayStyles.STATS_CONTAINER),
+
+        html.Div([
+            html.H4("Point Cloud 2 Statistics:"),
+            html.Div(stats_data[1])
+        ], style=DisplayStyles.STATS_CONTAINER),
+
+        html.Div([
+            html.H4("Change Statistics:"),
+            html.Div(stats_data[2])
+        ], style=DisplayStyles.STATS_CONTAINER),
+    ]
+
+    # Create complete layout
+    result = create_standard_datapoint_layout(
+        figure_components=fig_components,
+        stats_components=stats_components,
+        meta_info=datapoint.get('meta_info', {}),
+        debug_outputs=datapoint.get('debug')
+    )
     
+    timer.finish()
     return result
