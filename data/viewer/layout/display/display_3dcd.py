@@ -48,7 +48,6 @@ def display_3dcd_datapoint(
         get_point_cloud_stats(points_2, class_names=class_names),
         get_point_cloud_stats(points_1, change_map, class_names=class_names)
     ]
-    timer.checkpoint("Point cloud stats computation")
 
     # Prepare figure creation tasks
     def create_figure_task(points, labels, title, pc_id):
@@ -142,5 +141,4 @@ def display_3dcd_datapoint(
         debug_outputs=datapoint.get('debug')
     )
     
-    timer.finish()
     return result
