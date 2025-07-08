@@ -24,7 +24,7 @@ def apply_lod_to_point_cloud(
     lod_type: Optional[str] = None,
     lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[str] = None,
-) -> Tuple[Union[torch.Tensor, np.ndarray], Optional[Union[torch.Tensor, np.ndarray]], Optional[Union[torch.Tensor, np.ndarray]]]:
+) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Apply Level of Detail processing to point cloud data.
     
     Args:
@@ -37,11 +37,14 @@ def apply_lod_to_point_cloud(
         point_cloud_id: Unique identifier for discrete LOD caching
         
     Returns:
-        Tuple of (processed_points, processed_colors, processed_labels)
+        Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
     """
-    # If no LOD requested, return originals
+    # If no LOD requested, return originals converted to torch tensors
     if lod_type is None or lod_type == "none" or camera_state is None:
-        return points, colors, labels
+        points_tensor = torch.from_numpy(points).float() if isinstance(points, np.ndarray) else points.float()
+        colors_tensor = (torch.from_numpy(colors) if isinstance(colors, np.ndarray) else colors) if colors is not None else None
+        labels_tensor = (torch.from_numpy(labels) if isinstance(labels, np.ndarray) else labels) if labels is not None else None
+        return points_tensor, colors_tensor, labels_tensor
         
     # Prepare point cloud dictionary - convert to torch tensors
     if isinstance(points, np.ndarray):
@@ -78,16 +81,10 @@ def apply_lod_to_point_cloud(
     else:
         downsampled = pc_dict
         
-    # Extract downsampled data
-    processed_points = point_cloud_to_numpy(downsampled['pos'])
-    processed_colors = (
-        point_cloud_to_numpy(downsampled['rgb']) if 'rgb' in downsampled 
-        else colors
-    )
-    processed_labels = (
-        point_cloud_to_numpy(downsampled['labels']) if 'labels' in downsampled 
-        else labels
-    )
+    # Return downsampled data as torch tensors
+    processed_points = downsampled['pos']
+    processed_colors = downsampled.get('rgb')
+    processed_labels = downsampled.get('labels')
     
     return processed_points, processed_colors, processed_labels
 
@@ -121,12 +118,11 @@ def create_point_cloud_figure(
     Returns:
         Plotly Figure object with potentially downsampled point cloud
     """
-    # Convert to numpy for consistency
-    points = point_cloud_to_numpy(points)
+    # Keep original count for LOD info, but don't convert yet
     original_count = len(points)
     
-    # Apply LOD using helper function
-    points, colors, labels = apply_lod_to_point_cloud(
+    # Apply LOD using helper function (returns torch tensors)
+    points_tensor, colors_tensor, labels_tensor = apply_lod_to_point_cloud(
         points=points,
         colors=colors,
         labels=labels,
@@ -135,6 +131,11 @@ def create_point_cloud_figure(
         lod_config=lod_config,
         point_cloud_id=point_cloud_id
     )
+    
+    # Convert to numpy for Plotly visualization
+    points = point_cloud_to_numpy(points_tensor)
+    colors = point_cloud_to_numpy(colors_tensor) if colors_tensor is not None else colors
+    labels = point_cloud_to_numpy(labels_tensor) if labels_tensor is not None else labels
     
     # Update title with LOD info
     if lod_type and lod_type != "none" and len(points) < original_count:
@@ -145,12 +146,10 @@ def create_point_cloud_figure(
     if len(points) == 0:
         points = np.array([[0, 0, 0]], dtype=np.float32)
     
-    # Process colors from labels if needed
+    # Process colors from labels if needed  
     if colors is not None:
-        colors = point_cloud_to_numpy(colors)
         assert colors.shape == points.shape, f"{colors.shape=}, {points.shape=}"
     elif labels is not None:
-        labels = point_cloud_to_numpy(labels)
         assert labels.shape == points.shape[:-1], f"{labels.shape=}, {points.shape=}"
         # Convert labels to colors
         unique_labels = np.unique(labels)
