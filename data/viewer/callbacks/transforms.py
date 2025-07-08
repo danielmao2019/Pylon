@@ -15,12 +15,12 @@ logger = logging.getLogger(__name__)
     ],
     inputs=[
         Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
-        Input('3d-settings-store', 'data')
+        Input('3d-settings-store', 'data'),
+        Input('camera-state', 'data')
     ],
     states=[
         State('dataset-info', 'data'),
-        State('datapoint-index-slider', 'value'),
-        State('camera-state', 'data')
+        State('datapoint-index-slider', 'value')
     ],
     group="transforms"
 )

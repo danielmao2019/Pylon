@@ -66,11 +66,11 @@ def update_current_index(current_idx: int) -> List[str]:
     ],
     inputs=[
         Input('datapoint-index-slider', 'value'),
-        Input('3d-settings-store', 'data')
+        Input('3d-settings-store', 'data'),
+        Input('camera-state', 'data')
     ],
     states=[
-        State('dataset-info', 'data'),
-        State('camera-state', 'data')
+        State('dataset-info', 'data')
     ],
     group="navigation"
 )
