@@ -81,10 +81,10 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
         
         # Define realistic point count groups with variance (±15%)
         point_count_groups = {
-            '1K': 1000,
-            '10K': 10000,
-            '100K': 100000,
-            '1M': 1000000
+            '1e3': 1000,
+            '1e4': 10000,
+            '1e5': 100000,
+            '1e6': 1000000
         }
         
         # Generate multiple samples per group to simulate realistic variance
@@ -102,7 +102,7 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
                         'spatial_size': 10.0,
                         'shape': shape,
                         'density_factor': 1.0,
-                        'name': f'{group_name}_{actual_count//1000}K_{shape}_{sample_id}',
+                        'name': f'{group_name}_{shape}_{sample_id}',
                         'category': group_name,
                         'dataset': group_name,  # This is our "dataset" for synthetic data
                         'target_count': target_count,
