@@ -69,20 +69,8 @@ class ContinuousLOD:
         # Return subsampled point cloud
         return {key: tensor[selected_indices] for key, tensor in point_cloud.items()}
 
-    def _calculate_sampling_rate(self, distance: float) -> float:
-        """Calculate sampling rate based on distance from camera.
-        
-        Interpolates linearly between near_sampling_rate and far_sampling_rate.
-        """
-        if distance <= self.near_distance:
-            return self.near_sampling_rate
-        elif distance >= self.far_distance:
-            return self.far_sampling_rate
-        else:
-            # Linear interpolation
-            t = (distance - self.near_distance) / (self.far_distance - self.near_distance)
-            return self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)
-        
+    # Main processing methods (in order of execution)
+    
     def _spatial_binning(
         self, 
         points: torch.Tensor, 
@@ -94,6 +82,26 @@ class ContinuousLOD:
         
         # Convert to bin indices
         return self._coords_to_bin_indices(coords_cam)
+        
+    def _distance_based_bin_sampling(
+        self,
+        distances: torch.Tensor,
+        bin_indices: torch.Tensor
+    ) -> torch.Tensor:
+        """Sample points from bins based on distance-based sampling rates."""
+        device = distances.device
+        selected_indices = []
+        
+        unique_bins = torch.unique(bin_indices)
+        
+        for bin_id in unique_bins:
+            bin_points = self._sample_from_bin(bin_id, distances, bin_indices)
+            if bin_points is not None:
+                selected_indices.extend(bin_points.tolist())
+                
+        return torch.tensor(selected_indices, device=device, dtype=torch.long)
+        
+    # Helper methods for spatial binning
         
     def _transform_to_camera_space(
         self, 
@@ -163,24 +171,8 @@ class ContinuousLOD:
             bin_coords[:, 2]
         )
         
-    def _distance_based_bin_sampling(
-        self,
-        distances: torch.Tensor,
-        bin_indices: torch.Tensor
-    ) -> torch.Tensor:
-        """Sample points from bins based on distance-based sampling rates."""
-        device = distances.device
-        selected_indices = []
-        
-        unique_bins = torch.unique(bin_indices)
-        
-        for bin_id in unique_bins:
-            bin_points = self._sample_from_bin(bin_id, distances, bin_indices)
-            if bin_points is not None:
-                selected_indices.extend(bin_points.tolist())
-                
-        return torch.tensor(selected_indices, device=device, dtype=torch.long)
-        
+    # Helper methods for distance sampling
+    
     def _sample_from_bin(
         self,
         bin_id: torch.Tensor,
@@ -207,3 +199,17 @@ class ContinuousLOD:
         else:
             perm = torch.randperm(len(bin_point_indices), device=distances.device)[:points_to_keep]
             return bin_point_indices[perm]
+            
+    def _calculate_sampling_rate(self, distance: float) -> float:
+        """Calculate sampling rate based on distance from camera.
+        
+        Interpolates linearly between near_sampling_rate and far_sampling_rate.
+        """
+        if distance <= self.near_distance:
+            return self.near_sampling_rate
+        elif distance >= self.far_distance:
+            return self.far_sampling_rate
+        else:
+            # Linear interpolation
+            t = (distance - self.near_distance) / (self.far_distance - self.near_distance)
+            return self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)

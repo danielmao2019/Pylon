@@ -1,15 +1,16 @@
 """Utility functions for point cloud visualization.
 
 API Design Principles:
-- torch.Tensor: Used for all computational operations (LOD processing, distance calculations)
-- numpy.ndarray: Used only for final visualization with Plotly
-- Clear boundaries: Type conversion happens at API boundaries, not internally
+- torch.Tensor: Used for ALL computational operations (LOD processing, distance calculations)
+- numpy.ndarray: Used ONLY for final Plotly visualization (at the very end)
+- Clear boundaries: Both APIs only accept torch.Tensor inputs
 - Fail fast: Use assertions to enforce API contracts
 
 Data Flow:
 1. Dataset → torch.Tensor (CPU)
-2. apply_lod_to_point_cloud → torch.Tensor processing (enforced by assertions)
-3. create_point_cloud_figure → numpy conversion for Plotly (at visualization boundary)
+2. apply_lod_to_point_cloud → torch.Tensor ONLY (enforced by assertions)
+3. create_point_cloud_figure → torch.Tensor ONLY (enforced by assertions)
+4. Plotly visualization → numpy conversion (internal, at the very end)
 """
 from typing import Dict, Optional, Union, Any, Tuple
 import numpy as np
@@ -106,9 +107,9 @@ def apply_lod_to_point_cloud(
 
 
 def create_point_cloud_figure(
-    points: Union[torch.Tensor, np.ndarray],
-    colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
-    labels: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    points: torch.Tensor,
+    colors: Optional[torch.Tensor] = None,
+    labels: Optional[torch.Tensor] = None,
     title: str = "Point Cloud",
     point_size: float = 2,
     point_opacity: float = 0.8,
@@ -119,15 +120,13 @@ def create_point_cloud_figure(
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure with optional LOD.
 
-    This function handles type conversion at the API boundary:
-    - Accepts mixed input types (torch.Tensor or numpy.ndarray)
-    - Converts to torch tensors for LOD processing
-    - Converts to numpy arrays for Plotly visualization
+    This function works with torch tensors throughout processing and only converts
+    to numpy arrays at the very end for Plotly visualization.
 
     Args:
-        points: Array or tensor of shape (N, 3) containing XYZ coordinates
-        colors: Optional array of shape (N, 3) containing RGB color values
-        labels: Optional array of shape (N,) containing labels
+        points: Point cloud positions as torch.Tensor (N, 3)
+        colors: Optional color data as torch.Tensor (N, 3) or (N, C)
+        labels: Optional label data as torch.Tensor (N,)
         title: Title for the figure
         point_size: Size of the points
         point_opacity: Opacity of the points
@@ -139,64 +138,71 @@ def create_point_cloud_figure(
     Returns:
         Plotly Figure object with potentially downsampled point cloud
     """
+    # Input validation
+    assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
+    assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
+    
+    if colors is not None:
+        assert isinstance(colors, torch.Tensor), f"colors must be torch.Tensor, got {type(colors)}"
+        assert colors.shape[0] == points.shape[0], f"colors length {colors.shape[0]} != points length {points.shape[0]}"
+    
+    if labels is not None:
+        assert isinstance(labels, torch.Tensor), f"labels must be torch.Tensor, got {type(labels)}"
+        assert labels.shape[0] == points.shape[0], f"labels length {labels.shape[0]} != points length {points.shape[0]}"
+    
     original_count = len(points)
     
-    # Convert inputs to torch tensors for LOD processing
-    points_tensor = torch.from_numpy(points).float() if isinstance(points, np.ndarray) else points.float()
-    colors_tensor = torch.from_numpy(colors) if isinstance(colors, np.ndarray) else colors if colors is not None else None
-    labels_tensor = torch.from_numpy(labels) if isinstance(labels, np.ndarray) else labels if labels is not None else None
-    
-    # Apply LOD processing (torch tensor API)
+    # Apply LOD processing (pure torch tensor operations)
     points_tensor, colors_tensor, labels_tensor = apply_lod_to_point_cloud(
-        points=points_tensor,
-        colors=colors_tensor,
-        labels=labels_tensor,
+        points=points,
+        colors=colors,
+        labels=labels,
         camera_state=camera_state,
         lod_type=lod_type,
         lod_config=lod_config,
         point_cloud_id=point_cloud_id
     )
     
-    # Convert to numpy for Plotly visualization
-    points = point_cloud_to_numpy(points_tensor)
-    colors = point_cloud_to_numpy(colors_tensor) if colors_tensor is not None else None
-    labels = point_cloud_to_numpy(labels_tensor) if labels_tensor is not None else None
+    # Convert to numpy ONLY for Plotly visualization (at the very end)
+    points_np = point_cloud_to_numpy(points_tensor)
+    colors_np = point_cloud_to_numpy(colors_tensor) if colors_tensor is not None else None
+    labels_np = point_cloud_to_numpy(labels_tensor) if labels_tensor is not None else None
     
     # Update title with LOD info
-    if lod_type and lod_type != "none" and len(points) < original_count:
-        lod_suffix = f" ({lod_type.title()} LOD: {len(points):,}/{original_count:,})"
+    if lod_type and lod_type != "none" and len(points_np) < original_count:
+        lod_suffix = f" ({lod_type.title()} LOD: {len(points_np):,}/{original_count:,})"
         title = f"{title}{lod_suffix}"
     
     # Handle edge case of empty point clouds
-    if len(points) == 0:
-        points = np.array([[0, 0, 0]], dtype=np.float32)
+    if len(points_np) == 0:
+        points_np = np.array([[0, 0, 0]], dtype=np.float32)
     
     # Process colors from labels if needed  
-    if colors is not None:
-        assert colors.shape == points.shape, f"{colors.shape=}, {points.shape=}"
-    elif labels is not None:
-        assert labels.shape == points.shape[:-1], f"{labels.shape=}, {points.shape=}"
+    if colors_np is not None:
+        assert colors_np.shape == points_np.shape, f"{colors_np.shape=}, {points_np.shape=}"
+    elif labels_np is not None:
+        assert labels_np.shape == points_np.shape[:-1], f"{labels_np.shape=}, {points_np.shape=}"
         # Convert labels to colors
-        unique_labels = np.unique(labels)
+        unique_labels = np.unique(labels_np)
         unique_colors = [get_color(label) for label in unique_labels]
-        colors = np.zeros((len(points), 3), dtype=np.uint8)
+        colors_np = np.zeros((len(points_np), 3), dtype=np.uint8)
         for label, color in zip(unique_labels, unique_colors):
-            mask = labels == label
+            mask = labels_np == label
             r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
-            colors[mask, :] = np.array([r, g, b], dtype=np.uint8)
+            colors_np[mask, :] = np.array([r, g, b], dtype=np.uint8)
     
-    # Create Plotly scatter plot
+    # Create Plotly scatter plot (uses numpy arrays)
     scatter3d_kwargs = dict(
-        x=points[:, 0],
-        y=points[:, 1],
-        z=points[:, 2],
+        x=points_np[:, 0],
+        y=points_np[:, 1],
+        z=points_np[:, 2],
         mode='markers',
         marker=dict(size=point_size, opacity=point_opacity),
         hoverinfo='skip',  # Disable hover for performance
     )
     
-    if colors is not None:
-        scatter3d_kwargs['marker']['color'] = colors
+    if colors_np is not None:
+        scatter3d_kwargs['marker']['color'] = colors_np
     else:
         scatter3d_kwargs['marker']['color'] = 'steelblue'
     
@@ -204,9 +210,9 @@ def create_point_cloud_figure(
     fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
     
     # Calculate bounding box
-    x_range = [points[:, 0].min(), points[:, 0].max()]
-    y_range = [points[:, 1].min(), points[:, 1].max()]
-    z_range = [points[:, 2].min(), points[:, 2].max()]
+    x_range = [points_np[:, 0].min(), points_np[:, 0].max()]
+    y_range = [points_np[:, 1].min(), points_np[:, 1].max()]
+    z_range = [points_np[:, 2].min(), points_np[:, 2].max()]
     
     # Set layout
     camera = camera_state if camera_state else {
