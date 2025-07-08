@@ -65,16 +65,20 @@ def _calculate_target_points(
 def _apply_downsampling(
     pc_dict: Dict[str, torch.Tensor],
     target_points: int,
-    point_cloud_id: str
+    point_cloud_id: str,
+    camera_state: Dict[str, Any],
+    viewport_size: Tuple[int, int] = (800, 600)
 ) -> Dict[str, torch.Tensor]:
-    """Apply downsampling if meaningful reduction is possible."""
+    """Apply coverage-preserving downsampling if meaningful reduction is possible."""
     original_count = pc_dict['pos'].shape[0]
     
     # Only apply LOD if meaningful reduction (>5%)
-    MIN_REDUCTION_THRESHOLD = 0.95  # Import not needed for single constant
+    MIN_REDUCTION_THRESHOLD = 0.95
     if target_points < original_count * MIN_REDUCTION_THRESHOLD:
         lod_manager = get_lod_manager()
-        return lod_manager.get_downsampled_point_cloud(pc_dict, target_points, point_cloud_id)
+        return lod_manager.get_downsampled_point_cloud(
+            pc_dict, target_points, point_cloud_id, camera_state, viewport_size
+        )
     
     return pc_dict
 
@@ -133,7 +137,7 @@ def _apply_lod_to_point_cloud(
     
     lod_start = time.time()
     target_points = _calculate_target_points(pc_dict, camera_state, point_cloud_id, lod_level, original_count)
-    downsampled_pc = _apply_downsampling(pc_dict, target_points, point_cloud_id)
+    downsampled_pc = _apply_downsampling(pc_dict, target_points, point_cloud_id, camera_state)
     lod_time = time.time() - lod_start
     
     processed_data = _extract_processed_data(downsampled_pc)

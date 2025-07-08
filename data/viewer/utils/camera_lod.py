@@ -1,11 +1,12 @@
-"""Camera-dependent Level of Detail utilities for point cloud visualization.
+"""Screen-space aware Level of Detail utilities for point cloud visualization.
 
-This module implements an intelligent LOD system that dynamically determines
-optimal point cloud reduction based on:
-1. Camera distance and viewing angle
-2. Point cloud characteristics (size, density, complexity)
-3. Screen space coverage and pixel density
-4. Visual quality preservation constraints
+This module implements a principled LOD system that:
+1. Projects 3D points to actual 2D screen space using camera parameters
+2. Calculates real point density per pixel in the rendered view
+3. Only reduces points when density exceeds optimal threshold (>2-3 points/pixel)
+4. Preserves all points that contribute unique visual information
+
+Key principle: LOD should only reduce redundant points per pixel, never degrade visual quality.
 """
 from typing import Dict, Tuple, Union, Optional, Any
 import math
@@ -51,7 +52,6 @@ class LODManager:
         # Cache for downsampled point clouds and LOD decisions
         self._lod_cache: Dict[str, Dict[str, torch.Tensor]] = {}
         self._current_target_points: Dict[str, int] = {}  # Track current target for hysteresis
-        self._complexity_cache: Dict[int, Tuple[float, float]] = {}  # Cache expensive calculations
         
     def calculate_target_points(
         self,
@@ -60,7 +60,9 @@ class LODManager:
         point_cloud_id: str,
         viewport_size: Tuple[int, int] = (800, 600)
     ) -> int:
-        """Calculate optimal target point count based on viewing factors.
+        """Calculate target points based on screen-space pixel density analysis.
+        
+        Core principle: Only reduce points when there are redundant points per pixel.
         
         Args:
             point_cloud: Point cloud dictionary with 'pos' key
@@ -69,138 +71,113 @@ class LODManager:
             viewport_size: Screen viewport size in pixels (width, height)
             
         Returns:
-            Optimal target point count for current viewing conditions
+            Optimal target point count that eliminates redundancy without quality loss
         """
-        total_points = point_cloud['pos'].shape[0]
+        points = point_cloud['pos']
+        total_points = points.shape[0]
         
-        # Factor 1: Screen coverage analysis
-        screen_target = self._calculate_screen_coverage_target(
-            point_cloud, camera_state, viewport_size
-        )
+        # Project 3D points to 2D screen coordinates
+        screen_coords = self._project_to_screen(points, camera_state, viewport_size)
         
-        # Factor 2: Distance-based quality scaling
-        distance_factor = self._calculate_distance_quality_factor(
-            point_cloud, camera_state
-        )
+        # If no points are visible, keep minimal set for shape preservation
+        if len(screen_coords) == 0:
+            return max(MIN_SHAPE_PRESERVATION_POINTS, total_points // 10)
+            
+        # Calculate actual point density per pixel
+        occupied_pixels = self._count_occupied_pixels(screen_coords, viewport_size)
+        current_density = len(screen_coords) / max(occupied_pixels, 1)
         
-        # Factor 3: Point cloud complexity preservation
-        complexity_factor = self._calculate_complexity_factor(point_cloud)
+        # Only reduce if density exceeds target (too many points per pixel)
+        target_density = self.config['target_points_per_pixel']
+        if current_density <= target_density:
+            return total_points  # Already optimal - no reduction needed
+            
+        # Calculate optimal points to achieve target density
+        optimal_points = int(occupied_pixels * target_density)
         
-        # Factor 4: Size-adaptive scaling
-        size_factor = self._calculate_size_adaptive_factor(total_points)
-        
-        # Combine all factors with bounds checking
-        target = int(
-            screen_target * distance_factor * complexity_factor * size_factor
-        )
-        
-        # Apply conservative quality constraints
-        min_points = max(
-            int(total_points * self.config['min_quality_ratio']),
-            MIN_SHAPE_PRESERVATION_POINTS
-        )
-        max_points = int(total_points * (1.0 - self.config['max_reduction_ratio']))
-        
-        # Clamp to constraints
-        constrained_target = max(min_points, min(max_points, target))
-        constrained_target = min(constrained_target, total_points)
+        # Apply conservative bounds
+        optimal_points = max(optimal_points, MIN_SHAPE_PRESERVATION_POINTS)
+        optimal_points = min(optimal_points, total_points)
         
         # Apply hysteresis to prevent flickering
-        final_target = self._apply_hysteresis(point_cloud_id, constrained_target)
+        final_target = self._apply_hysteresis(point_cloud_id, optimal_points)
         
         return final_target
         
-    def _calculate_screen_coverage_target(
+    def _project_to_screen(
         self,
-        point_cloud: Dict[str, torch.Tensor],
+        points: torch.Tensor,
         camera_state: Dict[str, Any],
         viewport_size: Tuple[int, int]
-    ) -> int:
-        """Calculate target points based on screen space coverage."""
-        points = point_cloud['pos']
-        
-        # Calculate point cloud bounding box
-        min_coords = points.min(dim=0)[0].cpu().numpy()
-        max_coords = points.max(dim=0)[0].cpu().numpy()
-        center = (min_coords + max_coords) / 2
+    ) -> np.ndarray:
+        """Project 3D points to 2D screen coordinates using camera parameters."""
+        points_np = points.cpu().numpy()
         
         # Get camera parameters
         eye = camera_state.get('eye', {'x': 1.5, 'y': 1.5, 'z': 1.5})
-        camera_pos = np.array([eye['x'], eye['y'], eye['z']])
+        center = camera_state.get('center', {'x': 0, 'y': 0, 'z': 0})
+        up = camera_state.get('up', {'x': 0, 'y': 0, 'z': 1})
         
-        # Estimate screen space coverage using simple projection
-        camera_distance = np.linalg.norm(camera_pos - center)
-        bbox_size = np.linalg.norm(max_coords - min_coords)
+        # Convert to numpy arrays
+        eye_pos = np.array([eye['x'], eye['y'], eye['z']])
+        center_pos = np.array([center['x'], center['y'], center['z']])
+        up_vec = np.array([up['x'], up['y'], up['z']])
         
-        # Estimate screen coverage as fraction of viewport
-        angular_size = 2 * math.atan(bbox_size / (2 * max(camera_distance, 1e-6)))
-        screen_coverage_ratio = angular_size / math.radians(FOV_DEGREES)
-        screen_coverage_ratio = min(1.0, screen_coverage_ratio)  # Cap at 100%
+        # Create view matrix
+        forward = center_pos - eye_pos
+        forward = forward / np.linalg.norm(forward)
+        right = np.cross(forward, up_vec)
+        right = right / np.linalg.norm(right)
+        up_corrected = np.cross(right, forward)
         
-        # Calculate screen pixels covered
-        screen_pixels = viewport_size[0] * viewport_size[1] * screen_coverage_ratio
+        # Transform points to camera space
+        points_cam = points_np - eye_pos
+        x_cam = np.dot(points_cam, right)
+        y_cam = np.dot(points_cam, up_corrected)
+        z_cam = -np.dot(points_cam, forward)
         
-        # Target points per pixel
-        target_points = int(screen_pixels * self.config['target_points_per_pixel'])
+        # Perspective projection
+        fov_rad = math.radians(FOV_DEGREES)
+        aspect_ratio = viewport_size[0] / viewport_size[1]
         
-        return max(target_points, MIN_SHAPE_PRESERVATION_POINTS)
+        # Avoid division by zero for points behind camera
+        z_cam = np.maximum(z_cam, 1e-6)
         
-    def _calculate_distance_quality_factor(
-        self,
-        point_cloud: Dict[str, torch.Tensor],
-        camera_state: Dict[str, Any]
-    ) -> float:
-        """Calculate quality factor based on camera distance."""
-        points = point_cloud['pos']
-        center = points.mean(dim=0).cpu().numpy()
-        bbox_size = (points.max(dim=0)[0] - points.min(dim=0)[0]).norm().item()
+        # Project to normalized device coordinates
+        f = 1.0 / math.tan(fov_rad / 2.0)
+        x_ndc = (x_cam * f) / (z_cam * aspect_ratio)
+        y_ndc = (y_cam * f) / z_cam
         
-        eye = camera_state.get('eye', {'x': 1.5, 'y': 1.5, 'z': 1.5})
-        camera_pos = np.array([eye['x'], eye['y'], eye['z']])
+        # Convert to screen coordinates
+        x_screen = (x_ndc + 1.0) * 0.5 * viewport_size[0]
+        y_screen = (1.0 - y_ndc) * 0.5 * viewport_size[1]
         
-        # Normalized distance (distance relative to object size)
-        distance = np.linalg.norm(camera_pos - center)
-        normalized_distance = distance / max(bbox_size, 1e-6)
-        
-        # Modified inverse relationship: closer = more detail needed
-        # Conservative approach: don't reduce too aggressively
-        distance_factor = 1.0 / (1.0 + normalized_distance * self.config['distance_scaling_factor'])
-        
-        # Clamp to conservative range
-        return max(DISTANCE_FACTOR_MIN, min(1.0, distance_factor))
-        
-    def _calculate_complexity_factor(self, point_cloud: Dict[str, torch.Tensor]) -> float:
-        """Calculate factor based on point cloud geometric complexity with caching."""
-        points = point_cloud['pos']
-        
-        # Use cache for expensive std/range calculations
-        cache_key = id(points)
-        if cache_key not in self._complexity_cache:
-            coord_std = points.std(dim=0).mean().item()
-            coord_range = (points.max(dim=0)[0] - points.min(dim=0)[0]).mean().item()
-            self._complexity_cache[cache_key] = (coord_std, coord_range)
-        
-        coord_std, coord_range = self._complexity_cache[cache_key]
-        complexity_ratio = coord_std / max(coord_range, 1e-6)
-        
-        # Convert to factor: more complex = preserve more points
-        complexity_factor = (
-            self.config['complexity_base_factor'] + 
-            self.config['complexity_scaling'] * min(1.0, complexity_ratio * COMPLEXITY_SCALING_FACTOR)
+        # Filter points in screen bounds and in front of camera
+        valid_mask = (
+            (x_screen >= 0) & (x_screen < viewport_size[0]) &
+            (y_screen >= 0) & (y_screen < viewport_size[1]) &
+            (z_cam > 0)
         )
         
-        return complexity_factor
+        return np.column_stack([x_screen[valid_mask], y_screen[valid_mask]])
         
-    def _calculate_size_adaptive_factor(self, total_points: int) -> float:
-        """Calculate factor based on original point cloud size."""
-        if total_points < self.config['size_small_threshold']:
-            return 1.0  # Small clouds: preserve most points
-        elif total_points < self.config['size_medium_threshold']:
-            return 0.9  # Medium clouds: moderate reduction
-        elif total_points < self.config['size_large_threshold']:
-            return 0.8  # Large clouds: can reduce more
-        else:
-            return 0.7  # Very large clouds: more aggressive reduction possible
+    def _count_occupied_pixels(
+        self,
+        screen_coords: np.ndarray,
+        viewport_size: Tuple[int, int]
+    ) -> int:
+        """Count number of unique pixels occupied by points."""
+        if len(screen_coords) == 0:
+            return 0
+            
+        # Round to nearest pixel coordinates
+        pixel_coords = np.round(screen_coords).astype(int)
+        
+        # Remove duplicates to count unique pixels
+        unique_pixels = np.unique(pixel_coords, axis=0)
+        
+        return len(unique_pixels)
+        
             
     def _apply_hysteresis(
         self,
@@ -296,7 +273,6 @@ class LODManager:
         if point_cloud_id is None:
             self._lod_cache.clear()
             self._current_target_points.clear()
-            self._complexity_cache.clear()
         else:
             # Clear cache entries for specific point cloud
             keys_to_remove = [k for k in self._lod_cache.keys() if point_cloud_id in k]
@@ -310,7 +286,6 @@ class LODManager:
         return {
             'cached_lods': len(self._lod_cache),
             'tracked_point_clouds': len(self._current_target_points),
-            'complexity_cache_size': len(self._complexity_cache),
             'current_targets': dict(self._current_target_points)
         }
 
