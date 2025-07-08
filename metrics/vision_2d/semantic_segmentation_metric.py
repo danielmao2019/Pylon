@@ -10,7 +10,9 @@ from utils.ops import transpose_buffer
 
 class SemanticSegmentationMetric(SingleTaskMetric):
 
-    # Define explicit directions for all score keys this metric produces
+    # Define explicit directions for scalar score keys used in model comparison
+    # Per-class metrics (class_IoU, class_tp, etc.) are excluded as they are vectors/arrays
+    # and not suitable for scalar comparison in early stopping/best model selection
     DIRECTIONS = {
         'mean_IoU': 1,          # Higher is better
         'accuracy': 1,          # Higher is better  
