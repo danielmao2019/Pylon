@@ -74,7 +74,7 @@ def update_3d_settings(
         Output('pcr-controls', 'style')
     ],
     inputs=[Input('dataset-info', 'data')],
-    group="display",
+    group="3d_settings",
 )
 def update_view_controls(
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]

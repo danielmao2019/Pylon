@@ -8,15 +8,26 @@ from data.viewer.utils.lod_utils import get_camera_position
 class DiscreteLOD:
     """Discrete Level of Detail with pre-computed downsampling levels."""
     
-    def __init__(self, reduction_factor: float = 0.5, num_levels: int = 4):
+    def __init__(
+        self,
+        reduction_factor: float = 0.5,
+        num_levels: int = 4,
+        distance_thresholds: Optional[Dict[str, float]] = None
+    ):
         """Initialize discrete LOD system.
         
         Args:
             reduction_factor: Point reduction per level (default: 0.5)
             num_levels: Number of LOD levels to pre-compute (default: 4)
+            distance_thresholds: Distance ranges for level selection (default: auto)
         """
         self.reduction_factor = reduction_factor
         self.num_levels = num_levels
+        self.distance_thresholds = distance_thresholds or {
+            'close': 2.0,
+            'medium_close': 5.0,
+            'medium_far': 10.0
+        }
         self._lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
         
     def get_lod_levels(self, point_cloud: Dict[str, torch.Tensor]) -> Dict[int, int]:
@@ -67,34 +78,15 @@ class DiscreteLOD:
     def select_level(
         self,
         point_cloud_id: str,
-        camera_state: Dict[str, Any],
-        target_points: Optional[int] = None
+        camera_state: Dict[str, Any]
     ) -> Dict[str, torch.Tensor]:
-        """Select appropriate LOD level based on camera distance or target points."""
+        """Select appropriate LOD level based on camera distance."""
         if point_cloud_id not in self._lod_cache:
             raise ValueError(f"Point cloud {point_cloud_id} not pre-computed. Call precompute_levels first.")
             
         levels = self._lod_cache[point_cloud_id]
-        
-        if target_points is not None:
-            return self._select_by_target_points(levels, target_points)
-        else:
-            return self._select_by_distance(levels, camera_state)
+        return self._select_by_distance(levels, camera_state)
             
-    def _select_by_target_points(self, levels: Dict[int, Dict[str, torch.Tensor]], target_points: int) -> Dict[str, torch.Tensor]:
-        """Select level closest to target point count."""
-        best_level = 0
-        best_diff = float('inf')
-        
-        for level, pc in levels.items():
-            point_count = pc['pos'].shape[0]
-            diff = abs(point_count - target_points)
-            if diff < best_diff:
-                best_diff = diff
-                best_level = level
-                
-        return levels[best_level]
-        
     def _select_by_distance(self, levels: Dict[int, Dict[str, torch.Tensor]], camera_state: Dict[str, Any]) -> Dict[str, torch.Tensor]:
         """Select level based on camera distance."""
         camera_pos = get_camera_position(camera_state)
@@ -105,12 +97,13 @@ class DiscreteLOD:
         distances = torch.norm(points - camera_pos.to(points.device), dim=1)
         avg_distance = distances.mean().item()
         
-        # Distance-based level selection
-        if avg_distance < 2.0:
+        # Distance-based level selection using configurable thresholds
+        thresholds = self.distance_thresholds
+        if avg_distance < thresholds['close']:
             level = 0  # Close: use original
-        elif avg_distance < 5.0:
+        elif avg_distance < thresholds['medium_close']:
             level = 1  # Medium close
-        elif avg_distance < 10.0:
+        elif avg_distance < thresholds['medium_far']:
             level = 2  # Medium far
         else:
             level = min(3, self.num_levels)  # Far: aggressive reduction
@@ -143,9 +136,12 @@ class DiscreteLOD:
         voxel_coords = ((points - points.min(dim=0)[0]) / voxel_size).long()
         
         # Find unique voxels and select first point from each
+        # Use large multipliers to avoid hash collisions
+        hash_multiplier_x = 1000000
+        hash_multiplier_y = 1000
         voxel_hash = (
-            voxel_coords[:, 0] * 1000000 + 
-            voxel_coords[:, 1] * 1000 + 
+            voxel_coords[:, 0] * hash_multiplier_x + 
+            voxel_coords[:, 1] * hash_multiplier_y + 
             voxel_coords[:, 2]
         )
         

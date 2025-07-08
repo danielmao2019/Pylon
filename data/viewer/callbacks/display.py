@@ -72,7 +72,6 @@ def _create_display(
         raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
 
-
 @callback(
     outputs=[
         Output('datapoint-display', 'children'),

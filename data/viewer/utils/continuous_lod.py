@@ -68,8 +68,7 @@ class ContinuousLOD:
         
         # Return subsampled point cloud
         return {key: tensor[selected_indices] for key, tensor in point_cloud.items()}
-        
-        
+
     def _calculate_sampling_rate(self, distance: float) -> float:
         """Calculate sampling rate based on distance from camera.
         

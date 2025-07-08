@@ -40,30 +40,41 @@ def apply_lod_to_point_cloud(
         Tuple of (processed_points, processed_colors, processed_labels)
     """
     # If no LOD requested, return originals
-    if lod_type is None or camera_state is None:
+    if lod_type is None or lod_type == "none" or camera_state is None:
         return points, colors, labels
         
-    # Convert to numpy for consistency
-    points = point_cloud_to_numpy(points)
-    
-    # Prepare point cloud dictionary
-    pc_dict = {'pos': torch.from_numpy(points).float()}
+    # Prepare point cloud dictionary - convert to torch tensors
+    if isinstance(points, np.ndarray):
+        pc_dict = {'pos': torch.from_numpy(points).float()}
+    else:
+        pc_dict = {'pos': points.float()}
+        
     if colors is not None:
-        pc_dict['rgb'] = torch.from_numpy(point_cloud_to_numpy(colors))
+        if isinstance(colors, np.ndarray):
+            pc_dict['rgb'] = torch.from_numpy(colors)
+        else:
+            pc_dict['rgb'] = colors
+            
     if labels is not None:
-        pc_dict['labels'] = torch.from_numpy(point_cloud_to_numpy(labels))
+        if isinstance(labels, np.ndarray):
+            pc_dict['labels'] = torch.from_numpy(labels)
+        else:
+            pc_dict['labels'] = labels
     
     # Apply LOD based on type
     if lod_type == "continuous":
-        # Continuous LOD with distance-based sampling
         lod = ContinuousLOD(**(lod_config or {}))
         downsampled = lod.subsample(pc_dict, camera_state)
-    elif lod_type == "discrete" and point_cloud_id is not None:
-        # Discrete LOD with pre-computed levels
-        lod = DiscreteLOD(**(lod_config or {}))
-        if not lod.has_levels(point_cloud_id):
-            lod.precompute_levels(pc_dict, point_cloud_id)
-        downsampled = lod.select_level(point_cloud_id, camera_state)
+    elif lod_type == "discrete":
+        if point_cloud_id is None:
+            # Fall back to continuous LOD if no ID provided
+            lod = ContinuousLOD(**(lod_config or {}))
+            downsampled = lod.subsample(pc_dict, camera_state)
+        else:
+            lod = DiscreteLOD(**(lod_config or {}))
+            if not lod.has_levels(point_cloud_id):
+                lod.precompute_levels(pc_dict, point_cloud_id)
+            downsampled = lod.select_level(point_cloud_id, camera_state)
     else:
         downsampled = pc_dict
         
@@ -126,7 +137,7 @@ def create_point_cloud_figure(
     )
     
     # Update title with LOD info
-    if len(points) < original_count:
+    if lod_type and lod_type != "none" and len(points) < original_count:
         lod_suffix = f" ({lod_type.title()} LOD: {len(points):,}/{original_count:,})"
         title = f"{title}{lod_suffix}"
     
