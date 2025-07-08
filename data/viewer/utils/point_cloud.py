@@ -16,6 +16,72 @@ def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
     return points
 
 
+def apply_lod_to_point_cloud(
+    points: Union[torch.Tensor, np.ndarray],
+    colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    labels: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    camera_state: Optional[Dict[str, Any]] = None,
+    lod_type: Optional[str] = None,
+    lod_config: Optional[Dict[str, Any]] = None,
+    point_cloud_id: Optional[str] = None,
+) -> Tuple[Union[torch.Tensor, np.ndarray], Optional[Union[torch.Tensor, np.ndarray]], Optional[Union[torch.Tensor, np.ndarray]]]:
+    """Apply Level of Detail processing to point cloud data.
+    
+    Args:
+        points: Point cloud positions
+        colors: Optional color data
+        labels: Optional label data
+        camera_state: Camera viewing state
+        lod_type: Type of LOD ("continuous", "discrete", or None)
+        lod_config: Optional LOD configuration parameters
+        point_cloud_id: Unique identifier for discrete LOD caching
+        
+    Returns:
+        Tuple of (processed_points, processed_colors, processed_labels)
+    """
+    # If no LOD requested, return originals
+    if lod_type is None or camera_state is None:
+        return points, colors, labels
+        
+    # Convert to numpy for consistency
+    points = point_cloud_to_numpy(points)
+    
+    # Prepare point cloud dictionary
+    pc_dict = {'pos': torch.from_numpy(points).float()}
+    if colors is not None:
+        pc_dict['rgb'] = torch.from_numpy(point_cloud_to_numpy(colors))
+    if labels is not None:
+        pc_dict['labels'] = torch.from_numpy(point_cloud_to_numpy(labels))
+    
+    # Apply LOD based on type
+    if lod_type == "continuous":
+        # Continuous LOD with adaptive target calculation
+        lod = ContinuousLOD(**(lod_config or {}))
+        target_points = lod.calculate_target_points(pc_dict, camera_state)
+        downsampled = lod.subsample(pc_dict, camera_state, target_points)
+    elif lod_type == "discrete" and point_cloud_id is not None:
+        # Discrete LOD with pre-computed levels
+        lod = DiscreteLOD(**(lod_config or {}))
+        if not lod.has_levels(point_cloud_id):
+            lod.precompute_levels(pc_dict, point_cloud_id)
+        downsampled = lod.select_level(point_cloud_id, camera_state)
+    else:
+        downsampled = pc_dict
+        
+    # Extract downsampled data
+    processed_points = point_cloud_to_numpy(downsampled['pos'])
+    processed_colors = (
+        point_cloud_to_numpy(downsampled['rgb']) if 'rgb' in downsampled 
+        else colors
+    )
+    processed_labels = (
+        point_cloud_to_numpy(downsampled['labels']) if 'labels' in downsampled 
+        else labels
+    )
+    
+    return processed_points, processed_colors, processed_labels
+
+
 def create_point_cloud_figure(
     points: Union[torch.Tensor, np.ndarray],
     colors: Optional[Union[torch.Tensor, np.ndarray]] = None,
@@ -24,8 +90,7 @@ def create_point_cloud_figure(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
-    lod_enabled: bool = True,
-    lod_type: str = "continuous",
+    lod_type: Optional[str] = "continuous",
     lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[str] = None,
 ) -> go.Figure:
@@ -39,8 +104,7 @@ def create_point_cloud_figure(
         point_size: Size of the points
         point_opacity: Opacity of the points
         camera_state: Optional dictionary containing camera position state
-        lod_enabled: Whether to enable Level of Detail optimization
-        lod_type: Type of LOD to use ("continuous" or "discrete")
+        lod_type: Type of LOD ("continuous", "discrete", or None for no LOD)
         lod_config: Optional LOD configuration parameters
         point_cloud_id: Unique identifier for discrete LOD caching
 
@@ -51,40 +115,21 @@ def create_point_cloud_figure(
     points = point_cloud_to_numpy(points)
     original_count = len(points)
     
-    # Apply LOD if enabled
-    if lod_enabled and camera_state is not None:
-        # Prepare point cloud dictionary
-        pc_dict = {'pos': torch.from_numpy(points).float()}
-        if colors is not None:
-            pc_dict['rgb'] = torch.from_numpy(point_cloud_to_numpy(colors))
-        if labels is not None:
-            pc_dict['labels'] = torch.from_numpy(point_cloud_to_numpy(labels))
-        
-        # Apply LOD based on type
-        if lod_type == "continuous":
-            # Continuous LOD with adaptive target calculation
-            lod = ContinuousLOD(**(lod_config or {}))
-            target_points = lod.calculate_target_points(pc_dict, camera_state)
-            downsampled = lod.subsample(pc_dict, camera_state, target_points)
-        elif lod_type == "discrete" and point_cloud_id is not None:
-            # Discrete LOD with pre-computed levels
-            lod = DiscreteLOD(**(lod_config or {}))
-            if not lod.has_levels(point_cloud_id):
-                lod.precompute_levels(pc_dict, point_cloud_id)
-            downsampled = lod.select_level(point_cloud_id, camera_state)
-        else:
-            downsampled = pc_dict
-            
-        # Extract downsampled data
-        points = point_cloud_to_numpy(downsampled['pos'])
-        if 'rgb' in downsampled:
-            colors = point_cloud_to_numpy(downsampled['rgb'])
-        if 'labels' in downsampled:
-            labels = point_cloud_to_numpy(downsampled['labels'])
-            
-        # Update title with LOD info
-        if len(points) < original_count:
-            title = f"{title} (LOD: {len(points):,}/{original_count:,})"
+    # Apply LOD using helper function
+    points, colors, labels = apply_lod_to_point_cloud(
+        points=points,
+        colors=colors,
+        labels=labels,
+        camera_state=camera_state,
+        lod_type=lod_type,
+        lod_config=lod_config,
+        point_cloud_id=point_cloud_id
+    )
+    
+    # Update title with LOD info
+    if len(points) < original_count:
+        lod_suffix = f" ({lod_type.title()} LOD: {len(points):,}/{original_count:,})"
+        title = f"{title}{lod_suffix}"
     
     # Handle edge case of empty point clouds
     if len(points) == 0:
