@@ -1,155 +1,16 @@
 """Utility functions for point cloud visualization."""
-from typing import Dict, Optional, Union, Any, Tuple
-import time
+from typing import Dict, Optional, Union, Any
 import numpy as np
 import torch
 from dash import html
 import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
-from data.viewer.utils.camera_lod import get_lod_manager
-
-
-def _convert_to_tensor(data: Optional[Union[torch.Tensor, np.ndarray]]) -> Optional[torch.Tensor]:
-    """Convert numpy array or tensor to tensor format."""
-    if data is None:
-        return None
-    if isinstance(data, np.ndarray):
-        return torch.from_numpy(data)
-    return data
-
-
-def _get_point_count(points: Union[torch.Tensor, np.ndarray]) -> int:
-    """Get point count from tensor or array."""
-    return len(points) if isinstance(points, (np.ndarray, list)) else points.shape[0]
-
-
-def _prepare_point_cloud_dict(
-    points: Union[torch.Tensor, np.ndarray],
-    colors: Optional[Union[torch.Tensor, np.ndarray]],
-    labels: Optional[Union[torch.Tensor, np.ndarray]]
-) -> Dict[str, torch.Tensor]:
-    """Prepare point cloud dictionary for LOD processing."""
-    pc_dict = {'pos': _convert_to_tensor(points).float()}
-    
-    colors_tensor = _convert_to_tensor(colors)
-    if colors_tensor is not None:
-        pc_dict['rgb'] = colors_tensor
-        
-    labels_tensor = _convert_to_tensor(labels)
-    if labels_tensor is not None:
-        pc_dict['labels'] = labels_tensor
-        
-    return pc_dict
-
-
-def _calculate_target_points(
-    pc_dict: Dict[str, torch.Tensor],
-    camera_state: Dict[str, Any],
-    point_cloud_id: str,
-    lod_level: Optional[int],
-    original_count: int
-) -> int:
-    """Calculate target points for LOD processing."""
-    lod_manager = get_lod_manager()
-    
-    if lod_level is not None:
-        # Convert old LOD levels to approximate target points for compatibility
-        level_to_points = {0: original_count, 1: 50000, 2: 25000, 3: 10000}
-        return min(level_to_points.get(lod_level, original_count), original_count)
-    
-    # Calculate target points based on viewing conditions
-    target = lod_manager.calculate_target_points(pc_dict, camera_state, point_cloud_id)
-    return max(2000, min(target, original_count))
-
-
-def _apply_downsampling(
-    pc_dict: Dict[str, torch.Tensor],
-    target_points: int,
-    point_cloud_id: str,
-    camera_state: Dict[str, Any],
-    viewport_size: Tuple[int, int] = (800, 600)
-) -> Dict[str, torch.Tensor]:
-    """Apply coverage-preserving downsampling if meaningful reduction is possible."""
-    original_count = pc_dict['pos'].shape[0]
-    
-    # Only apply LOD if meaningful reduction (>5%)
-    MIN_REDUCTION_THRESHOLD = 0.95
-    if target_points < original_count * MIN_REDUCTION_THRESHOLD:
-        lod_manager = get_lod_manager()
-        return lod_manager.get_downsampled_point_cloud(
-            pc_dict, target_points, point_cloud_id, camera_state, viewport_size
-        )
-    
-    return pc_dict
-
-
-def _extract_processed_data(
-    downsampled_pc: Dict[str, torch.Tensor]
-) -> Tuple[np.ndarray, Optional[np.ndarray], Optional[np.ndarray]]:
-    """Extract processed data from downsampled point cloud."""
-    processed_points = point_cloud_to_numpy(downsampled_pc['pos'])
-    
-    # Extract colors/labels if they exist in downsampled data
-    processed_colors = (
-        point_cloud_to_numpy(downsampled_pc['rgb']) if 'rgb' in downsampled_pc 
-        else None
-    )
-    processed_labels = (
-        point_cloud_to_numpy(downsampled_pc['labels']) if 'labels' in downsampled_pc 
-        else None
-    )
-        
-    return processed_points, processed_colors, processed_labels
-
-
-def _create_updated_title(title: str, original_count: int, current_count: int) -> str:
-    """Create updated title with LOD information."""
-    if current_count != original_count:
-        return f"{title} (LOD: {current_count:,}/{original_count:,})"
-    return title
-
-
-def _apply_lod_to_point_cloud(
-    points: Union[torch.Tensor, np.ndarray],
-    colors: Optional[Union[torch.Tensor, np.ndarray]],
-    labels: Optional[Union[torch.Tensor, np.ndarray]],
-    camera_state: Dict[str, Any],
-    point_cloud_id: str,
-    title: str,
-    lod_level: Optional[int] = None
-) -> Tuple[Union[torch.Tensor, np.ndarray], Optional[Union[torch.Tensor, np.ndarray]], Optional[Union[torch.Tensor, np.ndarray]], str, float]:
-    """Apply LOD processing to point cloud data.
-    
-    Args:
-        points: Point cloud positions
-        colors: Optional color data
-        labels: Optional label data  
-        camera_state: Camera viewing state
-        point_cloud_id: Unique identifier for caching
-        title: Title for logging
-        lod_level: Force specific LOD level, None for automatic
-        
-    Returns:
-        Tuple of (processed_points, processed_colors, processed_labels, updated_title, lod_time_ms)
-    """
-    original_count = _get_point_count(points)
-    pc_dict = _prepare_point_cloud_dict(points, colors, labels)
-    
-    lod_start = time.time()
-    target_points = _calculate_target_points(pc_dict, camera_state, point_cloud_id, lod_level, original_count)
-    downsampled_pc = _apply_downsampling(pc_dict, target_points, point_cloud_id, camera_state)
-    lod_time = time.time() - lod_start
-    
-    processed_data = _extract_processed_data(downsampled_pc)
-    updated_title = _create_updated_title(title, original_count, len(processed_data[0]))
-    
-    return *processed_data, updated_title, lod_time * 1000
-
-
+from data.viewer.utils.continuous_lod import ContinuousLOD
+from data.viewer.utils.discrete_lod import DiscreteLOD
 
 
 def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
-    """Convert a PyTorch tensor to a displayable point cloud."""
+    """Convert a PyTorch tensor to a numpy array."""
     if isinstance(points, torch.Tensor):
         return points.cpu().numpy()
     return points
@@ -164,7 +25,8 @@ def create_point_cloud_figure(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     lod_enabled: bool = True,
-    lod_level: Optional[int] = None,
+    lod_type: str = "continuous",
+    lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[str] = None,
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure with optional LOD.
@@ -178,35 +40,64 @@ def create_point_cloud_figure(
         point_opacity: Opacity of the points
         camera_state: Optional dictionary containing camera position state
         lod_enabled: Whether to enable Level of Detail optimization
-        lod_level: Force specific LOD level (0-3), None for auto-calculation
-        point_cloud_id: Unique identifier for LOD caching
+        lod_type: Type of LOD to use ("continuous" or "discrete")
+        lod_config: Optional LOD configuration parameters
+        point_cloud_id: Unique identifier for discrete LOD caching
 
     Returns:
         Plotly Figure object with potentially downsampled point cloud
     """
-    start_time = time.time()
-    
-    # Apply LOD if enabled and required conditions are met
-    if lod_enabled and camera_state is not None and point_cloud_id is not None:
-        points, colors, labels, title, _ = _apply_lod_to_point_cloud(
-            points, colors, labels, camera_state, point_cloud_id, title, lod_level
-        )
-    # LOD conditions not met - continue with original data
-    
-    # Convert input data to numpy arrays and validate
+    # Convert to numpy for consistency
     points = point_cloud_to_numpy(points)
+    original_count = len(points)
+    
+    # Apply LOD if enabled
+    if lod_enabled and camera_state is not None:
+        # Prepare point cloud dictionary
+        pc_dict = {'pos': torch.from_numpy(points).float()}
+        if colors is not None:
+            pc_dict['rgb'] = torch.from_numpy(point_cloud_to_numpy(colors))
+        if labels is not None:
+            pc_dict['labels'] = torch.from_numpy(point_cloud_to_numpy(labels))
+        
+        # Apply LOD based on type
+        if lod_type == "continuous":
+            # Continuous LOD with adaptive target calculation
+            lod = ContinuousLOD(**(lod_config or {}))
+            target_points = lod.calculate_target_points(pc_dict, camera_state)
+            downsampled = lod.subsample(pc_dict, camera_state, target_points)
+        elif lod_type == "discrete" and point_cloud_id is not None:
+            # Discrete LOD with pre-computed levels
+            lod = DiscreteLOD(**(lod_config or {}))
+            if not lod.has_levels(point_cloud_id):
+                lod.precompute_levels(pc_dict, point_cloud_id)
+            downsampled = lod.select_level(point_cloud_id, camera_state)
+        else:
+            downsampled = pc_dict
+            
+        # Extract downsampled data
+        points = point_cloud_to_numpy(downsampled['pos'])
+        if 'rgb' in downsampled:
+            colors = point_cloud_to_numpy(downsampled['rgb'])
+        if 'labels' in downsampled:
+            labels = point_cloud_to_numpy(downsampled['labels'])
+            
+        # Update title with LOD info
+        if len(points) < original_count:
+            title = f"{title} (LOD: {len(points):,}/{original_count:,})"
     
     # Handle edge case of empty point clouds
     if len(points) == 0:
         points = np.array([[0, 0, 0]], dtype=np.float32)
     
-    # Process colors and labels
+    # Process colors from labels if needed
     if colors is not None:
         colors = point_cloud_to_numpy(colors)
         assert colors.shape == points.shape, f"{colors.shape=}, {points.shape=}"
     elif labels is not None:
         labels = point_cloud_to_numpy(labels)
         assert labels.shape == points.shape[:-1], f"{labels.shape=}, {points.shape=}"
+        # Convert labels to colors
         unique_labels = np.unique(labels)
         unique_colors = [get_color(label) for label in unique_labels]
         colors = np.zeros((len(points), 3), dtype=np.uint8)
@@ -214,35 +105,37 @@ def create_point_cloud_figure(
             mask = labels == label
             r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
             colors[mask, :] = np.array([r, g, b], dtype=np.uint8)
-
-    # Add point cloud
+    
+    # Create Plotly scatter plot
     scatter3d_kwargs = dict(
         x=points[:, 0],
         y=points[:, 1],
         z=points[:, 2],
         mode='markers',
         marker=dict(size=point_size, opacity=point_opacity),
-        hoverinfo='skip',  # Disable hover for performance - was causing massive memory overhead
+        hoverinfo='skip',  # Disable hover for performance
     )
+    
     if colors is not None:
         scatter3d_kwargs['marker']['color'] = colors
     else:
         scatter3d_kwargs['marker']['color'] = 'steelblue'
+    
     fig = go.Figure()
     fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
-
+    
     # Calculate bounding box
     x_range = [points[:, 0].min(), points[:, 0].max()]
     y_range = [points[:, 1].min(), points[:, 1].max()]
     z_range = [points[:, 2].min(), points[:, 2].max()]
-
+    
     # Set layout
     camera = camera_state if camera_state else {
         'up': {'x': 0, 'y': 0, 'z': 1},
         'center': {'x': 0, 'y': 0, 'z': 0},
         'eye': {'x': 1.5, 'y': 1.5, 'z': 1.5}
     }
-
+    
     fig.update_layout(
         title=title,
         uirevision='camera',  # This ensures camera views stay in sync
@@ -259,9 +152,6 @@ def create_point_cloud_figure(
         margin=dict(l=0, r=40, b=0, t=40),
         height=500,
     )
-
-    # Performance tracking available via timing if needed
-    _ = time.time() - start_time
     
     return fig
 
