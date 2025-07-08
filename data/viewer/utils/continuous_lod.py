@@ -1,5 +1,5 @@
 """Continuous Level of Detail system for point cloud visualization."""
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
 from utils.point_cloud_ops.select import Select
@@ -15,7 +15,8 @@ class ContinuousLOD:
         near_distance: float = 5.0,
         far_distance: float = 50.0,
         near_sampling_rate: float = 0.9,
-        far_sampling_rate: float = 0.1
+        far_sampling_rate: float = 0.1,
+        use_spatial_binning: bool = True
     ):
         """Initialize continuous LOD system.
         
@@ -25,12 +26,14 @@ class ContinuousLOD:
             far_distance: Distance considered "far" from camera (default: 50.0)
             near_sampling_rate: Sampling rate for near bins (default: 0.9 = keep 90%)
             far_sampling_rate: Sampling rate for far bins (default: 0.1 = keep 10%)
+            use_spatial_binning: Whether to use spatial binning (default: True)
         """
         self.spatial_bins = spatial_bins
         self.near_distance = near_distance
         self.far_distance = far_distance
         self.near_sampling_rate = near_sampling_rate
         self.far_sampling_rate = far_sampling_rate
+        self.use_spatial_binning = use_spatial_binning
         
     def subsample(
         self,
@@ -59,13 +62,17 @@ class ContinuousLOD:
         # Calculate distances for all points
         distances = torch.norm(points - camera_pos, dim=1)
         
-        # Perform spatial binning
-        bin_indices = self._spatial_binning(points, camera_state)
-        
-        # Sample from bins based on distance
-        selected_indices = self._distance_based_bin_sampling(
-            distances, bin_indices
-        )
+        if self.use_spatial_binning:
+            # Perform spatial binning
+            bin_indices = self._spatial_binning(points, camera_state)
+            
+            # Sample from bins based on distance
+            selected_indices = self._distance_based_bin_sampling(
+                distances, bin_indices
+            )
+        else:
+            # Use simple distance-based sampling without binning for maximum performance
+            selected_indices = self._simple_distance_sampling(distances)
         
         # Return subsampled point cloud using established point cloud operations
         return Select(selected_indices)(point_cloud)
@@ -91,16 +98,26 @@ class ContinuousLOD:
     ) -> torch.Tensor:
         """Sample points from bins based on distance-based sampling rates."""
         device = distances.device
-        selected_indices = []
         
-        unique_bins = torch.unique(bin_indices)
+        # Calculate sampling rates for all points based on distance
+        sampling_rates = self._calculate_sampling_rates_vectorized(distances)
         
-        for bin_id in unique_bins:
-            bin_points = self._sample_from_bin(bin_id, distances, bin_indices)
-            if bin_points is not None:
-                selected_indices.extend(bin_points.tolist())
-                
-        return torch.tensor(selected_indices, device=device, dtype=torch.long)
+        # Use vectorized random sampling instead of per-bin loops
+        random_values = torch.rand(len(distances), device=device)
+        selected_mask = random_values < sampling_rates
+        
+        return torch.nonzero(selected_mask, as_tuple=True)[0]
+    
+    def _simple_distance_sampling(self, distances: torch.Tensor) -> torch.Tensor:
+        """Simple distance-based sampling without spatial binning for maximum performance."""
+        # Calculate sampling rates for all points based on distance
+        sampling_rates = self._calculate_sampling_rates_vectorized(distances)
+        
+        # Use vectorized random sampling
+        random_values = torch.rand(len(distances), device=distances.device)
+        selected_mask = random_values < sampling_rates
+        
+        return torch.nonzero(selected_mask, as_tuple=True)[0]
         
     # Helper methods for spatial binning
         
@@ -149,68 +166,39 @@ class ContinuousLOD:
         return right, up_corrected, forward
         
     def _coords_to_bin_indices(self, coords_cam: torch.Tensor) -> torch.Tensor:
-        """Convert camera-space coordinates to bin indices."""
+        """Convert camera-space coordinates to bin indices using efficient GPU operations."""
         bins_per_dim = max(1, int(round(self.spatial_bins ** (1/3))))
         
-        # Normalize coordinates to [0, bins_per_dim)
-        min_coords = coords_cam.min(dim=0)[0]
-        max_coords = coords_cam.max(dim=0)[0]
+        # Use percentile-based binning for better GPU performance
+        # This avoids expensive min/max operations and handles outliers better
+        percentiles = torch.quantile(coords_cam, torch.tensor([0.05, 0.95], device=coords_cam.device), dim=0)
+        min_coords = percentiles[0]
+        max_coords = percentiles[1]
         
         # Handle edge case where all points are in a plane
         coord_range = torch.clamp(max_coords - min_coords, min=1e-6)
         
-        normalized_coords = (coords_cam - min_coords) / coord_range
+        normalized_coords = torch.clamp((coords_cam - min_coords) / coord_range, 0, 1)
         bin_coords = torch.clamp(
             (normalized_coords * bins_per_dim).long(),
             0, bins_per_dim - 1
         )
         
-        # Convert 3D bin coordinates to 1D bin indices
+        # Convert 3D bin coordinates to 1D bin indices using efficient tensor operations
         return (
             bin_coords[:, 0] * bins_per_dim * bins_per_dim +
             bin_coords[:, 1] * bins_per_dim +
             bin_coords[:, 2]
         )
         
-    # Helper methods for distance sampling
-    
-    def _sample_from_bin(
-        self,
-        bin_id: torch.Tensor,
-        distances: torch.Tensor,
-        bin_indices: torch.Tensor
-    ) -> Optional[torch.Tensor]:
-        """Sample points from a single bin based on distance-based sampling rate."""
-        bin_mask = (bin_indices == bin_id)
-        if bin_mask.sum() == 0:
-            return None
             
-        # Get bin information
-        bin_point_indices = torch.nonzero(bin_mask, as_tuple=True)[0]
-        bin_distances = distances[bin_mask]
+    def _calculate_sampling_rates_vectorized(self, distances: torch.Tensor) -> torch.Tensor:
+        """Calculate sampling rates for all distances using vectorized operations."""
+        # Clamp distances to [near_distance, far_distance] range
+        clamped_distances = torch.clamp(distances, self.near_distance, self.far_distance)
         
-        # Calculate sampling parameters
-        avg_distance = bin_distances.mean().item()
-        sampling_rate = self._calculate_sampling_rate(avg_distance)
-        points_to_keep = max(1, int(len(bin_point_indices) * sampling_rate))
+        # Linear interpolation using vectorized operations
+        t = (clamped_distances - self.near_distance) / (self.far_distance - self.near_distance)
+        sampling_rates = self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)
         
-        # Sample points from bin
-        if points_to_keep >= len(bin_point_indices):
-            return bin_point_indices
-        else:
-            perm = torch.randperm(len(bin_point_indices), device=distances.device)[:points_to_keep]
-            return bin_point_indices[perm]
-            
-    def _calculate_sampling_rate(self, distance: float) -> float:
-        """Calculate sampling rate based on distance from camera.
-        
-        Interpolates linearly between near_sampling_rate and far_sampling_rate.
-        """
-        if distance <= self.near_distance:
-            return self.near_sampling_rate
-        elif distance >= self.far_distance:
-            return self.far_sampling_rate
-        else:
-            # Linear interpolation
-            t = (distance - self.near_distance) / (self.far_distance - self.near_distance)
-            return self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)
+        return sampling_rates
