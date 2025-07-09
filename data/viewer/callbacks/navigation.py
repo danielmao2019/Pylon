@@ -84,9 +84,10 @@ def update_datapoint_from_navigation(
     Update the displayed datapoint when navigation index changes.
     """
     logger.info(f"Navigation callback triggered - Index: {datapoint_idx}")
+    logger.info(f"Dataset info keys: {list(dataset_info.keys()) if dataset_info else 'None'}")
 
     if dataset_info is None or dataset_info == {} or 'name' not in dataset_info:
-        logger.warning("No dataset info available for navigation")
+        logger.warning("No dataset info available for navigation - PreventUpdate")
         raise PreventUpdate
 
     dataset_name: str = dataset_info['name']
