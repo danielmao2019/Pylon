@@ -28,9 +28,9 @@ class DiscreteLOD:
         self.reduction_factor = reduction_factor
         self.num_levels = num_levels
         self.distance_thresholds = distance_thresholds or {
-            'close': 2.0,
-            'medium_close': 5.0,
-            'medium_far': 10.0
+            'close': 0.5,
+            'medium_close': 1.5,
+            'medium_far': 3.0
         }
         self._lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
         self._original_point_clouds: Dict[str, Dict[str, torch.Tensor]] = {}
