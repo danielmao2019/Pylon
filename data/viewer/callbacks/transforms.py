@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 def update_datapoint_from_transforms(
     transform_values: List[List[int]],
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
+    camera_state: Dict,
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
-    datapoint_idx: int,
-    camera_state: Dict
+    datapoint_idx: int
 ) -> List[html.Div]:
     """
     Update the displayed datapoint when transform selections change.

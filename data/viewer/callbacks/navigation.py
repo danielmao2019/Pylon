@@ -77,8 +77,8 @@ def update_current_index(current_idx: int) -> List[str]:
 def update_datapoint_from_navigation(
     datapoint_idx: int,
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
-    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
-    camera_state: Dict
+    camera_state: Dict,
+    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
 ) -> List[html.Div]:
     """
     Update the displayed datapoint when navigation index changes.
