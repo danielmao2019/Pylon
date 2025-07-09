@@ -490,7 +490,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_src_{lvl}",
+                    point_cloud_id=_build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
                 ),
                 lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
                     points=tgt,
@@ -499,7 +499,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_tgt_{lvl}",
+                    point_cloud_id=_build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
                     src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type
@@ -532,7 +532,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_src_{level}",
+                    point_cloud_id=_build_point_cloud_id(datapoint, f"source_batch_{level}"),
                 ),
                 create_point_cloud_figure(
                     points=tgt_points,
@@ -541,7 +541,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_tgt_{level}",
+                    point_cloud_id=_build_point_cloud_id(datapoint, f"target_batch_{level}"),
                 )
             ])
 
