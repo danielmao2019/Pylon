@@ -1,5 +1,5 @@
 """Discrete Level of Detail system with pre-computed levels."""
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, Tuple
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
 from utils.point_cloud_ops.random_select import RandomSelect
@@ -7,6 +7,7 @@ from data.viewer.utils.lod_utils import get_camera_position
 
 
 # Global cache that persists across function calls
+PointCloudId = Union[str, Tuple[str, ...]]
 _global_lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
 _global_original_cache: Dict[str, Dict[str, torch.Tensor]] = {}
 
@@ -40,36 +41,40 @@ class DiscreteLOD:
 
     def subsample(
         self,
-        point_cloud_id: str,
+        point_cloud_id: PointCloudId,
         camera_state: Dict[str, Any],
         point_cloud: Optional[Dict[str, torch.Tensor]] = None
     ) -> Dict[str, torch.Tensor]:
         """Subsample point cloud based on camera distance.
 
         Args:
-            point_cloud_id: Unique identifier for the point cloud
+            point_cloud_id: Structured identifier: (dataset, datapoint_idx, component)
+                           e.g., ("pcr/kitti", 42, "source") or ("change_detection", 10, "union")
             camera_state: Camera position and orientation information
             point_cloud: Original point cloud data (required if not cached)
 
         Returns:
             Subsampled point cloud at appropriate LOD level
         """
+        # Normalize to string cache key
+        cache_key = self._normalize_point_cloud_id(point_cloud_id)
+        
         # Ensure we have the original point cloud
-        if point_cloud_id not in _global_original_cache:
+        if cache_key not in _global_original_cache:
             if point_cloud is None:
                 raise ValueError(f"Point cloud {point_cloud_id} not found. Provide point_cloud parameter.")
-            _global_original_cache[point_cloud_id] = point_cloud
+            _global_original_cache[cache_key] = point_cloud
 
         # Compute LOD levels if not already done
-        if point_cloud_id not in _global_lod_cache:
-            original_pc = _global_original_cache[point_cloud_id]
-            self._precompute_lod_levels(point_cloud_id, original_pc)
+        if cache_key not in _global_lod_cache:
+            original_pc = _global_original_cache[cache_key]
+            self._precompute_lod_levels(cache_key, original_pc)
 
         # Determine target level based on camera distance
-        target_level = self._determine_target_level(point_cloud_id, camera_state)
+        target_level = self._determine_target_level(cache_key, camera_state)
 
         # Return precomputed subsampled point cloud
-        return _global_lod_cache[point_cloud_id][target_level]
+        return _global_lod_cache[cache_key][target_level]
 
     def _precompute_lod_levels(
         self,
@@ -144,3 +149,23 @@ class DiscreteLOD:
             return 2  # Medium far
         else:
             return min(3, self.num_levels)  # Far: aggressive reduction
+
+    def _normalize_point_cloud_id(self, point_cloud_id: PointCloudId) -> str:
+        """Normalize point cloud ID to string cache key.
+        
+        Args:
+            point_cloud_id: Either string or tuple (dataset, datapoint_idx, component)
+            
+        Returns:
+            Normalized string cache key
+            
+        Examples:
+            "simple_id" -> "simple_id"
+            ("pcr/kitti", 42, "source") -> "pcr/kitti:42:source"
+            ("change_detection", 10, "union") -> "change_detection:10:union"
+        """
+        if isinstance(point_cloud_id, str):
+            return point_cloud_id
+        else:
+            # Convert tuple to colon-separated string
+            return ":".join(str(part) for part in point_cloud_id)

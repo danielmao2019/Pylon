@@ -70,7 +70,7 @@ def apply_lod_to_point_cloud(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: Optional[str] = None,
     lod_config: Optional[Dict[str, Any]] = None,
-    point_cloud_id: Optional[str] = None,
+    point_cloud_id: Optional[Union[str, Tuple[str, ...]]] = None,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Apply Level of Detail processing to point cloud data.
     

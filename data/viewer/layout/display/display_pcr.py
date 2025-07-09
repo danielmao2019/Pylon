@@ -11,6 +11,26 @@ from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
 from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
 from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
+from data.viewer.backend import registry
+
+
+def _build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]:
+    """Build structured point cloud ID from datapoint context.
+    
+    Args:
+        datapoint: Contains meta_info with idx; dataset info from backend
+        component: Point cloud component (source, target, union, sym_diff, etc.)
+        
+    Returns:
+        Tuple of (dataset_name, datapoint_idx, component)
+    """
+    meta_info = datapoint.get('meta_info', {})
+    datapoint_idx = meta_info.get('idx', 0)
+    
+    # Get dataset name from backend
+    dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
+    
+    return (dataset_name, datapoint_idx, component)
 
 
 def create_union_visualization(
@@ -20,6 +40,7 @@ def create_union_visualization(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
+    point_cloud_id: Optional[Tuple[str, int, str]] = None,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -56,7 +77,7 @@ def create_union_visualization(
         point_opacity=point_opacity,
         camera_state=camera_state,
         lod_type=lod_type,
-        point_cloud_id="union_visualization",
+        point_cloud_id=point_cloud_id,
     )
 
 
@@ -113,7 +134,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_symmetric_difference",
+            point_cloud_id=point_cloud_id,
         )
     else:
         # If no symmetric difference, show empty point cloud
@@ -124,7 +145,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_symmetric_difference_empty",
+            point_cloud_id=point_cloud_id,
         )
 
 
@@ -311,7 +332,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_source",
+            point_cloud_id=_build_point_cloud_id(datapoint, "source"),
         ),
         lambda: create_point_cloud_figure(
             points=tgt_pc,
@@ -321,7 +342,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_target",
+            point_cloud_id=_build_point_cloud_id(datapoint, "target"),
         ),
         lambda: create_union_visualization(
             src_pc_transformed,
@@ -330,6 +351,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            point_cloud_id=_build_point_cloud_id(datapoint, "union"),
         ),
         lambda: create_symmetric_difference_visualization(
             src_pc_transformed,
