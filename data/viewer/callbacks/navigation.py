@@ -84,34 +84,43 @@ def update_datapoint_from_navigation(
     Update the displayed datapoint when navigation index changes.
     """
     logger.info(f"Navigation callback triggered - Index: {datapoint_idx}")
-    logger.info(f"Dataset info keys: {list(dataset_info.keys()) if dataset_info else 'None'}")
 
-    if dataset_info is None or dataset_info == {} or 'name' not in dataset_info:
-        logger.warning("No dataset info available for navigation - PreventUpdate")
-        raise PreventUpdate
+    # Assert dataset info is valid - fail fast if not
+    assert dataset_info is not None, "Dataset info must not be None"
+    assert dataset_info != {}, "Dataset info must not be empty"
+    assert 'name' in dataset_info, f"Dataset info must have 'name' key, got keys: {list(dataset_info.keys())}"
+    assert 'type' in dataset_info, f"Dataset info must have 'type' key, got keys: {list(dataset_info.keys())}"
+    assert 'transforms' in dataset_info, f"Dataset info must have 'transforms' key, got keys: {list(dataset_info.keys())}"
 
     dataset_name: str = dataset_info['name']
+    dataset_type: str = dataset_info['type']
     logger.info(f"Navigating to index {datapoint_idx} in dataset: {dataset_name}")
 
     # For navigation updates, use all available transforms by default
-    transforms = dataset_info.get('transforms', [])
+    transforms = dataset_info['transforms']
     all_transform_indices = [transform['index'] for transform in transforms]
 
-    # Get datapoint from backend through registry
-    datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, all_transform_indices)
+    # Get datapoint from backend through registry using kwargs
+    datapoint = registry.viewer.backend.get_datapoint(
+        dataset_name=dataset_name,
+        index=datapoint_idx,
+        transform_indices=all_transform_indices
+    )
 
-    # Get dataset type and create display
-    dataset_type = dataset_info['type']  # Will raise KeyError if missing - that's a bug that should be caught
-    
     logger.info(f"Dataset type: {dataset_type}")
 
     # Extract 3D settings and class labels using centralized configuration
     settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
     class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
 
-    # Call the display function with appropriate parameters
-    logger.info(f"Creating {dataset_type} display for navigation")
-    display = create_display(dataset_type, datapoint, class_labels, camera_state, settings)
+    # Create display using kwargs to prevent parameter ordering issues
+    display = create_display(
+        dataset_type=dataset_type,
+        datapoint=datapoint,
+        class_labels=class_labels,
+        camera_state=camera_state,
+        settings=settings
+    )
 
     logger.info("Navigation display created successfully")
     return [display]
