@@ -146,6 +146,36 @@ flake8 .
 - **NEVER handle "impossible" cases** - bugs should fail loudly, not be masked  
 - **NEVER use try-catch to hide errors** - only use when you expect different behavior in different cases
 
+### **⚠️ CRITICAL LESSON: DEFENSIVE PROGRAMMING HIDES ROOT CAUSES**
+
+**When you encounter an error, your FIRST instinct should be to investigate WHY it's happening, not HOW to handle it.**
+
+**Real Example from this codebase:**
+- **Error**: `KeyError: 'name'` in callback receiving `dataset_info`
+- **Defensive approach**: ❌ Add `if 'name' not in dataset_info: return fallback`
+- **Root cause investigation**: ✅ Found callback parameter order was wrong - receiving camera state instead of dataset info
+- **Result**: Defensive programming would have masked a simple but critical bug
+
+**The defensive approach would have "fixed" the symptom while leaving the real bug (parameter ordering) undiscovered, making debugging exponentially harder.**
+
+### **🔍 DEBUGGING METHODOLOGY: ALWAYS INVESTIGATE ROOT CAUSES**
+
+**When you encounter ANY error, follow this process:**
+
+1. **STOP** - Don't immediately add error handling
+2. **INVESTIGATE** - Why is this error occurring? What assumptions are being violated?
+3. **TRACE** - Follow the data flow to understand the real problem
+4. **FIX THE CAUSE** - Address the root issue, not the symptom
+5. **VERIFY** - Ensure the fix addresses the fundamental problem
+
+**Example debugging questions to ask:**
+- "Why doesn't this dictionary have the expected key?"
+- "What is this variable actually containing?"
+- "Are the function parameters in the right order?"
+- "Is the data coming from the expected source?"
+
+**Never ask:** "How can I handle this error case?"
+
 **❌ WRONG - Defensive Programming:**
 ```python
 # DON'T check for "impossible" conditions
@@ -757,6 +787,45 @@ def _call_single_with_generator(self, *args, generator):
 **Key principles:**
 - Use assertions for input validation instead of try-except
 - Prefer explicit checks over catching exceptions
+
+### **🚨 CRITICAL: CALLBACK PARAMETER ORDERING**
+
+**Dash callbacks are extremely sensitive to parameter order - parameters must match input/state order exactly:**
+
+**❌ WRONG - Parameter order doesn't match decorator:**
+```python
+@callback(
+    inputs=[
+        Input('slider', 'value'),           # 1st input
+        Input('settings', 'data'),          # 2nd input  
+        Input('camera', 'data')             # 3rd input
+    ],
+    states=[
+        State('dataset-info', 'data'),      # 1st state
+        State('index', 'value')             # 2nd state
+    ]
+)
+def my_callback(
+    slider_val: int,                        # ✅ 1st input
+    settings: dict,                         # ✅ 2nd input
+    dataset_info: dict,                     # ❌ WRONG - should be 3rd input (camera)
+    index: int,                             # ❌ WRONG - should be 2nd state
+    camera: dict                            # ❌ WRONG - should be 1st state
+):
+```
+
+**✅ CORRECT - Parameter order matches decorator:**
+```python
+def my_callback(
+    slider_val: int,                        # 1st input
+    settings: dict,                         # 2nd input
+    camera: dict,                           # 3rd input
+    dataset_info: dict,                     # 1st state
+    index: int                              # 2nd state
+):
+```
+
+**DEBUGGING TIP:** When callbacks receive unexpected data, always check parameter ordering first!
 
 ### 6.6. PyTorch Best Practices
 **Tensor creation and device placement:**
