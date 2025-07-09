@@ -33,38 +33,65 @@ class DiscreteLOD:
             'medium_far': 10.0
         }
         self._lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
+        self._original_point_clouds: Dict[str, Dict[str, torch.Tensor]] = {}
     
-    # Public API methods
-    def get_lod_levels(self, point_cloud: Dict[str, torch.Tensor]) -> Dict[int, int]:
-        """Get point counts for each LOD level.
+    # Public API
+    def subsample(
+        self,
+        point_cloud_id: str,
+        camera_state: Dict[str, Any],
+        point_cloud: Optional[Dict[str, torch.Tensor]] = None
+    ) -> Dict[str, torch.Tensor]:
+        """Subsample point cloud based on camera distance.
         
-        Returns:
-            Dictionary mapping level -> point count
-        """
-        total_points = point_cloud['pos'].shape[0]
-        levels = {}
-        
-        for level in range(self.num_levels + 1):
-            level_points = int(total_points * (self.reduction_factor ** level))
-            levels[level] = max(level_points, self.MIN_POINTS_PER_LEVEL)
+        Args:
+            point_cloud_id: Unique identifier for the point cloud
+            camera_state: Camera position and orientation information
+            point_cloud: Original point cloud data (required if not cached)
             
-        return levels
+        Returns:
+            Subsampled point cloud at appropriate LOD level
+        """
+        # Ensure we have the original point cloud
+        if point_cloud_id not in self._original_point_clouds:
+            if point_cloud is None:
+                raise ValueError(f"Point cloud {point_cloud_id} not found. Provide point_cloud parameter.")
+            self._original_point_clouds[point_cloud_id] = point_cloud
+        
+        # Compute LOD levels if not already done
+        if not self._has_precomputed_levels(point_cloud_id):
+            original_pc = self._original_point_clouds[point_cloud_id]
+            self._precompute_lod_levels(point_cloud_id, original_pc)
+        
+        # Determine target level based on camera distance
+        target_level = self._determine_target_level(point_cloud_id, camera_state)
+        
+        # Return precomputed subsampled point cloud
+        return self._lod_cache[point_cloud_id][target_level]
     
-    def has_levels(self, point_cloud_id: str) -> bool:
+    def clear_cache(self, point_cloud_id: Optional[str] = None) -> None:
+        """Clear cached LOD levels and original point clouds."""
+        if point_cloud_id is None:
+            self._lod_cache.clear()
+            self._original_point_clouds.clear()
+        elif point_cloud_id in self._lod_cache:
+            del self._lod_cache[point_cloud_id]
+            if point_cloud_id in self._original_point_clouds:
+                del self._original_point_clouds[point_cloud_id]
+    
+    # Private helper methods
+    def _has_precomputed_levels(self, point_cloud_id: str) -> bool:
         """Check if LOD levels have been pre-computed for this point cloud."""
         return point_cloud_id in self._lod_cache
     
-    def precompute_levels(
+    def _precompute_lod_levels(
         self, 
-        point_cloud: Dict[str, torch.Tensor], 
-        point_cloud_id: str
+        point_cloud_id: str,
+        point_cloud: Dict[str, torch.Tensor]
     ) -> None:
         """Pre-compute all LOD levels for a point cloud."""
         check_point_cloud(point_cloud)
         
-        if point_cloud_id in self._lod_cache:
-            return  # Already computed
-            
         levels = {}
         levels[0] = point_cloud  # Level 0 = original
         
@@ -79,33 +106,13 @@ class DiscreteLOD:
             
         self._lod_cache[point_cloud_id] = levels
     
-    def select_level(
+    def _determine_target_level(
         self,
         point_cloud_id: str,
         camera_state: Dict[str, Any]
-    ) -> Dict[str, torch.Tensor]:
-        """Select appropriate LOD level based on camera distance."""
-        if point_cloud_id not in self._lod_cache:
-            raise ValueError(f"Point cloud {point_cloud_id} not pre-computed. Call precompute_levels first.")
-            
-        levels = self._lod_cache[point_cloud_id]
-        return self._select_level_by_distance(levels, camera_state)
-    
-    def clear_cache(self, point_cloud_id: Optional[str] = None) -> None:
-        """Clear pre-computed LOD levels."""
-        if point_cloud_id is None:
-            self._lod_cache.clear()
-        elif point_cloud_id in self._lod_cache:
-            del self._lod_cache[point_cloud_id]
-    
-    # Private helper methods
-    def _select_level_by_distance(
-        self, 
-        levels: Dict[int, Dict[str, torch.Tensor]], 
-        camera_state: Dict[str, Any]
-    ) -> Dict[str, torch.Tensor]:
-        """Select level based on relative camera distance to point cloud diagonal."""
-        original_pc = levels[0]
+    ) -> int:
+        """Determine appropriate LOD level based on camera distance."""
+        original_pc = self._original_point_clouds[point_cloud_id]
         points = original_pc['pos']
         
         # Get camera position on same device as points
@@ -124,15 +131,13 @@ class DiscreteLOD:
         # Distance-based level selection using relative thresholds
         thresholds = self.distance_thresholds
         if relative_distance < thresholds['close']:
-            level = 0  # Close: use original
+            return 0  # Close: use original
         elif relative_distance < thresholds['medium_close']:
-            level = 1  # Medium close
+            return 1  # Medium close
         elif relative_distance < thresholds['medium_far']:
-            level = 2  # Medium far
+            return 2  # Medium far
         else:
-            level = min(3, self.num_levels)  # Far: aggressive reduction
-            
-        return levels[level]
+            return min(3, self.num_levels)  # Far: aggressive reduction
     
     def _downsample_point_cloud(
         self, 
