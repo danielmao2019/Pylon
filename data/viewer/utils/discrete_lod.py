@@ -68,16 +68,6 @@ class DiscreteLOD:
         # Return precomputed subsampled point cloud
         return self._lod_cache[point_cloud_id][target_level]
 
-    def clear_cache(self, point_cloud_id: Optional[str] = None) -> None:
-        """Clear cached LOD levels and original point clouds."""
-        if point_cloud_id is None:
-            self._lod_cache.clear()
-            self._original_point_clouds.clear()
-        elif point_cloud_id in self._lod_cache:
-            del self._lod_cache[point_cloud_id]
-            if point_cloud_id in self._original_point_clouds:
-                del self._original_point_clouds[point_cloud_id]
-
     def _precompute_lod_levels(
         self,
         point_cloud_id: str,
