@@ -36,12 +36,14 @@ def update_datapoint_from_transforms(
     Also handles 3D point cloud visualization settings.
     """
     logger.info(f"Transform selection callback triggered - Transform values: {transform_values}")
+    logger.info(f"Dataset info: {dataset_info}")
+    logger.info(f"Dataset info type: {type(dataset_info)}")
 
     if dataset_info is None or dataset_info == {}:
         logger.warning("No dataset info available")
         return [html.Div("No dataset loaded.")]
 
-    dataset_name: str = dataset_info.get('name', 'unknown')
+    dataset_name: str = dataset_info['name']
     logger.info(f"Updating datapoint for dataset: {dataset_name}")
 
     # Get list of selected transform indices
