@@ -269,12 +269,12 @@ def _create_statistics_section(src_stats_children: Any, tgt_stats_children: Any)
         html.Div([
             html.H4("Source Point Cloud Statistics:"),
             html.Div(src_stats_children)
-        ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top', 'margin-right': '2%'}),
+        ], style=DisplayStyles.GRID_ITEM_48_MARGIN),
         
         html.Div([
             html.H4("Target Point Cloud Statistics:"),
             html.Div(tgt_stats_children)
-        ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top'})
+        ], style=DisplayStyles.GRID_ITEM_48_NO_MARGIN)
     ], style={'margin-top': '20px'})
 
 
@@ -392,7 +392,7 @@ def display_pcr_datapoint_single(
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
-        html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'}),
+        html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
         _create_transform_info_section(transform_info),
         _create_statistics_section(src_stats_children, tgt_stats_children)
     ])
@@ -553,7 +553,7 @@ def display_pcr_datapoint_batched(
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization (Hierarchical)"),
-        html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'})
+        html.Div(grid_items, style=DisplayStyles.FLEX_WRAP)
     ])
 
 

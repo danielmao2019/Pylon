@@ -25,7 +25,7 @@ from data.viewer.utils.settings_config import ViewerSettings
     ],
     group="camera"
 )
-def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]], _: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]], current_camera_state: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs."""
     ctx = callback_context
     if not ctx.triggered:
