@@ -97,18 +97,16 @@ def update_view_controls(
 
 
 @callback(
-    outputs=[
-        Output('lod-info-display', 'children')
-    ],
+    outputs=[Output('lod-info-display', 'children')],
     inputs=[
         Input('lod-type-dropdown', 'value')
     ],
     group="3d_settings"
 )
-def update_lod_info_display(lod_type: str) -> str:
+def update_lod_info_display(lod_type: str) -> List[str]:
     """Update LOD information display based on selected LOD type."""
     if not lod_type:
-        return ""
+        return [""]
     
     lod_descriptions = {
         'continuous': 'Real-time adaptive sampling based on camera distance. Provides smooth performance scaling.',
@@ -116,4 +114,4 @@ def update_lod_info_display(lod_type: str) -> str:
         'none': 'No level of detail - shows all points. May impact performance with large datasets.'
     }
     
-    return lod_descriptions.get(lod_type, f"Unknown LOD type: {lod_type}")
+    return [lod_descriptions.get(lod_type, f"Unknown LOD type: {lod_type}")]

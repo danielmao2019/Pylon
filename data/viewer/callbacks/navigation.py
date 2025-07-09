@@ -66,51 +66,65 @@ def update_current_index(current_idx: int) -> List[str]:
     ],
     inputs=[
         Input('datapoint-index-slider', 'value'),
-        Input('3d-settings-store', 'data')
+        Input('3d-settings-store', 'data'),
+        Input('camera-state', 'data')
     ],
     states=[
-        State('dataset-info', 'data'),
-        State('camera-state', 'data')
+        State('dataset-info', 'data')
     ],
     group="navigation"
 )
 def update_datapoint_from_navigation(
     datapoint_idx: int,
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
-    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]],
-    camera_state: Dict
+    camera_state: Dict,
+    dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
 ) -> List[html.Div]:
     """
     Update the displayed datapoint when navigation index changes.
     """
     logger.info(f"Navigation callback triggered - Index: {datapoint_idx}")
 
+    # Handle case where no dataset is selected (normal UI state)
     if dataset_info is None or dataset_info == {}:
-        logger.warning("No dataset info available for navigation")
-        return [html.Div("No dataset loaded.")]
+        raise PreventUpdate
+    
+    # Assert dataset info structure is valid - fail fast if corrupted
+    assert dataset_info is not None, "Dataset info must not be None"
+    assert dataset_info != {}, "Dataset info must not be empty"
+    assert 'name' in dataset_info, f"Dataset info must have 'name' key, got keys: {list(dataset_info.keys())}"
+    assert 'type' in dataset_info, f"Dataset info must have 'type' key, got keys: {list(dataset_info.keys())}"
+    assert 'transforms' in dataset_info, f"Dataset info must have 'transforms' key, got keys: {list(dataset_info.keys())}"
 
-    dataset_name: str = dataset_info.get('name', 'unknown')
+    dataset_name: str = dataset_info['name']
+    dataset_type: str = dataset_info['type']
     logger.info(f"Navigating to index {datapoint_idx} in dataset: {dataset_name}")
 
     # For navigation updates, use all available transforms by default
-    transforms = dataset_info.get('transforms', [])
+    transforms = dataset_info['transforms']
     all_transform_indices = [transform['index'] for transform in transforms]
 
-    # Get datapoint from backend through registry
-    datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, all_transform_indices)
+    # Get datapoint from backend through registry using kwargs
+    datapoint = registry.viewer.backend.get_datapoint(
+        dataset_name=dataset_name,
+        index=datapoint_idx,
+        transform_indices=all_transform_indices
+    )
 
-    # Get dataset type and create display
-    dataset_type = dataset_info['type']  # Will raise KeyError if missing - that's a bug that should be caught
-    
     logger.info(f"Dataset type: {dataset_type}")
 
     # Extract 3D settings and class labels using centralized configuration
-    settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
+    settings_3d = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
     class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
 
-    # Call the display function with appropriate parameters
-    logger.info(f"Creating {dataset_type} display for navigation")
-    display = create_display(dataset_type, datapoint, class_labels, camera_state, settings)
+    # Create display using kwargs to prevent parameter ordering issues
+    display = create_display(
+        dataset_type=dataset_type,
+        datapoint=datapoint,
+        class_labels=class_labels,
+        camera_state=camera_state,
+        settings_3d=settings_3d,
+    )
 
     logger.info("Navigation display created successfully")
     return [display]

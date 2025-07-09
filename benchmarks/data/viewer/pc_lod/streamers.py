@@ -69,31 +69,44 @@ class SyntheticPointCloudStreamer(PointCloudStreamer):
         points[:, 2] = torch.randn(num_points) * spatial_size * 0.1 * density_factor
         return points
     
+    def _generate_point_count_with_variance(self, target_count: int, variance: float = 0.15) -> int:
+        """Generate point count with realistic variance within a group."""
+        min_points = int(target_count * (1 - variance))
+        max_points = int(target_count * (1 + variance))
+        return self.rng.randint(min_points, max_points + 1)
+
     def create_test_configurations(self) -> List[Dict[str, Any]]:
-        """Create various test configurations for synthetic point clouds."""
+        """Create various test configurations for synthetic point clouds with realistic variance."""
         configs = []
         
-        # Define point count groups (datasets) - focus on small to medium for better performance
+        # Define realistic point count groups with variance (±15%)
         point_count_groups = {
-            'small': [10000, 15000, 20000, 25000],
-            'medium': [30000, 40000, 50000],
-            'large': [75000, 100000]
+            '1e3': 1000,
+            '1e4': 10000,
+            '1e5': 100000,
+            '1e6': 1000000
         }
         
-        # Generate configurations for each point count group
+        # Generate multiple samples per group to simulate realistic variance
         shapes = ['sphere', 'cube', 'gaussian', 'plane']
+        samples_per_group = 5  # Generate 5 samples per (group, shape) combination
         
-        for group_name, point_counts in point_count_groups.items():
-            for num_points in point_counts:
-                for shape in shapes:
+        for group_name, target_count in point_count_groups.items():
+            for shape in shapes:
+                for sample_id in range(samples_per_group):
+                    # Generate actual point count with ±15% variance
+                    actual_count = self._generate_point_count_with_variance(target_count)
+                    
                     configs.append({
-                        'num_points': num_points,
+                        'num_points': actual_count,
                         'spatial_size': 10.0,
                         'shape': shape,
                         'density_factor': 1.0,
-                        'name': f'{group_name}_{num_points//1000}K_{shape}',
+                        'name': f'{group_name}_{shape}_{sample_id}',
                         'category': group_name,
-                        'dataset': group_name  # This is our "dataset" for synthetic data
+                        'dataset': group_name,  # This is our "dataset" for synthetic data
+                        'target_count': target_count,
+                        'sample_id': sample_id
                     })
         
         return configs
