@@ -3,7 +3,7 @@ from typing import Tuple, Dict, Optional, Any
 import random
 import numpy as np
 import torch
-from dash import dcc, html
+from dash import html
 import plotly.graph_objects as go
 from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
