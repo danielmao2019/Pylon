@@ -97,9 +97,7 @@ def update_view_controls(
 
 
 @callback(
-    outputs=[
-        Output('lod-info-display', 'children')
-    ],
+    outputs=Output('lod-info-display', 'children'),
     inputs=[
         Input('lod-type-dropdown', 'value')
     ],
