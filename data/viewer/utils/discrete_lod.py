@@ -1,5 +1,5 @@
 """Discrete Level of Detail system with pre-computed levels."""
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
 from utils.point_cloud_ops.random_select import RandomSelect
@@ -42,7 +42,7 @@ class DiscreteLOD:
         
         for level in range(self.num_levels + 1):
             level_points = int(total_points * (self.reduction_factor ** level))
-            levels[level] = max(level_points, 1000)  # Minimum points
+            levels[level] = max(level_points, 1000)  # Minimum 1000 points
             
         return levels
         
@@ -131,25 +131,6 @@ class DiscreteLOD:
         # Calculate sampling percentage and use RandomSelect
         percentage = target_points / current_count
         return RandomSelect(percentage)(point_cloud)
-        
-    def _fill_to_target(self, selected_indices: torch.Tensor, target_points: int, total_points: int) -> torch.Tensor:
-        """Fill selected indices to reach target count with random points."""
-        if len(selected_indices) >= target_points:
-            return selected_indices
-            
-        device = selected_indices.device
-        remaining = target_points - len(selected_indices)
-        all_indices = torch.arange(total_points, device=device)
-        available_mask = torch.ones(total_points, dtype=torch.bool, device=device)
-        available_mask[selected_indices] = False
-        available_indices = all_indices[available_mask]
-        
-        if len(available_indices) > 0:
-            additional_count = min(remaining, len(available_indices))
-            additional = available_indices[torch.randperm(len(available_indices))[:additional_count]]
-            selected_indices = torch.cat([selected_indices, additional])
-            
-        return selected_indices
         
     def clear_cache(self, point_cloud_id: Optional[str] = None):
         """Clear pre-computed LOD levels."""
