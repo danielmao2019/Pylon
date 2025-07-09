@@ -22,6 +22,27 @@ from data.viewer.utils.continuous_lod import ContinuousLOD
 from data.viewer.utils.discrete_lod import DiscreteLOD
 
 
+def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]:
+    """Build structured point cloud ID from datapoint context.
+    
+    Args:
+        datapoint: Contains meta_info with idx; dataset info from backend
+        component: Point cloud component (source, target, pc_1, pc_2, change_map, etc.)
+        
+    Returns:
+        Tuple of (dataset_name, datapoint_idx, component)
+    """
+    from data.viewer.backend import registry  # Import here to avoid circular imports
+    
+    meta_info = datapoint.get('meta_info', {})
+    datapoint_idx = meta_info.get('idx', 0)
+    
+    # Get dataset name from backend
+    dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
+    
+    return (dataset_name, datapoint_idx, component)
+
+
 def normalize_point_cloud_id(point_cloud_id: Union[str, Tuple[str, ...]]) -> str:
     """Normalize point cloud ID to string cache key.
     
