@@ -59,7 +59,7 @@ def display_3dcd_datapoint(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id=_build_point_cloud_id(datapoint, "pc_1"),
+            point_cloud_id=build_point_cloud_id(datapoint, "pc_1"),
         ),
         lambda: create_point_cloud_figure(
             points=points_2,
@@ -69,7 +69,7 @@ def display_3dcd_datapoint(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id=_build_point_cloud_id(datapoint, "pc_2"),
+            point_cloud_id=build_point_cloud_id(datapoint, "pc_2"),
         ),
         lambda: create_point_cloud_figure(
             points=points_2,  # Use points_2 for change map visualization
@@ -79,7 +79,7 @@ def display_3dcd_datapoint(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id=_build_point_cloud_id(datapoint, "change_map"),
+            point_cloud_id=build_point_cloud_id(datapoint, "change_map"),
         ),
     ]
 
