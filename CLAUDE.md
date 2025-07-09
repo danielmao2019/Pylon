@@ -221,6 +221,86 @@ except TypeError as e:
 
 **PHILOSOPHY: Code should enforce contracts through assertions and natural failures, not through defensive handling of invalid states.**
 
+### **🔑 CRITICAL: ALWAYS USE ASSERTIONS FOR INPUT VALIDATION**
+
+**Every function that receives parameters should validate critical assumptions using assertions:**
+
+**✅ MANDATORY Pattern for Input Validation:**
+```python
+def callback_function(
+    param1: Optional[Dict[str, Any]],
+    param2: str,
+    param3: int
+) -> List[Any]:
+    """Function that processes input parameters."""
+    # ALWAYS validate critical assumptions with assertions
+    assert param1 is not None, "param1 must not be None"
+    assert param1 != {}, "param1 must not be empty"
+    assert 'required_key' in param1, f"param1 must have 'required_key', got keys: {list(param1.keys())}"
+    assert isinstance(param2, str), f"param2 must be str, got {type(param2)}"
+    assert param3 >= 0, f"param3 must be non-negative, got {param3}"
+    
+    # Continue with function logic...
+```
+
+**Key assertion patterns to use:**
+- **None checks**: `assert param is not None, "param must not be None"`
+- **Empty checks**: `assert param != {}, "param must not be empty"`
+- **Key existence**: `assert 'key' in dict_param, f"dict_param must have 'key', got keys: {list(dict_param.keys())}"`
+- **Type validation**: `assert isinstance(param, expected_type), f"param must be {expected_type}, got {type(param)}"`
+- **Value ranges**: `assert param >= 0, f"param must be non-negative, got {param}"`
+- **Length validation**: `assert len(param) > 0, f"param must not be empty, got length {len(param)}"`
+
+**This pattern ensures:**
+- ✅ **Immediate failure** when assumptions are violated
+- ✅ **Clear error messages** indicating exactly what went wrong
+- ✅ **Root cause discovery** instead of symptom handling
+- ✅ **Consistent validation** across the entire codebase
+
+### **🔧 CRITICAL: ALWAYS USE KWARGS FOR FUNCTION CALLS**
+
+**To prevent parameter ordering mistakes, always use keyword arguments for function calls with multiple parameters:**
+
+**✅ MANDATORY Pattern for Function Calls:**
+```python
+# ALWAYS use kwargs for multi-parameter function calls
+result = some_function(
+    param1=value1,
+    param2=value2,
+    param3=value3
+)
+
+# Backend function calls
+datapoint = registry.viewer.backend.get_datapoint(
+    dataset_name=dataset_name,
+    index=datapoint_idx,
+    transform_indices=selected_indices
+)
+
+# Display function calls
+display = create_display(
+    dataset_type=dataset_type,
+    datapoint=datapoint,
+    class_labels=class_labels,
+    camera_state=camera_state,
+    settings=settings
+)
+```
+
+**❌ WRONG - Positional arguments are error-prone:**
+```python
+# DON'T use positional arguments - easy to get order wrong
+result = some_function(value1, value2, value3)
+datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
+display = create_display(dataset_type, datapoint, class_labels, camera_state, settings)
+```
+
+**This pattern prevents:**
+- ❌ **Parameter ordering bugs** (arguments passed in wrong order)
+- ❌ **Silent failures** when parameters are swapped
+- ❌ **Debugging difficulties** when function signatures change
+- ❌ **Maintenance overhead** when adding new parameters
+
 ### 3.2. Framework Design Philosophy
 Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research.
 The `models` module is mostly copied from official repos and is meant for integrating official model implementations into Pylon.
