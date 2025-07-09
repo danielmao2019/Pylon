@@ -22,6 +22,27 @@ from data.viewer.utils.continuous_lod import ContinuousLOD
 from data.viewer.utils.discrete_lod import DiscreteLOD
 
 
+def normalize_point_cloud_id(point_cloud_id: Union[str, Tuple[str, ...]]) -> str:
+    """Normalize point cloud ID to string cache key.
+    
+    Args:
+        point_cloud_id: Either string or tuple (dataset, datapoint_idx, component)
+        
+    Returns:
+        Normalized string cache key
+        
+    Examples:
+        "simple_id" -> "simple_id"
+        ("pcr/kitti", 42, "source") -> "pcr/kitti:42:source"
+        ("change_detection", 10, "union") -> "change_detection:10:union"
+    """
+    if isinstance(point_cloud_id, str):
+        return point_cloud_id
+    else:
+        # Convert tuple to colon-separated string
+        return ":".join(str(part) for part in point_cloud_id)
+
+
 def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
     """Convert a PyTorch tensor to a numpy array."""
     if isinstance(points, torch.Tensor):
@@ -122,7 +143,8 @@ def apply_lod_to_point_cloud(
     elif lod_type == "discrete":
         assert point_cloud_id is not None, "point_cloud_id is required for discrete LOD"
         lod = DiscreteLOD(**(lod_config or {}))
-        downsampled = lod.subsample(point_cloud_id, camera_state, pc_dict)
+        normalized_id = normalize_point_cloud_id(point_cloud_id)
+        downsampled = lod.subsample(normalized_id, camera_state, pc_dict)
     else:
         downsampled = pc_dict
         
