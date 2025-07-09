@@ -1,5 +1,5 @@
-"""UI components for displaying dataset items."""
-from typing import Dict, Optional, Any
+"""UI components for displaying 3D change detection dataset items."""
+from typing import Dict, Optional, Any, Tuple
 import torch
 from dash import dcc, html
 from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
@@ -9,6 +9,26 @@ from data.viewer.utils.display_utils import (
     create_standard_datapoint_layout,
     create_statistics_display
 )
+from data.viewer.backend import registry
+
+
+def _build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]:
+    """Build structured point cloud ID from datapoint context.
+    
+    Args:
+        datapoint: Contains meta_info with idx; dataset info from backend
+        component: Point cloud component (pc_1, pc_2, change_map, etc.)
+        
+    Returns:
+        Tuple of (dataset_name, datapoint_idx, component)
+    """
+    meta_info = datapoint.get('meta_info', {})
+    datapoint_idx = meta_info.get('idx', 0)
+    
+    # Get dataset name from backend
+    dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
+    
+    return (dataset_name, datapoint_idx, component)
 
 
 def display_3dcd_datapoint(
@@ -49,34 +69,38 @@ def display_3dcd_datapoint(
         get_point_cloud_stats(points_1, change_map, class_names=class_names)
     ]
 
-    # Prepare figure creation tasks
-    def create_figure_task(points, labels, title, pc_id):
-        return lambda: create_point_cloud_figure(
-            points=points,
-            labels=labels,
-            title=title,
+    # Prepare figure creation tasks with proper point cloud IDs
+    figure_tasks = [
+        lambda: create_point_cloud_figure(
+            points=points_1,
+            labels=None,
+            title="Point Cloud 1",
             point_size=point_size,
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id=pc_id,
-        )
-
-    # Prepare data for figures
-    points_list = [points_1, points_2]
-    labels_list = [None, None]
-    
-    # For change map visualization, use pc_1 with colors from change_map
-    if change_map is not None:
-        points_list.append(points_2)
-        labels_list.append(change_map.float())  # Convert to float for proper coloring
-
-    titles = ["Point Cloud 1", "Point Cloud 2", "Change Map"]
-
-    # Create figure tasks
-    figure_tasks = [
-        create_figure_task(points, labels, title, f"3dcd_{idx}")
-        for idx, (points, labels, title) in enumerate(zip(points_list, labels_list, titles))
+            point_cloud_id=_build_point_cloud_id(datapoint, "pc_1"),
+        ),
+        lambda: create_point_cloud_figure(
+            points=points_2,
+            labels=None,
+            title="Point Cloud 2",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id=_build_point_cloud_id(datapoint, "pc_2"),
+        ),
+        lambda: create_point_cloud_figure(
+            points=points_2,  # Use points_2 for change map visualization
+            labels=change_map,  # Keep as int64 for proper label processing
+            title="Change Map",
+            point_size=point_size,
+            point_opacity=point_opacity,
+            camera_state=camera_state,
+            lod_type=lod_type,
+            point_cloud_id=_build_point_cloud_id(datapoint, "change_map"),
+        ),
     ]
 
     # Create figures in parallel
@@ -99,38 +123,22 @@ def display_3dcd_datapoint(
         ], style=DisplayStyles.GRID_ITEM_33),
     ]
 
-    # Create statistics components
-    # Convert HTML components to dictionary format for create_statistics_display
-    stats_dict_data = []
-    for stats in stats_data:
-        if hasattr(stats, 'children'):
-            # Convert HTML.Ul to dict format for consistency
-            stats_dict = {}
-            for child in stats.children:
-                if hasattr(child, 'children'):
-                    stats_dict[f"Stat {len(stats_dict)}"] = str(child.children)
-            stats_dict_data.append(stats_dict)
-        else:
-            stats_dict_data.append(stats)
-
-    titles = ["Point Cloud 1 Statistics", "Point Cloud 2 Statistics", "Change Statistics"]
-    
-    # Create custom statistics display since we have HTML components
+    # Create statistics components directly from HTML returned by get_point_cloud_stats
     stats_components = [
         html.Div([
             html.H4("Point Cloud 1 Statistics:"),
-            html.Div(stats_data[0])
-        ], style=DisplayStyles.STATS_CONTAINER),
+            stats_data[0]  # HTML component returned by get_point_cloud_stats
+        ], style=DisplayStyles.GRID_ITEM_33),
 
         html.Div([
             html.H4("Point Cloud 2 Statistics:"),
-            html.Div(stats_data[1])
-        ], style=DisplayStyles.STATS_CONTAINER),
+            stats_data[1]  # HTML component returned by get_point_cloud_stats
+        ], style=DisplayStyles.GRID_ITEM_33),
 
         html.Div([
             html.H4("Change Statistics:"),
-            html.Div(stats_data[2])
-        ], style=DisplayStyles.STATS_CONTAINER),
+            stats_data[2]  # HTML component returned by get_point_cloud_stats
+        ], style=DisplayStyles.GRID_ITEM_33),
     ]
 
     # Create complete layout
