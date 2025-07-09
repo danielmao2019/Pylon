@@ -146,6 +146,36 @@ flake8 .
 - **NEVER handle "impossible" cases** - bugs should fail loudly, not be masked  
 - **NEVER use try-catch to hide errors** - only use when you expect different behavior in different cases
 
+### **⚠️ CRITICAL LESSON: DEFENSIVE PROGRAMMING HIDES ROOT CAUSES**
+
+**When you encounter an error, your FIRST instinct should be to investigate WHY it's happening, not HOW to handle it.**
+
+**Real Example from this codebase:**
+- **Error**: `KeyError: 'name'` in callback receiving `dataset_info`
+- **Defensive approach**: ❌ Add `if 'name' not in dataset_info: return fallback`
+- **Root cause investigation**: ✅ Found callback parameter order was wrong - receiving camera state instead of dataset info
+- **Result**: Defensive programming would have masked a simple but critical bug
+
+**The defensive approach would have "fixed" the symptom while leaving the real bug (parameter ordering) undiscovered, making debugging exponentially harder.**
+
+### **🔍 DEBUGGING METHODOLOGY: ALWAYS INVESTIGATE ROOT CAUSES**
+
+**When you encounter ANY error, follow this process:**
+
+1. **STOP** - Don't immediately add error handling
+2. **INVESTIGATE** - Why is this error occurring? What assumptions are being violated?
+3. **TRACE** - Follow the data flow to understand the real problem
+4. **FIX THE CAUSE** - Address the root issue, not the symptom
+5. **VERIFY** - Ensure the fix addresses the fundamental problem
+
+**Example debugging questions to ask:**
+- "Why doesn't this dictionary have the expected key?"
+- "What is this variable actually containing?"
+- "Are the function parameters in the right order?"
+- "Is the data coming from the expected source?"
+
+**Never ask:** "How can I handle this error case?"
+
 **❌ WRONG - Defensive Programming:**
 ```python
 # DON'T check for "impossible" conditions
@@ -190,6 +220,86 @@ except TypeError as e:
 ```
 
 **PHILOSOPHY: Code should enforce contracts through assertions and natural failures, not through defensive handling of invalid states.**
+
+### **🔑 CRITICAL: ALWAYS USE ASSERTIONS FOR INPUT VALIDATION**
+
+**Every function that receives parameters should validate critical assumptions using assertions:**
+
+**✅ MANDATORY Pattern for Input Validation:**
+```python
+def callback_function(
+    param1: Optional[Dict[str, Any]],
+    param2: str,
+    param3: int
+) -> List[Any]:
+    """Function that processes input parameters."""
+    # ALWAYS validate critical assumptions with assertions
+    assert param1 is not None, "param1 must not be None"
+    assert param1 != {}, "param1 must not be empty"
+    assert 'required_key' in param1, f"param1 must have 'required_key', got keys: {list(param1.keys())}"
+    assert isinstance(param2, str), f"param2 must be str, got {type(param2)}"
+    assert param3 >= 0, f"param3 must be non-negative, got {param3}"
+    
+    # Continue with function logic...
+```
+
+**Key assertion patterns to use:**
+- **None checks**: `assert param is not None, "param must not be None"`
+- **Empty checks**: `assert param != {}, "param must not be empty"`
+- **Key existence**: `assert 'key' in dict_param, f"dict_param must have 'key', got keys: {list(dict_param.keys())}"`
+- **Type validation**: `assert isinstance(param, expected_type), f"param must be {expected_type}, got {type(param)}"`
+- **Value ranges**: `assert param >= 0, f"param must be non-negative, got {param}"`
+- **Length validation**: `assert len(param) > 0, f"param must not be empty, got length {len(param)}"`
+
+**This pattern ensures:**
+- ✅ **Immediate failure** when assumptions are violated
+- ✅ **Clear error messages** indicating exactly what went wrong
+- ✅ **Root cause discovery** instead of symptom handling
+- ✅ **Consistent validation** across the entire codebase
+
+### **🔧 CRITICAL: ALWAYS USE KWARGS FOR FUNCTION CALLS**
+
+**To prevent parameter ordering mistakes, always use keyword arguments for function calls with multiple parameters:**
+
+**✅ MANDATORY Pattern for Function Calls:**
+```python
+# ALWAYS use kwargs for multi-parameter function calls
+result = some_function(
+    param1=value1,
+    param2=value2,
+    param3=value3
+)
+
+# Backend function calls
+datapoint = registry.viewer.backend.get_datapoint(
+    dataset_name=dataset_name,
+    index=datapoint_idx,
+    transform_indices=selected_indices
+)
+
+# Display function calls
+display = create_display(
+    dataset_type=dataset_type,
+    datapoint=datapoint,
+    class_labels=class_labels,
+    camera_state=camera_state,
+    settings=settings
+)
+```
+
+**❌ WRONG - Positional arguments are error-prone:**
+```python
+# DON'T use positional arguments - easy to get order wrong
+result = some_function(value1, value2, value3)
+datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
+display = create_display(dataset_type, datapoint, class_labels, camera_state, settings)
+```
+
+**This pattern prevents:**
+- ❌ **Parameter ordering bugs** (arguments passed in wrong order)
+- ❌ **Silent failures** when parameters are swapped
+- ❌ **Debugging difficulties** when function signatures change
+- ❌ **Maintenance overhead** when adding new parameters
 
 ### 3.2. Framework Design Philosophy
 Pylon follows several fundamental design patterns that enable extensible, reproducible, and high-performance computer vision research.
@@ -757,6 +867,45 @@ def _call_single_with_generator(self, *args, generator):
 **Key principles:**
 - Use assertions for input validation instead of try-except
 - Prefer explicit checks over catching exceptions
+
+### **🚨 CRITICAL: CALLBACK PARAMETER ORDERING**
+
+**Dash callbacks are extremely sensitive to parameter order - parameters must match input/state order exactly:**
+
+**❌ WRONG - Parameter order doesn't match decorator:**
+```python
+@callback(
+    inputs=[
+        Input('slider', 'value'),           # 1st input
+        Input('settings', 'data'),          # 2nd input  
+        Input('camera', 'data')             # 3rd input
+    ],
+    states=[
+        State('dataset-info', 'data'),      # 1st state
+        State('index', 'value')             # 2nd state
+    ]
+)
+def my_callback(
+    slider_val: int,                        # ✅ 1st input
+    settings: dict,                         # ✅ 2nd input
+    dataset_info: dict,                     # ❌ WRONG - should be 3rd input (camera)
+    index: int,                             # ❌ WRONG - should be 2nd state
+    camera: dict                            # ❌ WRONG - should be 1st state
+):
+```
+
+**✅ CORRECT - Parameter order matches decorator:**
+```python
+def my_callback(
+    slider_val: int,                        # 1st input
+    settings: dict,                         # 2nd input
+    camera: dict,                           # 3rd input
+    dataset_info: dict,                     # 1st state
+    index: int                              # 2nd state
+):
+```
+
+**DEBUGGING TIP:** When callbacks receive unexpected data, always check parameter ordering first!
 
 ### 6.6. PyTorch Best Practices
 **Tensor creation and device placement:**
