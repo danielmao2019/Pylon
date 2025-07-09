@@ -2,6 +2,7 @@
 from typing import Dict, Optional, Any
 import torch
 from utils.input_checks.point_cloud import check_point_cloud
+from utils.point_cloud_ops.random_select import RandomSelect
 from data.viewer.utils.lod_utils import get_camera_position
 
 
@@ -117,50 +118,19 @@ class DiscreteLOD:
         point_cloud: Dict[str, torch.Tensor], 
         target_points: int
     ) -> Dict[str, torch.Tensor]:
-        """Simple voxel grid downsampling for pre-computation."""
-        points = point_cloud['pos']
+        """Random downsampling for pre-computation using established point cloud operations.
         
-        # Calculate voxel size to achieve approximately target points
-        bbox_size = points.max(dim=0)[0] - points.min(dim=0)[0]
-        volume = torch.prod(bbox_size).item()
+        Uses RandomSelect for clean percentage-based sampling that ensures
+        discrete LOD levels have predictable point count reductions.
+        """
+        current_count = len(point_cloud['pos'])
         
-        if volume <= 0:
-            # Degenerate case - random sampling
-            indices = torch.randperm(points.shape[0])[:target_points]
-            return {key: tensor[indices] for key, tensor in point_cloud.items()}
-            
-        # Estimate voxel size
-        current_density = points.shape[0] / volume
-        target_density = target_points / volume
-        voxel_size = (current_density / target_density) ** (1/3) if target_density > 0 else 1.0
+        if target_points >= current_count:
+            return point_cloud
         
-        # Apply voxel grid
-        voxel_coords = ((points - points.min(dim=0)[0]) / voxel_size).long()
-        
-        # Find unique voxels and select first point from each
-        # Use large multipliers to avoid hash collisions
-        hash_multiplier_x = 1000000
-        hash_multiplier_y = 1000
-        voxel_hash = (
-            voxel_coords[:, 0] * hash_multiplier_x + 
-            voxel_coords[:, 1] * hash_multiplier_y + 
-            voxel_coords[:, 2]
-        )
-        
-        unique_voxels, unique_indices = torch.unique(voxel_hash, return_inverse=True)
-        
-        # Select one point per voxel
-        selected_indices = []
-        for i, voxel in enumerate(unique_voxels):
-            voxel_points = torch.nonzero(unique_indices == i, as_tuple=True)[0]
-            selected_indices.append(voxel_points[0].item())  # Take first point
-            
-        selected_indices = torch.tensor(selected_indices, device=points.device, dtype=torch.long)
-        
-        # Add random points if needed to reach target
-        selected_indices = self._fill_to_target(selected_indices, target_points, points.shape[0])
-                
-        return {key: tensor[selected_indices] for key, tensor in point_cloud.items()}
+        # Calculate sampling percentage and use RandomSelect
+        percentage = target_points / current_count
+        return RandomSelect(percentage)(point_cloud)
         
     def _fill_to_target(self, selected_indices: torch.Tensor, target_points: int, total_points: int) -> torch.Tensor:
         """Fill selected indices to reach target count with random points."""
