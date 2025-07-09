@@ -2,33 +2,13 @@
 from typing import Dict, Optional, Any, Tuple
 import torch
 from dash import dcc, html
-from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
+from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats, build_point_cloud_id
 from data.viewer.utils.display_utils import (
     DisplayStyles,
     ParallelFigureCreator,
     create_standard_datapoint_layout,
     create_statistics_display
 )
-from data.viewer.backend import registry
-
-
-def _build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]:
-    """Build structured point cloud ID from datapoint context.
-    
-    Args:
-        datapoint: Contains meta_info with idx; dataset info from backend
-        component: Point cloud component (pc_1, pc_2, change_map, etc.)
-        
-    Returns:
-        Tuple of (dataset_name, datapoint_idx, component)
-    """
-    meta_info = datapoint.get('meta_info', {})
-    datapoint_idx = meta_info.get('idx', 0)
-    
-    # Get dataset name from backend
-    dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
-    
-    return (dataset_name, datapoint_idx, component)
 
 
 def display_3dcd_datapoint(
