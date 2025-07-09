@@ -122,9 +122,7 @@ def apply_lod_to_point_cloud(
     elif lod_type == "discrete":
         assert point_cloud_id is not None, "point_cloud_id is required for discrete LOD"
         lod = DiscreteLOD(**(lod_config or {}))
-        if not lod.has_levels(point_cloud_id):
-            lod.precompute_levels(pc_dict, point_cloud_id)
-        downsampled = lod.select_level(point_cloud_id, camera_state)
+        downsampled = lod.subsample(point_cloud_id, camera_state, pc_dict)
     else:
         downsampled = pc_dict
         
