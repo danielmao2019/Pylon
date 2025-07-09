@@ -85,7 +85,11 @@ def update_datapoint_from_navigation(
     """
     logger.info(f"Navigation callback triggered - Index: {datapoint_idx}")
 
-    # Assert dataset info is valid - fail fast if not
+    # Handle case where no dataset is selected (normal UI state)
+    if dataset_info is None or dataset_info == {}:
+        raise PreventUpdate
+    
+    # Assert dataset info structure is valid - fail fast if corrupted
     assert dataset_info is not None, "Dataset info must not be None"
     assert dataset_info != {}, "Dataset info must not be empty"
     assert 'name' in dataset_info, f"Dataset info must have 'name' key, got keys: {list(dataset_info.keys())}"
@@ -110,7 +114,7 @@ def update_datapoint_from_navigation(
     logger.info(f"Dataset type: {dataset_type}")
 
     # Extract 3D settings and class labels using centralized configuration
-    settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
+    settings_3d = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
     class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
 
     # Create display using kwargs to prevent parameter ordering issues
@@ -119,7 +123,7 @@ def update_datapoint_from_navigation(
         datapoint=datapoint,
         class_labels=class_labels,
         camera_state=camera_state,
-        settings=settings
+        settings_3d=settings_3d,
     )
 
     logger.info("Navigation display created successfully")
