@@ -38,11 +38,14 @@ def update_datapoint_from_transforms(
     """
     logger.info(f"Transform selection callback triggered - Transform values: {transform_values}")
 
-    if dataset_info is None or dataset_info == {} or 'name' not in dataset_info:
-        logger.warning("No dataset info available")
-        raise PreventUpdate
+    # Assert dataset info is valid - fail fast if not
+    assert dataset_info is not None, "Dataset info must not be None"
+    assert dataset_info != {}, "Dataset info must not be empty"
+    assert 'name' in dataset_info, f"Dataset info must have 'name' key, got keys: {list(dataset_info.keys())}"
+    assert 'type' in dataset_info, f"Dataset info must have 'type' key, got keys: {list(dataset_info.keys())}"
 
     dataset_name: str = dataset_info['name']
+    dataset_type: str = dataset_info['type']
     logger.info(f"Updating datapoint for dataset: {dataset_name}")
 
     # Get list of selected transform indices
@@ -51,11 +54,12 @@ def update_datapoint_from_transforms(
         for idx in values  # values will be a list containing the index if checked, empty if not
     ]
 
-    # Get datapoint from backend through registry
-    datapoint = registry.viewer.backend.get_datapoint(dataset_name, datapoint_idx, selected_indices)
-
-    # Get dataset type and create display
-    dataset_type = dataset_info['type']  # Will raise KeyError if missing - that's a bug that should be caught
+    # Get datapoint from backend through registry using kwargs
+    datapoint = registry.viewer.backend.get_datapoint(
+        dataset_name=dataset_name,
+        index=datapoint_idx,
+        transform_indices=selected_indices
+    )
     
     logger.info(f"Dataset type: {dataset_type}")
 
@@ -63,9 +67,15 @@ def update_datapoint_from_transforms(
     settings = ViewerSettings.get_3d_settings_with_defaults(settings_3d)
     class_labels = dataset_info.get('class_labels') if dataset_type in ['semseg', '3dcd'] else None
 
-    # Call the display function with appropriate parameters
+    # Create display using kwargs to prevent parameter ordering issues
     logger.info(f"Creating {dataset_type} display with selected transforms")
-    display = create_display(dataset_type, datapoint, class_labels, camera_state, settings)
+    display = create_display(
+        dataset_type=dataset_type,
+        datapoint=datapoint,
+        class_labels=class_labels,
+        camera_state=camera_state,
+        settings=settings
+    )
 
     logger.info("Display created successfully with transform selection")
     return [display]
