@@ -67,8 +67,8 @@ def sync_dataset_to_backend(dataset_info: Optional[Dict[str, Union[str, int, boo
     This callback is purely for backend synchronization - it doesn't render UI.
     It listens to changes in dataset info and updates backend accordingly.
     """
-    if not dataset_info:
-        # Handle dataset deselection
+    if not dataset_info or 'name' not in dataset_info:
+        # Handle dataset deselection or empty dataset info
         logger.info("No dataset selected - clearing backend state")
         registry.viewer.backend.current_dataset = None
         return [{'synced': True, 'dataset': None}]

@@ -85,11 +85,11 @@ def update_datapoint_from_navigation(
     """
     logger.info(f"Navigation callback triggered - Index: {datapoint_idx}")
 
-    if dataset_info is None or dataset_info == {}:
+    if dataset_info is None or dataset_info == {} or 'name' not in dataset_info:
         logger.warning("No dataset info available for navigation")
         return [html.Div("No dataset loaded.")]
 
-    dataset_name: str = dataset_info.get('name', 'unknown')
+    dataset_name: str = dataset_info['name']
     logger.info(f"Navigating to index {datapoint_idx} in dataset: {dataset_name}")
 
     # For navigation updates, use all available transforms by default
