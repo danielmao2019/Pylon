@@ -35,7 +35,6 @@ class DiscreteLOD:
         self._lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
         self._original_point_clouds: Dict[str, Dict[str, torch.Tensor]] = {}
     
-    # Public API
     def subsample(
         self,
         point_cloud_id: str,
@@ -59,7 +58,7 @@ class DiscreteLOD:
             self._original_point_clouds[point_cloud_id] = point_cloud
         
         # Compute LOD levels if not already done
-        if not self._has_precomputed_levels(point_cloud_id):
+        if point_cloud_id not in self._lod_cache:
             original_pc = self._original_point_clouds[point_cloud_id]
             self._precompute_lod_levels(point_cloud_id, original_pc)
         
@@ -78,11 +77,6 @@ class DiscreteLOD:
             del self._lod_cache[point_cloud_id]
             if point_cloud_id in self._original_point_clouds:
                 del self._original_point_clouds[point_cloud_id]
-    
-    # Private helper methods
-    def _has_precomputed_levels(self, point_cloud_id: str) -> bool:
-        """Check if LOD levels have been pre-computed for this point cloud."""
-        return point_cloud_id in self._lod_cache
     
     def _precompute_lod_levels(
         self, 
