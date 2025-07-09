@@ -1,6 +1,7 @@
 """Transform selection callbacks for the viewer."""
 from typing import Dict, List, Optional, Union
 from dash import Input, Output, State, html, ALL
+from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.callbacks.display import create_display
 from data.viewer.utils.settings_config import ViewerSettings
@@ -37,7 +38,7 @@ def update_datapoint_from_transforms(
     """
     logger.info(f"Transform selection callback triggered - Transform values: {transform_values}")
 
-    if dataset_info is None or dataset_info == {}:
+    if dataset_info is None or dataset_info == {} or 'name' not in dataset_info:
         logger.warning("No dataset info available")
         raise PreventUpdate
 
