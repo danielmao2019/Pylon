@@ -67,24 +67,31 @@ def sync_dataset_to_backend(dataset_info: Optional[Dict[str, Union[str, int, boo
     This callback is purely for backend synchronization - it doesn't render UI.
     It listens to changes in dataset info and updates backend accordingly.
     """
-    if not dataset_info or 'name' not in dataset_info:
+    # Handle case where no dataset is selected (normal UI state)
+    if dataset_info is None or dataset_info == {}:
         # Handle dataset deselection or empty dataset info
         logger.info("No dataset selected - clearing backend state")
         registry.viewer.backend.current_dataset = None
         return [{'synced': True, 'dataset': None}]
     
-    logger.info(f"Syncing dataset to backend: {dataset_info.get('name', 'unknown')}")
+    # Assert dataset info structure is valid - fail fast if corrupted
+    assert dataset_info is not None, "Dataset info must not be None"
+    assert dataset_info != {}, "Dataset info must not be empty"
+    assert 'name' in dataset_info, f"Dataset info must have 'name' key, got keys: {list(dataset_info.keys())}"
+    
+    dataset_name: str = dataset_info['name']
+    logger.info(f"Syncing dataset to backend: {dataset_name}")
     
     # Update backend state with dataset info
     registry.viewer.backend.update_state(
-        current_dataset=dataset_info['name'],
+        current_dataset=dataset_name,
         current_index=0  # Reset to first datapoint when dataset changes
     )
     
     logger.info("Dataset info synced to backend successfully")
     
     # Return minimal sync signal (not used for UI)
-    return [{'synced': True, 'dataset': dataset_info.get('name')}]
+    return [{'synced': True, 'dataset': dataset_name}]
 
 
 @callback(
@@ -108,8 +115,14 @@ def sync_navigation_to_backend(
     This callback is purely for backend synchronization - it doesn't render UI.
     It listens to changes in the navigation index and updates backend accordingly.
     """
-    if datapoint_idx is None or not dataset_info:
+    # Handle case where no dataset is selected (normal UI state)
+    if datapoint_idx is None or dataset_info is None or dataset_info == {}:
         raise PreventUpdate
+    
+    # Assert dataset info structure is valid - fail fast if corrupted
+    assert dataset_info is not None, "Dataset info must not be None"
+    assert dataset_info != {}, "Dataset info must not be empty"
+    assert 'name' in dataset_info, f"Dataset info must have 'name' key, got keys: {list(dataset_info.keys())}"
     
     logger.info(f"Syncing navigation index to backend: {datapoint_idx}")
     
@@ -120,4 +133,3 @@ def sync_navigation_to_backend(
     
     # Return minimal sync signal (not used for UI)
     return [{'synced': True, 'index': datapoint_idx}]
-
