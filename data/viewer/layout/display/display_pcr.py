@@ -89,6 +89,7 @@ def create_symmetric_difference_visualization(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
+    point_cloud_id: Optional[Tuple[str, int, str]] = None,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -361,6 +362,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            point_cloud_id=_build_point_cloud_id(datapoint, "sym_diff"),
         ),
     ]
 
@@ -437,11 +439,12 @@ def _create_sym_diff_with_title(
     point_size: float,
     point_opacity: float,
     camera_state: Optional[Dict[str, Any]],
-    lod_type: str
+    lod_type: str,
+    point_cloud_id: Optional[Tuple[str, int, str]] = None,
 ) -> go.Figure:
     """Create symmetric difference visualization with custom title."""
     sym_diff_fig = create_symmetric_difference_visualization(
-        src_points, tgt_points, radius, point_size, point_opacity, camera_state, lod_type
+        src_points, tgt_points, radius, point_size, point_opacity, camera_state, lod_type, point_cloud_id
     )
     sym_diff_fig.update_layout(title=title)
     return sym_diff_fig
@@ -506,7 +509,7 @@ def display_pcr_datapoint_batched(
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_sym_diff_with_title(
                     src, tgt, f"Symmetric Difference (Level {lvl})", sym_diff_radius, 
-                    point_size, point_opacity, camera_state, lod_type
+                    point_size, point_opacity, camera_state, lod_type, _build_point_cloud_id(datapoint, f"sym_diff_batch_{lvl}")
                 ),
             ]
 
