@@ -17,8 +17,8 @@ class ContinuousLOD:
     def __init__(
         self,
         spatial_bins: int = 64,
-        near_distance: float = 5.0,
-        far_distance: float = 50.0,
+        near_distance_factor: float = 0.75,
+        far_distance_factor: float = 6.0,
         near_sampling_rate: float = 0.9,
         far_sampling_rate: float = 0.1,
         use_spatial_binning: bool = True
@@ -27,15 +27,15 @@ class ContinuousLOD:
         
         Args:
             spatial_bins: Number of spatial bins for coverage (default: 64)
-            near_distance: Distance considered "near" to camera (default: 5.0)
-            far_distance: Distance considered "far" from camera (default: 50.0)
+            near_distance_factor: Factor of diagonal size for "near" distance (default: 0.75)
+            far_distance_factor: Factor of diagonal size for "far" distance (default: 6.0)
             near_sampling_rate: Sampling rate for near bins (default: 0.9 = keep 90%)
             far_sampling_rate: Sampling rate for far bins (default: 0.1 = keep 10%)
             use_spatial_binning: Whether to use spatial binning (default: True)
         """
         self.spatial_bins = spatial_bins
-        self.near_distance = near_distance
-        self.far_distance = far_distance
+        self.near_distance_factor = near_distance_factor
+        self.far_distance_factor = far_distance_factor
         self.near_sampling_rate = near_sampling_rate
         self.far_sampling_rate = far_sampling_rate
         self.use_spatial_binning = use_spatial_binning
@@ -64,10 +64,15 @@ class ContinuousLOD:
         camera_pos = get_camera_position(camera_state, device=points.device, dtype=points.dtype)
         distances = torch.norm(points - camera_pos, dim=1)
         
+        # Calculate relative distance thresholds based on point cloud size
+        diagonal_size = self._calculate_diagonal_size(points)
+        near_distance = diagonal_size * self.near_distance_factor
+        far_distance = diagonal_size * self.far_distance_factor
+        
         if self.use_spatial_binning:
-            selected_indices = self._spatial_binning_pipeline(points, camera_state, distances)
+            selected_indices = self._spatial_binning_pipeline(points, camera_state, distances, near_distance, far_distance)
         else:
-            selected_indices = self._simple_distance_pipeline(distances)
+            selected_indices = self._simple_distance_pipeline(distances, near_distance, far_distance)
         
         return Select(selected_indices)(point_cloud)
     
@@ -79,7 +84,9 @@ class ContinuousLOD:
         self, 
         points: torch.Tensor, 
         camera_state: Dict[str, Any],
-        distances: torch.Tensor
+        distances: torch.Tensor,
+        near_distance: float,
+        far_distance: float
     ) -> torch.Tensor:
         """Complete spatial binning pipeline with distance-based sampling."""
         # Step 1: Transform to camera space and create spatial bins
@@ -87,24 +94,24 @@ class ContinuousLOD:
         bin_indices = self._coords_to_bin_indices(coords_cam)
         
         # Step 2: Apply per-bin distance-based sampling
-        return self._vectorized_bin_sampling(distances, bin_indices)
+        return self._vectorized_bin_sampling(distances, bin_indices, near_distance, far_distance)
     
-    def _simple_distance_pipeline(self, distances: torch.Tensor) -> torch.Tensor:
+    def _simple_distance_pipeline(self, distances: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
         """Simple distance-based sampling without spatial binning for maximum performance."""
-        return self._vectorized_distance_sampling(distances)
+        return self._vectorized_distance_sampling(distances, near_distance, far_distance)
     
     # =============================================================================
     # Core Sampling Operations
     # =============================================================================
     
-    def _vectorized_distance_sampling(self, distances: torch.Tensor) -> torch.Tensor:
+    def _vectorized_distance_sampling(self, distances: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
         """Apply vectorized distance-based sampling to all points."""
-        sampling_rates = self._calculate_sampling_rates(distances)
+        sampling_rates = self._calculate_sampling_rates(distances, near_distance, far_distance)
         random_values = torch.rand(len(distances), device=distances.device)
         selected_mask = random_values < sampling_rates
         return torch.nonzero(selected_mask, as_tuple=True)[0]
     
-    def _vectorized_bin_sampling(self, distances: torch.Tensor, bin_indices: torch.Tensor) -> torch.Tensor:
+    def _vectorized_bin_sampling(self, distances: torch.Tensor, bin_indices: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
         """Apply truly vectorized per-bin distance-based sampling."""
         device = distances.device
         
@@ -123,7 +130,7 @@ class ContinuousLOD:
         bin_avg_distances = bin_distance_sums / torch.clamp(bin_counts, min=1)
         
         # Reuse existing sampling rate calculation method
-        bin_sampling_rates = self._calculate_sampling_rates(bin_avg_distances)
+        bin_sampling_rates = self._calculate_sampling_rates(bin_avg_distances, near_distance, far_distance)
         
         # Map sampling rates back to points
         point_sampling_rates = bin_sampling_rates[inverse_indices]
@@ -134,11 +141,35 @@ class ContinuousLOD:
         
         return torch.nonzero(selected_mask, as_tuple=True)[0]
     
-    def _calculate_sampling_rates(self, distances: torch.Tensor) -> torch.Tensor:
+    def _calculate_sampling_rates(self, distances: torch.Tensor, near_distance: float, far_distance: float) -> torch.Tensor:
         """Calculate sampling rates for distances using linear interpolation."""
-        clamped_distances = torch.clamp(distances, self.near_distance, self.far_distance)
-        t = (clamped_distances - self.near_distance) / (self.far_distance - self.near_distance)
+        clamped_distances = torch.clamp(distances, near_distance, far_distance)
+        t = (clamped_distances - near_distance) / (far_distance - near_distance)
         return self.near_sampling_rate + t * (self.far_sampling_rate - self.near_sampling_rate)
+    
+    # =============================================================================
+    # Utility Methods
+    # =============================================================================
+    
+    def _calculate_diagonal_size(self, points: torch.Tensor) -> float:
+        """Calculate the diagonal size of the point cloud bounding box.
+        
+        Args:
+            points: Point cloud positions (N, 3)
+            
+        Returns:
+            Diagonal size of the bounding box
+        """
+        if len(points) == 0:
+            return 1.0  # Default size for empty point clouds
+            
+        pc_min = points.min(dim=0)[0]
+        pc_max = points.max(dim=0)[0]
+        extents = pc_max - pc_min
+        diagonal_size = torch.norm(extents).item()
+        
+        # Ensure minimum size to avoid division by zero
+        return max(diagonal_size, 1e-6)
     
     # =============================================================================
     # Spatial Binning Utilities
