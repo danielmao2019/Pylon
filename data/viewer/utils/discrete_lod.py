@@ -6,6 +6,11 @@ from utils.point_cloud_ops.random_select import RandomSelect
 from data.viewer.utils.lod_utils import get_camera_position
 
 
+# Global cache that persists across function calls
+_global_lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
+_global_original_cache: Dict[str, Dict[str, torch.Tensor]] = {}
+
+
 class DiscreteLOD:
     """Discrete Level of Detail with pre-computed downsampling levels."""
 
@@ -32,8 +37,6 @@ class DiscreteLOD:
             'medium_close': 1.5,
             'medium_far': 3.0
         }
-        self._lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
-        self._original_point_clouds: Dict[str, Dict[str, torch.Tensor]] = {}
 
     def subsample(
         self,
@@ -52,21 +55,21 @@ class DiscreteLOD:
             Subsampled point cloud at appropriate LOD level
         """
         # Ensure we have the original point cloud
-        if point_cloud_id not in self._original_point_clouds:
+        if point_cloud_id not in _global_original_cache:
             if point_cloud is None:
                 raise ValueError(f"Point cloud {point_cloud_id} not found. Provide point_cloud parameter.")
-            self._original_point_clouds[point_cloud_id] = point_cloud
+            _global_original_cache[point_cloud_id] = point_cloud
 
         # Compute LOD levels if not already done
-        if point_cloud_id not in self._lod_cache:
-            original_pc = self._original_point_clouds[point_cloud_id]
+        if point_cloud_id not in _global_lod_cache:
+            original_pc = _global_original_cache[point_cloud_id]
             self._precompute_lod_levels(point_cloud_id, original_pc)
 
         # Determine target level based on camera distance
         target_level = self._determine_target_level(point_cloud_id, camera_state)
 
         # Return precomputed subsampled point cloud
-        return self._lod_cache[point_cloud_id][target_level]
+        return _global_lod_cache[point_cloud_id][target_level]
 
     def _precompute_lod_levels(
         self,
@@ -88,7 +91,7 @@ class DiscreteLOD:
             levels[level] = downsampled_pc
             current_pc = downsampled_pc
 
-        self._lod_cache[point_cloud_id] = levels
+        _global_lod_cache[point_cloud_id] = levels
 
     def _downsample_point_cloud(
         self,
@@ -115,7 +118,7 @@ class DiscreteLOD:
         camera_state: Dict[str, Any]
     ) -> int:
         """Determine appropriate LOD level based on camera distance."""
-        original_pc = self._original_point_clouds[point_cloud_id]
+        original_pc = _global_original_cache[point_cloud_id]
         points = original_pc['pos']
 
         # Get camera position on same device as points
