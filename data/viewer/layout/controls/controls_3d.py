@@ -86,4 +86,18 @@ def create_3d_controls(visible=False, **kwargs):
                 step=0.01
             ),
         ], id='pcr-controls', style={'display': 'none'}),  # Hidden by default, shown only for PCR datasets
+
+        # Density controls (only visible when lod_type == 'none')
+        html.Div([
+            html.Label("Density", style={'margin-top': '20px'}),
+            dcc.Slider(
+                id='density-slider',
+                min=10,
+                max=100,
+                value=settings['density_percentage'],
+                marks={i: f"{i}%" for i in range(10, 101, 10)},
+                step=10,
+                tooltip={"placement": "bottom", "always_visible": True}
+            ),
+        ], id='density-controls', style={'display': 'none'}),  # Hidden by default, shown only when LOD type is 'none'
     ], id='view-controls', style=style)
