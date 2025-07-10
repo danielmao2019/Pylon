@@ -13,7 +13,6 @@ data_cfg = {
             'split': 'test',
             'matching_radius': 0.1,
             'overlap_threshold': 0.3,
-            'device': 'cpu',
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {

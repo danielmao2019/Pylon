@@ -16,18 +16,18 @@ data_cfg = {
                     'transforms': [
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomSelect,
+                                'class': utils.point_cloud_ops.random_select.RandomSelect,
                                 'args': {
-                                    'percentage': 0.7,
+                                    'count': 5000,
                                 },
                             },
                             [('inputs', 'src_pc')],
                         ),
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomSelect,
+                                'class': utils.point_cloud_ops.random_select.RandomSelect,
                                 'args': {
-                                    'percentage': 0.7,
+                                    'count': 5000,
                                 },
                             },
                             [('inputs', 'tgt_pc')],
