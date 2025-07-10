@@ -146,13 +146,15 @@ class ViewerBackend:
         dataset = self._datasets[dataset_name]
         dataset_type = self.get_dataset_type(dataset_name)
 
-        # Extract transforms from dataset config
-        transforms_cfg = getattr(dataset.transforms, '__dict__', {})
+        # Extract and register transforms for viewer, then clear them from dataset
         if hasattr(dataset.transforms, 'transforms'):
-            # Register transforms
+            # Register transforms for viewer control
             self._clear_transforms()
             for transform in dataset.transforms.transforms:
                 self._register_transform(transform)
+            
+            # Clear transforms from dataset - viewer will handle all transform application
+            dataset.transforms = Compose(transforms=[])
 
         # Get dataset info
         self.current_dataset = dataset_name
@@ -181,33 +183,33 @@ class ViewerBackend:
 
         raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
 
-    def get_datapoint(self, dataset_name: str, index: int, transform_indices: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:
-        """Get a datapoint with optional transforms applied.
+    def get_datapoint(self, dataset_name: str, index: int, transform_indices: List[int]) -> Dict[str, Dict[str, Any]]:
+        """Get a datapoint with transforms applied.
 
         Args:
             dataset_name: Name of the dataset
             index: Index of the datapoint
-            transform_indices: Optional list of transform indices to apply
+            transform_indices: List of transform indices to apply (empty list means no transforms)
 
         Returns:
             Datapoint dictionary with 'inputs', 'labels', and 'meta_info'
         """
+        # Input validation
+        assert isinstance(dataset_name, str), f"dataset_name must be str, got {type(dataset_name)}"
+        assert isinstance(index, int), f"index must be int, got {type(index)}"
+        assert isinstance(transform_indices, list), f"transform_indices must be list, got {type(transform_indices)}"
+        assert all(isinstance(idx, int) for idx in transform_indices), f"All transform indices must be int, got {transform_indices}"
+        
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
 
         dataset = self._datasets[dataset_name]
 
-        # Get raw datapoint
-        inputs, labels, meta_info = dataset._load_datapoint(index)
-        datapoint = {
-            'inputs': inputs,
-            'labels': labels,
-            'meta_info': meta_info
-        }
+        # Get datapoint with device transfer (no transforms applied - cleared during initialization)
+        datapoint = dataset[index]
 
-        # Apply transforms if specified
-        if transform_indices:
-            datapoint = self._apply_transforms(datapoint, transform_indices, index)
+        # Apply transforms (always call _apply_transforms, it handles empty list correctly)
+        datapoint = self._apply_transforms(datapoint, transform_indices, index)
 
         return datapoint
 
@@ -276,8 +278,7 @@ class ViewerBackend:
         """
         # Select the transforms in the order specified by indices
         selected_transforms = [self._transforms[idx] for idx in transform_indices]
-        compose = Compose(transforms=[])  # Create empty compose
-        compose.transforms = selected_transforms  # Directly assign normalized transforms
+        compose = Compose(transforms=selected_transforms)
         # Apply transforms with deterministic seed using datapoint index
         return compose(datapoint, seed=(0, datapoint_index))
 
