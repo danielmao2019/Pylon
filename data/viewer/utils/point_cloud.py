@@ -130,8 +130,8 @@ def apply_lod_to_point_cloud(
         camera_state: Camera viewing state dictionary
         lod_type: Type of LOD ("continuous", "discrete", or "none")
         lod_config: Optional LOD configuration parameters
-        point_cloud_id: Unique identifier for discrete LOD caching
         density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+        point_cloud_id: Unique identifier for discrete LOD caching
         
     Returns:
         Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
