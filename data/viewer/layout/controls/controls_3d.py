@@ -95,7 +95,7 @@ def create_3d_controls(visible=False, **kwargs):
                 min=1,
                 max=100,
                 value=settings['density_percentage'],
-                marks={i: f"{i}%" for i in [1, 25, 50, 75, 100]},
+                marks={i: f"{i}%" for i in range(10, 101, 10)},
                 step=1,
                 tooltip={"placement": "bottom", "always_visible": True}
             ),
