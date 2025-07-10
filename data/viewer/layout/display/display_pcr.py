@@ -146,6 +146,9 @@ def create_correspondence_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
+    lod_type: str = "continuous",
+    density_percentage: int = 100,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a visualization of correspondences between transformed source and target point clouds.
 
@@ -156,6 +159,9 @@ def create_correspondence_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+        point_cloud_id: Unique identifier for LOD caching
 
     Returns:
         Plotly figure showing the correspondence visualization
@@ -176,7 +182,10 @@ def create_correspondence_visualization(
         title="Point Cloud Correspondences",
         point_size=point_size,
         point_opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        lod_type=lod_type,
+        density_percentage=density_percentage,
+        point_cloud_id=point_cloud_id,
     )
 
     # Add target points
@@ -323,6 +332,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=build_point_cloud_id(datapoint, "source"),
         ),
         lambda: create_point_cloud_figure(
@@ -333,6 +343,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=build_point_cloud_id(datapoint, "target"),
         ),
         lambda: create_union_visualization(
@@ -488,6 +499,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
                 ),
                 lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
@@ -497,6 +509,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
