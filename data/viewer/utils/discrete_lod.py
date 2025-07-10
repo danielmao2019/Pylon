@@ -131,6 +131,7 @@ class DiscreteLOD:
         """Determine appropriate LOD level based on camera distance."""
         original_pc = _global_original_cache[point_cloud_id]
         points = original_pc['pos']
+        assert points.device.type == 'cuda', f"{points.device=}"
 
         # Get camera position on same device as points
         camera_pos = get_camera_position(camera_state, device=points.device, dtype=points.dtype)
