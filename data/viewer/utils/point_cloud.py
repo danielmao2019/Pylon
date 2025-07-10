@@ -166,7 +166,13 @@ def apply_lod_to_point_cloud(
         pc_dict['labels'] = labels
     
     # Apply processing based on type
-    if lod_type == "none" and density_percentage is not None and density_percentage < 100:
+    if lod_type == "none":
+        # Validate density_percentage with assertions
+        assert density_percentage is not None, "density_percentage is required when lod_type is 'none'"
+        assert isinstance(density_percentage, int), f"density_percentage must be int, got {type(density_percentage)}"
+        assert 1 <= density_percentage <= 100, f"density_percentage must be 1-100, got {density_percentage}"
+        assert density_percentage < 100, f"density_percentage < 100 should be handled by early return, got {density_percentage}"
+        
         # Density-based subsampling
         assert point_cloud_id is not None, "point_cloud_id is required for density-based subsampling"
         from data.viewer.utils.density_lod import DensityLOD
