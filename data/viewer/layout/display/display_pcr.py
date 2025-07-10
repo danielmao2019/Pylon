@@ -1,5 +1,5 @@
 """UI components for displaying point cloud registration dataset items."""
-from typing import Tuple, Dict, Optional, Any
+from typing import Tuple, Dict, Optional, Any, Union
 import random
 import numpy as np
 import torch
@@ -20,7 +20,7 @@ def create_union_visualization(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
-    point_cloud_id: Optional[Tuple[str, int, str]] = None,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -69,7 +69,7 @@ def create_symmetric_difference_visualization(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
-    point_cloud_id: Optional[Tuple[str, int, str]] = None,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -420,7 +420,7 @@ def _create_sym_diff_with_title(
     point_opacity: float,
     camera_state: Optional[Dict[str, Any]],
     lod_type: str,
-    point_cloud_id: Optional[Tuple[str, int, str]] = None,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create symmetric difference visualization with custom title."""
     sym_diff_fig = create_symmetric_difference_visualization(

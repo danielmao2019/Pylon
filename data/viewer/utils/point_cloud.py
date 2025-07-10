@@ -187,7 +187,7 @@ def create_point_cloud_figure(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: Optional[str] = "continuous",
     lod_config: Optional[Dict[str, Any]] = None,
-    point_cloud_id: Optional[str] = None,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure with optional LOD.
 
