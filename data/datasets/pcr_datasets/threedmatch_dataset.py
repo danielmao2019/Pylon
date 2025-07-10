@@ -1,134 +1,186 @@
+from typing import Any, Dict, List, Tuple, Optional
 import os
+import pickle
 import numpy as np
 import torch
-from torch.utils.data import Dataset
-import open3d as o3d
+from data.datasets.base_dataset import BaseDataset
+from utils.point_cloud_ops.correspondences import get_correspondences
 
 
-class ThreeDMatchDataset(Dataset):
+class ThreeDMatchDataset(BaseDataset):
     """3DMatch dataset for point cloud registration.
     
     This dataset contains RGB-D scans of real-world indoor scenes from the 3DMatch benchmark.
     It is commonly used for evaluating point cloud registration algorithms.
+    
+    Paper:
+        3DMatch: Learning Local Geometric Descriptors from RGB-D Reconstructions
+        https://arxiv.org/abs/1603.08182
     """
+    
+    SPLIT_OPTIONS = ['train', 'val', 'test']
+    DATASET_SIZE = None  # Will be set dynamically in _init_annotations
+    INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
+    LABEL_NAMES = ['transform']
+    SHA1SUM = None
     
     def __init__(
         self,
-        root_dir,
-        split='train',
-        num_points=5000,
-        use_mutuals=True,
-        augment=True,
-        rot_mag=45.0,
-        trans_mag=0.5,
-        noise_std=0.01,
-        overlap_threshold=0.3
-    ):
+        num_points: int = 5000,
+        matching_radius: float = 0.1,
+        overlap_threshold: float = 0.3,
+        benchmark_mode: str = '3DMatch',  # '3DMatch' or '3DLoMatch'
+        **kwargs,
+    ) -> None:
         """Initialize the dataset.
         
         Args:
-            root_dir (str): Path to dataset root directory
-            split (str): Dataset split ('train', 'val', 'test')
-            num_points (int): Number of points to sample from each point cloud
-            use_mutuals (bool): Whether to use mutual nearest neighbors for correspondences
-            augment (bool): Whether to apply data augmentation
-            rot_mag (float): Maximum rotation angle for augmentation (degrees)
-            trans_mag (float): Maximum translation magnitude for augmentation
-            noise_std (float): Standard deviation of Gaussian noise for augmentation
-            overlap_threshold (float): Minimum overlap ratio between point cloud pairs
+            num_points: Number of points to sample from each point cloud (default: 5000)
+            matching_radius: Radius for finding correspondences (default: 0.1)
+            overlap_threshold: Minimum overlap ratio between point cloud pairs (default: 0.3)
+            benchmark_mode: Which benchmark to use ('3DMatch' or '3DLoMatch') (default: '3DMatch')
+            **kwargs: Additional arguments passed to BaseDataset
         """
-        self.root_dir = root_dir
-        self.split = split
+        assert benchmark_mode in ['3DMatch', '3DLoMatch'], f"Invalid benchmark_mode: {benchmark_mode}"
+        
         self.num_points = num_points
-        self.use_mutuals = use_mutuals
-        self.augment = augment
-        self.rot_mag = rot_mag
-        self.trans_mag = trans_mag
-        self.noise_std = noise_std
+        self.matching_radius = matching_radius
         self.overlap_threshold = overlap_threshold
+        self.benchmark_mode = benchmark_mode
+        
+        # Initialize base class
+        super(ThreeDMatchDataset, self).__init__(**kwargs)
+    
+    def _init_annotations(self) -> None:
+        """Initialize dataset annotations from metadata files."""
+        # Metadata paths
+        metadata_dir = os.path.join(self.data_root, 'metadata')
+        data_dir = os.path.join(self.data_root, 'data')
+        
+        # Load metadata based on split
+        if self.split in ['train', 'val']:
+            metadata_file = os.path.join(metadata_dir, f'{self.split}.pkl')
+        else:  # test split
+            metadata_file = os.path.join(metadata_dir, f'{self.benchmark_mode}.pkl')
         
         # Load metadata
-        self.metadata_dir = os.path.join(root_dir, 'metadata')
-        self.data_dir = os.path.join(root_dir, 'data')
+        with open(metadata_file, 'rb') as f:
+            metadata_list = pickle.load(f)
         
-        with open(os.path.join(self.metadata_dir, f'{split}.pkl'), 'rb') as f:
-            self.metadata_list = pickle.load(f)
-            if self.overlap_threshold is not None:
-                self.metadata_list = [x for x in self.metadata_list if x['overlap'] > self.overlap_threshold]
-                
-    def __len__(self):
-        return len(self.metadata_list)
+        # Filter by overlap threshold
+        if self.overlap_threshold is not None:
+            metadata_list = [x for x in metadata_list if x['overlap'] > self.overlap_threshold]
+        
+        # Convert metadata to annotations format
+        self.annotations = []
+        for item in metadata_list:
+            annotation = {
+                'src_path': os.path.join(data_dir, item['pcd0']),
+                'tgt_path': os.path.join(data_dir, item['pcd1']),
+                'rotation': item['rotation'],  # (3, 3) numpy array
+                'translation': item['translation'],  # (3,) numpy array
+                'overlap': item['overlap'],
+                'scene_name': item['scene_name'],
+                'frag_id0': item['frag_id0'],
+                'frag_id1': item['frag_id1'],
+            }
+            self.annotations.append(annotation)
+        
+        # Update dataset size
+        if not hasattr(self, 'DATASET_SIZE') or self.DATASET_SIZE is None:
+            self.DATASET_SIZE = {}
+        self.DATASET_SIZE[self.split] = len(self.annotations)
     
-    def _load_point_cloud(self, file_name):
-        """Load point cloud and sample points if needed."""
-        points = torch.load(os.path.join(self.data_dir, file_name))
+    def _load_point_cloud(self, file_path: str, generator: torch.Generator) -> torch.Tensor:
+        """Load point cloud and sample points if needed.
+        
+        Args:
+            file_path: Path to the point cloud file
+            generator: Random generator for deterministic sampling
+            
+        Returns:
+            Point cloud tensor of shape (N, 3)
+        """
+        # Load point cloud (stored as PyTorch tensor)
+        points = torch.load(file_path, map_location='cpu')
+        
+        # Ensure it's a tensor
+        if isinstance(points, np.ndarray):
+            points = torch.from_numpy(points).float()
+        
+        # Ensure it's float32
+        if points.dtype != torch.float32:
+            points = points.float()
+        
+        # Sample points if necessary
         if self.num_points is not None and points.shape[0] > self.num_points:
-            indices = np.random.permutation(points.shape[0])[:self.num_points]
+            # Use deterministic sampling with the provided generator
+            indices = torch.randperm(points.shape[0], generator=generator)[:self.num_points]
             points = points[indices]
+        
         return points
     
-    def _augment_point_cloud(self, ref_points, src_points, rotation, translation):
-        """Apply data augmentation to point clouds."""
-        # Random rotation
-        if self.augment:
-            aug_angle = np.random.uniform(-self.rot_mag, self.rot_mag)
-            aug_axis = np.random.randn(3)
-            aug_axis = aug_axis / np.linalg.norm(aug_axis)
-            aug_rotation = self._get_rotation_matrix(aug_axis, aug_angle)
+    def _load_datapoint(self, idx: int) -> Tuple[
+        Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any],
+    ]:
+        """Load a datapoint from the dataset.
+        
+        Args:
+            idx: Index of the datapoint
             
-            # Apply to either source or reference randomly
-            if np.random.random() > 0.5:
-                ref_points = np.matmul(ref_points, aug_rotation.T)
-                rotation = np.matmul(aug_rotation, rotation)
-                translation = np.matmul(aug_rotation, translation)
-            else:
-                src_points = np.matmul(src_points, aug_rotation.T)
-                rotation = np.matmul(rotation, aug_rotation.T)
-            
-            # Add random noise
-            ref_points += np.random.normal(0, self.noise_std, ref_points.shape)
-            src_points += np.random.normal(0, self.noise_std, src_points.shape)
-            
-        return ref_points, src_points, rotation, translation
-    
-    def _get_rotation_matrix(self, axis, angle):
-        """Get rotation matrix from axis and angle."""
-        angle = np.deg2rad(angle)
-        axis = axis / np.linalg.norm(axis)
-        K = np.array([[0, -axis[2], axis[1]],
-                     [axis[2], 0, -axis[0]],
-                     [-axis[1], axis[0], 0]])
-        rotation = np.eye(3) + np.sin(angle) * K + (1 - np.cos(angle)) * np.matmul(K, K)
-        return rotation
-    
-    def __getitem__(self, index):
-        """Get a pair of point clouds and their relative transformation."""
-        metadata = self.metadata_list[index]
+        Returns:
+            Tuple of (inputs, labels, meta_info)
+        """
+        # Get annotation
+        ann = self.annotations[idx]
+        
+        # Create generator for deterministic randomness
+        generator = torch.Generator()
+        generator.manual_seed((self.base_seed or 0) + idx)
         
         # Load point clouds
-        ref_points = self._load_point_cloud(metadata['pcd0'])
-        src_points = self._load_point_cloud(metadata['pcd1'])
+        src_points = self._load_point_cloud(ann['src_path'], generator)
+        tgt_points = self._load_point_cloud(ann['tgt_path'], generator)
         
-        # Get ground truth transformation
-        rotation = metadata['rotation']
-        translation = metadata['translation']
+        # Create transformation matrix (4x4)
+        transform = torch.eye(4, dtype=torch.float32)
+        transform[:3, :3] = torch.from_numpy(ann['rotation']).float()
+        transform[:3, 3] = torch.from_numpy(ann['translation']).float()
         
-        # Apply augmentation
-        if self.augment:
-            ref_points, src_points, rotation, translation = self._augment_point_cloud(
-                ref_points, src_points, rotation, translation
-            )
+        # Find correspondences between source and target
+        correspondences = get_correspondences(
+            src_points=src_points,
+            tgt_points=tgt_points,
+            transform=transform,
+            radius=self.matching_radius,
+        )
         
-        # Prepare output dictionary
-        data_dict = {
-            'ref_points': ref_points.astype(np.float32),
-            'src_points': src_points.astype(np.float32),
-            'rotation': rotation.astype(np.float32),
-            'translation': translation.astype(np.float32),
-            'scene_name': metadata['scene_name'],
-            'ref_frame': metadata['frag_id0'],
-            'src_frame': metadata['frag_id1'],
-            'overlap': metadata['overlap']
+        # Prepare inputs
+        inputs = {
+            'src_pc': {
+                'pos': src_points,
+                'feat': torch.ones((src_points.shape[0], 1), dtype=torch.float32),
+            },
+            'tgt_pc': {
+                'pos': tgt_points,
+                'feat': torch.ones((tgt_points.shape[0], 1), dtype=torch.float32),
+            },
+            'correspondences': correspondences,
         }
         
-        return data_dict 
+        # Prepare labels
+        labels = {
+            'transform': transform,
+        }
+        
+        # Prepare meta info
+        meta_info = {
+            'src_path': ann['src_path'],
+            'tgt_path': ann['tgt_path'],
+            'scene_name': ann['scene_name'],
+            'overlap': ann['overlap'],
+            'src_frame': ann['frag_id0'],
+            'tgt_frame': ann['frag_id1'],
+        }
+        
+        return inputs, labels, meta_info
