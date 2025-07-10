@@ -9,8 +9,8 @@ from utils.point_cloud_ops.correspondences import get_correspondences
 from utils.io.point_cloud import load_point_cloud
 
 
-class ThreeDMatchDataset(BaseDataset):
-    """3DMatch dataset for point cloud registration.
+class ThreeDMatchBaseDataset(BaseDataset):
+    """Base dataset for 3DMatch family of datasets for point cloud registration.
     
     This dataset contains RGB-D scans of real-world indoor scenes from the 3DMatch benchmark.
     It is commonly used for evaluating point cloud registration algorithms.
@@ -24,30 +24,28 @@ class ThreeDMatchDataset(BaseDataset):
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
-    DATASET_SIZE = {
-        'train': 9284,   # 3DMatch train (overlap ≥ 0.3)
-        'val': 678,      # 3DMatch val (overlap ≥ 0.3)  
-        'test': 794,     # 3DMatch test (overlap ≥ 0.3)
-    }
     
     def __init__(
         self,
         matching_radius: float = 0.1,
-        overlap_threshold: float = 0.3,
+        overlap_min: float = 0.0,
+        overlap_max: float = 1.0,
         **kwargs,
     ) -> None:
-        """Initialize the dataset.
+        """Initialize the base dataset.
         
         Args:
             matching_radius: Radius for finding correspondences (default: 0.1)
-            overlap_threshold: Minimum overlap ratio between point cloud pairs (default: 0.3, 3DMatch standard)
+            overlap_min: Minimum overlap ratio between point cloud pairs (default: 0.0)
+            overlap_max: Maximum overlap ratio between point cloud pairs (default: 1.0)
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.matching_radius = matching_radius
-        self.overlap_threshold = overlap_threshold
+        self.overlap_min = overlap_min
+        self.overlap_max = overlap_max
         
         # Initialize base class
-        super(ThreeDMatchDataset, self).__init__(**kwargs)
+        super(ThreeDMatchBaseDataset, self).__init__(**kwargs)
     
     def _init_annotations(self) -> None:
         """Initialize dataset annotations from metadata files."""
@@ -82,7 +80,7 @@ class ThreeDMatchDataset(BaseDataset):
         data_dir = os.path.join(self.data_root, 'data')
         for i in range(num_pairs):
             overlap = metadata_dict['overlap'][i]
-            if self.overlap_threshold is None or overlap > self.overlap_threshold:
+            if self.overlap_min < overlap <= self.overlap_max:
                 # Extract scene names and ensure they match
                 src_scene = metadata_dict['src'][i].split('/')[0]
                 tgt_scene = metadata_dict['tgt'][i].split('/')[0]
@@ -221,3 +219,54 @@ class ThreeDMatchDataset(BaseDataset):
             pass
         
         return correspondences
+
+
+class ThreeDMatchDataset(ThreeDMatchBaseDataset):
+    """3DMatch dataset for point cloud registration.
+    
+    Official 3DMatch dataset considers only scan pairs with >30% overlap.
+    
+    Paper:
+        3DMatch: Learning Local Geometric Descriptors from RGB-D Reconstructions
+        https://arxiv.org/abs/1603.08182
+    """
+    
+    DATASET_SIZE = {
+        'train': 9284,   # 3DMatch train (overlap > 0.3)
+        'val': 678,      # 3DMatch val (overlap > 0.3)  
+        'test': 794,     # 3DMatch test (overlap > 0.3)
+    }
+    
+    def __init__(self, **kwargs) -> None:
+        """Initialize 3DMatch dataset with overlap > 0.3."""
+        super(ThreeDMatchDataset, self).__init__(
+            overlap_min=0.3,
+            overlap_max=1.0,
+            **kwargs
+        )
+
+
+class ThreeDLoMatchDataset(ThreeDMatchBaseDataset):
+    """3DLoMatch dataset for point cloud registration.
+    
+    3DLoMatch considers only scan pairs with overlaps between 10% and 30%.
+    This is a more challenging variant of 3DMatch for low-overlap scenarios.
+    
+    Paper:
+        3DMatch: Learning Local Geometric Descriptors from RGB-D Reconstructions
+        https://arxiv.org/abs/1603.08182
+    """
+    
+    DATASET_SIZE = {
+        'train': 11358,  # 3DLoMatch train (0.1 <= overlap <= 0.3)
+        'val': 653,      # 3DLoMatch val (0.1 <= overlap <= 0.3)
+        'test': 779,     # 3DLoMatch test (0.1 <= overlap <= 0.3)
+    }
+    
+    def __init__(self, **kwargs) -> None:
+        """Initialize 3DLoMatch dataset with overlap between 0.1 and 0.3."""
+        super(ThreeDLoMatchDataset, self).__init__(
+            overlap_min=0.1,
+            overlap_max=0.3,
+            **kwargs
+        )
