@@ -20,14 +20,13 @@ class ThreeDMatchDataset(BaseDataset):
         https://arxiv.org/abs/1603.08182
     """
     
-    SPLIT_OPTIONS = ['train', 'val', 'test']
+    SPLIT_OPTIONS = ['train', 'val']
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
     DATASET_SIZE = {
         'train': 9284,
         'val': 678,
-        'test': 794,
     }
     
     def __init__(
@@ -54,11 +53,8 @@ class ThreeDMatchDataset(BaseDataset):
         # Metadata paths
         metadata_dir = os.path.join(self.data_root, 'metadata')
         
-        # Load metadata based on split (always use 3DMatch for test)
-        if self.split in ['train', 'val']:
-            metadata_file = os.path.join(metadata_dir, f'{self.split}.pkl')
-        else:  # test split
-            metadata_file = os.path.join(metadata_dir, '3DMatch.pkl')
+        # Load metadata based on split
+        metadata_file = os.path.join(metadata_dir, f'{self.split}.pkl')
         
         # Assert metadata file exists
         assert os.path.exists(metadata_file), f"Metadata file not found: {metadata_file}"
