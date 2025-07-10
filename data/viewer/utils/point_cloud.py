@@ -116,6 +116,7 @@ def apply_lod_to_point_cloud(
     lod_type: Optional[str] = None,
     lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, ...]]] = None,
+    density_percentage: Optional[int] = None,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Apply Level of Detail processing to point cloud data.
     
@@ -127,9 +128,10 @@ def apply_lod_to_point_cloud(
         colors: Optional color data as torch.Tensor (N, 3) or (N, C)
         labels: Optional label data as torch.Tensor (N,)
         camera_state: Camera viewing state dictionary
-        lod_type: Type of LOD ("continuous", "discrete", or None)
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
         lod_config: Optional LOD configuration parameters
         point_cloud_id: Unique identifier for discrete LOD caching
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
         
     Returns:
         Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
@@ -150,6 +152,31 @@ def apply_lod_to_point_cloud(
     
     # Ensure float type for computations
     points = points.float()
+    
+    # Handle density-based subsampling when LOD is 'none'
+    if lod_type == "none" and density_percentage is not None and density_percentage < 100:
+        assert point_cloud_id is not None, "point_cloud_id is required for density-based subsampling"
+        
+        # Prepare point cloud dictionary for density processing
+        pc_dict = {'pos': points}
+        if colors is not None:
+            pc_dict['rgb'] = colors
+        if labels is not None:
+            pc_dict['labels'] = labels
+        
+        # Apply density-based subsampling
+        from data.viewer.utils.density_lod import DensityLOD
+        density_lod = DensityLOD()
+        normalized_id = normalize_point_cloud_id(point_cloud_id)
+        downsampled = density_lod.subsample(normalized_id, density_percentage, pc_dict)
+        
+        # Return downsampled data as torch tensors
+        processed_points = downsampled['pos']
+        processed_colors = downsampled.get('rgb')
+        processed_labels = downsampled.get('labels')
+        
+        logger.info(f"Density LOD applied: {len(points)} -> {len(processed_points)} points ({density_percentage}%)")
+        return processed_points, processed_colors, processed_labels
     
     # If no LOD requested, return tensors as-is
     if lod_type is None or lod_type == "none" or camera_state is None:
@@ -194,6 +221,7 @@ def create_point_cloud_figure(
     lod_type: Optional[str] = "continuous",
     lod_config: Optional[Dict[str, Any]] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    density_percentage: Optional[int] = None,
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure with optional LOD.
 
@@ -208,9 +236,10 @@ def create_point_cloud_figure(
         point_size: Size of the points
         point_opacity: Opacity of the points
         camera_state: Optional dictionary containing camera position state
-        lod_type: Type of LOD ("continuous", "discrete", or None for no LOD)
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
         lod_config: Optional LOD configuration parameters
         point_cloud_id: Unique identifier for discrete LOD caching
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         Plotly Figure object with potentially downsampled point cloud
@@ -239,16 +268,21 @@ def create_point_cloud_figure(
         camera_state=camera_state,
         lod_type=lod_type,
         lod_config=lod_config,
-        point_cloud_id=point_cloud_id
+        point_cloud_id=point_cloud_id,
+        density_percentage=density_percentage
     )
     
     # Update title with LOD info
-    if lod_type and lod_type != "none" and len(points_tensor) < original_count:
+    if lod_type == "none" and density_percentage is not None and density_percentage < 100 and len(points_tensor) < original_count:
+        density_suffix = f" (Density: {density_percentage}%: {len(points_tensor):,}/{original_count:,})"
+        title = f"{title}{density_suffix}"
+        logger.info(f"Density applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
+    elif lod_type and lod_type != "none" and len(points_tensor) < original_count:
         lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
         title = f"{title}{lod_suffix}"
         logger.info(f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
     else:
-        logger.info(f"No LOD title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}")
+        logger.info(f"No LOD/Density title update: lod_type={lod_type}, density_percentage={density_percentage}, original={original_count}, processed={len(points_tensor)}")
     
     # Handle edge case of empty point clouds
     if len(points_tensor) == 0:
