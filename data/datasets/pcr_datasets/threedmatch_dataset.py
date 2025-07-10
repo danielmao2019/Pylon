@@ -52,11 +52,15 @@ class _ThreeDMatchBaseDataset(BaseDataset):
         # Metadata paths
         metadata_dir = os.path.join(self.data_root, 'metadata')
         
-        # Load metadata based on split (test uses 3DMatch.pkl)
+        # Load metadata based on split and dataset type
         if self.split in ['train', 'val']:
             metadata_file = os.path.join(metadata_dir, f'{self.split}.pkl')
         else:  # test split
-            metadata_file = os.path.join(metadata_dir, '3DMatch.pkl')
+            # Use appropriate test file based on dataset type
+            if isinstance(self, ThreeDLoMatchDataset):
+                metadata_file = os.path.join(metadata_dir, '3DLoMatch.pkl')
+            else:
+                metadata_file = os.path.join(metadata_dir, '3DMatch.pkl')
         
         # Assert metadata file exists
         assert os.path.exists(metadata_file), f"Metadata file not found: {metadata_file}"
@@ -232,9 +236,9 @@ class ThreeDMatchDataset(_ThreeDMatchBaseDataset):
     """
     
     DATASET_SIZE = {
-        'train': 9284,   # 3DMatch train (overlap > 0.3)
-        'val': 678,      # 3DMatch val (overlap > 0.3)  
-        'test': 794,     # 3DMatch test (overlap > 0.3)
+        'train': 14313,  # 3DMatch train (overlap > 0.3)
+        'val': 915,      # 3DMatch val (overlap > 0.3)  
+        'test': 1623,    # 3DMatch test (uses 3DMatch.pkl, no overlap filtering)
     }
     
     def __init__(self, **kwargs) -> None:
@@ -258,9 +262,9 @@ class ThreeDLoMatchDataset(_ThreeDMatchBaseDataset):
     """
     
     DATASET_SIZE = {
-        'train': 11358,  # 3DLoMatch train (0.1 <= overlap <= 0.3)
-        'val': 653,      # 3DLoMatch val (0.1 <= overlap <= 0.3)
-        'test': 779,     # 3DLoMatch test (0.1 <= overlap <= 0.3)
+        'train': 6225,   # 3DLoMatch train (0.1 < overlap <= 0.3)
+        'val': 414,      # 3DLoMatch val (0.1 < overlap <= 0.3)
+        'test': 1781,    # 3DLoMatch test (uses 3DLoMatch.pkl, no overlap filtering)
     }
     
     def __init__(self, **kwargs) -> None:
