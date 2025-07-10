@@ -32,7 +32,7 @@ def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str
     Returns:
         Tuple of (dataset_name, datapoint_idx, component)
     """
-    from data.viewer.backend import registry  # Import here to avoid circular imports
+    from data.viewer.callbacks import registry  # Import here to avoid circular imports
     
     meta_info = datapoint.get('meta_info', {})
     datapoint_idx = meta_info.get('idx', 0)
