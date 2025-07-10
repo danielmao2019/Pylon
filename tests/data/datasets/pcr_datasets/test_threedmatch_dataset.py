@@ -137,7 +137,6 @@ def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
         executor.map(validate_datapoint, indices)
 
 
-
 def test_threedmatch_dataset_determinism():
     """Test that the dataset is deterministic with the same seed."""
     # Use val split which has available data (no test split exists)
