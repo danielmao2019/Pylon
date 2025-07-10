@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset
 import open3d as o3d
 
+
 class ThreeDMatchDataset(Dataset):
     """3DMatch dataset for point cloud registration.
     
