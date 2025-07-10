@@ -119,21 +119,24 @@ sun3d-mit_76_studyroom-76-1studyroom2, sun3d-mit_lab_hj-lab_hj_tea_nov_2_2012_sc
 
 | Split | Total Pairs | Filtered Pairs | Overlap Characteristics |
 |-------|-------------|----------------|-------------------------|
-| Train | 20,642      | **14,313** | 69.3% filtered with overlap > 0.3 |
-| Val   | 1,331       | **915** | 68.7% filtered with overlap > 0.3 |
-| Test  | 1,623       | **1,623** | Mixed overlaps (mean=0.50, 93.7% ≥ 0.3) |
-
-**Standard 3DMatch uses overlap_min=0.3, overlap_max=1.0**
+| Train | 20,642      | **14,313** | 69.3% with overlap > 0.3 |
+| Val   | 1,331       | **915** | 68.7% with overlap > 0.3 |
+| Test  | 3,304*      | **1,623** | 49.1% with overlap > 0.3 (high-overlap partition) |
 
 ### 3DLoMatch Dataset (Low-Overlap Evaluation)
 
 | Split | Total Pairs | Filtered Pairs | Overlap Characteristics |
 |-------|-------------|----------------|-------------------------|
-| Train | 20,642      | **6,225** | 30.2% filtered with 0.1 < overlap ≤ 0.3 |
-| Val   | 1,331       | **414** | 31.1% filtered with 0.1 < overlap ≤ 0.3 |
-| Test  | 1,781       | **1,781** | Low overlaps (mean=0.19, 99.5% < 0.3) |
+| Train | 20,642      | **6,225** | 30.2% with 0.1 < overlap ≤ 0.3 |
+| Val   | 1,331       | **414** | 31.1% with 0.1 < overlap ≤ 0.3 |
+| Test  | 3,304*      | **1,781** | 53.9% with overlap ≤ 0.3 (low-overlap partition) |
 
-**Standard 3DLoMatch uses overlap_min=0.1, overlap_max=0.3**
+**Overlap-Based Partitioning**: 3DMatch and 3DLoMatch use the same underlying test pair universe but apply different overlap filters:
+- **3DMatch**: Primarily high-overlap pairs (99.7% coverage of overlap > 0.3)
+- **3DLoMatch**: Primarily low-overlap pairs (99.8% coverage of overlap ≤ 0.3)  
+- **Small overlap**: 100 shared pairs (3.0% of total test universe)
+
+*Total test universe: 3,304 unique pairs from 8 test scenes
 
 ### Key Statistics Summary
 
@@ -151,47 +154,32 @@ sun3d-mit_76_studyroom-76-1studyroom2, sun3d-mit_lab_hj-lab_hj_tea_nov_2_2012_sc
 - **Different test filtering**: 3DMatch uses mixed overlaps, 3DLoMatch uses low overlaps only
 - **Complementary evaluation**: Together they provide comprehensive registration evaluation
 
-### Why Different Test Set Sizes?
+### Test Set Partitioning Strategy
 
-**3DMatch test set: 1,623 pairs vs 3DLoMatch test set: 1,781 pairs**
+**Total test universe: 3,304 unique pairs from 8 test scenes**
 
-This difference arises from **different overlap filtering strategies applied to the same 8 test scenes**:
+3DMatch and 3DLoMatch apply **overlap-based partitioning** to this test universe:
 
-**3DMatch Test Protocol**:
-- **Selection criteria**: Curated pairs with mixed overlap distribution
-- **Overlap range**: 0.1365 to 0.9614 (broader range)
-- **Filtering philosophy**: Representative sampling across overlap spectrum
-- **Result**: 1,623 pairs with 93.7% having overlap ≥ 0.3
-- **Purpose**: Standard registration evaluation covering typical scenarios
+| Partition | Pairs | Coverage | Purpose |
+|-----------|-------|----------|---------|
+| **3DMatch** (High overlap) | 1,623 | 99.7% of pairs with overlap > 0.3 | Standard registration evaluation |
+| **3DLoMatch** (Low overlap) | 1,781 | 99.8% of pairs with overlap ≤ 0.3 | Challenging registration evaluation |
+| **Shared pairs** | 100 | 3.0% overlap between datasets | Low-overlap pairs in both sets |
 
-**3DLoMatch Test Protocol**:  
-- **Selection criteria**: All pairs with low overlap from same scenes
-- **Overlap range**: 0.0986 to 0.3049 (narrow low range)
-- **Filtering philosophy**: Exhaustive low-overlap evaluation
-- **Result**: 1,781 pairs with 99.5% having overlap < 0.3
-- **Purpose**: Challenging registration evaluation focusing on difficult cases
+**Why different sizes?** The 8 test scenes naturally contain more low-overlap pairs (1,779) than high-overlap pairs (1,525), resulting in 3DLoMatch having more test pairs than 3DMatch.
 
-**Key Insight**: 3DLoMatch includes **158 additional low-overlap pairs** (1,781 - 1,623 = 158) that were excluded from the original 3DMatch test set. These extra pairs come from the same 8 test scenes but represent very challenging registration scenarios that the original 3DMatch curators filtered out.
-
-**Overlap Distribution Breakdown**:
-```
-Test Scene Pairs:     Low (≤0.3)    High (>0.3)    Total
-3DMatch:                   103         1,520        1,623
-3DLoMatch:               1,776             5        1,781
-Additional in 3DLoMatch:  1,673        -1,515         158
-```
-
-This design allows researchers to evaluate on both **standard scenarios** (3DMatch) and **challenging scenarios** (3DLoMatch) using the same underlying scene geometry.
+This partitioning allows comprehensive evaluation across the overlap spectrum using the same scene geometry.
 
 ## Complete Dataset Statistics
 
-### Training and Validation Filtered Pair Counts
+### Complete Filtered Pair Counts
 
-| Dataset Type | Training Pairs | Validation Pairs | Overlap Filter | Usage |
-|--------------|----------------|------------------|----------------|-------|
-| **3DMatch** | **14,313** / 20,642 (69.3%) | **915** / 1,331 (68.7%) | 0.3 < overlap ≤ 1.0 | Standard registration training |
-| **3DLoMatch** | **6,225** / 20,642 (30.2%) | **414** / 1,331 (31.1%) | 0.1 < overlap ≤ 0.3 | Low-overlap registration training |
-| **All pairs** | 20,642 (100%) | 1,331 (100%) | No filtering | Full dataset analysis |
+| Dataset | Train Pairs | Val Pairs | Test Pairs | Overlap Filter | Purpose |
+|---------|-------------|-----------|------------|----------------|---------|
+| **3DMatch** | **14,313** / 20,642 (69.3%) | **915** / 1,331 (68.7%) | **1,623** / 3,304 (49.1%) | overlap > 0.3 | Standard registration |
+| **3DLoMatch** | **6,225** / 20,642 (30.2%) | **414** / 1,331 (31.1%) | **1,781** / 3,304 (53.9%) | 0.1 < overlap ≤ 0.3 | Low-overlap registration |
+
+**Consistent Partitioning**: All splits (train/val/test) use the same overlap-based filtering philosophy, making 3DMatch and 3DLoMatch true dataset variants rather than just different test protocols.
 
 ### Overlap Threshold Analysis
 
