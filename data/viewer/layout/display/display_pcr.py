@@ -1,15 +1,15 @@
 """UI components for displaying point cloud registration dataset items."""
-from typing import Tuple, Dict, Optional, Any
+from typing import Tuple, Dict, Optional, Any, Union
 import random
 import numpy as np
 import torch
-from dash import dcc, html
+from dash import html
 import plotly.graph_objects as go
 from utils.point_cloud_ops import apply_transform, get_correspondences
 from utils.point_cloud_ops.set_ops import pc_symmetric_difference
 from utils.point_cloud_ops.set_ops.symmetric_difference import _normalize_points
 from utils.point_cloud_ops.apply_transform import _normalize_transform
-from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats
+from data.viewer.utils.point_cloud import create_point_cloud_figure, get_point_cloud_stats, build_point_cloud_id
 from data.viewer.utils.display_utils import DisplayStyles, ParallelFigureCreator, create_figure_grid
 
 
@@ -20,6 +20,7 @@ def create_union_visualization(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -56,7 +57,7 @@ def create_union_visualization(
         point_opacity=point_opacity,
         camera_state=camera_state,
         lod_type=lod_type,
-        point_cloud_id="union_visualization",
+        point_cloud_id=point_cloud_id,
     )
 
 
@@ -68,6 +69,7 @@ def create_symmetric_difference_visualization(
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -113,7 +115,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_symmetric_difference",
+            point_cloud_id=point_cloud_id,
         )
     else:
         # If no symmetric difference, show empty point cloud
@@ -124,7 +126,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_symmetric_difference_empty",
+            point_cloud_id=point_cloud_id,
         )
 
 
@@ -247,12 +249,12 @@ def _create_statistics_section(src_stats_children: Any, tgt_stats_children: Any)
         html.Div([
             html.H4("Source Point Cloud Statistics:"),
             html.Div(src_stats_children)
-        ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top', 'margin-right': '2%'}),
+        ], style=DisplayStyles.GRID_ITEM_48_MARGIN),
         
         html.Div([
             html.H4("Target Point Cloud Statistics:"),
             html.Div(tgt_stats_children)
-        ], style={'width': '48%', 'display': 'inline-block', 'vertical-align': 'top'})
+        ], style=DisplayStyles.GRID_ITEM_48_NO_MARGIN)
     ], style={'margin-top': '20px'})
 
 
@@ -311,7 +313,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_source",
+            point_cloud_id=build_point_cloud_id(datapoint, "source"),
         ),
         lambda: create_point_cloud_figure(
             points=tgt_pc,
@@ -321,7 +323,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
-            point_cloud_id="pcr_target",
+            point_cloud_id=build_point_cloud_id(datapoint, "target"),
         ),
         lambda: create_union_visualization(
             src_pc_transformed,
@@ -330,6 +332,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            point_cloud_id=build_point_cloud_id(datapoint, "union"),
         ),
         lambda: create_symmetric_difference_visualization(
             src_pc_transformed,
@@ -339,6 +342,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            point_cloud_id=build_point_cloud_id(datapoint, "sym_diff"),
         ),
     ]
 
@@ -368,7 +372,7 @@ def display_pcr_datapoint_single(
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
-        html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'}),
+        html.Div(grid_items, style=DisplayStyles.FLEX_WRAP),
         _create_transform_info_section(transform_info),
         _create_statistics_section(src_stats_children, tgt_stats_children)
     ])
@@ -415,11 +419,12 @@ def _create_sym_diff_with_title(
     point_size: float,
     point_opacity: float,
     camera_state: Optional[Dict[str, Any]],
-    lod_type: str
+    lod_type: str,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create symmetric difference visualization with custom title."""
     sym_diff_fig = create_symmetric_difference_visualization(
-        src_points, tgt_points, radius, point_size, point_opacity, camera_state, lod_type
+        src_points, tgt_points, radius, point_size, point_opacity, camera_state, lod_type, point_cloud_id
     )
     sym_diff_fig.update_layout(title=title)
     return sym_diff_fig
@@ -468,7 +473,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_src_{lvl}",
+                    point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
                 ),
                 lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
                     points=tgt,
@@ -477,14 +482,14 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_tgt_{lvl}",
+                    point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
                     src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_sym_diff_with_title(
                     src, tgt, f"Symmetric Difference (Level {lvl})", sym_diff_radius, 
-                    point_size, point_opacity, camera_state, lod_type
+                    point_size, point_opacity, camera_state, lod_type, build_point_cloud_id(datapoint, f"sym_diff_batch_{lvl}")
                 ),
             ]
 
@@ -510,7 +515,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_src_{level}",
+                    point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
                 ),
                 create_point_cloud_figure(
                     points=tgt_points,
@@ -519,7 +524,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
-                    point_cloud_id=f"pcr_batched_tgt_{level}",
+                    point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{level}"),
                 )
             ])
 
@@ -528,7 +533,7 @@ def display_pcr_datapoint_batched(
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization (Hierarchical)"),
-        html.Div(grid_items, style={'display': 'flex', 'flex-wrap': 'wrap'})
+        html.Div(grid_items, style=DisplayStyles.FLEX_WRAP)
     ])
 
 

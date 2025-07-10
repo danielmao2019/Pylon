@@ -4,6 +4,9 @@ import torch
 from utils.input_checks.point_cloud import check_point_cloud
 from utils.point_cloud_ops.select import Select
 from data.viewer.utils.lod_utils import get_camera_position
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ContinuousLOD:
@@ -73,6 +76,12 @@ class ContinuousLOD:
             selected_indices = self._spatial_binning_pipeline(points, camera_state, distances, near_distance, far_distance)
         else:
             selected_indices = self._simple_distance_pipeline(distances, near_distance, far_distance)
+        
+        # Log LOD information
+        original_count = len(points)
+        subsampled_count = len(selected_indices)
+        logger.info(f"Continuous LOD: Points={subsampled_count}/{original_count} ({100*subsampled_count/original_count:.1f}%), "
+                   f"diagonal={diagonal_size:.2f}, near={near_distance:.2f}, far={far_distance:.2f}")
         
         return Select(selected_indices)(point_cloud)
     
