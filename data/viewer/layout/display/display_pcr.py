@@ -543,6 +543,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
                 ),
                 create_point_cloud_figure(
@@ -552,6 +553,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{level}"),
                 )
             ])
