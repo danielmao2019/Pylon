@@ -5,7 +5,7 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 import data
 import utils
-from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset
+from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 
 
 def validate_inputs(inputs: Dict[str, Any]) -> None:
@@ -114,7 +114,17 @@ def dataset(request):
         data_root='./data/datasets/soft_links/threedmatch',
         split=split,
         matching_radius=0.1,
-        overlap_threshold=0.3,  # 3DMatch standard threshold
+    )
+
+
+@pytest.fixture  
+def lomatch_dataset(request):
+    """Fixture for creating a ThreeDLoMatchDataset instance."""
+    split = request.param
+    return ThreeDLoMatchDataset(
+        data_root='./data/datasets/soft_links/threedmatch',
+        split=split,
+        matching_radius=0.1,
     )
 
 
@@ -135,3 +145,24 @@ def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
+
+
+@pytest.mark.parametrize('lomatch_dataset', ['train', 'val', 'test'], indirect=True)
+def test_threedlomatch_dataset(lomatch_dataset, max_samples, get_samples_to_test):
+    """Test the structure and content of ThreeDLoMatchDataset outputs."""
+    
+    def validate_datapoint(idx: int) -> None:
+        datapoint = lomatch_dataset[idx]
+        assert isinstance(datapoint, dict), f"{type(datapoint)=}"
+        assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
+        validate_inputs(datapoint['inputs'])
+        validate_labels(datapoint['labels'])
+        validate_meta_info(datapoint['meta_info'], idx)
+    
+    # Use command line --samples if provided, otherwise test first 5 samples
+    num_samples = get_samples_to_test(len(lomatch_dataset), max_samples, default=5)
+    indices = random.sample(range(len(lomatch_dataset)), num_samples)
+    with ThreadPoolExecutor() as executor:
+        executor.map(validate_datapoint, indices)
+
+

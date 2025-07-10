@@ -9,7 +9,7 @@ from utils.point_cloud_ops.correspondences import get_correspondences
 from utils.io.point_cloud import load_point_cloud
 
 
-class ThreeDMatchBaseDataset(BaseDataset):
+class _ThreeDMatchBaseDataset(BaseDataset):
     """Base dataset for 3DMatch family of datasets for point cloud registration.
     
     This dataset contains RGB-D scans of real-world indoor scenes from the 3DMatch benchmark.
@@ -45,7 +45,7 @@ class ThreeDMatchBaseDataset(BaseDataset):
         self.overlap_max = overlap_max
         
         # Initialize base class
-        super(ThreeDMatchBaseDataset, self).__init__(**kwargs)
+        super(_ThreeDMatchBaseDataset, self).__init__(**kwargs)
     
     def _init_annotations(self) -> None:
         """Initialize dataset annotations from metadata files."""
@@ -221,7 +221,7 @@ class ThreeDMatchBaseDataset(BaseDataset):
         return correspondences
 
 
-class ThreeDMatchDataset(ThreeDMatchBaseDataset):
+class ThreeDMatchDataset(_ThreeDMatchBaseDataset):
     """3DMatch dataset for point cloud registration.
     
     Official 3DMatch dataset considers only scan pairs with >30% overlap.
@@ -246,7 +246,7 @@ class ThreeDMatchDataset(ThreeDMatchBaseDataset):
         )
 
 
-class ThreeDLoMatchDataset(ThreeDMatchBaseDataset):
+class ThreeDLoMatchDataset(_ThreeDMatchBaseDataset):
     """3DLoMatch dataset for point cloud registration.
     
     3DLoMatch considers only scan pairs with overlaps between 10% and 30%.
