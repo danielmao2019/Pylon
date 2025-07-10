@@ -6,13 +6,19 @@ from utils.point_cloud_ops.select import Select
 
 class RandomSelect:
     def __init__(self, percentage: Optional[float] = None, count: Optional[int] = None) -> None:
+        """Randomly select a subset of points from a point cloud.
+        
+        Args:
+            percentage: Fraction of points to select (0 < percentage <= 1). Mutually exclusive with count.
+            count: Exact number of points to select (count > 0). Mutually exclusive with percentage.
+        """
         # XOR logic: exactly one of percentage or count must be provided
         assert (percentage is not None) ^ (count is not None), \
             f"Exactly one of percentage or count must be provided, got percentage={percentage}, count={count}"
         
         if percentage is not None:
             assert isinstance(percentage, (int, float)), f"{type(percentage)=}"
-            assert 0 <= percentage <= 1, f"{percentage=}"
+            assert 0 < percentage <= 1, f"{percentage=}"
             self.percentage = percentage
             self.count = None
         else:
