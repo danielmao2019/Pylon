@@ -64,6 +64,7 @@ if __name__ == "__main__":
 
     log_dirs = [
         "./logs/benchmarks/point_cloud_registration/kitti/ICP_run_0",
+        "./logs/benchmarks/point_cloud_registration/kitti/RANSAC_FPFH_run_0",
         "./logs/benchmarks/point_cloud_registration/kitti/TeaserPlusPlus_run_0",
     ]
 

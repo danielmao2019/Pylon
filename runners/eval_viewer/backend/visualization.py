@@ -25,18 +25,18 @@ def create_score_map(scores: List[float]) -> np.ndarray:
     return score_map
 
 
-def create_overlaid_score_map(score_maps: List[np.ndarray]) -> np.ndarray:
+def create_overlaid_score_map(score_maps: List[np.ndarray], percentile: float = 25) -> np.ndarray:
     """
     Returns the normalized overlaid score map (success rate map) as a 2D numpy array.
     Args:
         score_maps: List of 2D numpy arrays containing scores from different runs
-        title: (Unused, kept for compatibility)
+        percentile: Percentile threshold for failure (default: 25)
     Returns:
         normalized: 2D numpy array of normalized success rates (1 - failure rates)
     """
     all_scores = np.concatenate([score_map.flatten() for score_map in score_maps])
     all_scores = all_scores[~np.isnan(all_scores)]
-    failure_threshold = np.percentile(all_scores, 25)
+    failure_threshold = np.percentile(all_scores, percentile)
     binary_maps = [score_map < failure_threshold for score_map in score_maps]
     aggregated = np.sum(binary_maps, axis=0)
     failure_rates = aggregated / len(score_maps)
