@@ -4,6 +4,9 @@ import torch
 from utils.input_checks.point_cloud import check_point_cloud
 from utils.point_cloud_ops.random_select import RandomSelect
 from data.viewer.utils.lod_utils import get_camera_position
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # Global cache that persists across function calls
@@ -33,9 +36,9 @@ class DiscreteLOD:
         self.reduction_factor = reduction_factor
         self.num_levels = num_levels
         self.distance_thresholds = distance_thresholds or {
-            'close': 0.5,
-            'medium_close': 1.5,
-            'medium_far': 3.0
+            'close': 0.05,      # Very close - use original (Level 0)
+            'medium_close': 0.15, # Close - light reduction (Level 1) 
+            'medium_far': 0.5    # Medium - more reduction (Level 2)
         }
 
     def subsample(
@@ -70,6 +73,11 @@ class DiscreteLOD:
 
         # Determine target level based on camera distance
         target_level = self._determine_target_level(point_cloud_id, camera_state)
+        
+        # Log LOD information
+        original_count = len(_global_original_cache[point_cloud_id]['pos'])
+        subsampled_count = len(_global_lod_cache[point_cloud_id][target_level]['pos'])
+        logger.info(f"Discrete LOD: ID={point_cloud_id}, Level={target_level}, Points={subsampled_count}/{original_count}")
 
         # Return precomputed subsampled point cloud
         return _global_lod_cache[point_cloud_id][target_level]
@@ -137,13 +145,19 @@ class DiscreteLOD:
         avg_distance = distances.mean().item()
         relative_distance = avg_distance / diagonal_size if diagonal_size > 0 else 0.0
 
+        # Log distance calculation details
+        logger.info(f"Distance calculation: avg_distance={avg_distance:.2f}, diagonal={diagonal_size:.2f}, relative={relative_distance:.2f}")
+        
         # Distance-based level selection using relative thresholds
         thresholds = self.distance_thresholds
         if relative_distance < thresholds['close']:
-            return 0  # Close: use original
+            level = 0  # Close: use original
         elif relative_distance < thresholds['medium_close']:
-            return 1  # Medium close
+            level = 1  # Medium close
         elif relative_distance < thresholds['medium_far']:
-            return 2  # Medium far
+            level = 2  # Medium far
         else:
-            return min(3, self.num_levels)  # Far: aggressive reduction
+            level = min(3, self.num_levels)  # Far: aggressive reduction
+            
+        logger.info(f"Selected LOD level: {level} (thresholds: {thresholds})")
+        return level

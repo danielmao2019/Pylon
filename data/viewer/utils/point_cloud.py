@@ -20,6 +20,9 @@ import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
 from data.viewer.utils.continuous_lod import ContinuousLOD
 from data.viewer.utils.discrete_lod import DiscreteLOD
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]:
@@ -131,6 +134,8 @@ def apply_lod_to_point_cloud(
     Returns:
         Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
     """
+    logger.info(f"apply_lod_to_point_cloud called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
+    
     # Strict input validation - API contract enforcement
     assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
     assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
@@ -148,6 +153,7 @@ def apply_lod_to_point_cloud(
     
     # If no LOD requested, return tensors as-is
     if lod_type is None or lod_type == "none" or camera_state is None:
+        logger.info(f"No LOD applied: lod_type={lod_type}, camera_state={'present' if camera_state else 'None'}")
         return points, colors, labels
         
     # Prepare point cloud dictionary for LOD processing
@@ -209,6 +215,8 @@ def create_point_cloud_figure(
     Returns:
         Plotly Figure object with potentially downsampled point cloud
     """
+    logger.info(f"create_point_cloud_figure called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
+    
     # Input validation
     assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
     assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
@@ -238,6 +246,9 @@ def create_point_cloud_figure(
     if lod_type and lod_type != "none" and len(points_tensor) < original_count:
         lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
         title = f"{title}{lod_suffix}"
+        logger.info(f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
+    else:
+        logger.info(f"No LOD title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}")
     
     # Handle edge case of empty point clouds
     if len(points_tensor) == 0:
