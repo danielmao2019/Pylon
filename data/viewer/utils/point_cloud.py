@@ -20,6 +20,51 @@ import plotly.graph_objects as go
 from data.viewer.utils.segmentation import get_color
 from data.viewer.utils.continuous_lod import ContinuousLOD
 from data.viewer.utils.discrete_lod import DiscreteLOD
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+def build_point_cloud_id(datapoint: Dict[str, Any], component: str) -> Tuple[str, int, str]:
+    """Build structured point cloud ID from datapoint context.
+    
+    Args:
+        datapoint: Contains meta_info with idx; dataset info from backend
+        component: Point cloud component (source, target, pc_1, pc_2, change_map, etc.)
+        
+    Returns:
+        Tuple of (dataset_name, datapoint_idx, component)
+    """
+    from data.viewer.callbacks import registry  # Import here to avoid circular imports
+    
+    meta_info = datapoint.get('meta_info', {})
+    datapoint_idx = meta_info.get('idx', 0)
+    
+    # Get dataset name from backend
+    dataset_name = getattr(registry.viewer.backend, 'current_dataset', 'unknown')
+    
+    return (dataset_name, datapoint_idx, component)
+
+
+def normalize_point_cloud_id(point_cloud_id: Union[str, Tuple[str, ...]]) -> str:
+    """Normalize point cloud ID to string cache key.
+    
+    Args:
+        point_cloud_id: Either string or tuple (dataset, datapoint_idx, component)
+        
+    Returns:
+        Normalized string cache key
+        
+    Examples:
+        "simple_id" -> "simple_id"
+        ("pcr/kitti", 42, "source") -> "pcr/kitti:42:source"
+        ("change_detection", 10, "union") -> "change_detection:10:union"
+    """
+    if isinstance(point_cloud_id, str):
+        return point_cloud_id
+    else:
+        # Convert tuple to colon-separated string
+        return ":".join(str(part) for part in point_cloud_id)
 
 
 def point_cloud_to_numpy(points: Union[torch.Tensor, np.ndarray]) -> np.ndarray:
@@ -70,7 +115,7 @@ def apply_lod_to_point_cloud(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: Optional[str] = None,
     lod_config: Optional[Dict[str, Any]] = None,
-    point_cloud_id: Optional[str] = None,
+    point_cloud_id: Optional[Union[str, Tuple[str, ...]]] = None,
 ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
     """Apply Level of Detail processing to point cloud data.
     
@@ -89,6 +134,8 @@ def apply_lod_to_point_cloud(
     Returns:
         Tuple of (processed_points, processed_colors, processed_labels) as torch tensors
     """
+    logger.info(f"apply_lod_to_point_cloud called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
+    
     # Strict input validation - API contract enforcement
     assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
     assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
@@ -106,6 +153,7 @@ def apply_lod_to_point_cloud(
     
     # If no LOD requested, return tensors as-is
     if lod_type is None or lod_type == "none" or camera_state is None:
+        logger.info(f"No LOD applied: lod_type={lod_type}, camera_state={'present' if camera_state else 'None'}")
         return points, colors, labels
         
     # Prepare point cloud dictionary for LOD processing
@@ -122,9 +170,8 @@ def apply_lod_to_point_cloud(
     elif lod_type == "discrete":
         assert point_cloud_id is not None, "point_cloud_id is required for discrete LOD"
         lod = DiscreteLOD(**(lod_config or {}))
-        if not lod.has_levels(point_cloud_id):
-            lod.precompute_levels(pc_dict, point_cloud_id)
-        downsampled = lod.select_level(point_cloud_id, camera_state)
+        normalized_id = normalize_point_cloud_id(point_cloud_id)
+        downsampled = lod.subsample(normalized_id, camera_state, pc_dict)
     else:
         downsampled = pc_dict
         
@@ -146,7 +193,7 @@ def create_point_cloud_figure(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: Optional[str] = "continuous",
     lod_config: Optional[Dict[str, Any]] = None,
-    point_cloud_id: Optional[str] = None,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure with optional LOD.
 
@@ -168,6 +215,8 @@ def create_point_cloud_figure(
     Returns:
         Plotly Figure object with potentially downsampled point cloud
     """
+    logger.info(f"create_point_cloud_figure called: points={points.shape}, lod_type={lod_type}, point_cloud_id={point_cloud_id}")
+    
     # Input validation
     assert isinstance(points, torch.Tensor), f"points must be torch.Tensor, got {type(points)}"
     assert points.ndim == 2 and points.shape[1] == 3, f"points must be (N, 3), got {points.shape}"
@@ -197,6 +246,9 @@ def create_point_cloud_figure(
     if lod_type and lod_type != "none" and len(points_tensor) < original_count:
         lod_suffix = f" ({lod_type.title()} LOD: {len(points_tensor):,}/{original_count:,})"
         title = f"{title}{lod_suffix}"
+        logger.info(f"LOD applied successfully: {original_count} -> {len(points_tensor)} points, title updated")
+    else:
+        logger.info(f"No LOD title update: lod_type={lod_type}, original={original_count}, processed={len(points_tensor)}")
     
     # Handle edge case of empty point clouds
     if len(points_tensor) == 0:

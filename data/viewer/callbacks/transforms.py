@@ -1,5 +1,5 @@
 """Transform selection callbacks for the viewer."""
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Any
 from dash import Input, Output, State, html, ALL
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry

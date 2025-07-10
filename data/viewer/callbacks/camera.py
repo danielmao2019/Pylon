@@ -20,12 +20,13 @@ from data.viewer.utils.settings_config import ViewerSettings
     ],
     inputs=[
         Input({'type': 'point-cloud-graph', 'index': ALL}, 'relayoutData'),
+    ],
+    states=[
         State({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
-        State('camera-state', 'data'),
     ],
     group="camera"
 )
-def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]], _: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs."""
     ctx = callback_context
     if not ctx.triggered:
@@ -74,6 +75,8 @@ def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List
     ],
     inputs=[
         Input('reset-camera-button', 'n_clicks'),
+    ],
+    states=[
         State({'type': 'point-cloud-graph', 'index': ALL}, 'figure'),
     ],
     group="camera"
