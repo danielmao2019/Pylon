@@ -55,7 +55,8 @@ def create_display(
             'kwargs': {
                 'point_size': settings_3d['point_size'],
                 'point_opacity': settings_3d['point_opacity'],
-                'lod_type': settings_3d['lod_type']
+                'lod_type': settings_3d['lod_type'],
+                'density_percentage': settings_3d['density_percentage']
             }
         },
         'pcr': {
@@ -67,7 +68,8 @@ def create_display(
                 'point_opacity': settings_3d['point_opacity'],
                 'sym_diff_radius': settings_3d['sym_diff_radius'],
                 'corr_radius': settings_3d['corr_radius'],
-                'lod_type': settings_3d['lod_type']
+                'lod_type': settings_3d['lod_type'],
+                'density_percentage': settings_3d['density_percentage']
             }
         }
     }
