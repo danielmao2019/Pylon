@@ -122,6 +122,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=point_cloud_id,
         )
     else:
@@ -133,6 +134,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=point_cloud_id,
         )
 
@@ -341,6 +343,7 @@ def display_pcr_datapoint_single(
             camera_state=camera_state,
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "union"),
+            density_percentage=density_percentage,
         ),
         lambda: create_symmetric_difference_visualization(
             src_pc_transformed,
@@ -351,6 +354,7 @@ def display_pcr_datapoint_single(
             camera_state=camera_state,
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "sym_diff"),
+            density_percentage=density_percentage,
         ),
     ]
 
@@ -409,11 +413,13 @@ def _create_union_with_title(
     point_size: float,
     point_opacity: float,
     camera_state: Optional[Dict[str, Any]],
-    lod_type: str
+    lod_type: str,
+    density_percentage: int = 100,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create union visualization with custom title."""
     union_fig = create_union_visualization(
-        src_points, tgt_points, point_size, point_opacity, camera_state, lod_type
+        src_points, tgt_points, point_size, point_opacity, camera_state, lod_type, point_cloud_id, density_percentage
     )
     union_fig.update_layout(title=title)
     return union_fig
@@ -494,7 +500,7 @@ def display_pcr_datapoint_batched(
                     point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
-                    src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type
+                    src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type, density_percentage, build_point_cloud_id(datapoint, f"union_batch_{lvl}")
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_sym_diff_with_title(
                     src, tgt, f"Symmetric Difference (Level {lvl})", sym_diff_radius, 
