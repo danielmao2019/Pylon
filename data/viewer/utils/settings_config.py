@@ -11,8 +11,8 @@ class ViewerSettings:
         'point_opacity': 0.8,
         'sym_diff_radius': 0.05,
         'corr_radius': 0.1,
-        'lod_type': 'continuous',
-        'density_percentage': 100
+        'lod_type': 'none',
+        'density_percentage': 50
     }
     
     # LOD type options
