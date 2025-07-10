@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 # Global cache that persists across function calls
 _global_lod_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
 _global_original_cache: Dict[str, Dict[str, torch.Tensor]] = {}
+_global_geometry_cache: Dict[str, Dict[str, Any]] = {}  # Cache for bounding box, center, diagonal
 
 
 class DiscreteLOD:
@@ -71,6 +72,10 @@ class DiscreteLOD:
             original_pc = _global_original_cache[point_cloud_id]
             self._precompute_lod_levels(point_cloud_id, original_pc)
 
+        # Cache geometry properties if not already done
+        if point_cloud_id not in _global_geometry_cache:
+            self._precompute_geometry_properties(point_cloud_id)
+
         # Determine target level based on camera distance
         target_level = self._determine_target_level(point_cloud_id, camera_state)
         
@@ -104,6 +109,27 @@ class DiscreteLOD:
 
         _global_lod_cache[point_cloud_id] = levels
 
+    def _precompute_geometry_properties(self, point_cloud_id: str) -> None:
+        """Pre-compute and cache geometry properties for faster distance calculations."""
+        original_pc = _global_original_cache[point_cloud_id]
+        points = original_pc['pos']
+        
+        # Calculate bounding box once and cache it
+        min_coords = points.min(dim=0)[0]
+        max_coords = points.max(dim=0)[0]
+        center_point = (min_coords + max_coords) / 2
+        diagonal_size = torch.norm(max_coords - min_coords).item()
+        
+        # Cache all geometry properties
+        _global_geometry_cache[point_cloud_id] = {
+            'min_coords': min_coords,
+            'max_coords': max_coords,
+            'center_point': center_point,
+            'diagonal_size': diagonal_size,
+            'device': points.device,
+            'dtype': points.dtype
+        }
+
     def _downsample_point_cloud(
         self,
         point_cloud: Dict[str, torch.Tensor],
@@ -129,25 +155,24 @@ class DiscreteLOD:
         camera_state: Dict[str, Any]
     ) -> int:
         """Determine appropriate LOD level based on camera distance."""
-        original_pc = _global_original_cache[point_cloud_id]
-        points = original_pc['pos']
-        assert points.device.type == 'cuda', f"{points.device=}"
+        # Get cached geometry properties (no expensive recomputation)
+        geometry = _global_geometry_cache[point_cloud_id]
+        center_point = geometry['center_point']
+        diagonal_size = geometry['diagonal_size']
+        device = geometry['device']
+        dtype = geometry['dtype']
+        
+        assert device.type == 'cuda', f"{device=}"
 
         # Get camera position on same device as points
-        camera_pos = get_camera_position(camera_state, device=points.device, dtype=points.dtype)
+        camera_pos = get_camera_position(camera_state, device=device, dtype=dtype)
 
-        # Calculate point cloud bounding box diagonal
-        min_coords = points.min(dim=0)[0]
-        max_coords = points.max(dim=0)[0]
-        diagonal_size = torch.norm(max_coords - min_coords).item()
-
-        # Calculate average distance relative to diagonal size
-        distances = torch.norm(points - camera_pos, dim=1)
-        avg_distance = distances.mean().item()
-        relative_distance = avg_distance / diagonal_size if diagonal_size > 0 else 0.0
+        # Calculate distance to center point relative to diagonal size (fast O(1) operation)
+        center_distance = torch.norm(camera_pos - center_point).item()
+        relative_distance = center_distance / diagonal_size if diagonal_size > 0 else 0.0
 
         # Log distance calculation details
-        logger.info(f"Distance calculation: avg_distance={avg_distance:.2f}, diagonal={diagonal_size:.2f}, relative={relative_distance:.2f}")
+        logger.info(f"Distance calculation: center_distance={center_distance:.2f}, diagonal={diagonal_size:.2f}, relative={relative_distance:.2f}")
         
         # Distance-based level selection using relative thresholds
         thresholds = self.distance_thresholds
