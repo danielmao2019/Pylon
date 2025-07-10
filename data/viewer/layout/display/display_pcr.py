@@ -86,6 +86,8 @@ def create_symmetric_difference_visualization(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         lod_type: Type of LOD ("continuous", "discrete", or "none")
+        point_cloud_id: Unique identifier for LOD caching
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         Plotly figure showing the symmetric difference visualization
