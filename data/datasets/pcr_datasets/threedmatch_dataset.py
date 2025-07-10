@@ -24,6 +24,11 @@ class ThreeDMatchDataset(BaseDataset):
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
+    DATASET_SIZE = {
+        'train': 9284,
+        'val': 678,
+        'test': 794,
+    }
     
     def __init__(
         self,
@@ -63,6 +68,13 @@ class ThreeDMatchDataset(BaseDataset):
             metadata_dict = pickle.load(f)
         
         # OverlapPredator format: dict with arrays
+        # Sanity check - all arrays should have same length
+        expected_keys = ['src', 'tgt', 'rot', 'trans', 'overlap']
+        assert all(key in metadata_dict for key in expected_keys), f"Missing keys in metadata: {list(metadata_dict.keys())}"
+        
+        lengths = [len(metadata_dict[key]) for key in expected_keys]
+        assert all(length == lengths[0] for length in lengths), f"Inconsistent lengths in metadata: {dict(zip(expected_keys, lengths))}"
+        
         num_pairs = len(metadata_dict['src'])
         
         # Filter by overlap threshold and convert to annotations format
