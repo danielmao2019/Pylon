@@ -21,6 +21,7 @@ def create_union_visualization(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    density_percentage: int = 100,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -31,6 +32,8 @@ def create_union_visualization(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         lod_type: Type of LOD ("continuous", "discrete", or "none")
+        point_cloud_id: Unique identifier for LOD caching
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         Plotly figure showing the union visualization
@@ -57,6 +60,7 @@ def create_union_visualization(
         point_opacity=point_opacity,
         camera_state=camera_state,
         lod_type=lod_type,
+        density_percentage=density_percentage,
         point_cloud_id=point_cloud_id,
     )
 
@@ -70,6 +74,7 @@ def create_symmetric_difference_visualization(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    density_percentage: int = 100,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
