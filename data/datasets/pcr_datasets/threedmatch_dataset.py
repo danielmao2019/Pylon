@@ -1,4 +1,4 @@
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 import os
 import hashlib
 import pickle
@@ -20,13 +20,14 @@ class ThreeDMatchDataset(BaseDataset):
         https://arxiv.org/abs/1603.08182
     """
     
-    SPLIT_OPTIONS = ['train', 'val']
+    SPLIT_OPTIONS = ['train', 'val', 'test']
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None
     DATASET_SIZE = {
-        'train': 9284,
-        'val': 678,
+        'train': 9284,   # 3DMatch train (overlap ≥ 0.3)
+        'val': 678,      # 3DMatch val (overlap ≥ 0.3)  
+        'test': 794,     # 3DMatch test (overlap ≥ 0.3)
     }
     
     def __init__(
@@ -39,7 +40,7 @@ class ThreeDMatchDataset(BaseDataset):
         
         Args:
             matching_radius: Radius for finding correspondences (default: 0.1)
-            overlap_threshold: Minimum overlap ratio between point cloud pairs (default: 0.3)
+            overlap_threshold: Minimum overlap ratio between point cloud pairs (default: 0.3, 3DMatch standard)
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.matching_radius = matching_radius
@@ -53,8 +54,11 @@ class ThreeDMatchDataset(BaseDataset):
         # Metadata paths
         metadata_dir = os.path.join(self.data_root, 'metadata')
         
-        # Load metadata based on split
-        metadata_file = os.path.join(metadata_dir, f'{self.split}.pkl')
+        # Load metadata based on split (test uses 3DMatch.pkl)
+        if self.split in ['train', 'val']:
+            metadata_file = os.path.join(metadata_dir, f'{self.split}.pkl')
+        else:  # test split
+            metadata_file = os.path.join(metadata_dir, '3DMatch.pkl')
         
         # Assert metadata file exists
         assert os.path.exists(metadata_file), f"Metadata file not found: {metadata_file}"

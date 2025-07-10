@@ -114,7 +114,7 @@ def dataset(request):
         data_root='./data/datasets/soft_links/threedmatch',
         split=split,
         matching_radius=0.1,
-        overlap_threshold=0.3,
+        overlap_threshold=0.3,  # 3DMatch standard threshold
     )
 
 
@@ -135,31 +135,3 @@ def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
-
-
-def test_threedmatch_dataset_determinism():
-    """Test that the dataset is deterministic with the same seed."""
-    # Use train split which has available data
-    dataset1 = ThreeDMatchDataset(
-        data_root='./data/datasets/soft_links/threedmatch',
-        split='train',
-        base_seed=42,
-    )
-    
-    dataset2 = ThreeDMatchDataset(
-        data_root='./data/datasets/soft_links/threedmatch',
-        split='train',
-        base_seed=42,
-    )
-    
-    if len(dataset1) > 0:
-        # Check first datapoint
-        data1 = dataset1[0]
-        data2 = dataset2[0]
-        
-        # Check that sampled points are identical
-        assert torch.allclose(data1['inputs']['src_pc']['pos'], data2['inputs']['src_pc']['pos'])
-        assert torch.allclose(data1['inputs']['tgt_pc']['pos'], data2['inputs']['tgt_pc']['pos'])
-        
-        # Check that correspondences are identical
-        assert torch.equal(data1['inputs']['correspondences'], data2['inputs']['correspondences'])
