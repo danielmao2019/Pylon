@@ -117,10 +117,11 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
         [Output('overlaid-button-grid', 'children'),
          Output('overlaid-color-bar', 'children')],
         [Input('epoch-slider', 'value'),
-         Input('metric-dropdown', 'value')]
+         Input('metric-dropdown', 'value'),
+         Input('percentile-slider', 'value')]
     )
-    def update_overlaid_score_map(epoch: int, metric_name: str):
-        if metric_name is None or epoch is None:
+    def update_overlaid_score_map(epoch: int, metric_name: str, percentile: float):
+        if metric_name is None or epoch is None or percentile is None:
             raise PreventUpdate
 
         metric_idx = metric_names.index(metric_name)
@@ -136,7 +137,7 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
                 raise ValueError(f"Unknown runner type: {info.runner_type}")
 
         assert len(score_maps) > 0, f"No score maps found for metric {metric_name}"
-        overlaid_score_map = create_overlaid_score_map(score_maps)
+        overlaid_score_map = create_overlaid_score_map(score_maps, percentile=percentile)
         button_grid = create_button_grid(
             num_datapoints, overlaid_score_map, 'overlaid-grid-button',
         )
