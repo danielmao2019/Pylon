@@ -36,9 +36,9 @@ class DiscreteLOD:
         self.reduction_factor = reduction_factor
         self.num_levels = num_levels
         self.distance_thresholds = distance_thresholds or {
-            'close': 0.05,      # Very close - use original (Level 0)
-            'medium_close': 0.15, # Close - light reduction (Level 1) 
-            'medium_far': 0.5    # Medium - more reduction (Level 2)
+            'close': 0.02,      # Very close - use original (Level 0)
+            'medium_close': 0.04, # Close - light reduction (Level 1) 
+            'medium_far': 0.08    # Medium - more reduction (Level 2)
         }
 
     def subsample(
