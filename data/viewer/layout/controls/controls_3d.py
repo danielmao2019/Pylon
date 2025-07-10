@@ -92,11 +92,11 @@ def create_3d_controls(visible=False, **kwargs):
             html.Label("Density", style={'margin-top': '20px'}),
             dcc.Slider(
                 id='density-slider',
-                min=1,
+                min=10,
                 max=100,
                 value=settings['density_percentage'],
                 marks={i: f"{i}%" for i in range(10, 101, 10)},
-                step=1,
+                step=10,
                 tooltip={"placement": "bottom", "always_visible": True}
             ),
         ], id='density-controls', style={'display': 'none'}),  # Hidden by default, shown only when LOD type is 'none'
