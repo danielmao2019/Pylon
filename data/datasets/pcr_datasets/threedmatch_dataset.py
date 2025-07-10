@@ -60,27 +60,28 @@ class ThreeDMatchDataset(BaseDataset):
         
         # Load metadata
         with open(metadata_file, 'rb') as f:
-            metadata_list = pickle.load(f)
+            metadata_dict = pickle.load(f)
         
-        # Filter by overlap threshold
-        if self.overlap_threshold is not None:
-            metadata_list = [x for x in metadata_list if x['overlap'] > self.overlap_threshold]
+        # OverlapPredator format: dict with arrays
+        num_pairs = len(metadata_dict['src'])
         
-        # Convert metadata to annotations format
+        # Filter by overlap threshold and convert to annotations format
         self.annotations = []
         data_dir = os.path.join(self.data_root, 'data')
-        for item in metadata_list:
-            annotation = {
-                'src_path': os.path.join(data_dir, item['pcd0']),
-                'tgt_path': os.path.join(data_dir, item['pcd1']),
-                'rotation': item['rotation'],  # (3, 3) numpy array
-                'translation': item['translation'],  # (3,) numpy array
-                'overlap': item['overlap'],
-                'scene_name': item['scene_name'],
-                'frag_id0': item['frag_id0'],
-                'frag_id1': item['frag_id1'],
-            }
-            self.annotations.append(annotation)
+        for i in range(num_pairs):
+            overlap = metadata_dict['overlap'][i]
+            if self.overlap_threshold is None or overlap > self.overlap_threshold:
+                annotation = {
+                    'src_path': os.path.join(data_dir, metadata_dict['src'][i]),
+                    'tgt_path': os.path.join(data_dir, metadata_dict['tgt'][i]),
+                    'rotation': metadata_dict['rot'][i],  # (3, 3) numpy array
+                    'translation': metadata_dict['trans'][i],  # (3,) numpy array
+                    'overlap': overlap,
+                    'scene_name': metadata_dict['src'][i].split('/')[0],  # Extract scene from path
+                    'frag_id0': int(metadata_dict['src'][i].split('/')[-1].split('_')[-1].split('.')[0]),  # Extract fragment ID
+                    'frag_id1': int(metadata_dict['tgt'][i].split('/')[-1].split('_')[-1].split('.')[0]),  # Extract fragment ID
+                }
+                self.annotations.append(annotation)
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a single datapoint from the dataset.
