@@ -48,7 +48,6 @@ class ThreeDMatchDataset(BaseDataset):
         """Initialize dataset annotations from metadata files."""
         # Metadata paths
         metadata_dir = os.path.join(self.data_root, 'metadata')
-        os.makedirs(metadata_dir, exist_ok=True)  # Create metadata directory
         
         # Load metadata based on split (always use 3DMatch for test)
         if self.split in ['train', 'val']:
@@ -56,21 +55,8 @@ class ThreeDMatchDataset(BaseDataset):
         else:  # test split
             metadata_file = os.path.join(metadata_dir, '3DMatch.pkl')
         
-        # For now, create a minimal example if file doesn't exist
-        if not os.path.exists(metadata_file):
-            # Create minimal metadata structure for testing
-            test_metadata = [{
-                'pcd0': 'train/test_scene/cloud_bin_0.pth',
-                'pcd1': 'train/test_scene/cloud_bin_1.pth', 
-                'rotation': np.eye(3),
-                'translation': np.array([0.1, 0.2, 0.3]),
-                'overlap': 0.7,
-                'scene_name': 'test_scene',
-                'frag_id0': 0,
-                'frag_id1': 1,
-            }]
-            with open(metadata_file, 'wb') as f:
-                pickle.dump(test_metadata, f)
+        # Assert metadata file exists
+        assert os.path.exists(metadata_file), f"Metadata file not found: {metadata_file}"
         
         # Load metadata
         with open(metadata_file, 'rb') as f:

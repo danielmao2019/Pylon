@@ -133,7 +133,7 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
     return result
 
 
-def _load_pth(
+def _load_from_pth(
     file_path: str,
     device: Optional[Union[torch.device, str]] = None
 ) -> torch.Tensor:
@@ -194,7 +194,7 @@ def load_point_cloud(
 
     if file_ext == '.pth':
         # Use the new tensor loader for .pth files
-        return _load_pth(pathPC)
+        return _load_from_pth(pathPC)
     elif file_ext == '.ply':
         pc_data = _read_from_ply(pathPC, nameInPly=nameInPly, name_feat=name_feat)
         pc_data = torch.from_numpy(pc_data)
