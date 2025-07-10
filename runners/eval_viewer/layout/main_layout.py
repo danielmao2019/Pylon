@@ -32,7 +32,7 @@ def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
                 value=0,
                 marks={i: str(i) for i in range(max_epoch)},
             ),
-        ], style={'width': '50%', 'display': 'inline-block'}),
+        ], style={'width': '33%', 'display': 'inline-block'}),
 
         html.Div([
             html.Label("Metric:"),
@@ -41,7 +41,20 @@ def create_controls(max_epoch: int, metric_names: List[str]) -> html.Div:
                 options=[{'label': metric, 'value': metric} for metric in sorted(metric_names)],
                 value=metric_names[0] if metric_names else None,
             ),
-        ], style={'width': '50%', 'display': 'inline-block', 'float': 'right'}),
+        ], style={'width': '33%', 'display': 'inline-block'}),
+
+        html.Div([
+            html.Label("Failure Percentile:"),
+            dcc.Slider(
+                id='percentile-slider',
+                min=5,
+                max=95,
+                step=5,
+                value=25,
+                marks={i: f'{i}%' for i in range(5, 100, 10)},
+                tooltip={"placement": "bottom", "always_visible": True}
+            ),
+        ], style={'width': '33%', 'display': 'inline-block', 'float': 'right'}),
     ], style={'padding': '20px'})
 
 
