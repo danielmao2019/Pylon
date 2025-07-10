@@ -146,13 +146,15 @@ class ViewerBackend:
         dataset = self._datasets[dataset_name]
         dataset_type = self.get_dataset_type(dataset_name)
 
-        # Extract transforms from dataset config
-        transforms_cfg = getattr(dataset.transforms, '__dict__', {})
+        # Extract and register transforms for viewer, then clear them from dataset
         if hasattr(dataset.transforms, 'transforms'):
-            # Register transforms
+            # Register transforms for viewer control
             self._clear_transforms()
             for transform in dataset.transforms.transforms:
                 self._register_transform(transform)
+            
+            # Clear transforms from dataset - viewer will handle all transform application
+            dataset.transforms = Compose(transforms=[])
 
         # Get dataset info
         self.current_dataset = dataset_name
@@ -197,13 +199,8 @@ class ViewerBackend:
 
         dataset = self._datasets[dataset_name]
 
-        # Get raw datapoint
-        inputs, labels, meta_info = dataset._load_datapoint(index)
-        datapoint = {
-            'inputs': inputs,
-            'labels': labels,
-            'meta_info': meta_info
-        }
+        # Get datapoint with device transfer (no transforms applied - cleared during initialization)
+        datapoint = dataset[index]
 
         # Apply transforms if specified
         if transform_indices:
