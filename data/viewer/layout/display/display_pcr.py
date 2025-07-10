@@ -265,7 +265,8 @@ def display_pcr_datapoint_single(
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_type: str = "continuous"
+    lod_type: str = "continuous",
+    density_percentage: int = 100
 ) -> html.Div:
     """Display a single point cloud registration datapoint.
 
@@ -437,7 +438,8 @@ def display_pcr_datapoint_batched(
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_type: str = "continuous"
+    lod_type: str = "continuous",
+    density_percentage: int = 100
 ) -> html.Div:
     """Display a batched point cloud registration datapoint.
 
@@ -544,7 +546,8 @@ def display_pcr_datapoint(
     point_opacity: float = 0.8,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_type: str = "continuous"
+    lod_type: str = "continuous",
+    density_percentage: int = 100
 ) -> html.Div:
     """Display a point cloud registration datapoint.
 
@@ -556,6 +559,7 @@ def display_pcr_datapoint(
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
         lod_type: Type of LOD ("continuous", "discrete", or "none")
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         html.Div containing the visualization
@@ -572,6 +576,7 @@ def display_pcr_datapoint(
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
             lod_type=lod_type,
+            density_percentage=density_percentage,
         )
     else:
         return display_pcr_datapoint_single(
@@ -582,4 +587,5 @@ def display_pcr_datapoint(
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
             lod_type=lod_type,
+            density_percentage=density_percentage,
         )
