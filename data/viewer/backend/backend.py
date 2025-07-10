@@ -278,8 +278,7 @@ class ViewerBackend:
         """
         # Select the transforms in the order specified by indices
         selected_transforms = [self._transforms[idx] for idx in transform_indices]
-        compose = Compose(transforms=[])  # Create empty compose
-        compose.transforms = selected_transforms  # Directly assign normalized transforms
+        compose = Compose(transforms=selected_transforms)
         # Apply transforms with deterministic seed using datapoint index
         return compose(datapoint, seed=(0, datapoint_index))
 
