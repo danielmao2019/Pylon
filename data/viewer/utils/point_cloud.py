@@ -192,8 +192,7 @@ def apply_lod_to_point_cloud(
         logger.info(f"Discrete LOD applied: {len(points)} -> {len(downsampled['pos'])} points")
         
     else:
-        logger.info(f"Unknown LOD type: {lod_type}, returning original data")
-        downsampled = pc_dict
+        raise ValueError(f"Unknown LOD type: {lod_type}. Must be 'none', 'continuous', or 'discrete'.")
         
     # Extract processed data
     processed_points = downsampled['pos']
