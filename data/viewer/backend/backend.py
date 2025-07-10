@@ -183,17 +183,23 @@ class ViewerBackend:
 
         raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
 
-    def get_datapoint(self, dataset_name: str, index: int, transform_indices: Optional[List[int]] = None) -> Dict[str, Dict[str, Any]]:
-        """Get a datapoint with optional transforms applied.
+    def get_datapoint(self, dataset_name: str, index: int, transform_indices: List[int]) -> Dict[str, Dict[str, Any]]:
+        """Get a datapoint with transforms applied.
 
         Args:
             dataset_name: Name of the dataset
             index: Index of the datapoint
-            transform_indices: Optional list of transform indices to apply
+            transform_indices: List of transform indices to apply (empty list means no transforms)
 
         Returns:
             Datapoint dictionary with 'inputs', 'labels', and 'meta_info'
         """
+        # Input validation
+        assert isinstance(dataset_name, str), f"dataset_name must be str, got {type(dataset_name)}"
+        assert isinstance(index, int), f"index must be int, got {type(index)}"
+        assert isinstance(transform_indices, list), f"transform_indices must be list, got {type(transform_indices)}"
+        assert all(isinstance(idx, int) for idx in transform_indices), f"All transform indices must be int, got {transform_indices}"
+        
         if dataset_name not in self._datasets:
             raise ValueError(f"Dataset not loaded: {dataset_name}")
 
@@ -202,9 +208,8 @@ class ViewerBackend:
         # Get datapoint with device transfer (no transforms applied - cleared during initialization)
         datapoint = dataset[index]
 
-        # Apply transforms if specified
-        if transform_indices:
-            datapoint = self._apply_transforms(datapoint, transform_indices, index)
+        # Apply transforms (always call _apply_transforms, it handles empty list correctly)
+        datapoint = self._apply_transforms(datapoint, transform_indices, index)
 
         return datapoint
 
