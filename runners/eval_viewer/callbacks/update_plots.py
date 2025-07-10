@@ -1,7 +1,7 @@
 from typing import List, Dict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
-from dash import Input, Output, dcc
+from dash import Input, Output, State, dcc
 from dash.exceptions import PreventUpdate
 import dash
 import plotly.graph_objects as go
@@ -118,9 +118,13 @@ def register_callbacks(app: dash.Dash, metric_names: List[str], num_datapoints: 
          Output('overlaid-color-bar', 'children')],
         [Input('epoch-slider', 'value'),
          Input('metric-dropdown', 'value'),
+         Input('percentile-slider', 'drag_value'),
          Input('percentile-slider', 'value')]
     )
-    def update_overlaid_score_map(epoch: int, metric_name: str, percentile: float):
+    def update_overlaid_score_map(epoch: int, metric_name: str, percentile_drag: float, percentile_value: float):
+        # Use drag_value if available (while dragging), otherwise use value
+        percentile = percentile_drag if percentile_drag is not None else percentile_value
+        
         if metric_name is None or epoch is None or percentile is None:
             raise PreventUpdate
 
