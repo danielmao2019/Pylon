@@ -11,7 +11,8 @@ class ViewerSettings:
         'point_opacity': 0.8,
         'sym_diff_radius': 0.05,
         'corr_radius': 0.1,
-        'lod_type': 'continuous'
+        'lod_type': 'none',
+        'density_percentage': 50
     }
     
     # LOD type options
@@ -70,6 +71,7 @@ class ViewerSettings:
         validated['point_opacity'] = max(0.0, min(1.0, float(validated.get('point_opacity', 0.8))))
         validated['sym_diff_radius'] = max(0.0, min(2.0, float(validated.get('sym_diff_radius', 0.05))))
         validated['corr_radius'] = max(0.0, min(2.0, float(validated.get('corr_radius', 0.1))))
+        validated['density_percentage'] = max(10, min(100, (int(validated.get('density_percentage', 50)) // 10) * 10))
         
         # Validate LOD type
         valid_lod_types = {opt['value'] for opt in cls.LOD_TYPE_OPTIONS}

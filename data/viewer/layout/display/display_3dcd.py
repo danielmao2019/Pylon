@@ -17,7 +17,8 @@ def display_3dcd_datapoint(
     camera_state: Optional[Dict[str, Any]] = None,
     point_size: float = 2,
     point_opacity: float = 0.8,
-    lod_type: str = "continuous"
+    lod_type: str = "continuous",
+    density_percentage: int = 100
 ) -> html.Div:
     """Display a 3D point cloud datapoint with all relevant information.
 
@@ -28,6 +29,7 @@ def display_3dcd_datapoint(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         lod_type: Type of LOD ("continuous", "discrete", or "none")
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         html.Div containing the visualization
@@ -60,6 +62,7 @@ def display_3dcd_datapoint(
             camera_state=camera_state,
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "pc_1"),
+            density_percentage=density_percentage,
         ),
         lambda: create_point_cloud_figure(
             points=points_2,
@@ -70,6 +73,7 @@ def display_3dcd_datapoint(
             camera_state=camera_state,
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "pc_2"),
+            density_percentage=density_percentage,
         ),
         lambda: create_point_cloud_figure(
             points=points_2,  # Use points_2 for change map visualization
@@ -80,6 +84,7 @@ def display_3dcd_datapoint(
             camera_state=camera_state,
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "change_map"),
+            density_percentage=density_percentage,
         ),
     ]
 

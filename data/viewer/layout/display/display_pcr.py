@@ -21,6 +21,7 @@ def create_union_visualization(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    density_percentage: int = 100,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -31,6 +32,8 @@ def create_union_visualization(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         lod_type: Type of LOD ("continuous", "discrete", or "none")
+        point_cloud_id: Unique identifier for LOD caching
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         Plotly figure showing the union visualization
@@ -57,6 +60,7 @@ def create_union_visualization(
         point_opacity=point_opacity,
         camera_state=camera_state,
         lod_type=lod_type,
+        density_percentage=density_percentage,
         point_cloud_id=point_cloud_id,
     )
 
@@ -70,6 +74,7 @@ def create_symmetric_difference_visualization(
     camera_state: Optional[Dict[str, Any]] = None,
     lod_type: str = "continuous",
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    density_percentage: int = 100,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -81,6 +86,8 @@ def create_symmetric_difference_visualization(
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
         lod_type: Type of LOD ("continuous", "discrete", or "none")
+        point_cloud_id: Unique identifier for LOD caching
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         Plotly figure showing the symmetric difference visualization
@@ -115,6 +122,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=point_cloud_id,
         )
     else:
@@ -126,6 +134,7 @@ def create_symmetric_difference_visualization(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=point_cloud_id,
         )
 
@@ -137,6 +146,9 @@ def create_correspondence_visualization(
     point_size: float = 2,
     point_opacity: float = 0.8,
     camera_state: Optional[Dict[str, Any]] = None,
+    lod_type: str = "continuous",
+    density_percentage: int = 100,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create a visualization of correspondences between transformed source and target point clouds.
 
@@ -147,6 +159,9 @@ def create_correspondence_visualization(
         point_size: Size of points in visualization
         point_opacity: Opacity of points in visualization
         camera_state: Optional dictionary containing camera position state
+        lod_type: Type of LOD ("continuous", "discrete", or "none")
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
+        point_cloud_id: Unique identifier for LOD caching
 
     Returns:
         Plotly figure showing the correspondence visualization
@@ -167,7 +182,10 @@ def create_correspondence_visualization(
         title="Point Cloud Correspondences",
         point_size=point_size,
         point_opacity=point_opacity,
-        camera_state=camera_state
+        camera_state=camera_state,
+        lod_type=lod_type,
+        density_percentage=density_percentage,
+        point_cloud_id=point_cloud_id,
     )
 
     # Add target points
@@ -265,7 +283,8 @@ def display_pcr_datapoint_single(
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_type: str = "continuous"
+    lod_type: str = "continuous",
+    density_percentage: int = 100
 ) -> html.Div:
     """Display a single point cloud registration datapoint.
 
@@ -313,6 +332,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=build_point_cloud_id(datapoint, "source"),
         ),
         lambda: create_point_cloud_figure(
@@ -323,6 +343,7 @@ def display_pcr_datapoint_single(
             point_opacity=point_opacity,
             camera_state=camera_state,
             lod_type=lod_type,
+            density_percentage=density_percentage,
             point_cloud_id=build_point_cloud_id(datapoint, "target"),
         ),
         lambda: create_union_visualization(
@@ -333,6 +354,7 @@ def display_pcr_datapoint_single(
             camera_state=camera_state,
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "union"),
+            density_percentage=density_percentage,
         ),
         lambda: create_symmetric_difference_visualization(
             src_pc_transformed,
@@ -343,6 +365,7 @@ def display_pcr_datapoint_single(
             camera_state=camera_state,
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "sym_diff"),
+            density_percentage=density_percentage,
         ),
     ]
 
@@ -368,7 +391,7 @@ def display_pcr_datapoint_single(
     tgt_stats_children = get_point_cloud_stats(tgt_pc)
 
     # Create layout using centralized utilities
-    grid_items = create_figure_grid(figures, width_style="50%")
+    grid_items = create_figure_grid(figures, width_style="50%", height_style="520px")
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization"),
@@ -401,11 +424,20 @@ def _create_union_with_title(
     point_size: float,
     point_opacity: float,
     camera_state: Optional[Dict[str, Any]],
-    lod_type: str
+    lod_type: str,
+    density_percentage: int = 100,
+    point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create union visualization with custom title."""
     union_fig = create_union_visualization(
-        src_points, tgt_points, point_size, point_opacity, camera_state, lod_type
+        src_points=src_points,
+        tgt_points=tgt_points,
+        point_size=point_size,
+        point_opacity=point_opacity,
+        camera_state=camera_state,
+        lod_type=lod_type,
+        point_cloud_id=point_cloud_id,
+        density_percentage=density_percentage
     )
     union_fig.update_layout(title=title)
     return union_fig
@@ -420,11 +452,20 @@ def _create_sym_diff_with_title(
     point_opacity: float,
     camera_state: Optional[Dict[str, Any]],
     lod_type: str,
+    density_percentage: int = 100,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
 ) -> go.Figure:
     """Create symmetric difference visualization with custom title."""
     sym_diff_fig = create_symmetric_difference_visualization(
-        src_points, tgt_points, radius, point_size, point_opacity, camera_state, lod_type, point_cloud_id
+        src_points=src_points,
+        tgt_points=tgt_points,
+        radius=radius,
+        point_size=point_size,
+        point_opacity=point_opacity,
+        camera_state=camera_state,
+        lod_type=lod_type,
+        point_cloud_id=point_cloud_id,
+        density_percentage=density_percentage
     )
     sym_diff_fig.update_layout(title=title)
     return sym_diff_fig
@@ -437,7 +478,8 @@ def display_pcr_datapoint_batched(
     camera_state: Optional[Dict[str, Any]] = None,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_type: str = "continuous"
+    lod_type: str = "continuous",
+    density_percentage: int = 100
 ) -> html.Div:
     """Display a batched point cloud registration datapoint.
 
@@ -473,6 +515,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{lvl}"),
                 ),
                 lambda tgt=tgt_points, lvl=level: create_point_cloud_figure(
@@ -482,14 +525,31 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{lvl}"),
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_union_with_title(
-                    src, tgt, f"Union (Level {lvl})", point_size, point_opacity, camera_state, lod_type
+                    src_points=src,
+                    tgt_points=tgt,
+                    title=f"Union (Level {lvl})",
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    density_percentage=density_percentage,
+                    point_cloud_id=build_point_cloud_id(datapoint, f"union_batch_{lvl}")
                 ),
                 lambda src=src_points, tgt=tgt_points, lvl=level: _create_sym_diff_with_title(
-                    src, tgt, f"Symmetric Difference (Level {lvl})", sym_diff_radius, 
-                    point_size, point_opacity, camera_state, lod_type, build_point_cloud_id(datapoint, f"sym_diff_batch_{lvl}")
+                    src_points=src,
+                    tgt_points=tgt,
+                    title=f"Symmetric Difference (Level {lvl})",
+                    radius=sym_diff_radius,
+                    point_size=point_size,
+                    point_opacity=point_opacity,
+                    camera_state=camera_state,
+                    lod_type=lod_type,
+                    density_percentage=density_percentage,
+                    point_cloud_id=build_point_cloud_id(datapoint, f"sym_diff_batch_{lvl}")
                 ),
             ]
 
@@ -515,6 +575,7 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"source_batch_{level}"),
                 ),
                 create_point_cloud_figure(
@@ -524,12 +585,13 @@ def display_pcr_datapoint_batched(
                     point_opacity=point_opacity,
                     camera_state=camera_state,
                     lod_type=lod_type,
+                    density_percentage=density_percentage,
                     point_cloud_id=build_point_cloud_id(datapoint, f"target_batch_{level}"),
                 )
             ])
 
     # Create grid layout using centralized utilities
-    grid_items = create_figure_grid(all_figures, width_style="50%")
+    grid_items = create_figure_grid(all_figures, width_style="50%", height_style="520px")
     
     return html.Div([
         html.H3("Point Cloud Registration Visualization (Hierarchical)"),
@@ -544,7 +606,8 @@ def display_pcr_datapoint(
     point_opacity: float = 0.8,
     sym_diff_radius: float = 0.05,
     corr_radius: float = 0.1,
-    lod_type: str = "continuous"
+    lod_type: str = "continuous",
+    density_percentage: int = 100
 ) -> html.Div:
     """Display a point cloud registration datapoint.
 
@@ -556,6 +619,7 @@ def display_pcr_datapoint(
         sym_diff_radius: Radius for computing symmetric difference
         corr_radius: Radius for finding correspondences between point clouds
         lod_type: Type of LOD ("continuous", "discrete", or "none")
+        density_percentage: Percentage of points to display when lod_type is "none" (1-100)
 
     Returns:
         html.Div containing the visualization
@@ -572,6 +636,7 @@ def display_pcr_datapoint(
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
             lod_type=lod_type,
+            density_percentage=density_percentage,
         )
     else:
         return display_pcr_datapoint_single(
@@ -582,4 +647,5 @@ def display_pcr_datapoint(
             sym_diff_radius=sym_diff_radius,
             corr_radius=corr_radius,
             lod_type=lod_type,
+            density_percentage=density_percentage,
         )
