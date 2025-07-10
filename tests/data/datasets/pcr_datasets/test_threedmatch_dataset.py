@@ -140,16 +140,16 @@ def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
 
 def test_threedmatch_dataset_determinism():
     """Test that the dataset is deterministic with the same seed."""
-    # Use test split which has available data
+    # Use val split which has available data (no test split exists)
     dataset1 = ThreeDMatchDataset(
         data_root='./data/datasets/soft_links/threedmatch',
-        split='test',
+        split='val',
         base_seed=42,
     )
     
     dataset2 = ThreeDMatchDataset(
         data_root='./data/datasets/soft_links/threedmatch',
-        split='test',
+        split='val',
         base_seed=42,
     )
     

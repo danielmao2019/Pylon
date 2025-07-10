@@ -83,13 +83,18 @@ class ThreeDMatchDataset(BaseDataset):
         for i in range(num_pairs):
             overlap = metadata_dict['overlap'][i]
             if self.overlap_threshold is None or overlap > self.overlap_threshold:
+                # Extract scene names and ensure they match
+                src_scene = metadata_dict['src'][i].split('/')[0]
+                tgt_scene = metadata_dict['tgt'][i].split('/')[0]
+                assert src_scene == tgt_scene, f"Scene names must match: src={src_scene}, tgt={tgt_scene}"
+                
                 annotation = {
                     'src_path': os.path.join(data_dir, metadata_dict['src'][i]),
                     'tgt_path': os.path.join(data_dir, metadata_dict['tgt'][i]),
                     'rotation': metadata_dict['rot'][i],  # (3, 3) numpy array
                     'translation': metadata_dict['trans'][i],  # (3,) numpy array
                     'overlap': overlap,
-                    'scene_name': metadata_dict['src'][i].split('/')[0],  # Extract scene from path
+                    'scene_name': src_scene,  # Use verified scene name
                     'frag_id0': int(metadata_dict['src'][i].split('/')[-1].split('_')[-1].split('.')[0]),  # Extract fragment ID
                     'frag_id1': int(metadata_dict['tgt'][i].split('/')[-1].split('_')[-1].split('.')[0]),  # Extract fragment ID
                 }
