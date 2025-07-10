@@ -16,18 +16,18 @@ data_cfg = {
                     'transforms': [
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomDownsample,
+                                'class': data.transforms.vision_3d.RandomSelect,
                                 'args': {
-                                    'num_points': 5000,
+                                    'percentage': 0.7,  # Keep 70% of points for 5000 target
                                 },
                             },
                             [('inputs', 'src_pc')],
                         ),
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomDownsample,
+                                'class': data.transforms.vision_3d.RandomSelect,
                                 'args': {
-                                    'num_points': 5000,
+                                    'percentage': 0.7,
                                 },
                             },
                             [('inputs', 'tgt_pc')],

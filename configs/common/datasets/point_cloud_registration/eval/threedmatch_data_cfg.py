@@ -1,48 +1,52 @@
 import torch
 import data
+from metrics.wrappers import HybridMetric
+from metrics.vision_3d.point_cloud_registration import IsotropicTransformError
+from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import TransformInlierRatio
 
 
 data_cfg = {
-    'test_dataset': {
+    'eval_dataset': {
         'class': data.datasets.ThreeDMatchDataset,
         'args': {
             'data_root': './data/datasets/soft_links/threedmatch',
             'split': 'test',
             'matching_radius': 0.1,
             'overlap_threshold': 0.3,
+            'device': 'cpu',
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
-                    'transforms': [
-                        (
-                            {
-                                'class': data.transforms.vision_3d.RandomDownsample,
-                                'args': {
-                                    'num_points': 5000,
-                                },
-                            },
-                            [('inputs', 'src_pc')],
-                        ),
-                        (
-                            {
-                                'class': data.transforms.vision_3d.RandomDownsample,
-                                'args': {
-                                    'num_points': 5000,
-                                },
-                            },
-                            [('inputs', 'tgt_pc')],
-                        ),
-                    ],
+                    'transforms': [],
                 },
             },
         },
     },
-    'test_dataloader': {
+    'eval_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
             'batch_size': 1,
             'num_workers': 4,
-            'shuffle': False,
+        },
+    },
+    'metric': {
+        'class': HybridMetric,
+        'args': {
+            'metrics_cfg': [
+                {
+                    'class': IsotropicTransformError,
+                    'args': {
+                        'use_buffer': False,
+                    },
+                },
+                {
+                    'class': TransformInlierRatio,
+                    'args': {
+                        'threshold': 0.3,
+                        'use_buffer': False,
+                    },
+                },
+            ],
         },
     },
 }
