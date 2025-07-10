@@ -112,8 +112,9 @@ sun3d-mit_76_studyroom-76-1studyroom2, sun3d-mit_lab_hj-lab_hj_tea_nov_2_2012_sc
 |-------|--------|-------------|---------------|--------------|
 | Train | 75     | **20,642**  | 0.0006-0.9985 | 0.44         |
 | Val   | 8      | **1,331**   | 0.0957-0.9871 | 0.44         |
-| Test  | 8      | **1,623**   | 0.1365-0.9614 | 0.50 (3DMatch) |
-| Test  | 8      | **1,781**   | 0.0986-0.3049 | 0.19 (3DLoMatch) |
+| Test  | 8      | **3,304***  | 0.0986-0.9614 | 0.33         |
+
+*Combined test universe from both 3DMatch and 3DLoMatch metadata files
 
 ### 3DMatch Dataset (Standard Evaluation)
 
