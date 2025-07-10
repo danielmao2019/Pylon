@@ -8,11 +8,33 @@ data_cfg = {
         'args': {
             'data_root': './data/datasets/soft_links/threedmatch',
             'split': 'val',
-            'num_points': 5000,
             'matching_radius': 0.1,
             'overlap_threshold': 0.3,
-            'benchmark_mode': '3DMatch',
-            # No transforms for validation
+            'transforms_cfg': {
+                'class': data.transforms.Compose,
+                'args': {
+                    'transforms': [
+                        (
+                            {
+                                'class': data.transforms.vision_3d.RandomDownsample,
+                                'args': {
+                                    'num_points': 5000,
+                                },
+                            },
+                            [('inputs', 'src_pc')],
+                        ),
+                        (
+                            {
+                                'class': data.transforms.vision_3d.RandomDownsample,
+                                'args': {
+                                    'num_points': 5000,
+                                },
+                            },
+                            [('inputs', 'tgt_pc')],
+                        ),
+                    ],
+                },
+            },
         },
     },
     'val_dataloader': {
