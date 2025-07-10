@@ -1,170 +1,185 @@
-# LOD System Debug Analysis and Implementation Plan
+# Implementation Plan: Density Control for 3D Viewer
 
-## Problem Summary
+## Overview
+Add a "Density" slider control to the 3D viewer that appears when LOD type is set to "none". This will allow users to control the percentage of points displayed (1% to 100%) with a caching system for performance optimization.
 
-The LOD (Level of Detail) system in the data viewer is not working as expected. Users report that:
-1. Point counts don't change when zooming in/out
-2. No difference in point counts between different viewpoints (top vs side view)
-3. Plot titles don't update to show LOD information
+## Current System Analysis
 
-## Root Cause Analysis
+### LOD System Structure
+- **LOD Types**: `none`, `continuous`, `discrete` (configured in `ViewerSettings.LOD_TYPE_OPTIONS`)
+- **LOD Processing**: Done in `apply_lod_to_point_cloud()` in `/data/viewer/utils/point_cloud.py`
+- **Caching**: 
+  - Discrete LOD uses global caches (`_global_lod_cache`, `_global_original_cache`) 
+  - Continuous LOD computes dynamically (no caching)
+  - No LOD (`none`) currently returns original points without processing
 
-After thorough investigation, I identified **two main issues**:
+### Current Control Flow
+1. UI controls in `/data/viewer/layout/controls/controls_3d.py`
+2. Settings managed via callbacks in `/data/viewer/callbacks/three_d_settings.py` 
+3. Settings stored in `3d-settings-store` and synced to backend
+4. Display functions call `create_point_cloud_figure()` with LOD settings
+5. `create_point_cloud_figure()` calls `apply_lod_to_point_cloud()` for processing
 
-### 1. Missing Camera State Callback (CRITICAL)
+## Implementation Design
 
-**Problem**: There is no callback that triggers LOD recalculation when camera state changes.
+### 1. Density Caching System
 
-**Current Behavior**:
-- Camera interactions only sync camera position between figures (`callbacks/camera.py`)
-- Display updates only happen on dataset/navigation/transform changes
-- Camera state is passed as `State` (not `Input`) to display callbacks
-
-**Evidence**:
-- `callbacks/navigation.py:73` - camera_state is `State`, not `Input`
-- `callbacks/transforms.py:23` - camera_state is `State`, not `Input`
-- No callback listens to `Input('camera-state', 'data')`
-
-### 2. DiscreteLOD Voxel Downsampling Bug (MODERATE)
-
-**Problem**: The voxel downsampling algorithm doesn't achieve target point reductions.
-
-**Expected Behavior**: 10000 → 5000 → 2500 → 1250 → 1000 points
-**Actual Behavior**: 10000 → 8220 → 7015 → 5476 → 4990 points
-
-**Root Cause**: Voxel size calculation doesn't account for actual point distribution, resulting in more unique voxels than expected.
-
-## Test Results Validation
-
-**ContinuousLOD**: ✅ **Working perfectly**
-- Distance-based reduction: 46.2% → 26.4% → 10.0% as camera moves away
-- Viewpoint variation: Top view (10.0%) vs Side view (11.3%) correctly different
-
-**DiscreteLOD**: ❌ **Buggy**
-- All levels return ~8144 points regardless of camera distance
-- Voxel downsampling doesn't reach target point counts
-
-## Implementation Plan
-
-### Phase 1: Fix Camera State Integration (HIGH PRIORITY)
-
-**Goal**: Make LOD update when camera position changes during zoom/pan operations.
-
-**Solution**: Add camera state as an Input to display callbacks.
-
-**Changes Required**:
-
-1. **Update navigation callback** (`callbacks/navigation.py:63-76`):
-   ```python
-   # BEFORE
-   inputs=[
-       Input('datapoint-index-slider', 'value'),
-       Input('3d-settings-store', 'data')
-   ],
-   states=[
-       State('dataset-info', 'data'),
-       State('camera-state', 'data')  # <- State
-   ]
-   
-   # AFTER  
-   inputs=[
-       Input('datapoint-index-slider', 'value'),
-       Input('3d-settings-store', 'data'),
-       Input('camera-state', 'data')  # <- Input
-   ],
-   states=[
-       State('dataset-info', 'data')
-   ]
-   ```
-
-2. **Update transforms callback** (`callbacks/transforms.py:12-25`):
-   ```python
-   # BEFORE
-   inputs=[
-       Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
-       Input('3d-settings-store', 'data')
-   ],
-   states=[
-       State('dataset-info', 'data'),
-       State('datapoint-index-slider', 'value'),
-       State('camera-state', 'data')  # <- State
-   ]
-   
-   # AFTER
-   inputs=[
-       Input({'type': 'transform-checkbox', 'index': ALL}, 'value'),
-       Input('3d-settings-store', 'data'),
-       Input('camera-state', 'data')  # <- Input
-   ],
-   states=[
-       State('dataset-info', 'data'),
-       State('datapoint-index-slider', 'value')
-   ]
-   ```
-
-**Expected Result**: LOD will update automatically when users zoom/pan the 3D view.
-
-### Phase 2: Fix DiscreteLOD Algorithm (MEDIUM PRIORITY)
-
-**Goal**: Make DiscreteLOD achieve target point reductions.
-
-**Solution**: Replace voxel downsampling with uniform random sampling for predictable results.
-
-**Changes Required**:
-
-Replace `_voxel_downsample` method in `discrete_lod.py:115-163`:
-
+#### Cache Structure
 ```python
-def _voxel_downsample(
-    self, 
-    point_cloud: Dict[str, torch.Tensor], 
-    target_points: int
-) -> Dict[str, torch.Tensor]:
-    """Simple uniform random downsampling for pre-computation."""
-    points = point_cloud['pos']
-    current_count = len(points)
-    
-    if target_points >= current_count:
-        return point_cloud
-    
-    # Use uniform random sampling for predictable results
-    indices = torch.randperm(current_count, device=points.device)[:target_points]
-    return {key: tensor[indices] for key, tensor in point_cloud.items()}
+# New global cache for density-based subsampling
+_global_density_cache: Dict[str, Dict[int, Dict[str, torch.Tensor]]] = {}
+# Key format: point_cloud_id -> {percentage: point_cloud_dict}
 ```
 
-**Alternative**: Improve voxel size calculation to better match target density.
+#### Cache Management
+- **Cache Key**: `point_cloud_id` (same format as discrete LOD)
+- **Cache Value**: Dictionary mapping density percentage (1-100) to subsampled point clouds
+- **Invalidation**: Clear cache when point cloud data changes
+- **Memory Management**: LRU-style eviction if needed
 
-**Expected Result**: DiscreteLOD levels will have exactly 5000, 2500, 1250, 1000 points.
+#### Implementation Location
+Create new file: `/data/viewer/utils/density_lod.py`
 
-### Phase 3: Testing and Validation
+### 2. Settings Integration
 
-**Test Scenarios**:
-1. Load KITTI dataset in viewer
-2. Switch between ContinuousLOD and DiscreteLOD
-3. Zoom in/out and verify point counts change
-4. Switch between top view and side view
-5. Verify plot titles update with point count information
+#### Settings Configuration (`/data/viewer/utils/settings_config.py`)
+```python
+# Add to DEFAULT_3D_SETTINGS
+'density_percentage': 100  # Default 100% (all points)
 
-**Success Criteria**:
-- Point counts decrease when zooming out
-- Point counts vary between top/side views on flat datasets
-- Plot titles show "(Continuous LOD: X/Y)" or "(Discrete LOD: X/Y)"
-- Performance improvement on large datasets
+# Add validation in validate_3d_settings()
+validated['density_percentage'] = max(1, min(100, int(validated.get('density_percentage', 100))))
+```
 
-## Risk Assessment
+#### UI Controls (`/data/viewer/layout/controls/controls_3d.py`)
+Add density slider that's conditionally visible:
+```python
+# Density Control (only visible when lod_type == 'none')
+html.Div([
+    html.Label("Density", style={'margin-top': '20px'}),
+    dcc.Slider(
+        id='density-slider',
+        min=1,
+        max=100, 
+        value=settings['density_percentage'],
+        marks={i: f"{i}%" for i in [1, 25, 50, 75, 100]},
+        step=1,
+        tooltip={"placement": "bottom", "always_visible": True}
+    ),
+], id='density-controls', style={'display': 'none'})  # Hidden by default
+```
 
-**Phase 1 (Camera Callback)**:
-- **Risk**: Medium - May cause frequent UI updates, potentially impacting performance
-- **Mitigation**: Add debouncing if updates are too frequent
-- **Rollback**: Easy - revert to State inputs
+#### Callback Updates (`/data/viewer/callbacks/three_d_settings.py`)
+1. **Add density slider to update_3d_settings callback**:
+   - Add `Input('density-slider', 'value')` to inputs
+   - Add `density_percentage` parameter and include in settings dict
 
-**Phase 2 (DiscreteLOD Fix)**:
-- **Risk**: Low - Only affects DiscreteLOD, ContinuousLOD works fine
-- **Mitigation**: Keep voxel approach as fallback option
-- **Rollback**: Easy - revert algorithm changes
+2. **Add callback to control density slider visibility**:
+   ```python
+   @callback(
+       outputs=[Output('density-controls', 'style')],
+       inputs=[Input('lod-type-dropdown', 'value')],
+       group="3d_settings"
+   )
+   def update_density_controls_visibility(lod_type: str) -> List[Dict[str, str]]:
+       """Show density controls only when LOD type is 'none'."""
+       if lod_type == 'none':
+           return [{'display': 'block', 'margin-top': '20px'}]
+       else:
+           return [{'display': 'none'}]
+   ```
 
-## Priority Recommendation
+### 3. Density LOD Implementation
 
-**Start with Phase 1** - The missing camera callback is the primary reason users don't see LOD working. This will immediately show LOD functionality with ContinuousLOD.
+#### New DensityLOD Class (`/data/viewer/utils/density_lod.py`)
+```python
+class DensityLOD:
+    """Density-based point cloud subsampling with caching."""
+    
+    def subsample(
+        self, 
+        point_cloud_id: str,
+        density_percentage: int,
+        point_cloud: Optional[Dict[str, torch.Tensor]] = None
+    ) -> Dict[str, torch.Tensor]:
+        """Subsample point cloud to specified density percentage."""
+        # Cache management and RandomSelect usage
+```
 
-**Phase 2 can be done later** - DiscreteLOD is a nice-to-have for fixed performance levels, but ContinuousLOD already provides the core functionality.
+#### Integration in Point Cloud Utils (`/data/viewer/utils/point_cloud.py`)
+Update `apply_lod_to_point_cloud()`:
+```python
+def apply_lod_to_point_cloud(
+    # ... existing parameters ...
+    density_percentage: Optional[int] = None,  # New parameter
+) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[torch.Tensor]]:
+    
+    # ... existing validation ...
+    
+    # Handle density-based subsampling when LOD is 'none'
+    if lod_type == "none" and density_percentage is not None and density_percentage < 100:
+        from data.viewer.utils.density_lod import DensityLOD
+        density_lod = DensityLOD()
+        normalized_id = normalize_point_cloud_id(point_cloud_id)
+        downsampled = density_lod.subsample(normalized_id, density_percentage, pc_dict)
+        # ... return processed data ...
+    
+    # ... existing LOD logic ...
+```
+
+### 4. Display Integration
+
+#### Update Display Functions
+Modify display functions to pass density settings:
+- `/data/viewer/layout/display/display_pcr.py`
+- `/data/viewer/layout/display/display_3dcd.py`
+
+Add `density_percentage` parameter to function calls and pass to `create_point_cloud_figure()`.
+
+#### Backend Integration
+Ensure settings are properly synced via existing backend sync mechanism in `/data/viewer/callbacks/backend_sync.py`.
+
+## Implementation Steps
+
+### Phase 1: Core Infrastructure
+1. ✅ Analyze existing LOD and caching systems
+2. ✅ Design density caching architecture  
+3. 🔄 Create `DensityLOD` class with caching
+4. ⏳ Update settings configuration
+
+### Phase 2: UI Integration  
+5. ⏳ Add density slider to 3D controls
+6. ⏳ Add visibility control callback
+7. ⏳ Update settings callback to include density
+
+### Phase 3: Backend Integration
+8. ⏳ Integrate density processing in `apply_lod_to_point_cloud()`
+9. ⏳ Update display functions to pass density settings
+10. ⏳ Test end-to-end functionality
+
+## Technical Considerations
+
+### Performance
+- **Caching Strategy**: Pre-compute common density levels (25%, 50%, 75%) on first access
+- **Memory Management**: Implement cache size limits and LRU eviction
+- **UI Responsiveness**: Use debouncing for slider changes to avoid excessive re-computation
+
+### User Experience  
+- **Intuitive Controls**: Show density as percentage with clear marks
+- **Visual Feedback**: Update point cloud title to show "(Density: X%)" when active
+- **Smooth Transitions**: Maintain camera position when density changes
+
+### Code Quality
+- **Type Safety**: Full type annotations following Pylon conventions
+- **Error Handling**: Assertions for input validation, fail-fast on invalid states
+- **Documentation**: Comprehensive docstrings and inline comments
+- **Testing**: Unit tests for `DensityLOD` class and integration tests
+
+### Integration Points
+- **Settings Store**: Leverage existing `3d-settings-store` mechanism
+- **Backend Sync**: Use existing sync infrastructure
+- **Point Cloud ID**: Reuse existing ID system for cache keys
+- **RandomSelect**: Leverage existing `RandomSelect` utility for sampling
+
+## Expected Outcome
+Users will have a density slider (1-100%) that appears when "No LOD" is selected, allowing them to control point display density with efficient caching for smooth performance.

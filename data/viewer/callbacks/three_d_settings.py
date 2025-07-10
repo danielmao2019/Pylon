@@ -15,7 +15,8 @@ from data.viewer.utils.settings_config import ViewerSettings
         Input('point-opacity-slider', 'value'),
         Input('radius-slider', 'value'),
         Input('correspondence-radius-slider', 'value'),
-        Input('lod-type-dropdown', 'value')
+        Input('lod-type-dropdown', 'value'),
+        Input('density-slider', 'value')
     ],
     group="3d_settings"
 )
@@ -24,7 +25,8 @@ def update_3d_settings(
     point_opacity: float,
     sym_diff_radius: float,
     corr_radius: float,
-    lod_type: str
+    lod_type: str,
+    density_percentage: int
 ) -> List[Dict[str, Union[str, int, float, bool]]]:
     """Update 3D settings store when slider values change.
     
@@ -37,6 +39,7 @@ def update_3d_settings(
         sym_diff_radius: Radius for symmetric difference computation
         corr_radius: Radius for correspondence visualization
         lod_type: Type of LOD to use ("continuous", "discrete", or "none")
+        density_percentage: Percentage of points to display when LOD is 'none' (1-100)
     
     Returns:
         List containing a dictionary of all 3D settings for UI store
@@ -50,7 +53,8 @@ def update_3d_settings(
         'point_opacity': point_opacity,
         'sym_diff_radius': sym_diff_radius,
         'corr_radius': corr_radius,
-        'lod_type': lod_type
+        'lod_type': lod_type,
+        'density_percentage': density_percentage
     }
     
     # Validate and apply defaults using centralized configuration
@@ -111,7 +115,20 @@ def update_lod_info_display(lod_type: str) -> List[str]:
     lod_descriptions = {
         'continuous': 'Real-time adaptive sampling based on camera distance. Provides smooth performance scaling.',
         'discrete': 'Fixed LOD levels with 2x downsampling per level. Predictable performance.',
-        'none': 'No level of detail - shows all points. May impact performance with large datasets.'
+        'none': 'No level of detail - shows all points. Use density control to adjust point count.'
     }
     
     return [lod_descriptions.get(lod_type, f"Unknown LOD type: {lod_type}")]
+
+
+@callback(
+    outputs=[Output('density-controls', 'style')],
+    inputs=[Input('lod-type-dropdown', 'value')],
+    group="3d_settings"
+)
+def update_density_controls_visibility(lod_type: str) -> List[Dict[str, str]]:
+    """Show density controls only when LOD type is 'none'."""
+    if lod_type == 'none':
+        return [{'display': 'block', 'margin-top': '20px'}]
+    else:
+        return [{'display': 'none'}]
