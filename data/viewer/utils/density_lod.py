@@ -106,8 +106,6 @@ class DensityLOD:
         """
         check_point_cloud(point_cloud)
         
-        current_count = len(point_cloud['pos'])
-        
         # Convert percentage to decimal and use RandomSelect
         percentage_decimal = density_percentage / 100.0
         
@@ -116,65 +114,3 @@ class DensityLOD:
         
         # Use RandomSelect with the percentage
         return RandomSelect(percentage_decimal)(point_cloud)
-
-    @staticmethod
-    def clear_cache(point_cloud_id: Optional[str] = None) -> None:
-        """Clear density cache for specific point cloud or all cached data.
-        
-        Args:
-            point_cloud_id: Specific point cloud ID to clear, or None to clear all
-        """
-        if point_cloud_id is None:
-            # Clear all caches
-            _global_density_cache.clear()
-            _global_density_original_cache.clear()
-            logger.info("Cleared all density caches")
-        else:
-            # Clear specific point cloud
-            if point_cloud_id in _global_density_cache:
-                del _global_density_cache[point_cloud_id]
-            if point_cloud_id in _global_density_original_cache:
-                del _global_density_original_cache[point_cloud_id]
-            logger.info(f"Cleared density cache for point cloud: {point_cloud_id}")
-
-    @staticmethod
-    def get_cache_info() -> Dict[str, Any]:
-        """Get information about current cache state.
-        
-        Returns:
-            Dictionary with cache statistics
-        """
-        cache_info = {
-            'num_cached_point_clouds': len(_global_density_cache),
-            'total_cached_densities': sum(len(densities) for densities in _global_density_cache.values()),
-            'point_cloud_ids': list(_global_density_cache.keys()),
-            'cached_densities_per_pc': {
-                pc_id: list(densities.keys()) 
-                for pc_id, densities in _global_density_cache.items()
-            }
-        }
-        return cache_info
-
-    @staticmethod
-    def precompute_common_densities(
-        point_cloud_id: str,
-        point_cloud: Dict[str, torch.Tensor],
-        densities: list = None
-    ) -> None:
-        """Precompute common density levels for faster access.
-        
-        Args:
-            point_cloud_id: Point cloud identifier
-            point_cloud: Original point cloud data
-            densities: List of density percentages to precompute (default: [25, 50, 75])
-        """
-        if densities is None:
-            densities = [25, 50, 75]  # Common density levels
-            
-        density_lod = DensityLOD()
-        
-        for density in densities:
-            if density != 100:  # Skip 100% as it doesn't need caching
-                density_lod.subsample(point_cloud_id, density, point_cloud)
-                
-        logger.info(f"Precomputed density levels {densities} for point cloud: {point_cloud_id}")
