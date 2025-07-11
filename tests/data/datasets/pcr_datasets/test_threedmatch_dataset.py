@@ -152,6 +152,8 @@ def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
 @pytest.mark.parametrize('lomatch_dataset', ['train', 'val', 'test'], indirect=True)
 def test_threedlomatch_dataset(lomatch_dataset, max_samples, get_samples_to_test):
     """Test the structure and content of ThreeDLoMatchDataset outputs."""
+    assert isinstance(lomatch_dataset, torch.utils.data.Dataset)
+    assert len(lomatch_dataset) > 0, "Dataset should not be empty"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = lomatch_dataset[idx]
