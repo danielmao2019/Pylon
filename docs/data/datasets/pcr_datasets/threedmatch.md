@@ -77,15 +77,15 @@ custom_dataset = _ThreeDMatchBaseDataset(
 **Test Splits**: Pre-curated evaluation sets
 - Source: Different metadata files (`3DMatch.pkl`, `3DLoMatch.pkl`)
 - Method: Independent curation with different philosophies
-- Result: 100 pairs overlap (3.0% of total test universe)
+- Result: 103 pairs from 3DMatch.pkl match 3DLoMatch filter (6.8% of 3DMatch filtered pairs)
 
 ### Why Test Sets Overlap
 
-The 100 overlapping test pairs exist because:
+The 103 overlapping test pairs exist because:
 1. **Independent curation**: Files created separately by different researchers
-2. **Boundary cases**: Both include pairs in 0.14-0.30 overlap range
+2. **Boundary cases**: Both include pairs in the 0.1-0.3 overlap range
 3. **Evaluation philosophy**: Both wanted challenging borderline cases
-4. **Minimal impact**: Only 3.0% overlap doesn't affect evaluation validity
+4. **Minimal impact**: Only 6.8% overlap doesn't significantly affect evaluation validity
 
 ## Scene Splits
 
@@ -139,9 +139,9 @@ sun3d-mit_76_studyroom-76-1studyroom2, sun3d-mit_lab_hj-lab_hj_tea_nov_2_2012_sc
 **Problem**: Scene `analysis-by-synthesis-apt2-kitchen` appears in BOTH training and validation splits.
 
 **Impact**:
-- 75 overlapping pairs (5.6% of validation set)
-- 60 pairs after 3DMatch filtering
-- 15 pairs after 3DLoMatch filtering
+- Scene appears in both train and validation metadata
+- May result in data leakage during validation
+- Exact pair counts depend on overlap filtering applied
 - May inflate validation performance metrics
 
 **Mitigation**:
@@ -188,13 +188,14 @@ data_root/
 │   ├── val.pkl         # Validation pairs metadata
 │   ├── 3DMatch.pkl     # 3DMatch test pairs
 │   └── 3DLoMatch.pkl   # 3DLoMatch test pairs
-└── data/
-    ├── train/
-    │   └── {scene_name}/
-    │       └── cloud_bin_{id}.pth
-    └── test/
-        └── {scene_name}/
-            └── cloud_bin_{id}.pth
+├── train/
+│   └── {scene_name}/
+│       ├── cloud_bin_{id}.pth
+│       └── cloud_bin_{id}.info.txt
+└── test/
+    └── {scene_name}/
+        ├── cloud_bin_{id}.pth
+        └── cloud_bin_{id}.info.txt
 ```
 
 ## Implementation Details
@@ -257,9 +258,9 @@ if self.overlap_min < overlap <= self.overlap_max:
 | > 0.7 | 199 | 14.9% |
 
 ### Test Sets
-- **3DMatch**: 1,623 pairs, 93.7% with overlap > 0.3
-- **3DLoMatch**: 1,781 pairs, 99.5% with overlap < 0.3
-- **Overlap**: 100 pairs in range 0.14-0.30
+- **3DMatch**: 1,623 total pairs → 1,520 filtered pairs (93.7% have overlap > 0.3)
+- **3DLoMatch**: 1,781 total pairs → 1,772 filtered pairs (99.5% have 0.1 < overlap ≤ 0.3)
+- **Cross-dataset overlap**: 103 pairs from 3DMatch.pkl match 3DLoMatch filter range
 
 </details>
 
