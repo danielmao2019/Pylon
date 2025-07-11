@@ -95,8 +95,8 @@ The 103 overlapping test pairs exist because:
 
 ```
 7-scenes-chess, 7-scenes-fire, 7-scenes-office, 7-scenes-pumpkin, 7-scenes-stairs,
-analysis-by-synthesis-apt1-kitchen, analysis-by-synthesis-apt1-living, 
-analysis-by-synthesis-apt2-bed, analysis-by-synthesis-apt2-kitchen, 
+analysis-by-synthesis-apt1-kitchen, analysis-by-synthesis-apt1-living,
+analysis-by-synthesis-apt2-bed, analysis-by-synthesis-apt2-kitchen,
 analysis-by-synthesis-apt2-living, analysis-by-synthesis-apt2-luke,
 analysis-by-synthesis-office2-5a, analysis-by-synthesis-office2-5b,
 bundlefusion-apt0_1, bundlefusion-apt0_2, bundlefusion-apt0_3, bundlefusion-apt0_4,

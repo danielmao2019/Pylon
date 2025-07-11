@@ -8,7 +8,7 @@ import utils
 class CelebADataset(BaseDataset):
     __doc__ = r"""
     CelebA dataset for multi-task learning with facial attribute classification tasks.
-    
+
     For detailed documentation, see: docs/datasets/multi_task/celeba.md
     """
 

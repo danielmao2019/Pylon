@@ -7,7 +7,7 @@ The PASCAL Context dataset is an extension of the PASCAL VOC 2010 dataset with a
 ## Dataset Information
 
 - **Type**: Natural scene images
-- **Tasks**: 
+- **Tasks**:
   - Semantic segmentation (59 or 20 classes)
   - Human parts segmentation
   - Surface normal estimation

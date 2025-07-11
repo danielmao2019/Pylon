@@ -7,7 +7,7 @@ def test_default_initialization():
     cache = DatasetCache()
     assert cache.max_memory_percent == 80.0
     assert cache.enable_validation is True
-    
+
     # Test initial state
     assert len(cache.cache) == 0
     assert len(cache.checksums) == 0

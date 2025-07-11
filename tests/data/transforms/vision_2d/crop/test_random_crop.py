@@ -24,7 +24,7 @@ import torch
                 [17, 18, 19],
             ]).unsqueeze(0),  # Expected (1, 3, 3) output
         ),
-        
+
         # 4x4 tensor, 2x2 crop, mock x=2, y=1 (crop starts at (2,1))
         (
             torch.tensor([
@@ -67,7 +67,7 @@ def test_random_crop_bounds():
     for _ in range(10):  # Run multiple times to test randomness
         cropped_tensor = transform(tensor)
         assert cropped_tensor.shape[-2:] == crop_size, "Crop size does not match expected output."
-    
+
 
 @pytest.mark.parametrize(
     "tensor_shape, crop_size",
