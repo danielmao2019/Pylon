@@ -50,7 +50,7 @@ data_cfg = {
     'train_dataloader': {
         'class': torch.utils.data.DataLoader,
         'args': {
-            'batch_size': 1,  # Use batch_size=1 for viewer
+            'batch_size': 1,
             'num_workers': 4,
             'shuffle': True,
         },
@@ -60,7 +60,6 @@ data_cfg = {
 ```
 
 **Important Notes**:
-- **Batch size must be 1** (required by Pylon framework assumption for validation/evaluation)
 - **File name must match pattern**: `{dataset_name}_data_cfg.py`
 - **Config structure must match** the training config format
 
@@ -209,7 +208,6 @@ labels = {
 ### Performance Issues
 **Problem**: Viewer is slow or unresponsive
 **Solution**:
-- Ensure batch size is 1 (required by Pylon framework for evaluation)
 - Check that your dataset implementation is efficient
 - Verify data paths are correct and accessible
 
