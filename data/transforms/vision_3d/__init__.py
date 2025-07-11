@@ -10,6 +10,8 @@ from data.transforms.vision_3d.gaussian_pos_noise import GaussianPosNoise
 from data.transforms.vision_3d.estimate_normals import EstimateNormals
 from data.transforms.vision_3d.pcr_translation import PCRTranslation
 from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
+from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
+from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 
 
 __all__ = (
@@ -22,4 +24,6 @@ __all__ = (
     'EstimateNormals',
     'PCRTranslation',
     'RandomRigidTransform',
+    'RandomPlaneCrop',
+    'RandomPointCrop',
 )
