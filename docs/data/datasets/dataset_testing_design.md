@@ -298,9 +298,9 @@ Pylon has basic CI integration that runs pytest with specific flags, but this ar
 # Run with sample control (typical development)
 pytest tests/data/datasets/pcr_datasets/test_threedmatch_dataset.py --samples=5
 
-# Run full validation (CI-style)
+# Run full validation
 pytest tests/data/datasets/ -v
 
-# Run with emoji output (matches CI)
-pytest --emoji -v tests/data/datasets/
+# Run specific test patterns
+pytest tests/data/datasets/ -k "test_validation"
 ```
