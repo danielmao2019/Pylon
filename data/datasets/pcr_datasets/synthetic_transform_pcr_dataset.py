@@ -85,14 +85,14 @@ class SyntheticTransformPCRDataset(BaseDataset):
         raise NotImplementedError("Subclasses must implement _init_annotations and set self.file_pair_annotations")
     
     def _calculate_pairs_per_file(self) -> None:
-        """Calculate how many synthetic pairs to generate per source file."""
-        num_source_files = len(self.source_annotations)
-        base_pairs_per_file = self.total_dataset_size // num_source_files
-        remainder = self.total_dataset_size % num_source_files
+        """Calculate how many synthetic pairs to generate per file pair."""
+        num_file_pairs = len(self.file_pair_annotations)
+        base_pairs_per_file = self.total_dataset_size // num_file_pairs
+        remainder = self.total_dataset_size % num_file_pairs
         
         # Distribute pairs evenly with remainder distributed to first files
         self.pairs_per_file = []
-        for i in range(num_source_files):
+        for i in range(num_file_pairs):
             extra_pair = 1 if i < remainder else 0
             self.pairs_per_file.append(base_pairs_per_file + extra_pair)
         
@@ -103,7 +103,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
                 self.annotations.append({
                     'file_idx': file_idx,
                     'pair_idx': pair_idx,
-                    'source_annotation': self.source_annotations[file_idx]
+                    'file_pair_annotation': self.file_pair_annotations[file_idx]
                 })
     
     def _load_transform_cache(self) -> None:
@@ -126,16 +126,45 @@ class SyntheticTransformPCRDataset(BaseDataset):
         file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
         return file_hash
     
-    def _load_source_data(self, source_annotation: Dict[str, Any]) -> torch.Tensor:
-        """Load source point cloud data - to be implemented by subclasses.
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Load point cloud data for both source and target files.
+        
+        Handles both single-temporal and bi-temporal datasets:
+        - Single-temporal: src_file_path == tgt_file_path, load once and copy
+        - Bi-temporal: src_file_path != tgt_file_path, load both files
         
         Args:
-            source_annotation: Annotation for source file/pair
+            file_pair_annotation: Annotation with 'src_file_path' and 'tgt_file_path' keys
+            
+        Returns:
+            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors
+        """
+        src_file_path = file_pair_annotation['src_file_path']
+        tgt_file_path = file_pair_annotation['tgt_file_path']
+        
+        # Load source point cloud
+        src_pc_raw = self._load_single_file(src_file_path)
+        
+        # Check if single-temporal or bi-temporal
+        if src_file_path == tgt_file_path:
+            # Single-temporal: copy source as target
+            tgt_pc_raw = src_pc_raw.clone()
+        else:
+            # Bi-temporal: load target separately
+            tgt_pc_raw = self._load_single_file(tgt_file_path)
+        
+        return src_pc_raw, tgt_pc_raw
+    
+    def _load_single_file(self, file_path: str) -> torch.Tensor:
+        """Load point cloud data from a single file - to be implemented by subclasses.
+        
+        Args:
+            file_path: Path to point cloud file
             
         Returns:
             Point cloud positions as tensor
         """
-        raise NotImplementedError("Subclasses must implement _load_source_data")
+        raise NotImplementedError("Subclasses must implement _load_single_file")
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
@@ -143,10 +172,12 @@ class SyntheticTransformPCRDataset(BaseDataset):
         Checks transform-to-overlap cache first, then decides to call either _get_pair or _generate_more.
         """
         file_idx, transform_idx = self._get_indices(idx)
-        source_annotation = self.source_annotations[file_idx]
+        file_pair_annotation = self.file_pair_annotations[file_idx]
         
-        # Get cache key for this file
-        file_cache_key = self._get_file_cache_key(source_annotation.get('file_path', str(file_idx)))
+        # Get cache key for this file pair
+        file_cache_key = self._get_file_cache_key(
+            file_pair_annotation.get('src_file_path', str(file_idx))
+        )
         
         # Check transform-to-overlap cache
         cached_transforms = self.transform_cache.get(file_cache_key, [])
@@ -215,17 +246,17 @@ class SyntheticTransformPCRDataset(BaseDataset):
         """Get a transformed point cloud pair using cached transform params.
         
         Args:
-            file_idx: Index of source file
-            transform_idx: Index of transform for this file
-            valid_transforms: List of valid cached transforms for this file
+            file_idx: Index of file pair
+            transform_idx: Index of transform for this file pair
+            valid_transforms: List of valid cached transforms for this file pair
             
         Returns:
             Tuple of (src_pc, tgt_pc, transform_matrix, transform_config)
         """
-        source_annotation = self.source_annotations[file_idx]
+        file_pair_annotation = self.file_pair_annotations[file_idx]
         
-        # Load source point cloud
-        original_pc = self._load_source_data(source_annotation)
+        # Load point cloud data - handles both single-temporal and bi-temporal
+        src_pc_raw, tgt_pc_raw = self._load_file_pair_data(file_pair_annotation)
         
         # Get the specific transform config from cache
         transform_config = valid_transforms[transform_idx]
@@ -234,7 +265,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         transform_matrix, crop_transform = self._build_transform(transform_config)
         
         # Apply transform to get point cloud pair
-        src_pc, tgt_pc = self._apply_transform(original_pc, transform_matrix, crop_transform, transform_config)
+        src_pc, tgt_pc = self._apply_transform(src_pc_raw, tgt_pc_raw, transform_matrix, crop_transform, transform_config)
         
         return src_pc, tgt_pc, transform_matrix, transform_config
     
@@ -242,20 +273,22 @@ class SyntheticTransformPCRDataset(BaseDataset):
         """Generate more valid transforms and return the specific one requested (parallel version).
         
         Args:
-            file_idx: Index of source file
-            transform_idx: Index of transform for this file (unused - diagnostic warning expected)
+            file_idx: Index of file pair
+            transform_idx: Index of transform for this file pair (unused - diagnostic warning expected)
             needed_count: Number of additional valid transforms needed
             
         Returns:
             Tuple of (src_pc, tgt_pc, transform_matrix, transform_config) for the requested transform_idx
         """
-        source_annotation = self.source_annotations[file_idx]
+        file_pair_annotation = self.file_pair_annotations[file_idx]
         
-        # Load source point cloud
-        original_pc = self._load_source_data(source_annotation)
+        # Load point cloud data - handles both single-temporal and bi-temporal
+        src_pc_raw, tgt_pc_raw = self._load_file_pair_data(file_pair_annotation)
         
-        # Get cache key for this file
-        file_cache_key = self._get_file_cache_key(source_annotation.get('file_path', str(file_idx)))
+        # Get cache key for this file pair
+        file_cache_key = self._get_file_cache_key(
+            file_pair_annotation.get('src_file_path', str(file_idx))
+        )
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
@@ -274,7 +307,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
             batch_args = []
             for i in range(current_batch_size):
                 trial_idx = trial + i
-                batch_args.append((original_pc, file_idx, transform_idx, trial_idx))
+                batch_args.append((src_pc_raw, tgt_pc_raw, file_idx, transform_idx, trial_idx))
             
             # Process batch in parallel
             batch_results = self._process_transform_batch(batch_args)
@@ -330,12 +363,12 @@ class SyntheticTransformPCRDataset(BaseDataset):
         """Process a single transform - thread-safe worker function.
         
         Args:
-            args: Tuple of (original_pc, file_idx, transform_idx, trial_idx)
+            args: Tuple of (src_pc_raw, tgt_pc_raw, file_idx, transform_idx, trial_idx)
             
         Returns:
             Result dictionary with transform data
         """
-        original_pc, file_idx, transform_idx, trial_idx = args
+        src_pc_raw, tgt_pc_raw, file_idx, transform_idx, trial_idx = args
         
         # Create deterministic seed from (file_idx, transform_idx, trial_idx)
         seed = hash((file_idx, transform_idx, trial_idx)) % (2**32)
@@ -347,11 +380,11 @@ class SyntheticTransformPCRDataset(BaseDataset):
         transform_matrix, crop_transform = self._build_transform(transform_params)
         
         # Apply transform
-        src_pc, tgt_pc = self._apply_transform(original_pc, transform_matrix, crop_transform, transform_params)
+        src_pc, tgt_pc = self._apply_transform(src_pc_raw, tgt_pc_raw, transform_matrix, crop_transform, transform_params)
         
         # Compute overlap (this is the expensive operation we're parallelizing)
         overlap = compute_registration_overlap(
-            ref_points=original_pc,
+            ref_points=tgt_pc_raw,
             src_points=src_pc['pos'],
             transform=None,
             positive_radius=self.matching_radius * 2
@@ -450,12 +483,14 @@ class SyntheticTransformPCRDataset(BaseDataset):
         
         return transform_matrix, crop_transform
     
-    def _apply_transform(self, original_pc: torch.Tensor, transform_matrix: torch.Tensor, 
-                        crop_transform: Any, transform_params: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
+    def _apply_transform(self, src_pc_raw: torch.Tensor, tgt_pc_raw: torch.Tensor, 
+                        transform_matrix: torch.Tensor, crop_transform: Any, 
+                        transform_params: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Apply transform to create source and target point clouds.
         
         Args:
-            original_pc: Original point cloud positions
+            src_pc_raw: Raw source point cloud positions
+            tgt_pc_raw: Raw target point cloud positions
             transform_matrix: 4x4 transformation matrix
             crop_transform: Crop transform object
             transform_params: Transform configuration
@@ -463,8 +498,8 @@ class SyntheticTransformPCRDataset(BaseDataset):
         Returns:
             Tuple of (src_pc, tgt_pc) dictionaries
         """
-        # Apply SE(3) transformation
-        transformed_pc = (transform_matrix[:3, :3] @ original_pc.T).T + transform_matrix[:3, 3]
+        # Apply SE(3) transformation to source
+        transformed_pc = (transform_matrix[:3, :3] @ src_pc_raw.T).T + transform_matrix[:3, 3]
         
         # Apply crop with deterministic generator
         crop_generator = torch.Generator()
@@ -481,8 +516,8 @@ class SyntheticTransformPCRDataset(BaseDataset):
         }
         
         tgt_pc = {
-            'pos': original_pc,
-            'feat': torch.ones((original_pc.shape[0], 1), dtype=torch.float32),
+            'pos': tgt_pc_raw,
+            'feat': torch.ones((tgt_pc_raw.shape[0], 1), dtype=torch.float32),
         }
         
         return src_pc, tgt_pc
