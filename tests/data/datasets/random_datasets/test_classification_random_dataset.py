@@ -38,6 +38,8 @@ def dataset(request):
     (10, 1000, (512, 512), 0),
 ], indirect=True)
 def test_classification_random_dataset(dataset, max_samples, get_samples_to_test):
+    assert isinstance(dataset, torch.utils.data.Dataset)
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]

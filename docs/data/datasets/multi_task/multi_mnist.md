@@ -7,7 +7,7 @@ The Multi-MNIST dataset is a synthetic dataset created by overlaying two MNIST d
 ## Dataset Information
 
 - **Type**: Synthetic overlapping digit images
-- **Tasks**: 
+- **Tasks**:
   - Top-left digit classification (10 classes)
   - Bottom-right digit classification (10 classes)
 - **Dataset Size**:

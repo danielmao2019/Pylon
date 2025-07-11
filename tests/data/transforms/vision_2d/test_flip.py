@@ -14,8 +14,8 @@ import torch
 
         # Test flipping along a 3D tensor (depth)
         (
-            torch.arange(2 * 2 * 2).view(2, 2, 2), 
-            2, 
+            torch.arange(2 * 2 * 2).view(2, 2, 2),
+            2,
             torch.tensor([[[1, 0], [3, 2]], [[5, 4], [7, 6]]])
         ),
 

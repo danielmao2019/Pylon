@@ -10,7 +10,7 @@ class MultiTaskFacialLandmarkDataset(BaseDataset):
 
     Download:
         https://mmlab.ie.cuhk.edu.hk/projects/TCDCN.html
-    
+
     Used in:
         Facial Landmark Detection by Deep Multi-task Learning (https://link.springer.com/chapter/10.1007/978-3-319-10599-4_7)
     """

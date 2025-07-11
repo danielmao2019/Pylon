@@ -14,14 +14,14 @@ class FillLastBatchSampler(Sampler):
     def __iter__(self) -> Iterator[List[int]]:
         if self.shuffle:
             random.shuffle(self.indices)
-        
+
         batch = []
         for idx in self.indices:
             batch.append(idx)
             if len(batch) == self.batch_size:
                 yield batch
                 batch = []
-        
+
         # If there's an incomplete batch, fill it by sampling with replacement
         if batch:
             while len(batch) < self.batch_size:

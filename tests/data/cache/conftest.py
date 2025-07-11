@@ -42,17 +42,17 @@ def three_item_cache(sample_datapoint):
     # Calculate memory needed for 3 items
     item_memory = DatasetCache._calculate_item_memory(sample_datapoint)
     total_memory_needed = item_memory * 3
-    
+
     # Set percentage to allow exactly 3 items
     max_percent = (total_memory_needed / psutil.virtual_memory().total) * 100
-    
+
     return DatasetCache(max_memory_percent=max_percent)
 
 
 @pytest.fixture
 def cache_with_items(three_item_cache, sample_datapoint):
     """Create a cache pre-populated with 3 items.
-    
+
     Returns a new copy of the cache to ensure test isolation.
     """
     cache = copy.deepcopy(three_item_cache)

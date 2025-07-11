@@ -60,6 +60,7 @@ def dataset(request):
 @pytest.mark.parametrize('dataset', ['train', 'test'], indirect=True)
 def test_air_change(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset must inherit from torch.utils.data.Dataset"
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     # Initialize class distribution tensor
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)

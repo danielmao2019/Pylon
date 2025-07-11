@@ -92,6 +92,7 @@ def dataset(request):
 ], indirect=True)
 def test_oscd(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
+    assert len(dataset) > 0, "Dataset should not be empty"
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
 
     def validate_datapoint(idx: int) -> None:

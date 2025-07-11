@@ -44,6 +44,7 @@ from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import
 from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
 from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
+from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 
 
 __all__ = (
@@ -84,4 +85,6 @@ __all__ = (
     'SynthPCRDataset',
     'RealPCRDataset',
     'KITTIDataset',
+    'ThreeDMatchDataset',
+    'ThreeDLoMatchDataset',
 )

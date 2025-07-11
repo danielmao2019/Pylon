@@ -41,7 +41,7 @@ def process_batch(args: Tuple[int, Dict[str, Any], int]) -> Tuple[Optional[Tuple
     neighbors = batch['inputs']['neighbors']
     subsampling = batch['inputs']['subsampling']
     upsampling = batch['inputs']['upsampling']
-    
+
     # Check lengths of arrays - subsampling and upsampling should be one less than others
     num_stages = len(points)
     assert len(points) == len(lengths) == len(neighbors), \

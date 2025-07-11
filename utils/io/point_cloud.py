@@ -133,6 +133,43 @@ def _read_from_las(filename: str) -> Dict[str, np.ndarray]:
     return result
 
 
+def _load_from_pth(
+    file_path: str,
+    device: Optional[Union[torch.device, str]] = None
+) -> torch.Tensor:
+    """Load a point cloud from a PyTorch tensor file (.pth).
+    
+    Args:
+        file_path: Path to the PyTorch tensor file (.pth)
+        device: Device to load the tensor on (default: None for CPU)
+        
+    Returns:
+        Point cloud tensor of shape (N, 3) or (N, D) where D >= 3
+    """
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"Point cloud file not found: {file_path}")
+    
+    # Load the tensor
+    map_location = 'cpu' if device is None else device
+    points = torch.load(file_path, map_location=map_location)
+    
+    # Ensure it's a tensor
+    if isinstance(points, np.ndarray):
+        points = torch.from_numpy(points)
+        if device is not None:
+            points = points.to(device)
+    
+    # Ensure it's float32
+    if points.dtype != torch.float32:
+        points = points.float()
+    
+    # Validate shape
+    if points.ndim != 2 or points.shape[1] < 3:
+        raise ValueError(f"Expected tensor of shape (N, D) where D >= 3, got {points.shape}")
+    
+    return points
+
+
 def load_point_cloud(
     pathPC,
     nameInPly: Optional[str] = None,
@@ -155,7 +192,10 @@ def load_point_cloud(
 
     file_ext = os.path.splitext(pathPC)[1].lower()
 
-    if file_ext == '.ply':
+    if file_ext == '.pth':
+        # Use the new tensor loader for .pth files
+        return _load_from_pth(pathPC)
+    elif file_ext == '.ply':
         pc_data = _read_from_ply(pathPC, nameInPly=nameInPly, name_feat=name_feat)
         pc_data = torch.from_numpy(pc_data)
     elif file_ext in ['.las', '.laz']:

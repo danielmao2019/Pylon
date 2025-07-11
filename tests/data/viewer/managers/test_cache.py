@@ -16,7 +16,7 @@ class TestDatasetCache(unittest.TestCase):
         # Test with simple value
         self.cache.put(1, "test")
         self.assertEqual(self.cache.get(1), "test")
-        
+
         # Test with numpy array
         arr = np.array([1, 2, 3])
         self.cache.put(2, arr)
@@ -27,7 +27,7 @@ class TestDatasetCache(unittest.TestCase):
         self.cache.put(1, "first")
         self.cache.put(2, "second")
         self.cache.put(3, "third")  # Should evict "first"
-        
+
         self.assertIsNone(self.cache.get(1))
         self.assertEqual(self.cache.get(2), "second")
         self.assertEqual(self.cache.get(3), "third")
@@ -39,13 +39,13 @@ class TestDatasetCache(unittest.TestCase):
         self.assertEqual(stats['hits'], 0)
         self.assertEqual(stats['misses'], 0)
         self.assertEqual(stats['evictions'], 0)
-        
+
         # Test hit
         self.cache.put(1, "test")
         self.cache.get(1)
         stats = self.cache.get_stats()
         self.assertEqual(stats['hits'], 1)
-        
+
         # Test miss
         self.cache.get(2)
         stats = self.cache.get_stats()
@@ -56,26 +56,26 @@ class TestDatasetCache(unittest.TestCase):
         # Create a large array that should exceed memory limit
         large_array = np.zeros((1000, 1000), dtype=np.float32)  # ~4MB
         small_array = np.zeros((10, 10), dtype=np.float32)  # ~400B
-        
+
         self.cache = DatasetCache(max_size=10, max_memory_mb=0.1)  # 100KB limit
-        
+
         # Put small array first
         self.cache.put(1, small_array)
         self.assertIsNotNone(self.cache.get(1))
-        
+
         # Put large array - should evict small array due to memory limit
         self.cache.put(2, large_array)
         self.assertIsNone(self.cache.get(1))
-        
+
     def test_cache_clear(self):
         """Test clearing the cache."""
         # Add some items
         self.cache.put((0, None), self.test_data)
         self.cache.put((1, None), self.test_data)
-        
+
         # Clear cache
         self.cache.clear()
-        
+
         # Verify cache is empty
         stats = self.cache.get_stats()
         self.assertEqual(stats['size'], 0)

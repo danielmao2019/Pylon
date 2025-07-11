@@ -101,7 +101,7 @@ class I3PEDataset(BaseSyntheticDataset):
 
         Args:
             image (torch.Tensor): Input image tensor.
-            segments (numpy.ndarray, optional): Precomputed segmentations for the image. 
+            segments (numpy.ndarray, optional): Precomputed segmentations for the image.
                                                 If not provided, it will be computed using `self._segment_objects`.
 
         Returns:

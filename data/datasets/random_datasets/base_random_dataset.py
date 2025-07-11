@@ -64,7 +64,7 @@ class BaseRandomDataset(BaseDataset):
         generator = torch.Generator()
         seed = (self.initial_seed or 0) + idx
         generator.manual_seed(seed)
-        
+
         # Always create tensors on CPU - BaseDataset handles device transfer
         inputs, labels = tuple({
             key2: self.gen_func_config[key1][key2][0](
@@ -73,6 +73,6 @@ class BaseRandomDataset(BaseDataset):
             )
             for key2 in self.gen_func_config[key1]
         } for key1 in ['inputs', 'labels'])
-        
+
         meta_info = {'seed': seed}
         return inputs, labels, meta_info

@@ -38,11 +38,17 @@ def get_correspondences(src_points: torch.Tensor, tgt_points: torch.Tensor, tran
     indices_list = src_tree.query_ball_point(tgt_points, radius)
 
     # Create correspondence pairs
-    corr_indices = np.array([
+    corr_list = [
         (i, j)
         for j, indices in enumerate(indices_list)
         for i in indices
-    ], dtype=np.int64)
+    ]
+    
+    # Handle empty case - ensure we get a 2D array with shape (0, 2)
+    if len(corr_list) == 0:
+        corr_indices = np.empty((0, 2), dtype=np.int64)
+    else:
+        corr_indices = np.array(corr_list, dtype=np.int64)
 
     return torch.tensor(corr_indices, dtype=torch.int64, device=device)
 
