@@ -89,7 +89,7 @@ def test_empty_dataset_handling():
     dataset = MyDataset(split='empty')
     
     # Assert-based validation - no pytest.skip
-    assert len(dataset) >= 0, "Dataset length should be non-negative"
+    assert len(dataset) > 0, "Dataset should not be empty"
     
     if len(dataset) == 0:
         # Test that empty dataset handles gracefully
@@ -260,11 +260,10 @@ def test_cache_vs_uncached(SampleDataset):
 
 ### Patterns NOT Used
 1. **pytest.skip()**: Never used for empty datasets - always use assertions
-2. **Performance benchmarking**: No timing tests at dataset level
-3. **Mock objects**: Tests use real datasets and file paths
-4. **Resource cleanup**: No explicit cleanup patterns in dataset tests
-5. **Complex test classes**: Only plain pytest functions with fixtures
-6. **Database/external service mocking**: All data is file-based
+2. **Mock objects**: Tests use real datasets and file paths
+3. **Resource cleanup**: No explicit cleanup patterns in dataset tests
+4. **Complex test classes**: Only plain pytest functions with fixtures
+5. **Database/external service mocking**: All data is file-based
 
 ### Anti-Patterns to Avoid
 
@@ -276,15 +275,12 @@ def test_empty_dataset():
 
 # ✅ DO - Assert-based validation
 def test_empty_dataset():
-    assert len(dataset) >= 0
-    if len(dataset) == 0:
-        assert hasattr(dataset, 'annotations')
+    assert len(dataset) > 0, "Dataset should not be empty"
+    # Test normal functionality
+    datapoint = dataset[0]
+    assert isinstance(datapoint, dict)
 
-# ❌ DON'T - Performance timing tests
-def test_loading_speed():
-    start = time.time()
-    # ... timing code
-    assert elapsed < threshold
+# Note: Performance timing tests are allowed but not commonly implemented yet
 
 # ✅ DO - Focus on correctness validation
 def test_data_correctness():
@@ -292,21 +288,9 @@ def test_data_correctness():
     assert isinstance(datapoint, dict)
 ```
 
-## GitHub Actions Integration
+## CI Integration Note
 
-Pylon tests run in CI with specific pytest configuration:
-
-```yaml
-# From .github/workflows/github-actions-pytest.yml
-- name: Run pytest
-  run: pytest --emoji -v --md report.md ./
-```
-
-### Key CI Features
-- **--emoji flag**: Provides visual test feedback
-- **-v flag**: Verbose output for debugging
-- **--md report.md**: Generates markdown reports
-- **Runs on all pushes**: Continuous validation
+Pylon has basic CI integration that runs pytest with specific flags, but this area is still being developed and should not be considered a mature pattern yet.
 
 ## Testing Command Examples
 

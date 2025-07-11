@@ -357,7 +357,7 @@ If you need caching, use proper synchronization or create cache keys that avoid 
 
 Datasets must return data in formats compatible with configured transforms. The framework handles transform application automatically.
 
-**Key point**: Design your data format to match the keys expected by your transforms (e.g., `{'inputs': {'image': tensor}}` for image transforms).
+**Key point**: Transforms are implemented to work with the dataset's data format - the transforms adapt to your dataset's dictionary structure.
 
 ### DataLoader Integration
 
