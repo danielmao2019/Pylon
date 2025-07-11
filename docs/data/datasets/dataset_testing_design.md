@@ -85,20 +85,16 @@ def test_dataset_sampling(dataset, max_samples, get_samples_to_test):
 **Standard Pattern**: Direct assertions for all validation, no skip patterns
 
 ```python
-def test_empty_dataset_handling():
-    dataset = MyDataset(split='empty')
+def test_dataset_basic_validation():
+    dataset = MyDataset(split='train')
     
     # Assert-based validation - no pytest.skip
     assert len(dataset) > 0, "Dataset should not be empty"
     
-    if len(dataset) == 0:
-        # Test that empty dataset handles gracefully
-        assert hasattr(dataset, 'annotations')
-        assert dataset.annotations == []
-    else:
-        # Test normal functionality
-        datapoint = dataset[0]
-        assert isinstance(datapoint, dict)
+    # Test normal functionality
+    datapoint = dataset[0]
+    assert isinstance(datapoint, dict)
+    assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
 ```
 
 ### 5. Mathematical Validation
@@ -274,11 +270,12 @@ def test_empty_dataset():
         pytest.skip("Dataset is empty")
 
 # ✅ DO - Assert-based validation
-def test_empty_dataset():
+def test_dataset_validation():
     assert len(dataset) > 0, "Dataset should not be empty"
     # Test normal functionality
     datapoint = dataset[0]
     assert isinstance(datapoint, dict)
+    assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
 
 # Note: Performance timing tests are allowed but not commonly implemented yet
 
