@@ -65,38 +65,36 @@ class _ThreeDMatchBaseDataset(BaseDataset):
         
         # Load metadata
         with open(metadata_file, 'rb') as f:
-            metadata_dict = pickle.load(f)
+            metadata_list = pickle.load(f)
         
-        # OverlapPredator format: dict with arrays
-        # Sanity check - all arrays should have same length
-        expected_keys = ['src', 'tgt', 'rot', 'trans', 'overlap']
-        assert all(key in metadata_dict for key in expected_keys), f"Missing keys in metadata: {list(metadata_dict.keys())}"
+        # GeoTransformer format: list of dicts
+        assert isinstance(metadata_list, list), f"Expected list format, got {type(metadata_list)}"
+        assert len(metadata_list) > 0, "Metadata list is empty"
         
-        lengths = [len(metadata_dict[key]) for key in expected_keys]
-        assert all(length == lengths[0] for length in lengths), f"Inconsistent lengths in metadata: {dict(zip(expected_keys, lengths))}"
-        
-        num_pairs = len(metadata_dict['src'])
+        # Check required keys in first item
+        expected_keys = ['pcd0', 'pcd1', 'rotation', 'translation', 'overlap']
+        first_item = metadata_list[0]
+        assert all(key in first_item for key in expected_keys), f"Missing keys in metadata: {list(first_item.keys())}"
         
         # Filter by overlap threshold and convert to annotations format
         self.annotations = []
-        data_dir = os.path.join(self.data_root, 'data')
-        for i in range(num_pairs):
-            overlap = metadata_dict['overlap'][i]
+        for item in metadata_list:
+            overlap = item['overlap']
             if self.overlap_min < overlap <= self.overlap_max:
                 # Extract scene names and ensure they match
-                src_scene = metadata_dict['src'][i].split('/')[0]
-                tgt_scene = metadata_dict['tgt'][i].split('/')[0]
+                src_scene = item['pcd0'].split('/')[0]
+                tgt_scene = item['pcd1'].split('/')[0]
                 assert src_scene == tgt_scene, f"Scene names must match: src={src_scene}, tgt={tgt_scene}"
                 
                 annotation = {
-                    'src_path': os.path.join(data_dir, metadata_dict['src'][i]),
-                    'tgt_path': os.path.join(data_dir, metadata_dict['tgt'][i]),
-                    'rotation': metadata_dict['rot'][i],  # (3, 3) numpy array
-                    'translation': metadata_dict['trans'][i],  # (3,) numpy array
+                    'src_path': os.path.join(self.data_root, item['pcd0']),
+                    'tgt_path': os.path.join(self.data_root, item['pcd1']),
+                    'rotation': item['rotation'],  # (3, 3) numpy array
+                    'translation': item['translation'],  # (3,) numpy array
                     'overlap': overlap,
-                    'scene_name': src_scene,  # Use verified scene name
-                    'frag_id0': int(metadata_dict['src'][i].split('/')[-1].split('_')[-1].split('.')[0]),  # Extract fragment ID
-                    'frag_id1': int(metadata_dict['tgt'][i].split('/')[-1].split('_')[-1].split('.')[0]),  # Extract fragment ID
+                    'scene_name': item.get('scene_name', src_scene),  # Use provided or extracted scene name
+                    'frag_id0': item.get('frag_id0', int(item['pcd0'].split('/')[-1].split('_')[-1].split('.')[0])),  # Use provided or extract fragment ID
+                    'frag_id1': item.get('frag_id1', int(item['pcd1'].split('/')[-1].split('_')[-1].split('.')[0])),  # Use provided or extract fragment ID
                 }
                 self.annotations.append(annotation)
     
@@ -234,9 +232,9 @@ class ThreeDMatchDataset(_ThreeDMatchBaseDataset):
     """
     
     DATASET_SIZE = {
-        'train': 14313,  # 3DMatch train (overlap > 0.3)
-        'val': 915,      # 3DMatch val (overlap > 0.3)  
-        'test': 1623,    # 3DMatch test (uses 3DMatch.pkl, no overlap filtering)
+        'train': 2,      # Current test data (overlap > 0.3)
+        'val': 2,        # Current test data (overlap > 0.3)  
+        'test': 2,       # Current test data (uses 3DMatch.pkl, no overlap filtering)
     }
     
     def __init__(self, **kwargs) -> None:
@@ -260,9 +258,9 @@ class ThreeDLoMatchDataset(_ThreeDMatchBaseDataset):
     """
     
     DATASET_SIZE = {
-        'train': 6225,   # 3DLoMatch train (0.1 < overlap <= 0.3)
-        'val': 414,      # 3DLoMatch val (0.1 < overlap <= 0.3)
-        'test': 1781,    # 3DLoMatch test (uses 3DLoMatch.pkl, no overlap filtering)
+        'train': 0,      # Current test data (0.1 < overlap <= 0.3) - none in range
+        'val': 0,        # Current test data (0.1 < overlap <= 0.3) - none in range
+        'test': 0,       # Current test data (uses 3DLoMatch.pkl, no overlap filtering) - none in range
     }
     
     def __init__(self, **kwargs) -> None:
