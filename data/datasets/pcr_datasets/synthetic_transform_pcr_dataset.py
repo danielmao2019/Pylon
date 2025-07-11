@@ -231,24 +231,33 @@ class SyntheticTransformPCRDataset(BaseDataset):
         
         return src_pc, tgt_pc, transform_matrix, transform_config
     
-    def _generate_more(self, original_pc: torch.Tensor, file_cache_key: str, needed_count: int) -> List[Dict[str, Any]]:
-        """Generate more valid transforms for a file.
+    def _generate_more(self, file_idx: int, transform_idx: int, needed_count: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor, Dict[str, Any]]:
+        """Generate more valid transforms and return the specific one requested.
         
         Args:
-            original_pc: Original point cloud positions
-            file_cache_key: Cache key for this file
+            file_idx: Index of source file
+            transform_idx: Index of transform for this file
             needed_count: Number of additional valid transforms needed
             
         Returns:
-            List of new valid transform configurations
+            Tuple of (src_pc, tgt_pc, transform_matrix, transform_config) for the requested transform_idx
         """
+        source_annotation = self.source_annotations[file_idx]
+        
+        # Load source point cloud
+        original_pc = self._load_source_data(source_annotation)
+        
+        # Get cache key for this file
+        file_cache_key = self._get_file_cache_key(source_annotation.get('file_path', str(file_idx)))
+        
+        # Get existing cached transforms
         cached_transforms = self.transform_cache.get(file_cache_key, [])
-        new_valid_transforms = []
+        generated_results = []  # Store results to avoid rebuilding
         
         base_seed = hash(file_cache_key) % (2**32)
         trial = len(cached_transforms)  # Start from where cache left off
         
-        while len(new_valid_transforms) < needed_count and trial < 1000:  # Safety limit
+        while len(generated_results) < needed_count and trial < 1000:  # Safety limit
             # Sample transform parameters
             transform_params = self._sample_transform(base_seed + trial)
             
@@ -273,9 +282,9 @@ class SyntheticTransformPCRDataset(BaseDataset):
             # Add to cache (all transforms, regardless of overlap)
             cached_transforms.append(transform_params)
             
-            # If overlap is in range, add to valid transforms
+            # If overlap is in range, store result
             if self.overlap_range[0] < overlap <= self.overlap_range[1]:
-                new_valid_transforms.append(transform_params)
+                generated_results.append((src_pc, tgt_pc, transform_matrix, transform_params))
             
             trial += 1
         
@@ -284,7 +293,8 @@ class SyntheticTransformPCRDataset(BaseDataset):
             self.transform_cache[file_cache_key] = cached_transforms
             self._save_transform_cache()
         
-        return new_valid_transforms
+        # Return the last generated valid result
+        return generated_results[-1]
     
     def _sample_transform(self, seed: int) -> Dict[str, Any]:
         """Sample transform parameters stochastically.
