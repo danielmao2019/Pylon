@@ -11,7 +11,7 @@ import utils
 class NYUv2Dataset(BaseDataset):
     __doc__ = r"""
     NYU-v2 dataset for multi-task learning with depth estimation, normal estimation, semantic segmentation, and edge detection tasks.
-    
+
     For detailed documentation, see: docs/datasets/multi_task/nyu_v2.md
     """
 

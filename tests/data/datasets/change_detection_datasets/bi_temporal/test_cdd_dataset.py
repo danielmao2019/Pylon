@@ -65,6 +65,7 @@ def dataset(request):
 @pytest.mark.parametrize('dataset', ['train', 'val', 'test'], indirect=True)
 def test_cdd_dataset(dataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset), "Dataset is not a valid PyTorch dataset instance."
+    assert len(dataset) > 0, "Dataset should not be empty"
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), dtype=torch.int64, device=dataset.device)
 
     def validate_datapoint(idx: int) -> None:

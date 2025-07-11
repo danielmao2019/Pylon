@@ -49,6 +49,8 @@ def dataset(request):
     ('val2017', 'coarse'),
 ], indirect=True)
 def test_coco_stuff_164k(dataset, max_samples, get_samples_to_test):
+    assert isinstance(dataset, torch.utils.data.Dataset)
+    assert len(dataset) > 0, "Dataset should not be empty"
     semantic_granularity = dataset.semantic_granularity
     assert dataset.NUM_CLASSES == 182 if semantic_granularity == 'fine' else 27, f"{dataset.NUM_CLASSES=}, {semantic_granularity=}"
 

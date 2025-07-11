@@ -10,11 +10,11 @@ from .overlappredator_collator_gt import overlappredator_collate_fn_gt
 def create_dummy_buffer_data():
     """Create dummy input data for buffer collator."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
+
     # Create dummy point clouds
     src_pc_fds = {'pos': torch.randn(100, 3, device=device)}
     tgt_pc_fds = {'pos': torch.randn(100, 3, device=device)}
-    
+
     # Create dummy keypoints with normals as features
     src_pc_sds = {
         'pos': torch.randn(50, 3, device=device),
@@ -24,10 +24,10 @@ def create_dummy_buffer_data():
         'pos': torch.randn(50, 3, device=device),
         'normals': torch.randn(50, 3, device=device)
     }
-    
+
     # Create dummy transform
     transform = torch.eye(4, device=device)
-    
+
     return [{
         'inputs': {
             'src_pc_fds': src_pc_fds,
@@ -48,7 +48,7 @@ def create_dummy_buffer_data():
 def create_dummy_geotransformer_data():
     """Create dummy input data for geotransformer collator."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
+
     # Create dummy point clouds with features
     src_pc = {
         'pos': torch.randn(100, 3, device=device),
@@ -58,10 +58,10 @@ def create_dummy_geotransformer_data():
         'pos': torch.randn(100, 3, device=device),
         'feat': torch.randn(100, 32, device=device)  # 32-dim features
     }
-    
+
     # Create dummy transform
     transform = torch.eye(4, device=device)
-    
+
     return [{
         'inputs': {
             'src_pc': src_pc,
@@ -81,7 +81,7 @@ def create_dummy_geotransformer_data():
 def create_dummy_overlappredator_data():
     """Create dummy input data for overlappredator collator."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    
+
     # Create dummy point clouds with features
     src_pc = {
         'pos': torch.randn(100, 3, device=device),
@@ -91,10 +91,10 @@ def create_dummy_overlappredator_data():
         'pos': torch.randn(100, 3, device=device),
         'feat': torch.randn(100, 32, device=device)  # 32-dim features
     }
-    
+
     # Create dummy transform
     transform = torch.eye(4, device=device)
-    
+
     return [{
         'inputs': {
             'src_pc': src_pc,
@@ -125,15 +125,15 @@ def test_buffer_collator():
     list_data = create_dummy_buffer_data()
     config = DummyConfig()
     neighborhood_limits = [16, 16, 16]
-    
+
     # Get results from both implementations
     result_gt = buffer_collate_fn_gt(list_data, config, neighborhood_limits)
     result_new = buffer_collate_fn(list_data, config, neighborhood_limits)
-    
+
     # Compare results
     assert result_gt.keys() == result_new.keys()
     assert result_gt['inputs'].keys() == result_new['inputs'].keys()
-    
+
     # Compare each key in inputs
     for key in result_gt['inputs']:
         if isinstance(result_gt['inputs'][key], list):
@@ -143,7 +143,7 @@ def test_buffer_collator():
                 assert torch.allclose(gt_item, new_item), f"{key=}, {idx=}"
         else:
             assert torch.allclose(result_gt['inputs'][key], result_new['inputs'][key])
-    
+
     # Compare labels and meta_info
     assert torch.allclose(result_gt['labels']['transform'], result_new['labels']['transform'])
     assert result_gt['meta_info'] == result_new['meta_info']
@@ -157,15 +157,15 @@ def test_geotransformer_collator():
     voxel_size = 0.1
     search_radius = 0.2
     neighbor_limits = [16, 16, 16]
-    
+
     # Get results from both implementations
     result_gt = geotransformer_collate_fn_gt(list_data, num_stages, voxel_size, search_radius, neighbor_limits)
     result_new = geotransformer_collate_fn(list_data, num_stages, voxel_size, search_radius, neighbor_limits)
-    
+
     # Compare results
     assert result_gt.keys() == result_new.keys()
     assert result_gt['inputs'].keys() == result_new['inputs'].keys()
-    
+
     # Compare each key in inputs
     for key in result_gt['inputs']:
         if isinstance(result_gt['inputs'][key], list):
@@ -175,7 +175,7 @@ def test_geotransformer_collator():
                 assert torch.allclose(gt_item, new_item), f"{key=}, {idx=}"
         else:
             assert torch.allclose(result_gt['inputs'][key], result_new['inputs'][key])
-    
+
     # Compare labels and meta_info
     assert torch.allclose(result_gt['labels']['transform'], result_new['labels']['transform'])
     assert result_gt['meta_info'] == result_new['meta_info']
@@ -187,15 +187,15 @@ def test_overlappredator_collator():
     list_data = create_dummy_overlappredator_data()
     config = DummyConfig()
     neighborhood_limits = [16, 16, 16, 16, 16]
-    
+
     # Get results from both implementations
     result_gt = overlappredator_collate_fn_gt(list_data, config, neighborhood_limits)
     result_new = overlappredator_collate_fn(list_data, config, neighborhood_limits)
-    
+
     # Compare results
     assert result_gt.keys() == result_new.keys()
     assert result_gt['inputs'].keys() == result_new['inputs'].keys()
-    
+
     # Compare each key in inputs
     for key in result_gt['inputs']:
         if isinstance(result_gt['inputs'][key], list):
@@ -208,7 +208,7 @@ def test_overlappredator_collator():
             assert result_new['inputs'][key] is None
         else:
             assert torch.allclose(result_gt['inputs'][key], result_new['inputs'][key])
-    
+
     # Compare labels and meta_info
     assert torch.allclose(result_gt['labels']['rot'], result_new['labels']['rot'])
     assert torch.allclose(result_gt['labels']['trans'], result_new['labels']['trans'])

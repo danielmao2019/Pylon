@@ -34,7 +34,7 @@ def test_scale_init():
 
 
 def test_scale_call(sample_pc):
-    """Test Scale transform call with valid input."""    
+    """Test Scale transform call with valid input."""
     # Use a larger scale factor (0.5) that will result in 125 points (0.5^3 * 1000)
     scale = Scale(scale_factor=0.5)
     result = scale(sample_pc, seed=42)
@@ -112,7 +112,7 @@ def test_scale_empty_pc():
 
     with pytest.raises(AssertionError) as exc_info:
         scale(pc)
-    
+
     # Check error message
     assert "pc['pos'].shape=torch.Size([0, 3])" in str(exc_info.value)
 
@@ -127,10 +127,10 @@ def test_scale_too_small():
 
     # Scale factor that would result in 0 points (0.1^3 * 10 < 1)
     scale = Scale(scale_factor=0.1)
-    
+
     with pytest.raises(ValueError) as exc_info:
         scale(pc)
-    
+
     # Check error message
     assert "Scale factor 0.1 is too small for point cloud with 10 points" in str(exc_info.value)
     assert "Would result in 0 points after scaling" in str(exc_info.value)

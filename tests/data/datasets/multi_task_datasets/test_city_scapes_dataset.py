@@ -79,6 +79,7 @@ def dataset(request):
 ], indirect=True)
 def test_city_scapes(dataset: CityScapesDataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]

@@ -39,18 +39,18 @@ def test_lru_eviction_scenarios(
 ):
     """Test different LRU eviction scenarios."""
     cache = cache_with_items
-    
+
     # Access items in specified order
     for i in access_order:
         cache.get(i)
-    
+
     # Add new item which should trigger eviction
     cache.put(3, make_datapoint(3))
 
     # Verify evicted items
     for item in expected_evicted:
         assert item not in cache.cache, f"Item {item} should have been evicted"
-    
+
     # Verify retained items
     for item in expected_retained:
         assert item in cache.cache, f"Item {item} should have been retained"
