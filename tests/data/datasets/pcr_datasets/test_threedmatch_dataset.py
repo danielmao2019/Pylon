@@ -164,5 +164,3 @@ def test_threedlomatch_dataset(lomatch_dataset, max_samples, get_samples_to_test
     indices = random.sample(range(len(lomatch_dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
-
-
