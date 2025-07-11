@@ -2,8 +2,10 @@ from typing import Tuple, Dict, Any, List
 import os
 import json
 import hashlib
+import threading
 import numpy as np
 import torch
+from concurrent.futures import ThreadPoolExecutor
 from data.datasets.base_dataset import BaseDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
 from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
@@ -63,6 +65,9 @@ class SyntheticTransformPCRDataset(BaseDataset):
             self.cache_file = os.path.join(data_root, '..', cache_name)
             self._load_transform_cache()
         
+        # Thread safety for parallel processing
+        self._cache_lock = threading.Lock()
+        
         super().__init__(data_root=data_root, **kwargs)
         
         # Calculate pairs per source file after annotations are initialized
@@ -108,7 +113,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
             self.transform_cache = {}
     
     def _save_transform_cache(self) -> None:
-        """Save transform-to-overlap mappings to cache."""
+        """Save transform-to-overlap mappings to cache (thread-safe)."""
         if self.cache_transforms:
             os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
             with open(self.cache_file, 'w') as f:
@@ -232,11 +237,11 @@ class SyntheticTransformPCRDataset(BaseDataset):
         return src_pc, tgt_pc, transform_matrix, transform_config
     
     def _generate_more(self, file_idx: int, transform_idx: int, needed_count: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor, Dict[str, Any]]:
-        """Generate more valid transforms and return the specific one requested.
+        """Generate more valid transforms and return the specific one requested (parallel version).
         
         Args:
             file_idx: Index of source file
-            transform_idx: Index of transform for this file
+            transform_idx: Index of transform for this file (unused - diagnostic warning expected)
             needed_count: Number of additional valid transforms needed
             
         Returns:
@@ -250,51 +255,114 @@ class SyntheticTransformPCRDataset(BaseDataset):
         # Get cache key for this file
         file_cache_key = self._get_file_cache_key(source_annotation.get('file_path', str(file_idx)))
         
-        # Get existing cached transforms
-        cached_transforms = self.transform_cache.get(file_cache_key, [])
-        generated_results = []  # Store results to avoid rebuilding
+        # Get existing cached transforms (thread-safe read)
+        with self._cache_lock:
+            cached_transforms = self.transform_cache.get(file_cache_key, []).copy()
         
+        generated_results = []
         base_seed = hash(file_cache_key) % (2**32)
         trial = len(cached_transforms)  # Start from where cache left off
         
-        while len(generated_results) < needed_count and trial < 1000:  # Safety limit
-            # Sample transform parameters
-            transform_params = self._sample_transform(base_seed + trial)
-            
-            # Build transform components
-            transform_matrix, crop_transform = self._build_transform(transform_params)
-            
-            # Apply transform and compute overlap
-            src_pc, tgt_pc = self._apply_transform(original_pc, transform_matrix, crop_transform, transform_params)
-            
-            # Compute overlap
-            overlap = compute_registration_overlap(
-                ref_points=original_pc,
-                src_points=src_pc['pos'],
-                transform=None,
-                positive_radius=self.matching_radius * 2
-            )
-            
-            # Add overlap to config
-            transform_params['overlap'] = float(overlap)
-            transform_params['trial'] = trial
-            
-            # Add to cache (all transforms, regardless of overlap)
-            cached_transforms.append(transform_params)
-            
-            # If overlap is in range, store result
-            if self.overlap_range[0] < overlap <= self.overlap_range[1]:
-                generated_results.append((src_pc, tgt_pc, transform_matrix, transform_params))
-            
-            trial += 1
+        # Process transforms in parallel batches
+        batch_size = min(needed_count * 3, 20)  # Generate more than needed for better hit rate
+        max_trials = 1000
         
-        # Update cache
-        if self.cache_transforms:
-            self.transform_cache[file_cache_key] = cached_transforms
-            self._save_transform_cache()
+        while len(generated_results) < needed_count and trial < max_trials:
+            # Prepare batch of work (deterministic seeds)
+            current_batch_size = min(batch_size, max_trials - trial)
+            batch_args = []
+            for i in range(current_batch_size):
+                batch_args.append((original_pc, base_seed + trial + i, trial + i))
+            
+            # Process batch in parallel
+            batch_results = self._process_transform_batch(batch_args)
+            
+            # Collect results and update cache
+            new_cache_entries = []
+            for result in batch_results:
+                new_cache_entries.append(result['transform_params'])
+                
+                # Check if overlap is in range
+                if self.overlap_range[0] < result['overlap'] <= self.overlap_range[1]:
+                    generated_results.append((
+                        result['src_pc'], 
+                        result['tgt_pc'], 
+                        result['transform_matrix'], 
+                        result['transform_params']
+                    ))
+            
+            # Thread-safe cache update
+            with self._cache_lock:
+                cached_transforms.extend(new_cache_entries)
+                if self.cache_transforms:
+                    self.transform_cache[file_cache_key] = cached_transforms
+                    self._save_transform_cache()
+            
+            trial += current_batch_size
+            
+            # Early exit if we have enough valid results
+            if len(generated_results) >= needed_count:
+                break
         
         # Return the last generated valid result
         return generated_results[-1]
+    
+    def _process_transform_batch(self, batch_args: List[Tuple]) -> List[Dict[str, Any]]:
+        """Process a batch of transforms in parallel.
+        
+        Args:
+            batch_args: List of (original_pc, seed, trial) tuples
+            
+        Returns:
+            List of result dictionaries
+        """
+        num_workers = min(len(batch_args), 4)  # Limit concurrent threads
+        
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [executor.submit(self._process_single_transform, args) for args in batch_args]
+            results = [future.result() for future in futures]
+        
+        return results
+    
+    def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
+        """Process a single transform - thread-safe worker function.
+        
+        Args:
+            args: Tuple of (original_pc, seed, trial)
+            
+        Returns:
+            Result dictionary with transform data
+        """
+        original_pc, seed, trial = args
+        
+        # Sample transform parameters (deterministic from seed)
+        transform_params = self._sample_transform(seed)
+        
+        # Build transform components
+        transform_matrix, crop_transform = self._build_transform(transform_params)
+        
+        # Apply transform
+        src_pc, tgt_pc = self._apply_transform(original_pc, transform_matrix, crop_transform, transform_params)
+        
+        # Compute overlap (this is the expensive operation we're parallelizing)
+        overlap = compute_registration_overlap(
+            ref_points=original_pc,
+            src_points=src_pc['pos'],
+            transform=None,
+            positive_radius=self.matching_radius * 2
+        )
+        
+        # Add metadata
+        transform_params['overlap'] = float(overlap)
+        transform_params['trial'] = trial
+        
+        return {
+            'transform_params': transform_params,
+            'src_pc': src_pc,
+            'tgt_pc': tgt_pc,
+            'transform_matrix': transform_matrix,
+            'overlap': overlap
+        }
     
     def _sample_transform(self, seed: int) -> Dict[str, Any]:
         """Sample transform parameters stochastically.
