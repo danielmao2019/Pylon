@@ -53,9 +53,9 @@ def _load_datapoint(self, idx: int) -> Tuple[Dict, Dict, Dict]:
     """Load a single datapoint."""
     annotation = self.annotations[idx]
     
-    # Load actual data (images, point clouds, etc.)
-    # Process and transform data
-    # Return three dictionaries
+    # Load and process raw data (images, point clouds, etc.)
+    # NOTE: Never apply transforms here - they are handled by the framework
+    # Return three dictionaries with raw data
     return inputs, labels, meta_info
 ```
 
@@ -91,30 +91,84 @@ meta_info = {
 ### Data Type Guidelines
 
 **Inputs**: Can be tensors or dictionaries (e.g., point clouds with pos/feat structure)
-**Labels**: Should be tensors 
+**Labels**: Must always be tensors (even multi-task datasets use `{'task1': tensor, 'task2': tensor}`)
 **Meta_info**: Can be any JSON-serializable types (str, int, float, list, dict)
 
 ## Device Handling Philosophy
 
 ### Pylon's Device Transfer Strategy
 
-**Rule**: Datasets create tensors on CPU, BaseDataset handles device transfer automatically.
+**Rule**: Prefer creating tensors on target device directly, but BaseDataset handles device transfer automatically if needed.
 
 ```python
-# ✅ CORRECT - Create on CPU
+# ✅ PREFERRED - Create directly on target device
 def _load_datapoint(self, idx):
-    # Load data on CPU
-    image = load_image(path)  # Returns CPU tensor
-    features = torch.ones(num_points, 1)  # CPU tensor by default
-    
+    image = torch.randn(3, 224, 224, device=self.device)  # Direct creation
+    features = torch.ones(num_points, 1, device=self.device)  # Direct creation
     return inputs, labels, meta_info
 
-# ❌ WRONG - Manual device handling  
+# ✅ ACCEPTABLE - Create on CPU, framework handles transfer
 def _load_datapoint(self, idx):
-    image = load_image(path).to(self.device)  # Don't do this!
+    image = load_image(path)  # Returns CPU tensor
+    features = torch.ones(num_points, 1)  # CPU tensor
+    return inputs, labels, meta_info  # BaseDataset will transfer to device
+
+# ❌ AVOID - Manual device transfer in dataset
+def _load_datapoint(self, idx):
+    image = load_image(path).to(self.device)  # Unnecessary manual transfer
 ```
 
-**Why**: BaseDataset handles device transfer intelligently to support multiprocessing DataLoaders.
+**How BaseDataset handles device transfer**: After `_load_datapoint()` returns, BaseDataset automatically applies `apply_tensor_op(func=lambda x: x.to(self.device))` to move all tensors to the target device before applying transforms.
+
+## Transform Integration
+
+### Dataset vs Transform Responsibilities
+
+**CRITICAL**: Datasets should **never** implement transforms. Transforms are separate components defined in `data/transforms/` and configured in config files.
+
+**Dataset Responsibility**: Load and return raw data
+**Transform Responsibility**: Data augmentation, preprocessing, normalization
+
+```python
+# ✅ CORRECT - Dataset returns raw data
+def _load_datapoint(self, idx):
+    image = load_image(path)  # Raw image
+    label = load_label(path)  # Raw label
+    return {'image': image}, {'class': label}, meta_info
+
+# ❌ WRONG - Dataset applying transforms
+def _load_datapoint(self, idx):
+    image = load_image(path)
+    image = normalize(image)  # Don't do this!
+    image = random_crop(image)  # Don't do this!
+    return {'image': image}, labels, meta_info
+```
+
+### How Transforms are Applied
+
+The framework automatically applies transforms after device transfer:
+
+1. `dataset._load_datapoint(idx)` → Raw data
+2. Device transfer → Data moved to target device  
+3. `dataset.transforms(datapoint)` → Transforms applied by framework
+4. Return transformed data to user
+
+### Transform Configuration
+
+Transforms are configured in config files, not in dataset code:
+
+```python
+# In config file:
+'transforms_cfg': {
+    'class': Compose,
+    'args': {
+        'transforms': [
+            ({'op': RandomCrop, 'args': {'size': (224, 224)}}, [('inputs', 'image')]),
+            ({'op': Normalize, 'args': {'mean': [0.5], 'std': [0.5]}}, [('inputs', 'image')])
+        ]
+    }
+}
+```
 
 ## Dataset Size Validation
 
@@ -145,15 +199,21 @@ def _init_annotations_all_splits(self):
 
 **Critical**: If your filtering logic changes, you must update DATASET_SIZE constants.
 
-### Generating Accurate Constants
+### Determining Accurate Constants
 
-Always generate constants programmatically:
+Constants can be determined through various methods:
 
 ```python
-# Script to generate DATASET_SIZE constants
+# Method 1: Programmatic generation (recommended for filtered datasets)
 for split in ['train', 'val', 'test']:
     dataset = YourDataset(split=split, **params)
     print(f"'{split}': {len(dataset)},")
+
+# Method 2: Directory listing (for simple file-based datasets)
+train_size = len(os.listdir(os.path.join(data_root, 'train')))
+
+# Method 3: Academic paper/official documentation (for standard benchmarks)
+# Use reported numbers from authoritative sources
 ```
 
 ## Inheritance Patterns
@@ -295,26 +355,32 @@ If you need caching, use proper synchronization or create cache keys that avoid 
 
 ### Transform Compatibility
 
-Datasets must work with Pylon's transform system:
+Datasets must return data in formats compatible with configured transforms. The framework handles transform application automatically.
 
-```python
-# Transforms are applied after _load_datapoint()
-inputs, labels, meta_info = dataset._load_datapoint(idx)
-inputs, labels = transforms(inputs, labels)  # Applied by BaseDataset
-```
-
-**Key point**: Design your data format to be compatible with expected transforms.
+**Key point**: Design your data format to match the keys expected by your transforms (e.g., `{'inputs': {'image': tensor}}` for image transforms).
 
 ### DataLoader Integration
 
-Datasets work with PyTorch DataLoaders through BaseDataset:
+Datasets work with both PyTorch DataLoaders and Pylon's custom DataLoaders:
 
 ```python
+# PyTorch DataLoader
+from torch.utils.data import DataLoader
 dataset = YourDataset(split='train')
 dataloader = DataLoader(
     dataset,
     batch_size=32,
     num_workers=4,  # Requires thread safety
+    collate_fn=your_collator
+)
+
+# Pylon BaseDataLoader (with additional features)
+from data.dataloaders import BaseDataLoader
+dataloader = BaseDataLoader(
+    dataset,
+    batch_size=32,
+    num_workers=4,
+    last_mode='drop',  # Handle last incomplete batch
     collate_fn=your_collator
 )
 ```
