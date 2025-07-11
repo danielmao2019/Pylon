@@ -5,19 +5,19 @@ from data.cache import DatasetCache
 def test_cache_stats(sample_datapoint):
     """Test cache statistics."""
     cache = DatasetCache()
-    
+
     # Initial stats
     stats = cache.get_stats()
     assert stats['size'] == 0
     assert stats['hits'] == 0
     assert stats['misses'] == 0
     assert stats['hit_rate'] == 0
-    
+
     # Add and access items
     cache.put(0, sample_datapoint)
     cache.get(0)  # Hit
     cache.get(1)  # Miss
-    
+
     stats = cache.get_stats()
     assert stats['size'] == 1
     assert stats['hits'] == 1
@@ -61,14 +61,14 @@ def test_cache_stats(sample_datapoint):
 def test_cache_stats_scenarios(sample_datapoint, scenario, actions, expected_stats):
     """Test various cache statistics scenarios."""
     cache = DatasetCache()
-    
+
     # Perform actions
     for action, key in actions:
         if action == "put":
             cache.put(key, sample_datapoint)
         elif action == "get":
             cache.get(key)
-    
+
     # Verify stats
     stats = cache.get_stats()
     for key, expected_value in expected_stats.items():

@@ -45,7 +45,7 @@ from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
             ],
             20  # Expected 20 points total (10 + 10)
         ),
-        
+
         # Test case 2: Three samples with different number of points
         (
             [
@@ -96,7 +96,7 @@ from data.collators.siamese_kpconv_collator import SiameseKPConvCollator
 def test_siamese_kpconv_collator(samples, expected_batch_size):
     """
     Test the SiameseKPConvCollator with different input scenarios.
-    
+
     Args:
         samples: List of input samples
         expected_batch_size: Expected total number of points after batching
@@ -104,24 +104,24 @@ def test_siamese_kpconv_collator(samples, expected_batch_size):
     # Apply the collator
     collator = SiameseKPConvCollator()
     batch = collator(samples)
-    
+
     # Check batch structure
     assert set(batch.keys()) == {'inputs', 'labels', 'meta_info'}
     assert set(batch['inputs'].keys()) == {'pc_0', 'pc_1'}
     assert set(batch['labels'].keys()) == {'change'}
-    
+
     # Check that the point clouds were batched correctly
     for pc_key in ['pc_0', 'pc_1']:
         # Verify tensor keys
         assert set(batch['inputs'][pc_key].keys()) == {'pos', 'x', 'batch'}
-        
+
         # Verify tensor shapes
         assert batch['inputs'][pc_key]['pos'].shape[0] == expected_batch_size
         assert batch['inputs'][pc_key]['pos'].shape[1] == 3  # xyz coordinates
         assert batch['inputs'][pc_key]['x'].shape[0] == expected_batch_size
         assert batch['inputs'][pc_key]['x'].shape[1] == 3  # features
         assert batch['inputs'][pc_key]['batch'].shape[0] == expected_batch_size
-        
+
         # Verify batch indices
         batch_indices = batch['inputs'][pc_key]['batch']
         for i, sample in enumerate(samples):
@@ -130,14 +130,14 @@ def test_siamese_kpconv_collator(samples, expected_batch_size):
                 start_idx = 0
             else:
                 start_idx = sum(s['inputs'][pc_key].shape[0] for s in samples[:i])
-                
+
             end_idx = start_idx + sample_size
             expected_indices = torch.full((sample_size,), i, dtype=torch.long)
             assert torch.all(batch_indices[start_idx:end_idx] == expected_indices), \
                 f"Batch indices for sample {i} don't match expected values"
-    
+
     # Check change map
     assert batch['labels']['change'].shape[0] == expected_batch_size
-    
+
     # Check consistency between batched pc_1 and change map
     assert batch['inputs']['pc_1']['pos'].shape[0] == batch['labels']['change'].shape[0]

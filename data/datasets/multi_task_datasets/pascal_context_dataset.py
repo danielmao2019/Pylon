@@ -11,7 +11,7 @@ import utils
 class PASCALContextDataset(BaseDataset):
     __doc__ = r"""
     PASCAL Context dataset for multi-task learning with semantic segmentation, human part segmentation, surface normal estimation, and saliency detection tasks.
-    
+
     For detailed documentation, see: docs/datasets/multi_task/pascal_context.md
     """
 

@@ -7,7 +7,7 @@ The Multi-Task Facial Landmark dataset is designed for facial landmark detection
 ## Dataset Information
 
 - **Type**: Facial images with landmark and attribute annotations
-- **Tasks**: 
+- **Tasks**:
   - Facial landmark detection (5 landmarks)
   - Gender classification
   - Smile detection

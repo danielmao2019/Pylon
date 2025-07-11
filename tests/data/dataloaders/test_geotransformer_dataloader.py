@@ -90,23 +90,23 @@ def log_data_structure(stage: str, batch: Dict[str, Any]):
     logger.info("Points Structure:")
     for i, points in enumerate(batch['inputs']['points']):
         logger.info(f"  Stage {i} points shape: {points.shape}")
-    
+
     # Lengths for each stage
     logger.info("\nLengths Structure:")
     for i, lengths in enumerate(batch['inputs']['lengths']):
         logger.info(f"  Stage {i} lengths: {lengths.tolist()}")
-    
+
     # Neighbors for each stage
     logger.info("\nNeighbors Structure:")
     for i, neighbors in enumerate(batch['inputs']['neighbors']):
         logger.info(f"  Stage {i} neighbors shape: {neighbors.shape}")
-    
+
     # Subsampling for each stage (except last)
     if 'subsampling' in batch['inputs']:
         logger.info("\nSubsampling Structure:")
         for i, sub in enumerate(batch['inputs']['subsampling']):
             logger.info(f"  Stage {i} subsampling shape: {sub.shape}")
-    
+
     # Upsampling for each stage (except first)
     if 'upsampling' in batch['inputs']:
         logger.info("\nUpsampling Structure:")

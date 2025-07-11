@@ -69,6 +69,7 @@ def dataset(request):
 ], indirect=True)
 def test_multi_task_facial_landmark(dataset: MultiTaskFacialLandmarkDataset, max_samples, get_samples_to_test) -> None:
     assert isinstance(dataset, torch.utils.data.Dataset)
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
     indices = random.sample(range(len(dataset)), num_samples)
