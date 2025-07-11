@@ -260,7 +260,6 @@ class SyntheticTransformPCRDataset(BaseDataset):
             cached_transforms = self.transform_cache.get(file_cache_key, []).copy()
         
         generated_results = []
-        base_seed = hash(file_cache_key) % (2**32)
         trial = len(cached_transforms)  # Start from where cache left off
         
         # Process transforms in parallel batches
@@ -268,11 +267,12 @@ class SyntheticTransformPCRDataset(BaseDataset):
         max_trials = 1000
         
         while len(generated_results) < needed_count and trial < max_trials:
-            # Prepare batch of work (deterministic seeds)
+            # Prepare batch of work (deterministic seeds using file_idx, transform_idx, trial_idx)
             current_batch_size = min(batch_size, max_trials - trial)
             batch_args = []
             for i in range(current_batch_size):
-                batch_args.append((original_pc, base_seed + trial + i, trial + i))
+                trial_idx = trial + i
+                batch_args.append((original_pc, file_idx, transform_idx, trial_idx))
             
             # Process batch in parallel
             batch_results = self._process_transform_batch(batch_args)
@@ -311,7 +311,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         """Process a batch of transforms in parallel.
         
         Args:
-            batch_args: List of (original_pc, seed, trial) tuples
+            batch_args: List of (original_pc, file_idx, transform_idx, trial_idx) tuples
             
         Returns:
             List of result dictionaries
@@ -328,12 +328,15 @@ class SyntheticTransformPCRDataset(BaseDataset):
         """Process a single transform - thread-safe worker function.
         
         Args:
-            args: Tuple of (original_pc, seed, trial)
+            args: Tuple of (original_pc, file_idx, transform_idx, trial_idx)
             
         Returns:
             Result dictionary with transform data
         """
-        original_pc, seed, trial = args
+        original_pc, file_idx, transform_idx, trial_idx = args
+        
+        # Create deterministic seed from (file_idx, transform_idx, trial_idx)
+        seed = hash((file_idx, transform_idx, trial_idx)) % (2**32)
         
         # Sample transform parameters (deterministic from seed)
         transform_params = self._sample_transform(seed)
@@ -354,7 +357,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         
         # Add metadata
         transform_params['overlap'] = float(overlap)
-        transform_params['trial'] = trial
+        transform_params['trial'] = trial_idx
         
         return {
             'transform_params': transform_params,
