@@ -60,7 +60,7 @@ data_cfg = {
 ```
 
 **Important Notes**:
-- **Batch size must be 1** for the viewer to work correctly
+- **Batch size must be 1** (required by Pylon framework assumption for validation/evaluation)
 - **File name must match pattern**: `{dataset_name}_data_cfg.py`
 - **Config structure must match** the training config format
 
@@ -143,8 +143,7 @@ labels = {
 
 ### Large Datasets
 - Large datasets may be slow in the viewer
-- Consider implementing LOD (Level of Detail) for point clouds
-- Use smaller subsets for initial testing
+- Point cloud LOD (Level of Detail) optimizations are automatically applied
 
 ### Point Cloud Optimization
 - The viewer automatically applies LOD optimizations for large point clouds
@@ -163,24 +162,9 @@ labels = {
 - Transforms are applied dynamically for visualization
 - Original data remains unchanged
 
-### Recommended Settings for Viewing
-```python
-# Minimal transforms for cleaner visualization
-'transforms_cfg': {
-    'class': data.transforms.Compose,
-    'args': {
-        'transforms': [
-            # Minimal transforms only - avoid heavy augmentations
-            # that make visual inspection difficult
-        ],
-    },
-},
-```
-
-### Transform Debugging
-- Viewer can toggle transforms on/off for debugging
-- Compare original vs transformed data side-by-side
-- Useful for validating transform implementations
+### Transform Handling
+- Viewer applies whatever transforms are configured in your config file
+- Transforms are applied according to your dataset configuration
 
 ## Advanced Features
 
@@ -194,10 +178,10 @@ labels = {
 - Density-based sampling for performance
 - Interactive quality controls in viewer interface
 
-### Batch Visualization
-- Navigate through dataset samples with keyboard shortcuts
-- Jump to specific indices
-- Random sampling for dataset exploration
+### Dataset Navigation
+- Navigate through dataset samples using the web interface
+- Jump to specific indices through the interface
+- Sequential browsing through the dataset
 
 ## Common Issues and Solutions
 
@@ -225,10 +209,9 @@ labels = {
 ### Performance Issues
 **Problem**: Viewer is slow or unresponsive
 **Solution**:
-- Reduce batch size to 1 (required)
-- Minimize transforms in viewer config
-- Use smaller dataset subsets for initial testing
-- Check available system memory
+- Ensure batch size is 1 (required by Pylon framework for evaluation)
+- Check that your dataset implementation is efficient
+- Verify data paths are correct and accessible
 
 ### Display Format Issues
 **Problem**: Data appears but visualization is incorrect
