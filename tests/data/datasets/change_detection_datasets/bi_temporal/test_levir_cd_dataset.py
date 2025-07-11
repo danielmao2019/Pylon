@@ -51,6 +51,7 @@ def dataset(request):
 @pytest.mark.parametrize('dataset', ['train', 'test', 'val'], indirect=True)
 def test_levir_cd_dataset(dataset, max_samples, get_samples_to_test):
     assert isinstance(dataset, torch.utils.data.Dataset)
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     # Class distribution tracking (preserving original test logic)
     class_dist = torch.zeros(size=(dataset.NUM_CLASSES,), device=dataset.device)
