@@ -94,6 +94,19 @@ sun3d-brown_bm_4-brown_bm_4, sun3d-harvard_c11-hv_c11_2
 
 **Research Impact**: Any validation-based hyperparameter tuning or model selection using this split may have inflated performance estimates. Results should be interpreted cautiously and confirmed on truly independent test sets.
 
+### Detailed Pair-Level Analysis
+
+**Methodology**: Analysis based on metadata files that define pairs directly, following comprehensive pair counting across all splits and datasets.
+
+**Data Leakage Breakdown by Dataset**:
+- **3DMatch filtered pairs**: 60 overlapping pairs between train/val
+- **3DLoMatch filtered pairs**: 15 overlapping pairs between train/val  
+- **Total leaked pairs**: 75 pairs (all from `analysis-by-synthesis-apt2-kitchen`)
+- **Validation contamination**: 75/1,331 = 5.6% of total validation pairs
+- **Training contamination**: 75/20,642 = 0.4% of total training pairs
+
+The leakage affects both datasets because they apply different overlap filters to the same underlying train/val metadata files.
+
 ### Test Split (8 scenes)
 **8 unique scenes used for final evaluation:**
 
@@ -171,6 +184,30 @@ sun3d-mit_76_studyroom-76-1studyroom2, sun3d-mit_lab_hj-lab_hj_tea_nov_2_2012_sc
 
 This partitioning allows comprehensive evaluation across the overlap spectrum using the same scene geometry.
 
+### Implementation Analysis
+
+**File Usage Pattern**:
+```python
+# Train/Val splits: Apply overlap filtering to shared metadata
+if self.split in ['train', 'val']:
+    metadata_file = f'{self.split}.pkl'  # Same source files
+    # Apply different overlap filters at runtime
+    
+# Test splits: Use pre-curated metadata files  
+else:
+    if isinstance(self, ThreeDLoMatchDataset):
+        metadata_file = '3DLoMatch.pkl'  # 1,781 pairs
+    else:
+        metadata_file = '3DMatch.pkl'    # 1,623 pairs
+```
+
+**Why 100 Test Pairs Overlap**:
+1. **Different source files**: Test sets use independently curated `.pkl` files
+2. **No overlap filtering**: Test files used as-is, no runtime filtering applied
+3. **Boundary curation**: Both files include challenging cases (overlap 0.1365-0.2997)
+4. **Independent philosophy**: Curators included borderline evaluation cases
+5. **Small impact**: Only 3.0% of total test universe (100/3,304 pairs)
+
 ## Complete Dataset Statistics
 
 ### Complete Filtered Pair Counts
@@ -201,6 +238,70 @@ This partitioning allows comprehensive evaluation across the overlap spectrum us
 | ≥ 0.3 | 915 pairs | 416 pairs | 68.7% |
 | ≥ 0.4 | 707 pairs | 624 pairs | 53.1% |
 | ≥ 0.5 | 525 pairs | 806 pairs | 39.4% |
+
+## Comprehensive Dataset Analysis
+
+### Total Pair Counts from Metadata Files
+
+**Methodology**: Metadata files define pairs directly (not scene enumeration). Analysis based on comprehensive pair counting across all metadata files.
+
+| Metadata File | Total Pairs | Purpose |
+|---------------|-------------|---------|
+| **train.pkl** | 20,642 | Training pairs from 75 scenes |
+| **val.pkl** | 1,331 | Validation pairs from 8 scenes |
+| **3DMatch.pkl** | 1,623 | Test pairs for standard evaluation |
+| **3DLoMatch.pkl** | 1,781 | Test pairs for low-overlap evaluation |
+| **test_union** | 3,304 | Combined test universe (1,623 + 1,781 - 100 overlap) |
+
+### Dataset Partitioning Analysis
+
+**Train/Val Splits (Perfect Overlap-Based Partitioning)**:
+- **Source**: Same metadata files (`train.pkl`, `val.pkl`)
+- **Filtering**: Runtime overlap filtering applied
+- **Result**: Perfect partitioning with 0 pairs overlap between datasets
+
+| Split | 3DMatch Filter | 3DLoMatch Filter | Overlap |
+|-------|----------------|------------------|---------|
+| Train | 14,313 pairs (69.3%) | 6,225 pairs (30.2%) | 0 pairs ✅ |
+| Val | 915 pairs (68.7%) | 414 pairs (31.1%) | 0 pairs ✅ |
+
+**Test Splits (Independent File Curation)**:
+- **Source**: Different metadata files (`3DMatch.pkl`, `3DLoMatch.pkl`)
+- **Filtering**: No runtime filtering (files used as-is)
+- **Result**: 100 pairs overlap due to independent curation
+
+| Dataset | Test Pairs | Overlap | Reason |
+|---------|------------|---------|---------|
+| 3DMatch | 1,623 pairs | 100 pairs | Independent curation with boundary cases |
+| 3DLoMatch | 1,781 pairs | (3.0% of total) | Both include challenging evaluation scenarios |
+
+### Within-Dataset Split Overlaps
+
+**Clean Splits (No Contamination)**:
+- ✅ **Train vs Test**: 0 pairs for both 3DMatch and 3DLoMatch
+- ✅ **Val vs Test**: 0 pairs for both 3DMatch and 3DLoMatch
+
+**Data Leakage (Scene-Level Contamination)**:
+- ⚠️ **Train vs Val**: 75 total pairs from `analysis-by-synthesis-apt2-kitchen`
+  - 3DMatch filtered: 60 overlapping pairs
+  - 3DLoMatch filtered: 15 overlapping pairs
+  - Impact: 5.6% validation contamination, 0.4% training contamination
+
+### Between-Dataset Overlaps
+
+| Split | 3DMatch Pairs | 3DLoMatch Pairs | Overlap | Partitioning Quality |
+|-------|---------------|-----------------|---------|---------------------|
+| **Train** | 14,313 | 6,225 | 0 pairs | ✅ Perfect partitioning |
+| **Val** | 915 | 414 | 0 pairs | ✅ Perfect partitioning |
+| **Test** | 1,623 | 1,781 | 100 pairs | ⚠️ 3.0% overlap due to curation |
+
+### Key Insights
+
+1. **Metadata-Driven**: Dataset pairs are defined directly in metadata files, not derived from scene enumeration
+2. **Perfect Train/Val Partitioning**: Overlap filters create disjoint sets with 0 pair overlap
+3. **Independent Test Curation**: Test sets use different source files with philosophical overlap
+4. **Single Data Leakage Source**: All contamination traces to one scene across train/val boundary
+5. **Implementation Accuracy**: Analysis confirms corrected file usage in dataset implementation
 
 ## File System Structure
 
