@@ -351,6 +351,65 @@ Datasets must be thread-safe for multi-worker DataLoaders:
 
 If you need caching, use proper synchronization or create cache keys that avoid collisions.
 
+## Data Organization
+
+### Directory Structure
+
+Pylon follows a standardized directory structure for dataset organization:
+
+```
+data/datasets/soft_links/
+├── your_dataset/           # Soft link to actual data
+│   ├── metadata/
+│   ├── point_clouds/       # For PCR datasets
+│   ├── images/             # For vision datasets
+│   └── ...
+```
+
+### Soft Links Strategy
+
+**Why soft links**: Pylon uses soft links for flexible data management:
+
+- **Consistent paths**: All datasets appear under `/data/datasets/soft_links/` regardless of actual storage location
+- **Environment independence**: Same codebase works across different machines and storage configurations
+- **Centralized access**: Uniform data access patterns throughout the framework
+- **Storage flexibility**: Actual data can be stored on different drives, networks, or cloud storage
+
+**Setup example**:
+```bash
+# Create soft link to actual data location
+ln -s /path/to/actual/data/location /path/to/pylon/data/datasets/soft_links/your_dataset
+```
+
+### Path Configuration Guidelines
+
+**In dataset implementations**:
+```python
+def __init__(self, data_root='./data/datasets/soft_links/your_dataset', **kwargs):
+    # Always use relative paths from project root
+    self.data_root = data_root
+    super().__init__(**kwargs)
+```
+
+**In config files**:
+```python
+data_cfg = {
+    'train_dataset': {
+        'class': data.datasets.YourDataset,
+        'args': {
+            'data_root': './data/datasets/soft_links/your_dataset',  # Relative to project root
+            'split': 'train',
+        },
+    },
+}
+```
+
+**Best practices**:
+- Use consistent naming conventions for data directories
+- Test paths work correctly across different environments
+- Document data organization in your dataset's README
+- Ensure soft links are created before running code
+
 ## Integration with Pylon Framework
 
 ### Transform Compatibility

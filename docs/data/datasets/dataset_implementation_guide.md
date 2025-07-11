@@ -19,6 +19,7 @@ This guide teaches how to implement a new dataset in the Pylon framework, based 
 
 - **[Dataset Classes Design](dataset_classes_design.md)**: Understanding Pylon's BaseDataset architecture and patterns
 - **[Dataset Testing Design](dataset_testing_design.md)**: Comprehensive testing strategies for dataset implementations
+- **[Dataset Viewer Integration](dataset_viewer_integration.md)**: Guide for integrating datasets with Pylon's data viewer
 
 ---
 
@@ -120,6 +121,7 @@ See **[Dataset Classes Design](dataset_classes_design.md)** for complete details
 - Three-dictionary return structure (inputs, labels, meta_info)
 - Device handling philosophy
 - DATASET_SIZE validation requirements
+- Data organization and soft links strategy
 
 ### 2. Metadata Format Handling
 
@@ -580,38 +582,13 @@ data_cfg = {
 - **File name must match pattern**: `{dataset_name}_data_cfg.py`
 - **Config structure must match** the training config format
 
-#### 3. Data Format Compatibility
+#### 3. Viewer Adaptation to Dataset API
 
-Ensure your dataset returns data in the format expected by the viewer:
+The data viewer automatically adapts to your dataset's existing API - you don't need to modify your dataset implementation. The viewer detects the dataset type and handles the data format appropriately.
 
-**Point Cloud Registration (PCR)**:
-```python
-# inputs format
-inputs = {
-    'src_pc': {'pos': torch.Tensor, 'feat': torch.Tensor},
-    'tgt_pc': {'pos': torch.Tensor, 'feat': torch.Tensor},
-    'correspondences': torch.Tensor  # Optional
-}
+**Key Principle**: The viewer adapts to your dataset, not the other way around.
 
-# labels format  
-labels = {
-    'transform': torch.Tensor  # (4, 4) transformation matrix
-}
-```
-
-**2D Change Detection**:
-```python
-# inputs format
-inputs = {
-    'img_1': torch.Tensor,  # (C, H, W) first image
-    'img_2': torch.Tensor   # (C, H, W) second image
-}
-
-# labels format
-labels = {
-    'change_map': torch.Tensor  # (H, W) binary change mask
-}
-```
+The viewer will automatically handle whatever format your dataset returns for the `inputs`, `labels`, and `meta_info` dictionaries according to Pylon's three-dictionary pattern.
 
 #### 4. Test Viewer Integration
 
@@ -631,21 +608,7 @@ python -m data.viewer.cli
 - **Display issues**: Ensure data format matches viewer expectations
 - **Import errors**: Check that all required modules are imported in config
 
-#### 5. Viewer-Specific Considerations
-
-**Performance**: 
-- Large datasets may be slow in the viewer
-- Consider implementing LOD (Level of Detail) for point clouds
-- Use smaller subsets for initial testing
-
-**Data Paths**:
-- Use soft links in `/data/datasets/soft_links/` for data organization
-- Ensure paths are relative to project root in config files
-
-**Transforms**:
-- Viewer handles transforms automatically from your config
-- Keep transforms minimal for faster iteration
-- Disable augmentations for cleaner visualization
+For detailed viewer-specific considerations, performance optimization, and troubleshooting, see the **[Dataset Viewer Integration Guide](dataset_viewer_integration.md)**.
 
 ---
 
@@ -659,7 +622,7 @@ Implementing a dataset in Pylon requires:
 4. **Robust Testing**: Comprehensive validation (see [Dataset Testing Design](dataset_testing_design.md))
 5. **Performance Focus**: Caching and optimization from the start
 6. **Accurate Documentation**: Statistics that match implementation
-7. **Viewer Integration**: Register with data viewer for visual debugging
+7. **Viewer Integration**: Register with data viewer for visual debugging (see [Dataset Viewer Integration Guide](dataset_viewer_integration.md))
 
 The key insight is that dataset implementation is **data archaeology** - understanding how a dataset has evolved across research groups and implementations over time.
 
