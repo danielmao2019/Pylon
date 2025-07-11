@@ -1,7 +1,5 @@
 # 3DMatch Dataset Family
 
-> **⚠️ Current Status**: The metadata files contain test/dummy data (2 pairs each) for development purposes. The implementation supports the full dataset format but requires real metadata files for production use.
-
 ## Overview
 
 The 3DMatch dataset family consists of real-world RGB-D scans from **91 indoor scenes** designed for point cloud registration evaluation. It provides two complementary benchmarks:
@@ -31,8 +29,8 @@ lomatch_dataset = ThreeDLoMatchDataset(
     matching_radius=0.1,
 )
 
-print(f"3DMatch train pairs: {len(dataset)}")        # 2 pairs (current test data)
-print(f"3DLoMatch train pairs: {len(lomatch_dataset)}")  # 0 pairs (current test data)
+print(f"3DMatch train pairs: {len(dataset)}")        # 14,313 pairs
+print(f"3DLoMatch train pairs: {len(lomatch_dataset)}")  # 6,225 pairs
 ```
 
 ### Custom Overlap Range
@@ -55,25 +53,17 @@ custom_dataset = _ThreeDMatchBaseDataset(
 
 | Dataset | Train | Val | Test | Overlap Filter |
 |---------|-------|-----|------|----------------|
-| **3DMatch** | 2 pairs | 2 pairs | 2 pairs | overlap > 0.3 |
-| **3DLoMatch** | 0 pairs | 0 pairs | 0 pairs | 0.1 < overlap ≤ 0.3 |
-
-> **Note**: Current statistics reflect test/dummy data. Real dataset contains:
-> - 3DMatch: 14,313 train / 915 val / 1,623 test pairs
-> - 3DLoMatch: 6,225 train / 414 val / 1,781 test pairs
+| **3DMatch** | 14,313 pairs | 915 pairs | 1,520 pairs | overlap > 0.3 |
+| **3DLoMatch** | 6,225 pairs | 414 pairs | 1,772 pairs | 0.1 < overlap ≤ 0.3 |
 
 ### Metadata Files Overview
 
 | File | Total Pairs | Description |
 |------|-------------|-------------|
-| **train.pkl** | 2 | Test/dummy training data |
-| **val.pkl** | 2 | Test/dummy validation data |
-| **3DMatch.pkl** | 2 | Test/dummy data (mixed overlap) |
-| **3DLoMatch.pkl** | 2 | Test/dummy data (low overlap) |
-
-> **Note**: Current files contain test/dummy data. Real dataset files contain:
-> - train.pkl: 20,642 pairs / val.pkl: 1,331 pairs
-> - 3DMatch.pkl: 1,623 pairs / 3DLoMatch.pkl: 1,781 pairs
+| **train.pkl** | 20,642 | All training pairs from 75 scenes |
+| **val.pkl** | 1,331 | All validation pairs from 8 scenes |
+| **3DMatch.pkl** | 1,623 | Pre-curated test pairs (mixed overlap) |
+| **3DLoMatch.pkl** | 1,781 | Pre-curated test pairs (low overlap) |
 
 ## Dataset Design
 

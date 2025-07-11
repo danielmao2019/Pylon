@@ -232,9 +232,9 @@ class ThreeDMatchDataset(_ThreeDMatchBaseDataset):
     """
     
     DATASET_SIZE = {
-        'train': 2,      # Current test data (overlap > 0.3)
-        'val': 2,        # Current test data (overlap > 0.3)  
-        'test': 2,       # Current test data (uses 3DMatch.pkl, no overlap filtering)
+        'train': 14313,  # 3DMatch train (overlap > 0.3)
+        'val': 915,      # 3DMatch val (overlap > 0.3)  
+        'test': 1520,    # 3DMatch test (uses 3DMatch.pkl, filtered for overlap > 0.3)
     }
     
     def __init__(self, **kwargs) -> None:
@@ -258,9 +258,9 @@ class ThreeDLoMatchDataset(_ThreeDMatchBaseDataset):
     """
     
     DATASET_SIZE = {
-        'train': 0,      # Current test data (0.1 < overlap <= 0.3) - none in range
-        'val': 0,        # Current test data (0.1 < overlap <= 0.3) - none in range
-        'test': 0,       # Current test data (uses 3DLoMatch.pkl, no overlap filtering) - none in range
+        'train': 6225,   # 3DLoMatch train (0.1 < overlap <= 0.3)
+        'val': 414,      # 3DLoMatch val (0.1 < overlap <= 0.3)
+        'test': 1772,    # 3DLoMatch test (uses 3DLoMatch.pkl, filtered for 0.1 < overlap <= 0.3)
     }
     
     def __init__(self, **kwargs) -> None:
