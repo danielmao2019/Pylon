@@ -52,6 +52,8 @@ def dataset(request):
 ], indirect=True)
 def test_gan_dataset_properties(dataset, max_samples, get_samples_to_test):
     """Checks tensor shapes, dtypes, and device placement for all datapoints in the GANDataset."""
+    assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
@@ -73,6 +75,8 @@ def test_gan_dataset_properties(dataset, max_samples, get_samples_to_test):
 ], indirect=True)
 def test_reproducibility(dataset, max_samples, get_samples_to_test):
     """Checks that the dataset generates the same sample when the RNG state is restored."""
+    assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     def test_reproducibility_for_idx(idx: int) -> None:
         torch.manual_seed(42)  # Set a fixed seed

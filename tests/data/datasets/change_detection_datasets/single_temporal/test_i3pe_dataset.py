@@ -33,6 +33,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 def test_i3pe_dataset(max_samples, get_samples_to_test) -> None:
     source = Bi2SingleTemporal(SYSU_CD_Dataset(data_root="./data/datasets/soft_links/SYSU-CD", split='train'))
     dataset = I3PEDataset(source=source, dataset_size=len(source), exchange_ratio=0.75)
+    
+    assert isinstance(dataset, torch.utils.data.Dataset), f"Expected torch.utils.data.Dataset, got {type(dataset)}"
+    assert len(dataset) > 0, "Dataset should not be empty"
 
     def validate_datapoint(idx: int) -> None:
         datapoint = dataset[idx]
