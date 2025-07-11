@@ -1,8 +1,6 @@
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Tuple
 import os
-import hashlib
 import pickle
-import numpy as np
 import torch
 from data.datasets.base_dataset import BaseDataset
 from utils.point_cloud_ops.correspondences import get_correspondences
