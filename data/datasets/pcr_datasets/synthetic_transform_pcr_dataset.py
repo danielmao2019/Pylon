@@ -133,10 +133,32 @@ class SyntheticTransformPCRDataset(BaseDataset):
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
         
-        Pipeline: _get_indices → _get_pair → (_generate_more → _sample_transform → _build_transform → _apply_transform)
+        Checks transform-to-overlap cache first, then decides to call either _get_pair or _generate_more.
         """
         file_idx, transform_idx = self._get_indices(idx)
-        src_pc, tgt_pc, transform_matrix, transform_config = self._get_pair(file_idx, transform_idx)
+        source_annotation = self.source_annotations[file_idx]
+        
+        # Get cache key for this file
+        file_cache_key = self._get_file_cache_key(source_annotation.get('file_path', str(file_idx)))
+        
+        # Check transform-to-overlap cache
+        cached_transforms = self.transform_cache.get(file_cache_key, [])
+        
+        # Filter valid transforms by overlap range
+        valid_transforms = []
+        for transform_config in cached_transforms:
+            overlap = transform_config.get('overlap', 0.0)
+            if self.overlap_range[0] < overlap <= self.overlap_range[1]:
+                valid_transforms.append(transform_config)
+        
+        # Decide whether to call _get_pair or _generate_more
+        if transform_idx < len(valid_transforms):
+            # Found in cache - use _get_pair
+            src_pc, tgt_pc, transform_matrix, transform_config = self._get_pair(file_idx, transform_idx, valid_transforms)
+        else:
+            # Not found in cache - use _generate_more
+            needed_count = transform_idx - len(valid_transforms) + 1
+            src_pc, tgt_pc, transform_matrix, transform_config = self._generate_more(file_idx, transform_idx, needed_count)
         
         # Find correspondences
         from utils.point_cloud_ops.correspondences import get_correspondences
@@ -182,15 +204,13 @@ class SyntheticTransformPCRDataset(BaseDataset):
         transform_idx = annotation['pair_idx']
         return file_idx, transform_idx
     
-    def _get_pair(self, file_idx: int, transform_idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor, Dict[str, Any]]:
-        """Get a transformed point cloud pair for given file and transform indices.
-        
-        First checks cache for the specific transform, and calls _build_transform and _apply_transform 
-        if found. If not found, calls _generate_more to create it.
+    def _get_pair(self, file_idx: int, transform_idx: int, valid_transforms: List[Dict[str, Any]]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor, Dict[str, Any]]:
+        """Get a transformed point cloud pair using cached transform params.
         
         Args:
             file_idx: Index of source file
             transform_idx: Index of transform for this file
+            valid_transforms: List of valid cached transforms for this file
             
         Returns:
             Tuple of (src_pc, tgt_pc, transform_matrix, transform_config)
@@ -200,38 +220,10 @@ class SyntheticTransformPCRDataset(BaseDataset):
         # Load source point cloud
         original_pc = self._load_source_data(source_annotation)
         
-        # Get cache key for this file
-        file_cache_key = self._get_file_cache_key(source_annotation.get('file_path', str(file_idx)))
+        # Get the specific transform config from cache
+        transform_config = valid_transforms[transform_idx]
         
-        # First check cache for the specific transform params
-        cached_transforms = self.transform_cache.get(file_cache_key, [])
-        
-        # Filter valid transforms by overlap range (these are our "available" transforms)
-        valid_transforms = []
-        for transform_config in cached_transforms:
-            overlap = transform_config.get('overlap', 0.0)
-            if self.overlap_range[0] < overlap <= self.overlap_range[1]:
-                valid_transforms.append(transform_config)
-        
-        # Check if we have the specific transform index in cache
-        if transform_idx < len(valid_transforms):
-            # Found in cache - get transform params and build/apply
-            transform_config = valid_transforms[transform_idx]
-        else:
-            # Not found - generate more transforms until we have the one we need
-            needed_count = transform_idx - len(valid_transforms) + 1
-            new_transforms = self._generate_more(original_pc, file_cache_key, needed_count)
-            valid_transforms.extend(new_transforms)
-            
-            # Now get the specific transform config
-            if transform_idx < len(valid_transforms):
-                transform_config = valid_transforms[transform_idx]
-            else:
-                # Fallback if generation failed
-                transform_config = self._sample_transform(hash(file_cache_key) % (2**32) + transform_idx)
-                transform_config['overlap'] = 0.0
-        
-        # Build transform components from cached/generated params
+        # Build transform components from cached params
         transform_matrix, crop_transform = self._build_transform(transform_config)
         
         # Apply transform to get point cloud pair
