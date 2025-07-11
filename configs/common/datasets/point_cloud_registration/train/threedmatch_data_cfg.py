@@ -10,7 +10,6 @@ data_cfg = {
             'data_root': './data/datasets/soft_links/threedmatch',
             'split': 'train',
             'matching_radius': 0.1,
-            'overlap_threshold': 0.3,
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
