@@ -203,10 +203,15 @@ else:
 
 **Why 100 Test Pairs Overlap**:
 1. **Different source files**: Test sets use independently curated `.pkl` files
-2. **No overlap filtering**: Test files used as-is, no runtime filtering applied
-3. **Boundary curation**: Both files include challenging cases (overlap 0.1365-0.2997)
-4. **Independent philosophy**: Curators included borderline evaluation cases
+2. **Pre-curated datasets**: Both files are pre-curated with specific overlap distributions
+3. **Boundary overlap**: Both include pairs in the 0.1365-0.2997 range (borderline cases)
+4. **Independent curation**: Files created separately with overlapping evaluation philosophy
 5. **Small impact**: Only 3.0% of total test universe (100/3,304 pairs)
+
+**Note**: While the implementation shows overlap filtering logic (`if self.overlap_min < overlap <= self.overlap_max`), the test files are effectively used as-is because:
+- `3DMatch.pkl` contains 93.7% pairs with overlap > 0.3 (matches filter)
+- `3DLoMatch.pkl` contains 99.5% pairs with overlap ≤ 0.3 (matches filter)
+- The filtering has minimal effect on these pre-curated test sets
 
 ## Complete Dataset Statistics
 
@@ -265,10 +270,10 @@ else:
 | Train | 14,313 pairs (69.3%) | 6,225 pairs (30.2%) | 0 pairs ✅ |
 | Val | 915 pairs (68.7%) | 414 pairs (31.1%) | 0 pairs ✅ |
 
-**Test Splits (Independent File Curation)**:
+**Test Splits (Pre-Curated Files)**:
 - **Source**: Different metadata files (`3DMatch.pkl`, `3DLoMatch.pkl`)
-- **Filtering**: No runtime filtering (files used as-is)
-- **Result**: 100 pairs overlap due to independent curation
+- **Filtering**: Runtime filtering applied but has minimal effect on pre-curated files
+- **Result**: 100 pairs overlap due to independent curation philosophies
 
 | Dataset | Test Pairs | Overlap | Reason |
 |---------|------------|---------|---------|
