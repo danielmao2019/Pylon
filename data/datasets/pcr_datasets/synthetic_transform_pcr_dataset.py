@@ -74,13 +74,15 @@ class SyntheticTransformPCRDataset(BaseDataset):
         self._calculate_pairs_per_file()
     
     def _init_annotations(self) -> None:
-        """Initialize source annotations - to be implemented by subclasses.
+        """Initialize file pair annotations - to be implemented by subclasses.
         
         Subclasses should:
-        1. Set self.source_annotations to list of source file annotations
-        2. Call super()._calculate_pairs_per_file() if needed
+        1. Set self.file_pair_annotations to list of file pair annotations
+        2. Each annotation should have 'src_file_path' and 'tgt_file_path' keys
+        3. For single-temporal: src_file_path == tgt_file_path  
+        4. For bi-temporal: src_file_path != tgt_file_path
         """
-        raise NotImplementedError("Subclasses must implement _init_annotations and set self.source_annotations")
+        raise NotImplementedError("Subclasses must implement _init_annotations and set self.file_pair_annotations")
     
     def _calculate_pairs_per_file(self) -> None:
         """Calculate how many synthetic pairs to generate per source file."""
