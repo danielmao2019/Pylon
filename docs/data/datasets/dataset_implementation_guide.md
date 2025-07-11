@@ -516,6 +516,139 @@ if src_scene != tgt_scene:
 
 ---
 
+## Data Viewer Integration
+
+### Registering Datasets with the Viewer
+
+Once your dataset is implemented, register it with Pylon's data viewer for visual inspection and debugging:
+
+#### 1. Add to Dataset Groups
+
+Update `/data/viewer/backend/backend.py` to include your dataset in the appropriate group:
+
+```python
+DATASET_GROUPS = {
+    'semseg': ['coco_stuff_164k'],
+    '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
+    '3dcd': ['urb3dcd', 'slpccd'],
+    'pcr': ['synth_pcr', 'real_pcr', 'kitti', 'your_new_dataset'],  # Add here
+}
+```
+
+**Dataset Type Guidelines**:
+- `semseg`: Semantic segmentation datasets (single image → label map)
+- `2dcd`: 2D change detection datasets (two images → change map)  
+- `3dcd`: 3D change detection datasets (two point clouds → change map)
+- `pcr`: Point cloud registration datasets (two point clouds → transformation)
+
+#### 2. Create Viewer Configuration
+
+Create a config file in the appropriate directory:
+
+**Path Pattern**: `/configs/common/datasets/{domain}/train/{dataset_name}_data_cfg.py`
+
+**Example for PCR dataset**:
+```python
+# /configs/common/datasets/point_cloud_registration/train/your_dataset_data_cfg.py
+import torch
+import data
+import utils
+
+data_cfg = {
+    'train_dataset': {
+        'class': data.datasets.YourDataset,
+        'args': {
+            'data_root': './data/datasets/soft_links/your_data',
+            'split': 'train',
+            # Add dataset-specific parameters
+        },
+    },
+    'train_dataloader': {
+        'class': torch.utils.data.DataLoader,
+        'args': {
+            'batch_size': 1,  # Use batch_size=1 for viewer
+            'num_workers': 4,
+            'shuffle': True,
+        },
+    },
+    'criterion': None,  # Not needed for viewer
+}
+```
+
+**Important Notes**:
+- **Batch size must be 1** for the viewer to work correctly
+- **File name must match pattern**: `{dataset_name}_data_cfg.py`
+- **Config structure must match** the training config format
+
+#### 3. Data Format Compatibility
+
+Ensure your dataset returns data in the format expected by the viewer:
+
+**Point Cloud Registration (PCR)**:
+```python
+# inputs format
+inputs = {
+    'src_pc': {'pos': torch.Tensor, 'feat': torch.Tensor},
+    'tgt_pc': {'pos': torch.Tensor, 'feat': torch.Tensor},
+    'correspondences': torch.Tensor  # Optional
+}
+
+# labels format  
+labels = {
+    'transform': torch.Tensor  # (4, 4) transformation matrix
+}
+```
+
+**2D Change Detection**:
+```python
+# inputs format
+inputs = {
+    'img_1': torch.Tensor,  # (C, H, W) first image
+    'img_2': torch.Tensor   # (C, H, W) second image
+}
+
+# labels format
+labels = {
+    'change_map': torch.Tensor  # (H, W) binary change mask
+}
+```
+
+#### 4. Test Viewer Integration
+
+Launch the viewer and verify your dataset appears:
+
+```bash
+# Launch data viewer
+python -m data.viewer.cli
+
+# Your dataset should appear in the dropdown as:
+# [PCR] your_dataset_name
+```
+
+**Troubleshooting**:
+- **Dataset not appearing**: Check config file name and location
+- **Loading errors**: Verify data paths and dataset parameters
+- **Display issues**: Ensure data format matches viewer expectations
+- **Import errors**: Check that all required modules are imported in config
+
+#### 5. Viewer-Specific Considerations
+
+**Performance**: 
+- Large datasets may be slow in the viewer
+- Consider implementing LOD (Level of Detail) for point clouds
+- Use smaller subsets for initial testing
+
+**Data Paths**:
+- Use soft links in `/data/datasets/soft_links/` for data organization
+- Ensure paths are relative to project root in config files
+
+**Transforms**:
+- Viewer handles transforms automatically from your config
+- Keep transforms minimal for faster iteration
+- Disable augmentations for cleaner visualization
+
+---
+
 ## Conclusion
 
 Implementing a dataset in Pylon requires:
@@ -526,6 +659,7 @@ Implementing a dataset in Pylon requires:
 4. **Robust Testing**: Comprehensive validation (see [Dataset Testing Design](dataset_testing_design.md))
 5. **Performance Focus**: Caching and optimization from the start
 6. **Accurate Documentation**: Statistics that match implementation
+7. **Viewer Integration**: Register with data viewer for visual debugging
 
 The key insight is that dataset implementation is **data archaeology** - understanding how a dataset has evolved across research groups and implementations over time.
 

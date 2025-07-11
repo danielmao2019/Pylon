@@ -5,7 +5,7 @@ import utils
 
 data_cfg = {
     'train_dataset': {
-        'class': data.datasets.ThreeDMatchDataset,
+        'class': data.datasets.ThreeDLoMatchDataset,
         'args': {
             'data_root': './data/datasets/soft_links/threedmatch',
             'split': 'train',
