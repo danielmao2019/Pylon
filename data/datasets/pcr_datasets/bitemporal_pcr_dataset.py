@@ -40,4 +40,3 @@ class BitemporalPCRDataset(SyntheticTransformPCRDataset):
             self.file_pair_annotations.append(annotation)
         
         print(f"Found {len(self.file_pair_annotations)} file pairs for bi-temporal PCR dataset")
-

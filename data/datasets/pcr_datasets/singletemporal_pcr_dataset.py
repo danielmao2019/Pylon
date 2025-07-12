@@ -37,4 +37,3 @@ class SingletemporalPCRDataset(SyntheticTransformPCRDataset):
             self.file_pair_annotations.append(annotation)
         
         print(f"Found {len(self.file_pair_annotations)} files for single-temporal PCR dataset")
-

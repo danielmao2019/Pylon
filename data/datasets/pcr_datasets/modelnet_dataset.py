@@ -1,25 +1,28 @@
-from typing import List
+from typing import Tuple, Dict, Any
 import os
 import glob
+import numpy as np
+import torch
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
+from utils.io.point_cloud import load_point_cloud
+from utils.point_cloud_ops.correspondences import get_correspondences
+from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
+from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 
 
 class ModelNetDataset(SyntheticTransformPCRDataset):
     """ModelNet40 dataset for point cloud registration.
     
-    This dataset implements self-registration on ModelNet40 objects following
-    GeoTransformer's approach:
+    This dataset implements self-registration on ModelNet40 objects:
     1. Load raw OFF files from ModelNet40
-    2. Generate synthetic transforms with trial-and-error for desired overlaps
-    3. Apply random cropping (plane-based or point-based) to create realistic pairs
-    4. Cache config-to-overlap mappings for efficiency
-    
-    The dataset supports both symmetric and asymmetric object categories.
+    2. Apply random SE(3) transformations 
+    3. Apply random cropping (plane-based or point-based)
+    4. Create source/target registration pairs from same object
     """
     
     # Required BaseDataset attributes
     SPLIT_OPTIONS = ['train', 'test']  # ModelNet40 only has train/test splits
-    DATASET_SIZE = {'train': 9843, 'test': 2468}
+    DATASET_SIZE = None  # Will be set dynamically based on actual files found
     INPUT_NAMES = ['src_pc', 'tgt_pc', 'correspondences']
     LABEL_NAMES = ['transform']
     SHA1SUM = None  # ModelNet40 doesn't have official checksum
@@ -45,48 +48,33 @@ class ModelNetDataset(SyntheticTransformPCRDataset):
     def __init__(
         self,
         data_root: str = '/data/datasets/soft_links/ModelNet40',
-        overlap_range: tuple = (0.3, 1.0),
+        dataset_size: int = 1000,
+        overlap_range: Tuple[float, float] = (0.3, 1.0),
         matching_radius: float = 0.05,
-        max_trials: int = 100,
-        config_cache_dir: str = None,
         **kwargs,
     ) -> None:
         """Initialize ModelNet40 dataset.
         
         Args:
             data_root: Path to ModelNet40 dataset root directory
-            overlap_range: Overlap range (overlap_min, overlap_max] - left exclusive, right inclusive
-            matching_radius: Radius for correspondence finding and overlap computation
-            max_trials: Maximum number of trials for finding valid overlap
-            config_cache_dir: Directory to cache config-to-overlap mappings
+            dataset_size: Total number of synthetic registration pairs to generate
+            overlap_range: Overlap range (overlap_min, overlap_max] for generated pairs
+            matching_radius: Radius for correspondence finding
             **kwargs: Additional arguments passed to SyntheticTransformPCRDataset
         """
-        assert isinstance(data_root, str), f"data_root must be str, got {type(data_root)}"
-        assert os.path.exists(data_root), f"data_root does not exist: {data_root}"
-        
-        # Set default cache directory to be in data_root
-        if config_cache_dir is None:
-            split_name = kwargs.get('split', 'unknown')
-            overlap_str = f"{overlap_range[0]:.1f}_{overlap_range[1]:.1f}"
-            config_cache_dir = os.path.join(data_root, f'modelnet_config_cache_{split_name}_{overlap_str}')
-        
         super().__init__(
             data_root=data_root,
+            dataset_size=dataset_size,
             overlap_range=overlap_range,
             matching_radius=matching_radius,
-            max_trials=max_trials,
-            config_cache_dir=config_cache_dir,
             **kwargs
         )
 
-    def _init_file_paths(self) -> None:
-        """Initialize raw file paths for ModelNet40 OFF files.
+    def _init_annotations(self) -> None:
+        """Initialize file pair annotations with OFF file paths.
         
-        This method sets up self.raw_file_paths containing paths to all OFF files
-        for the current split (train/test).
+        For ModelNet (single-temporal), each file pair has same src_file_path and tgt_file_path.
         """
-        assert hasattr(self, 'split'), "Split must be set before initializing file paths"
-        assert self.split in self.SPLIT_OPTIONS, f"Invalid split: {self.split}, must be one of {self.SPLIT_OPTIONS}"
         
         # ModelNet40 structure: ModelNet40/[category]/[train|test]/[filename].off
         split_dir = self.split
@@ -94,25 +82,31 @@ class ModelNetDataset(SyntheticTransformPCRDataset):
             # Map val to test for ModelNet40 (only has train/test)
             split_dir = 'test'
         
-        raw_file_paths = []
+        off_files = []
         
         for category in self.CATEGORIES:
             category_dir = os.path.join(self.data_root, category, split_dir)
             
             if not os.path.exists(category_dir):
-                print(f"Warning: Category directory not found: {category_dir}")
                 continue
             
             # Find all OFF files in this category/split
-            off_files = sorted(glob.glob(os.path.join(category_dir, '*.off')))
-            raw_file_paths.extend(off_files)
+            category_files = sorted(glob.glob(os.path.join(category_dir, '*.off')))
+            off_files.extend(category_files)
         
-        self.raw_file_paths = raw_file_paths
+        # Create file pair annotations - for single-temporal, src and tgt are the same file
+        self.file_pair_annotations = []
+        for file_path in off_files:
+            annotation = {
+                'src_file_path': file_path,
+                'tgt_file_path': file_path,  # Same file for self-registration
+                'category': self.get_category_from_path(file_path),
+            }
+            self.file_pair_annotations.append(annotation)
         
-        if len(self.raw_file_paths) == 0:
-            raise ValueError(f"No OFF files found in {self.data_root} for split '{self.split}'")
-        
-        print(f"Found {len(self.raw_file_paths)} OFF files for split '{self.split}'")
+        print(f"Found {len(self.file_pair_annotations)} OFF files for split '{self.split}'")
+    
+
 
     def get_category_from_path(self, file_path: str) -> str:
         """Extract category from file path.
@@ -145,4 +139,3 @@ class ModelNetDataset(SyntheticTransformPCRDataset):
         """
         category = self.get_category_from_path(file_path)
         return category in self.ASYMMETRIC_CATEGORIES
-
