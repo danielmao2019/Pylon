@@ -8,7 +8,7 @@ from utils.input_checks.point_cloud import check_point_cloud
 from utils.ops.apply import apply_tensor_op
 
 
-def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
+def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:
     """Read XYZ and optional feature for each vertex from PLY file.
 
     Args:
@@ -29,22 +29,22 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
         num_verts = plydata[nameInPly].count
 
         # Always read XYZ
-        positions = np.zeros(shape=[num_verts, 3], dtype=np.float32)
+        positions = np.zeros(shape=[num_verts, 3])
         positions[:, 0] = plydata[nameInPly].data["x"]
         positions[:, 1] = plydata[nameInPly].data["y"]
         positions[:, 2] = plydata[nameInPly].data["z"]
         
-        result = {'pos': torch.from_numpy(positions)}
+        result = {'pos': positions}
 
         # Add feature if specified and exists
         if name_feat is not None and name_feat in plydata[nameInPly].data.dtype.names:
-            features = plydata[nameInPly].data[name_feat].astype(np.float32).reshape(-1, 1)
-            result['feat'] = torch.from_numpy(features)
+            features = plydata[nameInPly].data[name_feat].reshape(-1, 1)
+            result['feat'] = features
 
     return result
 
 
-def _load_from_txt(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
+def _load_from_txt(filepath: str) -> Dict[str, np.ndarray]:
     """Read point cloud data from a text file.
 
     Args:
@@ -74,7 +74,7 @@ def _load_from_txt(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     return result
 
 
-def _load_from_las(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
+def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     """Read point cloud data from a LAS/LAZ file.
 
     Args:
@@ -138,7 +138,7 @@ def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     return result
 
 
-def _load_from_off(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
+def _load_from_off(filepath: str) -> Dict[str, np.ndarray]:
     """Read point cloud data from an OFF file.
     
     Args:
@@ -160,7 +160,7 @@ def _load_from_off(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
             coords = list(map(float, line.split()))
             vertices.append(coords[:3])  # Take only XYZ, ignore additional columns
         
-        positions = torch.tensor(vertices, dtype=torch.float32, device=device)
+        positions = np.array(vertices)
         return {'pos': positions}
 
 
@@ -194,13 +194,13 @@ def load_point_cloud(
     if file_ext == '.pth':
         pc_data = _load_from_pth(filepath, device=device)
     elif file_ext == '.ply':
-        pc_data = _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat, device=device)
+        pc_data = _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat)
     elif file_ext in ['.las', '.laz']:
-        pc_data = _load_from_las(filepath, device=device)
+        pc_data = _load_from_las(filepath)
     elif file_ext == '.off':
-        pc_data = _load_from_off(filepath, device=device)
+        pc_data = _load_from_off(filepath)
     elif file_ext == '.txt':
-        pc_data = _load_from_txt(filepath, device=device)
+        pc_data = _load_from_txt(filepath)
     else:
         raise ValueError(f"Unsupported file format: {file_ext}")
     
