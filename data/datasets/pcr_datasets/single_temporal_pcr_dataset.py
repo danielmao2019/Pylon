@@ -3,7 +3,7 @@ import glob
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 
 
-class SingletemporalPCRDataset(SyntheticTransformPCRDataset):
+class SingleTemporalPCRDataset(SyntheticTransformPCRDataset):
     """Single-temporal point cloud registration dataset.
     
     This class handles single-temporal point cloud datasets where the same file
