@@ -34,12 +34,12 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
         positions[:, 1] = plydata[nameInPly].data["y"]
         positions[:, 2] = plydata[nameInPly].data["z"]
         
-        result = {'pos': torch.from_numpy(positions).to(device)}
+        result = {'pos': torch.from_numpy(positions)}
 
         # Add feature if specified and exists
         if name_feat is not None and name_feat in plydata[nameInPly].data.dtype.names:
             features = plydata[nameInPly].data[name_feat].astype(np.float32).reshape(-1, 1)
-            result['feat'] = torch.from_numpy(features).to(device)
+            result['feat'] = torch.from_numpy(features)
 
     return result
 
@@ -57,17 +57,17 @@ def _load_from_txt(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     data = np.loadtxt(filepath, delimiter=' ', skiprows=2)
 
     # Extract XYZ coordinates
-    positions = torch.from_numpy(data[:, 0:3].astype(np.float32)).to(device)
+    positions = data[:, 0:3].astype(np.float32)
     result = {'pos': positions}
 
     # Extract features if available
     if data.shape[1] > 3:
         if data.shape[1] >= 7:
             # SLPCCD format: X Y Z Rf Gf Bf label - use label column as feature
-            features = torch.from_numpy(data[:, 6:7].astype(np.float32)).to(device)
+            features = data[:, 6:7].astype(np.float32)
         else:
             # General format: use all remaining columns as features
-            features = torch.from_numpy(data[:, 3:].astype(np.float32)).to(device)
+            features = data[:, 3:].astype(np.float32)
         
         result['feat'] = features
 
@@ -90,7 +90,7 @@ def _load_from_las(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     points = np.vstack((las_file.x, las_file.y, las_file.z)).T.astype(np.float32)
 
     # Initialize result dictionary with position
-    result = {'pos': torch.from_numpy(points).to(device)}
+    result = {'pos': points}
 
     # Extract RGB colors if available
     if all(field in las_file.point_format.dimension_names for field in ['red', 'green', 'blue']):
@@ -99,7 +99,7 @@ def _load_from_las(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
         green = las_file.green / np.max(las_file.green)
         blue = las_file.blue / np.max(las_file.blue)
         rgb = np.vstack((red, green, blue)).T.astype(np.float32)
-        result['rgb'] = torch.from_numpy(rgb).to(device)
+        result['rgb'] = rgb
 
     # Add all available attributes
     for field in las_file.point_format.dimension_names:
@@ -108,7 +108,7 @@ def _load_from_las(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
             if attr_value is not None:
                 attr_value = np.array(attr_value, dtype=np.float32)
                 attr_value = attr_value.reshape(-1, 1)
-                result[field] = torch.from_numpy(attr_value).to(device)
+                result[field] = attr_value
 
     return result
 
@@ -122,19 +122,18 @@ def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     Returns:
         Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
     """
-    # Load the data - could be tensor, numpy array, or other format
-    data = torch.load(filepath, map_location='cpu')
+    # Load the data - should be a tensor
+    data = torch.load(filepath, map_location=device)
     
-    # Convert to tensor if needed
-    if not isinstance(data, torch.Tensor):
-        data = torch.tensor(data)
+    # Assert it's a tensor
+    assert isinstance(data, torch.Tensor), f"Expected torch.Tensor in {filepath}, got {type(data)}"
     
-    # Create result dictionary with device transfer
-    result = {'pos': data[:, :3].to(device)}
+    # Create result dictionary
+    result = {'pos': data[:, :3]}
     
     # Add features if available
     if data.shape[1] > 3:
-        result['feat'] = data[:, 3:].to(device)
+        result['feat'] = data[:, 3:]
     
     return result
 
@@ -205,13 +204,21 @@ def load_point_cloud(
     else:
         raise ValueError(f"Unsupported file format: {file_ext}")
     
-    # All loaders now return tensors on the correct device - use apply_tensor_op for normalization
-    # Define normalization functions
-    to_float32 = lambda x: x.float() if x.dtype != torch.float32 else x
-    to_int64 = lambda x: x.long() if x.dtype != torch.int64 else x
+    # Convert any numpy arrays to torch tensors and transfer to device
+    def numpy_to_torch_on_device(x):
+        if isinstance(x, np.ndarray):
+            return torch.from_numpy(x).to(device)
+        elif isinstance(x, torch.Tensor):
+            return x.to(device)
+        else:
+            return x
     
-    # Apply normalization to all tensors
-    result = apply_tensor_op(to_float32, pc_data)
+    # Apply numpy to torch conversion and device transfer
+    result = apply_tensor_op(numpy_to_torch_on_device, pc_data)
+    
+    # Convert pos to float32
+    if 'pos' in result:
+        result['pos'] = result['pos'].float()
     
     # Validate that we have at least position data
     if 'pos' not in result:
@@ -225,7 +232,7 @@ def load_point_cloud(
     # Handle segmentation files - convert labels to int64
     is_seg_file = '_seg' in os.path.basename(filepath).lower()
     if is_seg_file and 'feat' in result:
-        result['feat'] = to_int64(result['feat'])
+        result['feat'] = result['feat'].long()
     
     # Validate result using input checks
     check_point_cloud(result)
