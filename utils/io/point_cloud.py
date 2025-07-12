@@ -4,9 +4,10 @@ import numpy as np
 import torch
 from plyfile import PlyData
 import laspy
+from utils.input_checks.point_cloud import check_point_cloud
 
 
-def _load_from_ply(filename, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:
+def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:
     """Read XYZ and optional feature for each vertex from PLY file.
 
     Args:
@@ -17,7 +18,7 @@ def _load_from_ply(filename, nameInPly: Optional[str] = None, name_feat: Optiona
     Returns:
         Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
     """
-    with open(filename, "rb") as f:
+    with open(filepath, "rb") as f:
         plydata = PlyData.read(f)
 
         # If nameInPly not specified, use first element
@@ -42,43 +43,37 @@ def _load_from_ply(filename, nameInPly: Optional[str] = None, name_feat: Optiona
     return result
 
 
-def _load_from_txt(filename: str) -> Dict[str, np.ndarray]:
+def _load_from_txt(filepath: str) -> Dict[str, np.ndarray]:
     """Read point cloud data from a text file.
 
-    This function handles various text file formats:
-    - SLPCCD format: Has header lines and contains XYZ + optional RGB + label
-    - General format: Space-separated columns with at least XYZ
-
     Args:
-        filename: Path to the text file
+        filepath: Path to the text file
 
     Returns:
         Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
     """
-    # SLPCCD format has a header line and point count line that need to be skipped
-    # Skip the first two lines (header and point count) for SLPCCD format
-    data = np.loadtxt(filename, delimiter=' ', skiprows=2)
+    # Load data - SLPCCD format has header lines that need to be skipped
+    data = np.loadtxt(filepath, delimiter=' ', skiprows=2)
 
     # Extract XYZ coordinates
     positions = data[:, 0:3].astype(np.float32)
     result = {'pos': positions}
 
-    # Handle additional columns as features
+    # Extract features if available
     if data.shape[1] > 3:
-        # For SLPCCD format, use the 7th column (index 6) if available for label
-        if data.shape[1] >= 7:  # X Y Z Rf Gf Bf label
-            features = data[:, 6].astype(np.float32).reshape(-1, 1)  # Use label as feature
+        if data.shape[1] >= 7:
+            # SLPCCD format: X Y Z Rf Gf Bf label - use label column as feature
+            features = data[:, 6:7].astype(np.float32)
         else:
-            # Otherwise use remaining columns as features
+            # General format: use all remaining columns as features
             features = data[:, 3:].astype(np.float32)
-            if features.ndim == 1:
-                features = features.reshape(-1, 1)
+        
         result['feat'] = features
 
     return result
 
 
-def _load_from_las(filename: str) -> Dict[str, np.ndarray]:
+def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     """Read point cloud data from a LAS/LAZ file.
 
     Args:
@@ -88,7 +83,7 @@ def _load_from_las(filename: str) -> Dict[str, np.ndarray]:
         Dictionary containing 'pos' and additional attributes
     """
     # Read the LAS/LAZ file
-    las_file = laspy.read(filename)
+    las_file = laspy.read(filepath)
 
     # Extract XYZ coordinates
     points = np.vstack((las_file.x, las_file.y, las_file.z)).T.astype(np.float32)
@@ -117,47 +112,49 @@ def _load_from_las(filename: str) -> Dict[str, np.ndarray]:
     return result
 
 
-def _load_from_pth(file_path: str) -> Dict[str, np.ndarray]:
+def _load_from_pth(filepath: str) -> Dict[str, np.ndarray]:
     """Load a point cloud from a PyTorch tensor file (.pth).
     
     Args:
-        file_path: Path to the PyTorch tensor file (.pth)
+        filepath: Path to the PyTorch tensor file (.pth)
         
     Returns:
         Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
     """
-    # Load the tensor
-    points = torch.load(file_path, map_location='cpu')
+    # Load the data - could be tensor, numpy array, or other format
+    data = torch.load(filepath, map_location='cpu')
     
-    # Convert to numpy
-    if isinstance(points, torch.Tensor):
-        points = points.numpy()
+    # Convert to numpy if needed
+    if isinstance(data, torch.Tensor):
+        data = data.numpy()
+    elif not isinstance(data, np.ndarray):
+        data = np.array(data)
     
     # Create result dictionary
-    result = {'pos': points[:, :3].astype(np.float32)}
+    result = {'pos': data[:, :3]}
     
     # Add features if available
-    if points.shape[1] > 3:
-        result['feat'] = points[:, 3:].astype(np.float32)
+    if data.shape[1] > 3:
+        result['feat'] = data[:, 3:]
     
     return result
 
 
-def _load_from_off(filename: str) -> Dict[str, np.ndarray]:
+def _load_from_off(filepath: str) -> Dict[str, np.ndarray]:
     """Read point cloud data from an OFF file.
     
     Args:
-        filename: Path to OFF file
+        filepath: Path to OFF file
         
     Returns:
         Dictionary with 'pos' containing XYZ coordinates
     """
-    with open(filename, 'r') as f:
+    with open(filepath, 'r') as f:
         header = f.readline().strip()
         if header != 'OFF':
-            raise ValueError(f"Invalid OFF file format: {filename}")
+            raise ValueError(f"Invalid OFF file format: {filepath}")
         
-        n_vertices, n_faces, n_edges = map(int, f.readline().strip().split())
+        n_vertices, _, _ = map(int, f.readline().strip().split())
         
         vertices = []
         for _ in range(n_vertices):
@@ -170,14 +167,14 @@ def _load_from_off(filename: str) -> Dict[str, np.ndarray]:
 
 
 def load_point_cloud(
-    pathPC,
+    filepath,
     nameInPly: Optional[str] = None,
     name_feat: Optional[str] = None
 ) -> Dict[str, torch.Tensor]:
     """Load a point cloud file and return in consistent dictionary format.
 
     Args:
-        pathPC: Path to point cloud file
+        filepath: Path to point cloud file
         nameInPly: Name of vertex element in PLY file (optional)
         name_feat: Name of feature column (optional)
 
@@ -185,25 +182,25 @@ def load_point_cloud(
         Dictionary with at least 'pos' key containing XYZ coordinates as torch.float32
         Additional keys may include 'feat', 'rgb', etc. depending on file format
     """
-    pathPC = os.path.normpath(pathPC).replace('\\', '/')
+    filepath = os.path.normpath(filepath).replace('\\', '/')
 
     # Check file existence once at the beginning
-    if not os.path.isfile(pathPC):
-        raise FileNotFoundError(f"Point cloud file not found: {pathPC}")
+    if not os.path.isfile(filepath):
+        raise FileNotFoundError(f"Point cloud file not found: {filepath}")
 
-    file_ext = os.path.splitext(pathPC)[1].lower()
+    file_ext = os.path.splitext(filepath)[1].lower()
 
     # Load data using appropriate loader
     if file_ext == '.pth':
-        pc_data = _load_from_pth(pathPC)
+        pc_data = _load_from_pth(filepath)
     elif file_ext == '.ply':
-        pc_data = _load_from_ply(pathPC, nameInPly=nameInPly, name_feat=name_feat)
+        pc_data = _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat)
     elif file_ext in ['.las', '.laz']:
-        pc_data = _load_from_las(pathPC)
+        pc_data = _load_from_las(filepath)
     elif file_ext == '.off':
-        pc_data = _load_from_off(pathPC)
+        pc_data = _load_from_off(filepath)
     elif file_ext == '.txt':
-        pc_data = _load_from_txt(pathPC)
+        pc_data = _load_from_txt(filepath)
     else:
         raise ValueError(f"Unsupported file format: {file_ext}")
     
@@ -230,8 +227,11 @@ def load_point_cloud(
         raise ValueError(f"Position data must have shape (N, D) where D >= 3, got {pos.shape}")
     
     # Handle segmentation files - convert labels to int64
-    is_seg_file = '_seg' in os.path.basename(pathPC).lower()
+    is_seg_file = '_seg' in os.path.basename(filepath).lower()
     if is_seg_file and 'feat' in result:
         result['feat'] = result['feat'].long()
+    
+    # Validate result using input checks
+    check_point_cloud(result)
     
     return result

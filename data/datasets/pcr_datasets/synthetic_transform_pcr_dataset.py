@@ -143,9 +143,9 @@ class SyntheticTransformPCRDataset(BaseDataset):
         src_file_path = file_pair_annotation['src_file_path']
         tgt_file_path = file_pair_annotation['tgt_file_path']
         
-        # Load source point cloud
+        # Load source point cloud (load_point_cloud now always returns dict format)
         src_pc_data = load_point_cloud(src_file_path)
-        src_pc_raw = src_pc_data['pos'].float() if isinstance(src_pc_data, dict) else src_pc_data[:, :3].float()
+        src_pc_raw = src_pc_data['pos']
         
         # Check if single-temporal or bi-temporal
         if src_file_path == tgt_file_path:
@@ -154,7 +154,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         else:
             # Bi-temporal: load target separately
             tgt_pc_data = load_point_cloud(tgt_file_path)
-            tgt_pc_raw = tgt_pc_data['pos'].float() if isinstance(tgt_pc_data, dict) else tgt_pc_data[:, :3].float()
+            tgt_pc_raw = tgt_pc_data['pos']
         
         return src_pc_raw, tgt_pc_raw
     
@@ -494,11 +494,9 @@ class SyntheticTransformPCRDataset(BaseDataset):
         # Apply SE(3) transformation to source
         transformed_pc = (transform_matrix[:3, :3] @ src_pc_raw.T).T + transform_matrix[:3, 3]
         
-        # Apply crop with deterministic generator
-        crop_generator = torch.Generator()
-        crop_generator.manual_seed(transform_params['seed'] + 1000)
+        # Apply crop with deterministic seed
         transformed_pc_dict = {'pos': transformed_pc}
-        src_pc_dict = crop_transform._call_single_with_generator(transformed_pc_dict, generator=crop_generator)
+        src_pc_dict = crop_transform(transformed_pc_dict, seed=transform_params['seed'] + 1000)
         src_pc_pos = src_pc_dict['pos']
         
         # Create point cloud dictionaries
