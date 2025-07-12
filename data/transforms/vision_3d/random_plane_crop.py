@@ -1,4 +1,5 @@
-from typing import Dict, Optional
+from typing import Dict, Optional, Union, Sequence
+import numpy as np
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
@@ -14,7 +15,7 @@ class RandomPlaneCrop(BaseTransform):
     - Preserves object topology better than point-based cropping
     """
 
-    def __init__(self, keep_ratio: float = 0.7, plane_normal: Optional[torch.Tensor] = None):
+    def __init__(self, keep_ratio: float = 0.7, plane_normal: Optional[Union[Sequence[Union[int, float]], np.ndarray, torch.Tensor]] = None):
         """Initialize RandomPlaneCrop transform.
         
         Args:
@@ -25,11 +26,22 @@ class RandomPlaneCrop(BaseTransform):
         assert 0.0 < keep_ratio <= 1.0, f"keep_ratio must be in (0, 1], got {keep_ratio}"
         
         self.keep_ratio = float(keep_ratio)
-        self.plane_normal = plane_normal
         
         if plane_normal is not None:
-            assert isinstance(plane_normal, torch.Tensor), f"plane_normal must be torch.Tensor, got {type(plane_normal)}"
+            # Normalize plane_normal to torch.Tensor of shape (3,)
+            if isinstance(plane_normal, (list, tuple)):
+                plane_normal = torch.tensor(plane_normal, dtype=torch.float32)
+            elif isinstance(plane_normal, np.ndarray):
+                plane_normal = torch.from_numpy(plane_normal).float()
+            elif isinstance(plane_normal, torch.Tensor):
+                plane_normal = plane_normal.float()
+            else:
+                raise TypeError(f"plane_normal must be Sequence, np.ndarray, or torch.Tensor, got {type(plane_normal)}")
+            
             assert plane_normal.shape == (3,), f"plane_normal must have shape (3,), got {plane_normal.shape}"
+            
+        self.plane_normal = plane_normal
+        self._plane_normal_device_aligned = None  # Cache for device-aligned version
 
     def _call_single(self, pc: Dict[str, torch.Tensor], generator: torch.Generator) -> Dict[str, torch.Tensor]:
         """Apply random plane cropping to point cloud.
@@ -54,8 +66,10 @@ class RandomPlaneCrop(BaseTransform):
         if self.plane_normal is None:
             plane_normal_tensor = self._random_sample_plane(generator)
         else:
-            assert self.plane_normal.device.type == positions.device.type, f"plane_normal device type {self.plane_normal.device.type} != positions device type {positions.device.type}"
-            plane_normal_tensor = self.plane_normal.float()
+            # Align plane_normal to positions.device on first call, then cache
+            if self._plane_normal_device_aligned is None or self._plane_normal_device_aligned.device != positions.device:
+                self._plane_normal_device_aligned = self.plane_normal.to(positions.device)
+            plane_normal_tensor = self._plane_normal_device_aligned
         
         # Compute distances from plane (dot product with normal)
         # Following GeoTransformer: distances = np.dot(points, p_normal)
