@@ -3,7 +3,7 @@ import glob
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 
 
-class BitemporalPCRDataset(SyntheticTransformPCRDataset):
+class BiTemporalPCRDataset(SyntheticTransformPCRDataset):
     """Bi-temporal point cloud registration dataset for multi-scene datasets.
     
     This class handles real point cloud pairs from different files/times,
