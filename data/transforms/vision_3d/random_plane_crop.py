@@ -1,5 +1,4 @@
 from typing import Dict, Optional
-import numpy as np
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
@@ -15,7 +14,7 @@ class RandomPlaneCrop(BaseTransform):
     - Preserves object topology better than point-based cropping
     """
 
-    def __init__(self, keep_ratio: float = 0.7, plane_normal: Optional[np.ndarray] = None):
+    def __init__(self, keep_ratio: float = 0.7, plane_normal: Optional[torch.Tensor] = None):
         """Initialize RandomPlaneCrop transform.
         
         Args:
@@ -29,7 +28,7 @@ class RandomPlaneCrop(BaseTransform):
         self.plane_normal = plane_normal
         
         if plane_normal is not None:
-            assert isinstance(plane_normal, np.ndarray), f"plane_normal must be np.ndarray, got {type(plane_normal)}"
+            assert isinstance(plane_normal, torch.Tensor), f"plane_normal must be torch.Tensor, got {type(plane_normal)}"
             assert plane_normal.shape == (3,), f"plane_normal must have shape (3,), got {plane_normal.shape}"
 
     def _call_single(self, pc: Dict[str, torch.Tensor], generator: torch.Generator) -> Dict[str, torch.Tensor]:
@@ -46,16 +45,17 @@ class RandomPlaneCrop(BaseTransform):
         
         positions = pc['pos']  # Shape: (N, 3)
         num_points = positions.shape[0]
-        num_samples = int(np.floor(num_points * self.keep_ratio + 0.5))
+        num_samples = int(torch.floor(torch.tensor(num_points * self.keep_ratio + 0.5)).item())
+        
+        # Assert generator and positions are on same device type
+        assert positions.device.type == generator.device.type, f"positions device type {positions.device.type} != generator device type {generator.device.type}"
         
         # Generate or use provided plane normal
         if self.plane_normal is None:
-            plane_normal = self._random_sample_plane(generator)
+            plane_normal_tensor = self._random_sample_plane(generator)
         else:
-            plane_normal = self.plane_normal.copy()
-        
-        # Convert to tensor on same device as positions
-        plane_normal_tensor = torch.from_numpy(plane_normal).float().to(positions.device)
+            assert self.plane_normal.device.type == positions.device.type, f"plane_normal device type {self.plane_normal.device.type} != positions device type {positions.device.type}"
+            plane_normal_tensor = self.plane_normal.float()
         
         # Compute distances from plane (dot product with normal)
         # Following GeoTransformer: distances = np.dot(points, p_normal)
@@ -76,7 +76,7 @@ class RandomPlaneCrop(BaseTransform):
         
         return cropped_pc
 
-    def _random_sample_plane(self, generator: torch.Generator) -> np.ndarray:
+    def _random_sample_plane(self, generator: torch.Generator) -> torch.Tensor:
         """Generate random plane normal from unit sphere using spherical coordinates.
         
         This replicates GeoTransformer's random_sample_plane function exactly.
@@ -85,18 +85,17 @@ class RandomPlaneCrop(BaseTransform):
             generator: Random number generator for reproducible results
             
         Returns:
-            Random unit normal vector, shape (3,)
+            Random unit normal vector, shape (3,) on same device as generator
         """
-        # Generate random spherical coordinates
-        # Following GeoTransformer logic exactly
-        phi = torch.rand(1, generator=generator).item() * 2 * np.pi  # longitude [0, 2π]
-        theta = torch.rand(1, generator=generator).item() * np.pi     # latitude [0, π]
+        # Generate random spherical coordinates on generator's device
+        phi = torch.rand(1, generator=generator, device=generator.device) * 2 * torch.pi  # longitude [0, 2π]
+        theta = torch.rand(1, generator=generator, device=generator.device) * torch.pi     # latitude [0, π]
         
         # Convert spherical to Cartesian coordinates
-        x = np.sin(theta) * np.cos(phi)
-        y = np.sin(theta) * np.sin(phi) 
-        z = np.cos(theta)
+        x = torch.sin(theta) * torch.cos(phi)
+        y = torch.sin(theta) * torch.sin(phi) 
+        z = torch.cos(theta)
         
-        normal = np.array([x, y, z], dtype=np.float32)
+        normal = torch.stack([x.squeeze(), y.squeeze(), z.squeeze()], dim=0)
         
         return normal

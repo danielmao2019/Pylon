@@ -1,5 +1,4 @@
 from typing import Dict, Optional
-import numpy as np
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
@@ -15,7 +14,7 @@ class RandomPointCrop(BaseTransform):
     - Creates more irregular cropping patterns than plane-based cropping
     """
 
-    def __init__(self, keep_ratio: float = 0.7, viewpoint: Optional[np.ndarray] = None, limit: float = 500.0):
+    def __init__(self, keep_ratio: float = 0.7, viewpoint: Optional[torch.Tensor] = None, limit: float = 500.0):
         """Initialize RandomPointCrop transform.
         
         Args:
@@ -33,7 +32,7 @@ class RandomPointCrop(BaseTransform):
         self.limit = float(limit)
         
         if viewpoint is not None:
-            assert isinstance(viewpoint, np.ndarray), f"viewpoint must be np.ndarray, got {type(viewpoint)}"
+            assert isinstance(viewpoint, torch.Tensor), f"viewpoint must be torch.Tensor, got {type(viewpoint)}"
             assert viewpoint.shape == (3,), f"viewpoint must have shape (3,), got {viewpoint.shape}"
 
     def _call_single(self, pc: Dict[str, torch.Tensor], generator: torch.Generator) -> Dict[str, torch.Tensor]:
@@ -50,16 +49,17 @@ class RandomPointCrop(BaseTransform):
         
         positions = pc['pos']  # Shape: (N, 3)
         num_points = positions.shape[0]
-        num_samples = int(np.floor(num_points * self.keep_ratio + 0.5))
+        num_samples = int(torch.floor(torch.tensor(num_points * self.keep_ratio + 0.5)).item())
+        
+        # Assert generator and positions are on same device type
+        assert positions.device.type == generator.device.type, f"positions device type {positions.device.type} != generator device type {generator.device.type}"
         
         # Generate or use provided viewpoint
         if self.viewpoint is None:
-            viewpoint = self._random_sample_viewpoint(generator)
+            viewpoint_tensor = self._random_sample_viewpoint(generator)
         else:
-            viewpoint = self.viewpoint.copy()
-        
-        # Convert to tensor on same device as positions
-        viewpoint_tensor = torch.from_numpy(viewpoint).float().to(positions.device)
+            assert self.viewpoint.device.type == positions.device.type, f"viewpoint device type {self.viewpoint.device.type} != positions device type {positions.device.type}"
+            viewpoint_tensor = self.viewpoint.float()
         
         # Compute Euclidean distances from viewpoint to all points
         # Following GeoTransformer: distances = np.linalg.norm(viewpoint - points, axis=1)
@@ -80,7 +80,7 @@ class RandomPointCrop(BaseTransform):
         
         return cropped_pc
 
-    def _random_sample_viewpoint(self, generator: torch.Generator) -> np.ndarray:
+    def _random_sample_viewpoint(self, generator: torch.Generator) -> torch.Tensor:
         """Sample random viewpoint from 8 cardinal directions.
         
         This replicates GeoTransformer's random_sample_viewpoint function exactly.
@@ -89,24 +89,20 @@ class RandomPointCrop(BaseTransform):
             generator: Random number generator for reproducible results
             
         Returns:
-            Random viewpoint coordinates, shape (3,)
+            Random viewpoint coordinates, shape (3,) on same device as generator
         """
         # Following GeoTransformer logic exactly:
         # viewpoint = np.random.rand(3) + np.array([limit, limit, limit]) * np.random.choice([1.0, -1.0], size=3)
         
-        # Generate random offset [0, 1] for each dimension
-        random_offset = torch.rand(3, generator=generator).numpy()
+        # Generate random offset [0, 1] for each dimension on generator's device
+        random_offset = torch.rand(3, generator=generator, device=generator.device)
         
         # Generate random signs for each dimension (8 cardinal directions)
-        # Use generator to maintain reproducibility
-        signs = []
-        for _ in range(3):
-            sign = 1.0 if torch.rand(1, generator=generator).item() > 0.5 else -1.0
-            signs.append(sign)
-        signs = np.array(signs)
+        random_values = torch.rand(3, generator=generator, device=generator.device)
+        signs = torch.where(random_values > 0.5, 1.0, -1.0)
         
         # Create viewpoint following GeoTransformer formula
-        limit_array = np.array([self.limit, self.limit, self.limit])
-        viewpoint = random_offset + limit_array * signs
+        limit_tensor = torch.tensor([self.limit, self.limit, self.limit], device=generator.device, dtype=torch.float32)
+        viewpoint = random_offset + limit_tensor * signs
         
-        return viewpoint.astype(np.float32)
+        return viewpoint
