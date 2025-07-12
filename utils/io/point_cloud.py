@@ -106,8 +106,7 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
         if field not in ['x', 'y', 'z', 'red', 'green', 'blue']:  # Skip XYZ and RGB as they're already handled
             attr_value = getattr(las_file, field)
             if attr_value is not None:
-                attr_value = np.array(attr_value)
-                attr_value = attr_value.reshape(-1, 1)
+                attr_value = np.array(attr_value).reshape(-1, 1)
                 result[field] = attr_value
 
     return result
