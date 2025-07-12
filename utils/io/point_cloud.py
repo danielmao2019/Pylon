@@ -57,17 +57,17 @@ def _load_from_txt(filepath: str) -> Dict[str, np.ndarray]:
     data = np.loadtxt(filepath, delimiter=' ', skiprows=2)
 
     # Extract XYZ coordinates
-    positions = data[:, 0:3].astype(np.float32)
+    positions = data[:, 0:3]
     result = {'pos': positions}
 
     # Extract features if available
     if data.shape[1] > 3:
         if data.shape[1] >= 7:
             # SLPCCD format: X Y Z Rf Gf Bf label - use label column as feature
-            features = data[:, 6:7].astype(np.float32)
+            features = data[:, 6:7]
         else:
             # General format: use all remaining columns as features
-            features = data[:, 3:].astype(np.float32)
+            features = data[:, 3:]
         
         result['feat'] = features
 
@@ -87,7 +87,7 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     las_file = laspy.read(filepath)
 
     # Extract XYZ coordinates
-    points = np.vstack((las_file.x, las_file.y, las_file.z)).T.astype(np.float32)
+    points = np.vstack((las_file.x, las_file.y, las_file.z)).T
 
     # Initialize result dictionary with position
     result = {'pos': points}
@@ -98,7 +98,7 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
         red = las_file.red / np.max(las_file.red)
         green = las_file.green / np.max(las_file.green)
         blue = las_file.blue / np.max(las_file.blue)
-        rgb = np.vstack((red, green, blue)).T.astype(np.float32)
+        rgb = np.vstack((red, green, blue)).T
         result['rgb'] = rgb
 
     # Add all available attributes
@@ -106,7 +106,7 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
         if field not in ['x', 'y', 'z', 'red', 'green', 'blue']:  # Skip XYZ and RGB as they're already handled
             attr_value = getattr(las_file, field)
             if attr_value is not None:
-                attr_value = np.array(attr_value, dtype=np.float32)
+                attr_value = np.array(attr_value)
                 attr_value = attr_value.reshape(-1, 1)
                 result[field] = attr_value
 
