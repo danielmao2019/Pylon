@@ -1,13 +1,14 @@
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
 import os
 import numpy as np
 import torch
 from plyfile import PlyData
 import laspy
 from utils.input_checks.point_cloud import check_point_cloud
+from utils.ops.apply import apply_tensor_op
 
 
-def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:
+def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
     """Read XYZ and optional feature for each vertex from PLY file.
 
     Args:
@@ -33,17 +34,17 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
         positions[:, 1] = plydata[nameInPly].data["y"]
         positions[:, 2] = plydata[nameInPly].data["z"]
         
-        result = {'pos': positions}
+        result = {'pos': torch.from_numpy(positions).to(device)}
 
         # Add feature if specified and exists
         if name_feat is not None and name_feat in plydata[nameInPly].data.dtype.names:
             features = plydata[nameInPly].data[name_feat].astype(np.float32).reshape(-1, 1)
-            result['feat'] = features
+            result['feat'] = torch.from_numpy(features).to(device)
 
     return result
 
 
-def _load_from_txt(filepath: str) -> Dict[str, np.ndarray]:
+def _load_from_txt(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
     """Read point cloud data from a text file.
 
     Args:
@@ -56,24 +57,24 @@ def _load_from_txt(filepath: str) -> Dict[str, np.ndarray]:
     data = np.loadtxt(filepath, delimiter=' ', skiprows=2)
 
     # Extract XYZ coordinates
-    positions = data[:, 0:3].astype(np.float32)
+    positions = torch.from_numpy(data[:, 0:3].astype(np.float32)).to(device)
     result = {'pos': positions}
 
     # Extract features if available
     if data.shape[1] > 3:
         if data.shape[1] >= 7:
             # SLPCCD format: X Y Z Rf Gf Bf label - use label column as feature
-            features = data[:, 6:7].astype(np.float32)
+            features = torch.from_numpy(data[:, 6:7].astype(np.float32)).to(device)
         else:
             # General format: use all remaining columns as features
-            features = data[:, 3:].astype(np.float32)
+            features = torch.from_numpy(data[:, 3:].astype(np.float32)).to(device)
         
         result['feat'] = features
 
     return result
 
 
-def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
+def _load_from_las(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
     """Read point cloud data from a LAS/LAZ file.
 
     Args:
@@ -89,7 +90,7 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     points = np.vstack((las_file.x, las_file.y, las_file.z)).T.astype(np.float32)
 
     # Initialize result dictionary with position
-    result = {'pos': points}
+    result = {'pos': torch.from_numpy(points).to(device)}
 
     # Extract RGB colors if available
     if all(field in las_file.point_format.dimension_names for field in ['red', 'green', 'blue']):
@@ -98,7 +99,7 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
         green = las_file.green / np.max(las_file.green)
         blue = las_file.blue / np.max(las_file.blue)
         rgb = np.vstack((red, green, blue)).T.astype(np.float32)
-        result['rgb'] = rgb
+        result['rgb'] = torch.from_numpy(rgb).to(device)
 
     # Add all available attributes
     for field in las_file.point_format.dimension_names:
@@ -107,12 +108,12 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
             if attr_value is not None:
                 attr_value = np.array(attr_value, dtype=np.float32)
                 attr_value = attr_value.reshape(-1, 1)
-                result[field] = attr_value
+                result[field] = torch.from_numpy(attr_value).to(device)
 
     return result
 
 
-def _load_from_pth(filepath: str) -> Dict[str, np.ndarray]:
+def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
     """Load a point cloud from a PyTorch tensor file (.pth).
     
     Args:
@@ -124,23 +125,21 @@ def _load_from_pth(filepath: str) -> Dict[str, np.ndarray]:
     # Load the data - could be tensor, numpy array, or other format
     data = torch.load(filepath, map_location='cpu')
     
-    # Convert to numpy if needed
-    if isinstance(data, torch.Tensor):
-        data = data.numpy()
-    elif not isinstance(data, np.ndarray):
-        data = np.array(data)
+    # Convert to tensor if needed
+    if not isinstance(data, torch.Tensor):
+        data = torch.tensor(data)
     
-    # Create result dictionary
-    result = {'pos': data[:, :3]}
+    # Create result dictionary with device transfer
+    result = {'pos': data[:, :3].to(device)}
     
     # Add features if available
     if data.shape[1] > 3:
-        result['feat'] = data[:, 3:]
+        result['feat'] = data[:, 3:].to(device)
     
     return result
 
 
-def _load_from_off(filepath: str) -> Dict[str, np.ndarray]:
+def _load_from_off(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
     """Read point cloud data from an OFF file.
     
     Args:
@@ -162,14 +161,15 @@ def _load_from_off(filepath: str) -> Dict[str, np.ndarray]:
             coords = list(map(float, line.split()))
             vertices.append(coords[:3])  # Take only XYZ, ignore additional columns
         
-        positions = np.array(vertices, dtype=np.float32)
+        positions = torch.tensor(vertices, dtype=torch.float32, device=device)
         return {'pos': positions}
 
 
 def load_point_cloud(
     filepath,
     nameInPly: Optional[str] = None,
-    name_feat: Optional[str] = None
+    name_feat: Optional[str] = None,
+    device: Union[str, torch.device] = 'cuda'
 ) -> Dict[str, torch.Tensor]:
     """Load a point cloud file and return in consistent dictionary format.
 
@@ -177,6 +177,7 @@ def load_point_cloud(
         filepath: Path to point cloud file
         nameInPly: Name of vertex element in PLY file (optional)
         name_feat: Name of feature column (optional)
+        device: Device to place tensors on ('cuda', 'cpu', or torch.device)
 
     Returns:
         Dictionary with at least 'pos' key containing XYZ coordinates as torch.float32
@@ -192,30 +193,25 @@ def load_point_cloud(
 
     # Load data using appropriate loader
     if file_ext == '.pth':
-        pc_data = _load_from_pth(filepath)
+        pc_data = _load_from_pth(filepath, device=device)
     elif file_ext == '.ply':
-        pc_data = _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat)
+        pc_data = _load_from_ply(filepath, nameInPly=nameInPly, name_feat=name_feat, device=device)
     elif file_ext in ['.las', '.laz']:
-        pc_data = _load_from_las(filepath)
+        pc_data = _load_from_las(filepath, device=device)
     elif file_ext == '.off':
-        pc_data = _load_from_off(filepath)
+        pc_data = _load_from_off(filepath, device=device)
     elif file_ext == '.txt':
-        pc_data = _load_from_txt(filepath)
+        pc_data = _load_from_txt(filepath, device=device)
     else:
         raise ValueError(f"Unsupported file format: {file_ext}")
     
-    # All loaders now return dict format with numpy arrays
-    # Convert all numpy arrays to torch tensors
-    result = {}
-    for key, value in pc_data.items():
-        if isinstance(value, np.ndarray):
-            tensor = torch.from_numpy(value)
-            # Ensure pos field is float32
-            if key == 'pos':
-                tensor = tensor.float()
-            result[key] = tensor
-        else:
-            result[key] = value
+    # All loaders now return tensors on the correct device - use apply_tensor_op for normalization
+    # Define normalization functions
+    to_float32 = lambda x: x.float() if x.dtype != torch.float32 else x
+    to_int64 = lambda x: x.long() if x.dtype != torch.int64 else x
+    
+    # Apply normalization to all tensors
+    result = apply_tensor_op(to_float32, pc_data)
     
     # Validate that we have at least position data
     if 'pos' not in result:
@@ -229,7 +225,7 @@ def load_point_cloud(
     # Handle segmentation files - convert labels to int64
     is_seg_file = '_seg' in os.path.basename(filepath).lower()
     if is_seg_file and 'feat' in result:
-        result['feat'] = result['feat'].long()
+        result['feat'] = to_int64(result['feat'])
     
     # Validate result using input checks
     check_point_cloud(result)
