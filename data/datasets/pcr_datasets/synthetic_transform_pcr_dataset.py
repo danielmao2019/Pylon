@@ -10,6 +10,7 @@ from data.datasets.base_dataset import BaseDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
 from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
 from data.transforms.vision_3d.random_point_crop import RandomPointCrop
+from utils.io.point_cloud import load_point_cloud
 
 
 class SyntheticTransformPCRDataset(BaseDataset):
@@ -143,7 +144,8 @@ class SyntheticTransformPCRDataset(BaseDataset):
         tgt_file_path = file_pair_annotation['tgt_file_path']
         
         # Load source point cloud
-        src_pc_raw = self._load_single_file(src_file_path)
+        src_pc_data = load_point_cloud(src_file_path)
+        src_pc_raw = src_pc_data['pos'].float() if isinstance(src_pc_data, dict) else src_pc_data[:, :3].float()
         
         # Check if single-temporal or bi-temporal
         if src_file_path == tgt_file_path:
@@ -151,20 +153,11 @@ class SyntheticTransformPCRDataset(BaseDataset):
             tgt_pc_raw = src_pc_raw.clone()
         else:
             # Bi-temporal: load target separately
-            tgt_pc_raw = self._load_single_file(tgt_file_path)
+            tgt_pc_data = load_point_cloud(tgt_file_path)
+            tgt_pc_raw = tgt_pc_data['pos'].float() if isinstance(tgt_pc_data, dict) else tgt_pc_data[:, :3].float()
         
         return src_pc_raw, tgt_pc_raw
     
-    def _load_single_file(self, file_path: str) -> torch.Tensor:
-        """Load point cloud data from a single file - to be implemented by subclasses.
-        
-        Args:
-            file_path: Path to point cloud file
-            
-        Returns:
-            Point cloud positions as tensor
-        """
-        raise NotImplementedError("Subclasses must implement _load_single_file")
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
@@ -504,9 +497,8 @@ class SyntheticTransformPCRDataset(BaseDataset):
         # Apply crop with deterministic generator
         crop_generator = torch.Generator()
         crop_generator.manual_seed(transform_params['seed'] + 1000)
-        
         transformed_pc_dict = {'pos': transformed_pc}
-        src_pc_dict = crop_transform._call_single(transformed_pc_dict, generator=crop_generator)
+        src_pc_dict = crop_transform._call_single_with_generator(transformed_pc_dict, generator=crop_generator)
         src_pc_pos = src_pc_dict['pos']
         
         # Create point cloud dictionaries
