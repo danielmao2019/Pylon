@@ -217,8 +217,8 @@ def load_point_cloud(
     result = apply_tensor_op(numpy_to_torch_on_device, pc_data)
     
     # Convert pos to float32
-    if 'pos' in result:
-        result['pos'] = result['pos'].float()
+    assert 'pos' in result
+    result['pos'] = result['pos'].float()
     
     # Handle segmentation files - convert labels to int64
     is_seg_file = '_seg' in os.path.basename(filepath).lower()
