@@ -41,7 +41,6 @@ class RandomPlaneCrop(BaseTransform):
             assert plane_normal.shape == (3,), f"plane_normal must have shape (3,), got {plane_normal.shape}"
             
         self.plane_normal = plane_normal
-        self._plane_normal_device_aligned = None  # Cache for device-aligned version
 
     def _call_single(self, pc: Dict[str, torch.Tensor], generator: torch.Generator) -> Dict[str, torch.Tensor]:
         """Apply random plane cropping to point cloud.
@@ -66,10 +65,10 @@ class RandomPlaneCrop(BaseTransform):
         if self.plane_normal is None:
             plane_normal_tensor = self._random_sample_plane(generator)
         else:
-            # Align plane_normal to positions.device on first call, then cache
-            if self._plane_normal_device_aligned is None or self._plane_normal_device_aligned.device != positions.device:
-                self._plane_normal_device_aligned = self.plane_normal.to(positions.device)
-            plane_normal_tensor = self._plane_normal_device_aligned
+            # Align plane_normal to positions.device if needed
+            if self.plane_normal.device != positions.device:
+                self.plane_normal = self.plane_normal.to(positions.device)
+            plane_normal_tensor = self.plane_normal
         
         # Compute distances from plane (dot product with normal)
         # Following GeoTransformer: distances = np.dot(points, p_normal)

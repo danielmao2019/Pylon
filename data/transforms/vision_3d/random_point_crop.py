@@ -45,7 +45,6 @@ class RandomPointCrop(BaseTransform):
             assert viewpoint.shape == (3,), f"viewpoint must have shape (3,), got {viewpoint.shape}"
             
         self.viewpoint = viewpoint
-        self._viewpoint_device_aligned = None  # Cache for device-aligned version
 
     def _call_single(self, pc: Dict[str, torch.Tensor], generator: torch.Generator) -> Dict[str, torch.Tensor]:
         """Apply random point-based cropping to point cloud.
@@ -70,10 +69,10 @@ class RandomPointCrop(BaseTransform):
         if self.viewpoint is None:
             viewpoint_tensor = self._random_sample_viewpoint(generator)
         else:
-            # Align viewpoint to positions.device on first call, then cache
-            if self._viewpoint_device_aligned is None or self._viewpoint_device_aligned.device != positions.device:
-                self._viewpoint_device_aligned = self.viewpoint.to(positions.device)
-            viewpoint_tensor = self._viewpoint_device_aligned
+            # Align viewpoint to positions.device if needed
+            if self.viewpoint.device != positions.device:
+                self.viewpoint = self.viewpoint.to(positions.device)
+            viewpoint_tensor = self.viewpoint
         
         # Compute Euclidean distances from viewpoint to all points
         # Following GeoTransformer: distances = np.linalg.norm(viewpoint - points, axis=1)
