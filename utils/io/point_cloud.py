@@ -138,7 +138,7 @@ def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     return result
 
 
-def _load_from_off(filepath: str) -> Dict[str, np.ndarray]:
+def _load_from_off(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
     """Read point cloud data from an OFF file.
     
     Args:
@@ -160,7 +160,7 @@ def _load_from_off(filepath: str) -> Dict[str, np.ndarray]:
             coords = list(map(float, line.split()))
             vertices.append(coords[:3])  # Take only XYZ, ignore additional columns
         
-        positions = np.array(vertices)
+        positions = torch.tensor(vertices, dtype=torch.float32, device=device)
         return {'pos': positions}
 
 
@@ -198,7 +198,7 @@ def load_point_cloud(
     elif file_ext in ['.las', '.laz']:
         pc_data = _load_from_las(filepath)
     elif file_ext == '.off':
-        pc_data = _load_from_off(filepath)
+        pc_data = _load_from_off(filepath, device=device)
     elif file_ext == '.txt':
         pc_data = _load_from_txt(filepath)
     else:
@@ -219,15 +219,6 @@ def load_point_cloud(
     # Convert pos to float32
     if 'pos' in result:
         result['pos'] = result['pos'].float()
-    
-    # Validate that we have at least position data
-    if 'pos' not in result:
-        raise ValueError(f"Point cloud data must contain 'pos' field")
-    
-    # Validate position shape
-    pos = result['pos']
-    if pos.ndim != 2 or pos.shape[1] < 3:
-        raise ValueError(f"Position data must have shape (N, D) where D >= 3, got {pos.shape}")
     
     # Handle segmentation files - convert labels to int64
     is_seg_file = '_seg' in os.path.basename(filepath).lower()
