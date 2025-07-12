@@ -83,8 +83,8 @@ __all__ = (
     'I3PEDataset',
     'PPSLDataset',
     # Point Cloud Registration
-    'SynthPCRDataset',
-    'RealPCRDataset',
+    'SingleTemporalPCRDataset',
+    'BiTemporalPCRDataset',
     'KITTIDataset',
     'ThreeDMatchDataset',
     'ThreeDLoMatchDataset',

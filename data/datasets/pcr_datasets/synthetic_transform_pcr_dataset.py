@@ -496,7 +496,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         
         # Apply crop with deterministic seed
         transformed_pc_dict = {'pos': transformed_pc}
-        src_pc_dict = crop_transform(transformed_pc_dict, seed=transform_params['seed'] + 1000)
+        src_pc_dict = crop_transform(transformed_pc_dict, seed=transform_params['seed'])
         src_pc_pos = src_pc_dict['pos']
         
         # Create point cloud dictionaries
