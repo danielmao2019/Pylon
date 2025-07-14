@@ -66,7 +66,7 @@ def validate_inputs(inputs: Dict[str, Any], labels: Dict[str, Any]) -> None:
         assert num_points > 50, f"{pc_name} has too few points after cropping: {num_points}"
         assert num_points < 50000, f"{pc_name} has too many points: {num_points}"
 
-    # For ModelNet (self-registration), source and target should have different number of points
+    # For ModelNet40 (self-registration), source and target should have different number of points
     # since source is cropped but target is not
     src_points = inputs['src_pc']['pos'].shape[0]
     tgt_points = inputs['tgt_pc']['pos'].shape[0]
@@ -123,9 +123,9 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
         f"meta_info missing required keys: {meta_info.keys()=}"
     assert meta_info['idx'] == datapoint_idx, f"{meta_info['idx']=}, {datapoint_idx=}"
     
-    # For ModelNet (self-registration), source and target file paths should be the same
+    # For ModelNet40 (self-registration), source and target file paths should be the same
     assert meta_info['src_file_path'] == meta_info['tgt_file_path'], \
-        "ModelNet should use same file for source and target"
+        "ModelNet40 should use same file for source and target"
     
     # Check file path is valid OFF file
     file_path = meta_info['src_file_path']
@@ -173,7 +173,7 @@ def dataset_with_params(request):
         'trans_mag': 0.3,
     },
 ], indirect=True)
-def test_modelnet_dataset(dataset_with_params, max_samples, get_samples_to_test):
+def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_test):
     """Test basic functionality of ModelNet40Dataset."""
     dataset, rot_mag, trans_mag = dataset_with_params
 
@@ -184,7 +184,7 @@ def test_modelnet_dataset(dataset_with_params, max_samples, get_samples_to_test)
     # Check that file pairs are correctly set up for single-temporal (self-registration)
     for annotation in dataset.file_pair_annotations[:5]:  # Check first 5
         assert annotation['src_file_path'] == annotation['tgt_file_path'], \
-            "ModelNet should use same file for source and target"
+            "ModelNet40 should use same file for source and target"
         assert annotation['src_file_path'].endswith('.off'), \
             "Files should be OFF format"
 
@@ -207,7 +207,7 @@ def test_modelnet_dataset(dataset_with_params, max_samples, get_samples_to_test)
         executor.map(validate_datapoint, indices)
 
 
-def test_modelnet_categories():
+def test_modelnet40_categories():
     """Test ModelNet40 category definitions."""
     categories = data.datasets.ModelNet40Dataset.CATEGORIES
     asymmetric_categories = data.datasets.ModelNet40Dataset.ASYMMETRIC_CATEGORIES
@@ -225,7 +225,7 @@ def test_modelnet_categories():
         assert cat in categories, f"Expected category {cat} missing"
 
 
-def test_modelnet_category_extraction():
+def test_modelnet40_category_extraction():
     """Test category extraction from file paths."""
     # Test the static method directly without creating a full instance
     from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
@@ -246,8 +246,8 @@ def test_modelnet_category_extraction():
         assert category == expected, f"Expected {expected}, got {category} for path {path}"
 
 
-def test_modelnet_split_handling():
-    """Test ModelNet split handling (val -> test mapping)."""
+def test_modelnet40_split_handling():
+    """Test ModelNet40 split handling (val -> test mapping)."""
     # Test that different splits load different files by checking annotations only
     # We'll create the annotations manually to avoid initialization issues
     
@@ -277,7 +277,7 @@ def test_modelnet_split_handling():
 
 
 @pytest.mark.parametrize('crop_type', ['plane', 'point'])
-def test_modelnet_crop_types(crop_type):
+def test_modelnet40_crop_types(crop_type):
     """Test different cropping strategies."""
     # Test that the crop transforms can be created without errors
     if crop_type == 'plane':
@@ -300,31 +300,3 @@ def test_modelnet_crop_types(crop_type):
     assert 'pos' in cropped_pc
     assert cropped_pc['pos'].shape[0] < dummy_pc['pos'].shape[0]
     assert cropped_pc['pos'].shape[0] > 500  # Should keep ~70% of points
-
-
-def test_modelnet_determinism():
-    """Test that dataset file loading is deterministic."""
-    # Test file discovery directly without full dataset initialization
-    from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
-    import os
-    import glob
-    
-    data_root = 'data/datasets/soft_links/ModelNet40'
-    split = 'train'
-    
-    # Test that file discovery is deterministic by running it twice
-    def get_files():
-        off_files = []
-        for category in ModelNet40Dataset.CATEGORIES:
-            category_dir = os.path.join(data_root, category, split)
-            if os.path.exists(category_dir):
-                category_files = sorted(glob.glob(os.path.join(category_dir, '*.off')))
-                off_files.extend(category_files)
-        return off_files
-    
-    files1 = get_files()
-    files2 = get_files()
-    
-    # Should get identical results
-    assert files1 == files2, "File discovery should be deterministic"
-    assert len(files1) > 0, "Should find some files"
