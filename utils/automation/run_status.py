@@ -9,6 +9,7 @@ import torch
 from utils.automation.cfg_log_conversion import get_work_dir, get_config
 from utils.monitor.system_monitor import SystemMonitor
 from utils.io.config import load_config
+from utils.io.json import save_json
 from utils.builders.builder import build_from_config
 
 
@@ -228,8 +229,7 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> int
     }
     
     progress_file = os.path.join(work_dir, "progress.json")
-    with open(progress_file, 'w') as f:
-        json.dump(progress_data, f, indent=2)
+    save_json(progress_data, progress_file)
     
     # Return total epochs if early stopped to indicate 100% completion
     if early_stopped:
