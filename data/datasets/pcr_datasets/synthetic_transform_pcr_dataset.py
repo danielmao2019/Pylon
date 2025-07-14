@@ -75,8 +75,11 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Initialize transform-to-overlap cache
         if cache_filepath is not None:
-            assert os.path.isfile(cache_filepath), f"{cache_filepath=}"
-            assert cache_filepath.endswith(".json"), f"{cache_filepath=}"
+            assert cache_filepath.endswith(".json"), f"Cache file must be JSON format, got: {cache_filepath}"
+            # Ensure parent directory can be created
+            cache_dir = os.path.dirname(cache_filepath)
+            if cache_dir:  # Only create if there's actually a directory part
+                os.makedirs(cache_dir, exist_ok=True)
             self._load_transform_cache()
         else:
             # No caching
@@ -126,8 +129,16 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     def _load_transform_cache(self) -> None:
         """Load cached transform-to-overlap mappings."""
         if os.path.exists(self.cache_filepath):
-            with open(self.cache_filepath, 'r') as f:
-                self.transform_cache = json.load(f)
+            try:
+                with open(self.cache_filepath, 'r') as f:
+                    content = f.read().strip()
+                    if content:  # Only try to parse if file is not empty
+                        self.transform_cache = json.loads(content)
+                    else:
+                        self.transform_cache = {}
+            except (json.JSONDecodeError, IOError):
+                # If file is corrupted or unreadable, start with empty cache
+                self.transform_cache = {}
         else:
             self.transform_cache = {}
     
