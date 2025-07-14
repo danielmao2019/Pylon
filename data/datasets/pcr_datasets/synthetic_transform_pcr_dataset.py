@@ -1,4 +1,5 @@
 from typing import Tuple, Dict, Any, List
+from abc import ABC, abstractmethod
 import os
 import json
 import hashlib
@@ -13,7 +14,7 @@ from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 from utils.io.point_cloud import load_point_cloud
 
 
-class SyntheticTransformPCRDataset(BaseDataset):
+class SyntheticTransformPCRDataset(BaseDataset, ABC):
     """Synthetic transform PCR dataset with transform-to-overlap cache mapping.
     
     Key Concepts:
@@ -45,6 +46,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         matching_radius: float = 0.05,
         overlap_range: Tuple[float, float] = (0.3, 1.0),
         min_points: int = 512,
+        max_trials: int = 1000,
         cache_transforms: bool = True,
         **kwargs,
     ) -> None:
@@ -58,6 +60,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
             matching_radius: Radius for correspondence finding
             overlap_range: Overlap range (overlap_min, overlap_max] for filtering
             min_points: Minimum number of points filter for cache generation
+            max_trials: Maximum number of trials to generate valid transforms
             cache_transforms: Whether to cache transform-to-overlap mappings
             **kwargs: Additional arguments passed to BaseDataset
         """
@@ -68,6 +71,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         self.rotation_mag = rotation_mag
         self.translation_mag = translation_mag
         self.min_points = min_points
+        self.max_trials = max_trials
         
         # Initialize transform-to-overlap cache
         if self.cache_transforms:
@@ -171,10 +175,9 @@ class SyntheticTransformPCRDataset(BaseDataset):
         
         return src_pc_raw, tgt_pc_raw
     
+    @abstractmethod
     def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
-        """Normalize point cloud. Base implementation returns unchanged.
-        
-        Subclasses can override for dataset-specific normalization.
+        """Normalize point cloud. Subclasses must implement dataset-specific normalization.
         
         Args:
             pc: Point cloud tensor of shape (N, 3)
@@ -182,7 +185,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         Returns:
             Normalized point cloud tensor
         """
-        return pc
+        pass
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
@@ -322,11 +325,10 @@ class SyntheticTransformPCRDataset(BaseDataset):
         
         # Process transforms in parallel batches
         batch_size = min(needed_count * 3, 20)  # Generate more than needed for better hit rate
-        max_trials = 1000
         
-        while len(generated_results) < needed_count and trial < max_trials:
+        while len(generated_results) < needed_count and trial < self.max_trials:
             # Prepare batch of work (deterministic seeds using file_idx, transform_idx, trial_idx)
-            current_batch_size = min(batch_size, max_trials - trial)
+            current_batch_size = min(batch_size, self.max_trials - trial)
             batch_args = []
             for i in range(current_batch_size):
                 trial_idx = trial + i
@@ -367,7 +369,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         
         # Fail fast if no valid results found - don't hide the problem
         assert len(generated_results) > 0, (
-            f"Failed to generate any valid transforms after {max_trials} trials. "
+            f"Failed to generate any valid transforms after {self.max_trials} trials. "
             f"Parameters: overlap_range={self.overlap_range}, file_idx={file_idx}, "
             f"transform_idx={transform_idx}, needed_count={needed_count}. "
             f"Consider: 1) Relaxing overlap_range, 2) Reducing cropping aggressiveness, "
