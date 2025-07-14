@@ -3,7 +3,7 @@ import data
 
 data_cfg = {
     'train_dataset': {
-        'class': data.datasets.ModelNetDataset,
+        'class': data.datasets.ModelNet40Dataset,
         'args': {
             'data_root': 'data/datasets/soft_links/ModelNet40',
             'split': 'train',
