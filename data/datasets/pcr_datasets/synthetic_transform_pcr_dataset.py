@@ -47,7 +47,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         overlap_range: Tuple[float, float] = (0.3, 1.0),
         min_points: int = 512,
         max_trials: int = 1000,
-        cache_transforms: bool = True,
+        cache_filepath: str = None,
         **kwargs,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
@@ -61,23 +61,24 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             overlap_range: Overlap range (overlap_min, overlap_max] for filtering
             min_points: Minimum number of points filter for cache generation
             max_trials: Maximum number of trials to generate valid transforms
-            cache_transforms: Whether to cache transform-to-overlap mappings
+            cache_filepath: Path to cache file (if None, no caching is used)
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.total_dataset_size = dataset_size
         self.overlap_range = tuple(overlap_range)
         self.matching_radius = matching_radius
-        self.cache_transforms = cache_transforms
         self.rotation_mag = rotation_mag
         self.translation_mag = translation_mag
         self.min_points = min_points
         self.max_trials = max_trials
         
         # Initialize transform-to-overlap cache
-        if self.cache_transforms:
-            cache_name = f"transform_overlap_cache_{self.overlap_range[0]}_{self.overlap_range[1]}.json"
-            self.cache_file = os.path.join(data_root, '..', cache_name)
+        if cache_filepath is not None:
+            self.cache_file = cache_filepath
             self._load_transform_cache()
+        else:
+            # No caching
+            self.transform_cache = {}
         
         # Thread safety for parallel processing
         self._cache_lock = threading.Lock()
@@ -130,7 +131,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     
     def _save_transform_cache(self) -> None:
         """Save transform-to-overlap mappings to cache (thread-safe)."""
-        if self.cache_transforms:
+        if hasattr(self, 'cache_file'):
             os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
             with open(self.cache_file, 'w') as f:
                 json.dump(self.transform_cache, f, indent=2)
@@ -357,7 +358,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Thread-safe cache update
             with self._cache_lock:
                 cached_transforms.extend(new_cache_entries)
-                if self.cache_transforms:
+                if hasattr(self, 'cache_file'):
                     self.transform_cache[file_cache_key] = cached_transforms
                     self._save_transform_cache()
             
