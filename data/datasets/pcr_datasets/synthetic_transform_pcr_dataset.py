@@ -71,10 +71,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         self.translation_mag = translation_mag
         self.min_points = min_points
         self.max_trials = max_trials
+        self.cache_filepath = cache_filepath
         
         # Initialize transform-to-overlap cache
         if cache_filepath is not None:
-            self.cache_file = cache_filepath
+            assert os.path.isfile(cache_filepath), f"{cache_filepath=}"
+            assert cache_filepath.endswith(".json"), f"{cache_filepath=}"
             self._load_transform_cache()
         else:
             # No caching
@@ -131,7 +133,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     
     def _save_transform_cache(self) -> None:
         """Save transform-to-overlap mappings to cache (thread-safe)."""
-        if hasattr(self, 'cache_file'):
+        if self.cache_filepath is not None:
             os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
             with open(self.cache_file, 'w') as f:
                 json.dump(self.transform_cache, f, indent=2)
@@ -358,7 +360,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Thread-safe cache update
             with self._cache_lock:
                 cached_transforms.extend(new_cache_entries)
-                if hasattr(self, 'cache_file'):
+                if self.cache_filepath is not None:
                     self.transform_cache[file_cache_key] = cached_transforms
                     self._save_transform_cache()
             
