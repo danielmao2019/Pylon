@@ -7,17 +7,12 @@ from concurrent.futures import ThreadPoolExecutor
 import data
 
 
-def transforms_cfg(rot_mag: float, trans_mag: float, crop_type: str = 'plane') -> Dict[str, Any]:
+def transforms_cfg() -> Dict[str, Any]:
     """
     Create a configuration for post-processing transforms applied to dataset outputs.
     
     NOTE: This is different from the synthetic transforms used to create registration pairs.
     These transforms are applied to the final datapoint outputs for data augmentation.
-
-    Args:
-        rot_mag: Rotation magnitude in degrees (not used in this simple config)
-        trans_mag: Translation magnitude (not used in this simple config)
-        crop_type: Type of cropping (not used in this simple config)
 
     Returns:
         Dict[str, Any]: Configuration for post-processing transforms.
@@ -138,14 +133,10 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 @pytest.fixture
 def dataset_with_params(request):
-    """Fixture for creating a ModelNet40Dataset instance with validation parameters."""
+    """Fixture for creating a ModelNet40Dataset instance."""
     dataset_params = request.param.copy()
-    # Extract rot_mag and trans_mag for validation
-    rot_mag = dataset_params.pop('rot_mag')
-    trans_mag = dataset_params.pop('trans_mag')
-
     dataset = data.datasets.ModelNet40Dataset(**dataset_params)
-    return dataset, rot_mag, trans_mag
+    return dataset
 
 
 @pytest.mark.parametrize('dataset_with_params', [
@@ -158,9 +149,7 @@ def dataset_with_params(request):
         'rotation_mag': 45.0,
         'translation_mag': 0.5,
         'cache_filepath': None,  # No caching for basic functionality tests
-        'transforms_cfg': transforms_cfg(rot_mag=45.0, trans_mag=0.5, crop_type='plane'),
-        'rot_mag': 45.0,
-        'trans_mag': 0.5,
+        'transforms_cfg': transforms_cfg(),
     },
     {
         'data_root': 'data/datasets/soft_links/ModelNet40',
@@ -171,14 +160,16 @@ def dataset_with_params(request):
         'rotation_mag': 30.0,
         'translation_mag': 0.3,
         'cache_filepath': None,  # No caching for basic functionality tests
-        'transforms_cfg': transforms_cfg(rot_mag=30.0, trans_mag=0.3, crop_type='point'),
-        'rot_mag': 30.0,
-        'trans_mag': 0.3,
+        'transforms_cfg': transforms_cfg(),
     },
 ], indirect=True)
 def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_test):
     """Test basic functionality of ModelNet40Dataset."""
-    dataset, rot_mag, trans_mag = dataset_with_params
+    dataset = dataset_with_params
+    
+    # Get the actual parameters from the dataset for validation
+    rot_mag = dataset.rotation_mag
+    trans_mag = dataset.translation_mag
 
     # Basic dataset checks
     assert len(dataset) > 0, "Dataset should not be empty"
