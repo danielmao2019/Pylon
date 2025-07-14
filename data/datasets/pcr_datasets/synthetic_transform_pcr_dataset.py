@@ -427,13 +427,13 @@ class SyntheticTransformPCRDataset(BaseDataset):
         }
     
     def _sample_transform(self, seed: int) -> Dict[str, Any]:
-        """Sample transform parameters stochastically.
+        """Sample transform parameters stochastically following GeoTransformer exactly.
         
         Args:
             seed: Random seed for deterministic sampling
             
         Returns:
-            Dictionary containing all transform parameters
+            Dictionary containing all transform parameters including crop parameters
         """
         generator = torch.Generator()
         generator.manual_seed(seed)
@@ -442,17 +442,44 @@ class SyntheticTransformPCRDataset(BaseDataset):
         rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag  # [-rotation_mag, rotation_mag] degrees
         translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag  # [-translation_mag, translation_mag]
         
-        # Sample cropping parameters - GeoTransformer uses 0.7 but we'll be less aggressive for better overlap
+        # Sample cropping parameters following GeoTransformer exactly
         crop_choice = torch.rand(1, generator=generator).item()
-        keep_ratio = 0.85 + torch.rand(1, generator=generator).item() * 0.1  # [0.85, 0.95] very conservative
+        keep_ratio = 0.7  # GeoTransformer uses constant 0.7, not random range
         
-        config = {
-            'rotation_angles': rotation_angles.tolist(),
-            'translation': translation.tolist(),
-            'crop_method': 'plane' if crop_choice < 0.5 else 'point',
-            'keep_ratio': float(keep_ratio),
-            'seed': seed,
-        }
+        # Sample crop-specific parameters to ensure deterministic caching
+        if crop_choice < 0.5:  # plane crop
+            # Sample plane normal (from random_sample_plane in GeoTransformer)
+            phi = torch.rand(1, generator=generator).item() * 2 * np.pi  # longitude
+            theta = torch.rand(1, generator=generator).item() * np.pi     # latitude
+            
+            x = np.sin(theta) * np.cos(phi)
+            y = np.sin(theta) * np.sin(phi)
+            z = np.cos(theta)
+            plane_normal = [float(x), float(y), float(z)]
+            
+            config = {
+                'rotation_angles': rotation_angles.tolist(),
+                'translation': translation.tolist(),
+                'crop_method': 'plane',
+                'keep_ratio': float(keep_ratio),
+                'plane_normal': plane_normal,
+                'seed': seed,
+            }
+        else:  # point crop
+            # Sample viewpoint (from random_sample_viewpoint in GeoTransformer)
+            limit = 500
+            viewpoint_base = torch.rand(3, generator=generator)  # [0, 1]
+            viewpoint_sign = torch.randint(0, 2, (3,), generator=generator) * 2 - 1  # {-1, 1}
+            viewpoint = viewpoint_base + limit * viewpoint_sign
+            
+            config = {
+                'rotation_angles': rotation_angles.tolist(),
+                'translation': translation.tolist(),
+                'crop_method': 'point',
+                'keep_ratio': float(keep_ratio),
+                'viewpoint': viewpoint.tolist(),
+                'seed': seed,
+            }
         
         return config
     
@@ -499,11 +526,19 @@ class SyntheticTransformPCRDataset(BaseDataset):
         transform_matrix[:3, :3] = rotation_matrix
         transform_matrix[:3, 3] = translation
         
-        # Build crop transform
+        # Build crop transform using pre-sampled parameters for deterministic caching
         if transform_params['crop_method'] == 'plane':
-            crop_transform = RandomPlaneCrop(keep_ratio=transform_params['keep_ratio'])
+            plane_normal = torch.tensor(transform_params['plane_normal'], dtype=torch.float32, device=self.device)
+            crop_transform = RandomPlaneCrop(
+                keep_ratio=transform_params['keep_ratio'],
+                plane_normal=plane_normal
+            )
         else:
-            crop_transform = RandomPointCrop(keep_ratio=transform_params['keep_ratio'])
+            viewpoint = torch.tensor(transform_params['viewpoint'], dtype=torch.float32, device=self.device)
+            crop_transform = RandomPointCrop(
+                keep_ratio=transform_params['keep_ratio'],
+                viewpoint=viewpoint
+            )
         
         return transform_matrix, crop_transform
     

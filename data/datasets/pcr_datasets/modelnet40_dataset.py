@@ -44,7 +44,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         self,
         data_root: str = '/data/datasets/soft_links/ModelNet40',
         dataset_size: int = 1000,
-        overlap_range: Tuple[float, float] = (0.3, 1.0),
+        overlap_range: Tuple[float, float] = (0.0, 1.0),
         matching_radius: float = 0.05,
         rotation_mag: float = 45.0,
         translation_mag: float = 0.5,
