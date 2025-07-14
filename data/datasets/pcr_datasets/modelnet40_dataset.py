@@ -46,6 +46,8 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         dataset_size: int = 1000,
         overlap_range: Tuple[float, float] = (0.3, 1.0),
         matching_radius: float = 0.05,
+        rotation_mag: float = 45.0,
+        translation_mag: float = 0.5,
         **kwargs,
     ) -> None:
         """Initialize ModelNet40 dataset.
@@ -55,6 +57,8 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
             dataset_size: Total number of synthetic registration pairs to generate
             overlap_range: Overlap range (overlap_min, overlap_max] for generated pairs
             matching_radius: Radius for correspondence finding
+            rotation_mag: Maximum rotation magnitude in degrees for synthetic transforms
+            translation_mag: Maximum translation magnitude for synthetic transforms
             **kwargs: Additional arguments passed to SyntheticTransformPCRDataset
         """
         super().__init__(
@@ -62,6 +66,8 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
             dataset_size=dataset_size,
             overlap_range=overlap_range,
             matching_radius=matching_radius,
+            rotation_mag=rotation_mag,
+            translation_mag=translation_mag,
             **kwargs
         )
 

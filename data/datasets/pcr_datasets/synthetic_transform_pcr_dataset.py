@@ -43,6 +43,8 @@ class SyntheticTransformPCRDataset(BaseDataset):
         overlap_range: Tuple[float, float] = (0.3, 1.0),
         matching_radius: float = 0.05,
         cache_transforms: bool = True,
+        rotation_mag: float = 45.0,
+        translation_mag: float = 0.5,
         **kwargs,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
@@ -53,12 +55,16 @@ class SyntheticTransformPCRDataset(BaseDataset):
             overlap_range: Overlap range (overlap_min, overlap_max] for filtering
             matching_radius: Radius for correspondence finding
             cache_transforms: Whether to cache transform-to-overlap mappings
+            rotation_mag: Maximum rotation magnitude in degrees for synthetic transforms
+            translation_mag: Maximum translation magnitude for synthetic transforms
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.total_dataset_size = dataset_size
         self.overlap_range = tuple(overlap_range)
         self.matching_radius = matching_radius
         self.cache_transforms = cache_transforms
+        self.rotation_mag = rotation_mag
+        self.translation_mag = translation_mag
         
         # Initialize transform-to-overlap cache
         if self.cache_transforms:
@@ -432,13 +438,13 @@ class SyntheticTransformPCRDataset(BaseDataset):
         generator = torch.Generator()
         generator.manual_seed(seed)
         
-        # Sample SE(3) transformation parameters - GeoTransformer standard for normalized data
-        rotation_angles = torch.rand(3, generator=generator) * 60 - 30  # [-30, 30] degrees  
-        translation = torch.rand(3, generator=generator) * 0.6 - 0.3  # [-0.3, 0.3] smaller for better overlap
+        # Sample SE(3) transformation parameters for creating synthetic misaligned pairs
+        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag  # [-rotation_mag, rotation_mag] degrees
+        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag  # [-translation_mag, translation_mag]
         
-        # Sample cropping parameters - less aggressive for better overlap
+        # Sample cropping parameters - GeoTransformer uses 0.7 but we'll be less aggressive for better overlap
         crop_choice = torch.rand(1, generator=generator).item()
-        keep_ratio = 0.8 + torch.rand(1, generator=generator).item() * 0.15  # [0.8, 0.95] less aggressive
+        keep_ratio = 0.85 + torch.rand(1, generator=generator).item() * 0.1  # [0.85, 0.95] very conservative
         
         config = {
             'rotation_angles': rotation_angles.tolist(),
