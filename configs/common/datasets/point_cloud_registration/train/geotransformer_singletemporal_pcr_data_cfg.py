@@ -6,7 +6,7 @@ data_cfg = {
         'class': data.datasets.SingleTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'cache_dirname': 'single_temporal_pcr_cache',
+            'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../single_temporal_pcr_cache.json',
             'split': 'train',
             'dataset_size': 5000,  # Total number of synthetic registration pairs to generate
             'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
