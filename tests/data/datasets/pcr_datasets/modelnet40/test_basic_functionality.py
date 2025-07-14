@@ -9,41 +9,36 @@ import data
 
 def transforms_cfg(rot_mag: float, trans_mag: float, crop_type: str = 'plane') -> Dict[str, Any]:
     """
-    Create a configuration for transforms.
+    Create a configuration for post-processing transforms applied to dataset outputs.
+    
+    NOTE: This is different from the synthetic transforms used to create registration pairs.
+    These transforms are applied to the final datapoint outputs for data augmentation.
 
     Args:
-        rot_mag: Rotation magnitude in degrees
-        trans_mag: Translation magnitude
-        crop_type: Type of cropping ('plane' or 'point')
+        rot_mag: Rotation magnitude in degrees (not used in this simple config)
+        trans_mag: Translation magnitude (not used in this simple config)
+        crop_type: Type of cropping (not used in this simple config)
 
     Returns:
-        Dict[str, Any]: Configuration for transforms.
+        Dict[str, Any]: Configuration for post-processing transforms.
     """
-    if crop_type == 'plane':
-        crop_transform = data.transforms.vision_3d.RandomPlaneCrop(keep_ratio=0.7)
-    elif crop_type == 'point':
-        crop_transform = data.transforms.vision_3d.RandomPointCrop(keep_ratio=0.7)
-    else:
-        raise ValueError(f"Unsupported crop_type: {crop_type}")
-    
     return {
         'class': data.transforms.Compose,
         'args': {
             'transforms': [
-                (
-                    data.transforms.vision_3d.RandomRigidTransform(rot_mag=rot_mag, trans_mag=trans_mag),
-                    [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
-                ),
-                (
-                    crop_transform,
-                    [('inputs', 'src_pc')],
-                ),
+                {
+                    'op': {
+                        'class': data.transforms.vision_3d.Clamp,
+                        'args': {'max_points': 8192},
+                    },
+                    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                },
             ],
         },
     }
 
 
-def validate_inputs(inputs: Dict[str, Any], labels: Dict[str, Any]) -> None:
+def validate_inputs(inputs: Dict[str, Any]) -> None:
     assert isinstance(inputs, dict), f"{type(inputs)=}"
     assert inputs.keys() >= {'src_pc', 'tgt_pc'}, f"inputs missing required keys: {inputs.keys()=}"
 
@@ -119,24 +114,26 @@ def validate_labels(labels: Dict[str, Any], rot_mag: float, trans_mag: float) ->
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
-    assert meta_info.keys() >= {'idx', 'src_file_path', 'tgt_file_path'}, \
-        f"meta_info missing required keys: {meta_info.keys()=}"
-    assert meta_info['idx'] == datapoint_idx, f"{meta_info['idx']=}, {datapoint_idx=}"
     
-    # For ModelNet40 (self-registration), source and target file paths should be the same
-    assert meta_info['src_file_path'] == meta_info['tgt_file_path'], \
-        "ModelNet40 should use same file for source and target"
+    # Check for expected meta_info keys from SyntheticTransformPCRDataset
+    expected_keys = {'file_idx', 'transform_idx', 'transform_config', 'overlap', 'crop_method', 'keep_ratio'}
+    assert meta_info.keys() >= expected_keys, \
+        f"meta_info missing required keys: expected {expected_keys}, got {meta_info.keys()}"
     
-    # Check file path is valid OFF file
-    file_path = meta_info['src_file_path']
-    assert file_path.endswith('.off'), f"File should be OFF format: {file_path}"
-    assert 'ModelNet40' in file_path, f"File should be from ModelNet40: {file_path}"
+    # Validate meta_info values
+    assert isinstance(meta_info['file_idx'], int), f"file_idx should be int: {type(meta_info['file_idx'])}"
+    assert isinstance(meta_info['transform_idx'], int), f"transform_idx should be int: {type(meta_info['transform_idx'])}"
+    assert isinstance(meta_info['overlap'], float), f"overlap should be float: {type(meta_info['overlap'])}"
+    assert meta_info['crop_method'] in ['plane', 'point'], f"Invalid crop_method: {meta_info['crop_method']}"
+    assert isinstance(meta_info['keep_ratio'], float), f"keep_ratio should be float: {type(meta_info['keep_ratio'])}"
+    assert 0.0 <= meta_info['keep_ratio'] <= 1.0, f"keep_ratio should be in [0,1]: {meta_info['keep_ratio']}"
     
-    # Check category extraction
-    if 'category' in meta_info:
-        category = meta_info['category']
-        assert category in data.datasets.ModelNet40Dataset.CATEGORIES, \
-            f"Unknown category: {category}"
+    # Validate transform_config structure
+    transform_config = meta_info['transform_config']
+    assert isinstance(transform_config, dict), f"transform_config should be dict: {type(transform_config)}"
+    required_config_keys = {'rotation_angles', 'translation', 'crop_method', 'keep_ratio', 'seed'}
+    assert transform_config.keys() >= required_config_keys, \
+        f"transform_config missing keys: expected {required_config_keys}, got {transform_config.keys()}"
 
 
 @pytest.fixture
@@ -158,6 +155,9 @@ def dataset_with_params(request):
         'dataset_size': 100,
         'overlap_range': (0.3, 1.0),
         'matching_radius': 0.05,
+        'rotation_mag': 45.0,
+        'translation_mag': 0.5,
+        'cache_filepath': None,  # No caching for basic functionality tests
         'transforms_cfg': transforms_cfg(rot_mag=45.0, trans_mag=0.5, crop_type='plane'),
         'rot_mag': 45.0,
         'trans_mag': 0.5,
@@ -168,6 +168,9 @@ def dataset_with_params(request):
         'dataset_size': 50,
         'overlap_range': (0.4, 0.8),
         'matching_radius': 0.03,
+        'rotation_mag': 30.0,
+        'translation_mag': 0.3,
+        'cache_filepath': None,  # No caching for basic functionality tests
         'transforms_cfg': transforms_cfg(rot_mag=30.0, trans_mag=0.3, crop_type='point'),
         'rot_mag': 30.0,
         'trans_mag': 0.3,
@@ -192,7 +195,7 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
         datapoint = dataset[idx]
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
-        validate_inputs(datapoint['inputs'], datapoint['labels'])
+        validate_inputs(datapoint['inputs'])
         validate_labels(datapoint['labels'], rot_mag, trans_mag)
         validate_meta_info(datapoint['meta_info'], idx)
 
