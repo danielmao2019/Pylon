@@ -40,12 +40,12 @@ class SyntheticTransformPCRDataset(BaseDataset):
         self,
         data_root: str,
         dataset_size: int,
-        overlap_range: Tuple[float, float] = (0.3, 1.0),
-        matching_radius: float = 0.05,
-        cache_transforms: bool = True,
         rotation_mag: float = 45.0,
         translation_mag: float = 0.5,
+        matching_radius: float = 0.05,
+        overlap_range: Tuple[float, float] = (0.3, 1.0),
         min_points: int = 512,
+        cache_transforms: bool = True,
         **kwargs,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
@@ -53,12 +53,12 @@ class SyntheticTransformPCRDataset(BaseDataset):
         Args:
             data_root: Path to dataset root directory
             dataset_size: Total number of synthetic pairs to generate
-            overlap_range: Overlap range (overlap_min, overlap_max] for filtering
-            matching_radius: Radius for correspondence finding
-            cache_transforms: Whether to cache transform-to-overlap mappings
             rotation_mag: Maximum rotation magnitude in degrees for synthetic transforms
             translation_mag: Maximum translation magnitude for synthetic transforms
+            matching_radius: Radius for correspondence finding
+            overlap_range: Overlap range (overlap_min, overlap_max] for filtering
             min_points: Minimum number of points filter for cache generation
+            cache_transforms: Whether to cache transform-to-overlap mappings
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.total_dataset_size = dataset_size
@@ -204,7 +204,12 @@ class SyntheticTransformPCRDataset(BaseDataset):
         valid_transforms = []
         for transform_config in cached_transforms:
             overlap = transform_config.get('overlap', 0.0)
-            if self.overlap_range[0] < overlap <= self.overlap_range[1]:
+            src_num_points = transform_config.get('src_num_points', 0)
+            tgt_num_points = transform_config.get('tgt_num_points', 0)
+            
+            # Filter by overlap range and minimum points
+            if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
+                src_num_points >= self.min_points and tgt_num_points >= self.min_points):
                 valid_transforms.append(transform_config)
         
         # Decide whether to call _get_pair or _generate_more
@@ -335,8 +340,11 @@ class SyntheticTransformPCRDataset(BaseDataset):
             for result in batch_results:
                 new_cache_entries.append(result['transform_params'])
                 
-                # Check if overlap is in range
-                if self.overlap_range[0] < result['overlap'] <= self.overlap_range[1]:
+                # Check if overlap is in range and meets minimum points requirement
+                src_num_points = result['transform_params']['src_num_points']
+                tgt_num_points = result['transform_params']['tgt_num_points']
+                if (self.overlap_range[0] < result['overlap'] <= self.overlap_range[1] and
+                    src_num_points >= self.min_points and tgt_num_points >= self.min_points):
                     generated_results.append((
                         result['src_pc'], 
                         result['tgt_pc'], 
@@ -417,8 +425,10 @@ class SyntheticTransformPCRDataset(BaseDataset):
             positive_radius=self.matching_radius * 2
         )
         
-        # Add metadata
+        # Add metadata including point counts for min_points filtering
         transform_params['overlap'] = float(overlap)
+        transform_params['src_num_points'] = src_pc['pos'].shape[0]
+        transform_params['tgt_num_points'] = tgt_pc['pos'].shape[0]
         transform_params['trial'] = trial_idx
         
         return {
