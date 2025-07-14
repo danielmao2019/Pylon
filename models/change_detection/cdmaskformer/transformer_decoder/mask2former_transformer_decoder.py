@@ -322,7 +322,10 @@ class MultiScaleMaskedTransformerDecoder(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
             output = self.transformer_cross_attention_layers[i](
                 output, src[level_index],
@@ -675,7 +678,10 @@ class MultiScaleMaskedTransformerDecoder_mp(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
             output = self.transformer_cross_attention_layers[i](
                 output, src[level_index],
@@ -1016,7 +1022,10 @@ class MultiScaleMaskedTransformerDecoderFASeg(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
 
             if i % 4 == 0:
@@ -1304,7 +1313,10 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDQ(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
             output, attn = self.transformer_cross_attention_layers[i](
                 output, src[level_index],
@@ -1546,7 +1558,10 @@ class MultiScaleMaskedTransformerDecoderFASeg_onlyDH(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
 
             if i % 4 == 0:
@@ -1832,7 +1847,10 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v3(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
 
             # Keep the attention in the first cross-attention layer
@@ -2179,7 +2197,10 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v4(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
 
             if i % 4 == 3:
@@ -2528,7 +2549,10 @@ class MultiScaleMaskedTransformerDecoder_OurDH_v5(nn.Module):
 
         for i in range(self.num_layers):
             level_index = i % self.num_feature_levels
-            attn_mask[torch.where(attn_mask.sum(-1) == attn_mask.shape[-1])] = False
+            # Use masked_fill for better performance and reliability than torch.where() indexing
+            # Also fixes PyTorch CUDA indexing bug that caused "linearIndex.numel() INTERNAL ASSERT FAILED"
+            mask = attn_mask.sum(-1) == attn_mask.shape[-1]
+            attn_mask = attn_mask.masked_fill(mask.unsqueeze(-1), False)
             # attention: cross-attention first
 
             if i % 4 == 3:
