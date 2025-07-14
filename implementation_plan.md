@@ -67,7 +67,7 @@ config = module.config
 Modify `runners/early_stopping.py`:
 - Add `_save_progress_json()` method to write progress file
 - Update `update()` method to call `_save_progress_json()` after state updates
-- Include early stopping detection in progress calculation
+- Add progress calculation methods (`_calculate_progress_percentage()`, `_get_early_stop_epoch()`)
 
 ### 2. Progress Check Enhancement  
 Modify `utils/automation/run_status.py`:
@@ -137,7 +137,8 @@ def _save_progress_json(self) -> None:
         json.dump(progress_data, f, indent=2)
 ```
 
-### 3. Configuration Loading Helper
+### 3. Configuration Loading Utility
+Add new utility in `utils/io/config.py`:
 ```python
 def load_config(config_path: str) -> Dict[str, Any]:
     """Load config using importlib.util pattern from main.py"""
@@ -171,21 +172,26 @@ def load_config(config_path: str) -> Dict[str, Any]:
 
 ## Implementation Steps
 
-1. **Enhance Early Stopping Class**
+1. **Create Config Loading Utility**
+   - Add `utils/io/config.py` with `load_config()` function
+   - Import and use in run_status.py
+
+2. **Enhance Early Stopping Class**
    - Add `_save_progress_json()` method
-   - Modify `update()` to write progress.json
-   - Add progress calculation methods
+   - Add `_calculate_progress_percentage()` method  
+   - Add `_get_early_stop_epoch()` method
+   - Modify `update()` to write progress.json after state updates
 
-2. **Update Progress Check Logic**
+3. **Update Progress Check Logic**
    - Modify `get_session_progress()` for fast/slow path
-   - Add config loading helper
-   - Add early stopping detection logic
+   - Add early stopping detection logic using config loading
+   - Add `_compute_and_cache_progress()` helper function
 
-3. **Update Agent Integration**
+4. **Update Agent Integration**
    - Ensure agent viewer uses enhanced progress
    - Handle progress.json format in viewer
 
-4. **Testing**
+5. **Testing**
    - Test with/without early stopping configs
    - Test progress.json caching behavior
    - Test agent viewer integration
