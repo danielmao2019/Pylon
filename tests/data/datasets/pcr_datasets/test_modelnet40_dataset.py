@@ -135,7 +135,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     # Check category extraction
     if 'category' in meta_info:
         category = meta_info['category']
-        assert category in data.datasets.ModelNetDataset.CATEGORIES, \
+        assert category in data.datasets.ModelNet40Dataset.CATEGORIES, \
             f"Unknown category: {category}"
 
 
@@ -147,7 +147,7 @@ def dataset_with_params(request):
     rot_mag = dataset_params.pop('rot_mag')
     trans_mag = dataset_params.pop('trans_mag')
 
-    dataset = data.datasets.ModelNetDataset(**dataset_params)
+    dataset = data.datasets.ModelNet40Dataset(**dataset_params)
     return dataset, rot_mag, trans_mag
 
 
@@ -209,8 +209,8 @@ def test_modelnet_dataset(dataset_with_params, max_samples, get_samples_to_test)
 
 def test_modelnet_categories():
     """Test ModelNet40 category definitions."""
-    categories = data.datasets.ModelNetDataset.CATEGORIES
-    asymmetric_categories = data.datasets.ModelNetDataset.ASYMMETRIC_CATEGORIES
+    categories = data.datasets.ModelNet40Dataset.CATEGORIES
+    asymmetric_categories = data.datasets.ModelNet40Dataset.ASYMMETRIC_CATEGORIES
     
     # Check category count
     assert len(categories) == 40, f"ModelNet40 should have 40 categories, got {len(categories)}"
@@ -228,7 +228,7 @@ def test_modelnet_categories():
 def test_modelnet_category_extraction():
     """Test category extraction from file paths."""
     # Test the static method directly without creating a full instance
-    from data.datasets.pcr_datasets.modelnet_dataset import ModelNetDataset
+    from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
     
     # Test valid paths
     test_paths = [
@@ -241,7 +241,7 @@ def test_modelnet_category_extraction():
     
     for path, expected in zip(test_paths, expected_categories):
         # Create a mock instance just for this method call
-        dataset = type('MockDataset', (), {'get_category_from_path': ModelNetDataset.get_category_from_path})()
+        dataset = type('MockDataset', (), {'get_category_from_path': ModelNet40Dataset.get_category_from_path})()
         category = dataset.get_category_from_path(path)
         assert category == expected, f"Expected {expected}, got {category} for path {path}"
 
@@ -251,7 +251,7 @@ def test_modelnet_split_handling():
     # Test that different splits load different files by checking annotations only
     # We'll create the annotations manually to avoid initialization issues
     
-    from data.datasets.pcr_datasets.modelnet_dataset import ModelNetDataset
+    from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
     import os
     import glob
     
@@ -259,14 +259,14 @@ def test_modelnet_split_handling():
     
     # Check train files exist
     train_files = []
-    for category in ModelNetDataset.CATEGORIES[:3]:  # Check first 3 categories
+    for category in ModelNet40Dataset.CATEGORIES[:3]:  # Check first 3 categories
         category_dir = os.path.join(data_root, category, 'train')
         if os.path.exists(category_dir):
             train_files.extend(glob.glob(os.path.join(category_dir, '*.off')))
     
     # Check test files exist  
     test_files = []
-    for category in ModelNetDataset.CATEGORIES[:3]:  # Check first 3 categories
+    for category in ModelNet40Dataset.CATEGORIES[:3]:  # Check first 3 categories
         category_dir = os.path.join(data_root, category, 'test')
         if os.path.exists(category_dir):
             test_files.extend(glob.glob(os.path.join(category_dir, '*.off')))
@@ -305,7 +305,7 @@ def test_modelnet_crop_types(crop_type):
 def test_modelnet_determinism():
     """Test that dataset file loading is deterministic."""
     # Test file discovery directly without full dataset initialization
-    from data.datasets.pcr_datasets.modelnet_dataset import ModelNetDataset
+    from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
     import os
     import glob
     
@@ -315,7 +315,7 @@ def test_modelnet_determinism():
     # Test that file discovery is deterministic by running it twice
     def get_files():
         off_files = []
-        for category in ModelNetDataset.CATEGORIES:
+        for category in ModelNet40Dataset.CATEGORIES:
             category_dir = os.path.join(data_root, category, split)
             if os.path.exists(category_dir):
                 category_files = sorted(glob.glob(os.path.join(category_dir, '*.off')))
