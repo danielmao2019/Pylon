@@ -1,13 +1,7 @@
-from typing import Tuple, Dict, Any
+from typing import Tuple
 import os
 import glob
-import numpy as np
-import torch
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
-from utils.io.point_cloud import load_point_cloud
-from utils.point_cloud_ops.correspondences import get_correspondences
-from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
-from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 
 
 class ModelNetDataset(SyntheticTransformPCRDataset):
@@ -106,8 +100,6 @@ class ModelNetDataset(SyntheticTransformPCRDataset):
         
         print(f"Found {len(self.file_pair_annotations)} OFF files for split '{self.split}'")
     
-
-
     def get_category_from_path(self, file_path: str) -> str:
         """Extract category from file path.
         
