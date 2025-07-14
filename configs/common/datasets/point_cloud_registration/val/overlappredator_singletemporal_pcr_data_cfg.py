@@ -8,6 +8,11 @@ data_cfg = {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'cache_dirname': 'synth_pcr_cache',
             'split': 'val',
+            'dataset_size': 1000,  # Smaller for validation
+            'overlap_range': (0.0, 1.0),  # GeoTransformer doesn't use specific overlap ranges
+            'matching_radius': 0.05,  # Radius for correspondence finding
+            'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
+            'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
             'voxel_size': 10.0,
             'min_points': 512,
             'max_points': 8192,
@@ -15,12 +20,13 @@ data_cfg = {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
+                        # OverlapPredator cropping for creating overlaps after synthetic transform
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomRigidTransform,
-                                'args': {'rot_mag': 45.0, 'trans_mag': 0.5},
+                                'class': data.transforms.vision_3d.RandomPointCrop,
+                                'args': {'keep_ratio': 0.7},
                             },
-                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
+                            [('inputs', 'src_pc')],
                         ),
                     ],
                 },
