@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal, NamedTuple
+from typing import List, Optional, Literal, NamedTuple, Tuple
 from functools import partial
 import os
 import glob
@@ -8,6 +8,8 @@ import json
 import torch
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.monitor.system_monitor import SystemMonitor
+from utils.io.config import load_config
+from utils.builders.builder import build_from_config
 
 
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
@@ -159,21 +161,141 @@ def get_epoch_last_update(work_dir: str, expected_files: List[str]) -> Optional[
 
 
 def get_session_progress(work_dir: str, expected_files: List[str]) -> int:
-    """Get the current progress (number of completed epochs).
-
+    """Enhanced progress calculation with early stopping detection.
+    
+    Returns completed epochs, or tot_epochs if early stopped.
+    
+    Args:
+        work_dir: Directory containing epoch results
+        expected_files: List of expected files per epoch
+        
     Returns:
-        Number of completed epochs
+        Number of completed epochs (or total epochs if early stopped)
     """
-    idx = 0
+    # Try fast path: read progress.json
+    progress_file = os.path.join(work_dir, "progress.json")
+    if os.path.exists(progress_file):
+        try:
+            with open(progress_file, 'r') as f:
+                progress_data = json.load(f)
+            return progress_data['completed_epochs']
+        except (json.JSONDecodeError, KeyError):
+            pass  # Fall through to slow path
+    
+    # Slow path: re-compute and create progress.json
+    return _compute_and_cache_progress(work_dir, expected_files)
+
+
+def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> int:
+    """Compute progress and create/update progress.json file."""
+    # Count completed epochs (original logic)
+    completed_epochs = 0
     while True:
         if not check_epoch_finished(
-            epoch_dir=os.path.join(work_dir, f"epoch_{idx}"),
+            epoch_dir=os.path.join(work_dir, f"epoch_{completed_epochs}"),
             expected_files=expected_files,
             check_load=False,
         ):
             break
-        idx += 1
-    return idx
+        completed_epochs += 1
+    
+    # Try to detect early stopping by loading config
+    early_stopped = False
+    early_stopped_at_epoch = None
+    tot_epochs = None
+    
+    try:
+        # Find config file by work_dir pattern
+        config_path = _find_config_for_work_dir(work_dir)
+        if config_path:
+            config = load_config(config_path)
+            tot_epochs = config.get('epochs')
+            early_stopping_config = config.get('early_stopping')
+            
+            if early_stopping_config and tot_epochs and completed_epochs < tot_epochs:
+                # Early stopping is configured and we have fewer epochs than expected
+                # Try to detect if early stopping was triggered
+                early_stopped, early_stopped_at_epoch = _detect_early_stopping(
+                    work_dir, expected_files, config, completed_epochs
+                )
+    except Exception:
+        # If config loading fails, use simple progress calculation
+        pass
+    
+    # Create progress.json for future caching
+    progress_data = {
+        "completed_epochs": completed_epochs,
+        "progress_percentage": 100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0 if tot_epochs else 100.0),
+        "early_stopped": early_stopped,
+        "early_stopped_at_epoch": early_stopped_at_epoch
+    }
+    
+    progress_file = os.path.join(work_dir, "progress.json")
+    try:
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f, indent=2)
+    except Exception:
+        # If we can't write progress.json, continue without caching
+        pass
+    
+    return completed_epochs
+
+
+def _find_config_for_work_dir(work_dir: str) -> Optional[str]:
+    """Find the config file that corresponds to this work_dir."""
+    # Look for config files in common locations
+    config_patterns = [
+        "configs/**/*.py",
+        "configs/*.py",
+        "*.py"
+    ]
+    
+    for pattern in config_patterns:
+        for config_path in glob.glob(pattern, recursive=True):
+            try:
+                config = load_config(config_path)
+                if config.get('work_dir') == work_dir:
+                    return config_path
+            except Exception:
+                continue
+    
+    return None
+
+
+def _detect_early_stopping(work_dir: str, expected_files: List[str], config: dict, completed_epochs: int) -> Tuple[bool, Optional[int]]:
+    """Detect if early stopping was triggered."""
+    try:
+        # Build metric and early stopping objects to detect early stopping
+        metric = build_from_config(config['metric']) if config.get('metric') else None
+        
+        if metric is None:
+            return False, None
+            
+        early_stopping_config = config['early_stopping']
+        
+        # Import EarlyStopping class
+        from runners.early_stopping import EarlyStopping
+        
+        early_stopping = build_from_config(
+            config=early_stopping_config,
+            work_dir=work_dir,
+            tot_epochs=config['epochs'],
+            metric=metric,
+            expected_files=expected_files,
+            logger=None
+        )
+        
+        # Check if early stopping would be triggered at the last completed epoch
+        if completed_epochs > early_stopping.patience:
+            last_epoch = completed_epochs - 1
+            if early_stopping.was_triggered_at_epoch(last_epoch):
+                return True, last_epoch + 1
+        
+        return False, None
+        
+    except Exception:
+        # If early stopping detection fails, assume no early stopping
+        return False, None
 
 
 def check_file_loadable(filepath: str) -> bool:

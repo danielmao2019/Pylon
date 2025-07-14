@@ -86,6 +86,9 @@ class EarlyStopping:
             self.last_read_epoch = current_epoch
             current_epoch += 1
 
+        # Save progress to progress.json after updating state
+        self._save_progress_json()
+
     def _update_early_stopping_state(self, current_scores: Dict[str, Any]) -> None:
         """Update early stopping state with new scores."""
         # Get metric directions
@@ -201,3 +204,39 @@ class EarlyStopping:
                 epochs_without_improvement += 1
 
         return epochs_without_improvement >= patience
+
+    def _calculate_progress_percentage(self) -> float:
+        """Calculate true progress percentage considering early stopping."""
+        completed_epochs = self.last_read_epoch + 1
+        
+        if self.should_stop_early:
+            # If early stopping triggered, we're 100% done
+            return 100.0
+        else:
+            # Normal progress calculation
+            return (completed_epochs / self.tot_epochs) * 100.0
+
+    def _get_early_stop_epoch(self) -> Optional[int]:
+        """Get the epoch where early stopping was triggered."""
+        if not self.should_stop_early:
+            return None
+        
+        # Early stopping triggers after patience epochs without improvement
+        # So it was triggered at the epoch we just completed
+        return self.last_read_epoch + 1
+
+    def _save_progress_json(self) -> None:
+        """Save current progress to progress.json file."""
+        if self.work_dir is None:
+            return
+            
+        progress_data = {
+            "completed_epochs": self.last_read_epoch + 1,
+            "progress_percentage": self._calculate_progress_percentage(),
+            "early_stopped": self.should_stop_early,
+            "early_stopped_at_epoch": self._get_early_stop_epoch()
+        }
+        
+        progress_file = os.path.join(self.work_dir, "progress.json")
+        with open(progress_file, 'w') as f:
+            json.dump(progress_data, f, indent=2)
