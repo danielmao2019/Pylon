@@ -14,14 +14,6 @@ data_cfg = {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        # SE(3) transformation with smaller magnitudes for validation
-                        (
-                            {
-                                'class': data.transforms.vision_3d.RandomRigidTransform,
-                                'args': {'rot_mag': 30.0, 'trans_mag': 0.3},
-                            },
-                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
-                        ),
                         # Random cropping with consistent ratio
                         (
                             {

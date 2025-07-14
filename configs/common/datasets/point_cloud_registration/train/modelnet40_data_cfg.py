@@ -8,7 +8,7 @@ data_cfg = {
             'data_root': 'data/datasets/soft_links/ModelNet40',
             'split': 'train',
             'dataset_size': 50,  # Small size for viewer testing
-            'overlap_range': (0.3, 1.0),  # GeoTransformer range with cropping
+            'overlap_range': (0.2, 1.0),  # Practical range for GeoTransformer parameters with cropping
             'matching_radius': 0.05,  # Radius for correspondence finding
             'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
             'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
@@ -16,14 +16,6 @@ data_cfg = {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        # SE(3) transformation for data augmentation (separate from synthetic transforms)
-                        (
-                            {
-                                'class': data.transforms.vision_3d.RandomRigidTransform,
-                                'args': {'rot_mag': 45.0, 'trans_mag': 0.5},
-                            },
-                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
-                        ),
                         # GeoTransformer cropping for creating overlaps after synthetic transform
                         (
                             {
