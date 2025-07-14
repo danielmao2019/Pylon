@@ -435,8 +435,8 @@ class SyntheticTransformPCRDataset(BaseDataset):
             Tuple of (transform_matrix, crop_transform)
         """
         # Build SE(3) transformation matrix
-        rotation_angles = torch.tensor(transform_params['rotation_angles'], dtype=torch.float32)
-        translation = torch.tensor(transform_params['translation'], dtype=torch.float32)
+        rotation_angles = torch.tensor(transform_params['rotation_angles'], dtype=torch.float32, device=self.device)
+        translation = torch.tensor(transform_params['translation'], dtype=torch.float32, device=self.device)
         
         # Convert to radians and create rotation matrices
         rotation_rad = rotation_angles * np.pi / 180
@@ -447,24 +447,24 @@ class SyntheticTransformPCRDataset(BaseDataset):
             [1, 0, 0],
             [0, cos_vals[0], -sin_vals[0]],
             [0, sin_vals[0], cos_vals[0]]
-        ], dtype=torch.float32)
+        ], dtype=torch.float32, device=self.device)
         
         R_y = torch.tensor([
             [cos_vals[1], 0, sin_vals[1]],
             [0, 1, 0],
             [-sin_vals[1], 0, cos_vals[1]]
-        ], dtype=torch.float32)
+        ], dtype=torch.float32, device=self.device)
         
         R_z = torch.tensor([
             [cos_vals[2], -sin_vals[2], 0],
             [sin_vals[2], cos_vals[2], 0],
             [0, 0, 1]
-        ], dtype=torch.float32)
+        ], dtype=torch.float32, device=self.device)
         
         rotation_matrix = R_z @ R_y @ R_x
         
         # Create 4x4 transformation matrix
-        transform_matrix = torch.eye(4, dtype=torch.float32)
+        transform_matrix = torch.eye(4, dtype=torch.float32, device=self.device)
         transform_matrix[:3, :3] = rotation_matrix
         transform_matrix[:3, 3] = translation
         
@@ -499,15 +499,15 @@ class SyntheticTransformPCRDataset(BaseDataset):
         src_pc_dict = crop_transform(transformed_pc_dict, seed=transform_params['seed'])
         src_pc_pos = src_pc_dict['pos']
         
-        # Create point cloud dictionaries
+        # Create point cloud dictionaries with features on same device as positions
         src_pc = {
             'pos': src_pc_pos,
-            'feat': torch.ones((src_pc_pos.shape[0], 1), dtype=torch.float32),
+            'feat': torch.ones((src_pc_pos.shape[0], 1), dtype=torch.float32, device=src_pc_pos.device),
         }
         
         tgt_pc = {
             'pos': tgt_pc_raw,
-            'feat': torch.ones((tgt_pc_raw.shape[0], 1), dtype=torch.float32),
+            'feat': torch.ones((tgt_pc_raw.shape[0], 1), dtype=torch.float32, device=tgt_pc_raw.device),
         }
         
         return src_pc, tgt_pc

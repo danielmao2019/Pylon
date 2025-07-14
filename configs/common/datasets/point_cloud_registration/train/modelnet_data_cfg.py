@@ -7,7 +7,7 @@ data_cfg = {
         'args': {
             'data_root': 'data/datasets/soft_links/ModelNet40',
             'split': 'train',
-            'dataset_size': 1000,  # Total number of synthetic registration pairs
+            'dataset_size': 50,  # Small size for viewer testing
             'overlap_range': (0.3, 1.0),  # Overlap range for generated pairs
             'matching_radius': 0.05,  # Radius for correspondence finding
             'transforms_cfg': {
