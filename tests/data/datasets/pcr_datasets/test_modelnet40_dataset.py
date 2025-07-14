@@ -141,7 +141,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
 
 @pytest.fixture
 def dataset_with_params(request):
-    """Fixture for creating a ModelNetDataset instance with validation parameters."""
+    """Fixture for creating a ModelNet40Dataset instance with validation parameters."""
     dataset_params = request.param.copy()
     # Extract rot_mag and trans_mag for validation
     rot_mag = dataset_params.pop('rot_mag')
@@ -174,7 +174,7 @@ def dataset_with_params(request):
     },
 ], indirect=True)
 def test_modelnet_dataset(dataset_with_params, max_samples, get_samples_to_test):
-    """Test basic functionality of ModelNetDataset."""
+    """Test basic functionality of ModelNet40Dataset."""
     dataset, rot_mag, trans_mag = dataset_with_params
 
     # Basic dataset checks
