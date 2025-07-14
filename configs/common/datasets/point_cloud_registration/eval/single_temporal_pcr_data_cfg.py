@@ -19,12 +19,10 @@ data_cfg = {
             'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
             'device': 'cpu',
             'min_points': 512,  # Minimum points filter for cache generation
-
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        # Clamp points to maximum
                         (
                             {
                                 'class': data.transforms.vision_3d.Clamp,
