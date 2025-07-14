@@ -45,7 +45,7 @@ from data.datasets.pcr_datasets.single_temporal_pcr_dataset import SingleTempora
 from data.datasets.pcr_datasets.bi_temporal_pcr_dataset import BiTemporalPCRDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
-from data.datasets.pcr_datasets.modelnet_dataset import ModelNetDataset
+from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
 
 
 __all__ = (
@@ -88,5 +88,5 @@ __all__ = (
     'KITTIDataset',
     'ThreeDMatchDataset',
     'ThreeDLoMatchDataset',
-    'ModelNetDataset',
+    'ModelNet40Dataset',
 )
