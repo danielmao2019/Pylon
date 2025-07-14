@@ -4,7 +4,7 @@ import glob
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 
 
-class ModelNetDataset(SyntheticTransformPCRDataset):
+class ModelNet40Dataset(SyntheticTransformPCRDataset):
     """ModelNet40 dataset for point cloud registration.
     
     This dataset implements self-registration on ModelNet40 objects:
@@ -67,7 +67,7 @@ class ModelNetDataset(SyntheticTransformPCRDataset):
     def _init_annotations(self) -> None:
         """Initialize file pair annotations with OFF file paths.
         
-        For ModelNet (single-temporal), each file pair has same src_file_path and tgt_file_path.
+        For ModelNet40 (single-temporal), each file pair has same src_file_path and tgt_file_path.
         """
         
         # ModelNet40 structure: ModelNet40/[category]/[train|test]/[filename].off
