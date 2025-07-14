@@ -3,30 +3,27 @@ import data
 
 data_cfg = {
     'train_dataset': {
-        'class': data.datasets.SynthPCRDataset,
+        'class': data.datasets.SingleTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'cache_dirname': 'synth_pcr_cache',
+            'cache_dirname': 'singletemporal_pcr_cache',
             'split': 'train',
             'dataset_size': 5000,  # Total number of synthetic registration pairs to generate
             'overlap_range': (0.0, 1.0),  # GeoTransformer doesn't use specific overlap ranges
             'matching_radius': 0.05,  # Radius for correspondence finding
             'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
             'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
-            'voxel_size': 10.0,
-            'min_points': 512,
-            'max_points': 8192,
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        # OverlapPredator cropping for creating overlaps after synthetic transform
+                        # Point sampling transform - moved from dataset initialization
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomPointCrop,
-                                'args': {'keep_ratio': 0.7},
+                                'class': data.transforms.vision_3d.RandomPointSampling,
+                                'args': {'min_points': 512, 'max_points': 8192},
                             },
-                            [('inputs', 'src_pc')],
+                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
                         ),
                     ],
                 },

@@ -7,10 +7,10 @@ from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import Tr
 
 data_cfg = {
     'eval_dataset': {
-        'class': data.datasets.SynthPCRDataset,
+        'class': data.datasets.SingleTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'cache_dirname': 'synth_pcr_cache',
+            'cache_dirname': 'singletemporal_pcr_cache',
             'split': 'val',
             'dataset_size': 500,  # Smaller for evaluation
             'overlap_range': (0.0, 1.0),  # GeoTransformer doesn't use specific overlap ranges
@@ -22,7 +22,14 @@ data_cfg = {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                            # clamp to min max points 512 - 8192
+                        # Point sampling transform - moved from dataset initialization
+                        (
+                            {
+                                'class': data.transforms.vision_3d.RandomPointSampling,
+                                'args': {'min_points': 512, 'max_points': 8192},
+                            },
+                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                        ),
                     ],
                 },
             },

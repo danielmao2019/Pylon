@@ -16,13 +16,13 @@ data_cfg = {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        # GeoTransformer cropping for creating overlaps after synthetic transform
+                        # Point sampling transform - moved from dataset initialization
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomPlaneCrop,
-                                'args': {'keep_ratio': 0.7},
+                                'class': data.transforms.vision_3d.RandomPointSampling,
+                                'args': {'min_points': 512, 'max_points': 4096},
                             },
-                            [('inputs', 'src_pc')],
+                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
                         ),
                     ],
                 },
