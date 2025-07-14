@@ -49,7 +49,7 @@
 4. 🚧 Implement `RandomPointCrop` transform in `data/transforms/vision_3d/`
 
 ### **Phase 2: Dataset Implementation**
-5. 🚧 Create `ModelNetDataset` inheriting from `BasePCRDataset`
+5. 🚧 Create `ModelNet40Dataset` inheriting from `BasePCRDataset`
 6. 🚧 Implement GeoTransformer's exact data generation logic
 7. 🚧 Add overlap filtering with retry mechanism
 8. 🚧 Handle deterministic seeding and reproducibility
