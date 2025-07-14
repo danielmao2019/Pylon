@@ -156,8 +156,24 @@ class SyntheticTransformPCRDataset(BaseDataset):
             tgt_pc_data = load_point_cloud(tgt_file_path)
             tgt_pc_raw = tgt_pc_data['pos']
         
+        # Apply normalization if needed (subclasses can override)
+        src_pc_raw = self._normalize_point_cloud(src_pc_raw)
+        tgt_pc_raw = self._normalize_point_cloud(tgt_pc_raw)
+        
         return src_pc_raw, tgt_pc_raw
     
+    def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
+        """Normalize point cloud. Base implementation returns unchanged.
+        
+        Subclasses can override for dataset-specific normalization.
+        
+        Args:
+            pc: Point cloud tensor of shape (N, 3)
+            
+        Returns:
+            Normalized point cloud tensor
+        """
+        return pc
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
@@ -332,6 +348,15 @@ class SyntheticTransformPCRDataset(BaseDataset):
             if len(generated_results) >= needed_count:
                 break
         
+        # Fail fast if no valid results found - don't hide the problem
+        assert len(generated_results) > 0, (
+            f"Failed to generate any valid transforms after {max_trials} trials. "
+            f"Parameters: overlap_range={self.overlap_range}, file_idx={file_idx}, "
+            f"transform_idx={transform_idx}, needed_count={needed_count}. "
+            f"Consider: 1) Relaxing overlap_range, 2) Reducing cropping aggressiveness, "
+            f"3) Adjusting rotation/translation ranges for ModelNet40 object scale."
+        )
+        
         # Return the last generated valid result
         return generated_results[-1]
     
@@ -407,13 +432,13 @@ class SyntheticTransformPCRDataset(BaseDataset):
         generator = torch.Generator()
         generator.manual_seed(seed)
         
-        # Sample SE(3) transformation parameters
-        rotation_angles = torch.rand(3, generator=generator) * 60 - 30  # [-30, 30] degrees
-        translation = torch.rand(3, generator=generator) * 0.6 - 0.3  # [-0.3, 0.3]
+        # Sample SE(3) transformation parameters - GeoTransformer standard for normalized data
+        rotation_angles = torch.rand(3, generator=generator) * 60 - 30  # [-30, 30] degrees  
+        translation = torch.rand(3, generator=generator) * 0.6 - 0.3  # [-0.3, 0.3] smaller for better overlap
         
-        # Sample cropping parameters
+        # Sample cropping parameters - less aggressive for better overlap
         crop_choice = torch.rand(1, generator=generator).item()
-        keep_ratio = 0.7 + torch.rand(1, generator=generator).item() * 0.2  # [0.7, 0.9]
+        keep_ratio = 0.8 + torch.rand(1, generator=generator).item() * 0.15  # [0.8, 0.95] less aggressive
         
         config = {
             'rotation_angles': rotation_angles.tolist(),
