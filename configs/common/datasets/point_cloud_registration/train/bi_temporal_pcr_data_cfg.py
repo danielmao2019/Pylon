@@ -26,14 +26,6 @@ data_cfg = {
                             },
                             'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
                         },
-                        # PCR translation normalization
-                        {
-                            'op': {
-                                'class': data.transforms.vision_3d.PCRTranslation,
-                                'args': {},
-                            },
-                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
-                        },
                     ],
                 },
             },
