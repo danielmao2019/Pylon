@@ -10,7 +10,7 @@ data_cfg = {
         'class': data.datasets.SingleTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'cache_dirname': 'singletemporal_pcr_cache',
+            'cache_dirname': 'single_temporal_pcr_cache',
             'split': 'val',
             'dataset_size': 500,  # Smaller for evaluation
             'overlap_range': (0.0, 1.0),  # GeoTransformer doesn't use specific overlap ranges
@@ -18,15 +18,17 @@ data_cfg = {
             'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
             'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
             'device': 'cpu',
+            'min_points': 512,  # Minimum points filter for cache generation
+
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        # Point sampling transform - moved from dataset initialization
+                        # Clamp points to maximum
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomPointSampling,
-                                'args': {'min_points': 512, 'max_points': 8192},
+                                'class': data.transforms.vision_3d.Clamp,
+                                'args': {'max_points': 8192},
                             },
                             [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
                         ),

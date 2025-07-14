@@ -45,6 +45,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         cache_transforms: bool = True,
         rotation_mag: float = 45.0,
         translation_mag: float = 0.5,
+        min_points: int = 512,
         **kwargs,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
@@ -57,6 +58,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
             cache_transforms: Whether to cache transform-to-overlap mappings
             rotation_mag: Maximum rotation magnitude in degrees for synthetic transforms
             translation_mag: Maximum translation magnitude for synthetic transforms
+            min_points: Minimum number of points filter for cache generation
             **kwargs: Additional arguments passed to BaseDataset
         """
         self.total_dataset_size = dataset_size
@@ -65,6 +67,7 @@ class SyntheticTransformPCRDataset(BaseDataset):
         self.cache_transforms = cache_transforms
         self.rotation_mag = rotation_mag
         self.translation_mag = translation_mag
+        self.min_points = min_points
         
         # Initialize transform-to-overlap cache
         if self.cache_transforms:

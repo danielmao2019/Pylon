@@ -12,17 +12,17 @@ data_cfg = {
             'matching_radius': 0.05,  # Radius for correspondence finding
             'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
             'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
+            'min_points': 512,  # Minimum points filter for cache generation
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        # Random cropping with consistent ratio
                         (
                             {
-                                'class': data.transforms.vision_3d.RandomPlaneCrop,
-                                'args': {'keep_ratio': 0.7},
+                                'class': data.transforms.vision_3d.Clamp,
+                                'args': {'max_points': 4096},
                             },
-                            [('inputs', 'src_pc')],
+                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
                         ),
                     ],
                 },
