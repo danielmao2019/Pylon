@@ -11,7 +11,7 @@ data_cfg = {
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
             'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'bi_temporal_pcr_cache',
+            'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../bi_temporal_pcr_cache.json',
             'split': 'val',
             'dataset_size': 500,  # Smaller for evaluation
             'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
