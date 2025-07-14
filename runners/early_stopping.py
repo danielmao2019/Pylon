@@ -3,6 +3,7 @@ import os
 import json
 from runners.model_comparison import compare_scores, get_metric_directions
 from utils.automation.run_status import check_epoch_finished
+from utils.io.json import save_json
 
 
 class EarlyStopping:
@@ -238,5 +239,4 @@ class EarlyStopping:
         }
         
         progress_file = os.path.join(self.work_dir, "progress.json")
-        with open(progress_file, 'w') as f:
-            json.dump(progress_data, f, indent=2)
+        save_json(progress_data, progress_file)
