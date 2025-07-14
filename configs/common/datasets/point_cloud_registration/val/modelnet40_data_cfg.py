@@ -8,8 +8,10 @@ data_cfg = {
             'data_root': 'data/datasets/soft_links/ModelNet40',
             'split': 'test',  # Use test split for validation
             'dataset_size': 500,  # Smaller dataset size for validation
-            'overlap_range': (0.4, 0.8),  # Narrower overlap range for consistent validation
-            'matching_radius': 0.05,  # Same radius as training
+            'overlap_range': (0.0, 1.0),  # GeoTransformer doesn't use specific overlap ranges
+            'matching_radius': 0.05,  # Radius for correspondence finding
+            'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
+            'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
