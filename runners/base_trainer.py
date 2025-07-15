@@ -77,11 +77,11 @@ class BaseTrainer(ABC):
         early_stopped_at_epoch = None
         if self.early_stopping and self.early_stopping.should_stop_early:
             early_stopped = True
-            early_stopped_at_epoch = self.cum_epochs + 1
+            early_stopped_at_epoch = self.cum_epochs
             
         progress_data = {
-            "completed_epochs": self.cum_epochs + 1,
-            "progress_percentage": ((self.cum_epochs + 1) / self.tot_epochs) * 100,
+            "completed_epochs": self.cum_epochs,
+            "progress_percentage": (self.cum_epochs / self.tot_epochs) * 100,
             "early_stopped": early_stopped,
             "early_stopped_at_epoch": early_stopped_at_epoch
         }
@@ -767,7 +767,7 @@ class BaseTrainer(ABC):
             # Check for early stopping before training/validation
             if self.early_stopping and self.early_stopping.should_stop():
                 self.logger.info(f"Training stopped early at epoch {idx}")
-                # Save final progress before breaking
+                # Save final progress before breaking - early stopping triggered
                 self._save_progress()
                 break
 
