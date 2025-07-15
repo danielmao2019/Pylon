@@ -38,7 +38,7 @@
 
 ## 1. Overview
 
-**Integration Goal**: Integrate CDMaskFormer code from external repositories into Pylon framework while preserving original implementation logic and ensuring compatibility with Pylon's architecture.
+**Integration Goal**: Integrate external model code into Pylon framework while preserving original implementation logic and ensuring compatibility with Pylon's architecture.
 
 **Success Criteria**:
 - Original implementation logic preserved exactly (no algorithmic changes)
@@ -48,6 +48,11 @@
 
 **Integration Approach**: Structured 5-commit workflow for reviewable and organized integration process.
 
+**Prerequisites**:
+- Read and understand CLAUDE.md thoroughly
+- Familiarize with existing Pylon change detection models for reference patterns
+- Have source repositories accessible locally
+
 ---
 
 # Part I: Repository Analysis Guidelines
@@ -55,9 +60,10 @@
 ## 2. Analysis Phase
 
 ### 2.1. Source Repository Locations
+**Note**: Specific repository paths will be provided for each integration task. Example format:
 ```
-/home/daniel/repos/Pylon-CDMaskFormer
-/home/daniel/repos/rschange
+/path/to/source/repository/
+/path/to/reference/repository/ (if applicable)
 ```
 
 ### 2.2. Analysis Deliverables
@@ -199,6 +205,8 @@ models/change_detection/*/
 3. **API modification list**: Exact changes needed for Pylon compatibility
 4. **Testing strategy**: Test patterns to implement for each component
 
+**Planning validation**: Review plan with user before proceeding to implementation phase.
+
 ---
 
 # Part II: Integration Implementation Guidelines
@@ -227,16 +235,32 @@ git checkout -b integration/[model_name]
 Starting from the main model entry point, trace through all import statements to identify necessary files:
 
 ```bash
-# Example workflow
-# 1. Start from main model file
-# 2. Identify all local imports
-# 3. Recursively trace dependencies
-# 4. Create list of all required files
+# Practical workflow
+# 1. Find main model entry point (usually in README or main script)
+# 2. Open main model file and list all `from .` or `from local_module` imports
+# 3. For each local import, open that file and repeat
+# 4. Continue recursively until all dependencies mapped
+# 5. Create comprehensive list of all required files
 ```
+
+**Concrete steps**:
+1. Start with main model class file
+2. Use `grep -n "^from \." file.py` to find relative imports
+3. Use `grep -n "^from [^torch|^from typing]" file.py` to find potential local imports
+4. Build dependency tree systematically
 
 **Step 2: Strategic File Copying**
 Copy files to appropriate Pylon modules based on their function:
 
+**Create destination directories first**:
+```bash
+mkdir -p models/change_detection/[model_name]
+mkdir -p models/change_detection/[model_name]/layers
+mkdir -p models/change_detection/[model_name]/utils
+mkdir -p configs/common/models/change_detection/[model_name]
+```
+
+**Copy files systematically**:
 ```bash
 # Models and related components
 cp /source/repo/model.py models/change_detection/[model_name]/
@@ -251,6 +275,12 @@ cp /source/repo/metrics.py metrics/
 
 # Datasets (if needed)
 cp /source/repo/dataset.py data/datasets/change_detection_datasets/
+```
+
+**Verify copy operations**:
+```bash
+# Check all files copied correctly
+find models/change_detection/[model_name] -type f -name "*.py" | wc -l
 ```
 
 **Step 3: Configuration Files**
@@ -301,6 +331,8 @@ from models.change_detection.model_name.utils.helpers import some_function
 ### 6.2. Import Verification with Test Files
 
 **Create temporary test files** to systematically verify all imports:
+
+**Key principle**: Test imports in isolation to identify exact issues without running full model code.
 
 **Step 1: Generate import test files**
 For each source file, create a temporary test file that executes all its import statements:
@@ -494,6 +526,8 @@ def test_score_computation()
 def test_directions_attribute()
 ```
 
+**Reference existing tests**: Study similar model tests in `tests/models/change_detection/` for patterns and conventions before writing new tests.
+
 ### 8.2. Test Patterns
 
 **Follow Pylon testing patterns** (see CLAUDE.md section 5):
@@ -549,6 +583,21 @@ def test_directions_attribute()
 - [ ] Configuration builds model correctly via `build_from_config`
 - [ ] All components properly registered and importable
 - [ ] No regressions in existing Pylon functionality
+
+**Final verification steps**:
+```bash
+# Test model can be imported and built
+python -c "
+from models.change_detection import [ModelClassName]
+from utils.builders.builder import build_from_config
+from configs.common.models.change_detection.[model_name].base_config import config
+model = build_from_config(config)
+print('Integration successful - model builds correctly')
+"
+
+# Quick regression test on existing functionality
+pytest tests/models/change_detection/test_change_star.py::test_change_star_initialization -v
+```
 
 **Commit Message Format**:
 ```
@@ -608,5 +657,31 @@ def test_directions_attribute()
 - Define DIRECTIONS attribute for metrics
 
 ---
+
+## Quick Reference Summary
+
+### Phase Checklist:
+1. **Analysis Phase**: Understand source code, document data structures, identify dependencies
+2. **Planning Phase**: Create implementation plan, map components, define API changes 
+3. **Implementation Phase**: Follow 5-commit workflow systematically
+
+### Commit Workflow:
+1. **Commit 1**: Copy original files (no modifications)
+2. **Commit 2**: Fix imports and register modules
+3. **Commit 3**: Update APIs for Pylon compatibility  
+4. **Commit 4**: Implement comprehensive tests
+5. **Commit 5**: Debug and fix all issues
+
+### Key Principles:
+- **Preserve original logic**: Never change algorithmic implementations
+- **Minimal API changes**: Only what's needed for Pylon compatibility
+- **Ask for guidance**: When stuck or multiple options exist
+- **Test thoroughly**: Follow Pylon testing patterns exactly
+
+### Success Criteria:
+- All tests pass
+- Model integrates with Pylon training pipeline
+- Original computational behavior preserved
+- Clean, reviewable commit history
 
 **Usage Note**: This document serves as a comprehensive checklist and reference for code integration tasks. Each phase should be completed fully before proceeding to the next, with all deliverables documented and validated.
