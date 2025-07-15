@@ -41,10 +41,11 @@ from data.datasets.change_detection_datasets.single_temporal.i3pe_dataset import
 from data.datasets.change_detection_datasets.single_temporal.ppsl_dataset import PPSLDataset
 
 # Point Cloud Registration
-from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
-from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
+from data.datasets.pcr_datasets.single_temporal_pcr_dataset import SingleTemporalPCRDataset
+from data.datasets.pcr_datasets.bi_temporal_pcr_dataset import BiTemporalPCRDataset
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
+from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
 
 
 __all__ = (
@@ -82,9 +83,10 @@ __all__ = (
     'I3PEDataset',
     'PPSLDataset',
     # Point Cloud Registration
-    'SynthPCRDataset',
-    'RealPCRDataset',
+    'SingleTemporalPCRDataset',
+    'BiTemporalPCRDataset',
     'KITTIDataset',
     'ThreeDMatchDataset',
     'ThreeDLoMatchDataset',
+    'ModelNet40Dataset',
 )
