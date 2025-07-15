@@ -423,3 +423,33 @@ def test_progress_edge_case_empty_work_dir():
             
         finally:
             os.chdir(original_cwd)
+
+
+def test_progress_with_trainer_saved_progress():
+    """Test that BaseTrainer saves progress.json for non-early-stopping runs."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        work_dir = os.path.join(tmpdir, "experiment_trainer_progress")
+        os.makedirs(work_dir)
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Simulate trainer saving progress after epoch 45 (no early stopping)
+        progress_data = {
+            "completed_epochs": 45,
+            "progress_percentage": 45.0,
+            "early_stopped": False,
+            "early_stopped_at_epoch": None
+        }
+        save_json(progress_data, os.path.join(work_dir, "progress.json"))
+        
+        # First call should use fast path
+        progress = get_session_progress(work_dir, expected_files)
+        assert progress == 45
+        
+        # Simulate trainer updating progress after epoch 70
+        progress_data["completed_epochs"] = 70
+        progress_data["progress_percentage"] = 70.0
+        save_json(progress_data, os.path.join(work_dir, "progress.json"))
+        
+        # Second call should still use fast path and get updated value
+        progress = get_session_progress(work_dir, expected_files)
+        assert progress == 70
