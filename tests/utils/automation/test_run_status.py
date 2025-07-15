@@ -17,7 +17,7 @@ from utils.automation.run_status import get_session_progress
 from utils.io.json import save_json
 
 
-def create_epoch_files(work_dir: str, epoch_idx: int, validation_loss: float = None) -> None:
+def create_epoch_files(work_dir: str, epoch_idx: int, validation_score: float = None) -> None:
     """Create all expected files for a completed epoch."""
     epoch_dir = os.path.join(work_dir, f"epoch_{epoch_idx}")
     os.makedirs(epoch_dir, exist_ok=True)
@@ -34,15 +34,16 @@ def create_epoch_files(work_dir: str, epoch_idx: int, validation_loss: float = N
     # Create validation_scores.json
     validation_scores_path = os.path.join(epoch_dir, "validation_scores.json")
     
-    # Use provided validation_loss or default improving pattern
-    if validation_loss is None:
-        loss_value = 0.4 - epoch_idx * 0.01  # Improving scores
+    # Use provided validation_score or default improving pattern
+    # Note: PyTorchMetricWrapper with MSELoss outputs score as "loss" with DIRECTION=-1 (lower is better)
+    if validation_score is None:
+        score_value = 0.4 - epoch_idx * 0.01  # Improving scores (decreasing loss)
     else:
-        loss_value = validation_loss
+        score_value = validation_score
         
     validation_scores = {
-        "aggregated": {"loss": loss_value},
-        "per_datapoint": {"loss": [loss_value]}
+        "aggregated": {"loss": score_value},  # This is the metric output score, not raw loss
+        "per_datapoint": {"loss": [score_value]}
     }
     with open(validation_scores_path, 'w') as f:
         json.dump(validation_scores, f)
@@ -254,19 +255,20 @@ def test_progress_slow_path_early_stopping_triggered():
         
         # Create epochs with validation scores that trigger early stopping
         # Pattern: best score at epoch 1, then degrading for patience=3 epochs
+        # Note: Using PyTorchMetricWrapper with MSELoss has DIRECTIONS={"loss": -1} (lower is better)
         patience = 3
-        validation_losses = [
-            0.5,  # Epoch 0: baseline
-            0.3,  # Epoch 1: improvement (best score)
+        validation_scores = [
+            0.5,  # Epoch 0: baseline metric score
+            0.3,  # Epoch 1: improvement (best metric score, lower is better)
             0.4,  # Epoch 2: worse than best (1st epoch without improvement)
             0.5,  # Epoch 3: worse than best (2nd epoch without improvement) 
             0.6,  # Epoch 4: worse than best (3rd epoch without improvement) -> should trigger early stopping
             0.7,  # Epoch 5: worse than best (4th epoch without improvement)
         ]
         
-        completed_epochs = len(validation_losses)
-        for epoch_idx, loss in enumerate(validation_losses):
-            create_epoch_files(work_dir, epoch_idx, validation_loss=loss)
+        completed_epochs = len(validation_scores)
+        for epoch_idx, score in enumerate(validation_scores):
+            create_epoch_files(work_dir, epoch_idx, validation_score=score)
         
         # Create real config with early stopping enabled (patience=3)
         create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=True, patience=patience)
