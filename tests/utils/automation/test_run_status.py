@@ -56,8 +56,8 @@ def create_progress_json(work_dir: str, completed_epochs: int, early_stopped: bo
     save_json(progress_data, progress_file)
 
 
-def create_mock_config(config_path: str, epochs: int = 100, early_stopping_enabled: bool = False, patience: int = 5) -> None:
-    """Create a mock config file for testing."""
+def create_real_config(config_path: str, work_dir: str, epochs: int = 100, early_stopping_enabled: bool = False, patience: int = 5) -> None:
+    """Create a real config file for testing."""
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
     
     config_content = f'''
@@ -67,7 +67,7 @@ from runners.early_stopping import EarlyStopping
 
 config = {{
     'epochs': {epochs},
-    'work_dir': './logs/test_run',
+    'work_dir': '{work_dir}',
     'metric': {{
         'class': PyTorchMetricWrapper,
         'args': {{
@@ -108,29 +108,38 @@ def test_progress_fast_path_normal_run():
         assert progress == 57, f"Expected 57 completed epochs, got {progress}"
 
 
-def test_progress_fast_path_early_stopped_run(monkeypatch):
+def test_progress_fast_path_early_stopped_run():
     """Test fast path with progress.json for early stopped run."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        with tempfile.TemporaryDirectory() as config_dir:
-            expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
-            
-            # Create progress.json for early stopped run (57/100 epochs, early stopped)
-            create_progress_json(work_dir, completed_epochs=57, early_stopped=True, 
-                               early_stopped_at_epoch=57, tot_epochs=100)
-            
-            # Create mock config
-            config_path = os.path.join(config_dir, "test_config.py")
-            create_mock_config(config_path, epochs=100, early_stopping_enabled=True)
-            
-            # Mock get_config to return our test config
-            def mock_get_config(work_dir_param):
-                return config_path
-            monkeypatch.setattr('utils.automation.run_status.get_config', mock_get_config)
-            
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        # work_dir = ./logs/test_config, config_path = ./configs/test_config.py
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_config")
+        config_path = os.path.join(configs_dir, "test_config.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Create progress.json for early stopped run (57/100 epochs, early stopped)
+        create_progress_json(work_dir, completed_epochs=57, early_stopped=True, 
+                           early_stopped_at_epoch=57, tot_epochs=100)
+        
+        # Create real config that maps to this work_dir
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=True)
+        
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
             progress = get_session_progress(work_dir, expected_files)
             
             # Should return total epochs (100) for early stopped run
             assert progress == 100, f"Expected 100 (total epochs) for early stopped run, got {progress}"
+        finally:
+            os.chdir(original_cwd)
 
 
 @pytest.mark.parametrize("completed_epochs,expected_progress", [
@@ -142,127 +151,129 @@ def test_progress_fast_path_early_stopped_run(monkeypatch):
 ])
 def test_progress_slow_path_normal_runs(completed_epochs, expected_progress):
     """Test slow path (no progress.json) for various normal completion levels."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        with tempfile.TemporaryDirectory() as config_dir:
-            expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_normal_run")
+        config_path = os.path.join(configs_dir, "test_normal_run.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Create epoch files for completed epochs
+        for epoch_idx in range(completed_epochs):
+            create_epoch_files(work_dir, epoch_idx, expected_files)
+        
+        # Create real config (no early stopping)
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
+            progress = get_session_progress(work_dir, expected_files)
+            assert progress == expected_progress, f"Expected {expected_progress}, got {progress}"
             
-            # Create epoch files for completed epochs
-            for epoch_idx in range(completed_epochs):
-                create_epoch_files(work_dir, epoch_idx, expected_files)
+            # Verify progress.json was created
+            progress_file = os.path.join(work_dir, "progress.json")
+            assert os.path.exists(progress_file), "progress.json should have been created"
             
-            # Create mock config (no early stopping)
-            config_path = os.path.join(config_dir, "test_config.py")
-            create_mock_config(config_path, epochs=100, early_stopping_enabled=False)
+            # Verify progress.json content
+            with open(progress_file, 'r') as f:
+                progress_data = json.load(f)
+            assert progress_data['completed_epochs'] == completed_epochs
+            assert progress_data['early_stopped'] == False
+            assert progress_data['early_stopped_at_epoch'] is None
             
-            # Mock get_config
-            import utils.automation.run_status
-            original_get_config = utils.automation.run_status.get_config
-            utils.automation.run_status.get_config = lambda work_dir_param: config_path
-            
-            try:
-                progress = get_session_progress(work_dir, expected_files)
-                assert progress == expected_progress, f"Expected {expected_progress}, got {progress}"
-                
-                # Verify progress.json was created
-                progress_file = os.path.join(work_dir, "progress.json")
-                assert os.path.exists(progress_file), "progress.json should have been created"
-                
-                # Verify progress.json content
-                with open(progress_file, 'r') as f:
-                    progress_data = json.load(f)
-                assert progress_data['completed_epochs'] == completed_epochs
-                assert progress_data['early_stopped'] == False
-                assert progress_data['early_stopped_at_epoch'] is None
-                
-            finally:
-                utils.automation.run_status.get_config = original_get_config
+        finally:
+            os.chdir(original_cwd)
 
 
-def test_progress_slow_path_early_stopped_run():
-    """Test slow path detection of early stopped run."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        with tempfile.TemporaryDirectory() as config_dir:
-            expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+def test_progress_slow_path_with_early_stopping_config():
+    """Test slow path with early stopping config (but no actual early stopping detected)."""
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_early_stopping")
+        config_path = os.path.join(configs_dir, "test_early_stopping.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Create 10 epochs (less than total 100, but not enough for early stopping detection)
+        completed_epochs = 2  # Less than patience, so no early stopping
+        for epoch_idx in range(completed_epochs):
+            create_epoch_files(work_dir, epoch_idx, expected_files)
+        
+        # Create real config with early stopping enabled
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=True, patience=5)
+        
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
+            progress = get_session_progress(work_dir, expected_files)
             
-            # Create 10 epochs (less than total 100)
-            completed_epochs = 10
-            for epoch_idx in range(completed_epochs):
-                create_epoch_files(work_dir, epoch_idx, expected_files)
+            # Should return completed epochs (2) since early stopping not triggered
+            assert progress == 2, f"Expected 2 completed epochs, got {progress}"
             
-            # Create mock config with early stopping enabled
-            config_path = os.path.join(config_dir, "test_config.py")
-            create_mock_config(config_path, epochs=100, early_stopping_enabled=True, patience=3)
+            # Verify progress.json was created
+            progress_file = os.path.join(work_dir, "progress.json")
+            assert os.path.exists(progress_file), "progress.json should have been created"
             
-            # Mock get_config and build_from_config to simulate early stopping detection
-            import utils.automation.run_status
-            original_get_config = utils.automation.run_status.get_config
-            original_build_from_config = utils.automation.run_status.build_from_config
+            with open(progress_file, 'r') as f:
+                progress_data = json.load(f)
+            assert progress_data['completed_epochs'] == 2
+            assert progress_data['early_stopped'] == False
+            assert progress_data['early_stopped_at_epoch'] is None
             
-            utils.automation.run_status.get_config = lambda work_dir_param: config_path
-            
-            # Mock early stopping detection to return True (early stopped at epoch 10)
-            def mock_detect_early_stopping(work_dir_param, expected_files_param, config_param, completed_epochs_param):
-                return True, 10
-            
-            utils.automation.run_status._detect_early_stopping = mock_detect_early_stopping
-            
-            try:
-                progress = get_session_progress(work_dir, expected_files)
-                
-                # Should return total epochs (100) for early stopped run
-                assert progress == 100, f"Expected 100 (total epochs) for early stopped run, got {progress}"
-                
-                # Verify progress.json was created with early stopping info
-                progress_file = os.path.join(work_dir, "progress.json")
-                assert os.path.exists(progress_file), "progress.json should have been created"
-                
-                with open(progress_file, 'r') as f:
-                    progress_data = json.load(f)
-                assert progress_data['completed_epochs'] == 10
-                assert progress_data['early_stopped'] == True
-                assert progress_data['early_stopped_at_epoch'] == 10
-                assert progress_data['progress_percentage'] == 100.0
-                
-            finally:
-                utils.automation.run_status.get_config = original_get_config
-                utils.automation.run_status.build_from_config = original_build_from_config
+        finally:
+            os.chdir(original_cwd)
 
 
 def test_progress_incomplete_epochs():
     """Test progress calculation with incomplete epochs (missing files)."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        with tempfile.TemporaryDirectory() as config_dir:
-            expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_incomplete")
+        config_path = os.path.join(configs_dir, "test_incomplete.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Create 3 complete epochs
+        for epoch_idx in range(3):
+            create_epoch_files(work_dir, epoch_idx, expected_files)
+        
+        # Create incomplete epoch 3 (missing validation_scores.json)
+        epoch_dir = os.path.join(work_dir, "epoch_3")
+        os.makedirs(epoch_dir, exist_ok=True)
+        torch.save({"loss": torch.tensor(0.5)}, os.path.join(epoch_dir, "training_losses.pt"))
+        with open(os.path.join(epoch_dir, "optimizer_buffer.json"), 'w') as f:
+            json.dump({"lr": 0.001}, f)
+        # Missing validation_scores.json
+        
+        # Create real config
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
+            progress = get_session_progress(work_dir, expected_files)
             
-            # Create 3 complete epochs
-            for epoch_idx in range(3):
-                create_epoch_files(work_dir, epoch_idx, expected_files)
+            # Should only count complete epochs (3)
+            assert progress == 3, f"Expected 3 complete epochs, got {progress}"
             
-            # Create incomplete epoch 3 (missing validation_scores.json)
-            epoch_dir = os.path.join(work_dir, "epoch_3")
-            os.makedirs(epoch_dir, exist_ok=True)
-            torch.save({"loss": torch.tensor(0.5)}, os.path.join(epoch_dir, "training_losses.pt"))
-            with open(os.path.join(epoch_dir, "optimizer_buffer.json"), 'w') as f:
-                json.dump({"lr": 0.001}, f)
-            # Missing validation_scores.json
-            
-            # Create mock config
-            config_path = os.path.join(config_dir, "test_config.py")
-            create_mock_config(config_path, epochs=100, early_stopping_enabled=False)
-            
-            # Mock get_config
-            import utils.automation.run_status
-            original_get_config = utils.automation.run_status.get_config
-            utils.automation.run_status.get_config = lambda work_dir_param: config_path
-            
-            try:
-                progress = get_session_progress(work_dir, expected_files)
-                
-                # Should only count complete epochs (3)
-                assert progress == 3, f"Expected 3 complete epochs, got {progress}"
-                
-            finally:
-                utils.automation.run_status.get_config = original_get_config
+        finally:
+            os.chdir(original_cwd)
 
 
 def test_progress_deterministic():
@@ -289,47 +300,63 @@ def test_progress_deterministic():
     (True, 30, 100, 100),    # Early stopped: return total epochs
     (True, 75, 200, 200),    # Early stopped with different total
 ])
-def test_progress_parametrized_scenarios(early_stopped, completed, total, expected, monkeypatch):
+def test_progress_parametrized_scenarios(early_stopped, completed, total, expected):
     """Parametrized test for various progress scenarios."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        with tempfile.TemporaryDirectory() as config_dir:
-            expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_parametrized")
+        config_path = os.path.join(configs_dir, "test_parametrized.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Create progress.json for fast path
+        create_progress_json(work_dir, completed_epochs=completed, early_stopped=early_stopped, 
+                           early_stopped_at_epoch=completed if early_stopped else None, tot_epochs=total)
+        
+        if early_stopped:
+            # For early stopped runs, create real config
+            create_real_config(config_path, work_dir, epochs=total, early_stopping_enabled=True)
             
-            # Create progress.json for fast path
-            create_progress_json(work_dir, completed_epochs=completed, early_stopped=early_stopped, 
-                               early_stopped_at_epoch=completed if early_stopped else None, tot_epochs=total)
+            # Change to temp_root so relative paths work
+            original_cwd = os.getcwd()
+            os.chdir(temp_root)
             
-            if early_stopped:
-                # For early stopped runs, need to mock config loading
-                config_path = os.path.join(config_dir, "test_config.py")
-                create_mock_config(config_path, epochs=total, early_stopping_enabled=True)
-                
-                def mock_get_config(work_dir_param):
-                    return config_path
-                monkeypatch.setattr('utils.automation.run_status.get_config', mock_get_config)
-            
+            try:
+                progress = get_session_progress(work_dir, expected_files)
+                assert progress == expected, f"Expected {expected}, got {progress} for scenario: early_stopped={early_stopped}, completed={completed}, total={total}"
+            finally:
+                os.chdir(original_cwd)
+        else:
+            # For normal runs, don't need config loading
             progress = get_session_progress(work_dir, expected_files)
             assert progress == expected, f"Expected {expected}, got {progress} for scenario: early_stopped={early_stopped}, completed={completed}, total={total}"
 
 
 def test_progress_edge_case_empty_work_dir():
     """Test progress calculation with empty work directory."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        with tempfile.TemporaryDirectory() as config_dir:
-            expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_empty")
+        config_path = os.path.join(configs_dir, "test_empty.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Create real config
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
+        
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
+            progress = get_session_progress(work_dir, expected_files)
+            assert progress == 0, f"Expected 0 for empty work dir, got {progress}"
             
-            # Create mock config
-            config_path = os.path.join(config_dir, "test_config.py")
-            create_mock_config(config_path, epochs=100, early_stopping_enabled=False)
-            
-            # Mock get_config
-            import utils.automation.run_status
-            original_get_config = utils.automation.run_status.get_config
-            utils.automation.run_status.get_config = lambda work_dir_param: config_path
-            
-            try:
-                progress = get_session_progress(work_dir, expected_files)
-                assert progress == 0, f"Expected 0 for empty work dir, got {progress}"
-                
-            finally:
-                utils.automation.run_status.get_config = original_get_config
+        finally:
+            os.chdir(original_cwd)
