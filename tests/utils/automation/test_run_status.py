@@ -7,7 +7,7 @@ Following CLAUDE.md testing patterns:
 - Parametrized testing for multiple scenarios
 - Determinism testing
 """
-from typing import Dict, Any, Optional
+from typing import Optional
 import os
 import tempfile
 import json
@@ -15,11 +15,9 @@ import pytest
 import torch
 from utils.automation.run_status import get_session_progress
 from utils.io.json import save_json
-from utils.io.config import load_config
-from utils.automation.cfg_log_conversion import get_config
 
 
-def create_epoch_files(work_dir: str, epoch_idx: int, expected_files: list) -> None:
+def create_epoch_files(work_dir: str, epoch_idx: int, validation_loss: float = None) -> None:
     """Create all expected files for a completed epoch."""
     epoch_dir = os.path.join(work_dir, f"epoch_{epoch_idx}")
     os.makedirs(epoch_dir, exist_ok=True)
@@ -35,9 +33,16 @@ def create_epoch_files(work_dir: str, epoch_idx: int, expected_files: list) -> N
     
     # Create validation_scores.json
     validation_scores_path = os.path.join(epoch_dir, "validation_scores.json")
+    
+    # Use provided validation_loss or default improving pattern
+    if validation_loss is None:
+        loss_value = 0.4 - epoch_idx * 0.01  # Improving scores
+    else:
+        loss_value = validation_loss
+        
     validation_scores = {
-        "aggregated": {"loss": 0.4 - epoch_idx * 0.01},  # Improving scores
-        "per_datapoint": {"loss": [0.4 - epoch_idx * 0.01]}
+        "aggregated": {"loss": loss_value},
+        "per_datapoint": {"loss": [loss_value]}
     }
     with open(validation_scores_path, 'w') as f:
         json.dump(validation_scores, f)
@@ -163,7 +168,7 @@ def test_progress_slow_path_normal_runs(completed_epochs, expected_progress):
         
         # Create epoch files for completed epochs
         for epoch_idx in range(completed_epochs):
-            create_epoch_files(work_dir, epoch_idx, expected_files)
+            create_epoch_files(work_dir, epoch_idx)
         
         # Create real config (no early stopping)
         create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=False)
@@ -206,7 +211,7 @@ def test_progress_slow_path_with_early_stopping_config():
         # Create 10 epochs (less than total 100, but not enough for early stopping detection)
         completed_epochs = 2  # Less than patience, so no early stopping
         for epoch_idx in range(completed_epochs):
-            create_epoch_files(work_dir, epoch_idx, expected_files)
+            create_epoch_files(work_dir, epoch_idx)
         
         # Create real config with early stopping enabled
         create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=True, patience=5)
@@ -235,6 +240,62 @@ def test_progress_slow_path_with_early_stopping_config():
             os.chdir(original_cwd)
 
 
+def test_progress_slow_path_early_stopping_triggered():
+    """Test slow path where early stopping is actually triggered."""
+    with tempfile.TemporaryDirectory() as temp_root:
+        # Create directory structure that matches cfg_log_conversion pattern
+        logs_dir = os.path.join(temp_root, "logs")
+        configs_dir = os.path.join(temp_root, "configs")
+        work_dir = os.path.join(logs_dir, "test_early_stopping_triggered")
+        config_path = os.path.join(configs_dir, "test_early_stopping_triggered.py")
+        
+        os.makedirs(work_dir, exist_ok=True)
+        expected_files = ["training_losses.pt", "optimizer_buffer.json", "validation_scores.json"]
+        
+        # Create epochs with validation scores that trigger early stopping
+        # Pattern: best score at epoch 1, then degrading for patience=3 epochs
+        patience = 3
+        validation_losses = [
+            0.5,  # Epoch 0: baseline
+            0.3,  # Epoch 1: improvement (best score)
+            0.4,  # Epoch 2: worse than best (1st epoch without improvement)
+            0.5,  # Epoch 3: worse than best (2nd epoch without improvement) 
+            0.6,  # Epoch 4: worse than best (3rd epoch without improvement) -> should trigger early stopping
+            0.7,  # Epoch 5: worse than best (4th epoch without improvement)
+        ]
+        
+        completed_epochs = len(validation_losses)
+        for epoch_idx, loss in enumerate(validation_losses):
+            create_epoch_files(work_dir, epoch_idx, validation_loss=loss)
+        
+        # Create real config with early stopping enabled (patience=3)
+        create_real_config(config_path, work_dir, epochs=100, early_stopping_enabled=True, patience=patience)
+        
+        # Change to temp_root so relative paths work
+        original_cwd = os.getcwd()
+        os.chdir(temp_root)
+        
+        try:
+            progress = get_session_progress(work_dir, expected_files)
+            
+            # Should return total epochs (100) since early stopping was triggered
+            assert progress == 100, f"Expected 100 (total epochs) for early stopped run, got {progress}"
+            
+            # Verify progress.json was created with early stopping info
+            progress_file = os.path.join(work_dir, "progress.json")
+            assert os.path.exists(progress_file), "progress.json should have been created"
+            
+            with open(progress_file, 'r') as f:
+                progress_data = json.load(f)
+            assert progress_data['completed_epochs'] == completed_epochs, f"Expected {completed_epochs} completed epochs"
+            assert progress_data['early_stopped'] == True, "Should detect early stopping was triggered"
+            assert progress_data['early_stopped_at_epoch'] is not None, "Should have early stopped epoch"
+            assert progress_data['progress_percentage'] == 100.0, "Should show 100% progress for early stopped run"
+            
+        finally:
+            os.chdir(original_cwd)
+
+
 def test_progress_incomplete_epochs():
     """Test progress calculation with incomplete epochs (missing files)."""
     with tempfile.TemporaryDirectory() as temp_root:
@@ -249,7 +310,7 @@ def test_progress_incomplete_epochs():
         
         # Create 3 complete epochs
         for epoch_idx in range(3):
-            create_epoch_files(work_dir, epoch_idx, expected_files)
+            create_epoch_files(work_dir, epoch_idx)
         
         # Create incomplete epoch 3 (missing validation_scores.json)
         epoch_dir = os.path.join(work_dir, "epoch_3")
