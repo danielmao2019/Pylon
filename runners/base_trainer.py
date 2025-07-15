@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
 from utils.io import serialize_tensor
+from utils.io.json import save_json
 from utils.automation.run_status import check_epoch_finished
 from utils.monitor.system_monitor import SystemMonitor
 from utils.dynamic_executor import create_dynamic_executor
@@ -65,6 +66,28 @@ class BaseTrainer(ABC):
         assert type(tot_epochs) == int, f"{type(tot_epochs)=}"
         assert tot_epochs >= 0, f"{tot_epochs=}"
         self.tot_epochs = tot_epochs
+
+    def _save_progress(self) -> None:
+        """Save training progress to progress.json file."""
+        if self.work_dir is None:
+            return
+            
+        # Determine early stopping status
+        early_stopped = False
+        early_stopped_at_epoch = None
+        if self.early_stopping and self.early_stopping.should_stop_early:
+            early_stopped = True
+            early_stopped_at_epoch = self.cum_epochs + 1
+            
+        progress_data = {
+            "completed_epochs": self.cum_epochs + 1,
+            "progress_percentage": ((self.cum_epochs + 1) / self.tot_epochs) * 100,
+            "early_stopped": early_stopped,
+            "early_stopped_at_epoch": early_stopped_at_epoch
+        }
+        
+        progress_file = os.path.join(self.work_dir, "progress.json")
+        save_json(progress_data, progress_file)
 
     def _init_logger(self) -> None:
         # check dependencies
@@ -744,12 +767,15 @@ class BaseTrainer(ABC):
             # Check for early stopping before training/validation
             if self.early_stopping and self.early_stopping.should_stop():
                 self.logger.info(f"Training stopped early at epoch {idx}")
+                # Save final progress before breaking
+                self._save_progress()
                 break
 
             set_seed(seed=self.train_seeds[idx])
             self._train_epoch_()
             self._val_epoch_()
             self.cum_epochs = idx + 1
+            self._save_progress()
 
             self.logger.page_break()
 
