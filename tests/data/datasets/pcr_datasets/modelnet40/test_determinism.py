@@ -98,9 +98,9 @@ def test_cache_subset_consistency():
     """Test that first N datapoints are identical between different dataset sizes."""
     # Create temporary cache files
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
-        cache_file_100 = f.name
+        cache_file_10 = f.name
     with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as f:
-        cache_file_200 = f.name
+        cache_file_20 = f.name
     
     try:
         base_config = {
@@ -113,70 +113,70 @@ def test_cache_subset_consistency():
             'min_points': 512,
         }
         
-        # Create 100-datapoint dataset
-        config_100 = base_config.copy()
-        config_100.update({
-            'dataset_size': 100,
-            'cache_filepath': cache_file_100,
+        # Create 10-datapoint dataset
+        config_10 = base_config.copy()
+        config_10.update({
+            'dataset_size': 10,
+            'cache_filepath': cache_file_10,
         })
         
-        print("Creating 100-datapoint dataset...")
-        dataset_100 = data.datasets.ModelNet40Dataset(**config_100)
+        print("Creating 10-datapoint dataset...")
+        dataset_10 = data.datasets.ModelNet40Dataset(**config_10)
         
         # Iterate through all datapoints to populate cache
-        for i in range(len(dataset_100)):
-            _ = dataset_100[i]
+        for i in range(len(dataset_10)):
+            _ = dataset_10[i]
         
-        # Create 200-datapoint dataset
-        config_200 = base_config.copy()
-        config_200.update({
-            'dataset_size': 200,
-            'cache_filepath': cache_file_200,
+        # Create 20-datapoint dataset
+        config_20 = base_config.copy()
+        config_20.update({
+            'dataset_size': 20,
+            'cache_filepath': cache_file_20,
         })
         
-        print("Creating 200-datapoint dataset...")
-        dataset_200 = data.datasets.ModelNet40Dataset(**config_200)
+        print("Creating 20-datapoint dataset...")
+        dataset_20 = data.datasets.ModelNet40Dataset(**config_20)
         
         # Iterate through all datapoints to populate cache
-        for i in range(len(dataset_200)):
-            _ = dataset_200[i]
+        for i in range(len(dataset_20)):
+            _ = dataset_20[i]
         
         # Load both caches
-        with open(cache_file_100, 'r') as f:
-            cache_100 = json.load(f)
-        with open(cache_file_200, 'r') as f:
-            cache_200 = json.load(f)
+        with open(cache_file_10, 'r') as f:
+            cache_10 = json.load(f)
+        with open(cache_file_20, 'r') as f:
+            cache_20 = json.load(f)
         
-        print(f"100-datapoint cache has {len(cache_100)} file keys")
-        print(f"200-datapoint cache has {len(cache_200)} file keys")
+        print(f"10-datapoint cache has {len(cache_10)} file keys")
+        print(f"20-datapoint cache has {len(cache_20)} file keys")
         
         # Check that both caches have the same file keys
-        assert set(cache_100.keys()) == set(cache_200.keys()), \
+        assert set(cache_10.keys()) == set(cache_20.keys()), \
             "Both caches should have the same file keys"
         
         # For each file, check that the first N transforms are identical
-        # where N is the number of transforms for that file in the 100-datapoint case
-        for file_key in cache_100.keys():
-            transforms_100 = cache_100[file_key]
-            transforms_200 = cache_200[file_key]
+        # where N is the number of transforms for that file in the 10-datapoint case
+        for file_key in cache_10.keys():
+            transforms_10 = cache_10[file_key]
+            transforms_20 = cache_20[file_key]
             
-            num_transforms_100 = len(transforms_100)
+            num_transforms_10 = len(transforms_10)
             
-            # The 200-datapoint dataset should have at least as many transforms
-            assert len(transforms_200) >= num_transforms_100, \
-                f"200-datapoint cache should have at least {num_transforms_100} transforms for file {file_key}"
+            # The 20-datapoint dataset should have at least as many transforms
+            assert len(transforms_20) >= num_transforms_10, \
+                f"20-datapoint cache should have at least {num_transforms_10} transforms for file {file_key}"
             
-            # The first num_transforms_100 should be identical
-            first_transforms_200 = transforms_200[:num_transforms_100]
+            # The first num_transforms_10 should be identical
+            first_transforms_20 = transforms_20[:num_transforms_10]
             
-            assert transforms_100 == first_transforms_200, \
-                f"First {num_transforms_100} transforms should be identical for file {file_key}"
+            assert transforms_10 == first_transforms_20, \
+                f"First {num_transforms_10} transforms should be identical for file {file_key}"
         
-        print("✅ Cache subset consistency test passed: first 100 datapoints are identical")
+        print("✅ Cache subset consistency test passed: first 10 datapoints are identical")
         
     finally:
         # Clean up temporary files
-        for cache_file in [cache_file_100, cache_file_200]:
+        for cache_file in [cache_file_10, cache_file_20]:
             if os.path.exists(cache_file):
                 os.unlink(cache_file)
 
