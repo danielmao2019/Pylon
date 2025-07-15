@@ -296,7 +296,38 @@ from models.change_detection.model_name.utils.helpers import some_function
 - Update only internal project imports to match Pylon paths
 - Follow CLAUDE.md section 6.1 import ordering
 
-### 6.2. Module Registration
+### 6.2. Dependency Verification
+
+**Check for missing packages** during import fixing process:
+
+```bash
+# Test imports to identify missing dependencies
+python -c "
+try:
+    from models.change_detection.model_name import ModelClassName
+    print('Model imports successful')
+except ImportError as e:
+    print(f'Missing dependency: {e}')
+"
+```
+
+**Report missing packages**:
+- Document any `ImportError` exceptions encountered
+- Identify external packages not available in current environment
+- Check against `docs/environment_setup.md` to see if packages are already documented
+- **DO NOT install packages** - only report findings for review
+
+**Example missing package report**:
+```
+Missing Dependencies Found:
+- albumentations==1.3.0 (used in data augmentation)
+- timm==0.9.2 (used for backbone models)  
+- segmentation_models_pytorch==0.3.2 (used for encoder architectures)
+
+These packages are not listed in docs/environment_setup.md
+```
+
+### 6.3. Module Registration
 
 **Update `__init__.py` files**:
 
@@ -318,6 +349,7 @@ from metrics.metric_name import MetricClassName
 - Update all internal import statements for Pylon module structure
 - Register components in appropriate __init__.py files
 - No functional changes, only import path updates
+- Dependency verification: [report status - e.g., "All dependencies available" or "Missing packages reported"]
 - All files should now import correctly within Pylon
 ```
 
