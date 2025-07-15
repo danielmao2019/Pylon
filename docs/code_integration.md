@@ -210,7 +210,7 @@ models/change_detection/*/
 4. **NO additional changes**: No defensive programming, logging, renaming, formatting
 
 #### 4.1.2. File Copy Approach
-**Use direct file copying**: Use `cp -r` command to copy entire model directories from official repo, preserving exact structure and organization as intended by original authors.
+**Selective file copying**: Start from the main model entry point and trace through all imports to identify necessary files. Use `cp` command to copy only the required files from official repo, preserving exact structure and organization as intended by original authors.
 
 #### 4.1.3. Component Registration
 **Register in**: `models/change_detection/__init__.py`
@@ -225,7 +225,7 @@ from models.change_detection.model_name import ModelClassName
 **Requirements**:
 - Copy original loss function implementations exactly
 - Adapt only for API compatibility if needed (minimal changes)
-- May or may not inherit from Pylon base classes depending on original structure
+- **MUST inherit from `BaseCriterion`** (may or may not inherit from `SingleTaskCriterion` depending on use case)
 - Follow asynchronous buffer pattern if integrating with Pylon framework
 
 #### 4.2.2. Metrics Integration  
@@ -233,7 +233,7 @@ from models.change_detection.model_name import ModelClassName
 **Requirements**:
 - Copy original metric implementations exactly
 - Adapt only for API compatibility if needed (minimal changes)
-- May or may not inherit from Pylon base classes depending on original structure
+- **MUST inherit from `BaseMetric`** (may or may not inherit from `SingleTaskMetric` depending on use case)
 - **CRITICAL**: Define `DIRECTIONS` attribute if integrating with Pylon framework (see CLAUDE.md section 3.10)
 - Follow metric structure requirements if using Pylon base classes
 
@@ -316,6 +316,10 @@ def test_output_format()              # API compliance testing
 **Before completion**:
 - [ ] Relevant model tests pass: `pytest tests/models/change_detection/test_[model_name].py`
 - [ ] Model tests complete successfully (initialization, forward pass, gradient flow, etc.)
+- [ ] All newly implemented components have passing tests:
+  - [ ] New criteria tests pass: `pytest tests/criteria/test_[criterion_name].py`
+  - [ ] New metrics tests pass: `pytest tests/metrics/test_[metric_name].py`
+  - [ ] New dataset tests pass: `pytest tests/data/datasets/test_[dataset_name].py`
 - [ ] Configuration builds model correctly via `build_from_config`
 - [ ] All components properly registered
 - [ ] Documentation updated appropriately
