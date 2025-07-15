@@ -204,7 +204,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
         
-        Checks transform-to-overlap cache first, then decides to call either _get_pair or _generate_more.
+        Clean flow: generate transforms if needed, then get specific transform.
         """
         file_idx, transform_idx = self._get_indices(idx)
         file_pair_annotation = self.file_pair_annotations[file_idx]
@@ -214,29 +214,32 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             file_pair_annotation.get('src_file_path', str(file_idx))
         )
         
-        # Check transform-to-overlap cache
-        cached_transforms = self.transform_cache.get(file_cache_key, [])
+        # Helper function to get valid transforms from cache
+        def get_valid_transforms():
+            cached_transforms = self.transform_cache.get(file_cache_key, [])
+            valid_transforms = []
+            for transform_config in cached_transforms:
+                overlap = transform_config.get('overlap', 0.0)
+                src_num_points = transform_config.get('src_num_points', 0)
+                tgt_num_points = transform_config.get('tgt_num_points', 0)
+                
+                # Filter by overlap range and minimum points
+                if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
+                    src_num_points >= self.min_points and tgt_num_points >= self.min_points):
+                    valid_transforms.append(transform_config)
+            return valid_transforms
         
-        # Filter valid transforms by overlap range
-        valid_transforms = []
-        for transform_config in cached_transforms:
-            overlap = transform_config.get('overlap', 0.0)
-            src_num_points = transform_config.get('src_num_points', 0)
-            tgt_num_points = transform_config.get('tgt_num_points', 0)
-            
-            # Filter by overlap range and minimum points
-            if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
-                src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                valid_transforms.append(transform_config)
-        
-        # Decide whether to call _get_pair or _generate_more
-        if transform_idx < len(valid_transforms):
-            # Found in cache - use _get_pair
-            src_pc, tgt_pc, transform_matrix, transform_config = self._get_pair(file_idx, transform_idx, valid_transforms)
-        else:
-            # Not found in cache - use _generate_more
+        # Check if we have enough valid transforms
+        valid_transforms = get_valid_transforms()
+        if transform_idx >= len(valid_transforms):
+            # Generate more transforms to fill the cache
             needed_count = transform_idx - len(valid_transforms) + 1
-            src_pc, tgt_pc, transform_matrix, transform_config = self._generate_more(file_idx, transform_idx, needed_count)
+            self._generate_more(file_idx, needed_count)
+            # Refresh valid transforms after generation
+            valid_transforms = get_valid_transforms()
+        
+        # Get the specific transform (called only once)
+        src_pc, tgt_pc, transform_matrix, transform_config = self._get_pair(file_idx, transform_idx, valid_transforms)
         
         # Find correspondences
         from utils.point_cloud_ops.correspondences import get_correspondences
@@ -309,16 +312,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return src_pc, tgt_pc, transform_matrix, transform_config
     
-    def _generate_more(self, file_idx: int, transform_idx: int, needed_count: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], torch.Tensor, Dict[str, Any]]:
-        """Generate more valid transforms and return the specific one requested (parallel version).
+    def _generate_more(self, file_idx: int, needed_count: int) -> None:
+        """Generate more valid transforms and cache them (parallel version).
         
         Args:
             file_idx: Index of file pair
-            transform_idx: Index of transform for this file pair (unused - diagnostic warning expected)
             needed_count: Number of additional valid transforms needed
-            
-        Returns:
-            Tuple of (src_pc, tgt_pc, transform_matrix, transform_config) for the requested transform_idx
         """
         file_pair_annotation = self.file_pair_annotations[file_idx]
         
@@ -341,12 +340,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         batch_size = min(needed_count * 3, 20)  # Generate more than needed for better hit rate
         
         while len(generated_results) < needed_count and trial < self.max_trials:
-            # Prepare batch of work (deterministic seeds using file_idx, transform_idx, trial_idx)
+            # Prepare batch of work (deterministic seeds using file_idx, trial_idx)
             current_batch_size = min(batch_size, self.max_trials - trial)
             batch_args = []
             for i in range(current_batch_size):
                 trial_idx = trial + i
-                batch_args.append((src_pc_raw, tgt_pc_raw, file_idx, transform_idx, trial_idx))
+                batch_args.append((src_pc_raw, tgt_pc_raw, file_idx, trial_idx))
             
             # Process batch in parallel
             batch_results = self._process_transform_batch(batch_args)
@@ -385,17 +384,17 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         assert len(generated_results) > 0, (
             f"Failed to generate any valid transforms after {self.max_trials} trials. "
             f"Parameters: overlap_range={self.overlap_range}, file_idx={file_idx}, "
-            f"transform_idx={transform_idx}, needed_count={needed_count}. "
+            f"needed_count={needed_count}. "
             f"Consider: 1) Relaxing overlap_range, 2) Reducing cropping aggressiveness, "
             f"3) Adjusting rotation/translation ranges for ModelNet40 object scale."
         )
         
-        # Get existing valid transforms after cache update
+        # Verify we generated enough valid transforms
         with self._cache_lock:
             updated_cached_transforms = self.transform_cache.get(file_cache_key, [])
         
-        # Filter for valid transforms (same logic as in _load_datapoint)
-        valid_transforms = []
+        # Count valid transforms to verify we have enough
+        valid_count = 0
         for transform_config in updated_cached_transforms:
             overlap = transform_config.get('overlap', 0.0)
             src_num_points = transform_config.get('src_num_points', 0)
@@ -403,16 +402,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             
             if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
                 src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                valid_transforms.append(transform_config)
-        
-        # Use _get_pair to get the correct transform at transform_idx
-        return self._get_pair(file_idx, transform_idx, valid_transforms)
+                valid_count += 1
     
     def _process_transform_batch(self, batch_args: List[Tuple]) -> List[Dict[str, Any]]:
         """Process a batch of transforms in parallel.
         
         Args:
-            batch_args: List of (original_pc, file_idx, transform_idx, trial_idx) tuples
+            batch_args: List of (src_pc_raw, tgt_pc_raw, file_idx, trial_idx) tuples
             
         Returns:
             List of result dictionaries
@@ -429,15 +425,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         """Process a single transform - thread-safe worker function.
         
         Args:
-            args: Tuple of (src_pc_raw, tgt_pc_raw, file_idx, transform_idx, trial_idx)
+            args: Tuple of (src_pc_raw, tgt_pc_raw, file_idx, trial_idx)
             
         Returns:
             Result dictionary with transform data
         """
-        src_pc_raw, tgt_pc_raw, file_idx, transform_idx, trial_idx = args
+        src_pc_raw, tgt_pc_raw, file_idx, trial_idx = args
         
-        # Create deterministic seed from (file_idx, transform_idx, trial_idx)
-        seed = hash((file_idx, transform_idx, trial_idx)) % (2**32)
+        # Create deterministic seed from (file_idx, trial_idx)
+        seed = hash((file_idx, trial_idx)) % (2**32)
         
         # Sample transform parameters (deterministic from seed)
         transform_params = self._sample_transform(seed)
