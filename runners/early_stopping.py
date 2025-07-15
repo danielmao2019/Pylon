@@ -201,4 +201,3 @@ class EarlyStopping:
                 epochs_without_improvement += 1
 
         return epochs_without_improvement >= patience
-
