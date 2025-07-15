@@ -3,27 +3,36 @@
 ## Table of Contents <!-- omit in toc -->
 
 - [1. Overview](#1-overview)
-- [2. Phase 1: Repository Analysis](#2-phase-1-repository-analysis)
-  - [2.1. Source Repository Locations](#21-source-repository-locations)
-  - [2.2. Analysis Deliverables](#22-analysis-deliverables)
-  - [2.3. Analysis Validation Checklist](#23-analysis-validation-checklist)
-- [3. Phase 2: Implementation Planning](#3-phase-2-implementation-planning)
-  - [3.1. Integration Strategy](#31-integration-strategy)
-  - [3.2. API Compatibility Requirements](#32-api-compatibility-requirements)
-  - [3.3. Planning Deliverables](#33-planning-deliverables)
-- [4. Phase 3: Code Integration](#4-phase-3-code-integration)
-  - [4.1. Model Integration](#41-model-integration)
-  - [4.2. Component Integration](#42-component-integration)
-  - [4.3. Configuration Integration](#43-configuration-integration)
-  - [4.4. Integration Validation](#44-integration-validation)
-- [5. Phase 4: Testing and Validation](#5-phase-4-testing-and-validation)
-  - [5.1. Test Implementation](#51-test-implementation)
-  - [5.2. API Compliance Testing](#52-api-compliance-testing)
-  - [5.3. Final Validation](#53-final-validation)
-- [6. Critical Integration Principles](#6-critical-integration-principles)
-  - [6.1. Code Preservation](#61-code-preservation)
-  - [6.2. Pylon Framework Alignment](#62-pylon-framework-alignment)
-  - [6.3. API Standards](#63-api-standards)
+- [Part I: Repository Analysis Guidelines](#part-i-repository-analysis-guidelines)
+  - [2. Analysis Phase](#2-analysis-phase)
+    - [2.1. Source Repository Locations](#21-source-repository-locations)
+    - [2.2. Analysis Deliverables](#22-analysis-deliverables)
+    - [2.3. Analysis Validation Checklist](#23-analysis-validation-checklist)
+  - [3. Planning Phase](#3-planning-phase)
+    - [3.1. Integration Strategy](#31-integration-strategy)
+    - [3.2. API Compatibility Requirements](#32-api-compatibility-requirements)
+    - [3.3. Planning Deliverables](#33-planning-deliverables)
+- [Part II: Integration Implementation Guidelines](#part-ii-integration-implementation-guidelines)
+  - [4. Git Branch Setup](#4-git-branch-setup)
+  - [5. Commit 1: Original Code Copy](#5-commit-1-original-code-copy)
+    - [5.1. File Identification and Copying](#51-file-identification-and-copying)
+    - [5.2. Commit Guidelines](#52-commit-guidelines)
+  - [6. Commit 2: Import Statement Fixes](#6-commit-2-import-statement-fixes)
+    - [6.1. Import Path Updates](#61-import-path-updates)
+    - [6.2. Module Registration](#62-module-registration)
+  - [7. Commit 3: API Compatibility Changes](#7-commit-3-api-compatibility-changes)
+    - [7.1. Model API Updates](#71-model-api-updates)
+    - [7.2. Component API Updates](#72-component-api-updates)
+  - [8. Commit 4: Test Case Implementation](#8-commit-4-test-case-implementation)
+    - [8.1. Test Structure](#81-test-structure)
+    - [8.2. Test Patterns](#82-test-patterns)
+  - [9. Commit 5: Debug and Fix Implementation](#9-commit-5-debug-and-fix-implementation)
+    - [9.1. Test Debugging Process](#91-test-debugging-process)
+    - [9.2. Final Validation](#92-final-validation)
+- [10. Critical Integration Principles](#10-critical-integration-principles)
+  - [10.1. Code Preservation](#101-code-preservation)
+  - [10.2. Pylon Framework Alignment](#102-pylon-framework-alignment)
+  - [10.3. API Standards](#103-api-standards)
 
 ---
 
@@ -37,7 +46,13 @@
 - Proper component registration and configuration integration
 - Comprehensive test coverage following Pylon testing patterns
 
-## 2. Phase 1: Repository Analysis
+**Integration Approach**: Structured 5-commit workflow for reviewable and organized integration process.
+
+---
+
+# Part I: Repository Analysis Guidelines
+
+## 2. Analysis Phase
 
 ### 2.1. Source Repository Locations
 ```
@@ -134,7 +149,7 @@
 - [ ] External dependencies identified and version requirements noted
 - [ ] Preprocessing pipelines completely documented
 
-## 3. Phase 2: Implementation Planning
+## 3. Planning Phase
 
 ### 3.1. Integration Strategy
 
@@ -184,149 +199,263 @@ models/change_detection/*/
 3. **API modification list**: Exact changes needed for Pylon compatibility
 4. **Testing strategy**: Test patterns to implement for each component
 
-## 4. Phase 3: Code Integration
+---
 
-### 4.1. Model Integration
+# Part II: Integration Implementation Guidelines
 
-#### 4.1.1. Code Preservation Approach
-**CRITICAL**: Follow exact copy-paste methodology:
+## 4. Git Branch Setup
 
-1. **Copy original files exactly** - preserve all logic, constants, defaults
-2. **Make ONLY minimal API adaptations** for Pylon compatibility:
-   ```python
-   # Original signature (example)
-   def forward(self, x1, x2):
-       return output
-
-   # Pylon-compatible signature (minimal change)
-   def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
-       x1 = inputs['image1']
-       x2 = inputs['image2']
-       output = # original logic unchanged
-       return {'logits': output}
-   ```
-
-3. **Remove only loss/metric computations** from model forward pass
-4. **NO additional changes**: No defensive programming, logging, renaming, formatting
-
-#### 4.1.2. File Copy Approach
-**Selective file copying**: Start from the main model entry point and trace through all imports to identify necessary files. Use `cp` command to copy only the required files from official repo, preserving exact structure and organization as intended by original authors.
-
-#### 4.1.3. Component Registration
-**Register in**: `models/change_detection/__init__.py`
-```python
-from models.change_detection.model_name import ModelClassName
+**Create development branch for integration**:
+```bash
+git checkout -b integration/[model_name]
 ```
 
-### 4.2. Component Integration
+**Commit Strategy**: 5 structured commits for organized review process:
+1. **Commit 1**: Original code copy (no modifications)
+2. **Commit 2**: Import statement fixes only
+3. **Commit 3**: API compatibility changes only
+4. **Commit 4**: Test case implementation
+5. **Commit 5**: Debugging and fixes to make tests pass
 
-#### 4.2.1. Criteria Integration
-**Location**: `criteria/` (if needed as separate module)
-**Requirements**:
-- Copy original loss function implementations exactly
-- Adapt only for API compatibility if needed (minimal changes)
-- **MUST inherit from `BaseCriterion`** (may or may not inherit from `SingleTaskCriterion` depending on use case)
-- Follow asynchronous buffer pattern if integrating with Pylon framework
+## 5. Commit 1: Original Code Copy
 
-#### 4.2.2. Metrics Integration  
-**Location**: `metrics/` (if needed as separate module)
-**Requirements**:
-- Copy original metric implementations exactly
-- Adapt only for API compatibility if needed (minimal changes)
-- **MUST inherit from `BaseMetric`** (may or may not inherit from `SingleTaskMetric` depending on use case)
-- **CRITICAL**: Define `DIRECTIONS` attribute if integrating with Pylon framework (see CLAUDE.md section 3.10)
-- Follow metric structure requirements if using Pylon base classes
+### 5.1. File Identification and Copying
 
-### 4.3. Configuration Integration
+**Step 1: Trace Import Dependencies**
+Starting from the main model entry point, trace through all import statements to identify necessary files:
 
-#### 4.3.1. Model Configurations
-**Location**: `configs/common/models/change_detection/[model_name]/`
-**Requirements**:
-- Convert original config format (YAML, JSON, Python, etc.) to Python dict format
-- Follow Pylon's `build_from_config` pattern
-- Preserve all original hyperparameters exactly
-
-#### 4.3.2. Example Configuration Structure
-```python
-# configs/common/models/change_detection/model_name/base_config.py
-from models.change_detection.model_name import ModelClassName
-
-config = {
-    'class': ModelClassName,
-    'args': {
-        # Exact parameters from original implementation
-        'param1': value1,
-        'param2': value2,
-        # ... preserve all original parameters
-    }
-}
+```bash
+# Example workflow
+# 1. Start from main model file
+# 2. Identify all local imports
+# 3. Recursively trace dependencies
+# 4. Create list of all required files
 ```
 
-### 4.4. Integration Validation
+**Step 2: Strategic File Copying**
+Copy files to appropriate Pylon modules based on their function:
 
-**Validation Steps**:
-1. **Import verification**: All modules import successfully
-2. **Model instantiation**: Model creates without errors using configs
-3. **Forward pass testing**: Model processes dummy inputs correctly
-4. **Output format validation**: Outputs match expected Pylon format
+```bash
+# Models and related components
+cp /source/repo/model.py models/change_detection/[model_name]/
+cp /source/repo/layers/* models/change_detection/[model_name]/layers/
+cp /source/repo/utils/* models/change_detection/[model_name]/utils/
 
-## 5. Phase 4: Testing and Validation
+# Loss functions (if separate from model)
+cp /source/repo/losses.py criteria/
 
-### 5.1. Test Implementation
+# Metrics (if separate from model)  
+cp /source/repo/metrics.py metrics/
 
-**Follow Pylon testing patterns** (see CLAUDE.md section 5):
+# Datasets (if needed)
+cp /source/repo/dataset.py data/datasets/change_detection_datasets/
+```
 
-#### 5.1.1. Model Tests
+**Step 3: Configuration Files**
+```bash
+# Copy original configs
+cp /source/repo/configs/* configs/common/models/change_detection/[model_name]/
+```
+
+### 5.2. Commit Guidelines
+
+**Commit Message Format**:
+```
+[Integration] Add original [model_name] code from official repository
+
+- Direct copy of all necessary files with no modifications
+- Files copied from: [source_repo_url]
+- Commit hash: [original_commit_hash]
+- Components copied:
+  - Model: models/change_detection/[model_name]/
+  - Criteria: criteria/[criterion_name].py (if applicable)
+  - Metrics: metrics/[metric_name].py (if applicable)
+  - Configs: configs/common/models/change_detection/[model_name]/
+```
+
+**CRITICAL**: This commit should contain ZERO modifications to the copied code. Only file placement changes.
+
+## 6. Commit 2: Import Statement Fixes
+
+### 6.1. Import Path Updates
+
+**Update all import statements** to work with Pylon's module structure:
+
+```python
+# Original imports (example)
+from .layers import ConvBlock
+from utils.helpers import some_function
+
+# Updated for Pylon structure  
+from models.change_detection.model_name.layers import ConvBlock
+from models.change_detection.model_name.utils.helpers import some_function
+```
+
+**External vs Internal Imports**:
+- Keep external library imports unchanged
+- Update only internal project imports to match Pylon paths
+- Follow CLAUDE.md section 6.1 import ordering
+
+### 6.2. Module Registration
+
+**Update `__init__.py` files**:
+
+```python
+# models/change_detection/__init__.py
+from models.change_detection.model_name import ModelClassName
+
+# criteria/__init__.py (if needed)
+from criteria.criterion_name import CriterionClassName
+
+# metrics/__init__.py (if needed)  
+from metrics.metric_name import MetricClassName
+```
+
+**Commit Message Format**:
+```
+[Integration] Fix import paths for [model_name] integration
+
+- Update all internal import statements for Pylon module structure
+- Register components in appropriate __init__.py files
+- No functional changes, only import path updates
+- All files should now import correctly within Pylon
+```
+
+## 7. Commit 3: API Compatibility Changes
+
+### 7.1. Model API Updates
+
+**Forward Pass Signature Changes**:
+
+```python
+# Original model forward (example)
+def forward(self, img1: torch.Tensor, img2: torch.Tensor) -> torch.Tensor:
+    # original logic
+    return output
+
+# Pylon-compatible forward (minimal change)
+def forward(self, inputs: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
+    img1 = inputs['image1']
+    img2 = inputs['image2']
+    # original logic unchanged
+    return {'logits': output}
+```
+
+**Key API Changes**:
+- Input signature: Accept `inputs: Dict[str, torch.Tensor]`
+- Output format: Return `Dict[str, torch.Tensor]` with raw logits
+- Remove loss/metric computations from model forward pass
+- Preserve all internal model logic exactly
+
+### 7.2. Component API Updates
+
+**Criteria API (if separate module)**:
+- Inherit from `BaseCriterion` (may or may not use `SingleTaskCriterion`)
+- Adapt input handling to work with Pylon's criterion interface
+- Preserve original loss computation logic
+
+**Metrics API (if separate module)**:
+- Inherit from `BaseMetric` (may or may not use `SingleTaskMetric`)
+- Add `DIRECTIONS` attribute for Pylon framework compatibility
+- Preserve original metric computation logic
+
+**Commit Message Format**:
+```
+[Integration] Update [model_name] APIs for Pylon compatibility
+
+- Model forward pass: Accept Dict input, return Dict output
+- Remove loss/metric computations from model forward pass
+- Update component inheritance (BaseCriterion, BaseMetric)
+- Add DIRECTIONS attribute to metrics
+- Preserve all original computational logic
+```
+
+## 8. Commit 4: Test Case Implementation
+
+### 8.1. Test Structure
+
+**Implement comprehensive test suites**:
+
 ```python
 # tests/models/change_detection/test_[model_name].py
 def test_model_initialization()        # Initialization pattern
-def test_forward_pass()               # Basic correctness
-def test_input_validation()           # Invalid input pattern  
+def test_forward_pass()               # Basic correctness  
+def test_input_validation()           # Invalid input pattern
 def test_gradient_flow()              # Gradient verification
 def test_output_format()              # API compliance testing
+
+# tests/criteria/test_[criterion_name].py (if applicable)
+def test_criterion_initialization()
+def test_loss_computation()
+def test_known_cases()
+
+# tests/metrics/test_[metric_name].py (if applicable)  
+def test_metric_initialization()
+def test_score_computation()
+def test_directions_attribute()
 ```
 
-#### 5.1.2. Component Tests
-- **Criteria tests**: Follow loss function testing patterns
-- **Metrics tests**: Follow metric testing patterns with DIRECTIONS validation
-- **Dataset tests**: Follow dataset testing patterns
+### 8.2. Test Patterns
 
-### 5.2. API Compliance Testing
+**Follow Pylon testing patterns** (see CLAUDE.md section 5):
+- Use standardized dummy data generators
+- Follow pytest function patterns (no test classes)
+- Include comprehensive API compliance tests
+- Test tensor type compliance
 
-**Critical API Tests**:
-1. **Input format compliance**:
-   ```python
-   inputs = {'image1': torch.randn(1, 3, 256, 256), 'image2': torch.randn(1, 3, 256, 256)}
-   outputs = model(inputs)
-   assert isinstance(outputs, dict)
-   assert 'logits' in outputs
+**Commit Message Format**:
+```
+[Integration] Add comprehensive test suite for [model_name]
+
+- Model tests: initialization, forward pass, gradient flow, API compliance
+- Criteria tests: [criterion_name] functionality and integration
+- Metrics tests: [metric_name] computation and DIRECTIONS validation
+- All tests follow Pylon testing patterns and conventions
+```
+
+## 9. Commit 5: Debug and Fix Implementation
+
+### 9.1. Test Debugging Process
+
+**Systematic debugging approach**:
+1. **Run tests and identify failures**:
+   ```bash
+   pytest tests/models/change_detection/test_[model_name].py -v
    ```
 
-2. **Output format validation**:
-   ```python
-   # Verify raw logits (not probabilities)
-   logits = outputs['logits']
-   assert not torch.allclose(logits.sum(dim=1), torch.ones(logits.shape[0]))
-   ```
+2. **Fix issues following fail-fast philosophy**:
+   - Investigate root causes, not symptoms
+   - Use assertions for input validation
+   - No defensive programming or try-catch masking
 
-3. **Tensor type compliance**: Follow CLAUDE.md section 4.1 requirements
+3. **Validate each fix**:
+   - Ensure fix addresses root cause
+   - Verify no regression in other tests
+   - Maintain original implementation logic
 
-### 5.3. Final Validation
+### 9.2. Final Validation
 
 **Before completion**:
-- [ ] Relevant model tests pass: `pytest tests/models/change_detection/test_[model_name].py`
-- [ ] Model tests complete successfully (initialization, forward pass, gradient flow, etc.)
-- [ ] All newly implemented components have passing tests:
-  - [ ] New criteria tests pass: `pytest tests/criteria/test_[criterion_name].py`
-  - [ ] New metrics tests pass: `pytest tests/metrics/test_[metric_name].py`
-  - [ ] New dataset tests pass: `pytest tests/data/datasets/test_[dataset_name].py`
+- [ ] All model tests pass: `pytest tests/models/change_detection/test_[model_name].py`
+- [ ] All component tests pass (criteria, metrics, datasets)
 - [ ] Configuration builds model correctly via `build_from_config`
-- [ ] All components properly registered
-- [ ] Documentation updated appropriately
+- [ ] All components properly registered and importable
+- [ ] No regressions in existing Pylon functionality
 
-## 6. Critical Integration Principles
+**Commit Message Format**:
+```
+[Integration] Debug and fix [model_name] implementation
 
-### 6.1. Code Preservation
+- Fix test failures: [list specific issues fixed]
+- Address import/dependency issues
+- Resolve API compatibility problems  
+- All tests now pass successfully
+- No changes to original computational logic
+```
+
+## 10. Critical Integration Principles
+
+### 10.1. Code Preservation
 
 **NEVER modify**:
 - Original algorithmic logic
@@ -341,7 +470,7 @@ def test_output_format()              # API compliance testing
 - Device handling (remove manual device management)
 - Loss/metric removal from model forward pass
 
-### 6.2. Pylon Framework Alignment
+### 10.2. Pylon Framework Alignment
 
 **Must follow**:
 - Fail-fast philosophy with assertions (no defensive programming)
@@ -350,7 +479,7 @@ def test_output_format()              # API compliance testing
 - Import statement ordering (CLAUDE.md section 6.1)
 - Type annotations for all functions (CLAUDE.md section 6.2)
 
-### 6.3. API Standards
+### 10.3. API Standards
 
 **Dataset Integration**:
 - Follow three-field structure: `inputs`, `labels`, `meta_info`
