@@ -390,8 +390,23 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             f"3) Adjusting rotation/translation ranges for ModelNet40 object scale."
         )
         
-        # Return the last generated valid result
-        return generated_results[-1]
+        # Get existing valid transforms after cache update
+        with self._cache_lock:
+            updated_cached_transforms = self.transform_cache.get(file_cache_key, [])
+        
+        # Filter for valid transforms (same logic as in _load_datapoint)
+        valid_transforms = []
+        for transform_config in updated_cached_transforms:
+            overlap = transform_config.get('overlap', 0.0)
+            src_num_points = transform_config.get('src_num_points', 0)
+            tgt_num_points = transform_config.get('tgt_num_points', 0)
+            
+            if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
+                src_num_points >= self.min_points and tgt_num_points >= self.min_points):
+                valid_transforms.append(transform_config)
+        
+        # Use _get_pair to get the correct transform at transform_idx
+        return self._get_pair(file_idx, transform_idx, valid_transforms)
     
     def _process_transform_batch(self, batch_args: List[Tuple]) -> List[Dict[str, Any]]:
         """Process a batch of transforms in parallel.
