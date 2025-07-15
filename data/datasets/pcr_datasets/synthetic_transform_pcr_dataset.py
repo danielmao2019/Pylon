@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 from abc import ABC, abstractmethod
 import os
 import json
@@ -47,7 +47,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         overlap_range: Tuple[float, float] = (0.3, 1.0),
         min_points: int = 512,
         max_trials: int = 1000,
-        cache_filepath: str = None,
+        cache_filepath: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
