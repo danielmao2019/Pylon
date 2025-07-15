@@ -203,6 +203,8 @@ models/change_detection/*/
 
 # Part II: Integration Implementation Guidelines
 
+**🎯 Implementation Approach**: Work independently on clear tasks, but ask for high-level guidance when confused or stuck to prevent going down wrong paths.
+
 ## 4. Git Branch Setup
 
 **Create development branch for integration**:
@@ -337,6 +339,11 @@ python temp_test_utils_imports.py
 - Continue until all test files run without errors
 - **CRITICAL**: Only fix import paths, do NOT reorder imports or clean up empty lines
 
+**When to ask for guidance**:
+- **If confused about import path structure**: "I'm unsure how to structure the import path for [specific case]. What's the correct approach?"
+- **If encountering unexpected errors**: "Getting [error type] that I don't understand. Should I investigate [approach A] or [approach B]?"
+- **If multiple possible solutions**: "I see several ways to fix this: [list options]. Which direction should I take?"
+
 **Import Fixing Guidelines**:
 - **Change ONLY the import paths**: `from .layers` → `from models.change_detection.model_name.layers`
 - **Preserve original formatting**: Keep empty lines, comments, and order exactly as in original
@@ -373,11 +380,11 @@ Missing Dependencies Found:
 - segmentation_models_pytorch==0.3.2 (ImportError in models/model_name/utils/encoder.py line 12)
 
 These packages are not listed in docs/environment_setup.md
-Location of import test files: 
-- temp_test_model_imports.py
-- temp_test_layers_imports.py
-- temp_test_utils_imports.py
 ```
+
+**When to ask for guidance**:
+- **If unsure about dependency**: "Package [X] is missing. Should I document it as a new dependency or look for alternatives?"
+- **If many missing packages**: "Found [N] missing dependencies. Should I proceed with documenting all or focus on core ones first?"
 
 **Step 5: Clean up test files**
 After all imports are fixed and verified:
@@ -495,6 +502,10 @@ def test_directions_attribute()
 - Include comprehensive API compliance tests
 - Test tensor type compliance
 
+**When to ask for guidance**:
+- **If test patterns are unclear**: "I'm unsure how to structure the test for [specific functionality]. Should I follow [pattern A] or [pattern B]?"
+- **If API requirements are ambiguous**: "The model returns [X] but tests expect [Y]. Which should I adjust?"
+
 **Commit Message Format**:
 ```
 [Integration] Add comprehensive test suite for [model_name]
@@ -524,6 +535,11 @@ def test_directions_attribute()
    - Ensure fix addresses root cause
    - Verify no regression in other tests
    - Maintain original implementation logic
+
+**When to ask for guidance**:
+- **If stuck on debugging**: "Test failing with [error type]. I've checked [areas investigated] but unsure of root cause. Should I focus on [approach A] or [approach B]?"
+- **If multiple fix options**: "I can fix this by [option 1] or [option 2]. Which aligns better with Pylon patterns?"
+- **If uncertain about scope**: "This fix might affect [broader area]. Should I proceed or take a different approach?"
 
 ### 9.2. Final Validation
 
