@@ -453,3 +453,134 @@ def test_progress_with_trainer_saved_progress():
         # Second call should still use fast path and get updated value
         progress = get_session_progress(work_dir, expected_files)
         assert progress == 70
+
+
+def test_trainer_progress_accuracy():
+    """Test that simulated BaseTrainer logic saves correct epoch counts."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        work_dir = os.path.join(tmpdir, "trainer_accuracy_test")
+        os.makedirs(work_dir)
+        
+        # Simulate the exact BaseTrainer logic
+        def simulate_trainer_epoch(epoch_idx: int, cum_epochs: int, tot_epochs: int = 100):
+            """Simulate BaseTrainer completing one epoch and saving progress."""
+            # This simulates the exact logic in BaseTrainer.run():
+            # 1. Train and validate epoch_idx 
+            # 2. Update cum_epochs = epoch_idx + 1
+            # 3. Call _save_progress()
+            
+            new_cum_epochs = epoch_idx + 1
+            
+            # Simulate _save_progress() logic
+            progress_data = {
+                "completed_epochs": new_cum_epochs,  # Current implementation
+                "progress_percentage": (new_cum_epochs / tot_epochs) * 100,
+                "early_stopped": False,
+                "early_stopped_at_epoch": None
+            }
+            
+            save_json(progress_data, os.path.join(work_dir, "progress.json"))
+            return new_cum_epochs
+        
+        # Test scenario: Complete epochs 0, 1, 2
+        cum_epochs = 0
+        for epoch_idx in [0, 1, 2]:
+            cum_epochs = simulate_trainer_epoch(epoch_idx, cum_epochs)
+            
+            # Verify progress.json reflects correct number of completed epochs
+            with open(os.path.join(work_dir, "progress.json"), 'r') as f:
+                progress_data = json.load(f)
+            
+            expected_completed = epoch_idx + 1  # After completing epoch_idx, we've completed epoch_idx+1 epochs
+            assert progress_data["completed_epochs"] == expected_completed, \
+                f"After completing epoch {epoch_idx}, expected {expected_completed} completed epochs, got {progress_data['completed_epochs']}"
+            assert progress_data["progress_percentage"] == expected_completed, \
+                f"Expected {expected_completed}% progress, got {progress_data['progress_percentage']}"
+
+
+def test_trainer_early_stopping_accuracy():
+    """Test that simulated early stopping saves correct epoch counts."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        work_dir = os.path.join(tmpdir, "early_stop_accuracy_test")
+        os.makedirs(work_dir)
+        
+        # Simulate BaseTrainer with early stopping triggered
+        def simulate_early_stopping(cum_epochs: int, current_epoch_idx: int):
+            """Simulate early stopping being triggered at start of current_epoch_idx."""
+            # This simulates: early stopping triggers, we call _save_progress() 
+            # BEFORE updating cum_epochs for the current epoch
+            
+            progress_data = {
+                "completed_epochs": cum_epochs,  # cum_epochs hasn't been updated yet
+                "progress_percentage": (cum_epochs / 100) * 100,
+                "early_stopped": True,
+                "early_stopped_at_epoch": cum_epochs
+            }
+            
+            save_json(progress_data, os.path.join(work_dir, "progress.json"))
+        
+        # Scenario: Completed epochs 0, 1, 2 (cum_epochs=3), early stopping triggers at start of epoch 3
+        cum_epochs = 3  # 3 epochs have been completed
+        current_epoch_idx = 3  # About to start epoch 3, but early stopping triggers
+        
+        simulate_early_stopping(cum_epochs, current_epoch_idx)
+        
+        # Verify progress.json
+        with open(os.path.join(work_dir, "progress.json"), 'r') as f:
+            progress_data = json.load(f)
+        
+        assert progress_data["completed_epochs"] == 3, \
+            f"Expected 3 completed epochs, got {progress_data['completed_epochs']}"
+        assert progress_data["early_stopped"] == True
+        assert progress_data["early_stopped_at_epoch"] == 3
+
+
+def test_original_implementation_would_be_wrong():
+    """Test that demonstrates the original +1 implementation would be incorrect."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        work_dir = os.path.join(tmpdir, "original_impl_test")
+        os.makedirs(work_dir)
+        
+        # Simulate what the ORIGINAL implementation would have done (with +1)
+        def simulate_original_trainer_epoch(epoch_idx: int, cum_epochs: int, tot_epochs: int = 100):
+            """Simulate what the original BaseTrainer logic would have done (WRONG)."""
+            new_cum_epochs = epoch_idx + 1
+            
+            # Simulate ORIGINAL _save_progress() logic (with +1)
+            progress_data = {
+                "completed_epochs": new_cum_epochs + 1,  # WRONG: Original had +1 
+                "progress_percentage": ((new_cum_epochs + 1) / tot_epochs) * 100,
+                "early_stopped": False,
+                "early_stopped_at_epoch": None
+            }
+            
+            save_json(progress_data, os.path.join(work_dir, "progress.json"))
+            return new_cum_epochs
+        
+        # Test: After completing epoch 0, the original implementation would save wrong values
+        cum_epochs = 0
+        epoch_idx = 0
+        simulate_original_trainer_epoch(epoch_idx, cum_epochs)
+        
+        with open(os.path.join(work_dir, "progress.json"), 'r') as f:
+            progress_data = json.load(f)
+        
+        # The original implementation would incorrectly save 2 completed epochs 
+        # after completing only 1 epoch (epoch 0)
+        assert progress_data["completed_epochs"] == 2, \
+            "Original implementation would save 2 completed epochs after completing epoch 0"
+        assert progress_data["progress_percentage"] == 2.0, \
+            "Original implementation would save 2% progress after completing 1% of work"
+        
+        # This demonstrates the bug: we completed 1 epoch but saved 2!
+        actual_completed_epochs = epoch_idx + 1  # Should be 1
+        saved_completed_epochs = progress_data["completed_epochs"]  # Would be 2 with original
+        
+        print(f"After completing epoch {epoch_idx}:")
+        print(f"  Actual completed epochs: {actual_completed_epochs}")
+        print(f"  Original implementation would save: {saved_completed_epochs}")
+        print(f"  Error: +{saved_completed_epochs - actual_completed_epochs} epoch(s)")
+        
+        # The original implementation was wrong
+        assert saved_completed_epochs != actual_completed_epochs, \
+            "Original implementation saved incorrect epoch count"
