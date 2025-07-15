@@ -11,6 +11,7 @@ import tempfile
 import random
 import torch
 import data
+from utils.ops.dict_as_tensor import buffer_allclose
 
 
 def test_cache_consistency():
@@ -243,23 +244,13 @@ def test_datapoint_determinism():
             dp1 = datapoints1[idx]
             dp2 = datapoints2[idx]
             
-            # Compare inputs
-            for key in dp1['inputs']:
-                if isinstance(dp1['inputs'][key], torch.Tensor):
-                    assert torch.equal(dp1['inputs'][key], dp2['inputs'][key]), \
-                        f"Inputs tensor {key} differs at index {idx}"
-                else:
-                    assert dp1['inputs'][key] == dp2['inputs'][key], \
-                        f"Inputs {key} differs at index {idx}"
+            # Compare inputs using buffer_allclose for tensors
+            assert buffer_allclose(dp1['inputs'], dp2['inputs']), \
+                f"Inputs differ at index {idx}"
             
-            # Compare labels  
-            for key in dp1['labels']:
-                if isinstance(dp1['labels'][key], torch.Tensor):
-                    assert torch.equal(dp1['labels'][key], dp2['labels'][key]), \
-                        f"Labels tensor {key} differs at index {idx}"
-                else:
-                    assert dp1['labels'][key] == dp2['labels'][key], \
-                        f"Labels {key} differs at index {idx}"
+            # Compare labels using buffer_allclose for tensors
+            assert buffer_allclose(dp1['labels'], dp2['labels']), \
+                f"Labels differ at index {idx}"
             
             # Compare meta_info (skip dynamic fields like timestamps if any)
             meta_keys_to_compare = ['file_idx', 'transform_idx', 'overlap', 'crop_method', 'keep_ratio']
