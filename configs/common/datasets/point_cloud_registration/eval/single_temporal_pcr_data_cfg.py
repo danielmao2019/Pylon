@@ -7,28 +7,29 @@ from metrics.vision_3d.point_cloud_registration.transform_inlier_ratio import Tr
 
 data_cfg = {
     'eval_dataset': {
-        'class': data.datasets.RealPCRDataset,
+        'class': data.datasets.SingleTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'real_pcr_cache',
+            'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../single_temporal_pcr_cache.json',
             'split': 'val',
-            'voxel_size': 10.0,
-            'min_points': 512,
-            'max_points': 8192,
-            'overlap': 0.4,
+            'dataset_size': 500,  # Smaller for evaluation
+            'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
+            'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
+            'matching_radius': 0.05,  # Radius for correspondence finding
+            'overlap_range': (0.0, 1.0),  # GeoTransformer doesn't use specific overlap ranges
+            'min_points': 512,  # Minimum points filter for cache generation
             'device': 'cpu',
             'transforms_cfg': {
                 'class': data.transforms.Compose,
                 'args': {
                     'transforms': [
-                        (
-                            {
-                                'class': data.transforms.vision_3d.PCRTranslation,
-                                'args': {},
+                        {
+                            'op': {
+                                'class': data.transforms.vision_3d.Clamp,
+                                'args': {'max_points': 8192},
                             },
-                            [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')],
-                        ),
+                            'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+                        },
                     ],
                 },
             },

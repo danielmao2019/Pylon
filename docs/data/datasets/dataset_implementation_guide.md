@@ -48,11 +48,14 @@ This guide teaches how to implement a new dataset in the Pylon framework, based 
 ```
 
 **Critical Questions to Answer**:
-- What data format do they use for metadata?
-- How do they handle train/val/test splits?
-- What preprocessing steps do they apply?
-- How do they compute derived data (e.g., correspondences)?
-- What are the exact dataset statistics (number of pairs, overlap distributions)?
+- How do I download their data and/or trained model weights? Provide me a download instruction.
+- In which files are the dataset classes defined? Give me a list.
+- How do they handle train/val/test splits? What are the splits on this dataset? How are the splits defined? Give me a statistics summary in the dataset document at the end.
+- After you download the data, traverse through the folder and see: which files contains the inputs, and which files contain the labels?
+- What data format do they use for meta info? You need to read/load and inspect.
+- What preprocessing steps did the authors apply to the data? In which file or from which reference are the preprocessing steps defined? Is the dataset class definition working with preprocessed data or raw data? Is the downloaded data the raw data from open source or the data preprocessed by the authors? Do I need to run the preprocessing myself? Can I trust the downloaded data?
+- In the definition of the dataset class, when the datapoints are being loaded, what are some transforms or data augmentations applied to the raw data loaded from disk? List all of them. Which of them are already implemented in Pylon, which of them are additional transforms that Pylon needs to implement? Do a deep dive into the @data/transforms module and investigate. Think carefully and compare the Pylon data transforms implementation with the transforms applied in the official code.
+- How do they compute derived data (e.g., correspondences for point cloud registration)? Is this expensive computation or no? If yes, think about creating a caching system, with strings as the cache keys. You should not be modifying anything in self.data_root. For all the cache files, you should be saving to a sibling folder of self.data_root.
 
 ---
 
