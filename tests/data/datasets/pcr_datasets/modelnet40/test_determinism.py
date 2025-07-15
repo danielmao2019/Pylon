@@ -150,9 +150,14 @@ def test_cache_subset_consistency():
         print(f"10-datapoint cache has {len(cache_10)} file keys")
         print(f"20-datapoint cache has {len(cache_20)} file keys")
         
-        # Check that both caches have the same file keys
-        assert set(cache_10.keys()) == set(cache_20.keys()), \
-            "Both caches should have the same file keys"
+        # Check that cache_10 keys are a subset of cache_20 keys
+        # (20-datapoint dataset should include all files from 10-datapoint dataset)
+        cache_10_keys = set(cache_10.keys())
+        cache_20_keys = set(cache_20.keys())
+        
+        assert cache_10_keys.issubset(cache_20_keys), \
+            f"10-datapoint cache keys should be subset of 20-datapoint cache keys. " \
+            f"Missing: {cache_10_keys - cache_20_keys}"
         
         # For each file, check that the first N transforms are identical
         # where N is the number of transforms for that file in the 10-datapoint case
