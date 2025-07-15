@@ -535,3 +535,45 @@ def test_trainer_early_stopping_accuracy():
         assert progress_data["early_stopped_at_epoch"] == 3
 
 
+def test_actual_save_progress_method():
+    """Test the actual _save_progress method from BaseTrainer."""
+    import tempfile
+    from runners.base_trainer import BaseTrainer
+    
+    # Create a minimal BaseTrainer subclass for testing
+    class TestTrainer(BaseTrainer):
+        def _init_optimizer(self):
+            pass
+        def _init_scheduler(self):
+            pass
+        def _set_gradients_(self, dp):
+            pass
+    
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = {
+            'epochs': 100,
+            'work_dir': tmpdir,
+            'train_seeds': [1] * 100,
+            'val_seeds': [2] * 100,
+            'test_seed': 3,
+            'init_seed': 4
+        }
+        
+        trainer = TestTrainer(config)
+        trainer.work_dir = tmpdir
+        trainer.tot_epochs = 100
+        trainer.early_stopping = None
+        
+        # Test case 1: After completing 1 epoch
+        trainer.cum_epochs = 1
+        trainer._save_progress()
+        
+        with open(os.path.join(tmpdir, "progress.json"), 'r') as f:
+            progress_data = json.load(f)
+        
+        # With current (correct) implementation: should save 1 completed epoch
+        # With original (+1) implementation: would save 2 completed epochs
+        assert progress_data["completed_epochs"] == 1, \
+            f"After cum_epochs=1, expected 1 completed epoch, got {progress_data['completed_epochs']}"
+        assert progress_data["progress_percentage"] == 1.0, \
+            f"Expected 1% progress, got {progress_data['progress_percentage']}"
