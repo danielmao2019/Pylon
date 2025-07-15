@@ -209,17 +209,8 @@ models/change_detection/*/
 3. **Remove only loss/metric computations** from model forward pass
 4. **NO additional changes**: No defensive programming, logging, renaming, formatting
 
-#### 4.1.2. Model Structure
-```
-models/change_detection/[model_name]/
-├── __init__.py           # Model class exports
-├── model.py             # Main model definition
-├── layers/              # Custom layers and blocks
-├── utils/               # Model-specific utilities
-├── configs/             # Model configurations
-├── .gitignore           # For pretrained weights
-└── README.md            # Model documentation
-```
+#### 4.1.2. File Copy Approach
+**Use direct file copying**: Use `cp -r` command to copy entire model directories from official repo, preserving exact structure and organization as intended by original authors.
 
 #### 4.1.3. Component Registration
 **Register in**: `models/change_detection/__init__.py`
@@ -232,24 +223,26 @@ from models.change_detection.model_name import ModelClassName
 #### 4.2.1. Criteria Integration
 **Location**: `criteria/` (if needed as separate module)
 **Requirements**:
-- Inherit from `SingleTaskCriterion` or appropriate base class
-- Implement `_compute_loss(y_pred: torch.Tensor, y_true: torch.Tensor) -> torch.Tensor`
-- Follow asynchronous buffer pattern if needed
+- Copy original loss function implementations exactly
+- Adapt only for API compatibility if needed (minimal changes)
+- May or may not inherit from Pylon base classes depending on original structure
+- Follow asynchronous buffer pattern if integrating with Pylon framework
 
 #### 4.2.2. Metrics Integration  
 **Location**: `metrics/` (if needed as separate module)
 **Requirements**:
-- Inherit from `SingleTaskMetric` or appropriate base class
-- Implement `_compute_score(y_pred: torch.Tensor, y_true: torch.Tensor) -> Dict[str, Union[float, List[float]]]`
-- **CRITICAL**: Define `DIRECTIONS` attribute (see CLAUDE.md section 3.10)
-- Follow metric structure requirements
+- Copy original metric implementations exactly
+- Adapt only for API compatibility if needed (minimal changes)
+- May or may not inherit from Pylon base classes depending on original structure
+- **CRITICAL**: Define `DIRECTIONS` attribute if integrating with Pylon framework (see CLAUDE.md section 3.10)
+- Follow metric structure requirements if using Pylon base classes
 
 ### 4.3. Configuration Integration
 
 #### 4.3.1. Model Configurations
 **Location**: `configs/common/models/change_detection/[model_name]/`
 **Requirements**:
-- Convert YAML configs to Python dict format
+- Convert original config format (YAML, JSON, Python, etc.) to Python dict format
 - Follow Pylon's `build_from_config` pattern
 - Preserve all original hyperparameters exactly
 
@@ -321,8 +314,8 @@ def test_output_format()              # API compliance testing
 ### 5.3. Final Validation
 
 **Before completion**:
-- [ ] All tests pass from project root: `pytest tests/`
-- [ ] Model trains successfully with dummy data
+- [ ] Relevant model tests pass: `pytest tests/models/change_detection/test_[model_name].py`
+- [ ] Model tests complete successfully (initialization, forward pass, gradient flow, etc.)
 - [ ] Configuration builds model correctly via `build_from_config`
 - [ ] All components properly registered
 - [ ] Documentation updated appropriately
