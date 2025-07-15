@@ -282,3 +282,83 @@ def compute_pc_iou(
     overlap_ratio = total_overlapping / total_points if total_points > 0 else 0
 
     return overlap_ratio
+
+
+def get_nearest_neighbor_distances(
+    query_points: torch.Tensor,
+    support_points: torch.Tensor,
+) -> torch.Tensor:
+    """Get nearest neighbor distances for query points in support points.
+    
+    This function replicates GeoTransformer's get_nearest_neighbor behavior.
+    
+    Args:
+        query_points: Query point cloud positions, shape (N, 3)
+        support_points: Support point cloud positions, shape (M, 3)
+        
+    Returns:
+        Distances to nearest neighbors, shape (N,)
+    """
+    assert isinstance(query_points, torch.Tensor)
+    assert isinstance(support_points, torch.Tensor)
+    assert query_points.ndim == 2 and support_points.ndim == 2
+    assert query_points.shape[1] == 3 and support_points.shape[1] == 3
+    
+    # Convert to numpy for KD-tree operations (following GeoTransformer)
+    query_np = query_points.cpu().numpy()
+    support_np = support_points.cpu().numpy()
+    
+    # Build KD-tree for support points
+    support_tree = cKDTree(support_np)
+    
+    # Query nearest neighbors (k=1 for closest point)
+    distances, _ = support_tree.query(query_np, k=1)
+    
+    # Convert back to tensor on original device
+    distances = torch.from_numpy(distances).to(query_points.device)
+    
+    return distances
+
+
+def compute_registration_overlap(
+    ref_points: torch.Tensor,
+    src_points: torch.Tensor,
+    transform: Optional[torch.Tensor] = None,
+    positive_radius: float = 0.1
+) -> float:
+    """Compute overlap between two point clouds (GeoTransformer style).
+    
+    This function replicates GeoTransformer's compute_overlap behavior:
+    - Directional overlap: fraction of ref points with src neighbors within radius
+    - Used for filtering registration pairs based on coverage
+    
+    Args:
+        ref_points: Reference point cloud positions, shape (N, 3)
+        src_points: Source point cloud positions, shape (M, 3)
+        transform: Optional 4x4 transformation matrix to apply to src_points
+        positive_radius: Distance threshold for considering points as overlapping
+        
+    Returns:
+        Overlap ratio as fraction of reference points with close source neighbors
+    """
+    assert isinstance(ref_points, torch.Tensor)
+    assert isinstance(src_points, torch.Tensor)
+    assert ref_points.ndim == 2 and src_points.ndim == 2
+    assert ref_points.shape[1] == 3 and src_points.shape[1] == 3
+    
+    # Apply transformation to source points if provided
+    if transform is not None:
+        assert isinstance(transform, torch.Tensor)
+        assert transform.shape == (4, 4)
+        # Apply SE(3) transformation: src_transformed = (R @ src.T + t).T
+        R = transform[:3, :3]
+        t = transform[:3, 3]
+        src_points = (R @ src_points.T + t.unsqueeze(1)).T
+    
+    # Get nearest neighbor distances (ref -> src)
+    nn_distances = get_nearest_neighbor_distances(ref_points, src_points)
+    
+    # Compute overlap as fraction of ref points with neighbors within radius
+    overlap = torch.mean((nn_distances < positive_radius).float()).item()
+    
+    return overlap

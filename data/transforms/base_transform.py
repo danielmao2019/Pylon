@@ -24,7 +24,7 @@ class BaseTransform:
         elif g_type == 'numpy':
             generator = np.random.Generator(np.random.PCG64(seed))
         elif g_type == 'torch':
-            generator = torch.Generator(device='cuda')
+            generator = torch.Generator(device='cuda' if torch.cuda.is_available() else 'cpu')
             generator.manual_seed(seed)
         else:
             raise NotImplementedError(f"Unsupported generator type: {g_type}")
