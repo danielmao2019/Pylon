@@ -296,35 +296,94 @@ from models.change_detection.model_name.utils.helpers import some_function
 - Update only internal project imports to match Pylon paths
 - Follow CLAUDE.md section 6.1 import ordering
 
-### 6.2. Dependency Verification
+### 6.2. Import Verification with Test Files
 
-**Check for missing packages** during import fixing process:
+**Create temporary test files** to systematically verify all imports:
 
-```bash
-# Test imports to identify missing dependencies
-python -c "
-try:
-    from models.change_detection.model_name import ModelClassName
-    print('Model imports successful')
-except ImportError as e:
-    print(f'Missing dependency: {e}')
-"
+**Step 1: Generate import test files**
+For each source file, create a temporary test file that executes all its import statements:
+
+```python
+# Example: temp_test_model_imports.py
+"""
+Temporary file to test imports for models/change_detection/model_name/model.py
+This file will be deleted after import verification is complete.
+"""
+
+# Copy ALL import statements from the original file exactly
+from typing import Dict, List, Optional, Tuple
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from models.change_detection.model_name.layers import ConvBlock
+from models.change_detection.model_name.utils.helpers import some_function
+# ... all other imports from the original file
+
+print("All imports successful for model.py")
 ```
 
-**Report missing packages**:
-- Document any `ImportError` exceptions encountered
-- Identify external packages not available in current environment
-- Check against `docs/environment_setup.md` to see if packages are already documented
-- **DO NOT install packages** - only report findings for review
+**Step 2: Test each file systematically**
+```bash
+# Test imports for each source file
+python temp_test_model_imports.py
+python temp_test_layers_imports.py  
+python temp_test_utils_imports.py
+# ... for all source files
+```
 
-**Example missing package report**:
+**Step 3: Fix import issues iteratively**
+- Fix imports one file at a time
+- Re-run test file after each fix
+- Continue until all test files run without errors
+- **CRITICAL**: Only fix import paths, do NOT reorder imports or clean up empty lines
+
+**Import Fixing Guidelines**:
+- **Change ONLY the import paths**: `from .layers` → `from models.change_detection.model_name.layers`
+- **Preserve original formatting**: Keep empty lines, comments, and order exactly as in original
+- **No cleanup**: Don't remove unused imports or reorganize - this increases diff noise for review
+
+**Example import fix (preserving formatting)**:
+```python
+# Original file imports (preserve this exact formatting)
+from typing import Dict, List
+
+import torch
+import torch.nn as nn
+
+from .layers import ConvBlock  # Fix only this line
+from .utils.helpers import some_function  # Fix only this line
+
+# After fixing (same formatting, only paths changed)
+from typing import Dict, List
+
+import torch
+import torch.nn as nn
+
+from models.change_detection.model_name.layers import ConvBlock  
+from models.change_detection.model_name.utils.helpers import some_function
+```
+
+**Step 4: Document missing dependencies**
+When external packages are missing, document them for review:
+
 ```
 Missing Dependencies Found:
-- albumentations==1.3.0 (used in data augmentation)
-- timm==0.9.2 (used for backbone models)  
-- segmentation_models_pytorch==0.3.2 (used for encoder architectures)
+- albumentations==1.3.0 (ImportError in models/model_name/model.py line 15)
+- timm==0.9.2 (ImportError in models/model_name/layers/backbone.py line 8)
+- segmentation_models_pytorch==0.3.2 (ImportError in models/model_name/utils/encoder.py line 12)
 
 These packages are not listed in docs/environment_setup.md
+Location of import test files: 
+- temp_test_model_imports.py
+- temp_test_layers_imports.py
+- temp_test_utils_imports.py
+```
+
+**Step 5: Clean up test files**
+After all imports are fixed and verified:
+```bash
+# Remove temporary test files
+rm temp_test_*_imports.py
 ```
 
 ### 6.3. Module Registration
@@ -348,9 +407,10 @@ from metrics.metric_name import MetricClassName
 
 - Update all internal import statements for Pylon module structure
 - Register components in appropriate __init__.py files
-- No functional changes, only import path updates
+- Import verification: All test files pass without errors
 - Dependency verification: [report status - e.g., "All dependencies available" or "Missing packages reported"]
-- All files should now import correctly within Pylon
+- No functional changes, only import path updates, preserved original formatting
+- Temporary test files cleaned up after verification
 ```
 
 ## 7. Commit 3: API Compatibility Changes
