@@ -599,6 +599,14 @@ print('Integration successful - model builds correctly')
 pytest tests/models/change_detection/test_change_star.py::test_change_star_initialization -v
 ```
 
+**🎯 ULTIMATE INTEGRATION TEST**:
+```bash
+# This is the final exit criterion - must run without errors
+python main.py --config-filepath configs/common/models/change_detection/[model_name]/base_config.py --debug
+```
+
+**Expected behavior**: Training should start and run for 3 epochs in debug mode without any errors. This validates complete integration with Pylon's training pipeline.
+
 **Commit Message Format**:
 ```
 [Integration] Debug and fix [model_name] implementation
@@ -683,5 +691,6 @@ pytest tests/models/change_detection/test_change_star.py::test_change_star_initi
 - Model integrates with Pylon training pipeline
 - Original computational behavior preserved
 - Clean, reviewable commit history
+- **Final validation**: `python main.py --config-filepath path/to/config --debug` runs without errors
 
 **Usage Note**: This document serves as a comprehensive checklist and reference for code integration tasks. Each phase should be completed fully before proceeding to the next, with all deliverables documented and validated.
