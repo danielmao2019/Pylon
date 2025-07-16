@@ -201,6 +201,57 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
         executor.map(validate_datapoint, indices)
 
 
+def test_pcr_relationship():
+    """Test that the standard PCR relationship holds: source + gt_transform = target."""
+    from utils.point_cloud_ops import apply_transform
+    
+    # Create a small test dataset to verify the relationship
+    dataset = data.datasets.ModelNet40Dataset(
+        data_root='data/datasets/soft_links/ModelNet40',
+        split='test',
+        dataset_size=5,  # Small for testing
+        overlap_range=(0.3, 1.0),
+        matching_radius=0.05,
+        rotation_mag=30.0,
+        translation_mag=0.3,
+        cache_filepath=None,
+        transforms_cfg=transforms_cfg(),
+    )
+    
+    # Test the relationship on multiple datapoints
+    for idx in range(min(3, len(dataset))):
+        datapoint = dataset[idx]
+        
+        src_pc = datapoint['inputs']['src_pc']['pos']  # Source point cloud
+        tgt_pc = datapoint['inputs']['tgt_pc']['pos']  # Target point cloud  
+        gt_transform = datapoint['labels']['transform']  # Ground truth transform
+        meta_info = datapoint['meta_info']
+        
+        # Get the stored overlap from meta_info
+        stored_overlap = meta_info['overlap']
+        
+        # Recompute overlap using the same method as the dataset
+        from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
+        
+        # Use the same parameters as the dataset for consistency
+        # Dataset uses matching_radius * 2 as positive_radius (see line 456 in synthetic_transform_pcr_dataset.py)
+        positive_radius = dataset.matching_radius * 2  # 0.05 * 2 = 0.1
+        
+        recomputed_overlap = compute_registration_overlap(
+            ref_points=tgt_pc,
+            src_points=src_pc,
+            transform=gt_transform,
+            positive_radius=positive_radius
+        )
+        
+        # Test 1: PCR relationship - overlap should be reasonably high (> 0.2)
+        assert recomputed_overlap > 0.2, f"PCR relationship broken: overlap={recomputed_overlap:.4f} too low for idx={idx}"
+        
+        # Test 2: Overlap consistency - recomputed should match stored (within tolerance)
+        overlap_diff = abs(recomputed_overlap - stored_overlap)
+        assert overlap_diff < 0.01, f"Overlap inconsistency for idx={idx}: stored={stored_overlap:.4f}, recomputed={recomputed_overlap:.4f}, diff={overlap_diff:.4f}"
+
+
 def test_modelnet40_categories():
     """Test ModelNet40 category definitions."""
     categories = data.datasets.ModelNet40Dataset.CATEGORIES

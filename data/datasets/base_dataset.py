@@ -16,10 +16,10 @@ from utils.ops import apply_tensor_op
 class BaseDataset(torch.utils.data.Dataset, ABC):
 
     SPLIT_OPTIONS: List[str]
-    DATASET_SIZE: Union[Dict[str, int], int]
+    DATASET_SIZE: Optional[Union[Dict[str, int], int]]
     INPUT_NAMES: List[str]
     LABEL_NAMES: List[str]
-    SHA1SUM: str
+    SHA1SUM: Optional[str]
 
     def __init__(
         self,
