@@ -5,6 +5,7 @@ import torch
 from sklearn.neighbors import KDTree
 from data.datasets import BaseDataset
 from utils.point_cloud_ops.sampling import GridSampling3D
+from utils.point_cloud_ops import normalize_point_cloud
 import utils
 
 
@@ -100,23 +101,6 @@ class SLPCCDDataset(BaseDataset):
                     })
         self.annotations = annotations
 
-    def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
-        """Normalize point cloud to be centered at the origin with unit scale.
-
-        Args:
-            pc: Point cloud tensor of shape (N, 3)
-
-        Returns:
-            Normalized point cloud
-        """
-        # Center the point cloud
-        centroid = torch.mean(pc, dim=0)
-        pc = pc - centroid
-        # Scale to unit sphere
-        max_dist = torch.max(torch.norm(pc, dim=1))
-        if max_dist > 0:
-            pc = pc / max_dist
-        return pc
 
     def _random_subsample_point_cloud(self, pc: torch.Tensor, n_points: int) -> torch.Tensor:
         """Randomly subsample or pad point cloud to have exactly n_points.
@@ -331,8 +315,8 @@ class SLPCCDDataset(BaseDataset):
             Dictionary with processed point clouds
         """
         # Normalize point clouds (center and scale)
-        pc_1_xyz = self._normalize_point_cloud(data['pc_1_xyz'])
-        pc_2_xyz = self._normalize_point_cloud(data['pc_2_xyz'])
+        pc_1_xyz = normalize_point_cloud(data['pc_1_xyz'])
+        pc_2_xyz = normalize_point_cloud(data['pc_2_xyz'])
 
         # Get original features and change map
         pc_1_feat = data['pc_1_feat']

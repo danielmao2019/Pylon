@@ -19,7 +19,7 @@ class SingleTemporalPCRDataset(SyntheticTransformPCRDataset):
     def _init_annotations(self) -> None:
         """Initialize file pair annotations for single-temporal dataset.
         
-        For single-temporal, each file pair has same src_file_path and tgt_file_path.
+        For single-temporal, each file pair has same src_filepath and tgt_filepath.
         """
         # Find all point cloud files (utils/io/point_cloud.py handles all formats)
         all_files = []
@@ -31,8 +31,8 @@ class SingleTemporalPCRDataset(SyntheticTransformPCRDataset):
         self.file_pair_annotations = []
         for file_path in pc_files:
             annotation = {
-                'src_file_path': file_path,
-                'tgt_file_path': file_path,  # Same file for self-registration
+                'src_filepath': file_path,
+                'tgt_filepath': file_path,  # Same file for self-registration
             }
             self.file_pair_annotations.append(annotation)
         

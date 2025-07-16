@@ -1,5 +1,5 @@
 from typing import Tuple, Dict, Any, List, Optional
-from abc import ABC, abstractmethod
+from abc import ABC
 import os
 import json
 import hashlib
@@ -98,9 +98,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         Subclasses should:
         1. Set self.file_pair_annotations to list of file pair annotations
-        2. Each annotation should have 'src_file_path' and 'tgt_file_path' keys
-        3. For single-temporal: src_file_path == tgt_file_path  
-        4. For bi-temporal: src_file_path != tgt_file_path
+        2. Each annotation should have 'src_filepath' and 'tgt_filepath' keys
+        3. For single-temporal: src_filepath == tgt_filepath  
+        4. For bi-temporal: src_filepath != tgt_filepath
         """
         raise NotImplementedError("Subclasses must implement _init_annotations and set self.file_pair_annotations")
     
@@ -229,57 +229,23 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             with open(self.cache_filepath, 'w') as f:
                 json.dump(self.transform_cache, f, indent=2)
     
-    def _get_file_cache_key(self, file_path: str) -> str:
-        """Generate cache key for file."""
-        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+    def _get_file_cache_key(self, file_pair_annotation: Dict[str, Any]) -> str:
+        """Generate cache key for file pair.
+        
+        Uses both source and target file paths to ensure unique keys
+        for multi-pairing scenarios like (A,B), (A,C), (A,D).
+        
+        Args:
+            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
+            
+        Returns:
+            Unique cache key string for this file pair
+        """
+        src_path = file_pair_annotation['src_filepath']
+        tgt_path = file_pair_annotation['tgt_filepath']
+        combined_path = f"{src_path}|{tgt_path}"
+        file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
         return file_hash
-    
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Load point cloud data for both source and target files.
-        
-        Handles both single-temporal and bi-temporal datasets:
-        - Single-temporal: src_file_path == tgt_file_path, load once and copy
-        - Bi-temporal: src_file_path != tgt_file_path, load both files
-        
-        Args:
-            file_pair_annotation: Annotation with 'src_file_path' and 'tgt_file_path' keys
-            
-        Returns:
-            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors
-        """
-        src_file_path = file_pair_annotation['src_file_path']
-        tgt_file_path = file_pair_annotation['tgt_file_path']
-        
-        # Load source point cloud (load_point_cloud now always returns dict format)
-        src_pc_data = load_point_cloud(src_file_path)
-        src_pc_raw = src_pc_data['pos']
-        
-        # Check if single-temporal or bi-temporal
-        if src_file_path == tgt_file_path:
-            # Single-temporal: copy source as target
-            tgt_pc_raw = src_pc_raw.clone()
-        else:
-            # Bi-temporal: load target separately
-            tgt_pc_data = load_point_cloud(tgt_file_path)
-            tgt_pc_raw = tgt_pc_data['pos']
-        
-        # Apply normalization if needed (subclasses can override)
-        src_pc_raw = self._normalize_point_cloud(src_pc_raw)
-        tgt_pc_raw = self._normalize_point_cloud(tgt_pc_raw)
-        
-        return src_pc_raw, tgt_pc_raw
-    
-    @abstractmethod
-    def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
-        """Normalize point cloud. Subclasses must implement dataset-specific normalization.
-        
-        Args:
-            pc: Point cloud tensor of shape (N, 3)
-            
-        Returns:
-            Normalized point cloud tensor
-        """
-        pass
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
@@ -290,9 +256,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_pair_annotation = self.file_pair_annotations[file_idx]
         
         # Get cache key for this file pair
-        file_cache_key = self._get_file_cache_key(
-            file_pair_annotation.get('src_file_path', str(file_idx))
-        )
+        file_cache_key = self._get_file_cache_key(file_pair_annotation)
         
         # Helper function to get valid transforms from cache
         def get_valid_transforms():
@@ -355,6 +319,37 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return inputs, labels, meta_info
 
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Load point cloud data for both source and target files.
+        
+        Handles both single-temporal and bi-temporal datasets:
+        - Single-temporal: src_filepath == tgt_filepath, load once and copy
+        - Bi-temporal: src_filepath != tgt_filepath, load both files
+        
+        Args:
+            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
+            
+        Returns:
+            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors (not normalized)
+        """
+        src_filepath = file_pair_annotation['src_filepath']
+        tgt_filepath = file_pair_annotation['tgt_filepath']
+        
+        # Load source point cloud (load_point_cloud now always returns dict format)
+        src_pc_data = load_point_cloud(src_filepath)
+        src_pc_raw = src_pc_data['pos']
+        
+        # Check if single-temporal or bi-temporal
+        if src_filepath == tgt_filepath:
+            # Single-temporal: copy source as target
+            tgt_pc_raw = src_pc_raw.clone()
+        else:
+            # Bi-temporal: load target separately
+            tgt_pc_data = load_point_cloud(tgt_filepath)
+            tgt_pc_raw = tgt_pc_data['pos']
+        
+        return src_pc_raw, tgt_pc_raw
+    
     def _get_indices(self, idx: int) -> Tuple[int, int]:
         """Get file index and transform index from dataset index.
         
@@ -409,9 +404,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc_raw, tgt_pc_raw = self._load_file_pair_data(file_pair_annotation)
         
         # Get cache key for this file pair
-        file_cache_key = self._get_file_cache_key(
-            file_pair_annotation.get('src_file_path', str(file_idx))
-        )
+        file_cache_key = self._get_file_cache_key(file_pair_annotation)
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
@@ -526,6 +519,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc_raw, tgt_pc_raw, file_idx, trial_idx = args
         
         # Create deterministic seed from (file_idx, trial_idx)
+        # file_idx already provides uniqueness for multi-pairing scenarios
         seed = hash((file_idx, trial_idx)) % (2**32)
         
         # Sample transform parameters (deterministic from seed)
