@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Dict, Any
 import os
 import glob
 import torch
@@ -74,7 +74,7 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
     def _init_annotations(self) -> None:
         """Initialize file pair annotations with OFF file paths.
         
-        For ModelNet40 (single-temporal), each file pair has same src_file_path and tgt_file_path.
+        For ModelNet40 (single-temporal), each file pair has same src_filepath and tgt_filepath.
         """
         
         # ModelNet40 structure: ModelNet40/[category]/[train|test]/[filename].off
@@ -99,8 +99,8 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         self.file_pair_annotations = []
         for file_path in off_files:
             annotation = {
-                'src_file_path': file_path,
-                'tgt_file_path': file_path,  # Same file for self-registration
+                'src_filepath': file_path,
+                'tgt_filepath': file_path,  # Same file for self-registration
                 'category': self.get_category_from_path(file_path),
             }
             self.file_pair_annotations.append(annotation)
@@ -138,7 +138,25 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         """
         category = self.get_category_from_path(file_path)
         return category in self.ASYMMETRIC_CATEGORIES
-    
+
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Load and normalize ModelNet40 point cloud data.
+        
+        Args:
+            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
+            
+        Returns:
+            Tuple of (src_pc_normalized, tgt_pc_normalized) point cloud position tensors
+        """
+        # Load point clouds using parent method
+        src_pc_raw, tgt_pc_raw = super()._load_file_pair_data(file_pair_annotation)
+        
+        # Apply ModelNet40-specific normalization
+        src_pc_normalized = self._normalize_point_cloud(src_pc_raw)
+        tgt_pc_normalized = self._normalize_point_cloud(tgt_pc_raw)
+        
+        return src_pc_normalized, tgt_pc_normalized
+
     def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
         """Normalize ModelNet40 point cloud to unit sphere following GeoTransformer.
         
