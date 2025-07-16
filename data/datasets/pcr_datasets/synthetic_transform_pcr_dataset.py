@@ -216,7 +216,11 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Helper function to get valid transforms from cache
         def get_valid_transforms():
-            cached_transforms = self.transform_cache.get(file_cache_key, [])
+            # Access cache with matching_radius as outer key
+            matching_radius_key = str(self.matching_radius)
+            radius_cache = self.transform_cache.get(matching_radius_key, {})
+            cached_transforms = radius_cache.get(file_cache_key, [])
+            
             valid_transforms = []
             for transform_config in cached_transforms:
                 overlap = transform_config.get('overlap', 0.0)
@@ -331,7 +335,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
-            cached_transforms = self.transform_cache.get(file_cache_key, []).copy()
+            matching_radius_key = str(self.matching_radius)
+            radius_cache = self.transform_cache.get(matching_radius_key, {})
+            cached_transforms = radius_cache.get(file_cache_key, []).copy()
         
         generated_results = []
         trial = len(cached_transforms)  # Start from where cache left off
@@ -370,8 +376,11 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Thread-safe cache update
             with self._cache_lock:
                 cached_transforms.extend(new_cache_entries)
-                # Always update in-memory cache
-                self.transform_cache[file_cache_key] = cached_transforms
+                # Always update in-memory cache with new structure
+                matching_radius_key = str(self.matching_radius)
+                if matching_radius_key not in self.transform_cache:
+                    self.transform_cache[matching_radius_key] = {}
+                self.transform_cache[matching_radius_key][file_cache_key] = cached_transforms
                 # Save to file only if cache_filepath is provided
                 if self.cache_filepath is not None:
                     self._save_transform_cache()
@@ -393,7 +402,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Verify we generated enough valid transforms
         with self._cache_lock:
-            updated_cached_transforms = self.transform_cache.get(file_cache_key, [])
+            matching_radius_key = str(self.matching_radius)
+            radius_cache = self.transform_cache.get(matching_radius_key, {})
+            updated_cached_transforms = radius_cache.get(file_cache_key, [])
         
         # Count valid transforms to verify we have enough
         valid_count = 0
