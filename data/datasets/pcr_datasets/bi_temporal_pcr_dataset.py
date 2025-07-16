@@ -19,7 +19,7 @@ class BiTemporalPCRDataset(SyntheticTransformPCRDataset):
     def _init_annotations(self) -> None:
         """Initialize file pair annotations for bi-temporal dataset.
         
-        For bi-temporal, each file pair has different src_file_path and tgt_file_path.
+        For bi-temporal, each file pair has different src_filepath and tgt_filepath.
         This is a base implementation - subclasses should override for specific datasets.
         """
         # Find all point cloud files (utils/io/point_cloud.py handles all formats)
@@ -34,8 +34,8 @@ class BiTemporalPCRDataset(SyntheticTransformPCRDataset):
         
         for i in range(len(pc_files) - 1):
             annotation = {
-                'src_file_path': pc_files[i],
-                'tgt_file_path': pc_files[i + 1],  # Different file for bi-temporal
+                'src_filepath': pc_files[i],
+                'tgt_filepath': pc_files[i + 1],  # Different file for bi-temporal
             }
             self.file_pair_annotations.append(annotation)
         

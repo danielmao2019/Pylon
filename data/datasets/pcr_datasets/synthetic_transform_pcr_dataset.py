@@ -98,9 +98,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         Subclasses should:
         1. Set self.file_pair_annotations to list of file pair annotations
-        2. Each annotation should have 'src_file_path' and 'tgt_file_path' keys
-        3. For single-temporal: src_file_path == tgt_file_path  
-        4. For bi-temporal: src_file_path != tgt_file_path
+        2. Each annotation should have 'src_filepath' and 'tgt_filepath' keys
+        3. For single-temporal: src_filepath == tgt_filepath  
+        4. For bi-temporal: src_filepath != tgt_filepath
         """
         raise NotImplementedError("Subclasses must implement _init_annotations and set self.file_pair_annotations")
     
@@ -236,13 +236,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         for multi-pairing scenarios like (A,B), (A,C), (A,D).
         
         Args:
-            file_pair_annotation: Annotation with 'src_file_path' and 'tgt_file_path' keys
+            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
             Unique cache key string for this file pair
         """
-        src_path = file_pair_annotation['src_file_path']
-        tgt_path = file_pair_annotation['tgt_file_path']
+        src_path = file_pair_annotation['src_filepath']
+        tgt_path = file_pair_annotation['tgt_filepath']
         combined_path = f"{src_path}|{tgt_path}"
         file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
         return file_hash
@@ -251,29 +251,29 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         """Load point cloud data for both source and target files.
         
         Handles both single-temporal and bi-temporal datasets:
-        - Single-temporal: src_file_path == tgt_file_path, load once and copy
-        - Bi-temporal: src_file_path != tgt_file_path, load both files
+        - Single-temporal: src_filepath == tgt_filepath, load once and copy
+        - Bi-temporal: src_filepath != tgt_filepath, load both files
         
         Args:
-            file_pair_annotation: Annotation with 'src_file_path' and 'tgt_file_path' keys
+            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
             Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors
         """
-        src_file_path = file_pair_annotation['src_file_path']
-        tgt_file_path = file_pair_annotation['tgt_file_path']
+        src_filepath = file_pair_annotation['src_filepath']
+        tgt_filepath = file_pair_annotation['tgt_filepath']
         
         # Load source point cloud (load_point_cloud now always returns dict format)
-        src_pc_data = load_point_cloud(src_file_path)
+        src_pc_data = load_point_cloud(src_filepath)
         src_pc_raw = src_pc_data['pos']
         
         # Check if single-temporal or bi-temporal
-        if src_file_path == tgt_file_path:
+        if src_filepath == tgt_filepath:
             # Single-temporal: copy source as target
             tgt_pc_raw = src_pc_raw.clone()
         else:
             # Bi-temporal: load target separately
-            tgt_pc_data = load_point_cloud(tgt_file_path)
+            tgt_pc_data = load_point_cloud(tgt_filepath)
             tgt_pc_raw = tgt_pc_data['pos']
         
         # Apply normalization if needed (subclasses can override)
