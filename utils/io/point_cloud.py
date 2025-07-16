@@ -117,19 +117,18 @@ def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     
     Args:
         filepath: Path to the PyTorch tensor file (.pth)
-        device: Device to place tensors on (only used if data is torch.Tensor)
+        device: Device parameter (ignored - kept for API consistency)
         
     Returns:
         Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features.
         Returns data in whatever format was saved (torch.Tensor or np.ndarray).
     """
     # Load the data - can be either torch.Tensor or np.ndarray
-    data = torch.load(filepath, map_location=device if device != 'cuda' else 'cpu')
+    data = torch.load(filepath, map_location='cpu')
     
     # Handle both torch.Tensor and np.ndarray
     if isinstance(data, torch.Tensor):
-        # Move tensor to requested device
-        data = data.to(device)
+        # Return tensor as-is (device placement handled by load_point_cloud)
         result = {'pos': data[:, :3]}
         if data.shape[1] > 3:
             result['feat'] = data[:, 3:]
