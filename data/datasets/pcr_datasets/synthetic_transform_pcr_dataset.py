@@ -1,5 +1,5 @@
 from typing import Tuple, Dict, Any, List, Optional
-from abc import ABC, abstractmethod
+from abc import ABC
 import os
 import json
 import hashlib
@@ -258,7 +258,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
-            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors
+            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors (not normalized)
         """
         src_filepath = file_pair_annotation['src_filepath']
         tgt_filepath = file_pair_annotation['tgt_filepath']
@@ -276,23 +276,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             tgt_pc_data = load_point_cloud(tgt_filepath)
             tgt_pc_raw = tgt_pc_data['pos']
         
-        # Apply normalization if needed (subclasses can override)
-        src_pc_raw = self._normalize_point_cloud(src_pc_raw)
-        tgt_pc_raw = self._normalize_point_cloud(tgt_pc_raw)
-        
         return src_pc_raw, tgt_pc_raw
-    
-    @abstractmethod
-    def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
-        """Normalize point cloud. Subclasses must implement dataset-specific normalization.
-        
-        Args:
-            pc: Point cloud tensor of shape (N, 3)
-            
-        Returns:
-            Normalized point cloud tensor
-        """
-        pass
     
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
