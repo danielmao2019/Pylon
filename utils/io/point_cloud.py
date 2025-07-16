@@ -112,27 +112,34 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     return result
 
 
-def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
+def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, Union[torch.Tensor, np.ndarray]]:
     """Load a point cloud from a PyTorch tensor file (.pth).
     
     Args:
         filepath: Path to the PyTorch tensor file (.pth)
+        device: Device to place tensors on (only used if data is torch.Tensor)
         
     Returns:
-        Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
+        Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features.
+        Returns data in whatever format was saved (torch.Tensor or np.ndarray).
     """
-    # Load the data - should be a tensor
-    data = torch.load(filepath, map_location=device)
+    # Load the data - can be either torch.Tensor or np.ndarray
+    data = torch.load(filepath, map_location=device if device != 'cuda' else 'cpu')
     
-    # Assert it's a tensor
-    assert isinstance(data, torch.Tensor), f"Expected torch.Tensor in {filepath}, got {type(data)}"
-    
-    # Create result dictionary
-    result = {'pos': data[:, :3]}
-    
-    # Add features if available
-    if data.shape[1] > 3:
-        result['feat'] = data[:, 3:]
+    # Handle both torch.Tensor and np.ndarray
+    if isinstance(data, torch.Tensor):
+        # Move tensor to requested device
+        data = data.to(device)
+        result = {'pos': data[:, :3]}
+        if data.shape[1] > 3:
+            result['feat'] = data[:, 3:]
+    elif isinstance(data, np.ndarray):
+        # Return numpy array as-is (normalization handled by load_point_cloud)
+        result = {'pos': data[:, :3]}
+        if data.shape[1] > 3:
+            result['feat'] = data[:, 3:]
+    else:
+        raise ValueError(f"Expected torch.Tensor or np.ndarray in {filepath}, got {type(data)}")
     
     return result
 
@@ -213,7 +220,7 @@ def load_point_cloud(
             return x
     
     # Apply numpy to torch conversion and device transfer
-    result = apply_tensor_op(numpy_to_torch_on_device, pc_data)
+    result = {key: numpy_to_torch_on_device(value) for key, value in pc_data.items()}
     
     # Convert pos to float32
     assert 'pos' in result
