@@ -126,4 +126,3 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         tgt_pc_normalized = normalize_point_cloud(tgt_pc_raw)
         
         return src_pc_normalized, tgt_pc_normalized
-
