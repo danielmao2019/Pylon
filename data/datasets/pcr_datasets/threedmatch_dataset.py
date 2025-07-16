@@ -110,32 +110,31 @@ class _ThreeDMatchBaseDataset(BaseDataset):
         # Get annotation
         annotation = self.annotations[idx]
 
-        # Load point clouds
-        src_pc_tensor = load_point_cloud(annotation['src_path'])
-        tgt_pc_tensor = load_point_cloud(annotation['tgt_path'])
-
-        # Move to device
-        if isinstance(src_pc_tensor, torch.Tensor):
-            src_pc_tensor = src_pc_tensor.to(self.device)
-        if isinstance(tgt_pc_tensor, torch.Tensor):
-            tgt_pc_tensor = tgt_pc_tensor.to(self.device)
+        # Load point clouds (returns Dict[str, torch.Tensor])
+        src_pc_dict = load_point_cloud(annotation['src_path'], device=self.device)
+        tgt_pc_dict = load_point_cloud(annotation['tgt_path'], device=self.device)
 
         # Create point cloud dictionaries
         src_pc = {
-            'pos': src_pc_tensor,
-            'feat': torch.ones((src_pc_tensor.shape[0], 1), dtype=torch.float32, device=self.device)
+            'pos': src_pc_dict['pos'],
+            'feat': torch.ones((src_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=self.device)
         }
         tgt_pc = {
-            'pos': tgt_pc_tensor,
-            'feat': torch.ones((tgt_pc_tensor.shape[0], 1), dtype=torch.float32, device=self.device)
+            'pos': tgt_pc_dict['pos'],
+            'feat': torch.ones((tgt_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=self.device)
         }
 
         # Create transformation matrix
+        # NOTE: The metadata contains target→source transform, but we need source→target
+        # So we create the matrix and then invert it
         rotation = torch.tensor(annotation['rotation'], dtype=torch.float32, device=self.device)
         translation = torch.tensor(annotation['translation'], dtype=torch.float32, device=self.device)
-        transform = torch.eye(4, dtype=torch.float32, device=self.device)
-        transform[:3, :3] = rotation
-        transform[:3, 3] = translation
+        transform_tgt_to_src = torch.eye(4, dtype=torch.float32, device=self.device)
+        transform_tgt_to_src[:3, :3] = rotation
+        transform_tgt_to_src[:3, 3] = translation
+        
+        # Invert to get source→target transformation
+        transform = torch.inverse(transform_tgt_to_src)
 
         # Get or compute correspondences with caching
         correspondences = self._get_cached_correspondences(annotation, src_pc['pos'], tgt_pc['pos'], transform)
