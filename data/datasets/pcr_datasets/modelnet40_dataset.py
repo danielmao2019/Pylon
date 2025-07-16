@@ -3,6 +3,7 @@ import os
 import glob
 import torch
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
+from utils.point_cloud_ops import normalize_point_cloud
 
 
 class ModelNet40Dataset(SyntheticTransformPCRDataset):
@@ -121,31 +122,8 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         src_pc_raw, tgt_pc_raw = super()._load_file_pair_data(file_pair_annotation)
         
         # Apply ModelNet40-specific normalization
-        src_pc_normalized = self._normalize_point_cloud(src_pc_raw)
-        tgt_pc_normalized = self._normalize_point_cloud(tgt_pc_raw)
+        src_pc_normalized = normalize_point_cloud(src_pc_raw)
+        tgt_pc_normalized = normalize_point_cloud(tgt_pc_raw)
         
         return src_pc_normalized, tgt_pc_normalized
 
-    def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
-        """Normalize ModelNet40 point cloud to unit sphere following GeoTransformer.
-        
-        This ensures ModelNet40 objects work with GeoTransformer's standard parameters
-        (trans_mag=0.5, matching_radius=0.05, etc.) regardless of original object scale.
-        
-        Args:
-            pc: Point cloud tensor of shape (N, 3)
-            
-        Returns:
-            Normalized point cloud tensor centered at origin with max distance = 1.0
-        """
-        # Center at origin
-        pc_centered = pc - pc.mean(dim=0, keepdim=True)
-        
-        # Scale to unit sphere (max distance from origin = 1.0)
-        max_dist = torch.norm(pc_centered, dim=1).max()
-        if max_dist > 0:
-            pc_normalized = pc_centered / max_dist
-        else:
-            pc_normalized = pc_centered
-            
-        return pc_normalized
