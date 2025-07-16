@@ -133,14 +133,94 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 with open(self.cache_filepath, 'r') as f:
                     content = f.read().strip()
                     if content:  # Only try to parse if file is not empty
-                        self.transform_cache = json.loads(content)
+                        loaded_cache = json.loads(content)
+                        
+                        # Validate cache structure - will raise AssertionError if invalid
+                        self._validate_cache_structure(loaded_cache)
+                        self.transform_cache = loaded_cache
                     else:
                         self.transform_cache = {}
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, IOError) as e:
                 # If file is corrupted or unreadable, start with empty cache
+                print(f"Warning: Error loading cache from {self.cache_filepath}: {e}. Starting with empty cache.")
                 self.transform_cache = {}
         else:
             self.transform_cache = {}
+    
+    def _validate_cache_structure(self, cache_data: Any) -> None:
+        """Validate that cache has the expected structure using assertions.
+        
+        Expected structure:
+        {
+            "matching_radius_1": {
+                "file_hash_1": [
+                    {
+                        "overlap": float,
+                        "rotation_angles": [float, float, float],
+                        "translation": [float, float, float],
+                        "crop_method": str,
+                        "keep_ratio": float,
+                        "src_num_points": int,
+                        "tgt_num_points": int,
+                        ...
+                    },
+                    ...
+                ],
+                ...
+            },
+            ...
+        }
+        
+        Args:
+            cache_data: Data loaded from cache file
+        """
+        # Check if cache_data is a dictionary
+        assert isinstance(cache_data, dict), f"Cache data must be a dictionary, got {type(cache_data)}"
+        
+        # Check each matching_radius level
+        for radius_key, radius_data in cache_data.items():
+            # Radius key should be a string representation of a float
+            assert isinstance(radius_key, str), f"Radius key must be string, got {type(radius_key)}"
+            float(radius_key)  # This will raise ValueError if not convertible
+            
+            # Radius data should be a dictionary
+            assert isinstance(radius_data, dict), f"Radius data must be dictionary, got {type(radius_data)}"
+            
+            # Check each file_hash level
+            for file_key, transforms in radius_data.items():
+                # File key should be a string (hash)
+                assert isinstance(file_key, str), f"File key must be string, got {type(file_key)}"
+                
+                # Transforms should be a list
+                assert isinstance(transforms, list), f"Transforms must be list, got {type(transforms)}"
+                
+                # Check each transform config
+                for i, transform in enumerate(transforms):
+                    assert isinstance(transform, dict), f"Transform {i} must be dict, got {type(transform)}"
+                    
+                    # Check required fields
+                    required_fields = ['overlap', 'rotation_angles', 'translation', 
+                                     'crop_method', 'keep_ratio', 'src_num_points', 
+                                     'tgt_num_points']
+                    
+                    for field in required_fields:
+                        assert field in transform, f"Transform {i} missing required field '{field}'"
+                    
+                    # Validate field types and values
+                    assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
+                    
+                    assert isinstance(transform['rotation_angles'], list), f"rotation_angles must be list, got {type(transform['rotation_angles'])}"
+                    assert len(transform['rotation_angles']) == 3, f"rotation_angles must have 3 elements, got {len(transform['rotation_angles'])}"
+                    
+                    assert isinstance(transform['translation'], list), f"translation must be list, got {type(transform['translation'])}"
+                    assert len(transform['translation']) == 3, f"translation must have 3 elements, got {len(transform['translation'])}"
+                    
+                    assert transform['crop_method'] in ['plane', 'point'], f"crop_method must be 'plane' or 'point', got '{transform['crop_method']}'"
+                    
+                    assert isinstance(transform['keep_ratio'], (int, float)), f"keep_ratio must be number, got {type(transform['keep_ratio'])}"
+                    
+                    assert isinstance(transform['src_num_points'], int), f"src_num_points must be int, got {type(transform['src_num_points'])}"
+                    assert isinstance(transform['tgt_num_points'], int), f"tgt_num_points must be int, got {type(transform['tgt_num_points'])}"
     
     def _save_transform_cache(self) -> None:
         """Save transform-to-overlap mappings to cache (thread-safe)."""
