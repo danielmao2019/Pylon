@@ -229,9 +229,22 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             with open(self.cache_filepath, 'w') as f:
                 json.dump(self.transform_cache, f, indent=2)
     
-    def _get_file_cache_key(self, file_path: str) -> str:
-        """Generate cache key for file."""
-        file_hash = hashlib.md5(file_path.encode()).hexdigest()[:8]
+    def _get_file_cache_key(self, file_pair_annotation: Dict[str, Any]) -> str:
+        """Generate cache key for file pair.
+        
+        Uses both source and target file paths to ensure unique keys
+        for multi-pairing scenarios like (A,B), (A,C), (A,D).
+        
+        Args:
+            file_pair_annotation: Annotation with 'src_file_path' and 'tgt_file_path' keys
+            
+        Returns:
+            Unique cache key string for this file pair
+        """
+        src_path = file_pair_annotation['src_file_path']
+        tgt_path = file_pair_annotation['tgt_file_path']
+        combined_path = f"{src_path}|{tgt_path}"
+        file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
         return file_hash
     
     def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -290,9 +303,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_pair_annotation = self.file_pair_annotations[file_idx]
         
         # Get cache key for this file pair
-        file_cache_key = self._get_file_cache_key(
-            file_pair_annotation.get('src_file_path', str(file_idx))
-        )
+        file_cache_key = self._get_file_cache_key(file_pair_annotation)
         
         # Helper function to get valid transforms from cache
         def get_valid_transforms():
@@ -409,9 +420,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc_raw, tgt_pc_raw = self._load_file_pair_data(file_pair_annotation)
         
         # Get cache key for this file pair
-        file_cache_key = self._get_file_cache_key(
-            file_pair_annotation.get('src_file_path', str(file_idx))
-        )
+        file_cache_key = self._get_file_cache_key(file_pair_annotation)
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
@@ -526,6 +535,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc_raw, tgt_pc_raw, file_idx, trial_idx = args
         
         # Create deterministic seed from (file_idx, trial_idx)
+        # file_idx already provides uniqueness for multi-pairing scenarios
         seed = hash((file_idx, trial_idx)) % (2**32)
         
         # Sample transform parameters (deterministic from seed)
