@@ -21,3 +21,18 @@ class Select:
             result[key] = val[self.indices]
         result['indices'] = result['indices'][self.indices] if 'indices' in result else self.indices
         return result
+
+    def __str__(self) -> str:
+        """String representation of the Select transform."""
+        if isinstance(self.indices, list):
+            num_indices = len(self.indices)
+            if num_indices <= 5:
+                return f"Select(indices={self.indices})"
+            else:
+                return f"Select(indices=[...{num_indices} indices])"
+        else:
+            num_indices = self.indices.numel()
+            if num_indices <= 5:
+                return f"Select(indices={self.indices.tolist()})"
+            else:
+                return f"Select(indices=[...{num_indices} indices])"
