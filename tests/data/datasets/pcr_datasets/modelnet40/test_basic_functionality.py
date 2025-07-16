@@ -77,7 +77,7 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
         assert max_tgt_idx < tgt_points, f"Invalid target correspondence index: {max_tgt_idx} >= {tgt_points}"
 
 
-def validate_labels(labels: Dict[str, Any], rot_mag: float, trans_mag: float) -> None:
+def validate_labels(labels: Dict[str, Any], src_points: torch.Tensor, tgt_points: torch.Tensor, gt_overlap: float, matching_radius: float, rot_mag: float, trans_mag: float) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert 'transform' in labels, f"labels missing 'transform' key: {labels.keys()=}"
     
@@ -105,6 +105,32 @@ def validate_labels(labels: Dict[str, Any], rot_mag: float, trans_mag: float) ->
     # Check translation magnitude
     assert torch.norm(t) <= trans_mag, \
         f"Translation magnitude exceeds specified limit: {torch.norm(t)=}, {trans_mag=}"
+
+    # Recompute overlap and validate against stored overlap
+    from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
+    
+    gt_transform = labels['transform']
+    
+    # Use the same parameters as the dataset for consistency
+    # Dataset uses matching_radius * 2 as positive_radius (see line 456 in synthetic_transform_pcr_dataset.py)
+    positive_radius = matching_radius * 2
+    
+    recomputed_overlap = compute_registration_overlap(
+        ref_points=tgt_points,
+        src_points=src_points,
+        transform=gt_transform,
+        positive_radius=positive_radius
+    )
+    
+    # Test 1: PCR relationship - overlap should be reasonably high (> 0.2)
+    assert recomputed_overlap > 0.2, \
+        f"PCR relationship broken: overlap={recomputed_overlap:.4f} too low"
+    
+    # Test 2: Overlap consistency - recomputed should match stored (within tolerance)
+    overlap_diff = abs(recomputed_overlap - gt_overlap)
+    assert overlap_diff < 0.01, \
+        f"Overlap inconsistency: stored={gt_overlap:.4f}, " \
+        f"recomputed={recomputed_overlap:.4f}, diff={overlap_diff:.4f}"
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
@@ -187,7 +213,15 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
         validate_inputs(datapoint['inputs'])
-        validate_labels(datapoint['labels'], rot_mag, trans_mag)
+        validate_labels(
+            labels=datapoint['labels'],
+            src_points=datapoint['inputs']['src_pc']['pos'],
+            tgt_points=datapoint['inputs']['tgt_pc']['pos'],
+            gt_overlap=datapoint['meta_info']['overlap'],
+            matching_radius=dataset.matching_radius,
+            rot_mag=rot_mag,
+            trans_mag=trans_mag
+        )
         validate_meta_info(datapoint['meta_info'], idx)
 
     # Use command line --samples if provided, otherwise test subset
@@ -200,56 +234,6 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
 
-
-def test_pcr_relationship():
-    """Test that the standard PCR relationship holds: source + gt_transform = target."""
-    from utils.point_cloud_ops import apply_transform
-    
-    # Create a small test dataset to verify the relationship
-    dataset = data.datasets.ModelNet40Dataset(
-        data_root='data/datasets/soft_links/ModelNet40',
-        split='test',
-        dataset_size=5,  # Small for testing
-        overlap_range=(0.3, 1.0),
-        matching_radius=0.05,
-        rotation_mag=30.0,
-        translation_mag=0.3,
-        cache_filepath=None,
-        transforms_cfg=transforms_cfg(),
-    )
-    
-    # Test the relationship on multiple datapoints
-    for idx in range(min(3, len(dataset))):
-        datapoint = dataset[idx]
-        
-        src_pc = datapoint['inputs']['src_pc']['pos']  # Source point cloud
-        tgt_pc = datapoint['inputs']['tgt_pc']['pos']  # Target point cloud  
-        gt_transform = datapoint['labels']['transform']  # Ground truth transform
-        meta_info = datapoint['meta_info']
-        
-        # Get the stored overlap from meta_info
-        stored_overlap = meta_info['overlap']
-        
-        # Recompute overlap using the same method as the dataset
-        from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-        
-        # Use the same parameters as the dataset for consistency
-        # Dataset uses matching_radius * 2 as positive_radius (see line 456 in synthetic_transform_pcr_dataset.py)
-        positive_radius = dataset.matching_radius * 2  # 0.05 * 2 = 0.1
-        
-        recomputed_overlap = compute_registration_overlap(
-            ref_points=tgt_pc,
-            src_points=src_pc,
-            transform=gt_transform,
-            positive_radius=positive_radius
-        )
-        
-        # Test 1: PCR relationship - overlap should be reasonably high (> 0.2)
-        assert recomputed_overlap > 0.2, f"PCR relationship broken: overlap={recomputed_overlap:.4f} too low for idx={idx}"
-        
-        # Test 2: Overlap consistency - recomputed should match stored (within tolerance)
-        overlap_diff = abs(recomputed_overlap - stored_overlap)
-        assert overlap_diff < 0.01, f"Overlap inconsistency for idx={idx}: stored={stored_overlap:.4f}, recomputed={recomputed_overlap:.4f}, diff={overlap_diff:.4f}"
 
 
 def test_modelnet40_categories():

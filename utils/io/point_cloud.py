@@ -5,7 +5,6 @@ import torch
 from plyfile import PlyData
 import laspy
 from utils.input_checks.point_cloud import check_point_cloud
-from utils.ops.apply import apply_tensor_op
 
 
 def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:
@@ -112,25 +111,23 @@ def _load_from_las(filepath: str) -> Dict[str, np.ndarray]:
     return result
 
 
-def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, torch.Tensor]:
+def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> Dict[str, Union[torch.Tensor, np.ndarray]]:
     """Load a point cloud from a PyTorch tensor file (.pth).
     
     Args:
         filepath: Path to the PyTorch tensor file (.pth)
+        device: Device parameter (ignored - kept for API consistency)
         
     Returns:
-        Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features
+        Dictionary with 'pos' containing XYZ coordinates and optional 'feat' for additional features.
+        Returns data in whatever format was saved (torch.Tensor or np.ndarray).
     """
-    # Load the data - should be a tensor
-    data = torch.load(filepath, map_location=device)
+    # Load the data - can be either torch.Tensor or np.ndarray
+    data = torch.load(filepath, map_location='cpu')
     
-    # Assert it's a tensor
-    assert isinstance(data, torch.Tensor), f"Expected torch.Tensor in {filepath}, got {type(data)}"
-    
-    # Create result dictionary
+    # Handle both torch.Tensor and np.ndarray
+    assert isinstance(data, (torch.Tensor, np.ndarray))
     result = {'pos': data[:, :3]}
-    
-    # Add features if available
     if data.shape[1] > 3:
         result['feat'] = data[:, 3:]
     
@@ -213,7 +210,7 @@ def load_point_cloud(
             return x
     
     # Apply numpy to torch conversion and device transfer
-    result = apply_tensor_op(numpy_to_torch_on_device, pc_data)
+    result = {key: numpy_to_torch_on_device(value) for key, value in pc_data.items()}
     
     # Convert pos to float32
     assert 'pos' in result

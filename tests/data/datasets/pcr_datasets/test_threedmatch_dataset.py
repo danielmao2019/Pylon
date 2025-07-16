@@ -3,8 +3,6 @@ import pytest
 import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
-import data
-import utils
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 
 
@@ -71,7 +69,7 @@ def validate_inputs(inputs: Dict[str, Any]) -> None:
             "Invalid target indices in correspondences"
 
 
-def validate_labels(labels: Dict[str, Any]) -> None:
+def validate_labels(labels: Dict[str, Any], src_points: torch.Tensor, tgt_points: torch.Tensor, gt_overlap: float, matching_radius: float = 0.1) -> None:
     assert isinstance(labels, dict), f"{type(labels)=}"
     assert labels.keys() == {'transform'}, f"{labels.keys()=}"
     assert isinstance(labels['transform'], torch.Tensor), f"transform is not torch.Tensor: {type(labels['transform'])=}"
@@ -89,6 +87,37 @@ def validate_labels(labels: Dict[str, Any]) -> None:
     identity = torch.eye(3, dtype=torch.float32, device=rotation.device)
     assert torch.allclose(rotation @ rotation_transpose, identity, atol=1e-5), \
         "Rotation matrix is not orthogonal"
+
+    # Recompute overlap and validate against stored overlap
+    from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
+    
+    gt_transform = labels['transform']
+    
+    # Use matching_radius as positive_radius for consistency with dataset
+    positive_radius = matching_radius
+    
+    recomputed_overlap = compute_registration_overlap(
+        ref_points=tgt_points,
+        src_points=src_points,
+        transform=gt_transform,
+        positive_radius=positive_radius
+    )
+    
+    # Test 1: Registration quality - overlap should be reasonable for 3DMatch
+    # 3DMatch dataset contains pairs with overlap > 0.3, so this should hold
+    assert recomputed_overlap > 0.25, \
+        f"PCR relationship poor: overlap={recomputed_overlap:.4f} too low"
+    
+    # Test 2: Overlap consistency - recomputed should match stored (within tolerance)
+    # Allow slightly larger tolerance for 3DMatch due to real-world data variability
+    overlap_diff = abs(recomputed_overlap - gt_overlap)
+    assert overlap_diff < 0.05, \
+        f"Overlap inconsistency: stored={gt_overlap:.4f}, " \
+        f"recomputed={recomputed_overlap:.4f}, diff={overlap_diff:.4f}"
+    
+    # Test 3: Overlap bounds check
+    assert 0.0 <= recomputed_overlap <= 1.0, \
+        f"Recomputed overlap out of bounds: {recomputed_overlap:.4f}"
 
 
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
@@ -139,7 +168,13 @@ def test_threedmatch_dataset(dataset, max_samples, get_samples_to_test):
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
         validate_inputs(datapoint['inputs'])
-        validate_labels(datapoint['labels'])
+        validate_labels(
+            labels=datapoint['labels'],
+            src_points=datapoint['inputs']['src_pc']['pos'],
+            tgt_points=datapoint['inputs']['tgt_pc']['pos'], 
+            gt_overlap=datapoint['meta_info']['overlap'],
+            matching_radius=dataset.matching_radius
+        )
         validate_meta_info(datapoint['meta_info'], idx)
 
     # Use command line --samples if provided, otherwise test first 5 samples
@@ -160,7 +195,13 @@ def test_threedlomatch_dataset(lomatch_dataset, max_samples, get_samples_to_test
         assert isinstance(datapoint, dict), f"{type(datapoint)=}"
         assert datapoint.keys() == {'inputs', 'labels', 'meta_info'}
         validate_inputs(datapoint['inputs'])
-        validate_labels(datapoint['labels'])
+        validate_labels(
+            labels=datapoint['labels'],
+            src_points=datapoint['inputs']['src_pc']['pos'],
+            tgt_points=datapoint['inputs']['tgt_pc']['pos'], 
+            gt_overlap=datapoint['meta_info']['overlap'],
+            matching_radius=lomatch_dataset.matching_radius
+        )
         validate_meta_info(datapoint['meta_info'], idx)
 
     # Use command line --samples if provided, otherwise test first 5 samples

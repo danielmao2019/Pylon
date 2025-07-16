@@ -317,7 +317,7 @@ def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
         meta_items.append(html.P("No meta information available"))
     
     return html.Div([
-        html.H4("Dataset Meta Information:"),
+        html.H4("Datapoint Meta Information:"),
         html.Div(meta_items)
     ], style={'margin-top': '20px'})
 
