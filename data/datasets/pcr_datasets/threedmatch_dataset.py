@@ -110,24 +110,18 @@ class _ThreeDMatchBaseDataset(BaseDataset):
         # Get annotation
         annotation = self.annotations[idx]
 
-        # Load point clouds
-        src_pc_tensor = load_point_cloud(annotation['src_path'])
-        tgt_pc_tensor = load_point_cloud(annotation['tgt_path'])
-
-        # Move to device
-        if isinstance(src_pc_tensor, torch.Tensor):
-            src_pc_tensor = src_pc_tensor.to(self.device)
-        if isinstance(tgt_pc_tensor, torch.Tensor):
-            tgt_pc_tensor = tgt_pc_tensor.to(self.device)
+        # Load point clouds (returns Dict[str, torch.Tensor])
+        src_pc_dict = load_point_cloud(annotation['src_path'], device=self.device)
+        tgt_pc_dict = load_point_cloud(annotation['tgt_path'], device=self.device)
 
         # Create point cloud dictionaries
         src_pc = {
-            'pos': src_pc_tensor,
-            'feat': torch.ones((src_pc_tensor.shape[0], 1), dtype=torch.float32, device=self.device)
+            'pos': src_pc_dict['pos'],
+            'feat': torch.ones((src_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=self.device)
         }
         tgt_pc = {
-            'pos': tgt_pc_tensor,
-            'feat': torch.ones((tgt_pc_tensor.shape[0], 1), dtype=torch.float32, device=self.device)
+            'pos': tgt_pc_dict['pos'],
+            'feat': torch.ones((tgt_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=self.device)
         }
 
         # Create transformation matrix
