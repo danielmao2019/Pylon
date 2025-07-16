@@ -11,7 +11,7 @@ data_cfg = {
             'rotation_mag': 45.0,  # GeoTransformer synthetic transform parameters
             'translation_mag': 0.5,  # GeoTransformer synthetic transform parameters
             'matching_radius': 0.05,  # Radius for correspondence finding
-            'overlap_range': (0.0, 1.0),  # GeoTransformer doesn't use specific overlap ranges
+            'overlap_range': (0.3, 1.0),
             'min_points': 512,  # Minimum points filter for cache generation
             'cache_filepath': 'data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
             'transforms_cfg': {

@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 from abc import ABC, abstractmethod
 import os
 import json
@@ -47,7 +47,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         overlap_range: Tuple[float, float] = (0.3, 1.0),
         min_points: int = 512,
         max_trials: int = 1000,
-        cache_filepath: str = None,
+        cache_filepath: Optional[str] = None,
         **kwargs,
     ) -> None:
         """Initialize synthetic transform PCR dataset.
@@ -133,14 +133,94 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 with open(self.cache_filepath, 'r') as f:
                     content = f.read().strip()
                     if content:  # Only try to parse if file is not empty
-                        self.transform_cache = json.loads(content)
+                        loaded_cache = json.loads(content)
+                        
+                        # Validate cache structure - will raise AssertionError if invalid
+                        self._validate_cache_structure(loaded_cache)
+                        self.transform_cache = loaded_cache
                     else:
                         self.transform_cache = {}
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, IOError) as e:
                 # If file is corrupted or unreadable, start with empty cache
+                print(f"Warning: Error loading cache from {self.cache_filepath}: {e}. Starting with empty cache.")
                 self.transform_cache = {}
         else:
             self.transform_cache = {}
+    
+    def _validate_cache_structure(self, cache_data: Any) -> None:
+        """Validate that cache has the expected structure using assertions.
+        
+        Expected structure:
+        {
+            "matching_radius_1": {
+                "file_hash_1": [
+                    {
+                        "overlap": float,
+                        "rotation_angles": [float, float, float],
+                        "translation": [float, float, float],
+                        "crop_method": str,
+                        "keep_ratio": float,
+                        "src_num_points": int,
+                        "tgt_num_points": int,
+                        ...
+                    },
+                    ...
+                ],
+                ...
+            },
+            ...
+        }
+        
+        Args:
+            cache_data: Data loaded from cache file
+        """
+        # Check if cache_data is a dictionary
+        assert isinstance(cache_data, dict), f"Cache data must be a dictionary, got {type(cache_data)}"
+        
+        # Check each matching_radius level
+        for radius_key, radius_data in cache_data.items():
+            # Radius key should be a string representation of a float
+            assert isinstance(radius_key, str), f"Radius key must be string, got {type(radius_key)}"
+            float(radius_key)  # This will raise ValueError if not convertible
+            
+            # Radius data should be a dictionary
+            assert isinstance(radius_data, dict), f"Radius data must be dictionary, got {type(radius_data)}"
+            
+            # Check each file_hash level
+            for file_key, transforms in radius_data.items():
+                # File key should be a string (hash)
+                assert isinstance(file_key, str), f"File key must be string, got {type(file_key)}"
+                
+                # Transforms should be a list
+                assert isinstance(transforms, list), f"Transforms must be list, got {type(transforms)}"
+                
+                # Check each transform config
+                for i, transform in enumerate(transforms):
+                    assert isinstance(transform, dict), f"Transform {i} must be dict, got {type(transform)}"
+                    
+                    # Check required fields
+                    required_fields = ['overlap', 'rotation_angles', 'translation', 
+                                     'crop_method', 'keep_ratio', 'src_num_points', 
+                                     'tgt_num_points']
+                    
+                    for field in required_fields:
+                        assert field in transform, f"Transform {i} missing required field '{field}'"
+                    
+                    # Validate field types and values
+                    assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
+                    
+                    assert isinstance(transform['rotation_angles'], list), f"rotation_angles must be list, got {type(transform['rotation_angles'])}"
+                    assert len(transform['rotation_angles']) == 3, f"rotation_angles must have 3 elements, got {len(transform['rotation_angles'])}"
+                    
+                    assert isinstance(transform['translation'], list), f"translation must be list, got {type(transform['translation'])}"
+                    assert len(transform['translation']) == 3, f"translation must have 3 elements, got {len(transform['translation'])}"
+                    
+                    assert transform['crop_method'] in ['plane', 'point'], f"crop_method must be 'plane' or 'point', got '{transform['crop_method']}'"
+                    
+                    assert isinstance(transform['keep_ratio'], (int, float)), f"keep_ratio must be number, got {type(transform['keep_ratio'])}"
+                    
+                    assert isinstance(transform['src_num_points'], int), f"src_num_points must be int, got {type(transform['src_num_points'])}"
+                    assert isinstance(transform['tgt_num_points'], int), f"tgt_num_points must be int, got {type(transform['tgt_num_points'])}"
     
     def _save_transform_cache(self) -> None:
         """Save transform-to-overlap mappings to cache (thread-safe)."""
@@ -216,7 +296,11 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Helper function to get valid transforms from cache
         def get_valid_transforms():
-            cached_transforms = self.transform_cache.get(file_cache_key, [])
+            # Access cache with matching_radius as outer key
+            matching_radius_key = str(self.matching_radius)
+            radius_cache = self.transform_cache.get(matching_radius_key, {})
+            cached_transforms = radius_cache.get(file_cache_key, [])
+            
             valid_transforms = []
             for transform_config in cached_transforms:
                 overlap = transform_config.get('overlap', 0.0)
@@ -331,7 +415,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
-            cached_transforms = self.transform_cache.get(file_cache_key, []).copy()
+            matching_radius_key = str(self.matching_radius)
+            radius_cache = self.transform_cache.get(matching_radius_key, {})
+            cached_transforms = radius_cache.get(file_cache_key, []).copy()
         
         generated_results = []
         trial = len(cached_transforms)  # Start from where cache left off
@@ -370,8 +456,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Thread-safe cache update
             with self._cache_lock:
                 cached_transforms.extend(new_cache_entries)
+                # Always update in-memory cache with new structure
+                matching_radius_key = str(self.matching_radius)
+                if matching_radius_key not in self.transform_cache:
+                    self.transform_cache[matching_radius_key] = {}
+                self.transform_cache[matching_radius_key][file_cache_key] = cached_transforms
+                # Save to file only if cache_filepath is provided
                 if self.cache_filepath is not None:
-                    self.transform_cache[file_cache_key] = cached_transforms
                     self._save_transform_cache()
             
             trial += current_batch_size
@@ -391,7 +482,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Verify we generated enough valid transforms
         with self._cache_lock:
-            updated_cached_transforms = self.transform_cache.get(file_cache_key, [])
+            matching_radius_key = str(self.matching_radius)
+            radius_cache = self.transform_cache.get(matching_radius_key, {})
+            updated_cached_transforms = radius_cache.get(file_cache_key, [])
         
         # Count valid transforms to verify we have enough
         valid_count = 0
@@ -445,10 +538,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc, tgt_pc = self._apply_transform(src_pc_raw, tgt_pc_raw, transform_matrix, crop_transform, transform_params)
         
         # Compute overlap (this is the expensive operation we're parallelizing)
+        # Following standard PCR convention: compute overlap between source + transform vs target
+        # This measures how well the source aligns to target with the ground truth transform
         overlap = compute_registration_overlap(
-            ref_points=tgt_pc_raw,
-            src_points=src_pc['pos'],
-            transform=None,
+            ref_points=tgt_pc['pos'],
+            src_points=src_pc['pos'], 
+            transform=transform_matrix,
             positive_radius=self.matching_radius * 2
         )
         
@@ -587,23 +682,38 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                         transform_params: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Apply transform to create source and target point clouds.
         
+        Standard PCR convention: source + gt_transform = target
+        Following GeoTransformer's approach:
+        1. ref_points (target) = original point cloud 
+        2. src_points (source) = apply inverse transform + crop to create misaligned source
+        3. transform = forward transform that aligns src back to ref
+        
         Args:
             src_pc_raw: Raw source point cloud positions
-            tgt_pc_raw: Raw target point cloud positions
-            transform_matrix: 4x4 transformation matrix
+            tgt_pc_raw: Raw target point cloud positions (same as src_pc_raw for single-temporal)
+            transform_matrix: 4x4 transformation matrix to align source to target
             crop_transform: Crop transform object
             transform_params: Transform configuration
             
         Returns:
-            Tuple of (src_pc, tgt_pc) dictionaries
+            Tuple of (src_pc, tgt_pc) dictionaries where apply_transform(src_pc, transform_matrix) ≈ tgt_pc
         """
-        # Apply SE(3) transformation to source
-        transformed_pc = (transform_matrix[:3, :3] @ src_pc_raw.T).T + transform_matrix[:3, 3]
+        # Following GeoTransformer's approach:
+        # ref_points = original (target)
+        ref_points = src_pc_raw.clone()
         
-        # Apply crop with deterministic seed
-        transformed_pc_dict = {'pos': transformed_pc}
-        src_pc_dict = crop_transform(transformed_pc_dict, seed=transform_params['seed'])
+        # src_points = apply inverse transform to create misaligned source
+        from utils.point_cloud_ops import apply_transform
+        # Create a fresh tensor to avoid threading issues
+        transform_inv = torch.linalg.inv(transform_matrix.detach().cpu()).to(transform_matrix.device)
+        src_points = apply_transform(ref_points, transform_inv)
+        
+        # Apply cropping to both source and target (GeoTransformer crops both)
+        src_pc_dict = crop_transform({'pos': src_points}, seed=transform_params['seed'])
         src_pc_pos = src_pc_dict['pos']
+        
+        tgt_pc_dict = crop_transform({'pos': ref_points}, seed=transform_params['seed']) 
+        tgt_pc_pos = tgt_pc_dict['pos']
         
         # Create point cloud dictionaries with features on same device as positions
         src_pc = {
@@ -612,8 +722,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         }
         
         tgt_pc = {
-            'pos': tgt_pc_raw,
-            'feat': torch.ones((tgt_pc_raw.shape[0], 1), dtype=torch.float32, device=tgt_pc_raw.device),
+            'pos': tgt_pc_pos,
+            'feat': torch.ones((tgt_pc_pos.shape[0], 1), dtype=torch.float32, device=tgt_pc_pos.device),
         }
         
         return src_pc, tgt_pc
