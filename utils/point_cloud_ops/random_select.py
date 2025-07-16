@@ -38,3 +38,10 @@ class RandomSelect:
             
         indices = torch.randperm(num_points, device=pc['pos'].device)[:num_points_to_select]
         return Select(indices)(pc)
+
+    def __str__(self) -> str:
+        """String representation of the RandomSelect transform."""
+        if self.percentage is not None:
+            return f"RandomSelect(percentage={self.percentage})"
+        else:
+            return f"RandomSelect(count={self.count})"
