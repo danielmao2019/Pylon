@@ -250,15 +250,6 @@ def test_pcr_relationship():
         # Test 2: Overlap consistency - recomputed should match stored (within tolerance)
         overlap_diff = abs(recomputed_overlap - stored_overlap)
         assert overlap_diff < 0.01, f"Overlap inconsistency for idx={idx}: stored={stored_overlap:.4f}, recomputed={recomputed_overlap:.4f}, diff={overlap_diff:.4f}"
-        
-        print(f"✅ PCR relationship verified for datapoint {idx}:")
-        print(f"   - Stored overlap:     {stored_overlap:.4f}")
-        print(f"   - Recomputed overlap: {recomputed_overlap:.4f}")
-        print(f"   - Difference:         {overlap_diff:.4f}")
-    
-    print("✅ All tests passed:")
-    print("   - source + gt_transform = target relationship holds")
-    print("   - Stored and recomputed overlaps are consistent")
 
 
 def test_modelnet40_categories():
