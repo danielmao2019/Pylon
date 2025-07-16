@@ -247,37 +247,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
         return file_hash
     
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Load point cloud data for both source and target files.
-        
-        Handles both single-temporal and bi-temporal datasets:
-        - Single-temporal: src_filepath == tgt_filepath, load once and copy
-        - Bi-temporal: src_filepath != tgt_filepath, load both files
-        
-        Args:
-            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
-            
-        Returns:
-            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors (not normalized)
-        """
-        src_filepath = file_pair_annotation['src_filepath']
-        tgt_filepath = file_pair_annotation['tgt_filepath']
-        
-        # Load source point cloud (load_point_cloud now always returns dict format)
-        src_pc_data = load_point_cloud(src_filepath)
-        src_pc_raw = src_pc_data['pos']
-        
-        # Check if single-temporal or bi-temporal
-        if src_filepath == tgt_filepath:
-            # Single-temporal: copy source as target
-            tgt_pc_raw = src_pc_raw.clone()
-        else:
-            # Bi-temporal: load target separately
-            tgt_pc_data = load_point_cloud(tgt_filepath)
-            tgt_pc_raw = tgt_pc_data['pos']
-        
-        return src_pc_raw, tgt_pc_raw
-    
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
         
@@ -350,6 +319,37 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return inputs, labels, meta_info
 
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Load point cloud data for both source and target files.
+        
+        Handles both single-temporal and bi-temporal datasets:
+        - Single-temporal: src_filepath == tgt_filepath, load once and copy
+        - Bi-temporal: src_filepath != tgt_filepath, load both files
+        
+        Args:
+            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
+            
+        Returns:
+            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors (not normalized)
+        """
+        src_filepath = file_pair_annotation['src_filepath']
+        tgt_filepath = file_pair_annotation['tgt_filepath']
+        
+        # Load source point cloud (load_point_cloud now always returns dict format)
+        src_pc_data = load_point_cloud(src_filepath)
+        src_pc_raw = src_pc_data['pos']
+        
+        # Check if single-temporal or bi-temporal
+        if src_filepath == tgt_filepath:
+            # Single-temporal: copy source as target
+            tgt_pc_raw = src_pc_raw.clone()
+        else:
+            # Bi-temporal: load target separately
+            tgt_pc_data = load_point_cloud(tgt_filepath)
+            tgt_pc_raw = tgt_pc_data['pos']
+        
+        return src_pc_raw, tgt_pc_raw
+    
     def _get_indices(self, idx: int) -> Tuple[int, int]:
         """Get file index and transform index from dataset index.
         
