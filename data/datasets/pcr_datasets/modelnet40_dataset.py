@@ -1,8 +1,9 @@
-from typing import Tuple
+from typing import Tuple, Dict, Any
 import os
 import glob
 import torch
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
+from utils.point_cloud_ops import normalize_point_cloud
 
 
 class ModelNet40Dataset(SyntheticTransformPCRDataset):
@@ -40,41 +41,10 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         'sofa', 'stairs', 'stool', 'table', 'tent', 'toilet', 'tv_stand', 'wardrobe', 'xbox'
     ]
 
-    def __init__(
-        self,
-        data_root: str = '/data/datasets/soft_links/ModelNet40',
-        dataset_size: int = 1000,
-        overlap_range: Tuple[float, float] = (0.0, 1.0),
-        matching_radius: float = 0.05,
-        rotation_mag: float = 45.0,
-        translation_mag: float = 0.5,
-        **kwargs,
-    ) -> None:
-        """Initialize ModelNet40 dataset.
-        
-        Args:
-            data_root: Path to ModelNet40 dataset root directory
-            dataset_size: Total number of synthetic registration pairs to generate
-            overlap_range: Overlap range (overlap_min, overlap_max] for generated pairs
-            matching_radius: Radius for correspondence finding
-            rotation_mag: Maximum rotation magnitude in degrees for synthetic transforms
-            translation_mag: Maximum translation magnitude for synthetic transforms
-            **kwargs: Additional arguments passed to SyntheticTransformPCRDataset
-        """
-        super().__init__(
-            data_root=data_root,
-            dataset_size=dataset_size,
-            overlap_range=overlap_range,
-            matching_radius=matching_radius,
-            rotation_mag=rotation_mag,
-            translation_mag=translation_mag,
-            **kwargs
-        )
-
     def _init_annotations(self) -> None:
         """Initialize file pair annotations with OFF file paths.
         
-        For ModelNet40 (single-temporal), each file pair has same src_file_path and tgt_file_path.
+        For ModelNet40 (single-temporal), each file pair has same src_filepath and tgt_filepath.
         """
         
         # ModelNet40 structure: ModelNet40/[category]/[train|test]/[filename].off
@@ -99,8 +69,8 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         self.file_pair_annotations = []
         for file_path in off_files:
             annotation = {
-                'src_file_path': file_path,
-                'tgt_file_path': file_path,  # Same file for self-registration
+                'src_filepath': file_path,
+                'tgt_filepath': file_path,  # Same file for self-registration
                 'category': self.get_category_from_path(file_path),
             }
             self.file_pair_annotations.append(annotation)
@@ -138,27 +108,21 @@ class ModelNet40Dataset(SyntheticTransformPCRDataset):
         """
         category = self.get_category_from_path(file_path)
         return category in self.ASYMMETRIC_CATEGORIES
-    
-    def _normalize_point_cloud(self, pc: torch.Tensor) -> torch.Tensor:
-        """Normalize ModelNet40 point cloud to unit sphere following GeoTransformer.
-        
-        This ensures ModelNet40 objects work with GeoTransformer's standard parameters
-        (trans_mag=0.5, matching_radius=0.05, etc.) regardless of original object scale.
+
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Load and normalize ModelNet40 point cloud data.
         
         Args:
-            pc: Point cloud tensor of shape (N, 3)
+            file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
-            Normalized point cloud tensor centered at origin with max distance = 1.0
+            Tuple of (src_pc_normalized, tgt_pc_normalized) point cloud position tensors
         """
-        # Center at origin
-        pc_centered = pc - pc.mean(dim=0, keepdim=True)
+        # Load point clouds using parent method
+        src_pc_raw, tgt_pc_raw = super()._load_file_pair_data(file_pair_annotation)
         
-        # Scale to unit sphere (max distance from origin = 1.0)
-        max_dist = torch.norm(pc_centered, dim=1).max()
-        if max_dist > 0:
-            pc_normalized = pc_centered / max_dist
-        else:
-            pc_normalized = pc_centered
-            
-        return pc_normalized
+        # Apply ModelNet40-specific normalization
+        src_pc_normalized = normalize_point_cloud(src_pc_raw)
+        tgt_pc_normalized = normalize_point_cloud(tgt_pc_raw)
+        
+        return src_pc_normalized, tgt_pc_normalized

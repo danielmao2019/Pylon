@@ -6,7 +6,7 @@ data_cfg = {
         'class': data.datasets.BiTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
+            'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
             'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../bi_temporal_pcr_cache.json',
             'split': 'train',
             'dataset_size': 5000,  # Total number of synthetic registration pairs to generate
