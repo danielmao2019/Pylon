@@ -370,8 +370,10 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Thread-safe cache update
             with self._cache_lock:
                 cached_transforms.extend(new_cache_entries)
+                # Always update in-memory cache
+                self.transform_cache[file_cache_key] = cached_transforms
+                # Save to file only if cache_filepath is provided
                 if self.cache_filepath is not None:
-                    self.transform_cache[file_cache_key] = cached_transforms
                     self._save_transform_cache()
             
             trial += current_batch_size
@@ -445,10 +447,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc, tgt_pc = self._apply_transform(src_pc_raw, tgt_pc_raw, transform_matrix, crop_transform, transform_params)
         
         # Compute overlap (this is the expensive operation we're parallelizing)
+        # Following standard PCR convention: compute overlap between source + transform vs target
+        # This measures how well the source aligns to target with the ground truth transform
         overlap = compute_registration_overlap(
-            ref_points=tgt_pc_raw,
-            src_points=src_pc['pos'],
-            transform=None,
+            ref_points=tgt_pc['pos'],
+            src_points=src_pc['pos'], 
+            transform=transform_matrix,
             positive_radius=self.matching_radius * 2
         )
         
@@ -587,23 +591,38 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                         transform_params: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Apply transform to create source and target point clouds.
         
+        Standard PCR convention: source + gt_transform = target
+        Following GeoTransformer's approach:
+        1. ref_points (target) = original point cloud 
+        2. src_points (source) = apply inverse transform + crop to create misaligned source
+        3. transform = forward transform that aligns src back to ref
+        
         Args:
             src_pc_raw: Raw source point cloud positions
-            tgt_pc_raw: Raw target point cloud positions
-            transform_matrix: 4x4 transformation matrix
+            tgt_pc_raw: Raw target point cloud positions (same as src_pc_raw for single-temporal)
+            transform_matrix: 4x4 transformation matrix to align source to target
             crop_transform: Crop transform object
             transform_params: Transform configuration
             
         Returns:
-            Tuple of (src_pc, tgt_pc) dictionaries
+            Tuple of (src_pc, tgt_pc) dictionaries where apply_transform(src_pc, transform_matrix) ≈ tgt_pc
         """
-        # Apply SE(3) transformation to source
-        transformed_pc = (transform_matrix[:3, :3] @ src_pc_raw.T).T + transform_matrix[:3, 3]
+        # Following GeoTransformer's approach:
+        # ref_points = original (target)
+        ref_points = src_pc_raw.clone()
         
-        # Apply crop with deterministic seed
-        transformed_pc_dict = {'pos': transformed_pc}
-        src_pc_dict = crop_transform(transformed_pc_dict, seed=transform_params['seed'])
+        # src_points = apply inverse transform to create misaligned source
+        from utils.point_cloud_ops import apply_transform
+        # Create a fresh tensor to avoid threading issues
+        transform_inv = torch.linalg.inv(transform_matrix.detach().cpu()).to(transform_matrix.device)
+        src_points = apply_transform(ref_points, transform_inv)
+        
+        # Apply cropping to both source and target (GeoTransformer crops both)
+        src_pc_dict = crop_transform({'pos': src_points}, seed=transform_params['seed'])
         src_pc_pos = src_pc_dict['pos']
+        
+        tgt_pc_dict = crop_transform({'pos': ref_points}, seed=transform_params['seed']) 
+        tgt_pc_pos = tgt_pc_dict['pos']
         
         # Create point cloud dictionaries with features on same device as positions
         src_pc = {
@@ -612,8 +631,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         }
         
         tgt_pc = {
-            'pos': tgt_pc_raw,
-            'feat': torch.ones((tgt_pc_raw.shape[0], 1), dtype=torch.float32, device=tgt_pc_raw.device),
+            'pos': tgt_pc_pos,
+            'feat': torch.ones((tgt_pc_pos.shape[0], 1), dtype=torch.float32, device=tgt_pc_pos.device),
         }
         
         return src_pc, tgt_pc
