@@ -3,8 +3,6 @@ import pytest
 import random
 import torch
 from concurrent.futures import ThreadPoolExecutor
-import data
-import utils
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 
 
