@@ -98,4 +98,3 @@ def reset_camera_view(n_clicks: Optional[int], all_figures: List[Dict[str, Any]]
     )
 
     return updated_figures, default_camera
-
