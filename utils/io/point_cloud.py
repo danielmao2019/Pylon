@@ -5,7 +5,6 @@ import torch
 from plyfile import PlyData
 import laspy
 from utils.input_checks.point_cloud import check_point_cloud
-from utils.ops.apply import apply_tensor_op
 
 
 def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optional[str] = None) -> Dict[str, np.ndarray]:
@@ -127,18 +126,10 @@ def _load_from_pth(filepath: str, device: Union[str, torch.device] = 'cuda') -> 
     data = torch.load(filepath, map_location='cpu')
     
     # Handle both torch.Tensor and np.ndarray
-    if isinstance(data, torch.Tensor):
-        # Return tensor as-is (device placement handled by load_point_cloud)
-        result = {'pos': data[:, :3]}
-        if data.shape[1] > 3:
-            result['feat'] = data[:, 3:]
-    elif isinstance(data, np.ndarray):
-        # Return numpy array as-is (normalization handled by load_point_cloud)
-        result = {'pos': data[:, :3]}
-        if data.shape[1] > 3:
-            result['feat'] = data[:, 3:]
-    else:
-        raise ValueError(f"Expected torch.Tensor or np.ndarray in {filepath}, got {type(data)}")
+    assert isinstance(data, (torch.Tensor, np.ndarray))
+    result = {'pos': data[:, :3]}
+    if data.shape[1] > 3:
+        result['feat'] = data[:, 3:]
     
     return result
 
