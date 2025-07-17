@@ -14,6 +14,10 @@ from utils.io.json import save_json
 from utils.builders.builder import build_from_config
 
 
+# ============================================================================
+# TYPE DEFINITIONS
+# ============================================================================
+
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
@@ -32,64 +36,9 @@ class RunStatus(NamedTuple):
     process_info: Optional[ProcessInfo]
 
 
-def get_run_status(
-    config: str,
-    expected_files: List[str],
-    epochs: int,
-    gpu_running_work_dirs: List[str],
-    config_to_process_info: Dict[str, ProcessInfo],
-    sleep_time: int = 86400,
-    outdated_days: int = 30
-) -> RunStatus:
-    """Get the current status of a training run.
-
-    Args:
-        config: Path to the config file used for this run
-        expected_files: List of files expected to be present in each epoch directory
-        epochs: Total number of epochs for the training
-        gpu_running_work_dirs: List of currently running jobs
-        sleep_time: Time in seconds to consider a run as "stuck" if no updates
-        outdated_days: Number of days after which a finished run is considered outdated
-
-    Returns:
-        RunStatus object containing the current status of the run
-    """
-    work_dir = get_work_dir(config)
-    # Get enhanced progress info (ProgressInfo dict)
-    progress = get_session_progress(work_dir, expected_files)
-    
-    # Get core metrics for status determination
-    log_last_update = get_log_last_update(work_dir)
-    epoch_last_update = get_epoch_last_update(work_dir, expected_files)
-
-    # Determine if running based on log updates
-    is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
-
-    # Determine status based on metrics
-    if is_running_status:
-        status: _RunStatus = 'running'
-    elif progress['completed_epochs'] >= epochs:  # Use dict access instead of int comparison
-        # Check if finished run is outdated
-        if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
-            status = 'outdated'
-        else:
-            status = 'finished'
-    elif work_dir in gpu_running_work_dirs:
-        status = 'stuck'
-    else:
-        status = 'failed'
-
-    # Get ProcessInfo if this config is running on GPU
-    process_info = config_to_process_info.get(config, None)
-
-    return RunStatus(
-        config=config,
-        work_dir=work_dir,
-        progress=progress,
-        status=status,
-        process_info=process_info
-    )
-
+# ============================================================================
+# MAIN PUBLIC FUNCTIONS
+# ============================================================================
 
 def get_all_run_status(
     config_files: List[str],
@@ -118,15 +67,13 @@ def get_all_run_status(
     # Query all GPUs ONCE for efficiency
     all_connected_gpus = system_monitor.connected_gpus
     config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
-    all_running_work_dirs = [get_work_dir(config) for config in config_to_process_info.keys()]
 
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
             partial(get_run_status,
                 expected_files=expected_files,
                 epochs=epochs,
-                gpu_running_work_dirs=all_running_work_dirs,
-                config_to_process_info=config_to_process_info,  # NEW parameter
+                config_to_process_info=config_to_process_info,
                 sleep_time=sleep_time,
                 outdated_days=outdated_days,
             ), config_files
@@ -134,6 +81,79 @@ def get_all_run_status(
 
     # Convert list to mapping
     return {status.config: status for status in all_run_status}
+
+
+def get_run_status(
+    config: str,
+    expected_files: List[str],
+    epochs: int,
+    config_to_process_info: Dict[str, ProcessInfo],
+    sleep_time: int = 86400,
+    outdated_days: int = 30
+) -> RunStatus:
+    """Get the current status of a training run.
+
+    Args:
+        config: Path to the config file used for this run
+        expected_files: List of files expected to be present in each epoch directory
+        epochs: Total number of epochs for the training
+        config_to_process_info: Mapping from config to ProcessInfo for running experiments
+        sleep_time: Time in seconds to consider a run as "stuck" if no updates
+        outdated_days: Number of days after which a finished run is considered outdated
+
+    Returns:
+        RunStatus object containing the current status of the run
+    """
+    work_dir = get_work_dir(config)
+    # Get enhanced progress info (ProgressInfo dict)
+    progress = get_session_progress(work_dir, expected_files)
+    
+    # Get core metrics for status determination
+    log_last_update = get_log_last_update(work_dir)
+    epoch_last_update = get_epoch_last_update(work_dir, expected_files)
+
+    # Determine if running based on log updates
+    is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
+
+    # Determine status based on metrics
+    if is_running_status:
+        status: _RunStatus = 'running'
+    elif progress['completed_epochs'] >= epochs:  # Use dict access instead of int comparison
+        # Check if finished run is outdated
+        if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
+            status = 'outdated'
+        else:
+            status = 'finished'
+    elif config in config_to_process_info:
+        status = 'stuck'
+    else:
+        status = 'failed'
+
+    # Get ProcessInfo if this config is running on GPU
+    process_info = config_to_process_info.get(config, None)
+
+    return RunStatus(
+        config=config,
+        work_dir=work_dir,
+        progress=progress,
+        status=status,
+        process_info=process_info
+    )
+
+
+# ============================================================================
+# HELPER FUNCTIONS FOR STATUS DETERMINATION
+# ============================================================================
+
+def _build_config_to_process_mapping(connected_gpus: List) -> Dict[str, ProcessInfo]:
+    """Build mapping from config file to ProcessInfo for running experiments."""
+    config_to_process = {}
+    for gpu in connected_gpus:
+        for process in gpu['processes']:
+            if 'python main.py --config-filepath' in process['cmd']:
+                config = parse_config(process['cmd'])
+                config_to_process[config] = process
+    return config_to_process
 
 
 def parse_config(cmd: str) -> str:
@@ -146,17 +166,6 @@ def parse_config(cmd: str) -> str:
         if part == "--config-filepath":
             return parts[idx+1]
     assert 0
-
-
-def _build_config_to_process_mapping(connected_gpus: List) -> Dict[str, ProcessInfo]:
-    """Build mapping from config file to ProcessInfo for running experiments."""
-    config_to_process = {}
-    for gpu in connected_gpus:
-        for process in gpu['processes']:
-            if 'python main.py --config-filepath' in process['cmd']:
-                config = parse_config(process['cmd'])
-                config_to_process[config] = process
-    return config_to_process
 
 
 def get_log_last_update(work_dir: str) -> Optional[float]:
@@ -191,6 +200,10 @@ def get_epoch_last_update(work_dir: str, expected_files: List[str]) -> Optional[
         if os.path.isfile(os.path.join(epoch_dir, filename))
     ])
 
+
+# ============================================================================
+# PROGRESS CALCULATION FUNCTIONS
+# ============================================================================
 
 def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
     """Enhanced progress calculation with early stopping detection.
@@ -244,7 +257,7 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> Pro
         )
     
     # Create progress.json for future caching
-    progress_data = {
+    progress_data: ProgressInfo = {
         "completed_epochs": completed_epochs,
         "progress_percentage": 100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
         "early_stopped": early_stopped,
@@ -286,6 +299,26 @@ def _detect_early_stopping(work_dir: str, expected_files: List[str], config: dic
     return False, None
 
 
+# ============================================================================
+# FILE CHECKING UTILITIES
+# ============================================================================
+
+def check_epoch_finished(epoch_dir: str, expected_files: List[str], check_load: Optional[bool] = True) -> bool:
+    r"""Check if an epoch is finished based on three criteria:
+        1. File exists.
+        2. File non-empty.
+        3. File load-able (if check_load is True).
+    """
+    if not os.path.isdir(epoch_dir):
+        return False
+    return all([
+        os.path.isfile(os.path.join(epoch_dir, filename)) and
+        os.path.getsize(os.path.join(epoch_dir, filename)) > 0 and
+        ((not check_load) or check_file_loadable(os.path.join(epoch_dir, filename)))
+        for filename in expected_files
+    ])
+
+
 def check_file_loadable(filepath: str) -> bool:
     """Check if a file can be loaded (json or pt)."""
     assert os.path.isfile(filepath)
@@ -305,19 +338,3 @@ def check_file_loadable(filepath: str) -> bool:
     else:
         assert 0
     return result
-
-
-def check_epoch_finished(epoch_dir: str, expected_files: List[str], check_load: Optional[bool] = True) -> bool:
-    r"""Check if an epoch is finished based on three criteria:
-        1. File exists.
-        2. File non-empty.
-        3. File load-able (if check_load is True).
-    """
-    if not os.path.isdir(epoch_dir):
-        return False
-    return all([
-        os.path.isfile(os.path.join(epoch_dir, filename)) and
-        os.path.getsize(os.path.join(epoch_dir, filename)) > 0 and
-        ((not check_load) or check_file_loadable(os.path.join(epoch_dir, filename)))
-        for filename in expected_files
-    ])
