@@ -62,101 +62,129 @@ This document outlines the implementation plan for adding a daily summary featur
 
 ## Implementation Design
 
-### 1. SummaryAgent Class
-Create a new `agents/summary_agent.py` that extends BaseAgent:
+### 1. LogsSnapshot Class
+Create a new `utils/automation/logs_snapshot.py`:
 
 ```python
-class SummaryAgent(BaseAgent):
-    def __init__(self, ...existing params..., 
-                 summary_time="23:55",
-                 email_recipient="daniel.mao@uwaterloo.ca"):
-        super().__init__(...)
-        # Initialize daily metrics storage
-        self.daily_metrics = DailyMetrics()
-        self.summary_time = summary_time
-        self.email_recipient = email_recipient
-        self.last_epoch_counts = {}  # Track epoch counts for delta calculation
+class LogsSnapshot:
+    def __init__(self, logs_dir: str = "./logs"):
+        self.logs_dir = logs_dir
+        self.snapshot_dir = os.path.join(logs_dir, "snapshots")
         
-    def collect_metrics(self):
-        # Collect current state metrics and epoch progress
+    def create_snapshot(self, timestamp: str) -> Dict[str, Any]:
+        # Scan all experiment directories and collect state
+        snapshot = {
+            'timestamp': timestamp,
+            'experiments': {},  # {config_path: experiment_state}
+            'system_state': self._get_system_state()
+        }
+        return snapshot
         
-    def generate_daily_summary(self):
-        # Generate formatted summary in specified order
+    def _get_experiment_state(self, work_dir: str) -> Dict[str, Any]:
+        # Collect experiment progress, completion status, epochs
+        return {
+            'progress': get_session_progress(work_dir, expected_files),
+            'status': self._determine_status(work_dir),
+            'completed_epochs': self._get_completed_epochs(work_dir),
+            'last_update': self._get_last_update(work_dir),
+            'total_epochs': self._get_total_epochs(work_dir)
+        }
         
-    def save_and_email_summary(self, summary):
-        # Save to dedicated summary log and email
+    def save_snapshot(self, snapshot: Dict[str, Any], filename: str):
+        # Save snapshot to JSON file with date/time name
+        
+    def load_snapshot(self, filename: str) -> Dict[str, Any]:
+        # Load previous snapshot for comparison
 ```
 
-### 2. DailyMetrics Class
-A data structure to accumulate metrics throughout the day:
+### 2. DailySummaryGenerator Class
+Create summary by comparing snapshots:
 
 ```python
-class DailyMetrics:
-    def __init__(self):
-        self.experiments_started = []
-        self.experiments_completed = []
-        self.experiments_failed = []
-        self.epochs_completed = {}  # {config: [epoch_numbers]}
-        self.resource_utilization = []
-        self.events = []
-        self.critical_errors = []
+class DailySummaryGenerator:
+    def __init__(self, config_files: List[str], expected_files: List[str]):
+        self.config_files = config_files
+        self.expected_files = expected_files
         
-    def record_experiment_start(self, config, timestamp):
-        # Record new experiment launch
+    def generate_summary(self, current_snapshot: Dict[str, Any], 
+                        previous_snapshot: Dict[str, Any] = None) -> str:
+        # Generate summary comparing two snapshots
         
-    def record_experiment_completion(self, config, timestamp):
-        # Record experiment completion
+    def _analyze_experiment_changes(self, current, previous) -> Dict[str, Any]:
+        # Determine started, completed, failed experiments
+        # Calculate newly completed epochs per experiment
         
-    def record_epoch_completion(self, config, epoch_num):
-        # Record newly completed epoch
+    def _analyze_key_events(self, current, previous) -> List[str]:
+        # Detect stuck removals, cleanups, failures
         
-    def record_resource_snapshot(self, gpu_stats, cpu_stats):
-        # Record resource utilization snapshot
+    def _analyze_progress_overview(self, current) -> Dict[str, Any]:
+        # Overall completion, near completion, long running
         
-    def record_event(self, event_type, details):
-        # Record key events (stuck removal, cleanup, etc.)
-        
-    def record_critical_error(self, error_type, details):
-        # Record system-level critical errors
+    def _analyze_resource_utilization(self, current) -> Dict[str, Any]:
+        # Resource usage patterns (if available from system monitor)
 ```
 
-### 3. Selected Integration Approach: Standalone Summary Agent
-- **Chosen Option A**: Run as a separate process alongside Launcher
-- Monitors the same experiment pool independently
-- Generates summaries on schedule at 11:55 PM daily
+### 3. Selected Integration Approach: Snapshot-Based Daily Script
+- **Crontab-triggered script**: Run daily at 11:55 PM via crontab
+- **Snapshot-based approach**: Create daily snapshots of logs directory state
+- **Git-like diff generation**: Compare snapshots to generate daily summaries
+- **No long-running process**: Script runs, generates summary, sends email, exits
 - Sends email notifications upon completion
-- No real-time notifications - only daily summaries
 
-### 4. Summary Storage and Distribution
+### 4. Standalone Script Structure
+Create `scripts/generate_daily_summary.py`:
 
-#### Storage Format
-- Daily summary files: `logs/summaries/YYYY-MM-DD_summary.md`
-- Structured JSON metrics: `logs/summaries/YYYY-MM-DD_metrics.json`
-- Rolling retention (keep last 30 days)
+```python
+#!/usr/bin/env python3
+"""
+Daily summary generation script for crontab execution.
+Usage: python scripts/generate_daily_summary.py --config configs/summary_config.py
+"""
 
-#### Distribution
-- **Email notifications**: Daily at 11:55 PM to daniel.mao@uwaterloo.ca
-- **No real-time notifications**: All events summarized daily only
+def main():
+    # 1. Create today's snapshot
+    # 2. Load yesterday's snapshot (if exists) 
+    # 3. Generate diff-based summary
+    # 4. Save summary and email
+    # 5. Clean up old snapshots (>30 days)
+```
+
+### 5. Storage Format
+- **Daily snapshots**: `logs/snapshots/YYYY-MM-DD_HHMMSS.json`
+- **Daily summaries**: `logs/summaries/YYYY-MM-DD_summary.md`  
+- **Rolling retention**: Keep last 30 days of snapshots and summaries
+
+### 6. Crontab Integration
+```bash
+# Run daily at 11:55 PM
+55 23 * * * cd /path/to/Pylon && python scripts/generate_daily_summary.py --config configs/summary_config.py
+```
 
 ## Implementation Steps
 
-### Phase 1: Core Implementation
-1. Create `DailyMetrics` data structure with epoch-level tracking
-2. Implement `SummaryAgent` with basic metric collection
-3. Add summary generation logic (experiment stats → key events → progress → resources)
-4. Implement file-based summary storage
+### Phase 1: Snapshot Infrastructure
+1. Create `LogsSnapshot` class to capture logs directory state
+2. Implement experiment state collection (progress, epochs, status)
+3. Add snapshot saving/loading with timestamped JSON files
+4. Test snapshot generation and storage
 
-### Phase 2: Email Integration
-1. Add email functionality using Python's smtplib
-2. Implement daily scheduling at 11:55 PM
-3. Test email delivery to daniel.mao@uwaterloo.ca
-4. Add error handling for email failures
+### Phase 2: Diff-Based Summary Generation  
+1. Create `DailySummaryGenerator` class for snapshot comparison
+2. Implement experiment change analysis (started, completed, failed)
+3. Add epoch-level diff detection for newly completed epochs
+4. Generate formatted summary in specified order
 
-### Phase 3: Testing and Deployment
-1. Test with existing launcher setup (standalone process)
-2. Add configuration options
-3. Create comprehensive tests
-4. Document usage and configuration
+### Phase 3: Standalone Script and Email
+1. Create `scripts/generate_daily_summary.py` for crontab execution
+2. Add email functionality using Python's smtplib
+3. Implement cleanup of old snapshots (>30 days retention)
+4. Test end-to-end: snapshot → diff → summary → email
+
+### Phase 4: Configuration and Testing
+1. Create configuration system for script parameters
+2. Add comprehensive error handling and logging
+3. Test with existing logs directory structure
+4. Document crontab setup and usage
 
 ## Configuration Example
 
@@ -241,11 +269,19 @@ Based on your requirements, the plan is finalized:
 5. **✅ No real-time notifications** - daily summary only
 6. **✅ Clear definitions** for resource bottlenecks and critical errors
 
+## Advantages of Snapshot-Based Approach
+
+1. **No Long-Running Process**: Script runs, completes task, exits - no hanging processes
+2. **Git-Like Version Control**: Compare snapshots to see exactly what changed  
+3. **Robust to Interruptions**: Each snapshot is independent, no state loss
+4. **Easy Debugging**: Can manually inspect snapshots to understand changes
+5. **Scalable**: Snapshot size grows with experiments, not time running
+6. **Crontab Integration**: Simple, reliable scheduling mechanism
+
 ## Next Steps
 
 I'll now implement:
-1. Core `SummaryAgent` and `DailyMetrics` classes
-2. Epoch-level progress tracking
-3. Email notification system
-4. Daily scheduling mechanism
-5. Summary generation with your specified order and content
+1. `LogsSnapshot` class for state capture and diff generation
+2. `DailySummaryGenerator` for snapshot comparison and summary formatting
+3. Standalone script for crontab execution with email functionality
+4. Configuration system and error handling
