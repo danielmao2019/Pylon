@@ -46,9 +46,7 @@ class RunStatus(NamedTuple):
     work_dir: str
     progress: int
     status: _RunStatus
-    launch_time: Optional[float]  # NEW: Unix timestamp of launch
-    is_gpu_running: bool          # NEW: Currently running on GPU
-    is_log_running: bool          # NEW: Recent log activity
+    process_info: Optional[ProcessInfo]  # NEW: Associated GPU process if running
 ```
 
 ## Current System Understanding
@@ -93,115 +91,183 @@ class RunStatus(NamedTuple):
 
 ## Implementation Design
 
-### 1. Enhanced LogsSnapshot Class
-Create a new `utils/automation/logs_snapshot.py` with single-pass efficiency:
+### 1. LogsSnapshot Class
+Create a new `utils/automation/logs_snapshot.py` for logs directory state only:
 
 ```python
 class LogsSnapshot:
     def __init__(self, 
-                 logs_dir: str = "./logs",
-                 config_files: List[str] = None,
-                 expected_files: List[str] = None,
-                 agent_log_path: str = "./project/run_agent.log"):
-        self.logs_dir = logs_dir
-        self.snapshot_dir = "./agents/snapshots"
+                 config_files: List[str],
+                 expected_files: List[str],
+                 epochs: int,
+                 sleep_time: int = 86400,
+                 outdated_days: int = 30):
         self.config_files = config_files
         self.expected_files = expected_files
-        self.agent_log_path = agent_log_path
+        self.epochs = epochs
+        self.sleep_time = sleep_time
+        self.outdated_days = outdated_days
+        self.snapshot_dir = "./agents/snapshots"
         
-    def create_snapshot(self, timestamp: str) -> Dict[str, Any]:
-        # SINGLE-PASS collection of all information
+    def create_snapshot(self, timestamp: str, system_monitor: SystemMonitor) -> Dict[str, Any]:
+        # Create snapshot of logs directory state using existing run_status logic
         snapshot = {
             'timestamp': timestamp,
-            'experiments': {},  # {config_path: enhanced_experiment_state}
-            'key_events': self._extract_key_events_since_yesterday(),
-            'system_state': self._get_system_state_with_launch_times()
+            'run_statuses': self._get_all_enhanced_run_status(system_monitor)
         }
-        
-        # Single pass through logs directory
-        self._scan_logs_directory_once(snapshot)
         return snapshot
         
-    def _scan_logs_directory_once(self, snapshot: Dict[str, Any]):
-        # Walk logs directory once, collect all experiment states
-        for config in self.config_files:
-            work_dir = get_work_dir(config)
-            if os.path.exists(work_dir):
-                snapshot['experiments'][config] = self._get_enhanced_experiment_state(work_dir)
-                
-    def _get_enhanced_experiment_state(self, work_dir: str) -> Dict[str, Any]:
-        # Enhanced state with launch time and detailed epoch info
-        return {
-            'progress': get_session_progress(work_dir, self.expected_files),
-            'status': self._determine_status(work_dir),
-            'completed_epochs': self._get_completed_epochs_list(work_dir),
-            'last_update': self._get_last_update(work_dir),
-            'total_epochs': self._get_total_epochs(work_dir),
-            'launch_time': self._get_launch_time(work_dir),
-            'is_gpu_running': False,  # Will be updated by system monitor
-            'is_log_running': self._is_log_running(work_dir)
-        }
-        
-    def _extract_key_events_since_yesterday(self) -> List[Dict[str, Any]]:
-        # Parse agent log file for yesterday's events
-        # Return structured list of events with timestamps
-        
-    def _get_system_state_with_launch_times(self) -> Dict[str, Any]:
-        # Query SystemMonitor and augment with process launch times
+    def _get_all_enhanced_run_status(self, system_monitor: SystemMonitor) -> List[RunStatus]:
+        # Use existing get_all_run_status but with enhanced ProcessInfo
+        return get_all_run_status_enhanced(
+            config_files=self.config_files,
+            expected_files=self.expected_files,
+            epochs=self.epochs,
+            sleep_time=self.sleep_time,
+            outdated_days=self.outdated_days,
+            system_monitor=system_monitor
+        )
 ```
 
-### 2. DailySummaryGenerator Class
-Create summary by comparing snapshots with specified content order:
+### 2. Enhanced RunStatus Implementation
+Modify `utils/automation/run_status.py` to include ProcessInfo:
+
+```python
+class RunStatus(NamedTuple):
+    config: str
+    work_dir: str
+    progress: int
+    status: _RunStatus
+    process_info: Optional[ProcessInfo]  # NEW: Associated GPU process if running
+
+def get_all_run_status_enhanced(
+    config_files: List[str],
+    expected_files: List[str],
+    epochs: int,
+    sleep_time: int = 86400,
+    outdated_days: int = 30,
+    system_monitor: SystemMonitor = None,
+) -> List[RunStatus]:
+    # Query system monitor ONCE for all GPUs
+    all_connected_gpus = system_monitor.connected_gpus
+    config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
+    
+    # Get basic run status for all configs
+    with ThreadPoolExecutor() as executor:
+        all_run_status = list(executor.map(
+            partial(get_run_status_with_process_info,
+                expected_files=expected_files,
+                epochs=epochs,
+                config_to_process_info=config_to_process_info,
+                sleep_time=sleep_time,
+                outdated_days=outdated_days,
+            ), config_files
+        ))
+    
+    return all_run_status
+
+def _build_config_to_process_mapping(connected_gpus: List[GPUStatus]) -> Dict[str, ProcessInfo]:
+    # Build mapping from config file to ProcessInfo for running experiments
+    config_to_process = {}
+    for gpu in connected_gpus:
+        for process in gpu['processes']:
+            if 'python main.py --config-filepath' in process['cmd']:
+                config = parse_config(process['cmd'])
+                config_to_process[config] = process
+    return config_to_process
+```
+
+### 3. Agent Log Parser
+Create separate `utils/automation/agent_log_parser.py` for key events:
+
+```python
+class AgentLogParser:
+    def __init__(self, agent_log_path: str = "./project/run_agent.log"):
+        self.agent_log_path = agent_log_path
+        
+    def extract_key_events_since_yesterday(self) -> List[Dict[str, Any]]:
+        # Parse agent log file for yesterday's events
+        yesterday = datetime.now() - timedelta(days=1)
+        events = []
+        
+        with open(self.agent_log_path, 'r') as f:
+            for line in f:
+                event = self._parse_log_line(line)
+                if event and event['timestamp'] >= yesterday:
+                    events.append(event)
+        
+        return events
+        
+    def _parse_log_line(self, line: str) -> Optional[Dict[str, Any]]:
+        # Parse structured log entries:
+        # - "The following processes will be killed {config: (server, pid)}"
+        # - "The following runs has not been updated in the last X days and will be removed"
+        # - "Please fix X.py. error_log='...'"
+        # - SSH command launches
+```
+
+### 4. DailySummaryGenerator Class
+Create summary by comparing snapshots and adding key events:
 
 ```python
 class DailySummaryGenerator:
-    def __init__(self, config_files: List[str], expected_files: List[str]):
-        self.config_files = config_files
-        self.expected_files = expected_files
+    def __init__(self):
+        self.agent_log_parser = AgentLogParser()
         
-    def generate_summary(self, current_snapshot: Dict[str, Any], 
-                        previous_snapshot: Dict[str, Any] = None) -> str:
+    def generate_summary(self, 
+                        current_snapshot: Dict[str, Any], 
+                        previous_snapshot: Dict[str, Any] = None,
+                        date: str = None) -> str:
+        # Extract key events separately from agent log
+        key_events = self.agent_log_parser.extract_key_events_since_yesterday()
+        
         # Generate summary in specified order:
         # 1. Experiment Statistics → 2. Key Events → 3. Progress Overview → 4. Resource Utilization
-        
-        sections = []
-        sections.append(self._format_experiment_statistics(current_snapshot, previous_snapshot))
-        sections.append(self._format_key_events(current_snapshot))
-        sections.append(self._format_progress_overview(current_snapshot))
-        sections.append(self._format_resource_utilization(current_snapshot))
+        sections = [
+            f"# Daily Summary - {date}",
+            self._format_experiment_statistics(current_snapshot, previous_snapshot),
+            self._format_key_events(key_events),
+            self._format_progress_overview(current_snapshot),
+            self._format_resource_utilization(current_snapshot)
+        ]
         
         return "\n\n".join(sections)
         
     def _format_experiment_statistics(self, current, previous) -> str:
-        # 1. Total experiments by status (running, finished, failed, stuck)
-        # 2. Experiments completed today (session level)
-        # 3. Experiments started today (session level) 
-        # 4. **Epoch-level reporting**: Newly completed epochs today (per experiment)
+        current_statuses = current['run_statuses']
+        previous_statuses = previous['run_statuses'] if previous else []
+        
+        # 1. Total experiments by status
+        # 2. Experiments completed today (compare status changes)
+        # 3. Experiments started today (new processes with start times)
+        # 4. **Epoch-level reporting**: Compare progress between snapshots
         # 5. Failed experiments with error summaries
         
-    def _format_key_events(self, current) -> str:
-        # Extract from current_snapshot['key_events'] (parsed from agent log):
+    def _format_key_events(self, key_events: List[Dict[str, Any]]) -> str:
+        # Format events extracted from agent log:
         # - Stuck processes removed (with reasons)
         # - Outdated runs cleaned up
         # - Critical errors encountered (system-level issues)
         
     def _format_progress_overview(self, current) -> str:
+        current_statuses = current['run_statuses']
         # - Overall completion percentage across all experiments
         # - Experiments nearing completion (>90% complete)
-        # - Long-running experiments (running for >X days using launch_time)
+        # - Long-running experiments (using process_info.start_time if available)
         
     def _format_resource_utilization(self, current) -> str:
-        # - GPU utilization statistics (average, peak, per-server breakdown)
+        # Extract from current_statuses where process_info is not None
+        # - GPU utilization statistics (if available from system monitor)
         # - CPU utilization statistics  
         # - Resource bottlenecks detected
-        # - Idle resource periods
+        # - Currently running processes per server
         
-    def _calculate_newly_completed_epochs(self, current, previous) -> Dict[str, List[int]]:
-        # Compare completed_epochs between snapshots to find newly completed epochs
+    def _calculate_newly_completed_epochs(self, current_statuses, previous_statuses) -> Dict[str, List[int]]:
+        # Compare progress between snapshots to find newly completed epochs
         # Return {config_path: [newly_completed_epoch_numbers]}
         
-    def _detect_long_running_experiments(self, current) -> List[Dict[str, Any]]:
-        # Use launch_time to calculate running duration
+    def _detect_long_running_experiments(self, current_statuses) -> List[Dict[str, Any]]:
+        # Use process_info.start_time to calculate running duration
         # Return experiments running >7 days with details
 ```
 
@@ -243,24 +309,30 @@ def main():
 
 ## Implementation Steps
 
-### Phase 1: Enhanced RunStatus and Agent Log Parsing
-1. **Augment RunStatus**: Add `launch_time`, `is_gpu_running`, `is_log_running` fields
-2. **Agent log parser**: Create parser for `project/run_agent.log` to extract key events
-3. **Launch time detection**: Implement logic to get process start times from SystemMonitor
-4. **Single-pass efficiency**: Design logs directory scanning to collect all info in one pass
+### Phase 1: Enhanced RunStatus with ProcessInfo
+1. **Modify RunStatus**: Add `process_info: Optional[ProcessInfo]` field to existing class
+2. **Efficient GPU querying**: Query system monitor once, build config→ProcessInfo mapping
+3. **Enhanced get_all_run_status**: Modify existing function to include ProcessInfo without renaming
+4. **Status logic refinement**: Use ProcessInfo for better "running" vs "stuck" detection
 
-### Phase 2: Snapshot Infrastructure
-1. **Enhanced LogsSnapshot**: Create class with single-pass directory scanning
-2. **Experiment state collection**: Implement enhanced state with launch times and epoch lists
-3. **Key events integration**: Merge agent log events into snapshot structure
-4. **Snapshot storage**: JSON files in `agents/snapshots/` with timestamped names
+### Phase 2: Separate Agent Log Parsing
+1. **AgentLogParser class**: Create separate parser for `project/run_agent.log`
+2. **Key events extraction**: Parse structured log entries (stuck removal, cleanup, errors)
+3. **Time-based filtering**: Extract events from yesterday only
+4. **Event structuring**: Return standardized event dictionaries
 
-### Phase 3: Diff-Based Summary Generation
-1. **DailySummaryGenerator**: Create class for snapshot comparison with specified content order
-2. **Experiment statistics**: Implement session-level and epoch-level change detection
-3. **Key events formatting**: Format agent log events for summary output
-4. **Progress overview**: Add long-running detection using launch times
-5. **Resource utilization**: Format GPU/CPU stats and bottleneck detection
+### Phase 3: Snapshot Infrastructure (Logs Only)
+1. **LogsSnapshot class**: Create simple snapshot for logs directory state only
+2. **Use existing run_status**: Leverage enhanced `get_all_run_status` function
+3. **Snapshot storage**: JSON files in `agents/snapshots/` with timestamped names
+4. **No key events in snapshot**: Keep snapshots for diff-able data only
+
+### Phase 4: Diff-Based Summary Generation
+1. **DailySummaryGenerator**: Create class for snapshot comparison + separate key events
+2. **Experiment statistics**: Compare RunStatus lists between snapshots for changes
+3. **Key events formatting**: Format separately extracted agent log events
+4. **Progress overview**: Use ProcessInfo.start_time for long-running detection
+5. **Resource utilization**: Extract from current running processes
 
 ### Phase 4: Standalone Script and Email
 1. **Daily script**: Create `scripts/generate_daily_summary.py` for crontab execution
@@ -366,86 +438,107 @@ Based on your requirements, the plan is finalized:
 5. **Scalable**: Snapshot size grows with experiments, not time running
 6. **Crontab Integration**: Simple, reliable scheduling mechanism
 
-## Detailed Analysis: Two Types of "Running" Status
+## Detailed Analysis: Enhanced RunStatus with ProcessInfo
 
 ### Problem Statement
-The current `run_status.py` determines if an experiment is "running" based on recent log updates, but this doesn't distinguish between:
-1. **Actually running on GPU** (process exists in GPU query)
-2. **Recently active** (logs updated within sleep_time)
+The current `run_status.py` determines status based on log updates and GPU queries, but doesn't provide:
+1. **Process details** for running experiments (launch time, server, etc.)
+2. **Efficient querying** (queries GPU for each config separately)
+3. **Long-running detection** (no access to process start times)
 
-### Proposed Solution: Enhanced Status Detection
+### Proposed Solution: Add ProcessInfo Field
 ```python
-def get_enhanced_run_status(
-    config: str,
-    expected_files: List[str], 
+class RunStatus(NamedTuple):
+    config: str
+    work_dir: str
+    progress: int
+    status: _RunStatus
+    process_info: Optional[ProcessInfo]  # NEW: Associated GPU process if running
+
+def get_all_run_status_enhanced(
+    config_files: List[str],
+    expected_files: List[str],
     epochs: int,
-    system_monitor: SystemMonitor,
+    sleep_time: int = 86400,
+    outdated_days: int = 30,
+    system_monitor: SystemMonitor = None,
+) -> List[RunStatus]:
+    # Query all GPUs ONCE
+    all_connected_gpus = system_monitor.connected_gpus
+    config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
+    all_running_work_dirs = [get_work_dir(config) for config in config_to_process_info.keys()]
+    
+    # Use existing logic but with ProcessInfo enhancement
+    with ThreadPoolExecutor() as executor:
+        all_run_status = list(executor.map(
+            partial(get_run_status_with_process_info,
+                expected_files=expected_files,
+                epochs=epochs,
+                gpu_running_work_dirs=all_running_work_dirs,
+                config_to_process_info=config_to_process_info,
+                sleep_time=sleep_time,
+                outdated_days=outdated_days,
+            ), config_files
+        ))
+    
+    return all_run_status
+
+def get_run_status_with_process_info(
+    config: str,
+    expected_files: List[str],
+    epochs: int,
+    gpu_running_work_dirs: List[str],
+    config_to_process_info: Dict[str, ProcessInfo],
     sleep_time: int = 86400,
     outdated_days: int = 30
-) -> EnhancedRunStatus:
+) -> RunStatus:
+    # Use existing get_run_status logic
+    basic_status = get_run_status(config, expected_files, epochs, 
+                                 gpu_running_work_dirs, sleep_time, outdated_days)
     
-    work_dir = get_work_dir(config)
+    # Add ProcessInfo if this config is running on GPU
+    process_info = config_to_process_info.get(config, None)
     
-    # Get timing information
-    log_last_update = get_log_last_update(work_dir)
-    epoch_last_update = get_epoch_last_update(work_dir, expected_files)
-    
-    # Check if running on GPU
-    running_commands = system_monitor.get_all_running_commands()
-    is_gpu_running = any(config in cmd for cmd in running_commands)
-    
-    # Check if recently active (log-based)
-    is_log_running = (log_last_update is not None and 
-                     (time.time() - log_last_update <= sleep_time))
-    
-    # Get launch time if running on GPU
-    launch_time = None
-    if is_gpu_running:
-        launch_time = _get_process_launch_time(config, system_monitor)
-    elif is_log_running:
-        # Fallback to earliest log timestamp
-        launch_time = _get_earliest_log_timestamp(work_dir)
-    
-    # Determine final status
-    if is_gpu_running and is_log_running:
-        status = 'running'
-    elif is_gpu_running and not is_log_running:
-        status = 'stuck'  # Running on GPU but no recent logs
-    elif not is_gpu_running and is_log_running:
-        status = 'recently_active'  # Recent logs but not on GPU (may have just finished)
-    elif progress >= epochs:
-        status = 'finished' if not _is_outdated(epoch_last_update, outdated_days) else 'outdated'
-    else:
-        status = 'failed'
-    
-    return EnhancedRunStatus(
-        config=config,
-        work_dir=work_dir,
-        progress=progress,
-        status=status,
-        launch_time=launch_time,
-        is_gpu_running=is_gpu_running,
-        is_log_running=is_log_running
+    return RunStatus(
+        config=basic_status.config,
+        work_dir=basic_status.work_dir,
+        progress=basic_status.progress,
+        status=basic_status.status,
+        process_info=process_info
     )
 ```
 
-### Long-Running Experiment Detection
-With launch times available, we can detect:
-- **Very long experiments**: Running >7 days (may need investigation)
-- **Stuck experiments**: On GPU but no log updates (immediate attention)
-- **Efficiency analysis**: Time per epoch for performance insights
+### Benefits of ProcessInfo Enhancement
+1. **Long-running detection**: Use `process_info.start_time` to calculate runtime
+2. **Efficient querying**: Query all GPUs once, not per-config
+3. **Server information**: Know which server each experiment is running on
+4. **Process details**: PID, user, full command for debugging
+5. **Backward compatibility**: Keep existing RunStatus interface, just add field
 
-### Benefits of Enhanced Status
-1. **Better debugging**: Distinguish between truly stuck vs recently finished
-2. **Resource management**: Identify experiments hogging GPUs without progress  
-3. **Performance tracking**: Monitor experiment efficiency over time
-4. **Accurate reporting**: More precise status in daily summaries
+## Architecture Summary
+
+### Corrected Design Principles
+1. **RunStatus Enhancement**: Add `ProcessInfo` field to existing class, keep same name
+2. **Efficient Querying**: Query all GPUs once, build config→ProcessInfo mapping
+3. **Separated Concerns**: 
+   - **Snapshots**: For diff-able logs directory state only
+   - **Key events**: Separate extraction from agent log by time filtering
+4. **Existing Logic Reuse**: Use existing `get_run_status()` function, just enhance with ProcessInfo
+5. **Single-Pass Efficiency**: Query system monitor once, process all configs with that data
+
+### Data Flow
+1. **System Monitor Query** → Build config→ProcessInfo mapping
+2. **Enhanced RunStatus** → Use existing logic + ProcessInfo for all configs
+3. **Snapshot Creation** → Store enhanced RunStatus list with timestamp
+4. **Agent Log Parsing** → Extract yesterday's key events separately
+5. **Summary Generation** → Compare snapshots + format key events
+6. **Email Delivery** → Send to daniel.mao@uwaterloo.ca at 11:55 PM
 
 ## Next Steps
 
 I'll now implement:
-1. **Enhanced RunStatus** with launch time and dual running status detection
-2. **Agent log parser** for key events extraction from `project/run_agent.log`
-3. **Single-pass LogsSnapshot** for efficient data collection
-4. **DailySummaryGenerator** with epoch-level diff detection and specified content order
+1. **Enhanced RunStatus** with ProcessInfo field and efficient querying
+2. **AgentLogParser** for key events extraction from `project/run_agent.log`
+3. **LogsSnapshot** for logs directory state snapshots only
+4. **DailySummaryGenerator** with snapshot comparison + separate key events
 5. **Standalone crontab script** with email functionality
