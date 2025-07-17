@@ -41,10 +41,16 @@ This document outlines the implementation plan for adding a daily summary featur
 
 **Proposed RunStatus Enhancement:**
 ```python
+class ProgressInfo(TypedDict):
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool
+    early_stopped_at_epoch: Optional[int]
+
 class RunStatus(NamedTuple):
     config: str
     work_dir: str
-    progress: int
+    progress: ProgressInfo  # ENHANCED: Rich progress info instead of int
     status: _RunStatus
     process_info: Optional[ProcessInfo]  # NEW: Associated GPU process if running
 ```
@@ -110,64 +116,139 @@ class LogsSnapshot:
         self.snapshot_dir = "./agents/snapshots"
         
     def create_snapshot(self, timestamp: str, system_monitor: SystemMonitor) -> Dict[str, Any]:
-        # Create snapshot of logs directory state using existing run_status logic
+        # Create snapshot of logs directory state using enhanced run_status
         snapshot = {
             'timestamp': timestamp,
-            'run_statuses': self._get_all_enhanced_run_status(system_monitor)
+            'run_statuses': get_all_run_status(  # Use enhanced existing function
+                config_files=self.config_files,
+                expected_files=self.expected_files,
+                epochs=self.epochs,
+                sleep_time=self.sleep_time,
+                outdated_days=self.outdated_days,
+                system_monitor=system_monitor
+            )  # Returns Dict[str, RunStatus] with enhanced progress and ProcessInfo
         }
         return snapshot
         
-    def _get_all_enhanced_run_status(self, system_monitor: SystemMonitor) -> List[RunStatus]:
-        # Use existing get_all_run_status but with enhanced ProcessInfo
-        return get_all_run_status_enhanced(
-            config_files=self.config_files,
-            expected_files=self.expected_files,
-            epochs=self.epochs,
-            sleep_time=self.sleep_time,
-            outdated_days=self.outdated_days,
-            system_monitor=system_monitor
-        )
+    def save_snapshot(self, snapshot: Dict[str, Any], filename: str):
+        os.makedirs(self.snapshot_dir, exist_ok=True)
+        filepath = os.path.join(self.snapshot_dir, filename)
+        with open(filepath, 'w') as f:
+            json.dump(snapshot, f, indent=2, default=str)  # default=str for datetime/etc
+            
+    def load_snapshot(self, filename: str) -> Optional[Dict[str, Any]]:
+        filepath = os.path.join(self.snapshot_dir, filename)
+        if not os.path.exists(filepath):
+            return None
+        with open(filepath, 'r') as f:
+            return json.load(f)
 ```
 
 ### 2. Enhanced RunStatus Implementation
-Modify `utils/automation/run_status.py` to include ProcessInfo:
+Modify existing functions in `utils/automation/run_status.py`:
 
 ```python
+class ProgressInfo(TypedDict):
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool
+    early_stopped_at_epoch: Optional[int]
+
 class RunStatus(NamedTuple):
     config: str
     work_dir: str
-    progress: int
+    progress: ProgressInfo  # ENHANCED: Rich progress info instead of int
     status: _RunStatus
     process_info: Optional[ProcessInfo]  # NEW: Associated GPU process if running
 
-def get_all_run_status_enhanced(
+def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
+    """Enhanced to return full progress info instead of just int."""
+    # Use existing _compute_and_cache_progress logic but return full dict
+    progress_file = os.path.join(work_dir, "progress.json")
+    if os.path.exists(progress_file):
+        with open(progress_file, 'r') as f:
+            return json.load(f)  # Return full ProgressInfo dict
+    
+    # Slow path: re-compute and return full progress data
+    return _compute_and_cache_progress(work_dir, expected_files)
+
+def get_all_run_status(
     config_files: List[str],
     expected_files: List[str],
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
     system_monitor: SystemMonitor = None,
-) -> List[RunStatus]:
+) -> Dict[str, RunStatus]:  # CHANGED: Return mapping instead of list
+    """Enhanced to include ProcessInfo and return mapping."""
+    assert isinstance(system_monitor, SystemMonitor)
+    
     # Query system monitor ONCE for all GPUs
     all_connected_gpus = system_monitor.connected_gpus
     config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
+    all_running_work_dirs = [get_work_dir(config) for config in config_to_process_info.keys()]
     
-    # Get basic run status for all configs
+    # Get enhanced run status for all configs
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
-            partial(get_run_status_with_process_info,
+            partial(get_run_status,
                 expected_files=expected_files,
                 epochs=epochs,
+                gpu_running_work_dirs=all_running_work_dirs,
                 config_to_process_info=config_to_process_info,
                 sleep_time=sleep_time,
                 outdated_days=outdated_days,
             ), config_files
         ))
     
-    return all_run_status
+    # Convert list to mapping
+    return {status.config: status for status in all_run_status}
+
+def get_run_status(
+    config: str,
+    expected_files: List[str],
+    epochs: int,
+    gpu_running_work_dirs: List[str],
+    config_to_process_info: Dict[str, ProcessInfo],  # NEW parameter
+    sleep_time: int = 86400,
+    outdated_days: int = 30
+) -> RunStatus:
+    """Enhanced to include ProcessInfo and rich progress."""
+    work_dir = get_work_dir(config)
+    
+    # Get enhanced progress info (ProgressInfo dict instead of int)
+    progress = get_session_progress(work_dir, expected_files)
+    
+    # Use existing status logic
+    log_last_update = get_log_last_update(work_dir)
+    epoch_last_update = get_epoch_last_update(work_dir, expected_files)
+    is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
+    
+    if is_running_status:
+        status = 'running'
+    elif progress['completed_epochs'] >= epochs:
+        if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
+            status = 'outdated'
+        else:
+            status = 'finished'
+    elif work_dir in gpu_running_work_dirs:
+        status = 'stuck'
+    else:
+        status = 'failed'
+    
+    # Get ProcessInfo if this config is running on GPU
+    process_info = config_to_process_info.get(config, None)
+    
+    return RunStatus(
+        config=config,
+        work_dir=work_dir,
+        progress=progress,
+        status=status,
+        process_info=process_info
+    )
 
 def _build_config_to_process_mapping(connected_gpus: List[GPUStatus]) -> Dict[str, ProcessInfo]:
-    # Build mapping from config file to ProcessInfo for running experiments
+    """Build mapping from config file to ProcessInfo for running experiments."""
     config_to_process = {}
     for gpu in connected_gpus:
         for process in gpu['processes']:
@@ -207,40 +288,64 @@ class AgentLogParser:
 ```
 
 ### 4. DailySummaryGenerator Class
-Create summary by comparing snapshots and adding key events:
+Create summary by calling LogsSnapshot and adding key events:
 
 ```python
 class DailySummaryGenerator:
-    def __init__(self):
+    def __init__(self, 
+                 config_files: List[str],
+                 expected_files: List[str],
+                 epochs: int,
+                 sleep_time: int = 86400,
+                 outdated_days: int = 30):
+        self.logs_snapshot = LogsSnapshot(
+            config_files=config_files,
+            expected_files=expected_files,
+            epochs=epochs,
+            sleep_time=sleep_time,
+            outdated_days=outdated_days
+        )
         self.agent_log_parser = AgentLogParser()
         
-    def generate_summary(self, 
-                        current_snapshot: Dict[str, Any], 
-                        previous_snapshot: Dict[str, Any] = None,
-                        date: str = None) -> str:
+    def generate_daily_summary(self, 
+                              system_monitor: SystemMonitor,
+                              date: str = None) -> str:
+        # Create current snapshot
+        current_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        current_snapshot = self.logs_snapshot.create_snapshot(current_timestamp, system_monitor)
+        
+        # Try to load yesterday's snapshot
+        yesterday = datetime.now() - timedelta(days=1)
+        yesterday_filename = f"{yesterday.strftime('%Y-%m-%d')}_235500.json"
+        previous_snapshot = self.logs_snapshot.load_snapshot(yesterday_filename)
+        
         # Extract key events separately from agent log
         key_events = self.agent_log_parser.extract_key_events_since_yesterday()
         
         # Generate summary in specified order:
         # 1. Experiment Statistics → 2. Key Events → 3. Progress Overview → 4. Resource Utilization
         sections = [
-            f"# Daily Summary - {date}",
+            f"# Daily Summary - {date or datetime.now().strftime('%Y-%m-%d')}",
             self._format_experiment_statistics(current_snapshot, previous_snapshot),
             self._format_key_events(key_events),
             self._format_progress_overview(current_snapshot),
             self._format_resource_utilization(current_snapshot)
         ]
         
+        # Save current snapshot for tomorrow's comparison
+        today_filename = f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.json"
+        self.logs_snapshot.save_snapshot(current_snapshot, today_filename)
+        
         return "\n\n".join(sections)
         
     def _format_experiment_statistics(self, current, previous) -> str:
-        current_statuses = current['run_statuses']
-        previous_statuses = previous['run_statuses'] if previous else []
+        current_statuses = current['run_statuses']  # Dict[str, RunStatus]
+        previous_statuses = previous['run_statuses'] if previous else {}
         
         # 1. Total experiments by status
         # 2. Experiments completed today (compare status changes)
-        # 3. Experiments started today (new processes with start times)
-        # 4. **Epoch-level reporting**: Compare progress between snapshots
+        # 3. Experiments started today (new ProcessInfo entries)
+        # 4. **Epoch-level reporting**: Compare progress.completed_epochs between snapshots
         # 5. Failed experiments with error summaries
         
     def _format_key_events(self, key_events: List[Dict[str, Any]]) -> str:
@@ -250,25 +355,45 @@ class DailySummaryGenerator:
         # - Critical errors encountered (system-level issues)
         
     def _format_progress_overview(self, current) -> str:
-        current_statuses = current['run_statuses']
-        # - Overall completion percentage across all experiments
+        current_statuses = current['run_statuses']  # Dict[str, RunStatus]
+        # - Overall completion percentage across all experiments (use progress.progress_percentage)
         # - Experiments nearing completion (>90% complete)
         # - Long-running experiments (using process_info.start_time if available)
         
     def _format_resource_utilization(self, current) -> str:
         # Extract from current_statuses where process_info is not None
-        # - GPU utilization statistics (if available from system monitor)
-        # - CPU utilization statistics  
-        # - Resource bottlenecks detected
         # - Currently running processes per server
+        # - Resource distribution across servers
         
     def _calculate_newly_completed_epochs(self, current_statuses, previous_statuses) -> Dict[str, List[int]]:
-        # Compare progress between snapshots to find newly completed epochs
+        # Compare progress.completed_epochs between snapshots to find newly completed epochs
         # Return {config_path: [newly_completed_epoch_numbers]}
+        newly_completed = {}
+        for config, current_status in current_statuses.items():
+            if config in previous_statuses:
+                prev_epochs = previous_statuses[config].progress['completed_epochs']
+                curr_epochs = current_status.progress['completed_epochs']
+                if curr_epochs > prev_epochs:
+                    newly_completed[config] = list(range(prev_epochs, curr_epochs))
+        return newly_completed
         
     def _detect_long_running_experiments(self, current_statuses) -> List[Dict[str, Any]]:
         # Use process_info.start_time to calculate running duration
         # Return experiments running >7 days with details
+        import dateutil.parser
+        long_running = []
+        for config, status in current_statuses.items():
+            if status.process_info and status.status == 'running':
+                start_time = dateutil.parser.parse(status.process_info['start_time'])
+                runtime = datetime.now() - start_time
+                if runtime.days > 7:
+                    long_running.append({
+                        'config': config,
+                        'runtime_days': runtime.days,
+                        'progress_percentage': status.progress['progress_percentage'],
+                        'server': status.process_info['server'] if 'server' in status.process_info else 'unknown'
+                    })
+        return long_running
 ```
 
 ### 3. Selected Integration Approach: Snapshot-Based Daily Script
@@ -309,11 +434,13 @@ def main():
 
 ## Implementation Steps
 
-### Phase 1: Enhanced RunStatus with ProcessInfo
-1. **Modify RunStatus**: Add `process_info: Optional[ProcessInfo]` field to existing class
-2. **Efficient GPU querying**: Query system monitor once, build config→ProcessInfo mapping
-3. **Enhanced get_all_run_status**: Modify existing function to include ProcessInfo without renaming
-4. **Status logic refinement**: Use ProcessInfo for better "running" vs "stuck" detection
+### Phase 1: Enhanced RunStatus (Modify Existing Functions)
+1. **Enhanced ProgressInfo**: Change `progress: int` to `progress: ProgressInfo` with rich early stopping data
+2. **Add ProcessInfo field**: Add `process_info: Optional[ProcessInfo]` to existing RunStatus class
+3. **Modify get_session_progress**: Return full ProgressInfo dict instead of just completed_epochs int
+4. **Modify get_all_run_status**: Return `Dict[str, RunStatus]` instead of `List[RunStatus]`
+5. **Modify get_run_status**: Accept `config_to_process_info` parameter and include ProcessInfo
+6. **Efficient GPU querying**: Query system monitor once, build config→ProcessInfo mapping
 
 ### Phase 2: Separate Agent Log Parsing
 1. **AgentLogParser class**: Create separate parser for `project/run_agent.log`
@@ -322,17 +449,17 @@ def main():
 4. **Event structuring**: Return standardized event dictionaries
 
 ### Phase 3: Snapshot Infrastructure (Logs Only)
-1. **LogsSnapshot class**: Create simple snapshot for logs directory state only
-2. **Use existing run_status**: Leverage enhanced `get_all_run_status` function
-3. **Snapshot storage**: JSON files in `agents/snapshots/` with timestamped names
+1. **LogsSnapshot class**: Simple wrapper around enhanced `get_all_run_status`
+2. **Snapshot creation**: Use enhanced run_status that returns mapping with rich progress
+3. **Snapshot storage**: JSON files in `agents/snapshots/` with save/load methods
 4. **No key events in snapshot**: Keep snapshots for diff-able data only
 
-### Phase 4: Diff-Based Summary Generation
-1. **DailySummaryGenerator**: Create class for snapshot comparison + separate key events
-2. **Experiment statistics**: Compare RunStatus lists between snapshots for changes
-3. **Key events formatting**: Format separately extracted agent log events
-4. **Progress overview**: Use ProcessInfo.start_time for long-running detection
-5. **Resource utilization**: Extract from current running processes
+### Phase 4: Summary Generation (Calls LogsSnapshot)
+1. **DailySummaryGenerator**: Takes config parameters, creates LogsSnapshot internally
+2. **Snapshot comparison**: Call LogsSnapshot to create current snapshot and load previous
+3. **Rich progress analysis**: Use ProgressInfo for detailed epoch-level reporting
+4. **Long-running detection**: Use ProcessInfo.start_time for runtime calculation
+5. **Key events integration**: Extract separately from agent log and format
 
 ### Phase 4: Standalone Script and Email
 1. **Daily script**: Create `scripts/generate_daily_summary.py` for crontab execution
@@ -446,64 +573,104 @@ The current `run_status.py` determines status based on log updates and GPU queri
 2. **Efficient querying** (queries GPU for each config separately)
 3. **Long-running detection** (no access to process start times)
 
-### Proposed Solution: Add ProcessInfo Field
+### Proposed Solution: Enhance Existing Functions
 ```python
+class ProgressInfo(TypedDict):
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool
+    early_stopped_at_epoch: Optional[int]
+
 class RunStatus(NamedTuple):
     config: str
     work_dir: str
-    progress: int
+    progress: ProgressInfo  # ENHANCED: Rich progress instead of int
     status: _RunStatus
     process_info: Optional[ProcessInfo]  # NEW: Associated GPU process if running
 
-def get_all_run_status_enhanced(
+# Modify existing get_session_progress to return ProgressInfo dict
+def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
+    """Enhanced to return full progress info instead of just int."""
+    progress_file = os.path.join(work_dir, "progress.json")
+    if os.path.exists(progress_file):
+        with open(progress_file, 'r') as f:
+            return json.load(f)  # Return full ProgressInfo dict
+    
+    # Use existing _compute_and_cache_progress which already creates full dict
+    return _compute_and_cache_progress(work_dir, expected_files)
+
+# Modify existing get_all_run_status to return mapping and include ProcessInfo
+def get_all_run_status(
     config_files: List[str],
     expected_files: List[str],
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
     system_monitor: SystemMonitor = None,
-) -> List[RunStatus]:
-    # Query all GPUs ONCE
+) -> Dict[str, RunStatus]:  # CHANGED: Return mapping instead of list
+    """Enhanced to include ProcessInfo and return mapping."""
+    # Query all GPUs ONCE (existing logic enhanced)
     all_connected_gpus = system_monitor.connected_gpus
     config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
     all_running_work_dirs = [get_work_dir(config) for config in config_to_process_info.keys()]
     
-    # Use existing logic but with ProcessInfo enhancement
+    # Use existing ThreadPoolExecutor pattern but with enhanced get_run_status
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
-            partial(get_run_status_with_process_info,
+            partial(get_run_status,
                 expected_files=expected_files,
                 epochs=epochs,
                 gpu_running_work_dirs=all_running_work_dirs,
-                config_to_process_info=config_to_process_info,
+                config_to_process_info=config_to_process_info,  # NEW parameter
                 sleep_time=sleep_time,
                 outdated_days=outdated_days,
             ), config_files
         ))
     
-    return all_run_status
+    # Convert list to mapping
+    return {status.config: status for status in all_run_status}
 
-def get_run_status_with_process_info(
+# Modify existing get_run_status to accept ProcessInfo mapping and return rich progress
+def get_run_status(
     config: str,
     expected_files: List[str],
     epochs: int,
     gpu_running_work_dirs: List[str],
-    config_to_process_info: Dict[str, ProcessInfo],
+    config_to_process_info: Dict[str, ProcessInfo],  # NEW parameter
     sleep_time: int = 86400,
     outdated_days: int = 30
 ) -> RunStatus:
-    # Use existing get_run_status logic
-    basic_status = get_run_status(config, expected_files, epochs, 
-                                 gpu_running_work_dirs, sleep_time, outdated_days)
+    """Enhanced to include ProcessInfo and rich progress."""
+    work_dir = get_work_dir(config)
     
-    # Add ProcessInfo if this config is running on GPU
+    # Use enhanced get_session_progress (returns ProgressInfo dict)
+    progress = get_session_progress(work_dir, expected_files)
+    
+    # Use existing status logic but with enhanced progress
+    log_last_update = get_log_last_update(work_dir)
+    epoch_last_update = get_epoch_last_update(work_dir, expected_files)
+    is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
+    
+    if is_running_status:
+        status = 'running'
+    elif progress['completed_epochs'] >= epochs:  # Use dict access instead of int
+        if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
+            status = 'outdated'
+        else:
+            status = 'finished'
+    elif work_dir in gpu_running_work_dirs:
+        status = 'stuck'
+    else:
+        status = 'failed'
+    
+    # Get ProcessInfo from mapping
     process_info = config_to_process_info.get(config, None)
     
     return RunStatus(
-        config=basic_status.config,
-        work_dir=basic_status.work_dir,
-        progress=basic_status.progress,
-        status=basic_status.status,
+        config=config,
+        work_dir=work_dir,
+        progress=progress,  # Now ProgressInfo dict
+        status=status,
         process_info=process_info
     )
 ```
@@ -518,27 +685,35 @@ def get_run_status_with_process_info(
 ## Architecture Summary
 
 ### Corrected Design Principles
-1. **RunStatus Enhancement**: Add `ProcessInfo` field to existing class, keep same name
-2. **Efficient Querying**: Query all GPUs once, build config→ProcessInfo mapping
-3. **Separated Concerns**: 
-   - **Snapshots**: For diff-able logs directory state only
+1. **Enhanced Progress**: Change `progress: int` to `progress: ProgressInfo` with rich early stopping data
+2. **ProcessInfo Integration**: Add `process_info: Optional[ProcessInfo]` field to existing RunStatus
+3. **Return Mapping**: Change `get_all_run_status` to return `Dict[str, RunStatus]` instead of list
+4. **Modify Existing Functions**: Enhance existing functions in `utils/automation/run_status.py`, no new functions
+5. **Efficient Querying**: Query all GPUs once, build config→ProcessInfo mapping
+6. **Separated Concerns**: 
+   - **Snapshots**: For diff-able logs directory state (mapping of enhanced RunStatus)
    - **Key events**: Separate extraction from agent log by time filtering
-4. **Existing Logic Reuse**: Use existing `get_run_status()` function, just enhance with ProcessInfo
-5. **Single-Pass Efficiency**: Query system monitor once, process all configs with that data
+7. **DailySummaryGenerator calls LogsSnapshot**: Generator creates LogsSnapshot internally and calls it
 
 ### Data Flow
-1. **System Monitor Query** → Build config→ProcessInfo mapping
-2. **Enhanced RunStatus** → Use existing logic + ProcessInfo for all configs
-3. **Snapshot Creation** → Store enhanced RunStatus list with timestamp
-4. **Agent Log Parsing** → Extract yesterday's key events separately
-5. **Summary Generation** → Compare snapshots + format key events
-6. **Email Delivery** → Send to daniel.mao@uwaterloo.ca at 11:55 PM
+1. **System Monitor Query** → Build config→ProcessInfo mapping (once per summary generation)
+2. **Enhanced RunStatus** → Use existing functions with ProgressInfo dict + ProcessInfo mapping
+3. **LogsSnapshot** → Wrapper around enhanced `get_all_run_status`, returns mapping with rich data
+4. **DailySummaryGenerator** → Creates LogsSnapshot, gets current + previous snapshots
+5. **Agent Log Parsing** → Extract yesterday's key events separately from `project/run_agent.log`
+6. **Summary Generation** → Compare snapshot mappings + format key events
+7. **Email Delivery** → Send to daniel.mao@uwaterloo.ca at 11:55 PM via crontab script
 
 ## Next Steps
 
 I'll now implement:
-1. **Enhanced RunStatus** with ProcessInfo field and efficient querying
+1. **Enhanced RunStatus** by modifying existing functions in `utils/automation/run_status.py`:
+   - Add `ProgressInfo` TypedDict and change `progress: int` to `progress: ProgressInfo`
+   - Add `process_info: Optional[ProcessInfo]` field to RunStatus
+   - Modify `get_session_progress` to return full ProgressInfo dict
+   - Modify `get_all_run_status` to return `Dict[str, RunStatus]` and include ProcessInfo
+   - Modify `get_run_status` to accept ProcessInfo mapping
 2. **AgentLogParser** for key events extraction from `project/run_agent.log`
-3. **LogsSnapshot** for logs directory state snapshots only
-4. **DailySummaryGenerator** with snapshot comparison + separate key events
+3. **LogsSnapshot** as simple wrapper around enhanced `get_all_run_status`
+4. **DailySummaryGenerator** that creates LogsSnapshot internally and compares mappings
 5. **Standalone crontab script** with email functionality
