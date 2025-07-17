@@ -136,16 +136,10 @@ class LogsSnapshot:
         
         for key, value in snapshot.items():
             if key == 'run_statuses':
-                # Convert Dict[str, RunStatus] to JSON-serializable format
+                # Convert Dict[str, RunStatus] to JSON-serializable format using _asdict()
                 serializable[key] = {}
                 for config, run_status in value.items():
-                    serializable[key][config] = {
-                        'config': run_status.config,
-                        'work_dir': run_status.work_dir,
-                        'progress': dict(run_status.progress),  # ProgressInfo TypedDict to dict
-                        'status': run_status.status,
-                        'process_info': dict(run_status.process_info) if run_status.process_info else None
-                    }
+                    serializable[key][config] = run_status._asdict()
             elif isinstance(value, datetime):
                 serializable[key] = value.isoformat()
             else:
