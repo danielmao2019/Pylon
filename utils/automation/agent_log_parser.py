@@ -53,20 +53,11 @@ class AgentLogParser:
         yesterday = datetime.now() - timedelta(days=1)
         events = []
         
-        try:
-            with open(self.agent_log_path, 'r') as f:
-                for line_num, line in enumerate(f, 1):
-                    event = self._parse_log_line(line.strip(), line_num)
-                    if event and event['timestamp'] >= yesterday:
-                        events.append(event)
-        except Exception as e:
-            # Log parsing errors shouldn't crash the summary generation
-            events.append({
-                'type': 'parser_error',
-                'timestamp': datetime.now(),
-                'message': f"Error parsing agent log: {str(e)}",
-                'line_number': None
-            })
+        with open(self.agent_log_path, 'r') as f:
+            for line_num, line in enumerate(f, 1):
+                event = self._parse_log_line(line.strip(), line_num)
+                if event and event['timestamp'] >= yesterday:
+                    events.append(event)
         
         return sorted(events, key=lambda x: x['timestamp'])
     
@@ -85,10 +76,7 @@ class AgentLogParser:
         if not timestamp_match:
             return None
         
-        try:
-            timestamp = datetime.strptime(timestamp_match.group(1), '%Y-%m-%d %H:%M:%S')
-        except ValueError:
-            return None
+        timestamp = datetime.strptime(timestamp_match.group(1), '%Y-%m-%d %H:%M:%S')
         
         # Check for stuck process removal
         stuck_match = self.patterns['stuck_removal'].search(line)
@@ -164,58 +152,51 @@ class AgentLogParser:
         Returns:
             Dictionary with parsed process details
         """
-        try:
-            # Parse format like: "config1.py: (server1, 12345), config2.py: (server2, 67890)"
-            processes = {}
-            
-            # First split by commas that are NOT inside parentheses
-            parts = []
-            current_part = ""
-            paren_count = 0
-            
-            for char in processes_str:
-                if char == '(':
-                    paren_count += 1
-                elif char == ')':
-                    paren_count -= 1
-                elif char == ',' and paren_count == 0:
-                    parts.append(current_part.strip())
-                    current_part = ""
-                    continue
-                current_part += char
-            
-            if current_part.strip():
+        # Parse format like: "config1.py: (server1, 12345), config2.py: (server2, 67890)"
+        processes = {}
+        
+        # First split by commas that are NOT inside parentheses
+        parts = []
+        current_part = ""
+        paren_count = 0
+        
+        for char in processes_str:
+            if char == '(':
+                paren_count += 1
+            elif char == ')':
+                paren_count -= 1
+            elif char == ',' and paren_count == 0:
                 parts.append(current_part.strip())
-            
-            for part in parts:
-                if ':' in part:
-                    config_part, server_pid_part = part.split(':', 1)
-                    config = config_part.strip()
-                    
-                    # Extract server and PID from format like "(server1, 12345)"
-                    server_pid_match = re.search(r'\(([^,]+),\s*(\d+)\)', server_pid_part)
-                    if server_pid_match:
-                        server = server_pid_match.group(1).strip()
-                        pid = server_pid_match.group(2).strip()
-                        processes[config] = {'server': server, 'pid': pid}
-            
-            # If no processes were parsed successfully, return fallback info
-            if len(processes) == 0:
-                return {
-                    'process_count': 0,
-                    'raw_info': processes_str[:100] + '...' if len(processes_str) > 100 else processes_str
-                }
+                current_part = ""
+                continue
+            current_part += char
+        
+        if current_part.strip():
+            parts.append(current_part.strip())
+        
+        for part in parts:
+            if ':' in part:
+                config_part, server_pid_part = part.split(':', 1)
+                config = config_part.strip()
                 
-            return {
-                'process_count': len(processes),
-                'processes': processes
-            }
-        except Exception:
-            # If parsing fails, return basic info
+                # Extract server and PID from format like "(server1, 12345)"
+                server_pid_match = re.search(r'\(([^,]+),\s*(\d+)\)', server_pid_part)
+                if server_pid_match:
+                    server = server_pid_match.group(1).strip()
+                    pid = server_pid_match.group(2).strip()
+                    processes[config] = {'server': server, 'pid': pid}
+        
+        # If no processes were parsed successfully, return fallback info
+        if len(processes) == 0:
             return {
                 'process_count': 0,
                 'raw_info': processes_str[:100] + '...' if len(processes_str) > 100 else processes_str
             }
+            
+        return {
+            'process_count': len(processes),
+            'processes': processes
+        }
     
     def get_event_summary_since_yesterday(self) -> Dict[str, Any]:
         """Get a summary of events that occurred since yesterday.
