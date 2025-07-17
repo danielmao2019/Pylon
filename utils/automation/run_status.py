@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal, NamedTuple, Tuple
+from typing import List, Optional, Literal, NamedTuple, Tuple, TypedDict, Dict
 from functools import partial
 import os
 import glob
@@ -8,6 +8,7 @@ import json
 import torch
 from utils.automation.cfg_log_conversion import get_work_dir, get_config
 from utils.monitor.system_monitor import SystemMonitor
+from utils.monitor.process_info import ProcessInfo
 from utils.io.config import load_config
 from utils.io.json import save_json
 from utils.builders.builder import build_from_config
@@ -16,11 +17,19 @@ from utils.builders.builder import build_from_config
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
+class ProgressInfo(TypedDict):
+    completed_epochs: int
+    progress_percentage: float
+    early_stopped: bool
+    early_stopped_at_epoch: Optional[int]
+
+
 class RunStatus(NamedTuple):
     config: str
     work_dir: str
-    progress: int
+    progress: ProgressInfo
     status: _RunStatus
+    process_info: Optional[ProcessInfo]
 
 
 def get_run_status(
@@ -28,6 +37,7 @@ def get_run_status(
     expected_files: List[str],
     epochs: int,
     gpu_running_work_dirs: List[str],
+    config_to_process_info: Dict[str, ProcessInfo],
     sleep_time: int = 86400,
     outdated_days: int = 30
 ) -> RunStatus:
@@ -45,10 +55,12 @@ def get_run_status(
         RunStatus object containing the current status of the run
     """
     work_dir = get_work_dir(config)
-    # Get core metrics
+    # Get enhanced progress info (ProgressInfo dict)
+    progress = get_session_progress(work_dir, expected_files)
+    
+    # Get core metrics for status determination
     log_last_update = get_log_last_update(work_dir)
     epoch_last_update = get_epoch_last_update(work_dir, expected_files)
-    progress = get_session_progress(work_dir, expected_files)
 
     # Determine if running based on log updates
     is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
@@ -56,7 +68,7 @@ def get_run_status(
     # Determine status based on metrics
     if is_running_status:
         status: _RunStatus = 'running'
-    elif progress >= epochs:
+    elif progress['completed_epochs'] >= epochs:  # Use dict access instead of int comparison
         # Check if finished run is outdated
         if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
             status = 'outdated'
@@ -67,11 +79,15 @@ def get_run_status(
     else:
         status = 'failed'
 
+    # Get ProcessInfo if this config is running on GPU
+    process_info = config_to_process_info.get(config, None)
+
     return RunStatus(
         config=config,
         work_dir=work_dir,
         progress=progress,
-        status=status
+        status=status,
+        process_info=process_info
     )
 
 
@@ -82,7 +98,7 @@ def get_all_run_status(
     sleep_time: int = 86400,
     outdated_days: int = 30,
     system_monitor: SystemMonitor = None,
-) -> List[RunStatus]:
+) -> Dict[str, RunStatus]:
     """
     Args:
         config_files: List of config file paths
@@ -99,8 +115,10 @@ def get_all_run_status(
     assert isinstance(outdated_days, int)
     assert isinstance(system_monitor, SystemMonitor)
 
-    all_running_commands = system_monitor.get_all_running_commands()
-    all_running_work_dirs = list(map(lambda x: get_work_dir(parse_config(x)), all_running_commands))
+    # Query all GPUs ONCE for efficiency
+    all_connected_gpus = system_monitor.connected_gpus
+    config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
+    all_running_work_dirs = [get_work_dir(config) for config in config_to_process_info.keys()]
 
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
@@ -108,12 +126,14 @@ def get_all_run_status(
                 expected_files=expected_files,
                 epochs=epochs,
                 gpu_running_work_dirs=all_running_work_dirs,
+                config_to_process_info=config_to_process_info,  # NEW parameter
                 sleep_time=sleep_time,
                 outdated_days=outdated_days,
             ), config_files
         ))
 
-    return all_run_status
+    # Convert list to mapping
+    return {status.config: status for status in all_run_status}
 
 
 def parse_config(cmd: str) -> str:
@@ -126,6 +146,17 @@ def parse_config(cmd: str) -> str:
         if part == "--config-filepath":
             return parts[idx+1]
     assert 0
+
+
+def _build_config_to_process_mapping(connected_gpus: List) -> Dict[str, ProcessInfo]:
+    """Build mapping from config file to ProcessInfo for running experiments."""
+    config_to_process = {}
+    for gpu in connected_gpus:
+        for process in gpu['processes']:
+            if 'python main.py --config-filepath' in process['cmd']:
+                config = parse_config(process['cmd'])
+                config_to_process[config] = process
+    return config_to_process
 
 
 def get_log_last_update(work_dir: str) -> Optional[float]:
@@ -161,37 +192,29 @@ def get_epoch_last_update(work_dir: str, expected_files: List[str]) -> Optional[
     ])
 
 
-def get_session_progress(work_dir: str, expected_files: List[str]) -> int:
+def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
     """Enhanced progress calculation with early stopping detection.
     
-    Returns completed epochs, or tot_epochs if early stopped.
+    Returns full progress info including early stopping details.
     
     Args:
         work_dir: Directory containing epoch results
         expected_files: List of expected files per epoch
         
     Returns:
-        Number of completed epochs (or total epochs if early stopped)
+        ProgressInfo dict with completed_epochs, progress_percentage, early_stopped, early_stopped_at_epoch
     """
     # Try fast path: read progress.json
     progress_file = os.path.join(work_dir, "progress.json")
     if os.path.exists(progress_file):
         with open(progress_file, 'r') as f:
-            progress_data = json.load(f)
-        
-        # If early stopped, return total epochs to indicate 100% completion
-        if progress_data.get('early_stopped', False):
-            config_path = get_config(work_dir)
-            config = load_config(config_path)
-            return config['epochs']
-        else:
-            return progress_data['completed_epochs']
+            return json.load(f)  # Return full ProgressInfo dict
     
     # Slow path: re-compute and create progress.json
     return _compute_and_cache_progress(work_dir, expected_files)
 
 
-def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> int:
+def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
     """Compute progress and create/update progress.json file."""
     # Count completed epochs (original logic)
     completed_epochs = 0
@@ -231,11 +254,8 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> int
     progress_file = os.path.join(work_dir, "progress.json")
     save_json(progress_data, progress_file)
     
-    # Return total epochs if early stopped to indicate 100% completion
-    if early_stopped:
-        return tot_epochs
-    else:
-        return completed_epochs
+    # Return the full progress info dict
+    return progress_data
 
 
 def _detect_early_stopping(work_dir: str, expected_files: List[str], config: dict, completed_epochs: int) -> Tuple[bool, Optional[int]]:
