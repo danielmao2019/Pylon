@@ -157,7 +157,7 @@ class Launcher(BaseAgent):
 
         return idle_gpus
 
-    def _launch_missing(self, all_running: List[Dict[str, Any]], num_jobs: int) -> bool:
+    def _launch_missing(self, all_running: List[RunStatus], num_jobs: int) -> bool:
         r"""
         Returns:
             done (bool): nothing more to launch.
@@ -214,7 +214,7 @@ class Launcher(BaseAgent):
             self.logger.info('='*50)
 
             self.logger.info("Collecting all running jobs...")
-            all_running_status = get_all_run_status(
+            all_running_status_dict = get_all_run_status(
                 config_files=self.config_files,
                 expected_files=self.expected_files,
                 epochs=self.epochs,
@@ -222,6 +222,7 @@ class Launcher(BaseAgent):
                 outdated_days=self.outdated_days,
                 system_monitor=self.system_monitor,
             )
+            all_running_status = list(all_running_status_dict.values())
 
             self.logger.info("Removing stuck jobs...")
             self._remove_stuck(all_running_status)
