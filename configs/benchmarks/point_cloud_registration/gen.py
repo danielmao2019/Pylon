@@ -98,11 +98,11 @@ def build_training_config(dataset: str, model: str):
                 from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
             elif dataset_name == 'synth_pcr':
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_synth_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_synth_pcr_data_cfg import data_cfg as val_data_cfg
+                from configs.common.datasets.point_cloud_registration.train.geotransformer_singletemporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.geotransformer_singletemporal_pcr_data_cfg import data_cfg as val_data_cfg
             else:  # real_pcr
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_real_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_real_pcr_data_cfg import data_cfg as val_data_cfg
+                from configs.common.datasets.point_cloud_registration.train.geotransformer_bitemporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.geotransformer_bitemporal_pcr_data_cfg import data_cfg as val_data_cfg
 
             from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
             from configs.common.criteria.point_cloud_registration.geotransformer_criterion_cfg import criterion_cfg
@@ -114,11 +114,11 @@ def build_training_config(dataset: str, model: str):
                 from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
             elif dataset_name == 'synth_pcr':
-                from configs.common.datasets.point_cloud_registration.train.overlappredator_synth_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.overlappredator_synth_pcr_data_cfg import data_cfg as val_data_cfg
+                from configs.common.datasets.point_cloud_registration.train.overlappredator_singletemporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.overlappredator_singletemporal_pcr_data_cfg import data_cfg as val_data_cfg
             else:  # real_pcr
-                from configs.common.datasets.point_cloud_registration.train.overlappredator_real_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.overlappredator_real_pcr_data_cfg import data_cfg as val_data_cfg
+                from configs.common.datasets.point_cloud_registration.train.overlappredator_bitemporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.overlappredator_bitemporal_pcr_data_cfg import data_cfg as val_data_cfg
 
             from configs.common.models.point_cloud_registration.overlappredator_cfg import model_cfg
             from configs.common.criteria.point_cloud_registration.overlappredator_criterion_cfg import criterion_cfg
