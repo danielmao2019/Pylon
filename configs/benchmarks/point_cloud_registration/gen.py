@@ -39,9 +39,9 @@ def build_eval_config(dataset: str, model: str):
     if dataset_name == 'kitti':
         from configs.common.datasets.point_cloud_registration.eval.kitti_data_cfg import data_cfg as eval_data_cfg
     elif dataset_name == 'synth_pcr':
-        from configs.common.datasets.point_cloud_registration.eval.synth_pcr_data_cfg import data_cfg as eval_data_cfg
+        from configs.common.datasets.point_cloud_registration.eval.single_temporal_pcr_data_cfg import data_cfg as eval_data_cfg
     elif dataset_name == 'real_pcr':
-        from configs.common.datasets.point_cloud_registration.eval.real_pcr_data_cfg import data_cfg as eval_data_cfg
+        from configs.common.datasets.point_cloud_registration.eval.bi_temporal_pcr_data_cfg import data_cfg as eval_data_cfg
     else:
         raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
 

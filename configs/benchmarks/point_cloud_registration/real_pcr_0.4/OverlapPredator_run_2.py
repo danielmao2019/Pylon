@@ -4,9 +4,9 @@ from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
 from criteria.vision_3d.point_cloud_registration.overlappredator_criterion.overlappredator_criterion import OverlapPredatorCriterion
 from data.dataloaders.overlappredator_dataloader import OverlapPredatorDataloader
-from data.datasets.pcr_datasets.real_pcr_dataset import RealPCRDataset
+from data.datasets.pcr_datasets.bi_temporal_pcr_dataset import BiTemporalPCRDataset
 from data.transforms.compose import Compose
-from data.transforms.vision_3d.pcr_translation import PCRTranslation
+from data.transforms.vision_3d.clamp import Clamp
 from metrics.vision_3d.point_cloud_registration.overlappredator_metric.overlappredator_metric import OverlapPredatorMetric
 from models.point_cloud_registration.overlappredator.overlappredator import OverlapPredator
 from optimizers.single_task_optimizer import SingleTaskOptimizer
@@ -22,25 +22,30 @@ config = {
     'val_seeds': [58742026, 4659956, 16417706, 6967400, 92722296, 64645678, 71528872, 50081471, 81130680, 45542948, 29914865, 57072133, 24043481, 49641447, 24087347, 43702499, 12957258, 68948059, 7629120, 869847, 4282160, 72382432, 55405373, 36170301, 96789994, 5958458, 98360265, 6990304, 754901, 27652025, 16918762, 69556387, 75410601, 47666629, 23184530, 19959802, 54468705, 54473221, 44046359, 74620124, 32350723, 25139369, 82685086, 34631468, 64907213, 84772417, 16678063, 59273904, 69193251, 65168356, 5988192, 91907356, 76225653, 13623412, 86447509, 52675981, 99553234, 60385212, 43558144, 54091729, 16317368, 47303912, 59566426, 33664424, 37784204, 1509649, 97478235, 11251964, 81632173, 50071282, 8332759, 21746105, 71985906, 90808680, 24775714, 98756922, 71268240, 90365411, 10657120, 9864524, 57521357, 83998672, 24727744, 52052452, 60919204, 10065580, 29420086, 22879271, 45881916, 7688842, 72247774, 3615085, 37385612, 84535819, 85262334, 55794679, 94014873, 33535793, 81519518, 38286036],
     'test_seed': 66172624,
     'train_dataset': {
-        'class': RealPCRDataset,
+        'class': BiTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'real_pcr_cache',
+            'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
+            'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../bi_temporal_pcr_cache.json',
             'split': 'train',
-            'voxel_size': 10.0,
+            'dataset_size': 5000,
+            'rotation_mag': 45.0,
+            'translation_mag': 0.5,
+            'matching_radius': 0.05,
+            'overlap_range': (0.0, 1.0),
             'min_points': 512,
-            'max_points': 8192,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
-                    'transforms': [(
-    {
-            'class': PCRTranslation,
-            'args': {},
+                    'transforms': [{
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 8192,
         },
-    [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
-)],
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+}],
                 },
             },
             'overlap': 0.4,
@@ -78,25 +83,30 @@ config = {
         },
     },
     'val_dataset': {
-        'class': RealPCRDataset,
+        'class': BiTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'gt_transforms_filepath': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
-            'cache_dirname': 'real_pcr_cache',
+            'gt_transforms': './data/datasets/soft_links/ivision-pcr-data/gt_transforms.json',
+            'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../bi_temporal_pcr_cache.json',
             'split': 'val',
-            'voxel_size': 10.0,
+            'dataset_size': 1000,
+            'rotation_mag': 45.0,
+            'translation_mag': 0.5,
+            'matching_radius': 0.05,
+            'overlap_range': (0.0, 1.0),
             'min_points': 512,
-            'max_points': 8192,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
-                    'transforms': [(
-    {
-            'class': PCRTranslation,
-            'args': {},
+                    'transforms': [{
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 8192,
         },
-    [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
-)],
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+}],
                 },
             },
             'overlap': 0.4,

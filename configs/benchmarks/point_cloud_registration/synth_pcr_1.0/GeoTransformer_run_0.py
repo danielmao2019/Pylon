@@ -4,9 +4,9 @@ from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
 from criteria.vision_3d.point_cloud_registration.geotransformer_criterion.geotransformer_criterion import GeoTransformerCriterion
 from data.dataloaders.geotransformer_dataloader import GeoTransformerDataloader
-from data.datasets.pcr_datasets.synth_pcr_dataset import SynthPCRDataset
+from data.datasets.pcr_datasets.single_temporal_pcr_dataset import SingleTemporalPCRDataset
 from data.transforms.compose import Compose
-from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
+from data.transforms.vision_3d.clamp import Clamp
 from metrics.vision_3d.point_cloud_registration.geotransformer_metric.geotransformer_metric import GeoTransformerMetric
 from models.point_cloud_registration.geotransformer.geotransformer import GeoTransformer
 from optimizers.single_task_optimizer import SingleTaskOptimizer
@@ -22,27 +22,29 @@ config = {
     'val_seeds': [46557338, 24842305, 61252289, 24166857, 10611901, 44380237, 96551959, 6512190, 53793440, 1854119, 88320331, 92113622, 46336153, 81830588, 96176063, 99322343, 2175419, 56321653, 58402285, 89960971, 54379014, 43112218, 73454997, 42067677, 84385843, 95805290, 23331305, 57206764, 71273800, 89817991, 62550705, 3140332, 38084757, 17433798, 59736030, 48454161, 36829125, 59244967, 29624553, 89715217, 32457105, 9847000, 98853846, 95590095, 43390287, 28356493, 17019281, 43075068, 19687630, 50942804, 56134819, 34568943, 4704251, 47870760, 6374733, 17432416, 5921518, 70287345, 54590932, 15336754, 7630916, 62823729, 94052127, 68070340, 38126014, 43095687, 34673240, 70685160, 89841140, 67860987, 98614082, 96488043, 66456230, 34639903, 67661925, 59299825, 99420904, 63243322, 62799319, 71733005, 64588487, 40683093, 22140126, 22601139, 45587841, 89050477, 2806245, 9348308, 7439449, 62330113, 54147824, 11262382, 67954125, 26192303, 60184000, 41639669, 66455792, 27666567, 71459065, 81855086],
     'test_seed': 38483571,
     'train_dataset': {
-        'class': SynthPCRDataset,
+        'class': SingleTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'cache_dirname': 'synth_pcr_cache',
+            'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../single_temporal_pcr_cache.json',
             'split': 'train',
-            'voxel_size': 10.0,
+            'dataset_size': 5000,
+            'rotation_mag': 45.0,
+            'translation_mag': 0.5,
+            'matching_radius': 0.05,
+            'overlap_range': (0.0, 1.0),
             'min_points': 512,
-            'max_points': 8192,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
-                    'transforms': [(
-    {
-            'class': RandomRigidTransform,
-            'args': {
-                'rot_mag': 45.0,
-                'trans_mag': 0.5,
-            },
+                    'transforms': [{
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 8192,
         },
-    [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
-)],
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+}],
                 },
             },
             'overlap': 1.0,
@@ -79,27 +81,29 @@ config = {
         },
     },
     'val_dataset': {
-        'class': SynthPCRDataset,
+        'class': SingleTemporalPCRDataset,
         'args': {
             'data_root': './data/datasets/soft_links/ivision-pcr-data',
-            'cache_dirname': 'synth_pcr_cache',
+            'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../single_temporal_pcr_cache.json',
             'split': 'val',
-            'voxel_size': 10.0,
+            'dataset_size': 1000,
+            'rotation_mag': 45.0,
+            'translation_mag': 0.5,
+            'matching_radius': 0.05,
+            'overlap_range': (0.0, 1.0),
             'min_points': 512,
-            'max_points': 8192,
             'transforms_cfg': {
                 'class': Compose,
                 'args': {
-                    'transforms': [(
-    {
-            'class': RandomRigidTransform,
-            'args': {
-                'rot_mag': 45.0,
-                'trans_mag': 0.5,
-            },
+                    'transforms': [{
+    'op': {
+        'class': Clamp,
+        'args': {
+            'max_points': 8192,
         },
-    [('inputs', 'src_pc'), ('inputs', 'tgt_pc'), ('labels', 'transform')]
-)],
+    },
+    'input_names': [('inputs', 'src_pc'), ('inputs', 'tgt_pc')],
+}],
                 },
             },
             'overlap': 1.0,
