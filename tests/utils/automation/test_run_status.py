@@ -31,10 +31,10 @@ from utils.io.json import save_json
 
 
 # ============================================================================
-# HELPER FUNCTIONS FOR TEST DATA CREATION (NO MOCKS - REAL DATA)
+# HELPER FUNCTIONS FOR TEST DATA CREATION
 # ============================================================================
 
-def create_epoch_files(work_dir: str, epoch_idx: int, validation_score: float = None) -> None:
+def create_epoch_files(work_dir: str, epoch_idx: int, validation_score: Optional[float] = None) -> None:
     """Create all expected files for a completed epoch."""
     epoch_dir = os.path.join(work_dir, f"epoch_{epoch_idx}")
     os.makedirs(epoch_dir, exist_ok=True)
@@ -48,10 +48,9 @@ def create_epoch_files(work_dir: str, epoch_idx: int, validation_score: float = 
     with open(optimizer_buffer_path, 'w') as f:
         json.dump({"lr": 0.001}, f)
     
-    # Create validation_scores.json
+    # Create validation_scores.json with realistic structure
     validation_scores_path = os.path.join(epoch_dir, "validation_scores.json")
     
-    # Use provided validation_score or default improving pattern
     if validation_score is None:
         score_value = 0.4 - epoch_idx * 0.01  # Improving scores (decreasing loss)
     else:
@@ -65,8 +64,13 @@ def create_epoch_files(work_dir: str, epoch_idx: int, validation_score: float = 
         json.dump(validation_scores, f)
 
 
-def create_progress_json(work_dir: str, completed_epochs: int, early_stopped: bool = False, 
-                        early_stopped_at_epoch: Optional[int] = None, tot_epochs: int = 100) -> None:
+def create_progress_json(
+    work_dir: str, 
+    completed_epochs: int, 
+    early_stopped: bool = False, 
+    early_stopped_at_epoch: Optional[int] = None, 
+    tot_epochs: int = 100
+) -> None:
     """Create progress.json file for fast path testing."""
     progress_data: ProgressInfo = {
         "completed_epochs": completed_epochs,
@@ -78,12 +82,17 @@ def create_progress_json(work_dir: str, completed_epochs: int, early_stopped: bo
     save_json(progress_data, progress_file)
 
 
-def create_real_config(config_path: str, work_dir: str, epochs: int = 100, early_stopping_enabled: bool = False, patience: int = 5) -> None:
+def create_real_config(
+    config_path: str, 
+    work_dir: str, 
+    epochs: int = 100, 
+    early_stopping_enabled: bool = False, 
+    patience: int = 5
+) -> None:
     """Create a real config file for testing."""
     os.makedirs(os.path.dirname(config_path), exist_ok=True)
     
-    config_content = f'''
-import torch
+    config_content = f'''import torch
 from metrics.wrappers import PyTorchMetricWrapper
 from runners.early_stopping import EarlyStopping
 
@@ -95,8 +104,7 @@ config = {{
         'args': {{
             'metric': torch.nn.MSELoss(reduction='mean'),
         }},
-    }},
-'''
+    }},'''
     
     if early_stopping_enabled:
         config_content += f'''
@@ -106,8 +114,7 @@ config = {{
             'enabled': True,
             'epochs': {patience},
         }},
-    }},
-'''
+    }},'''
     
     config_content += '''
 }
@@ -135,7 +142,12 @@ def create_minimal_system_monitor_with_processes(connected_gpus_data: List[Dict]
 def setup_realistic_experiment_structure(temp_root: str, experiments: List[tuple]) -> tuple:
     """Set up a realistic experiment directory structure.
     
-    Returns: (config_files, work_dirs, system_monitor)
+    Args:
+        temp_root: Root temporary directory
+        experiments: List of (exp_name, target_status, epochs_completed, has_recent_logs) tuples
+        
+    Returns:
+        (config_files, work_dirs, system_monitor) tuple
     """
     logs_dir = os.path.join(temp_root, "logs")
     configs_dir = os.path.join(temp_root, "configs")
@@ -153,7 +165,7 @@ def setup_realistic_experiment_structure(temp_root: str, experiments: List[tuple
         config_files.append(config_path)
         work_dirs[config_path] = work_dir
         
-        # Create epochs
+        # Create epoch files
         for epoch_idx in range(epochs_completed):
             create_epoch_files(work_dir, epoch_idx)
         
@@ -436,11 +448,11 @@ def test_get_run_status_with_process_info():
 
 
 # ============================================================================
-# TESTS FOR get_all_run_status (REALISTIC WITH REAL SYSTEMMONITOR)
+# TESTS FOR get_all_run_status (REALISTIC WITH MINIMAL MOCK)
 # ============================================================================
 
 def test_get_all_run_status_returns_mapping():
-    """Test that get_all_run_status returns Dict[str, RunStatus] with real SystemMonitor."""
+    """Test that get_all_run_status returns Dict[str, RunStatus] with minimal SystemMonitor mock."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiment directories
         experiments = ["exp1", "exp2", "exp3"]
@@ -456,7 +468,7 @@ def test_get_all_run_status_returns_mapping():
         os.chdir(temp_root)
         
         try:
-            # Use REAL SystemMonitor instance (not mocked)
+            # Use minimal SystemMonitor mock (only necessary mock)
             result = get_all_run_status(
                 config_files=config_files,
                 expected_files=expected_files,
@@ -578,7 +590,6 @@ def test_run_status_determination(status_scenario, expected_status):
                     f.write("Recent training log")
         elif status_scenario == "outdated":
             # Create all epochs but make them very old
-            import time
             for epoch_idx in range(100):
                 create_epoch_files(work_dir, epoch_idx)
             
@@ -617,11 +628,11 @@ def test_run_status_determination(status_scenario, expected_status):
 
 
 # ============================================================================
-# INTEGRATION TESTS (REALISTIC WITH REAL SYSTEMMONITOR)
+# INTEGRATION TESTS (REALISTIC WITH MINIMAL MOCK)
 # ============================================================================
 
 def test_integration_full_pipeline():
-    """Integration test for the complete enhanced run_status pipeline with real SystemMonitor."""
+    """Integration test for the complete enhanced run_status pipeline with minimal mocking."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiments with different states
         experiments = [
@@ -641,7 +652,7 @@ def test_integration_full_pipeline():
         os.chdir(temp_root)
         
         try:
-            # Test the complete pipeline with REAL SystemMonitor (not mocked)
+            # Test the complete pipeline with minimal SystemMonitor mock
             all_statuses = get_all_run_status(
                 config_files=config_files,
                 expected_files=expected_files,
