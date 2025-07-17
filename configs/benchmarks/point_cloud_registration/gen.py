@@ -25,7 +25,7 @@ def build_eval_config(dataset: str, model: str):
     Build config for eval-only models (ICP, RANSAC_FPFH, TeaserPlusPlus).
     """
     # Determine dataset name and overlap
-    if dataset.startswith('synth_pcr') or dataset.startswith('real_pcr'):
+    if dataset.startswith('single_temporal_pcr') or dataset.startswith('bi_temporal_pcr'):
         overlap = float(dataset.split('_')[-1])
         dataset_name = '_'.join(dataset.split('_')[:-1])
     else:
@@ -38,9 +38,9 @@ def build_eval_config(dataset: str, model: str):
     # Load dataset-specific eval data config
     if dataset_name == 'kitti':
         from configs.common.datasets.point_cloud_registration.eval.kitti_data_cfg import data_cfg as eval_data_cfg
-    elif dataset_name == 'synth_pcr':
+    elif dataset_name == 'single_temporal_pcr':
         from configs.common.datasets.point_cloud_registration.eval.single_temporal_pcr_data_cfg import data_cfg as eval_data_cfg
-    elif dataset_name == 'real_pcr':
+    elif dataset_name == 'bi_temporal_pcr':
         from configs.common.datasets.point_cloud_registration.eval.bi_temporal_pcr_data_cfg import data_cfg as eval_data_cfg
     else:
         raise NotImplementedError(f"Dataset {dataset_name} not implemented for eval")
@@ -72,7 +72,7 @@ def build_training_config(dataset: str, model: str):
     Build config for training models (GeoTransformer, OverlapPredator, BUFFER).
     """
     # Determine dataset name and overlap
-    if dataset.startswith('synth_pcr') or dataset.startswith('real_pcr'):
+    if dataset.startswith('single_temporal_pcr') or dataset.startswith('bi_temporal_pcr'):
         overlap = float(dataset.split('_')[-1])
         dataset_name = '_'.join(dataset.split('_')[:-1])
     else:
@@ -97,12 +97,12 @@ def build_training_config(dataset: str, model: str):
                 # For kitti, use general data config since no model-specific ones exist
                 from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
-            elif dataset_name == 'synth_pcr':
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_singletemporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_singletemporal_pcr_data_cfg import data_cfg as val_data_cfg
-            else:  # real_pcr
-                from configs.common.datasets.point_cloud_registration.train.geotransformer_bitemporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.geotransformer_bitemporal_pcr_data_cfg import data_cfg as val_data_cfg
+            elif dataset_name == 'single_temporal_pcr':
+                from configs.common.datasets.point_cloud_registration.train.geotransformer_single_temporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.geotransformer_single_temporal_pcr_data_cfg import data_cfg as val_data_cfg
+            else:  # bi_temporal_pcr
+                from configs.common.datasets.point_cloud_registration.train.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.geotransformer_bi_temporal_pcr_data_cfg import data_cfg as val_data_cfg
 
             from configs.common.models.point_cloud_registration.geotransformer_cfg import model_cfg
             from configs.common.criteria.point_cloud_registration.geotransformer_criterion_cfg import criterion_cfg
@@ -113,12 +113,12 @@ def build_training_config(dataset: str, model: str):
                 # For kitti, use general data config since no model-specific ones exist
                 from configs.common.datasets.point_cloud_registration.train.kitti_data_cfg import data_cfg as train_data_cfg
                 from configs.common.datasets.point_cloud_registration.val.kitti_data_cfg import data_cfg as val_data_cfg
-            elif dataset_name == 'synth_pcr':
-                from configs.common.datasets.point_cloud_registration.train.overlappredator_singletemporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.overlappredator_singletemporal_pcr_data_cfg import data_cfg as val_data_cfg
-            else:  # real_pcr
-                from configs.common.datasets.point_cloud_registration.train.overlappredator_bitemporal_pcr_data_cfg import data_cfg as train_data_cfg
-                from configs.common.datasets.point_cloud_registration.val.overlappredator_bitemporal_pcr_data_cfg import data_cfg as val_data_cfg
+            elif dataset_name == 'single_temporal_pcr':
+                from configs.common.datasets.point_cloud_registration.train.overlappredator_single_temporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.overlappredator_single_temporal_pcr_data_cfg import data_cfg as val_data_cfg
+            else:  # bi_temporal_pcr
+                from configs.common.datasets.point_cloud_registration.train.overlappredator_bi_temporal_pcr_data_cfg import data_cfg as train_data_cfg
+                from configs.common.datasets.point_cloud_registration.val.overlappredator_bi_temporal_pcr_data_cfg import data_cfg as val_data_cfg
 
             from configs.common.models.point_cloud_registration.overlappredator_cfg import model_cfg
             from configs.common.criteria.point_cloud_registration.overlappredator_criterion_cfg import criterion_cfg
@@ -191,8 +191,8 @@ if __name__ == "__main__":
     import itertools
     for dataset, model in itertools.product(
         [
-            'synth_pcr_1.0', 'synth_pcr_0.5', 'synth_pcr_0.4',
-            'real_pcr_1.0', 'real_pcr_0.5', 'real_pcr_0.4',
+            'single_temporal_pcr_1.0', 'single_temporal_pcr_0.5', 'single_temporal_pcr_0.4',
+            'bi_temporal_pcr_1.0', 'bi_temporal_pcr_0.5', 'bi_temporal_pcr_0.4',
             'kitti',
         ],
         [
