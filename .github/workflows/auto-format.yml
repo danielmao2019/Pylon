@@ -1,0 +1,26 @@
+name: Code Formatting Check
+
+on: [push]
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install formatting tools
+      run: |
+        pip install black isort flake8
+    
+    - name: Sort imports with isort
+      run: isort .
+    
+    - name: Format code with black
+      run: black .
