@@ -148,7 +148,11 @@ def _build_config_to_process_mapping(connected_gpus: List) -> Dict[str, ProcessI
         for process in gpu['processes']:
             if 'python main.py --config-filepath' in process['cmd']:
                 config = parse_config(process['cmd'])
-                config_to_process[config] = process
+                # Convert dict to ProcessInfo dataclass if needed
+                if isinstance(process, dict):
+                    config_to_process[config] = ProcessInfo(**process)
+                else:
+                    config_to_process[config] = process
     return config_to_process
 
 

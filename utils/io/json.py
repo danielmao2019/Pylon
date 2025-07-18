@@ -3,6 +3,7 @@ import os
 import json
 import jsbeautifier
 from datetime import datetime
+from dataclasses import is_dataclass, asdict
 from utils.ops.apply import apply_tensor_op, apply_op
 import torch
 import numpy as np
@@ -19,6 +20,7 @@ def serialize_object(obj: Any) -> Any:
     - torch.Tensor -> list (via .detach().tolist())
     - numpy.ndarray -> list (via .tolist())
     - datetime -> ISO format string
+    - dataclass -> dict (via asdict())
     - NamedTuple -> dict (via ._asdict())
     - All other types -> unchanged (assumes JSON-serializable)
     
@@ -41,8 +43,13 @@ def serialize_object(obj: Any) -> Any:
         elif isinstance(item, datetime):
             return item.isoformat()
         
-        # Handle NamedTuple objects specifically (they have _fields attribute)
-        elif hasattr(item, '_asdict') and hasattr(item, '_fields') and callable(getattr(item, '_asdict')):
+        # Handle dataclass objects
+        elif is_dataclass(item):
+            # Recursively serialize the dict representation
+            return serialize_object(asdict(item))
+        
+        # Handle NamedTuple objects - check if type is a subclass of tuple and has _fields
+        elif isinstance(item, tuple) and hasattr(item.__class__, '_fields'):
             # Recursively serialize the dict representation
             return serialize_object(item._asdict())
         
@@ -57,7 +64,7 @@ def save_json(obj: Any, filepath: str) -> None:
     """Save object to JSON file with generic serialization.
     
     Uses serialize_object which handles torch.Tensor, numpy.ndarray, 
-    datetime, NamedTuple, and all nested data structures.
+    datetime, dataclass, NamedTuple, and all nested data structures.
     
     Args:
         obj: Object to save
