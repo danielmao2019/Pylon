@@ -47,65 +47,65 @@ The cube geometry provides clear demonstration of directional filtering effects.
 *Origin Forward: 3000→3000 points (0.0% reduction)*
 
 ![Cube Range Only - Elevated Down](lidar_demo_plots/cube_range_only/lidar_crop_elevated_down.png)
-*Elevated Down: 3000→11 points (99.6% reduction)*
+*Elevated Down: 3000→8 points (99.7% reduction)*
 
 ![Cube Range Only - Side View](lidar_demo_plots/cube_range_only/lidar_crop_side_view.png)
-*Side View: 3000→8 points (99.7% reduction)*
+*Side View: 3000→2 points (99.9% reduction)*
 
 ![Cube Range Only - Angled View](lidar_demo_plots/cube_range_only/lidar_crop_angled_view.png)
-*Angled View: 3000→339 points (88.7% reduction)*
+*Angled View: 3000→377 points (87.4% reduction)*
 
 #### Range + FOV Filtering
 ![Cube Range+FOV - Origin Forward](lidar_demo_plots/cube_range_and_fov/lidar_crop_origin_forward.png)
-*Origin Forward: 3000→516 points (82.8% reduction)*
+*Origin Forward: 3000→501 points (83.3% reduction)*
 
 ![Cube Range+FOV - Elevated Down](lidar_demo_plots/cube_range_and_fov/lidar_crop_elevated_down.png)
 *Elevated Down: 3000→0 points (100.0% reduction)*
 
 ![Cube Range+FOV - Side View](lidar_demo_plots/cube_range_and_fov/lidar_crop_side_view.png)
-*Side View: 3000→2078 points (30.7% reduction)*
+*Side View: 3000→2098 points (30.1% reduction)*
 
 ![Cube Range+FOV - Angled View](lidar_demo_plots/cube_range_and_fov/lidar_crop_angled_view.png)
-*Angled View: 3000→1789 points (40.4% reduction)*
+*Angled View: 3000→1796 points (40.1% reduction)*
 
 #### Full Simulation (Range + FOV + Occlusion)
 ![Cube Full - Origin Forward](lidar_demo_plots/cube_full_simulation/lidar_crop_origin_forward.png)
-*Origin Forward: 3000→117 points (96.1% reduction)*
+*Origin Forward: 3000→102 points (96.6% reduction)*
 
 ![Cube Full - Elevated Down](lidar_demo_plots/cube_full_simulation/lidar_crop_elevated_down.png)
 *Elevated Down: 3000→0 points (100.0% reduction)*
 
 ![Cube Full - Side View](lidar_demo_plots/cube_full_simulation/lidar_crop_side_view.png)
-*Side View: 3000→10 points (99.7% reduction)*
+*Side View: 3000→6 points (99.8% reduction)*
 
 ![Cube Full - Angled View](lidar_demo_plots/cube_full_simulation/lidar_crop_angled_view.png)
 *Angled View: 3000→2 points (99.9% reduction)*
 
 #### FOV Only Filtering
 ![Cube FOV Only - Origin Forward](lidar_demo_plots/cube_fov_only/lidar_crop_origin_forward.png)
-*Origin Forward: 3000→461 points (84.6% reduction)*
+*Origin Forward: 3000→501 points (83.3% reduction)*
 
 ![Cube FOV Only - Elevated Down](lidar_demo_plots/cube_fov_only/lidar_crop_elevated_down.png)
 *Elevated Down: 3000→0 points (100.0% reduction)*
 
 ![Cube FOV Only - Side View](lidar_demo_plots/cube_fov_only/lidar_crop_side_view.png)
-*Side View: 3000→2807 points (6.4% reduction)*
+*Side View: 3000→2825 points (5.8% reduction)*
 
 ![Cube FOV Only - Angled View](lidar_demo_plots/cube_fov_only/lidar_crop_angled_view.png)
-*Angled View: 3000→1827 points (39.1% reduction)*
+*Angled View: 3000→1841 points (38.6% reduction)*
 
 #### Occlusion Only Filtering
 ![Cube Occlusion Only - Origin Forward](lidar_demo_plots/cube_occlusion_only/lidar_crop_origin_forward.png)
-*Origin Forward: 3000→1202 points (59.9% reduction)*
+*Origin Forward: 3000→1226 points (59.1% reduction)*
 
 ![Cube Occlusion Only - Elevated Down](lidar_demo_plots/cube_occlusion_only/lidar_crop_elevated_down.png)
-*Elevated Down: 3000→19 points (99.4% reduction)*
+*Elevated Down: 3000→16 points (99.5% reduction)*
 
 ![Cube Occlusion Only - Side View](lidar_demo_plots/cube_occlusion_only/lidar_crop_side_view.png)
-*Side View: 3000→11 points (99.6% reduction)*
+*Side View: 3000→10 points (99.7% reduction)*
 
 ![Cube Occlusion Only - Angled View](lidar_demo_plots/cube_occlusion_only/lidar_crop_angled_view.png)
-*Angled View: 3000→6 points (99.8% reduction)*
+*Angled View: 3000→3 points (99.9% reduction)*
 
 ### Sphere Point Cloud
 
@@ -122,11 +122,11 @@ The sphere demonstrates radially symmetric filtering behavior.
 *Side View: 2000→0 points (100.0% reduction)*
 
 ![Sphere Range Only - Angled View](lidar_demo_plots/sphere_range_only/lidar_crop_angled_view.png)
-*Angled View: 2000→20 points (99.0% reduction)*
+*Angled View: 2000→15 points (99.2% reduction)*
 
 #### Range + FOV Filtering
 ![Sphere Range+FOV - Origin Forward](lidar_demo_plots/sphere_range_and_fov/lidar_crop_origin_forward.png)
-*Origin Forward: 2000→232 points (88.4% reduction)*
+*Origin Forward: 2000→206 points (89.7% reduction)*
 
 ![Sphere Range+FOV - Elevated Down](lidar_demo_plots/sphere_range_and_fov/lidar_crop_elevated_down.png)
 *Elevated Down: 2000→0 points (100.0% reduction)*
@@ -135,24 +135,24 @@ The sphere demonstrates radially symmetric filtering behavior.
 *Side View: 2000→1983 points (0.8% reduction)*
 
 ![Sphere Range+FOV - Angled View](lidar_demo_plots/sphere_range_and_fov/lidar_crop_angled_view.png)
-*Angled View: 2000→1552 points (22.4% reduction)*
+*Angled View: 2000→1517 points (24.2% reduction)*
 
 #### Full Simulation (Range + FOV + Occlusion)
 ![Sphere Full - Origin Forward](lidar_demo_plots/sphere_full_simulation/lidar_crop_origin_forward.png)
-*Origin Forward: 2000→88 points (95.6% reduction)*
+*Origin Forward: 2000→74 points (96.3% reduction)*
 
 ![Sphere Full - Elevated Down](lidar_demo_plots/sphere_full_simulation/lidar_crop_elevated_down.png)
 *Elevated Down: 2000→0 points (100.0% reduction)*
 
 ![Sphere Full - Side View](lidar_demo_plots/sphere_full_simulation/lidar_crop_side_view.png)
-*Side View: 2000→7 points (99.7% reduction)*
+*Side View: 2000→11 points (99.5% reduction)*
 
 ![Sphere Full - Angled View](lidar_demo_plots/sphere_full_simulation/lidar_crop_angled_view.png)
-*Angled View: 2000→6 points (99.7% reduction)*
+*Angled View: 2000→7 points (99.7% reduction)*
 
 #### FOV Only Filtering
 ![Sphere FOV Only - Origin Forward](lidar_demo_plots/sphere_fov_only/lidar_crop_origin_forward.png)
-*Origin Forward: 2000→256 points (87.2% reduction)*
+*Origin Forward: 2000→206 points (89.7% reduction)*
 
 ![Sphere FOV Only - Elevated Down](lidar_demo_plots/sphere_fov_only/lidar_crop_elevated_down.png)
 *Elevated Down: 2000→0 points (100.0% reduction)*
@@ -161,20 +161,20 @@ The sphere demonstrates radially symmetric filtering behavior.
 *Side View: 2000→2000 points (0.0% reduction)*
 
 ![Sphere FOV Only - Angled View](lidar_demo_plots/sphere_fov_only/lidar_crop_angled_view.png)
-*Angled View: 2000→1531 points (23.5% reduction)*
+*Angled View: 2000→1517 points (24.2% reduction)*
 
 #### Occlusion Only Filtering
 ![Sphere Occlusion Only - Origin Forward](lidar_demo_plots/sphere_occlusion_only/lidar_crop_origin_forward.png)
-*Origin Forward: 2000→1046 points (47.7% reduction)*
+*Origin Forward: 2000→1049 points (47.6% reduction)*
 
 ![Sphere Occlusion Only - Elevated Down](lidar_demo_plots/sphere_occlusion_only/lidar_crop_elevated_down.png)
 *Elevated Down: 2000→12 points (99.4% reduction)*
 
 ![Sphere Occlusion Only - Side View](lidar_demo_plots/sphere_occlusion_only/lidar_crop_side_view.png)
-*Side View: 2000→15 points (99.2% reduction)*
+*Side View: 2000→17 points (99.2% reduction)*
 
 ![Sphere Occlusion Only - Angled View](lidar_demo_plots/sphere_occlusion_only/lidar_crop_angled_view.png)
-*Angled View: 2000→22 points (98.9% reduction)*
+*Angled View: 2000→23 points (98.9% reduction)*
 
 ### Scene Point Cloud
 
@@ -182,68 +182,68 @@ The complex scene demonstrates realistic urban/outdoor scanning scenarios.
 
 #### Range Only Filtering
 ![Scene Range Only - Origin Forward](lidar_demo_plots/scene_range_only/lidar_crop_origin_forward.png)
-*Origin Forward: 4000→1758 points (56.0% reduction)*
+*Origin Forward: 4000→1759 points (56.0% reduction)*
 
 ![Scene Range Only - Elevated Down](lidar_demo_plots/scene_range_only/lidar_crop_elevated_down.png)
-*Elevated Down: 4000→23 points (99.4% reduction)*
+*Elevated Down: 4000→30 points (99.2% reduction)*
 
 ![Scene Range Only - Side View](lidar_demo_plots/scene_range_only/lidar_crop_side_view.png)
-*Side View: 4000→981 points (75.5% reduction)*
+*Side View: 4000→959 points (76.0% reduction)*
 
 ![Scene Range Only - Angled View](lidar_demo_plots/scene_range_only/lidar_crop_angled_view.png)
 *Angled View: 4000→1033 points (74.2% reduction)*
 
 #### Range + FOV Filtering
 ![Scene Range+FOV - Origin Forward](lidar_demo_plots/scene_range_and_fov/lidar_crop_origin_forward.png)
-*Origin Forward: 4000→999 points (75.0% reduction)*
+*Origin Forward: 4000→958 points (76.0% reduction)*
 
 ![Scene Range+FOV - Elevated Down](lidar_demo_plots/scene_range_and_fov/lidar_crop_elevated_down.png)
 *Elevated Down: 4000→0 points (100.0% reduction)*
 
 ![Scene Range+FOV - Side View](lidar_demo_plots/scene_range_and_fov/lidar_crop_side_view.png)
-*Side View: 4000→832 points (79.2% reduction)*
+*Side View: 4000→787 points (80.3% reduction)*
 
 ![Scene Range+FOV - Angled View](lidar_demo_plots/scene_range_and_fov/lidar_crop_angled_view.png)
-*Angled View: 4000→2134 points (46.7% reduction)*
+*Angled View: 4000→2080 points (48.0% reduction)*
 
 #### Full Simulation (Range + FOV + Occlusion)
 ![Scene Full - Origin Forward](lidar_demo_plots/scene_full_simulation/lidar_crop_origin_forward.png)
-*Origin Forward: 4000→104 points (97.4% reduction)*
+*Origin Forward: 4000→103 points (97.4% reduction)*
 
 ![Scene Full - Elevated Down](lidar_demo_plots/scene_full_simulation/lidar_crop_elevated_down.png)
 *Elevated Down: 4000→0 points (100.0% reduction)*
 
 ![Scene Full - Side View](lidar_demo_plots/scene_full_simulation/lidar_crop_side_view.png)
-*Side View: 4000→86 points (97.9% reduction)*
+*Side View: 4000→66 points (98.4% reduction)*
 
 ![Scene Full - Angled View](lidar_demo_plots/scene_full_simulation/lidar_crop_angled_view.png)
-*Angled View: 4000→169 points (95.8% reduction)*
+*Angled View: 4000→168 points (95.8% reduction)*
 
 #### FOV Only Filtering
 ![Scene FOV Only - Origin Forward](lidar_demo_plots/scene_fov_only/lidar_crop_origin_forward.png)
-*Origin Forward: 4000→1115 points (72.1% reduction)*
+*Origin Forward: 4000→1062 points (73.4% reduction)*
 
 ![Scene FOV Only - Elevated Down](lidar_demo_plots/scene_fov_only/lidar_crop_elevated_down.png)
-*Elevated Down: 4000→51 points (98.7% reduction)*
+*Elevated Down: 4000→63 points (98.4% reduction)*
 
 ![Scene FOV Only - Side View](lidar_demo_plots/scene_fov_only/lidar_crop_side_view.png)
-*Side View: 4000→3316 points (17.1% reduction)*
+*Side View: 4000→3284 points (17.9% reduction)*
 
 ![Scene FOV Only - Angled View](lidar_demo_plots/scene_fov_only/lidar_crop_angled_view.png)
-*Angled View: 4000→2294 points (42.6% reduction)*
+*Angled View: 4000→2234 points (44.1% reduction)*
 
 #### Occlusion Only Filtering
 ![Scene Occlusion Only - Origin Forward](lidar_demo_plots/scene_occlusion_only/lidar_crop_origin_forward.png)
-*Origin Forward: 4000→446 points (88.8% reduction)*
+*Origin Forward: 4000→454 points (88.6% reduction)*
 
 ![Scene Occlusion Only - Elevated Down](lidar_demo_plots/scene_occlusion_only/lidar_crop_elevated_down.png)
-*Elevated Down: 4000→173 points (95.7% reduction)*
+*Elevated Down: 4000→168 points (95.8% reduction)*
 
 ![Scene Occlusion Only - Side View](lidar_demo_plots/scene_occlusion_only/lidar_crop_side_view.png)
-*Side View: 4000→306 points (92.3% reduction)*
+*Side View: 4000→286 points (92.8% reduction)*
 
 ![Scene Occlusion Only - Angled View](lidar_demo_plots/scene_occlusion_only/lidar_crop_angled_view.png)
-*Angled View: 4000→271 points (93.2% reduction)*
+*Angled View: 4000→274 points (93.2% reduction)*
 
 ## Analysis
 
@@ -252,14 +252,14 @@ The complex scene demonstrates realistic urban/outdoor scanning scenarios.
 1. **Range Filtering Impact**: Distance-based filtering can dramatically reduce point density, with elevated sensors showing 99%+ reduction for small objects. Origin sensors at point cloud center show minimal range filtering effects.
 
 2. **FOV Directionality**: Field-of-view constraints create realistic directional sampling patterns with strong pose dependence:
-   - **Origin Forward**: 72.1-87.2% reduction depending on geometry
-   - **Side Views**: 0-17.1% reduction (geometry aligned with sensor orientation)
-   - **Elevated/Angled**: 23.5-100% reduction based on FOV cone intersection
+   - **Origin Forward**: 73.4-89.7% reduction depending on geometry
+   - **Side Views**: 0-17.9% reduction (geometry aligned with sensor orientation)
+   - **Elevated/Angled**: 24.2-100% reduction based on FOV cone intersection
 
 3. **Occlusion Effects**: Pure occlusion filtering reveals the fundamental visibility constraints:
-   - **Cube surfaces**: 59.9% reduction from front-facing view (back faces occluded)
-   - **Sphere geometry**: 47.7% reduction from front (back hemisphere occluded)
-   - **Complex scenes**: 88.8-95.7% reduction (multi-object mutual occlusion)
+   - **Cube surfaces**: 59.1% reduction from front-facing view (back faces occluded)
+   - **Sphere geometry**: 47.6% reduction from front (back hemisphere occluded)
+   - **Complex scenes**: 88.6-95.8% reduction (multi-object mutual occlusion)
 
 4. **Individual vs Combined Effects**: 
    - **FOV-only** shows pure directional constraints without range limits
@@ -278,7 +278,7 @@ The five configurations demonstrate individual and combined filter effects:
 
 **Individual Filter Analysis:**
 - **FOV Only**: Pure directional sampling, revealing geometric orientation effects (0-100% reduction)
-- **Occlusion Only**: Pure visibility constraints, showing surface vs interior point access (47.7-99.8% reduction)
+- **Occlusion Only**: Pure visibility constraints, showing surface vs interior point access (47.6-99.9% reduction)
 
 **Combined Filter Progression:**
 - **Range Only**: Basic distance cutoff, preserves all visible points within range (0-100% reduction)
