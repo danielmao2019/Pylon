@@ -1,7 +1,8 @@
-from typing import List, Optional, Tuple, TypedDict
+from typing import List, Optional, Tuple
 import os
 import json
 import torch
+from dataclasses import dataclass, asdict
 from utils.automation.cfg_log_conversion import get_config
 from utils.io.config import load_config
 from utils.io.json import save_json
@@ -12,11 +13,17 @@ from utils.builders.builder import build_from_config
 # TYPE DEFINITIONS
 # ============================================================================
 
-class ProgressInfo(TypedDict):
+@dataclass
+class ProgressInfo:
+    """Progress information for a training session."""
     completed_epochs: int
     progress_percentage: float
-    early_stopped: bool
-    early_stopped_at_epoch: Optional[int]
+    early_stopped: bool = False
+    early_stopped_at_epoch: Optional[int] = None
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 # ============================================================================
@@ -39,7 +46,8 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
     progress_file = os.path.join(work_dir, "progress.json")
     if os.path.exists(progress_file):
         with open(progress_file, 'r') as f:
-            return json.load(f)  # Return full ProgressInfo dict
+            data = json.load(f)
+            return ProgressInfo(**data)  # Return ProgressInfo dataclass instance
     
     # Slow path: re-compute and create progress.json
     return _compute_and_cache_progress(work_dir, expected_files)
@@ -79,17 +87,17 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> Pro
         )
     
     # Create progress.json for future caching
-    progress_data: ProgressInfo = {
-        "completed_epochs": completed_epochs,
-        "progress_percentage": 100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
-        "early_stopped": early_stopped,
-        "early_stopped_at_epoch": early_stopped_at_epoch
-    }
+    progress_data = ProgressInfo(
+        completed_epochs=completed_epochs,
+        progress_percentage=100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
+        early_stopped=early_stopped,
+        early_stopped_at_epoch=early_stopped_at_epoch
+    )
     
     progress_file = os.path.join(work_dir, "progress.json")
-    save_json(progress_data, progress_file)
+    save_json(progress_data.to_dict(), progress_file)
     
-    # Return the full progress info dict
+    # Return the ProgressInfo dataclass instance
     return progress_data
 
 

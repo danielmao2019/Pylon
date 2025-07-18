@@ -1,8 +1,9 @@
-from typing import List, Optional, Literal, TypedDict, Dict
+from typing import List, Optional, Literal, Dict
 from functools import partial
 import os
 import glob
 import time
+from dataclasses import dataclass, asdict
 from concurrent.futures import ThreadPoolExecutor
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.monitor.system_monitor import SystemMonitor
@@ -17,12 +18,18 @@ from utils.automation.run_status.session_progress import get_session_progress, P
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
-class RunStatus(TypedDict):
+@dataclass
+class RunStatus:
+    """Status information for a training run."""
     config: str
     work_dir: str
     progress: ProgressInfo
     status: _RunStatus
-    process_info: Optional[ProcessInfo]
+    process_info: Optional[ProcessInfo] = None
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 # ============================================================================
@@ -69,7 +76,7 @@ def get_all_run_status(
         ))
 
     # Convert list to mapping
-    return {status['config']: status for status in all_run_status}
+    return {status.config: status for status in all_run_status}
 
 
 def get_run_status(
@@ -107,7 +114,7 @@ def get_run_status(
     # Determine status based on metrics
     if is_running_status:
         status: _RunStatus = 'running'
-    elif progress['completed_epochs'] >= epochs:  # Use dict access instead of int comparison
+    elif progress.completed_epochs >= epochs:  # Use attribute access for dataclass
         # Check if finished run is outdated
         if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
             status = 'outdated'
@@ -121,13 +128,13 @@ def get_run_status(
     # Get ProcessInfo if this config is running on GPU
     process_info = config_to_process_info.get(config, None)
 
-    return {
-        'config': config,
-        'work_dir': work_dir,
-        'progress': progress,
-        'status': status,
-        'process_info': process_info
-    }
+    return RunStatus(
+        config=config,
+        work_dir=work_dir,
+        progress=progress,
+        status=status,
+        process_info=process_info
+    )
 
 
 # ============================================================================
