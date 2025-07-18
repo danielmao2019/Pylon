@@ -132,8 +132,10 @@ def create_sensor_poses():
     pose2 = torch.eye(4)
     pose2[:3, 3] = torch.tensor([0.0, 0.0, 8.0])
     # Rotate to look down (-Z direction)
-    pose2[0, 0] = 0.0; pose2[0, 2] = -1.0
-    pose2[2, 0] = 1.0; pose2[2, 2] = 0.0
+    # We want +X sensor direction to point to -Z world (down)
+    pose2[0, 0] = 0.0; pose2[0, 1] = 0.0; pose2[0, 2] = -1.0  # +X sensor -> -Z world
+    pose2[1, 0] = 0.0; pose2[1, 1] = 1.0; pose2[1, 2] = 0.0   # +Y sensor -> +Y world
+    pose2[2, 0] = 1.0; pose2[2, 1] = 0.0; pose2[2, 2] = 0.0   # +Z sensor -> +X world
     poses['elevated_down'] = pose2
     
     # Pose 3: Sensor to the side looking toward center
