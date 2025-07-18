@@ -275,4 +275,4 @@ class AgentLogParser:
             matches = re.findall(pattern, line)
             folders.extend(matches)
         
-        return folders[:10]  # Limit to first 10 folders to avoid huge lists
+        return folders  # Return all folders for exhaustive reporting

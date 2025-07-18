@@ -210,9 +210,8 @@ class DailySummaryGenerator:
                         if 'folder_count' in details:
                             message += f" ({details['folder_count']} folders)"
                         if details.get('cleaned_folders'):
-                            folder_list = ', '.join(details['cleaned_folders'][:5])
-                            if len(details['cleaned_folders']) > 5:
-                                folder_list += f" and {len(details['cleaned_folders']) - 5} more"
+                            # Show ALL folders for exhaustive reporting
+                            folder_list = ', '.join(details['cleaned_folders'])
                             message += f"\n  **Folders**: {folder_list}"
                     
                     elif event_type == 'stuck_removal' and 'details' in event:
@@ -269,12 +268,10 @@ class DailySummaryGenerator:
             lines.extend([
                 f"- **Near Completion** (>90%): {len(near_completion)} experiments"
             ])
-            # Show only first 10 to avoid huge lists
-            for config, progress, completed_epochs in near_completion[:10]:
+            # Show ALL experiments - exhaustive reporting
+            for config, progress, completed_epochs in near_completion:
                 config_name = os.path.basename(config)
                 lines.append(f"  - {config_name}: {progress:.1f}% ({completed_epochs} epochs)")
-            if len(near_completion) > 10:
-                lines.append(f"  - ... and {len(near_completion) - 10} more experiments")
         else:
             lines.append("- **Near Completion** (>90%): 0 experiments")
         
