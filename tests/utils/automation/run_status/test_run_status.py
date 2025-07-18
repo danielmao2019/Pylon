@@ -8,7 +8,7 @@ Following CLAUDE.md testing patterns:
 - Parametrized testing for multiple scenarios
 - Unit testing for specific functions
 """
-from typing import Dict
+from typing import Dict, Any
 import os
 import tempfile
 import pytest
@@ -22,6 +22,7 @@ from utils.automation.run_status import (
     RunStatus
 )
 from utils.monitor.process_info import ProcessInfo
+from utils.automation.run_status.session_progress import ProgressInfo
 from conftest import (
     create_epoch_files,
     create_real_config,
@@ -67,14 +68,14 @@ def test_get_run_status_basic_functionality():
                 config_to_process_info=config_to_process_info
             )
             
-            # Should return RunStatus with enhanced ProgressInfo
+            # Should return RunStatus with enhanced ProgressInfo - RunStatus is now a dataclass
             assert isinstance(run_status, RunStatus)
             assert run_status.config == config_path
             expected_work_dir = "./logs/test_run"  # What get_work_dir actually returns
             assert run_status.work_dir == expected_work_dir
-            assert isinstance(run_status.progress, dict)
-            assert run_status.progress["completed_epochs"] == 5
-            assert run_status.progress["early_stopped"] == False
+            assert isinstance(run_status.progress, ProgressInfo)
+            assert run_status.progress.completed_epochs == 5
+            assert run_status.progress.early_stopped == False
             assert run_status.status == 'failed'  # No recent log updates, not running on GPU
             assert run_status.process_info is None  # Not running on GPU
             
@@ -101,12 +102,12 @@ def test_get_run_status_with_process_info():
         create_real_config(config_path, work_dir, epochs=100)
         
         # Real process info for running experiment (not mocked)
-        process_info: ProcessInfo = {
-            'pid': '12345',
-            'user': 'testuser',
-            'cmd': f'python main.py --config-filepath {config_path}',
-            'start_time': 'Mon Jan  1 10:00:00 2024'
-        }
+        process_info = ProcessInfo(
+            pid='12345',
+            user='testuser',
+            cmd=f'python main.py --config-filepath {config_path}',
+            start_time='Mon Jan  1 10:00:00 2024'
+        )
         config_to_process_info = {config_path: process_info}
         
         original_cwd = os.getcwd()
@@ -124,7 +125,7 @@ def test_get_run_status_with_process_info():
             # Should show as stuck (running on GPU but no recent log updates)
             assert run_status.status == 'stuck'
             assert run_status.process_info == process_info
-            assert run_status.progress["completed_epochs"] == 3
+            assert run_status.progress.completed_epochs == 3
             
         finally:
             os.chdir(original_cwd)
@@ -169,12 +170,12 @@ def test_run_status_determination(status_scenario, expected_status):
         # Set up process info (real data structures, not mocks)
         config_to_process_info = {}
         if status_scenario == "stuck":
-            config_to_process_info[config_path] = {
-                'pid': '12345',
-                'user': 'testuser',
-                'cmd': f'python main.py --config-filepath {config_path}',
-                'start_time': 'Mon Jan  1 10:00:00 2024'
-            }
+            config_to_process_info[config_path] = ProcessInfo(
+                pid='12345',
+                user='testuser',
+                cmd=f'python main.py --config-filepath {config_path}',
+                start_time='Mon Jan  1 10:00:00 2024'
+            )
         
         original_cwd = os.getcwd()
         os.chdir(temp_root)
@@ -245,7 +246,8 @@ def test_get_all_run_status_returns_mapping():
                 assert config_path in result
                 assert isinstance(result[config_path], RunStatus)
                 assert result[config_path].config == config_path
-                assert isinstance(result[config_path].progress, dict)
+                assert isinstance(result[config_path].progress, ProgressInfo)
+                assert hasattr(result[config_path].progress, 'completed_epochs')
                 
         finally:
             os.chdir(original_cwd)
@@ -272,28 +274,28 @@ def test_build_config_to_process_mapping():
     connected_gpus = [
         {
             'processes': [
-                {
-                    'pid': '12345',
-                    'user': 'testuser',
-                    'cmd': 'python main.py --config-filepath configs/exp1.py',
-                    'start_time': 'Mon Jan  1 10:00:00 2024'
-                },
-                {
-                    'pid': '12346',
-                    'user': 'testuser', 
-                    'cmd': 'some_other_process --not-config',
-                    'start_time': 'Mon Jan  1 11:00:00 2024'
-                }
+                ProcessInfo(
+                    pid='12345',
+                    user='testuser',
+                    cmd='python main.py --config-filepath configs/exp1.py',
+                    start_time='Mon Jan  1 10:00:00 2024'
+                ),
+                ProcessInfo(
+                    pid='12346',
+                    user='testuser', 
+                    cmd='some_other_process --not-config',
+                    start_time='Mon Jan  1 11:00:00 2024'
+                )
             ]
         },
         {
             'processes': [
-                {
-                    'pid': '54321',
-                    'user': 'testuser',
-                    'cmd': 'python main.py --config-filepath configs/exp2.py --debug',
-                    'start_time': 'Mon Jan  1 12:00:00 2024'
-                }
+                ProcessInfo(
+                    pid='54321',
+                    user='testuser',
+                    cmd='python main.py --config-filepath configs/exp2.py --debug',
+                    start_time='Mon Jan  1 12:00:00 2024'
+                )
             ]
         }
     ]
@@ -306,9 +308,9 @@ def test_build_config_to_process_mapping():
     assert "configs/exp2.py" in mapping
     
     # Check ProcessInfo content
-    assert mapping["configs/exp1.py"]["pid"] == "12345"
-    assert mapping["configs/exp1.py"]["cmd"] == "python main.py --config-filepath configs/exp1.py"
-    assert mapping["configs/exp2.py"]["pid"] == "54321"
+    assert mapping["configs/exp1.py"].pid == "12345"
+    assert mapping["configs/exp1.py"].cmd == "python main.py --config-filepath configs/exp1.py"
+    assert mapping["configs/exp2.py"].pid == "54321"
 
 
 def test_get_log_last_update():
@@ -410,12 +412,12 @@ def test_build_config_to_process_mapping_no_matching_processes():
     connected_gpus = [
         {
             'processes': [
-                {
-                    'pid': '12345',
-                    'user': 'testuser',
-                    'cmd': 'some_other_process --not-matching',
-                    'start_time': 'Mon Jan  1 10:00:00 2024'
-                }
+                ProcessInfo(
+                    pid='12345',
+                    user='testuser',
+                    cmd='some_other_process --not-matching',
+                    start_time='Mon Jan  1 10:00:00 2024'
+                )
             ]
         }
     ]

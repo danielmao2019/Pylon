@@ -1,22 +1,29 @@
-from typing import List, Dict, TypedDict, Optional, Any
+from typing import List, Dict, Optional, Any
+from dataclasses import dataclass, asdict, field
 from utils.monitor.process_info import ProcessInfo, get_all_processes
 from utils.ssh.pool import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
-class CPUStatus(TypedDict):
+@dataclass
+class CPUStatus:
+    """Status information for a CPU/server."""
     server: str
     max_memory: int  # Total system memory in MB
     cpu_cores: int  # Number of CPU cores
-    processes: List[ProcessInfo]
-    window_size: int
-    memory_window: List[int]  # Memory usage in MB
-    cpu_window: List[float]  # CPU utilization percentage
-    load_window: List[float]  # Load average (1min)
-    memory_stats: dict[str, Optional[float]]
-    cpu_stats: dict[str, Optional[float]]
-    load_stats: dict[str, Optional[float]]
-    connected: bool
+    processes: List[ProcessInfo] = field(default_factory=list)
+    window_size: int = 0
+    memory_window: List[int] = field(default_factory=list)  # Memory usage in MB
+    cpu_window: List[float] = field(default_factory=list)  # CPU utilization percentage
+    load_window: List[float] = field(default_factory=list)  # Load average (1min)
+    memory_stats: Dict[str, Optional[float]] = field(default_factory=dict)
+    cpu_stats: Dict[str, Optional[float]] = field(default_factory=dict)
+    load_stats: Dict[str, Optional[float]] = field(default_factory=dict)
+    connected: bool = True
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 def get_server_cpu_mem_util(server: str, pool: SSHConnectionPool) -> Dict[str, Any]:

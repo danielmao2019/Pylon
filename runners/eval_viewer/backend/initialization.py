@@ -1,4 +1,4 @@
-from typing import List, Dict, Set, Tuple, NamedTuple, Any, Literal, Optional
+from typing import List, Dict, Set, Tuple, Any, Literal, Optional
 import importlib.util
 import os
 import json
@@ -7,6 +7,7 @@ import numpy as np
 import pickle
 import joblib
 from pathlib import Path
+from dataclasses import dataclass, asdict
 from data.viewer.backend.backend import DatasetType, DATASET_GROUPS
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import logging
@@ -50,7 +51,8 @@ def detect_runner_type(log_dir: str) -> Literal['trainer', 'evaluator']:
                    f"Expected either 'evaluation_scores.json' in root or 'epoch_*/validation_scores.json' structure.")
 
 
-class LogDirInfo(NamedTuple):
+@dataclass
+class LogDirInfo:
     """Information extracted from a log directory."""
     num_epochs: int
     metric_names: Set[str]
@@ -62,6 +64,10 @@ class LogDirInfo(NamedTuple):
     dataset_cfg: Dict[str, Any]
     dataloader_cfg: Dict[str, Any]
     runner_type: Literal['trainer', 'evaluator']  # Whether results come from BaseTrainer or BaseEvaluator
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 def get_score_map_epoch_metric(scores_file: str, metric_name: str) -> Tuple[int, np.ndarray, float]:
@@ -391,18 +397,18 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         raise ValueError(f"Unknown runner type: {runner_type}")
 
     # Create LogDirInfo object
-    info = LogDirInfo(
-        num_epochs=num_epochs,
-        metric_names=metric_names,
-        num_datapoints=num_datapoints,
-        score_map=score_map,
-        aggregated_scores=aggregated_scores,
-        dataset_class=dataset_class,
-        dataset_type=dataset_type,
-        dataset_cfg=dataset_cfg,
-        dataloader_cfg=dataloader_cfg,
-        runner_type=runner_type,
-    )
+    info = {
+        'num_epochs': num_epochs,
+        'metric_names': metric_names,
+        'num_datapoints': num_datapoints,
+        'score_map': score_map,
+        'aggregated_scores': aggregated_scores,
+        'dataset_class': dataset_class,
+        'dataset_type': dataset_type,
+        'dataset_cfg': dataset_cfg,
+        'dataloader_cfg': dataloader_cfg,
+        'runner_type': runner_type,
+    }
 
     # Save to cache
     with open(cache_path, 'wb') as f:

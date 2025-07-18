@@ -1,20 +1,27 @@
-from typing import List, Dict, TypedDict, Optional, Any
+from typing import List, Dict, Optional, Any
+from dataclasses import dataclass, asdict, field
 from utils.monitor.process_info import ProcessInfo, get_all_processes
 from utils.ssh.pool import SSHConnectionPool
 from utils.timeout import with_timeout
 
 
-class GPUStatus(TypedDict):
+@dataclass
+class GPUStatus:
+    """Status information for a GPU."""
     server: str
     index: int
     max_memory: int
-    processes: List[ProcessInfo]
-    window_size: int
-    memory_window: List[int]
-    util_window: List[int]
-    memory_stats: dict[str, Optional[float]]
-    util_stats: dict[str, Optional[float]]
-    connected: bool
+    processes: List[ProcessInfo] = field(default_factory=list)
+    window_size: int = 0
+    memory_window: List[int] = field(default_factory=list)
+    util_window: List[int] = field(default_factory=list)
+    memory_stats: Dict[str, Optional[float]] = field(default_factory=dict)
+    util_stats: Dict[str, Optional[float]] = field(default_factory=dict)
+    connected: bool = True
+    
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return asdict(self)
 
 
 def get_server_gpus_mem_util(server: str, gpu_indices: List[int], pool: SSHConnectionPool) -> Dict[int, Dict[str, int]]:
