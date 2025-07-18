@@ -146,13 +146,12 @@ def _build_config_to_process_mapping(connected_gpus: List) -> Dict[str, ProcessI
     config_to_process = {}
     for gpu in connected_gpus:
         for process in gpu['processes']:
-            if 'python main.py --config-filepath' in process['cmd']:
-                config = parse_config(process['cmd'])
-                # Convert dict to ProcessInfo dataclass if needed
-                if isinstance(process, dict):
-                    config_to_process[config] = ProcessInfo(**process)
-                else:
-                    config_to_process[config] = process
+            # Assert that process is already a ProcessInfo instance
+            assert isinstance(process, ProcessInfo), f"Expected ProcessInfo instance, got {type(process)}"
+            
+            if 'python main.py --config-filepath' in process.cmd:
+                config = parse_config(process.cmd)
+                config_to_process[config] = process
     return config_to_process
 
 
