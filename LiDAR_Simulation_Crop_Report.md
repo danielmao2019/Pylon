@@ -25,11 +25,16 @@ Four different sensor configurations were tested to demonstrate pose-dependent c
 
 ### LiDAR Configurations
 
-Three filtering configurations demonstrate progressive complexity:
+Five filtering configurations demonstrate individual and combined filter effects:
 
+**Combined Configurations:**
 1. **Range Only**: Distance filtering only (max_range=6m)
 2. **Range + FOV**: Distance + field-of-view (120° horizontal, ±30° vertical, max_range=10m)
 3. **Full Simulation**: Range + FOV + occlusion (90° horizontal, ±20° vertical, max_range=8m)
+
+**Individual Filter Types:**
+4. **FOV Only**: Field-of-view filtering isolated (120° horizontal, ±30° vertical, no range/occlusion limits)
+5. **Occlusion Only**: Occlusion filtering isolated (no range/FOV limits, pure ray-casting effects)
 
 ## Results
 
@@ -42,13 +47,13 @@ The cube geometry provides clear demonstration of directional filtering effects.
 *Origin Forward: 3000→3000 points (0.0% reduction)*
 
 ![Cube Range Only - Elevated Down](lidar_demo_plots/cube_range_only/lidar_crop_elevated_down.png)
-*Elevated Down: 3000→8 points (99.7% reduction)*
+*Elevated Down: 3000→11 points (99.6% reduction)*
 
 ![Cube Range Only - Side View](lidar_demo_plots/cube_range_only/lidar_crop_side_view.png)
-*Side View: 3000→10 points (99.7% reduction)*
+*Side View: 3000→8 points (99.7% reduction)*
 
 ![Cube Range Only - Angled View](lidar_demo_plots/cube_range_only/lidar_crop_angled_view.png)
-*Angled View: 3000→372 points (87.6% reduction)*
+*Angled View: 3000→339 points (88.7% reduction)*
 
 #### Range + FOV Filtering
 ![Cube Range+FOV - Origin Forward](lidar_demo_plots/cube_range_and_fov/lidar_crop_origin_forward.png)
@@ -75,6 +80,32 @@ The cube geometry provides clear demonstration of directional filtering effects.
 
 ![Cube Full - Angled View](lidar_demo_plots/cube_full_simulation/lidar_crop_angled_view.png)
 *Angled View: 3000→2 points (99.9% reduction)*
+
+#### FOV Only Filtering
+![Cube FOV Only - Origin Forward](lidar_demo_plots/cube_fov_only/lidar_crop_origin_forward.png)
+*Origin Forward: 3000→461 points (84.6% reduction)*
+
+![Cube FOV Only - Elevated Down](lidar_demo_plots/cube_fov_only/lidar_crop_elevated_down.png)
+*Elevated Down: 3000→0 points (100.0% reduction)*
+
+![Cube FOV Only - Side View](lidar_demo_plots/cube_fov_only/lidar_crop_side_view.png)
+*Side View: 3000→2807 points (6.4% reduction)*
+
+![Cube FOV Only - Angled View](lidar_demo_plots/cube_fov_only/lidar_crop_angled_view.png)
+*Angled View: 3000→1827 points (39.1% reduction)*
+
+#### Occlusion Only Filtering
+![Cube Occlusion Only - Origin Forward](lidar_demo_plots/cube_occlusion_only/lidar_crop_origin_forward.png)
+*Origin Forward: 3000→1202 points (59.9% reduction)*
+
+![Cube Occlusion Only - Elevated Down](lidar_demo_plots/cube_occlusion_only/lidar_crop_elevated_down.png)
+*Elevated Down: 3000→19 points (99.4% reduction)*
+
+![Cube Occlusion Only - Side View](lidar_demo_plots/cube_occlusion_only/lidar_crop_side_view.png)
+*Side View: 3000→11 points (99.6% reduction)*
+
+![Cube Occlusion Only - Angled View](lidar_demo_plots/cube_occlusion_only/lidar_crop_angled_view.png)
+*Angled View: 3000→6 points (99.8% reduction)*
 
 ### Sphere Point Cloud
 
@@ -117,7 +148,33 @@ The sphere demonstrates radially symmetric filtering behavior.
 *Side View: 2000→7 points (99.7% reduction)*
 
 ![Sphere Full - Angled View](lidar_demo_plots/sphere_full_simulation/lidar_crop_angled_view.png)
-*Angled View: 2000→7 points (99.7% reduction)*
+*Angled View: 2000→6 points (99.7% reduction)*
+
+#### FOV Only Filtering
+![Sphere FOV Only - Origin Forward](lidar_demo_plots/sphere_fov_only/lidar_crop_origin_forward.png)
+*Origin Forward: 2000→256 points (87.2% reduction)*
+
+![Sphere FOV Only - Elevated Down](lidar_demo_plots/sphere_fov_only/lidar_crop_elevated_down.png)
+*Elevated Down: 2000→0 points (100.0% reduction)*
+
+![Sphere FOV Only - Side View](lidar_demo_plots/sphere_fov_only/lidar_crop_side_view.png)
+*Side View: 2000→2000 points (0.0% reduction)*
+
+![Sphere FOV Only - Angled View](lidar_demo_plots/sphere_fov_only/lidar_crop_angled_view.png)
+*Angled View: 2000→1531 points (23.5% reduction)*
+
+#### Occlusion Only Filtering
+![Sphere Occlusion Only - Origin Forward](lidar_demo_plots/sphere_occlusion_only/lidar_crop_origin_forward.png)
+*Origin Forward: 2000→1046 points (47.7% reduction)*
+
+![Sphere Occlusion Only - Elevated Down](lidar_demo_plots/sphere_occlusion_only/lidar_crop_elevated_down.png)
+*Elevated Down: 2000→12 points (99.4% reduction)*
+
+![Sphere Occlusion Only - Side View](lidar_demo_plots/sphere_occlusion_only/lidar_crop_side_view.png)
+*Side View: 2000→15 points (99.2% reduction)*
+
+![Sphere Occlusion Only - Angled View](lidar_demo_plots/sphere_occlusion_only/lidar_crop_angled_view.png)
+*Angled View: 2000→22 points (98.9% reduction)*
 
 ### Scene Point Cloud
 
@@ -160,30 +217,78 @@ The complex scene demonstrates realistic urban/outdoor scanning scenarios.
 *Side View: 4000→86 points (97.9% reduction)*
 
 ![Scene Full - Angled View](lidar_demo_plots/scene_full_simulation/lidar_crop_angled_view.png)
-*Angled View: 4000→176 points (95.6% reduction)*
+*Angled View: 4000→169 points (95.8% reduction)*
+
+#### FOV Only Filtering
+![Scene FOV Only - Origin Forward](lidar_demo_plots/scene_fov_only/lidar_crop_origin_forward.png)
+*Origin Forward: 4000→1115 points (72.1% reduction)*
+
+![Scene FOV Only - Elevated Down](lidar_demo_plots/scene_fov_only/lidar_crop_elevated_down.png)
+*Elevated Down: 4000→51 points (98.7% reduction)*
+
+![Scene FOV Only - Side View](lidar_demo_plots/scene_fov_only/lidar_crop_side_view.png)
+*Side View: 4000→3316 points (17.1% reduction)*
+
+![Scene FOV Only - Angled View](lidar_demo_plots/scene_fov_only/lidar_crop_angled_view.png)
+*Angled View: 4000→2294 points (42.6% reduction)*
+
+#### Occlusion Only Filtering
+![Scene Occlusion Only - Origin Forward](lidar_demo_plots/scene_occlusion_only/lidar_crop_origin_forward.png)
+*Origin Forward: 4000→446 points (88.8% reduction)*
+
+![Scene Occlusion Only - Elevated Down](lidar_demo_plots/scene_occlusion_only/lidar_crop_elevated_down.png)
+*Elevated Down: 4000→173 points (95.7% reduction)*
+
+![Scene Occlusion Only - Side View](lidar_demo_plots/scene_occlusion_only/lidar_crop_side_view.png)
+*Side View: 4000→306 points (92.3% reduction)*
+
+![Scene Occlusion Only - Angled View](lidar_demo_plots/scene_occlusion_only/lidar_crop_angled_view.png)
+*Angled View: 4000→271 points (93.2% reduction)*
 
 ## Analysis
 
 ### Key Observations
 
-1. **Range Filtering Impact**: Distance-based filtering can dramatically reduce point density, with elevated sensors showing 99%+ reduction for small objects.
+1. **Range Filtering Impact**: Distance-based filtering can dramatically reduce point density, with elevated sensors showing 99%+ reduction for small objects. Origin sensors at point cloud center show minimal range filtering effects.
 
-2. **FOV Directionality**: Field-of-view constraints create realistic directional sampling patterns. Side views often preserve more points than forward-facing views due to geometry alignment.
+2. **FOV Directionality**: Field-of-view constraints create realistic directional sampling patterns with strong pose dependence:
+   - **Origin Forward**: 72.1-87.2% reduction depending on geometry
+   - **Side Views**: 0-17.1% reduction (geometry aligned with sensor orientation)
+   - **Elevated/Angled**: 23.5-100% reduction based on FOV cone intersection
 
-3. **Occlusion Effects**: The full simulation with occlusion modeling produces the most realistic sparse point clouds, typically reducing density by 95%+ while maintaining structural features.
+3. **Occlusion Effects**: Pure occlusion filtering reveals the fundamental visibility constraints:
+   - **Cube surfaces**: 59.9% reduction from front-facing view (back faces occluded)
+   - **Sphere geometry**: 47.7% reduction from front (back hemisphere occluded)
+   - **Complex scenes**: 88.8-95.7% reduction (multi-object mutual occlusion)
 
-4. **Pose Sensitivity**: Sensor pose dramatically affects results:
+4. **Individual vs Combined Effects**: 
+   - **FOV-only** shows pure directional constraints without range limits
+   - **Occlusion-only** demonstrates visibility-based sparsity patterns
+   - **Combined filters** produce multiplicative effects, leading to 95-100% reduction
+
+5. **Pose Sensitivity**: Sensor pose dramatically affects results:
    - **Elevated positions** tend to see very few points due to range constraints
-   - **Side views** often provide better coverage for elongated objects
+   - **Side views** often provide better coverage for elongated objects  
    - **Angled views** balance between range and visibility
+   - **FOV orientation** determines which parts of the scene are visible
 
 ### Filtering Progression
 
-The three configurations show clear progression in realism:
+The five configurations demonstrate individual and combined filter effects:
 
-- **Range Only**: Basic distance cutoff, preserves all visible points within range
-- **Range + FOV**: Adds directional constraints, creates sector-like sampling patterns  
-- **Full Simulation**: Most realistic, sparse sampling due to occlusion modeling
+**Individual Filter Analysis:**
+- **FOV Only**: Pure directional sampling, revealing geometric orientation effects (0-100% reduction)
+- **Occlusion Only**: Pure visibility constraints, showing surface vs interior point access (47.7-99.8% reduction)
+
+**Combined Filter Progression:**
+- **Range Only**: Basic distance cutoff, preserves all visible points within range (0-100% reduction)
+- **Range + FOV**: Adds directional constraints, creates sector-like sampling patterns (0-100% reduction)
+- **Full Simulation**: Most realistic, sparse sampling due to multiplicative filter effects (95-100% reduction)
+
+**Key Insights from Individual Filters:**
+- FOV filtering is highly pose-dependent, with side views often showing minimal reduction
+- Occlusion filtering provides consistent sparsity regardless of pose, simulating realistic surface visibility
+- Combined filters interact multiplicatively, not additively, leading to very sparse but realistic point clouds
 
 ### Practical Implications
 
@@ -196,6 +301,23 @@ This LiDAR simulation provides:
 
 ## Conclusion
 
-The `LiDARSimulationCrop` transform successfully demonstrates realistic point cloud filtering that mimics actual LiDAR sensor behavior. The pose-dependent cropping patterns and progressive filtering effects provide a valuable tool for generating more realistic synthetic point cloud data for registration tasks.
+The `LiDARSimulationCrop` transform successfully demonstrates realistic point cloud filtering that mimics actual LiDAR sensor behavior. The comprehensive analysis of individual and combined filter effects provides valuable insights for understanding each component's contribution to the final point cloud sparsity.
 
-The visualizations clearly show how sensor positioning and LiDAR parameters affect point cloud sampling, enabling researchers to generate training data that better reflects real-world sensor limitations and improve model robustness.
+### Key Findings
+
+1. **Individual Filter Characterization**: The separate analysis of range, FOV, and occlusion filters reveals their distinct effects:
+   - Range filtering provides distance-based sparsity
+   - FOV filtering creates directional sampling patterns highly sensitive to sensor orientation
+   - Occlusion filtering produces realistic surface-based visibility constraints
+
+2. **Multiplicative Filter Interactions**: Combined filters don't simply add their effects - they interact multiplicatively, leading to dramatically sparser but more realistic point clouds suitable for challenging synthetic-to-real domain transfer.
+
+3. **Pose-Dependent Behavior**: The visualizations clearly demonstrate how sensor positioning dramatically affects results, with individual filters showing different sensitivities to pose changes.
+
+4. **Geometry-Specific Effects**: Different point cloud geometries (cube, sphere, scene) reveal how each filter type interacts with structural features, providing insights for optimal sensor placement and parameter tuning.
+
+The enhanced demonstration with individual filter visualizations enables researchers to:
+- Understand and isolate each filter's contribution
+- Tune parameters for specific sensor types and scenarios  
+- Generate training data that better reflects real-world sensor limitations
+- Improve model robustness through more realistic synthetic data
