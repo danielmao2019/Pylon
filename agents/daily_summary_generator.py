@@ -5,7 +5,6 @@ from utils.monitor.system_monitor import SystemMonitor
 from agents.logs_snapshot import LogsSnapshot
 from agents.agent_log_parser import AgentLogParser
 from agents.snapshot_diff import SnapshotDiff
-from agents.email_sender import EmailSender
 
 
 class DailySummaryGenerator:
@@ -21,8 +20,7 @@ class DailySummaryGenerator:
                  epochs: int,
                  sleep_time: int = 86400,
                  outdated_days: int = 30,
-                 agent_log_path: str = "./project/run_agent.log",
-                 email_config: Optional[Dict[str, Any]] = None):
+                 agent_log_path: str = "./project/run_agent.log"):
         """Initialize daily summary generator.
         
         Args:
@@ -32,7 +30,6 @@ class DailySummaryGenerator:
             sleep_time: Time to wait for status updates (seconds)
             outdated_days: Number of days to consider a run outdated
             agent_log_path: Path to agent log file for event extraction
-            email_config: Email configuration dictionary (optional)
         """
         assert isinstance(config_files, list), f"config_files must be list, got {type(config_files)}"
         assert isinstance(expected_files, list), f"expected_files must be list, got {type(expected_files)}"
@@ -50,12 +47,6 @@ class DailySummaryGenerator:
         )
         self.agent_log_parser = AgentLogParser(agent_log_path=agent_log_path)
         self.summary_dir = "./agents/summaries"
-        
-        # Initialize email sender if configuration provided
-        if email_config:
-            self.email_sender = EmailSender(**email_config)
-        else:
-            self.email_sender = None
         
     def generate_daily_summary(self, 
                               current_snapshot_file: Optional[str] = None,
@@ -391,13 +382,12 @@ class DailySummaryGenerator:
         
         return long_running
     
-    def save_summary(self, summary: str, date: Optional[str] = None, send_email: bool = True) -> str:
-        """Save summary to markdown file and optionally send via email.
+    def save_summary(self, summary: str, date: Optional[str] = None) -> str:
+        """Save summary to markdown file.
         
         Args:
             summary: Summary text to save
             date: Date string for filename, defaults to today
-            send_email: Whether to send email notification (default True)
             
         Returns:
             Path to saved summary file
@@ -407,26 +397,12 @@ class DailySummaryGenerator:
         if date is None:
             date = datetime.now().strftime('%Y-%m-%d')
         
-        # Save to file
         os.makedirs(self.summary_dir, exist_ok=True)
         filename = f"{date}_summary.md"
         filepath = os.path.join(self.summary_dir, filename)
         
         with open(filepath, 'w') as f:
             f.write(summary)
-        
-        # Send email if configured and requested
-        if send_email and self.email_sender:
-            try:
-                email_success = self.email_sender.send_daily_summary(summary, date)
-                if email_success:
-                    print(f"📧 Daily summary email sent for {date}")
-                else:
-                    print(f"⚠️ Failed to send email for daily summary {date}")
-            except Exception as e:
-                print(f"❌ Error sending daily summary email: {e}")
-        elif send_email and not self.email_sender:
-            print("⚠️ Email sending requested but no email configuration provided")
         
         return filepath
     
