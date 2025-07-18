@@ -174,17 +174,18 @@ def setup_realistic_experiment_structure(temp_root: str, experiments: List[tuple
             running_experiments.append(config_path)
     
     # Create realistic GPU process data
+    from utils.monitor.process_info import ProcessInfo
     connected_gpus_data = [
         {
             'server': 'test_server',
             'index': 0,
             'processes': [
-                {
-                    'pid': f'1234{i}',
-                    'user': 'testuser',
-                    'cmd': f'python main.py --config-filepath {config_path}',
-                    'start_time': f'Mon Jan  1 1{i}:00:00 2024'
-                }
+                ProcessInfo(
+                    pid=f'1234{i}',
+                    user='testuser',
+                    cmd=f'python main.py --config-filepath {config_path}',
+                    start_time=f'Mon Jan  1 1{i}:00:00 2024'
+                )
                 for i, config_path in enumerate(running_experiments)
             ]
         }
