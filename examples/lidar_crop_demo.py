@@ -17,17 +17,21 @@ sys.path.append('.')
 from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
 
 
-def create_toy_point_cloud(cloud_type='cube', num_points=2000, noise=0.02):
+def create_toy_point_cloud(cloud_type='cube', num_points=2000, noise=0.02, seed=42):
     """Create synthetic point clouds for demonstration.
     
     Args:
         cloud_type: 'cube', 'sphere', or 'scene'
         num_points: Number of points to generate
         noise: Amount of noise to add
+        seed: Random seed for reproducible generation
         
     Returns:
         Point cloud as torch.Tensor [N, 3]
     """
+    # Set seed for reproducible point cloud generation
+    torch.manual_seed(seed)
+    np.random.seed(seed)
     if cloud_type == 'cube':
         # Create a cube with points on surface and interior
         edge_points = []
@@ -154,7 +158,7 @@ def create_sensor_poses():
     return poses
 
 
-def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, save_dir='lidar_demo_plots'):
+def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, save_dir='lidar_demo_plots', config_name=None, lidar_config=None):
     """Create comparison plots showing original vs cropped point clouds.
     
     Args:
@@ -162,6 +166,8 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         cropped_results: Dict of pose_name -> cropped_points
         sensor_poses: Dict of pose_name -> 4x4 matrix
         save_dir: Directory to save plots
+        config_name: Configuration name for visualization enhancements
+        lidar_config: LiDAR configuration object for parameter visualization
     """
     os.makedirs(save_dir, exist_ok=True)
     
@@ -236,6 +242,15 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
                   forward_dir[0], forward_dir[1], forward_dir[2],
                   length=arrow_length, color='cyan', arrow_length_ratio=0.3, 
                   linewidth=3, label='Facing Direction')
+        
+        # Add visualization enhancements based on config type
+        if config_name and lidar_config:
+            if 'range_only' in config_name:
+                # Visualize range sphere
+                _add_range_visualization(ax3, sensor_pos, lidar_config.max_range)
+            elif 'fov_only' in config_name:
+                # Visualize FOV cone
+                _add_fov_visualization(ax3, sensor_pos, sensor_rotation, lidar_config)
         ax3.set_xlim(x_min, x_max)
         ax3.set_ylim(y_min, y_max)
         ax3.set_zlim(z_min, z_max)
@@ -252,16 +267,103 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
               f"Reduction: {100*(1-len(cropped_np)/len(orig_np)):.1f}%")
 
 
+def _add_range_visualization(ax, sensor_pos, max_range):
+    """Add range sphere visualization to plot.
+    
+    Args:
+        ax: 3D matplotlib axis
+        sensor_pos: Sensor position [3]
+        max_range: Maximum range value
+    """
+    # Create a wireframe sphere to show range limit
+    u = np.linspace(0, 2 * np.pi, 20)
+    v = np.linspace(0, np.pi, 20)
+    sphere_x = max_range * np.outer(np.cos(u), np.sin(v)) + sensor_pos[0]
+    sphere_y = max_range * np.outer(np.sin(u), np.sin(v)) + sensor_pos[1]
+    sphere_z = max_range * np.outer(np.ones(np.size(u)), np.cos(v)) + sensor_pos[2]
+    
+    # Plot wireframe sphere in semi-transparent purple
+    ax.plot_wireframe(sphere_x, sphere_y, sphere_z, alpha=0.3, color='purple', linewidth=1)
+    
+
+def _add_fov_visualization(ax, sensor_pos, sensor_rotation, lidar_config):
+    """Add FOV cone visualization to plot.
+    
+    Args:
+        ax: 3D matplotlib axis
+        sensor_pos: Sensor position [3]
+        sensor_rotation: Sensor rotation matrix [3x3]
+        lidar_config: LiDAR configuration object
+    """
+    # Get FOV parameters
+    h_fov = np.radians(lidar_config.horizontal_fov)
+    v_fov_min = np.radians(lidar_config.vertical_fov[0])
+    v_fov_max = np.radians(lidar_config.vertical_fov[1])
+    
+    # Create cone visualization
+    cone_length = 5.0  # Visual cone length
+    
+    # Generate cone points in sensor coordinate system
+    h_angles = np.linspace(-h_fov/2, h_fov/2, 10)
+    v_angles = np.array([v_fov_min, v_fov_max])
+    
+    cone_points = []
+    # Add apex (sensor position)
+    cone_points.append([0, 0, 0])
+    
+    # Generate cone edges
+    for v_angle in v_angles:
+        for h_angle in h_angles:
+            # Point in sensor coordinates (forward = +X)
+            x = cone_length * np.cos(v_angle) * np.cos(h_angle)
+            y = cone_length * np.cos(v_angle) * np.sin(h_angle)
+            z = cone_length * np.sin(v_angle)
+            cone_points.append([x, y, z])
+    
+    cone_points = np.array(cone_points)
+    
+    # Transform to world coordinates
+    world_points = (sensor_rotation @ cone_points.T).T + sensor_pos
+    
+    # Draw cone edges from apex to boundary
+    apex = world_points[0]
+    boundary_points = world_points[1:]
+    
+    # Draw lines from apex to boundary points
+    for point in boundary_points[::2]:  # Skip some for cleaner visualization
+        ax.plot([apex[0], point[0]], [apex[1], point[1]], [apex[2], point[2]], 
+                color='orange', alpha=0.6, linewidth=1.5)
+    
+    # Draw boundary rectangle
+    # Bottom edge
+    bottom_left = boundary_points[0]
+    bottom_right = boundary_points[len(h_angles)-1]
+    ax.plot([bottom_left[0], bottom_right[0]], [bottom_left[1], bottom_right[1]], 
+            [bottom_left[2], bottom_right[2]], color='orange', alpha=0.8, linewidth=2)
+    
+    # Top edge
+    top_left = boundary_points[len(h_angles)]
+    top_right = boundary_points[-1]
+    ax.plot([top_left[0], top_right[0]], [top_left[1], top_right[1]], 
+            [top_left[2], top_right[2]], color='orange', alpha=0.8, linewidth=2)
+    
+    # Side edges
+    ax.plot([bottom_left[0], top_left[0]], [bottom_left[1], top_left[1]], 
+            [bottom_left[2], top_left[2]], color='orange', alpha=0.8, linewidth=2)
+    ax.plot([bottom_right[0], top_right[0]], [bottom_right[1], top_right[1]], 
+            [bottom_right[2], top_right[2]], color='orange', alpha=0.8, linewidth=2)
+
+
 def main():
     """Run the LiDAR cropping demonstration."""
     print("LiDAR Simulation Crop Demonstration")
     print("=" * 40)
     
-    # Create toy point clouds
+    # Create toy point clouds with fixed seed for reproducibility
     point_clouds = {
-        'cube': create_toy_point_cloud('cube', 3000),
-        'sphere': create_toy_point_cloud('sphere', 2000),
-        'scene': create_toy_point_cloud('scene', 4000)
+        'cube': create_toy_point_cloud('cube', 3000, seed=42),
+        'sphere': create_toy_point_cloud('sphere', 2000, seed=43),
+        'scene': create_toy_point_cloud('scene', 4000, seed=44)
     }
     
     # Create sensor poses
@@ -333,7 +435,7 @@ def main():
             # Create plots
             if cropped_results:
                 save_dir = f'lidar_demo_plots/{cloud_name}_{config_name}'
-                plot_point_cloud_comparison(points, cropped_results, sensor_poses, save_dir)
+                plot_point_cloud_comparison(points, cropped_results, sensor_poses, save_dir, config_name, lidar_crop)
     
     print(f"\nDemo complete! Check the 'lidar_demo_plots/' directory for visualizations.")
 
