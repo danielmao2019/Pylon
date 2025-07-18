@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from utils.monitor.system_monitor import SystemMonitor
 from agents.logs_snapshot import LogsSnapshot
 from agents.agent_log_parser import AgentLogParser
+from agents.snapshot_diff import SnapshotDiff
 
 
 class DailySummaryGenerator:
@@ -71,6 +72,9 @@ class DailySummaryGenerator:
         # Try to load previous snapshot for comparison
         previous_snapshot = self._load_previous_snapshot()
         
+        # Create snapshot diff analyzer
+        snapshot_diff = SnapshotDiff(current_snapshot, previous_snapshot)
+        
         # Extract key events from agent log
         key_events = self.agent_log_parser.extract_key_events_since_yesterday()
         
@@ -81,7 +85,7 @@ class DailySummaryGenerator:
             "",
             f"**Compared to**: {previous_snapshot_info}",
             "",
-            self._format_experiment_statistics(current_snapshot, previous_snapshot),
+            self._format_experiment_statistics(current_snapshot, snapshot_diff),
             "",
             self._format_key_events(key_events),
             "",
@@ -92,18 +96,17 @@ class DailySummaryGenerator:
         
         return "\n".join(sections)
     
-    def _format_experiment_statistics(self, current: Dict[str, Any], previous: Optional[Dict[str, Any]]) -> str:
+    def _format_experiment_statistics(self, current: Dict[str, Any], snapshot_diff: SnapshotDiff) -> str:
         """Format experiment statistics section.
         
         Args:
             current: Current snapshot data
-            previous: Previous snapshot data (may be None)
+            snapshot_diff: SnapshotDiff instance for analyzing changes
             
         Returns:
             Formatted experiment statistics section
         """
         current_statuses = current['run_statuses']  # Dict[str, RunStatus]
-        previous_statuses = previous['run_statuses'] if previous else {}
         
         # Count experiments by status
         status_counts = {}
@@ -111,15 +114,15 @@ class DailySummaryGenerator:
             status = run_status['status']
             status_counts[status] = status_counts.get(status, 0) + 1
         
-        # Calculate experiments completed and started today
-        completed_today = self._find_experiments_completed_today(current_statuses, previous_statuses)
-        started_today = self._find_experiments_started_today(current_statuses, previous_statuses)
+        # Calculate experiments completed and started today using SnapshotDiff
+        completed_today = snapshot_diff.find_experiments_completed_today()
+        started_today = snapshot_diff.find_experiments_started_today()
         
-        # Calculate newly completed epochs
-        newly_completed_epochs = self._calculate_newly_completed_epochs(current_statuses, previous_statuses)
+        # Calculate newly completed epochs using SnapshotDiff
+        newly_completed_epochs = snapshot_diff.calculate_newly_completed_epochs()
         
-        # Find failed experiments
-        failed_experiments = self._find_failed_experiments(current_statuses, previous_statuses)
+        # Find failed experiments using SnapshotDiff
+        failed_experiments = snapshot_diff.find_failed_experiments()
         
         lines = [
             "## Experiment Statistics",
@@ -353,71 +356,6 @@ class DailySummaryGenerator:
         
         return "\n".join(lines)
     
-    def _find_experiments_completed_today(self, current_statuses: Dict[str, Any], previous_statuses: Dict[str, Any]) -> List[str]:
-        """Find experiments that completed today (changed from non-finished to finished)."""
-        completed_today = []
-        
-        for config, current_status in current_statuses.items():
-            if current_status['status'] == 'finished':
-                if config not in previous_statuses:
-                    # New experiment that's already finished
-                    completed_today.append(config)
-                elif previous_statuses[config]['status'] != 'finished':
-                    # Status changed to finished
-                    completed_today.append(config)
-        
-        return completed_today
-    
-    def _find_experiments_started_today(self, current_statuses: Dict[str, Any], previous_statuses: Dict[str, Any]) -> List[str]:
-        """Find experiments that started today (new ProcessInfo entries)."""
-        started_today = []
-        
-        for config, current_status in current_statuses.items():
-            if current_status['process_info'] and config not in previous_statuses:
-                # New experiment with process info
-                started_today.append(config)
-            elif (current_status['process_info'] and 
-                  config in previous_statuses and 
-                  not previous_statuses[config]['process_info']):
-                # Experiment gained process info (started running)
-                started_today.append(config)
-        
-        return started_today
-    
-    def _calculate_newly_completed_epochs(self, current_statuses: Dict[str, Any], previous_statuses: Dict[str, Any]) -> Dict[str, List[int]]:
-        """Calculate newly completed epochs by comparing snapshots."""
-        newly_completed = {}
-        
-        for config, current_status in current_statuses.items():
-            if config in previous_statuses:
-                prev_epochs = previous_statuses[config]['progress']['completed_epochs']
-                curr_epochs = current_status['progress']['completed_epochs']
-                
-                if curr_epochs > prev_epochs:
-                    newly_completed[config] = list(range(prev_epochs, curr_epochs))
-        
-        return newly_completed
-    
-    def _find_failed_experiments(self, current_statuses: Dict[str, Any], previous_statuses: Dict[str, Any]) -> Dict[str, str]:
-        """Find experiments that failed and determine failure reasons."""
-        failed_experiments = {}
-        
-        for config, current_status in current_statuses.items():
-            if current_status['status'] == 'failed':
-                # Determine failure reason based on available information
-                reason = "Unknown failure"
-                
-                # Check if experiment was running before and stopped
-                if config in previous_statuses and previous_statuses[config]['status'] == 'running':
-                    reason = "Stopped unexpectedly"
-                elif current_status['progress']['completed_epochs'] == 0:
-                    reason = "Failed to start"
-                else:
-                    reason = f"Failed after {current_status['progress']['completed_epochs']} epochs"
-                
-                failed_experiments[config] = reason
-        
-        return failed_experiments
     
     def _detect_long_running_experiments(self, current_statuses: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Detect experiments running for more than 7 days."""
