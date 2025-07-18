@@ -22,6 +22,7 @@ from utils.automation.run_status import (
     RunStatus
 )
 from utils.monitor.process_info import ProcessInfo
+from utils.automation.run_status.session_progress import ProgressInfo
 from conftest import (
     create_epoch_files,
     create_real_config,
@@ -67,12 +68,12 @@ def test_get_run_status_basic_functionality():
                 config_to_process_info=config_to_process_info
             )
             
-            # Should return RunStatus with enhanced ProgressInfo - RunStatus is now a TypedDict (dict)
+            # Should return RunStatus with enhanced ProgressInfo - RunStatus is now a dataclass
             assert isinstance(run_status, RunStatus)
             assert run_status.config == config_path
             expected_work_dir = "./logs/test_run"  # What get_work_dir actually returns
             assert run_status.work_dir == expected_work_dir
-            assert isinstance(run_status['progress'], dict)
+            assert isinstance(run_status.progress, ProgressInfo)
             assert run_status.progress.completed_epochs == 5
             assert run_status.progress.early_stopped == False
             assert run_status.status == 'failed'  # No recent log updates, not running on GPU
@@ -169,12 +170,12 @@ def test_run_status_determination(status_scenario, expected_status):
         # Set up process info (real data structures, not mocks)
         config_to_process_info = {}
         if status_scenario == "stuck":
-            config_to_process_info[config_path] = {
-                'pid': '12345',
-                'user': 'testuser',
-                'cmd': f'python main.py --config-filepath {config_path}',
-                'start_time': 'Mon Jan  1 10:00:00 2024'
-            }
+            config_to_process_info[config_path] = ProcessInfo(
+                pid='12345',
+                user='testuser',
+                cmd=f'python main.py --config-filepath {config_path}',
+                start_time='Mon Jan  1 10:00:00 2024'
+            )
         
         original_cwd = os.getcwd()
         os.chdir(temp_root)
@@ -245,7 +246,7 @@ def test_get_all_run_status_returns_mapping():
                 assert config_path in result
                 assert isinstance(result[config_path], RunStatus)
                 assert result[config_path].config == config_path
-                assert isinstance(result[config_path].progress, dict)
+                assert isinstance(result[config_path].progress, ProgressInfo)
                 assert hasattr(result[config_path].progress, 'completed_epochs')
                 
         finally:
