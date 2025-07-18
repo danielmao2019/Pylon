@@ -1,5 +1,4 @@
-from typing import Dict, Optional, Tuple
-import numpy as np
+from typing import Dict, Tuple
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
@@ -14,11 +13,11 @@ class LiDARSimulationCrop(BaseTransform):
     3. Occlusion simulation: Remove occluded points using ray-casting
     
     This provides physically realistic cropping that mimics actual LiDAR limitations.
+    Takes a 4x4 extrinsics matrix defining the sensor pose (position + rotation).
     """
 
     def __init__(
         self,
-        sensor_position: Optional[Tuple[float, float, float]] = None,
         max_range: float = 100.0,
         horizontal_fov: float = 360.0,
         vertical_fov: Tuple[float, float] = (-30.0, 10.0),
@@ -29,7 +28,6 @@ class LiDARSimulationCrop(BaseTransform):
         """Initialize LiDAR simulation crop transform.
         
         Args:
-            sensor_position: Fixed sensor position (x, y, z). If None, random position is sampled.
             max_range: Maximum sensor range in meters (typical automotive: 100-200m)
             horizontal_fov: Horizontal field of view in degrees (360° for spinning, ~120° for solid-state)
             vertical_fov: Vertical FOV as (min_elevation, max_elevation) in degrees
@@ -52,11 +50,6 @@ class LiDARSimulationCrop(BaseTransform):
         assert isinstance(apply_fov_filter, bool), f"apply_fov_filter must be bool, got {type(apply_fov_filter)}"
         assert isinstance(apply_occlusion_filter, bool), f"apply_occlusion_filter must be bool, got {type(apply_occlusion_filter)}"
         
-        if sensor_position is not None:
-            assert len(sensor_position) == 3, f"sensor_position must have 3 elements, got {len(sensor_position)}"
-            sensor_position = torch.tensor(sensor_position, dtype=torch.float32)
-        
-        self.sensor_position = sensor_position
         self.max_range = float(max_range)
         self.horizontal_fov = float(horizontal_fov)
         self.vertical_fov = tuple(vertical_fov)
@@ -64,28 +57,40 @@ class LiDARSimulationCrop(BaseTransform):
         self.apply_fov_filter = apply_fov_filter
         self.apply_occlusion_filter = apply_occlusion_filter
 
-    def _call_single(self, pc: Dict[str, torch.Tensor], generator: torch.Generator) -> Dict[str, torch.Tensor]:
+    def _call_single(self, pc: Dict[str, torch.Tensor], sensor_extrinsics: torch.Tensor, *args, generator: torch.Generator) -> Dict[str, torch.Tensor]:
         """Apply LiDAR simulation crop to point cloud.
         
         Args:
             pc: Point cloud dictionary with 'pos' key and optional feature keys
-            generator: Random number generator for reproducible results
+            sensor_extrinsics: 4x4 sensor pose matrix (world-to-sensor transform)
+            generator: Random number generator (not used, kept for API compatibility)
             
         Returns:
             Cropped point cloud dictionary
         """
         check_point_cloud(pc)
         
+        # Validate sensor extrinsics matrix
+        assert isinstance(sensor_extrinsics, torch.Tensor), f"sensor_extrinsics must be torch.Tensor, got {type(sensor_extrinsics)}"
+        assert sensor_extrinsics.shape == (4, 4), f"sensor_extrinsics must be 4x4, got {sensor_extrinsics.shape}"
+        
         positions = pc['pos']  # Shape: (N, 3)
         
-        # Generate or use provided sensor position
-        if self.sensor_position is None:
-            sensor_pos = self._sample_sensor_position(positions, generator)
+        # Align sensor extrinsics to positions.device if needed
+        if sensor_extrinsics.device != positions.device:
+            sensor_extrinsics = sensor_extrinsics.to(positions.device)
+        
+        # Extract sensor position from extrinsics matrix
+        sensor_pos = sensor_extrinsics[:3, 3]  # Translation component
+        
+        # Transform points to sensor coordinate frame for FOV calculations
+        if self.apply_fov_filter:
+            # Convert positions to homogeneous coordinates
+            positions_homo = torch.cat([positions, torch.ones(positions.shape[0], 1, device=positions.device)], dim=1)
+            # Transform to sensor frame: sensor_extrinsics @ world_points
+            sensor_frame_positions = (sensor_extrinsics @ positions_homo.T).T[:, :3]
         else:
-            # Align sensor position to positions.device if needed
-            if self.sensor_position.device != positions.device:
-                self.sensor_position = self.sensor_position.to(positions.device)
-            sensor_pos = self.sensor_position
+            sensor_frame_positions = None
         
         # Start with all points
         valid_mask = torch.ones(positions.shape[0], dtype=torch.bool, device=positions.device)
@@ -97,7 +102,7 @@ class LiDARSimulationCrop(BaseTransform):
         
         # Apply field-of-view filter
         if self.apply_fov_filter:
-            fov_mask = self._apply_fov_filter(positions, sensor_pos)
+            fov_mask = self._apply_fov_filter(sensor_frame_positions)
             valid_mask = valid_mask & fov_mask
         
         # Apply occlusion filter (most expensive, do last)
@@ -116,35 +121,6 @@ class LiDARSimulationCrop(BaseTransform):
         
         return cropped_pc
 
-    def _sample_sensor_position(self, positions: torch.Tensor, generator: torch.Generator) -> torch.Tensor:
-        """Sample random sensor position around the point cloud.
-        
-        Args:
-            positions: Point cloud positions [N, 3]
-            generator: Random number generator
-            
-        Returns:
-            Sensor position [3]
-        """
-        # Compute point cloud bounds
-        min_vals = positions.min(dim=0)[0]
-        max_vals = positions.max(dim=0)[0]
-        pc_center = (min_vals + max_vals) / 2
-        pc_extent = (max_vals - min_vals).max()
-        
-        # Sample sensor position outside the point cloud with some margin
-        margin = pc_extent * 0.5  # 50% margin around point cloud
-        
-        # Sample on a sphere around the point cloud center
-        # Generate random direction
-        direction = torch.randn(3, generator=generator, device=positions.device)
-        direction = direction / torch.norm(direction)
-        
-        # Place sensor at distance of pc_extent + margin from center
-        sensor_distance = pc_extent / 2 + margin
-        sensor_pos = pc_center + direction * sensor_distance
-        
-        return sensor_pos
 
     def _apply_range_filter(self, positions: torch.Tensor, sensor_pos: torch.Tensor) -> torch.Tensor:
         """Apply range-based filtering.
@@ -159,26 +135,25 @@ class LiDARSimulationCrop(BaseTransform):
         distances = torch.norm(positions - sensor_pos.unsqueeze(0), dim=1)
         return distances <= self.max_range
 
-    def _apply_fov_filter(self, positions: torch.Tensor, sensor_pos: torch.Tensor) -> torch.Tensor:
-        """Apply field-of-view filtering.
+    def _apply_fov_filter(self, sensor_frame_positions: torch.Tensor) -> torch.Tensor:
+        """Apply field-of-view filtering using points in sensor coordinate frame.
         
         Args:
-            positions: Point cloud positions [N, 3]
-            sensor_pos: Sensor position [3]
+            sensor_frame_positions: Point positions in sensor coordinate frame [N, 3]
             
         Returns:
             Boolean mask [N] indicating points within FOV
         """
-        # Convert to sensor-centric coordinates
-        relative_pos = positions - sensor_pos.unsqueeze(0)  # [N, 3]
+        # Points are already in sensor frame, so sensor is at origin looking down +X axis
+        # X: forward, Y: left, Z: up in sensor frame
         
         # Compute horizontal angle (azimuth) - angle in XY plane from +X axis
-        azimuth = torch.atan2(relative_pos[:, 1], relative_pos[:, 0])  # [-π, π]
+        azimuth = torch.atan2(sensor_frame_positions[:, 1], sensor_frame_positions[:, 0])  # [-π, π]
         azimuth_deg = torch.rad2deg(azimuth)  # [-180, 180]
         
         # Compute vertical angle (elevation) - angle from XY plane
-        xy_distance = torch.norm(relative_pos[:, :2], dim=1)
-        elevation = torch.atan2(relative_pos[:, 2], xy_distance)  # [-π/2, π/2]
+        xy_distance = torch.norm(sensor_frame_positions[:, :2], dim=1)
+        elevation = torch.atan2(sensor_frame_positions[:, 2], xy_distance)  # [-π/2, π/2]
         elevation_deg = torch.rad2deg(elevation)  # [-90, 90]
         
         # Apply horizontal FOV constraint
