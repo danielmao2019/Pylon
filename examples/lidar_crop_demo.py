@@ -377,6 +377,11 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         if i == 0:
             ax.legend()
     
+    # Hide unused subplots
+    for j in range(len(pose_order), len(axes)):
+        if j < len(axes):
+            axes[j].set_visible(False)
+    
     plt.suptitle(f'{config_name.replace("_", " ").title()} Configuration', fontsize=16)
     plt.tight_layout()
     plt.savefig(f'{save_dir}/lidar_crop_all_views.png', dpi=150, bbox_inches='tight')
@@ -389,7 +394,7 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
             cropped_np = cropped_results[pose_name].numpy()
             reduction = 100*(1-len(cropped_np)/len(orig_np))
             total_reductions.append(reduction)
-            print(f"  {pose_titles[pose_name]}: {len(orig_np)} -> {len(cropped_np)} points ({reduction:.1f}% reduction)")
+            print(f"  {pose_titles.get(pose_name, pose_name)}: {len(orig_np)} -> {len(cropped_np)} points ({reduction:.1f}% reduction)")
     
     if total_reductions:
         avg_reduction = sum(total_reductions) / len(total_reductions)
