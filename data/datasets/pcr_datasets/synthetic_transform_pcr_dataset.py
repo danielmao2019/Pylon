@@ -141,12 +141,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                         # Convert string keys back to tuples for in-memory use
                         self.transform_cache = {}
                         for key_str, file_data in loaded_cache.items():
-                            try:
-                                param_tuple = eval(key_str)  # Convert string back to tuple
-                                self.transform_cache[param_tuple] = file_data
-                            except (ValueError, SyntaxError) as e:
-                                print(f"Warning: Invalid cache key format '{key_str}': {e}. Skipping entry.")
-                                continue
+                            param_tuple = eval(key_str)  # Convert string back to tuple
+                            self.transform_cache[param_tuple] = file_data
                     else:
                         self.transform_cache = {}
             except (json.JSONDecodeError, IOError) as e:
@@ -193,16 +189,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             
             # Validate parameter key format: "(rotation_mag, translation_mag, matching_radius)"
             assert param_key.startswith("(") and param_key.endswith(")"), f"Parameter key must be tuple format, got {param_key}"
-            try:
-                # Try to evaluate the string as a tuple
-                param_tuple = eval(param_key)
-                assert isinstance(param_tuple, tuple), f"Parameter key must evaluate to tuple, got {type(param_tuple)}"
-                assert len(param_tuple) == 3, f"Parameter tuple must have 3 values, got {len(param_tuple)}: {param_tuple}"
-                # Validate that all elements are numbers
-                for i, val in enumerate(param_tuple):
-                    assert isinstance(val, (int, float)), f"Parameter tuple element {i} must be numeric, got {type(val)}: {val}"
-            except (ValueError, SyntaxError) as e:
-                raise AssertionError(f"Invalid parameter key format '{param_key}': {e}")
+            # Try to evaluate the string as a tuple
+            param_tuple = eval(param_key)
+            assert isinstance(param_tuple, tuple), f"Parameter key must evaluate to tuple, got {type(param_tuple)}"
+            assert len(param_tuple) == 3, f"Parameter tuple must have 3 values, got {len(param_tuple)}: {param_tuple}"
+            # Validate that all elements are numbers
+            for i, val in enumerate(param_tuple):
+                assert isinstance(val, (int, float)), f"Parameter tuple element {i} must be numeric, got {type(val)}: {val}"
             
             # Parameter data should be a dictionary
             assert isinstance(param_data, dict), f"Parameter data must be dictionary, got {type(param_data)}"
