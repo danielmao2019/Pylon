@@ -141,9 +141,9 @@ class DailySummaryGenerator:
                 "- **Epoch-Level Progress Today**:"
             ])
             for config, epochs in newly_completed_epochs.items():
-                config_name = os.path.basename(config)
+                # Use full config path for clarity
                 epoch_list = ", ".join(map(str, epochs))
-                lines.append(f"  - {config_name}: Completed epochs {epoch_list}")
+                lines.append(f"  - {config}: Completed epochs {epoch_list}")
         else:
             lines.extend([
                 "",
@@ -157,8 +157,8 @@ class DailySummaryGenerator:
                 "- **Failed Experiments**:"
             ])
             for config, reason in failed_experiments.items():
-                config_name = os.path.basename(config)
-                lines.append(f"  - {config_name}: {reason}")
+                # Use full config path for clarity
+                lines.append(f"  - {config}: {reason}")
         else:
             lines.extend([
                 "",
@@ -283,10 +283,9 @@ class DailySummaryGenerator:
             lines.extend([
                 f"- **Near Completion** (>90%): {len(near_completion)} experiments"
             ])
-            # Show ALL experiments - exhaustive reporting
+            # Show ALL experiments with full paths - exhaustive reporting
             for config, progress, completed_epochs in near_completion:
-                config_name = os.path.basename(config)
-                lines.append(f"  - {config_name}: {progress:.1f}% ({completed_epochs} epochs)")
+                lines.append(f"  - {config}: {progress:.1f}% ({completed_epochs} epochs)")
         else:
             lines.append("- **Near Completion** (>90%): 0 experiments")
         
@@ -296,8 +295,8 @@ class DailySummaryGenerator:
                 "- **Long Running** (>7 days):"
             ])
             for exp in long_running:
-                config_name = os.path.basename(exp['config'])
-                lines.append(f"  - {config_name}: Running for {exp['runtime_days']} days ({exp['progress_percentage']:.1f}% complete)")
+                # Use full config path for clarity
+                lines.append(f"  - {exp['config']}: Running for {exp['runtime_days']} days ({exp['progress_percentage']:.1f}% complete)")
         else:
             lines.append("- **Long Running** (>7 days): 0 experiments")
         
