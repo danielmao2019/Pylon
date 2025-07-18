@@ -4,3 +4,32 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 write_to = "pylon/_version.py"
+
+[tool.black]
+# Skip line length restriction as requested
+skip-string-normalization = true
+exclude = '''
+/(
+    \.claude
+  | \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | \.vscode
+  | __pycache__
+  | _build
+  | buck-out
+  | build
+  | configs
+  | data/datasets/soft_links
+  | dist
+  | logs
+  | project
+)/
+'''
+
+[tool.isort]
+profile = "black"
+skip = [".claude", ".vscode", "__pycache__", "configs", "data/datasets/soft_links", "logs", "project"]
