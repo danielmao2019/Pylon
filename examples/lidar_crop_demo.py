@@ -194,14 +194,18 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         ax2.set_xlabel('X'); ax2.set_ylabel('Y'); ax2.set_zlabel('Z')
         ax2.legend()
         
-        # Overlay comparison
+        # Overlay comparison with ultra-high-contrast colors
         ax3 = fig.add_subplot(133, projection='3d')
+        
+        # Show removed points in very dark color with high opacity
         ax3.scatter(orig_np[:, 0], orig_np[:, 1], orig_np[:, 2], 
-                   c='lightblue', alpha=0.3, s=0.5, label='Removed')
+                   c='black', alpha=0.8, s=3, label='Removed', edgecolors='none')
+        # Show kept points in very bright color with black outlines
         ax3.scatter(cropped_np[:, 0], cropped_np[:, 1], cropped_np[:, 2], 
-                   c='darkgreen', alpha=0.8, s=1, label='Kept')
+                   c='yellow', alpha=1.0, s=8, label='Kept', edgecolors='red', linewidths=0.5)
+        # Show sensor very prominently
         ax3.scatter([sensor_pos[0]], [sensor_pos[1]], [sensor_pos[2]], 
-                   c='red', s=100, marker='^', label='Sensor')
+                   c='magenta', s=200, marker='^', label='Sensor', edgecolors='white', linewidths=2)
         ax3.set_title('Overlay Comparison')
         ax3.set_xlabel('X'); ax3.set_ylabel('Y'); ax3.set_zlabel('Z')
         ax3.legend()
