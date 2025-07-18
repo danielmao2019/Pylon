@@ -345,6 +345,7 @@ def _add_fov_visualization(ax, sensor_pos, sensor_rotation, lidar_config):
     cone_points = np.array(cone_points)
     
     # Transform to world coordinates
+    # cone_points are in sensor frame, transform to world frame
     world_points = (sensor_rotation @ cone_points.T).T + sensor_pos
     
     # Draw cone edges from apex to boundary

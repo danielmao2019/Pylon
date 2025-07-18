@@ -87,8 +87,10 @@ class LiDARSimulationCrop(BaseTransform):
         if self.apply_fov_filter:
             # Convert positions to homogeneous coordinates
             positions_homo = torch.cat([positions, torch.ones(positions.shape[0], 1, device=positions.device)], dim=1)
-            # Transform to sensor frame: sensor_extrinsics @ world_points
-            sensor_frame_positions = (sensor_extrinsics @ positions_homo.T).T[:, :3]
+            # Transform to sensor frame: inverse(sensor_extrinsics) @ world_points
+            # sensor_extrinsics is sensor-to-world, so we need world-to-sensor (inverse)
+            world_to_sensor = torch.inverse(sensor_extrinsics)
+            sensor_frame_positions = (world_to_sensor @ positions_homo.T).T[:, :3]
         else:
             sensor_frame_positions = None
         
