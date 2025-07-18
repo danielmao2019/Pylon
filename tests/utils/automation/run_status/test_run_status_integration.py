@@ -7,6 +7,7 @@ Following CLAUDE.md testing patterns:
 - Realistic multi-experiment scenarios
 - End-to-end workflow validation
 """
+from typing import Any
 import os
 import tempfile
 import pytest
@@ -14,6 +15,7 @@ from utils.automation.run_status import (
     get_all_run_status,
     RunStatus
 )
+from utils.automation.run_status.session_progress import ProgressInfo
 from conftest import (
     setup_realistic_experiment_structure,
     EXPECTED_FILES
@@ -66,14 +68,14 @@ def test_integration_full_pipeline():
                 target_status, epochs_completed = exp_data[1], exp_data[2]
                 
                 # Verify enhanced RunStatus fields
-                assert isinstance(run_status.progress, dict)
-                assert run_status.progress["completed_epochs"] == epochs_completed
-                assert isinstance(run_status.progress["early_stopped"], bool)
+                assert isinstance(run_status.progress, ProgressInfo)
+                assert run_status.progress.completed_epochs == epochs_completed
+                assert isinstance(run_status.progress.early_stopped, bool)
                 
                 # For running/stuck experiments, should have ProcessInfo
                 if target_status in ["running", "stuck"]:
                     assert run_status.process_info is not None
-                    assert run_status.process_info["cmd"].endswith(config_path)
+                    assert run_status.process_info.cmd.endswith(config_path)
                 else:
                     assert run_status.process_info is None
                     
@@ -120,9 +122,9 @@ def test_integration_mixed_experiment_states():
                 exp_name = os.path.basename(config_path).replace('.py', '')
                 
                 # Verify progress tracking is working correctly
-                assert "completed_epochs" in run_status.progress
-                assert "early_stopped" in run_status.progress
-                assert "progress_percentage" in run_status.progress
+                assert hasattr(run_status.progress, 'completed_epochs')
+                assert hasattr(run_status.progress, 'early_stopped')
+                assert hasattr(run_status.progress, 'progress_percentage')
                 
                 # Verify status determination is working
                 assert run_status.status in ["running", "finished", "failed", "stuck", "outdated"]
@@ -205,9 +207,9 @@ def test_integration_all_running_experiments():
                 run_status = all_statuses[config_path]
                 assert run_status.process_info is not None
                 assert run_status.status in ["running", "stuck"]
-                assert "pid" in run_status.process_info
-                assert "cmd" in run_status.process_info
-                assert run_status.process_info["cmd"].endswith(config_path)
+                assert hasattr(run_status.process_info, 'pid')
+                assert hasattr(run_status.process_info, 'cmd')
+                assert run_status.process_info.cmd.endswith(config_path)
                 
         finally:
             os.chdir(original_cwd)
@@ -247,8 +249,8 @@ def test_integration_large_scale_experiments():
                 run_status = all_statuses[config_path]
                 expected_epochs = i % 10
                 
-                assert run_status.progress["completed_epochs"] == expected_epochs
-                assert isinstance(run_status.progress, dict)
+                assert run_status.progress.completed_epochs == expected_epochs
+                assert hasattr(run_status.progress, 'completed_epochs')
                 assert run_status.status == "failed"  # All are failed in this test
                 
         finally:

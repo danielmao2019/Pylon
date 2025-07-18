@@ -18,6 +18,7 @@ from utils.automation.run_status import (
     check_epoch_finished,
     check_file_loadable
 )
+from utils.automation.run_status.session_progress import ProgressInfo
 from conftest import (
     create_epoch_files,
     create_progress_json,
@@ -40,12 +41,12 @@ def test_get_session_progress_fast_path_normal_run():
         
         progress = get_session_progress(work_dir, expected_files)
         
-        # Should return ProgressInfo dict
-        assert isinstance(progress, dict), f"Expected dict, got {type(progress)}"
-        assert progress["completed_epochs"] == 57
-        assert abs(progress["progress_percentage"] - 57.0) < 0.01  # Handle floating point precision
-        assert progress["early_stopped"] == False
-        assert progress["early_stopped_at_epoch"] is None
+        # Should return ProgressInfo dataclass
+        assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+        assert progress.completed_epochs == 57
+        assert abs(progress.progress_percentage - 57.0) < 0.01  # Handle floating point precision
+        assert progress.early_stopped == False
+        assert progress.early_stopped_at_epoch is None
 
 
 def test_get_session_progress_fast_path_early_stopped_run():
@@ -59,12 +60,12 @@ def test_get_session_progress_fast_path_early_stopped_run():
         
         progress = get_session_progress(work_dir, expected_files)
         
-        # Should return ProgressInfo dict
-        assert isinstance(progress, dict), f"Expected dict, got {type(progress)}"
-        assert progress["completed_epochs"] == 57
-        assert progress["progress_percentage"] == 100.0  # Early stopped shows 100%
-        assert progress["early_stopped"] == True
-        assert progress["early_stopped_at_epoch"] == 57
+        # Should return ProgressInfo dataclass
+        assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+        assert progress.completed_epochs == 57
+        assert progress.progress_percentage == 100.0  # Early stopped shows 100%
+        assert progress.early_stopped == True
+        assert progress.early_stopped_at_epoch == 57
 
 
 @pytest.mark.parametrize("completed_epochs,expected_completed", [
@@ -100,11 +101,11 @@ def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_c
         try:
             progress = get_session_progress(work_dir, expected_files)
             
-            # Should return ProgressInfo dict
-            assert isinstance(progress, dict), f"Expected dict, got {type(progress)}"
-            assert progress["completed_epochs"] == expected_completed
-            assert progress["early_stopped"] == False
-            assert progress["early_stopped_at_epoch"] is None
+            # Should return ProgressInfo dataclass
+            assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+            assert progress.completed_epochs == expected_completed
+            assert progress.early_stopped == False
+            assert progress.early_stopped_at_epoch is None
             
             # Verify progress.json was created
             progress_file = os.path.join(work_dir, "progress.json")
@@ -129,7 +130,7 @@ def test_get_session_progress_deterministic():
             results.append(progress)
         
         assert all(r == results[0] for r in results), f"Results not deterministic: {results}"
-        assert results[0]["completed_epochs"] == 42
+        assert results[0].completed_epochs == 42
 
 
 def test_get_session_progress_edge_case_empty_work_dir():
@@ -154,11 +155,11 @@ def test_get_session_progress_edge_case_empty_work_dir():
         try:
             progress = get_session_progress(work_dir, expected_files)
             
-            # Should return ProgressInfo dict with 0 completed epochs
-            assert isinstance(progress, dict), f"Expected dict, got {type(progress)}"
-            assert progress["completed_epochs"] == 0
-            assert progress["early_stopped"] == False
-            assert progress["early_stopped_at_epoch"] is None
+            # Should return ProgressInfo dataclass with 0 completed epochs
+            assert isinstance(progress, ProgressInfo), f"Expected ProgressInfo, got {type(progress)}"
+            assert progress.completed_epochs == 0
+            assert progress.early_stopped == False
+            assert progress.early_stopped_at_epoch is None
             
         finally:
             os.chdir(original_cwd)
