@@ -174,12 +174,20 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         
         fig = plt.figure(figsize=(15, 5))
         
+        # Get sensor orientation for all plots
+        sensor_rotation = sensor_poses[pose_name][:3, :3].numpy()
+        forward_dir = sensor_rotation[:, 0]  # Forward direction in world frame
+        arrow_length = 2.0
+        
         # Original point cloud
         ax1 = fig.add_subplot(131, projection='3d')
         ax1.scatter(orig_np[:, 0], orig_np[:, 1], orig_np[:, 2], 
                    c='blue', alpha=0.6, s=1, label='Original')
         ax1.scatter([sensor_pos[0]], [sensor_pos[1]], [sensor_pos[2]], 
-                   c='red', s=100, marker='^', label='Sensor')
+                   c='red', s=100, marker='o', label='Sensor')
+        ax1.quiver(sensor_pos[0], sensor_pos[1], sensor_pos[2],
+                  forward_dir[0], forward_dir[1], forward_dir[2],
+                  length=arrow_length, color='orange', arrow_length_ratio=0.3, linewidth=2)
         ax1.set_title('Original Point Cloud')
         ax1.set_xlabel('X'); ax1.set_ylabel('Y'); ax1.set_zlabel('Z')
         ax1.legend()
@@ -189,7 +197,10 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         ax2.scatter(cropped_np[:, 0], cropped_np[:, 1], cropped_np[:, 2], 
                    c='green', alpha=0.8, s=1, label='Cropped')
         ax2.scatter([sensor_pos[0]], [sensor_pos[1]], [sensor_pos[2]], 
-                   c='red', s=100, marker='^', label='Sensor')
+                   c='red', s=100, marker='o', label='Sensor')
+        ax2.quiver(sensor_pos[0], sensor_pos[1], sensor_pos[2],
+                  forward_dir[0], forward_dir[1], forward_dir[2],
+                  length=arrow_length, color='orange', arrow_length_ratio=0.3, linewidth=2)
         ax2.set_title(f'After LiDAR Crop ({len(cropped_np)}/{len(orig_np)} points)')
         ax2.set_xlabel('X'); ax2.set_ylabel('Y'); ax2.set_zlabel('Z')
         ax2.legend()
@@ -203,9 +214,24 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         # Show kept points in very bright color with black outlines
         ax3.scatter(cropped_np[:, 0], cropped_np[:, 1], cropped_np[:, 2], 
                    c='yellow', alpha=1.0, s=8, label='Kept', edgecolors='red', linewidths=0.5)
-        # Show sensor very prominently
+        # Show sensor very prominently with orientation arrow
         ax3.scatter([sensor_pos[0]], [sensor_pos[1]], [sensor_pos[2]], 
-                   c='magenta', s=200, marker='^', label='Sensor', edgecolors='white', linewidths=2)
+                   c='magenta', s=200, marker='o', label='Sensor', edgecolors='white', linewidths=2)
+        
+        # Add orientation arrow showing sensor facing direction
+        # Extract rotation matrix from sensor extrinsics to show facing direction
+        sensor_rotation = sensor_poses[pose_name][:3, :3].numpy()
+        # Forward direction in sensor frame is +X axis (first column of rotation matrix)
+        forward_dir = sensor_rotation[:, 0]  # Forward direction in world frame
+        # Scale the arrow to be visible
+        arrow_length = 2.0
+        arrow_end = sensor_pos + forward_dir * arrow_length
+        
+        # Draw arrow from sensor position in facing direction
+        ax3.quiver(sensor_pos[0], sensor_pos[1], sensor_pos[2],
+                  forward_dir[0], forward_dir[1], forward_dir[2],
+                  length=arrow_length, color='cyan', arrow_length_ratio=0.3, 
+                  linewidth=3, label='Facing Direction')
         ax3.set_title('Overlay Comparison')
         ax3.set_xlabel('X'); ax3.set_ylabel('Y'); ax3.set_zlabel('Z')
         ax3.legend()
