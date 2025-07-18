@@ -95,7 +95,7 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> Pro
     )
     
     progress_file = os.path.join(work_dir, "progress.json")
-    save_json(progress_data.to_dict(), progress_file)
+    save_json(progress_data, progress_file)
     
     # Return the ProgressInfo dataclass instance
     return progress_data
