@@ -66,16 +66,16 @@ def test_integration_full_pipeline():
                 target_status, epochs_completed = exp_data[1], exp_data[2]
                 
                 # Verify enhanced RunStatus fields
-                assert isinstance(run_status.progress, dict)
-                assert run_status.progress["completed_epochs"] == epochs_completed
-                assert isinstance(run_status.progress["early_stopped"], bool)
+                assert isinstance(run_status['progress'], dict)
+                assert run_status['progress']["completed_epochs"] == epochs_completed
+                assert isinstance(run_status['progress']["early_stopped"], bool)
                 
                 # For running/stuck experiments, should have ProcessInfo
                 if target_status in ["running", "stuck"]:
-                    assert run_status.process_info is not None
-                    assert run_status.process_info["cmd"].endswith(config_path)
+                    assert run_status['process_info'] is not None
+                    assert run_status['process_info']["cmd"].endswith(config_path)
                 else:
-                    assert run_status.process_info is None
+                    assert run_status['process_info'] is None
                     
         finally:
             os.chdir(original_cwd)
@@ -120,16 +120,16 @@ def test_integration_mixed_experiment_states():
                 exp_name = os.path.basename(config_path).replace('.py', '')
                 
                 # Verify progress tracking is working correctly
-                assert "completed_epochs" in run_status.progress
-                assert "early_stopped" in run_status.progress
-                assert "progress_percentage" in run_status.progress
+                assert "completed_epochs" in run_status['progress']
+                assert "early_stopped" in run_status['progress']
+                assert "progress_percentage" in run_status['progress']
                 
                 # Verify status determination is working
-                assert run_status.status in ["running", "finished", "failed", "stuck", "outdated"]
+                assert run_status['status'] in ["running", "finished", "failed", "stuck", "outdated"]
                 
                 # Verify config and work_dir are correctly populated
-                assert run_status.config == config_path
-                assert isinstance(run_status.work_dir, str)
+                assert run_status['config'] == config_path
+                assert isinstance(run_status['work_dir'], str)
                 
         finally:
             os.chdir(original_cwd)
@@ -165,8 +165,8 @@ def test_integration_no_running_experiments():
             # All experiments should have no process_info
             for config_path in config_files:
                 run_status = all_statuses[config_path]
-                assert run_status.process_info is None
-                assert run_status.status in ["finished", "failed"]
+                assert run_status['process_info'] is None
+                assert run_status['status'] in ["finished", "failed"]
                 
         finally:
             os.chdir(original_cwd)
@@ -203,11 +203,11 @@ def test_integration_all_running_experiments():
             # All experiments should have process_info
             for config_path in config_files:
                 run_status = all_statuses[config_path]
-                assert run_status.process_info is not None
-                assert run_status.status in ["running", "stuck"]
-                assert "pid" in run_status.process_info
-                assert "cmd" in run_status.process_info
-                assert run_status.process_info["cmd"].endswith(config_path)
+                assert run_status['process_info'] is not None
+                assert run_status['status'] in ["running", "stuck"]
+                assert "pid" in run_status['process_info']
+                assert "cmd" in run_status['process_info']
+                assert run_status['process_info']["cmd"].endswith(config_path)
                 
         finally:
             os.chdir(original_cwd)
@@ -247,9 +247,9 @@ def test_integration_large_scale_experiments():
                 run_status = all_statuses[config_path]
                 expected_epochs = i % 10
                 
-                assert run_status.progress["completed_epochs"] == expected_epochs
-                assert isinstance(run_status.progress, dict)
-                assert run_status.status == "failed"  # All are failed in this test
+                assert run_status['progress']["completed_epochs"] == expected_epochs
+                assert isinstance(run_status['progress'], dict)
+                assert run_status['status'] == "failed"  # All are failed in this test
                 
         finally:
             os.chdir(original_cwd)

@@ -67,16 +67,16 @@ def test_get_run_status_basic_functionality():
                 config_to_process_info=config_to_process_info
             )
             
-            # Should return RunStatus with enhanced ProgressInfo
-            assert isinstance(run_status, RunStatus)
-            assert run_status.config == config_path
+            # Should return RunStatus with enhanced ProgressInfo - RunStatus is now a TypedDict (dict)
+            assert isinstance(run_status, dict)
+            assert run_status['config'] == config_path
             expected_work_dir = "./logs/test_run"  # What get_work_dir actually returns
-            assert run_status.work_dir == expected_work_dir
-            assert isinstance(run_status.progress, dict)
-            assert run_status.progress["completed_epochs"] == 5
-            assert run_status.progress["early_stopped"] == False
-            assert run_status.status == 'failed'  # No recent log updates, not running on GPU
-            assert run_status.process_info is None  # Not running on GPU
+            assert run_status['work_dir'] == expected_work_dir
+            assert isinstance(run_status['progress'], dict)
+            assert run_status['progress']["completed_epochs"] == 5
+            assert run_status['progress']["early_stopped"] == False
+            assert run_status['status'] == 'failed'  # No recent log updates, not running on GPU
+            assert run_status['process_info'] is None  # Not running on GPU
             
         finally:
             os.chdir(original_cwd)
@@ -122,9 +122,9 @@ def test_get_run_status_with_process_info():
             )
             
             # Should show as stuck (running on GPU but no recent log updates)
-            assert run_status.status == 'stuck'
-            assert run_status.process_info == process_info
-            assert run_status.progress["completed_epochs"] == 3
+            assert run_status['status'] == 'stuck'
+            assert run_status['process_info'] == process_info
+            assert run_status['progress']["completed_epochs"] == 3
             
         finally:
             os.chdir(original_cwd)
@@ -188,7 +188,7 @@ def test_run_status_determination(status_scenario, expected_status):
                 config_to_process_info=config_to_process_info
             )
             
-            assert run_status.status == expected_status
+            assert run_status['status'] == expected_status
             
         finally:
             os.chdir(original_cwd)
@@ -373,8 +373,8 @@ def test_get_run_status_invalid_config_path():
             )
             
             # Should return failed status for invalid config
-            assert run_status.status == 'failed'
-            assert run_status.process_info is None
+            assert run_status['status'] == 'failed'
+            assert run_status['process_info'] is None
             
         except FileNotFoundError:
             # If the config path resolution fails, that's also acceptable behavior

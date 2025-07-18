@@ -86,13 +86,13 @@ def sample_process_info():
 @pytest.fixture
 def sample_run_status(sample_progress_info, sample_process_info):
     """Sample RunStatus for testing."""
-    return RunStatus(
-        config="configs/exp/baseline.py",
-        work_dir="./logs/baseline_run",
-        progress=sample_progress_info,
-        status="running",
-        process_info=sample_process_info
-    )
+    return {
+        'config': "configs/exp/baseline.py",
+        'work_dir': "./logs/baseline_run",
+        'progress': sample_progress_info,
+        'status': "running",
+        'process_info': sample_process_info
+    }
 
 
 # ============================================================================
@@ -314,13 +314,9 @@ def test_load_corrupted_snapshot(temp_snapshot_dir, sample_config_files, sample_
 # JSON SERIALIZATION TESTS
 # ============================================================================
 
-def test_make_json_serializable(sample_config_files, sample_expected_files, sample_run_status):
-    """Test JSON serialization of snapshot data."""
-    snapshot = LogsSnapshot(
-        config_files=sample_config_files,
-        expected_files=sample_expected_files,
-        epochs=20
-    )
+def test_generic_serialization(sample_config_files, sample_expected_files, sample_run_status):
+    """Test generic JSON serialization of snapshot data."""
+    from utils.io.json import serialize_object
     
     snapshot_data = {
         'timestamp': '2025-07-17_123000',
@@ -330,9 +326,9 @@ def test_make_json_serializable(sample_config_files, sample_expected_files, samp
         'snapshot_metadata': {'total_configs': 1}
     }
     
-    serializable = snapshot._make_json_serializable(snapshot_data)
+    serializable = serialize_object(snapshot_data)
     
-    # Verify run_statuses are converted to dicts
+    # Verify run_statuses remain as dicts (since they're TypedDict now)
     assert isinstance(serializable['run_statuses']['configs/exp/baseline.py'], dict)
     assert 'config' in serializable['run_statuses']['configs/exp/baseline.py']
     assert 'progress' in serializable['run_statuses']['configs/exp/baseline.py']
@@ -343,20 +339,16 @@ def test_make_json_serializable(sample_config_files, sample_expected_files, samp
     assert isinstance(json_str, str)
 
 
-def test_make_json_serializable_with_datetime(sample_config_files, sample_expected_files):
-    """Test JSON serialization with datetime objects."""
-    snapshot = LogsSnapshot(
-        config_files=sample_config_files,
-        expected_files=sample_expected_files,
-        epochs=20
-    )
+def test_generic_serialization_with_datetime(sample_config_files, sample_expected_files):
+    """Test generic JSON serialization with datetime objects."""
+    from utils.io.json import serialize_object
     
     snapshot_data = {
         'timestamp': datetime.now(),
         'other_data': 'test'
     }
     
-    serializable = snapshot._make_json_serializable(snapshot_data)
+    serializable = serialize_object(snapshot_data)
     
     # Verify datetime is converted to ISO format
     assert isinstance(serializable['timestamp'], str)

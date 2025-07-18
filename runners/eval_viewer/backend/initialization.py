@@ -1,4 +1,4 @@
-from typing import List, Dict, Set, Tuple, NamedTuple, Any, Literal, Optional
+from typing import List, Dict, Set, Tuple, TypedDict, Any, Literal, Optional
 import importlib.util
 import os
 import json
@@ -50,7 +50,7 @@ def detect_runner_type(log_dir: str) -> Literal['trainer', 'evaluator']:
                    f"Expected either 'evaluation_scores.json' in root or 'epoch_*/validation_scores.json' structure.")
 
 
-class LogDirInfo(NamedTuple):
+class LogDirInfo(TypedDict):
     """Information extracted from a log directory."""
     num_epochs: int
     metric_names: Set[str]
@@ -391,18 +391,18 @@ def extract_log_dir_info(log_dir: str, force_reload: bool = False) -> LogDirInfo
         raise ValueError(f"Unknown runner type: {runner_type}")
 
     # Create LogDirInfo object
-    info = LogDirInfo(
-        num_epochs=num_epochs,
-        metric_names=metric_names,
-        num_datapoints=num_datapoints,
-        score_map=score_map,
-        aggregated_scores=aggregated_scores,
-        dataset_class=dataset_class,
-        dataset_type=dataset_type,
-        dataset_cfg=dataset_cfg,
-        dataloader_cfg=dataloader_cfg,
-        runner_type=runner_type,
-    )
+    info = {
+        'num_epochs': num_epochs,
+        'metric_names': metric_names,
+        'num_datapoints': num_datapoints,
+        'score_map': score_map,
+        'aggregated_scores': aggregated_scores,
+        'dataset_class': dataset_class,
+        'dataset_type': dataset_type,
+        'dataset_cfg': dataset_cfg,
+        'dataloader_cfg': dataloader_cfg,
+        'runner_type': runner_type,
+    }
 
     # Save to cache
     with open(cache_path, 'wb') as f:

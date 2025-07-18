@@ -18,6 +18,34 @@ def apply_tensor_op(
         return inputs
 
 
+def apply_op(
+    func: Callable[[Any], Any],
+    inputs: Any,
+) -> Any:
+    """Apply a function recursively to nested data structures.
+    
+    Recursively applies func to all non-container elements in nested
+    tuples, lists, and dictionaries. If the input is not a container
+    (tuple, list, dict), applies func directly to it.
+    
+    Args:
+        func: Function to apply to non-container elements
+        inputs: Input data structure (can be nested)
+        
+    Returns:
+        Data structure with same nesting as inputs, but with func applied
+        to all non-container elements
+    """
+    if type(inputs) == tuple:
+        return tuple(apply_op(func=func, inputs=tuple_elem) for tuple_elem in inputs)
+    elif type(inputs) == list:
+        return list(apply_op(func=func, inputs=list_elem) for list_elem in inputs)
+    elif type(inputs) == dict:
+        return {key: apply_op(func=func, inputs=inputs[key]) for key in inputs.keys()}
+    else:
+        return func(inputs)
+
+
 def apply_pairwise(
     func: Callable[[torch.Tensor, torch.Tensor], torch.Tensor],
     inputs: List[torch.Tensor],

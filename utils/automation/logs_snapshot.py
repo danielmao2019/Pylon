@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from utils.monitor.system_monitor import SystemMonitor
 from utils.automation.run_status import get_all_run_status
+from utils.io.json import serialize_object
 
 
 class LogsSnapshot:
@@ -92,11 +93,11 @@ class LogsSnapshot:
         os.makedirs(self.snapshot_dir, exist_ok=True)
         filepath = os.path.join(self.snapshot_dir, filename)
         
-        # Convert snapshot to JSON-serializable format
-        serializable_snapshot = self._make_json_serializable(snapshot)
+        # Convert snapshot to JSON-serializable format using generic serializer
+        serializable_snapshot = serialize_object(snapshot)
         
         with open(filepath, 'w') as f:
-            json.dump(serializable_snapshot, f, indent=2, default=str)
+            json.dump(serializable_snapshot, f, indent=2)
             
     def load_snapshot(self, filename: str) -> Optional[Dict[str, Any]]:
         """Load snapshot from JSON file.
@@ -121,31 +122,6 @@ class LogsSnapshot:
             print(f"Warning: Failed to load snapshot {filename}: {str(e)}")
             return None
     
-    def _make_json_serializable(self, snapshot: Dict[str, Any]) -> Dict[str, Any]:
-        """Convert snapshot data to JSON-serializable format.
-        
-        Handles NamedTuple objects (RunStatus) and datetime objects.
-        
-        Args:
-            snapshot: Original snapshot data
-            
-        Returns:
-            JSON-serializable snapshot data
-        """
-        serializable = {}
-        
-        for key, value in snapshot.items():
-            if key == 'run_statuses':
-                # Convert Dict[str, RunStatus] to JSON-serializable format using _asdict()
-                serializable[key] = {}
-                for config, run_status in value.items():
-                    serializable[key][config] = run_status._asdict()
-            elif isinstance(value, datetime):
-                serializable[key] = value.isoformat()
-            else:
-                serializable[key] = value
-                
-        return serializable
     
     def list_snapshots(self) -> List[str]:
         """List all available snapshot files.

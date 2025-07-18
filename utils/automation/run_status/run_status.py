@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal, NamedTuple, Dict
+from typing import List, Optional, Literal, TypedDict, Dict
 from functools import partial
 import os
 import glob
@@ -17,7 +17,7 @@ from utils.automation.run_status.session_progress import get_session_progress, P
 _RunStatus = Literal['running', 'finished', 'failed', 'stuck', 'outdated']
 
 
-class RunStatus(NamedTuple):
+class RunStatus(TypedDict):
     config: str
     work_dir: str
     progress: ProgressInfo
@@ -69,7 +69,7 @@ def get_all_run_status(
         ))
 
     # Convert list to mapping
-    return {status.config: status for status in all_run_status}
+    return {status['config']: status for status in all_run_status}
 
 
 def get_run_status(
@@ -121,13 +121,13 @@ def get_run_status(
     # Get ProcessInfo if this config is running on GPU
     process_info = config_to_process_info.get(config, None)
 
-    return RunStatus(
-        config=config,
-        work_dir=work_dir,
-        progress=progress,
-        status=status,
-        process_info=process_info
-    )
+    return {
+        'config': config,
+        'work_dir': work_dir,
+        'progress': progress,
+        'status': status,
+        'process_info': process_info
+    }
 
 
 # ============================================================================
