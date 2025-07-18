@@ -232,13 +232,23 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 for i, transform in enumerate(transforms):
                     assert isinstance(transform, dict), f"Transform {i} must be dict, got {type(transform)}"
                     
-                    # Check required fields
-                    required_fields = ['overlap', 'rotation_angles', 'translation', 
-                                     'crop_method', 'keep_ratio', 'src_num_points', 
-                                     'tgt_num_points']
+                    # Check required fields (basic fields that all methods have)
+                    basic_required_fields = ['overlap', 'rotation_angles', 'translation', 
+                                           'crop_method', 'src_num_points', 'tgt_num_points']
                     
-                    for field in required_fields:
+                    for field in basic_required_fields:
                         assert field in transform, f"Transform {i} missing required field '{field}'"
+                    
+                    # Check method-specific required fields
+                    crop_method = transform['crop_method']
+                    if crop_method in ['plane', 'point']:
+                        assert 'keep_ratio' in transform, f"Transform {i} with crop_method '{crop_method}' missing 'keep_ratio'"
+                    elif crop_method == 'lidar':
+                        lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
+                                      'lidar_horizontal_fov', 'lidar_vertical_fov', 'lidar_apply_range_filter',
+                                      'lidar_apply_fov_filter', 'lidar_apply_occlusion_filter']
+                        for field in lidar_fields:
+                            assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
                     
                     # Validate field types and values
                     assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
@@ -251,7 +261,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     
                     assert transform['crop_method'] in ['plane', 'point', 'lidar'], f"crop_method must be 'plane', 'point', or 'lidar', got '{transform['crop_method']}'"
                     
-                    assert isinstance(transform['keep_ratio'], (int, float)), f"keep_ratio must be number, got {type(transform['keep_ratio'])}"
+                    # Validate keep_ratio for plane/point methods
+                    if transform['crop_method'] in ['plane', 'point']:
+                        assert isinstance(transform['keep_ratio'], (int, float)), f"keep_ratio must be number, got {type(transform['keep_ratio'])}"
                     
                     assert isinstance(transform['src_num_points'], int), f"src_num_points must be int, got {type(transform['src_num_points'])}"
                     assert isinstance(transform['tgt_num_points'], int), f"tgt_num_points must be int, got {type(transform['tgt_num_points'])}"
@@ -348,8 +360,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'transform_config': transform_config,
             'overlap': transform_config['overlap'],
             'crop_method': transform_config['crop_method'],
-            'keep_ratio': transform_config['keep_ratio'],
         }
+        
+        # Add method-specific metadata
+        if transform_config['crop_method'] in ['plane', 'point']:
+            meta_info['keep_ratio'] = transform_config['keep_ratio']
+        elif transform_config['crop_method'] == 'lidar':
+            meta_info['lidar_max_range'] = transform_config['lidar_max_range']
+            meta_info['lidar_horizontal_fov'] = transform_config['lidar_horizontal_fov']
+            meta_info['lidar_vertical_fov'] = transform_config['lidar_vertical_fov']
         
         return inputs, labels, meta_info
 
@@ -815,12 +834,22 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_inv = torch.linalg.inv(transform_matrix.detach().cpu()).to(transform_matrix.device)
         src_points = apply_transform(ref_points, transform_inv)
         
-        # Apply cropping to both source and target (GeoTransformer crops both)
-        src_pc_dict = crop_transform({'pos': src_points}, seed=transform_params['seed'])
-        src_pc_pos = src_pc_dict['pos']
-        
-        tgt_pc_dict = crop_transform({'pos': ref_points}, seed=transform_params['seed']) 
-        tgt_pc_pos = tgt_pc_dict['pos']
+        # Apply cropping to both source and target 
+        if transform_params['crop_method'] == 'lidar':
+            # LiDAR cropping requires sensor extrinsics matrix
+            sensor_extrinsics = crop_transform._sensor_extrinsics
+            src_pc_dict = crop_transform._call_single({'pos': src_points}, sensor_extrinsics, generator=torch.Generator())
+            src_pc_pos = src_pc_dict['pos']
+            
+            tgt_pc_dict = crop_transform._call_single({'pos': ref_points}, sensor_extrinsics, generator=torch.Generator())
+            tgt_pc_pos = tgt_pc_dict['pos']
+        else:
+            # Plane and point cropping use seed-based approach
+            src_pc_dict = crop_transform({'pos': src_points}, seed=transform_params['seed'])
+            src_pc_pos = src_pc_dict['pos']
+            
+            tgt_pc_dict = crop_transform({'pos': ref_points}, seed=transform_params['seed']) 
+            tgt_pc_pos = tgt_pc_dict['pos']
         
         # Create point cloud dictionaries with features on same device as positions
         src_pc = {
