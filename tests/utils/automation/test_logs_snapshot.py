@@ -8,7 +8,8 @@ from unittest.mock import Mock
 import pytest
 from utils.automation.logs_snapshot import LogsSnapshot
 from utils.monitor.system_monitor import SystemMonitor
-from utils.automation.run_status import RunStatus, ProgressInfo
+from utils.automation.run_status import RunStatus
+from utils.automation.run_status.session_progress import ProgressInfo
 from utils.monitor.process_info import ProcessInfo
 
 
@@ -165,18 +166,18 @@ def test_create_snapshot(sample_config_files, sample_expected_files, mock_system
     # Mock get_all_run_status to return test data
     def mock_get_all_run_status(**kwargs):
         return {
-            "configs/exp/baseline.py": RunStatus(
-                config="configs/exp/baseline.py",
-                work_dir="./logs/baseline_run",
-                progress={
+            "configs/exp/baseline.py": {
+                'config': "configs/exp/baseline.py",
+                'work_dir': "./logs/baseline_run",
+                'progress': {
                     'completed_epochs': 15,
                     'progress_percentage': 75.0,
                     'early_stopped': False,
                     'early_stopped_at_epoch': None
                 },
-                status="running",
-                process_info={'pid': '12345', 'user': 'testuser', 'cmd': 'python main.py --config-filepath configs/exp/baseline.py'}
-            )
+                'status': "running",
+                'process_info': {'pid': '12345', 'user': 'testuser', 'cmd': 'python main.py --config-filepath configs/exp/baseline.py'}
+            }
         }
     
     monkeypatch.setattr("utils.automation.logs_snapshot.get_all_run_status", mock_get_all_run_status)
