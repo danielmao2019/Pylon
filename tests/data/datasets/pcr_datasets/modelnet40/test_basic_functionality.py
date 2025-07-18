@@ -203,9 +203,9 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
     
     # Check that file pairs are correctly set up for single-temporal (self-registration)
     for annotation in dataset.file_pair_annotations[:5]:  # Check first 5
-        assert annotation['src_file_path'] == annotation['tgt_file_path'], \
+        assert annotation['src_filepath'] == annotation['tgt_filepath'], \
             "ModelNet40 should use same file for source and target"
-        assert annotation['src_file_path'].endswith('.off'), \
+        assert annotation['src_filepath'].endswith('.off'), \
             "Files should be OFF format"
 
     def validate_datapoint(idx: int) -> None:
