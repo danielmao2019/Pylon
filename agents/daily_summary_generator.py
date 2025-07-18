@@ -219,7 +219,22 @@ class DailySummaryGenerator:
                         if 'process_count' in details:
                             message += f" ({details['process_count']} processes)"
                         if details.get('raw_info'):
-                            message += f"\n  **Details**: {details['raw_info']}"
+                            # Clean up the raw info for better display
+                            raw_info = details['raw_info']
+                            # Ensure no unclosed brackets in display
+                            if raw_info.endswith('...'):
+                                # Already truncated, just display
+                                message += f"\n  **Details**: {raw_info}"
+                            else:
+                                message += f"\n  **Details**: {raw_info}"
+                        elif details.get('processes'):
+                            # If we have parsed processes, show them properly
+                            process_list = []
+                            for config, proc_info in details['processes'].items():
+                                process_list.append(f"{config} on {proc_info['server']} (PID: {proc_info['pid']})")
+                            message += f"\n  **Processes**: {', '.join(process_list[:3])}"
+                            if len(process_list) > 3:
+                                message += f" and {len(process_list) - 3} more"
                     
                     lines.append(message)
         

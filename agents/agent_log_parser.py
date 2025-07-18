@@ -194,11 +194,10 @@ class AgentLogParser:
         
         # If no processes were parsed successfully, return fallback info
         if len(processes) == 0:
-            # Fix JSON formatting by properly closing brackets
-            truncated_info = processes_str[:100] + '...' if len(processes_str) > 100 else processes_str
+            # For exhaustive reporting, return the full information without truncation
             return {
                 'process_count': 0,
-                'raw_info': truncated_info.replace('{', '{{').replace('}', '}}')  # Escape for markdown
+                'raw_info': processes_str
             }
             
         return {
