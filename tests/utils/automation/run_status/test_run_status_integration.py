@@ -15,6 +15,7 @@ from utils.automation.run_status import (
     get_all_run_status,
     RunStatus
 )
+from utils.automation.run_status.session_progress import ProgressInfo
 from conftest import (
     setup_realistic_experiment_structure,
     EXPECTED_FILES
@@ -67,7 +68,7 @@ def test_integration_full_pipeline():
                 target_status, epochs_completed = exp_data[1], exp_data[2]
                 
                 # Verify enhanced RunStatus fields
-                assert isinstance(run_status['progress'], dict)
+                assert isinstance(run_status.progress, ProgressInfo)
                 assert run_status.progress.completed_epochs == epochs_completed
                 assert isinstance(run_status.progress.early_stopped, bool)
                 
