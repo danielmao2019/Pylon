@@ -290,6 +290,22 @@ def main():
             apply_range_filter=True,
             apply_fov_filter=True,
             apply_occlusion_filter=True
+        ),
+        'fov_only': LiDARSimulationCrop(
+            max_range=100.0,  # Very large range so no range filtering
+            horizontal_fov=120.0,
+            vertical_fov=(-30.0, 30.0),
+            apply_range_filter=False,
+            apply_fov_filter=True,
+            apply_occlusion_filter=False
+        ),
+        'occlusion_only': LiDARSimulationCrop(
+            max_range=100.0,  # Very large range so no range filtering
+            horizontal_fov=360.0,  # Full circle so no FOV filtering
+            vertical_fov=(-90.0, 90.0),  # Full sphere so no FOV filtering
+            apply_range_filter=False,
+            apply_fov_filter=False,
+            apply_occlusion_filter=True
         )
     }
     
