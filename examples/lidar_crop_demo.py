@@ -157,6 +157,81 @@ def create_sensor_poses():
     pose4[1, 0] = -sin_a; pose4[1, 1] = cos_a
     poses['angled_view'] = pose4
     
+    # Pose 5: Sensor straight down from above
+    pose5 = torch.eye(4)
+    pose5[:3, 3] = torch.tensor([0.0, 0.0, 10.0])
+    # Rotate to look straight down (-Z direction)
+    pose5[0, 0] = 0.0; pose5[0, 1] = 0.0; pose5[0, 2] = -1.0
+    pose5[1, 0] = 0.0; pose5[1, 1] = 1.0; pose5[1, 2] = 0.0
+    pose5[2, 0] = 1.0; pose5[2, 1] = 0.0; pose5[2, 2] = 0.0
+    poses['straight_down'] = pose5
+    
+    # Pose 6: Sensor below looking up
+    pose6 = torch.eye(4)
+    pose6[:3, 3] = torch.tensor([0.0, 0.0, -5.0])
+    # Rotate to look straight up (+Z direction)
+    pose6[0, 0] = 0.0; pose6[0, 1] = 0.0; pose6[0, 2] = 1.0
+    pose6[1, 0] = 0.0; pose6[1, 1] = 1.0; pose6[1, 2] = 0.0
+    pose6[2, 0] = -1.0; pose6[2, 1] = 0.0; pose6[2, 2] = 0.0
+    poses['straight_up'] = pose6
+    
+    # Pose 7: Corner view
+    pose7 = torch.eye(4)
+    pose7[:3, 3] = torch.tensor([-6.0, -6.0, 4.0])
+    # Rotate to look toward positive X,Y (approximately)
+    angle = -3 * np.pi / 4  # -135 degrees
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+    pose7[0, 0] = cos_a; pose7[0, 1] = sin_a
+    pose7[1, 0] = -sin_a; pose7[1, 1] = cos_a
+    poses['corner_view'] = pose7
+    
+    # Pose 8: Close angled view
+    pose8 = torch.eye(4)
+    pose8[:3, 3] = torch.tensor([3.0, 2.0, 1.5])
+    # Slight rotation toward origin
+    angle = np.pi / 6  # 30 degrees
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+    pose8[0, 0] = cos_a; pose8[0, 1] = sin_a
+    pose8[1, 0] = -sin_a; pose8[1, 1] = cos_a
+    poses['close_angled'] = pose8
+    
+    # Pose 9: Far side view
+    pose9 = torch.eye(4)
+    pose9[:3, 3] = torch.tensor([15.0, 0.0, 1.0])
+    # Rotate to look toward -X direction
+    pose9[0, 0] = -1.0
+    pose9[1, 1] = -1.0
+    poses['far_side'] = pose9
+    
+    # Pose 10: Diagonal upward view
+    pose10 = torch.eye(4)
+    pose10[:3, 3] = torch.tensor([4.0, 4.0, -2.0])
+    # Rotate to look up and toward center
+    # This creates an upward-looking diagonal view
+    angle = np.pi / 4
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+    pose10[0, 0] = cos_a; pose10[0, 1] = sin_a; pose10[0, 2] = 0.3  # Slight upward tilt
+    pose10[1, 0] = -sin_a; pose10[1, 1] = cos_a; pose10[1, 2] = 0.0
+    pose10[2, 0] = -0.3; pose10[2, 1] = 0.0; pose10[2, 2] = 0.95  # Upward component
+    poses['diagonal_up'] = pose10
+    
+    # Pose 11: Behind view
+    pose11 = torch.eye(4)
+    pose11[:3, 3] = torch.tensor([-10.0, 0.0, 2.0])
+    # Rotate to look toward +X direction (forward)
+    poses['behind_view'] = pose11
+    
+    # Pose 12: Steep angle down
+    pose12 = torch.eye(4)
+    pose12[:3, 3] = torch.tensor([7.0, 7.0, 12.0])
+    # Rotate to look down and toward center
+    angle = np.pi / 3  # 60 degrees
+    cos_a, sin_a = np.cos(angle), np.sin(angle)
+    pose12[0, 0] = cos_a; pose12[0, 1] = sin_a; pose12[0, 2] = -0.7  # Strong downward tilt
+    pose12[1, 0] = -sin_a; pose12[1, 1] = cos_a; pose12[1, 2] = 0.0
+    pose12[2, 0] = 0.7; pose12[2, 1] = 0.0; pose12[2, 2] = 0.71  # Downward component
+    poses['steep_down'] = pose12
+    
     return poses
 
 
@@ -176,18 +251,49 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     # Convert to numpy for plotting
     orig_np = original_points.numpy()
     
-    # Create a single 2x2 grid plot for all four sensor poses
-    fig, axes = plt.subplots(2, 2, figsize=(16, 12), subplot_kw={'projection': '3d'})
-    axes = axes.flatten()
+    # Determine grid size based on number of poses
+    num_poses = len(cropped_results)
+    if num_poses <= 4:
+        rows, cols = 2, 2
+        figsize = (16, 12)
+    elif num_poses <= 6:
+        rows, cols = 2, 3
+        figsize = (20, 12)
+    elif num_poses <= 9:
+        rows, cols = 3, 3
+        figsize = (20, 16)
+    elif num_poses <= 12:
+        rows, cols = 3, 4
+        figsize = (24, 16)
+    else:
+        rows, cols = 4, 4
+        figsize = (28, 20)
     
-    # Define pose order for consistent layout
-    pose_order = ['origin_forward', 'elevated_down', 'side_view', 'angled_view']
+    fig, axes = plt.subplots(rows, cols, figsize=figsize, subplot_kw={'projection': '3d'})
+    axes = axes.flatten() if num_poses > 1 else [axes]
+    
+    # Define pose order for consistent layout (original 4 first, then new ones)
+    pose_order = ['origin_forward', 'elevated_down', 'side_view', 'angled_view',
+                  'straight_down', 'straight_up', 'corner_view', 'close_angled',
+                  'far_side', 'diagonal_up', 'behind_view', 'steep_down']
+    
     pose_titles = {
         'origin_forward': 'Origin Forward',
         'elevated_down': 'Elevated Down', 
         'side_view': 'Side View',
-        'angled_view': 'Angled View'
+        'angled_view': 'Angled View',
+        'straight_down': 'Straight Down',
+        'straight_up': 'Straight Up',
+        'corner_view': 'Corner View',
+        'close_angled': 'Close Angled',
+        'far_side': 'Far Side',
+        'diagonal_up': 'Diagonal Up',
+        'behind_view': 'Behind View',
+        'steep_down': 'Steep Down'
     }
+    
+    # Filter to only poses that have results
+    pose_order = [pose for pose in pose_order if pose in cropped_results]
     
     # Calculate common axis limits for all subplots
     all_sensor_positions = np.array([sensor_poses[pose][:3, 3].numpy() for pose in pose_order if pose in cropped_results])
@@ -199,10 +305,13 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     
     # Create subplot for each sensor pose
     for i, pose_name in enumerate(pose_order):
+        if i >= len(axes):
+            break
+            
         ax = axes[i]
         
         if pose_name not in cropped_results:
-            ax.set_title(f'{pose_titles[pose_name]}\nNo data')
+            ax.set_title(f'{pose_titles.get(pose_name, pose_name)}\nNo data')
             ax.set_xlim(x_min, x_max)
             ax.set_ylim(y_min, y_max)
             ax.set_zlim(z_min, z_max)
