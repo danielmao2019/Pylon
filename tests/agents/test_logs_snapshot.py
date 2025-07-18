@@ -6,7 +6,7 @@ import shutil
 from datetime import datetime
 from unittest.mock import Mock
 import pytest
-from utils.automation.logs_snapshot import LogsSnapshot
+from agents.logs_snapshot import LogsSnapshot
 from utils.monitor.system_monitor import SystemMonitor
 from utils.automation.run_status import RunStatus
 from utils.automation.run_status.session_progress import ProgressInfo
