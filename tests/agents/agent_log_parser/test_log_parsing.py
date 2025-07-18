@@ -1,6 +1,6 @@
 from datetime import datetime
 import pytest
-from utils.automation.agent_log_parser import AgentLogParser
+from agents.agent_log_parser import AgentLogParser
 
 
 # ============================================================================
