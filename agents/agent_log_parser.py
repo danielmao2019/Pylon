@@ -93,11 +93,17 @@ class AgentLogParser:
         outdated_match = self.patterns['outdated_cleanup'].search(line)
         if outdated_match:
             days = int(outdated_match.group(1))
+            # Try to extract folder list from next lines
+            cleaned_folders = self._extract_cleaned_folders(line)
             return {
                 'type': 'outdated_cleanup',
                 'timestamp': timestamp,
                 'message': f"Cleaned outdated runs (>{days} days old)",
-                'details': {'days_threshold': days},
+                'details': {
+                    'days_threshold': days,
+                    'cleaned_folders': cleaned_folders,
+                    'folder_count': len(cleaned_folders)
+                },
                 'line_number': line_num
             }
         
@@ -188,9 +194,11 @@ class AgentLogParser:
         
         # If no processes were parsed successfully, return fallback info
         if len(processes) == 0:
+            # Fix JSON formatting by properly closing brackets
+            truncated_info = processes_str[:100] + '...' if len(processes_str) > 100 else processes_str
             return {
                 'process_count': 0,
-                'raw_info': processes_str[:100] + '...' if len(processes_str) > 100 else processes_str
+                'raw_info': truncated_info.replace('{', '{{').replace('}', '}}')  # Escape for markdown
             }
             
         return {
@@ -243,3 +251,28 @@ class AgentLogParser:
         summary['experiments_affected'] = len(summary['experiments_affected'])
         
         return summary
+    
+    def _extract_cleaned_folders(self, line: str) -> List[str]:
+        """Extract list of cleaned folders from log line.
+        
+        Args:
+            line: Log line that may contain folder information
+            
+        Returns:
+            List of folder paths that were cleaned
+        """
+        # For now, return empty list - would need to parse actual log format
+        # This could be enhanced to read subsequent lines or parse specific patterns
+        folders = []
+        
+        # Try to extract folder paths if they're in the same line
+        folder_patterns = [
+            r'./logs/[^,\s]+',  # Match log folder paths
+            r'/[^,\s]+/logs/[^,\s]+',  # Match absolute log paths
+        ]
+        
+        for pattern in folder_patterns:
+            matches = re.findall(pattern, line)
+            folders.extend(matches)
+        
+        return folders[:10]  # Limit to first 10 folders to avoid huge lists

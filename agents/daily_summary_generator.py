@@ -48,37 +48,38 @@ class DailySummaryGenerator:
         self.summary_dir = "./agents/summaries"
         
     def generate_daily_summary(self, 
-                              system_monitor: SystemMonitor,
+                              current_snapshot_file: Optional[str] = None,
                               date: Optional[str] = None) -> str:
         """Generate comprehensive daily summary.
         
         Args:
-            system_monitor: SystemMonitor instance for current state queries
+            current_snapshot_file: Path to current snapshot file, defaults to latest
             date: Date string (YYYY-MM-DD) for the summary, defaults to today
             
         Returns:
             Formatted markdown summary string
         """
-        assert isinstance(system_monitor, SystemMonitor), f"system_monitor must be SystemMonitor, got {type(system_monitor)}"
-        
         if date is None:
             date = datetime.now().strftime('%Y-%m-%d')
         
-        # Create current snapshot
-        current_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        current_snapshot = self.logs_snapshot.create_snapshot(current_timestamp, system_monitor)
+        # Load current snapshot (latest or specified file)
+        if current_snapshot_file is None:
+            current_snapshot = self._load_latest_snapshot()
+        else:
+            current_snapshot = self._load_snapshot_from_file(current_snapshot_file)
         
-        # Try to load yesterday's snapshot for comparison
-        yesterday = datetime.now() - timedelta(days=1)
-        yesterday_filename = f"{yesterday.strftime('%Y-%m-%d')}_235500.json"
-        previous_snapshot = self.logs_snapshot.load_snapshot(yesterday_filename)
+        # Try to load previous snapshot for comparison
+        previous_snapshot = self._load_previous_snapshot()
         
         # Extract key events from agent log
         key_events = self.agent_log_parser.extract_key_events_since_yesterday()
         
         # Generate summary sections in specified order
+        previous_snapshot_info = self._get_previous_snapshot_info(previous_snapshot)
         sections = [
             f"# Daily Summary - {date}",
+            "",
+            f"**Compared to**: {previous_snapshot_info}",
             "",
             self._format_experiment_statistics(current_snapshot, previous_snapshot),
             "",
@@ -89,11 +90,7 @@ class DailySummaryGenerator:
             self._format_resource_utilization(current_snapshot)
         ]
         
-        # Save current snapshot for tomorrow's comparison
-        today_filename = f"{datetime.now().strftime('%Y-%m-%d_%H%M%S')}.json"
-        self.logs_snapshot.save_snapshot(current_snapshot, today_filename)
-        
-        return "\\n".join(sections)
+        return "\n".join(sections)
     
     def _format_experiment_statistics(self, current: Dict[str, Any], previous: Optional[Dict[str, Any]]) -> str:
         """Format experiment statistics section.
@@ -147,6 +144,11 @@ class DailySummaryGenerator:
                 config_name = os.path.basename(config)
                 epoch_list = ", ".join(map(str, epochs))
                 lines.append(f"  - {config_name}: Completed epochs {epoch_list}")
+        else:
+            lines.extend([
+                "",
+                "- **Epoch-Level Progress Today**: 0 new epochs completed"
+            ])
         
         # Add failed experiment details if any
         if failed_experiments:
@@ -157,8 +159,13 @@ class DailySummaryGenerator:
             for config, reason in failed_experiments.items():
                 config_name = os.path.basename(config)
                 lines.append(f"  - {config_name}: {reason}")
+        else:
+            lines.extend([
+                "",
+                "- **Failed Experiments**: 0 experiments failed today"
+            ])
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _format_key_events(self, key_events: List[Dict[str, Any]]) -> str:
         """Format key events section.
@@ -173,7 +180,7 @@ class DailySummaryGenerator:
         
         if not key_events:
             lines.append("- No significant events occurred today")
-            return "\\n".join(lines)
+            return "\n".join(lines)
         
         # Group events by type for better organization
         events_by_type = {}
@@ -195,9 +202,29 @@ class DailySummaryGenerator:
                     else:
                         time_str = timestamp.strftime('%H:%M')
                     
-                    lines.append(f"- {time_str} - {event['message']}")
+                    message = f"- {time_str} - {event['message']}"
+                    
+                    # Add detailed information for specific event types
+                    if event_type == 'outdated_cleanup' and 'details' in event:
+                        details = event['details']
+                        if 'folder_count' in details:
+                            message += f" ({details['folder_count']} folders)"
+                        if details.get('cleaned_folders'):
+                            folder_list = ', '.join(details['cleaned_folders'][:5])
+                            if len(details['cleaned_folders']) > 5:
+                                folder_list += f" and {len(details['cleaned_folders']) - 5} more"
+                            message += f"\n  **Folders**: {folder_list}"
+                    
+                    elif event_type == 'stuck_removal' and 'details' in event:
+                        details = event['details']
+                        if 'process_count' in details:
+                            message += f" ({details['process_count']} processes)"
+                        if details.get('raw_info'):
+                            message += f"\n  **Details**: {details['raw_info']}"
+                    
+                    lines.append(message)
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _format_progress_overview(self, current: Dict[str, Any]) -> str:
         """Format progress overview section.
@@ -215,16 +242,19 @@ class DailySummaryGenerator:
         experiment_count = len(current_statuses)
         
         for run_status in current_statuses.values():
-            total_progress += run_status['progress']['progress_percentage']
+            if run_status.get('progress') and run_status['progress'].get('progress_percentage') is not None:
+                total_progress += run_status['progress']['progress_percentage']
         
         overall_completion = total_progress / experiment_count if experiment_count > 0 else 0
         
         # Find experiments nearing completion (>90%)
         near_completion = []
         for config, run_status in current_statuses.items():
-            progress = run_status['progress']['progress_percentage']
-            if progress > 90 and run_status['status'] != 'finished':
-                near_completion.append((config, progress, run_status['progress']['completed_epochs']))
+            if run_status.get('progress') and run_status['progress'].get('progress_percentage') is not None:
+                progress = run_status['progress']['progress_percentage']
+                if progress > 90 and run_status.get('status') != 'finished':
+                    completed_epochs = run_status['progress'].get('completed_epochs', 0)
+                    near_completion.append((config, progress, completed_epochs))
         
         # Find long-running experiments
         long_running = self._detect_long_running_experiments(current_statuses)
@@ -237,11 +267,16 @@ class DailySummaryGenerator:
         # Add near completion section
         if near_completion:
             lines.extend([
-                "- **Near Completion** (>90%):"
+                f"- **Near Completion** (>90%): {len(near_completion)} experiments"
             ])
-            for config, progress, completed_epochs in near_completion:
+            # Show only first 10 to avoid huge lists
+            for config, progress, completed_epochs in near_completion[:10]:
                 config_name = os.path.basename(config)
                 lines.append(f"  - {config_name}: {progress:.1f}% ({completed_epochs} epochs)")
+            if len(near_completion) > 10:
+                lines.append(f"  - ... and {len(near_completion) - 10} more experiments")
+        else:
+            lines.append("- **Near Completion** (>90%): 0 experiments")
         
         # Add long running section
         if long_running:
@@ -251,8 +286,10 @@ class DailySummaryGenerator:
             for exp in long_running:
                 config_name = os.path.basename(exp['config'])
                 lines.append(f"  - {config_name}: Running for {exp['runtime_days']} days ({exp['progress_percentage']:.1f}% complete)")
+        else:
+            lines.append("- **Long Running** (>7 days): 0 experiments")
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _format_resource_utilization(self, current: Dict[str, Any]) -> str:
         """Format resource utilization section.
@@ -303,7 +340,7 @@ class DailySummaryGenerator:
             "- **Note**: Detailed GPU/CPU utilization metrics require additional monitoring infrastructure"
         ])
         
-        return "\\n".join(lines)
+        return "\n".join(lines)
     
     def _find_experiments_completed_today(self, current_statuses: Dict[str, Any], previous_statuses: Dict[str, Any]) -> List[str]:
         """Find experiments that completed today (changed from non-finished to finished)."""
@@ -450,3 +487,64 @@ class DailySummaryGenerator:
                     continue
         
         return removed_count
+    
+    def _load_latest_snapshot(self) -> Dict[str, Any]:
+        """Load the most recent snapshot file."""
+        import glob
+        
+        snapshot_dir = "./agents/snapshots"
+        if not os.path.exists(snapshot_dir):
+            return {'run_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
+        
+        # Find all snapshot files
+        snapshot_files = glob.glob(os.path.join(snapshot_dir, "*.json"))
+        if not snapshot_files:
+            return {'run_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
+        
+        # Get the most recent file
+        latest_file = max(snapshot_files, key=os.path.getmtime)
+        return self._load_snapshot_from_file(latest_file)
+    
+    def _load_snapshot_from_file(self, filepath: str) -> Dict[str, Any]:
+        """Load snapshot from specific file."""
+        try:
+            import json
+            with open(filepath, 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return {'run_statuses': {}, 'snapshot_metadata': {'total_configs': 0}}
+    
+    def _load_previous_snapshot(self) -> Optional[Dict[str, Any]]:
+        """Load previous snapshot for comparison."""
+        import glob
+        
+        snapshot_dir = "./agents/snapshots"
+        if not os.path.exists(snapshot_dir):
+            return None
+        
+        # Find all snapshot files
+        snapshot_files = glob.glob(os.path.join(snapshot_dir, "*.json"))
+        if len(snapshot_files) < 2:
+            return None
+        
+        # Get the second most recent file
+        sorted_files = sorted(snapshot_files, key=os.path.getmtime, reverse=True)
+        previous_file = sorted_files[1]
+        
+        try:
+            import json
+            with open(previous_file, 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError, OSError):
+            return None
+    
+    def _get_previous_snapshot_info(self, previous_snapshot: Optional[Dict[str, Any]]) -> str:
+        """Get information about the previous snapshot being compared to."""
+        if previous_snapshot is None:
+            return "No previous snapshot available"
+        
+        timestamp = previous_snapshot.get('timestamp', 'Unknown')
+        total_configs = previous_snapshot.get('snapshot_metadata', {}).get('total_configs', 0)
+        active_experiments = len(previous_snapshot.get('run_statuses', {}))
+        
+        return f"Snapshot {timestamp} ({active_experiments}/{total_configs} active experiments)"
