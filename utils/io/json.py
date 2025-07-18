@@ -21,7 +21,6 @@ def serialize_object(obj: Any) -> Any:
     - numpy.ndarray -> list (via .tolist())
     - datetime -> ISO format string
     - dataclass -> dict (via asdict())
-    - NamedTuple -> dict (via ._asdict())
     - All other types -> unchanged (assumes JSON-serializable)
     
     Args:
@@ -48,11 +47,6 @@ def serialize_object(obj: Any) -> Any:
             # Recursively serialize the dict representation
             return serialize_object(asdict(item))
         
-        # Handle NamedTuple objects - check if type is a subclass of tuple and has _fields
-        elif isinstance(item, tuple) and hasattr(item.__class__, '_fields'):
-            # Recursively serialize the dict representation
-            return serialize_object(item._asdict())
-        
         # All other types pass through unchanged (assumes JSON-serializable)
         else:
             return item
@@ -61,13 +55,13 @@ def serialize_object(obj: Any) -> Any:
 
 
 def save_json(obj: Any, filepath: str) -> None:
-    """Save object to JSON file with generic serialization.
+    """Save object to JSON file with automatic serialization.
     
-    Uses serialize_object which handles torch.Tensor, numpy.ndarray, 
-    datetime, dataclass, NamedTuple, and all nested data structures.
+    Automatically handles dataclasses, torch.Tensor, numpy.ndarray, 
+    datetime, and all nested data structures without requiring manual conversion.
     
     Args:
-        obj: Object to save
+        obj: Object to save (dataclasses are automatically converted)
         filepath: Path to save JSON file
     """
     assert (
@@ -75,7 +69,8 @@ def save_json(obj: Any, filepath: str) -> None:
         os.path.isdir(os.path.dirname(filepath))
     ), f"{filepath=}, {os.path.dirname(filepath)=}"
     
-    obj = serialize_object(obj)
+    # Automatically serialize the object (handles dataclasses, tensors, etc.)
+    serialized_obj = serialize_object(obj)
         
     with open(filepath, mode='w') as f:
-        f.write(jsbeautifier.beautify(json.dumps(obj), jsbeautifier.default_options()))
+        f.write(jsbeautifier.beautify(json.dumps(serialized_obj), jsbeautifier.default_options()))
