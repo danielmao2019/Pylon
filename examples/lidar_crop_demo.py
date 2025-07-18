@@ -235,15 +235,24 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         
         # Add visualization enhancements based on config type
         if config_name and lidar_config:
-            if 'range_only' in config_name:
+            # Add range visualization if range filter is enabled
+            if lidar_config.apply_range_filter:
                 _add_range_visualization(ax, sensor_pos, lidar_config.max_range)
-            elif 'fov_only' in config_name:
+            # Add FOV visualization if FOV filter is enabled
+            if lidar_config.apply_fov_filter:
                 _add_fov_visualization(ax, sensor_pos, sensor_rotation, lidar_config)
         
-        # Set consistent axis limits and labels
-        ax.set_xlim(x_min, x_max)
-        ax.set_ylim(y_min, y_max)
-        ax.set_zlim(z_min, z_max)
+        # Calculate equal axis range to force square aspect ratio
+        max_range = max(x_max - x_min, y_max - y_min, z_max - z_min)
+        center_x = (x_max + x_min) / 2
+        center_y = (y_max + y_min) / 2
+        center_z = (z_max + z_min) / 2
+        
+        # Set equal limits around center
+        half_range = max_range / 2
+        ax.set_xlim(center_x - half_range, center_x + half_range)
+        ax.set_ylim(center_y - half_range, center_y + half_range)
+        ax.set_zlim(center_z - half_range, center_z + half_range)
         
         # Force equal aspect ratio to prevent stretching
         ax.set_box_aspect([1,1,1])
