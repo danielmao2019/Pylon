@@ -13,7 +13,7 @@ def pytest_addoption(parser):
         action="store",
         default=None,
         type=int,
-        help="Maximum number of datapoints to test per dataset (default: test all or existing limits)"
+        help="Maximum number of datapoints to test per dataset (default: test full dataset)"
     )
 
 
