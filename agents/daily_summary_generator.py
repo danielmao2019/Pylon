@@ -2,8 +2,8 @@ from typing import List, Dict, Any, Optional
 import os
 from datetime import datetime, timedelta
 from utils.monitor.system_monitor import SystemMonitor
-from utils.automation.logs_snapshot import LogsSnapshot
-from utils.automation.agent_log_parser import AgentLogParser
+from agents.logs_snapshot import LogsSnapshot
+from agents.agent_log_parser import AgentLogParser
 
 
 class DailySummaryGenerator:
