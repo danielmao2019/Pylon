@@ -50,12 +50,12 @@ def mock_system_monitor():
             'server': 'server1',
             'gpu_id': 0,
             'processes': [
-                {
-                    'pid': '12345',
-                    'user': 'testuser',
-                    'cmd': 'python main.py --config-filepath configs/exp/baseline.py',
-                    'start_time': '2025-07-17 10:00:00'
-                }
+                ProcessInfo(
+                    pid='12345',
+                    user='testuser',
+                    cmd='python main.py --config-filepath configs/exp/baseline.py',
+                    start_time='2025-07-17 10:00:00'
+                )
             ]
         }
     ]
@@ -65,35 +65,36 @@ def mock_system_monitor():
 @pytest.fixture
 def sample_progress_info():
     """Sample ProgressInfo for testing."""
-    return {
-        'completed_epochs': 15,
-        'progress_percentage': 75.0,
-        'early_stopped': False,
-        'early_stopped_at_epoch': None
-    }
+    from utils.automation.run_status.session_progress import ProgressInfo
+    return ProgressInfo(
+        completed_epochs=15,
+        progress_percentage=75.0,
+        early_stopped=False,
+        early_stopped_at_epoch=None
+    )
 
 
 @pytest.fixture
 def sample_process_info():
     """Sample ProcessInfo for testing."""
-    return {
-        'pid': '12345',
-        'user': 'testuser',
-        'cmd': 'python main.py --config-filepath configs/exp/baseline.py',
-        'start_time': '2025-07-17 10:00:00'
-    }
+    return ProcessInfo(
+        pid='12345',
+        user='testuser',
+        cmd='python main.py --config-filepath configs/exp/baseline.py',
+        start_time='2025-07-17 10:00:00'
+    )
 
 
 @pytest.fixture
 def sample_run_status(sample_progress_info, sample_process_info):
     """Sample RunStatus for testing."""
-    return {
-        'config': "configs/exp/baseline.py",
-        'work_dir': "./logs/baseline_run",
-        'progress': sample_progress_info,
-        'status': "running",
-        'process_info': sample_process_info
-    }
+    return RunStatus(
+        config="configs/exp/baseline.py",
+        work_dir="./logs/baseline_run",
+        progress=sample_progress_info,
+        status="running",
+        process_info=sample_process_info
+    )
 
 
 # ============================================================================
@@ -165,19 +166,25 @@ def test_create_snapshot(sample_config_files, sample_expected_files, mock_system
     """Test snapshot creation."""
     # Mock get_all_run_status to return test data
     def mock_get_all_run_status(**kwargs):
+        from utils.automation.run_status.session_progress import ProgressInfo
         return {
-            "configs/exp/baseline.py": {
-                'config': "configs/exp/baseline.py",
-                'work_dir': "./logs/baseline_run",
-                'progress': {
-                    'completed_epochs': 15,
-                    'progress_percentage': 75.0,
-                    'early_stopped': False,
-                    'early_stopped_at_epoch': None
-                },
-                'status': "running",
-                'process_info': {'pid': '12345', 'user': 'testuser', 'cmd': 'python main.py --config-filepath configs/exp/baseline.py'}
-            }
+            "configs/exp/baseline.py": RunStatus(
+                config="configs/exp/baseline.py",
+                work_dir="./logs/baseline_run",
+                progress=ProgressInfo(
+                    completed_epochs=15,
+                    progress_percentage=75.0,
+                    early_stopped=False,
+                    early_stopped_at_epoch=None
+                ),
+                status="running",
+                process_info=ProcessInfo(
+                    pid='12345', 
+                    user='testuser', 
+                    cmd='python main.py --config-filepath configs/exp/baseline.py',
+                    start_time='2025-07-17 10:00:00'
+                )
+            )
         }
     
     monkeypatch.setattr("utils.automation.logs_snapshot.get_all_run_status", mock_get_all_run_status)
@@ -329,7 +336,7 @@ def test_generic_serialization(sample_config_files, sample_expected_files, sampl
     
     serializable = serialize_object(snapshot_data)
     
-    # Verify run_statuses remain as dicts (since they're TypedDict now)
+    # Verify run_statuses are serialized as dicts (dataclasses converted to dict)
     assert isinstance(serializable['run_statuses']['configs/exp/baseline.py'], dict)
     assert 'config' in serializable['run_statuses']['configs/exp/baseline.py']
     assert 'progress' in serializable['run_statuses']['configs/exp/baseline.py']
