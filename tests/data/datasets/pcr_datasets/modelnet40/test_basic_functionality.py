@@ -168,24 +168,24 @@ def dataset_with_params(request):
 @pytest.mark.parametrize('dataset_with_params', [
     {
         'data_root': 'data/datasets/soft_links/ModelNet40',
+        'cache_filepath': 'data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
         'split': 'train',
-        'dataset_size': 5,
-        'overlap_range': (0.3, 1.0),
+        'dataset_size': 100,
+        'overlap_range': (0.0, 1.0),
         'matching_radius': 0.05,
         'rotation_mag': 45.0,
         'translation_mag': 0.5,
-        'cache_filepath': None,  # No caching for basic functionality tests
         'transforms_cfg': transforms_cfg(),
     },
     {
         'data_root': 'data/datasets/soft_links/ModelNet40',
+        'cache_filepath': 'data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
         'split': 'test',
-        'dataset_size': 3,
-        'overlap_range': (0.4, 0.8),
+        'dataset_size': 100,
+        'overlap_range': (0.0, 1.0),
         'matching_radius': 0.03,
         'rotation_mag': 30.0,
         'translation_mag': 0.3,
-        'cache_filepath': None,  # No caching for basic functionality tests
         'transforms_cfg': transforms_cfg(),
     },
 ], indirect=True)
@@ -231,7 +231,6 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
     # Test with ThreadPool for parallel validation
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
-
 
 
 def test_modelnet40_categories():
