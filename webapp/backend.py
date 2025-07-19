@@ -475,7 +475,7 @@ class LiDARVisualizationBackend:
     
     def _add_fov_visualization(self, fig: go.Figure, sensor_pos: np.ndarray, 
                              sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop) -> None:
-        """Add FOV cone visualization to the figure.
+        """Add FOV frustum visualization to the figure.
         
         Args:
             fig: Plotly figure to add to
@@ -487,44 +487,90 @@ class LiDARVisualizationBackend:
         v_fov_min = np.radians(crop_config.vertical_fov[0])
         v_fov_max = np.radians(crop_config.vertical_fov[1])
         
-        cone_length = 8.0
+        frustum_length = 8.0
         
-        # Generate cone boundary lines
-        h_angles = np.linspace(-h_fov/2, h_fov/2, 8)
-        v_angles = [v_fov_min, v_fov_max]
-        
-        # Add cone edge lines
-        for v_angle in v_angles:
-            cone_x, cone_y, cone_z = [], [], []
-            cone_x.append(sensor_pos[0])  # Start from sensor
-            cone_y.append(sensor_pos[1])
-            cone_z.append(sensor_pos[2])
-            
-            for h_angle in h_angles:
+        # Calculate the four corners of the frustum at the far end
+        corners = []
+        for v_angle in [v_fov_min, v_fov_max]:
+            for h_angle in [-h_fov/2, h_fov/2]:
                 # Point in sensor coordinates (forward = +X)
-                x = cone_length * np.cos(v_angle) * np.cos(h_angle)
-                y = cone_length * np.cos(v_angle) * np.sin(h_angle)
-                z = cone_length * np.sin(v_angle)
+                x = frustum_length * np.cos(v_angle) * np.cos(h_angle)
+                y = frustum_length * np.cos(v_angle) * np.sin(h_angle)
+                z = frustum_length * np.sin(v_angle)
                 
                 # Transform to world coordinates
                 local_point = np.array([x, y, z])
                 world_point = sensor_rot @ local_point + sensor_pos
-                
-                cone_x.append(world_point[0])
-                cone_y.append(world_point[1])
-                cone_z.append(world_point[2])
-            
-            # Add FOV boundary line
+                corners.append(world_point)
+        
+        # corners[0]: bottom-left, corners[1]: bottom-right
+        # corners[2]: top-left, corners[3]: top-right
+        
+        # Add lines from sensor to each corner (frustum edges)
+        edge_colors = ['orange', 'darkorange', 'red', 'darkred']
+        for i, corner in enumerate(corners):
             fig.add_trace(go.Scatter3d(
-                x=cone_x,
-                y=cone_y,
-                z=cone_z,
+                x=[sensor_pos[0], corner[0]],
+                y=[sensor_pos[1], corner[1]],
+                z=[sensor_pos[2], corner[2]],
                 mode='lines',
-                line=dict(color='orange', width=4),
-                name=f'FOV {v_angle*180/np.pi:.0f}°' if len(fig.data) < 10 else None,
-                showlegend=(len(fig.data) < 10),
+                line=dict(color=edge_colors[i], width=3),
+                name='FOV Edge' if i == 0 else None,
+                showlegend=(i == 0),
                 hoverinfo='skip'
             ))
+        
+        # Add rectangular outline at the far end of frustum
+        # Bottom edge: bottom-left to bottom-right
+        fig.add_trace(go.Scatter3d(
+            x=[corners[0][0], corners[1][0]],
+            y=[corners[0][1], corners[1][1]],
+            z=[corners[0][2], corners[1][2]],
+            mode='lines',
+            line=dict(color='orange', width=2),
+            name=None, showlegend=False, hoverinfo='skip'
+        ))
+        
+        # Top edge: top-left to top-right
+        fig.add_trace(go.Scatter3d(
+            x=[corners[2][0], corners[3][0]],
+            y=[corners[2][1], corners[3][1]],
+            z=[corners[2][2], corners[3][2]],
+            mode='lines',
+            line=dict(color='orange', width=2),
+            name=None, showlegend=False, hoverinfo='skip'
+        ))
+        
+        # Left edge: bottom-left to top-left
+        fig.add_trace(go.Scatter3d(
+            x=[corners[0][0], corners[2][0]],
+            y=[corners[0][1], corners[2][1]],
+            z=[corners[0][2], corners[2][2]],
+            mode='lines',
+            line=dict(color='orange', width=2),
+            name=None, showlegend=False, hoverinfo='skip'
+        ))
+        
+        # Right edge: bottom-right to top-right
+        fig.add_trace(go.Scatter3d(
+            x=[corners[1][0], corners[3][0]],
+            y=[corners[1][1], corners[3][1]],
+            z=[corners[1][2], corners[3][2]],
+            mode='lines',
+            line=dict(color='orange', width=2),
+            name=None, showlegend=False, hoverinfo='skip'
+        ))
+        
+        # Add center cross at far end for better depth perception
+        center = np.mean(corners, axis=0)
+        fig.add_trace(go.Scatter3d(
+            x=[corners[0][0], corners[3][0], None, corners[1][0], corners[2][0]],
+            y=[corners[0][1], corners[3][1], None, corners[1][1], corners[2][1]],
+            z=[corners[0][2], corners[3][2], None, corners[1][2], corners[2][2]],
+            mode='lines',
+            line=dict(color='orange', width=1, dash='dot'),
+            name=None, showlegend=False, hoverinfo='skip'
+        ))
     
     def get_available_options(self) -> Dict[str, List[Dict[str, str]]]:
         """Get available options for dropdowns.
