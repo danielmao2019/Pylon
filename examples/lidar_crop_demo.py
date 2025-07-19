@@ -167,11 +167,47 @@ def create_look_at_matrix(eye, target, up=None):
     return extrinsics
 
 
+def apply_rotation_offset(extrinsics, yaw_offset=0.0, pitch_offset=0.0):
+    """Apply rotation offset to an existing pose.
+    
+    Args:
+        extrinsics: 4x4 extrinsics matrix
+        yaw_offset: Yaw rotation in radians (around Z axis)
+        pitch_offset: Pitch rotation in radians (around Y axis)
+        
+    Returns:
+        Modified 4x4 extrinsics matrix
+    """
+    # Extract rotation and translation
+    R = extrinsics[:3, :3].clone()
+    t = extrinsics[:3, 3].clone()
+    
+    # Create rotation offset matrices
+    # Yaw (around Z)
+    cy, sy = torch.cos(torch.tensor(yaw_offset)), torch.sin(torch.tensor(yaw_offset))
+    R_yaw = torch.tensor([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]], dtype=torch.float32)
+    
+    # Pitch (around Y)  
+    cp, sp = torch.cos(torch.tensor(pitch_offset)), torch.sin(torch.tensor(pitch_offset))
+    R_pitch = torch.tensor([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]], dtype=torch.float32)
+    
+    # Apply rotations in sensor frame
+    R_new = R @ R_yaw @ R_pitch
+    
+    # Create new extrinsics
+    extrinsics_new = torch.eye(4)
+    extrinsics_new[:3, :3] = R_new
+    extrinsics_new[:3, 3] = t
+    
+    return extrinsics_new
+
+
 def create_sensor_poses():
     """Create systematic sensor poses based on 6 anchor axes with variations.
     
     Starts from 6 anchor poses along +/-X, +/-Y, +/-Z axes, all facing toward origin,
-    then creates variations by adjusting rotation and position slightly.
+    then systematically creates variations of each anchor by adjusting both rotation 
+    and position to create diverse coverage patterns.
     
     Returns:
         Dict of pose name to 4x4 extrinsics matrix
@@ -181,47 +217,76 @@ def create_sensor_poses():
     base_distance = 6.0
     
     # 6 anchor poses along main axes, all looking toward origin
-    anchor_positions = {
-        'pos_x': torch.tensor([base_distance, 0.0, 0.0]),
-        'neg_x': torch.tensor([-base_distance, 0.0, 0.0]), 
-        'pos_y': torch.tensor([0.0, base_distance, 0.0]),
-        'neg_y': torch.tensor([0.0, -base_distance, 0.0]),
-        'pos_z': torch.tensor([0.0, 0.0, base_distance]),
-        'neg_z': torch.tensor([0.0, 0.0, -base_distance])
-    }
-    
-    # Create anchor poses
-    for name, position in anchor_positions.items():
-        pose = create_look_at_matrix(position, origin)
-        poses[f'anchor_{name}'] = pose
-    
-    # Create variations by adjusting position and rotation
-    variations = [
-        # Closer positions with slight offsets
-        ('close_pos_x', torch.tensor([3.5, 0.5, 0.8])),
-        ('close_neg_y', torch.tensor([0.3, -4.0, 1.2])),
-        ('close_pos_z', torch.tensor([-0.8, 0.4, 3.8])),
-        
-        # Farther positions with angular offsets  
-        ('far_angled_x', torch.tensor([8.5, 2.0, 1.5])),
-        ('far_angled_y', torch.tensor([1.8, -9.0, 2.5])),
-        ('far_elevated', torch.tensor([1.2, 1.5, 9.5])),
-        
-        # Mixed diagonal positions
-        ('diagonal_1', torch.tensor([4.5, 3.8, 2.2])),
-        ('diagonal_2', torch.tensor([-3.2, 4.1, -2.8])),
-        ('diagonal_3', torch.tensor([2.8, -2.5, 4.5])),
-        
-        # Asymmetric positions for varied coverage
-        ('asym_1', torch.tensor([7.2, -1.8, 0.5])),
-        ('asym_2', torch.tensor([-2.1, 5.5, 3.1])),
-        ('asym_3', torch.tensor([0.8, 2.2, -5.8]))
+    anchor_configs = [
+        ('pos_x', torch.tensor([base_distance, 0.0, 0.0])),
+        ('neg_x', torch.tensor([-base_distance, 0.0, 0.0])), 
+        ('pos_y', torch.tensor([0.0, base_distance, 0.0])),
+        ('neg_y', torch.tensor([0.0, -base_distance, 0.0])),
+        ('pos_z', torch.tensor([0.0, 0.0, base_distance])),
+        ('neg_z', torch.tensor([0.0, 0.0, -base_distance]))
     ]
     
-    # Create variation poses, all looking toward origin
-    for name, position in variations:
-        pose = create_look_at_matrix(position, origin)
-        poses[name] = pose
+    # Systematic variations for each anchor
+    # Each variation has (suffix, distance_factor, lateral_offset, yaw, pitch)
+    # Redesigned for better FOV diversity with cube (4x4x4 centered at origin)
+    variations_per_anchor = [
+        # Base anchor - straight look at origin
+        ('base', 1.0, 0.0, 0.0, 0.0),
+        
+        # Strong rotation variations for partial FOV coverage
+        ('rot_left', 1.0, 0.0, 0.6, 0.0),       # ~34 degrees left - edge of FOV
+        ('rot_right', 1.0, 0.0, -0.6, 0.0),     # ~34 degrees right - edge of FOV
+        ('rot_up', 1.0, 0.0, 0.0, 0.5),         # ~29 degrees up - partial vertical
+        ('rot_down', 1.0, 0.0, 0.0, -0.5),      # ~29 degrees down - partial vertical
+        
+        # Close positions with strong angles for partial coverage
+        ('close_edge', 0.4, 0.3, 0.45, 0.0),    # Very close, looking at edge
+        ('close_corner', 0.35, 0.35, 0.7, -0.3), # Close to corner, angled away
+        
+        # Lateral positions for grazing views
+        ('side_glance', 0.7, 0.6, -0.8, 0.0),   # Side position, extreme angle
+        ('offset_partial', 0.9, 0.4, -0.4, 0.2), # Offset with partial coverage
+        
+        # Extreme angles for minimal coverage
+        ('extreme_yaw', 1.0, 0.2, -0.9, 0.0),   # ~52 degrees - near FOV limit
+    ]
+    
+    # Generate poses for each anchor with all variations
+    for anchor_name, anchor_pos in anchor_configs:
+        for var_suffix, dist_factor, lateral_factor, yaw, pitch in variations_per_anchor:
+            # Calculate varied position
+            direction = anchor_pos / torch.norm(anchor_pos)
+            distance = torch.norm(anchor_pos) * dist_factor
+            
+            # Add lateral offset perpendicular to direction
+            if lateral_factor != 0.0:
+                # Find perpendicular vector
+                if abs(direction[2]) < 0.9:  # Not too vertical
+                    perp = torch.cross(direction, torch.tensor([0.0, 0.0, 1.0]))
+                else:  # Use X axis for vertical directions
+                    perp = torch.cross(direction, torch.tensor([1.0, 0.0, 0.0]))
+                perp = perp / torch.norm(perp)
+                lateral_offset = perp * base_distance * lateral_factor
+            else:
+                lateral_offset = torch.zeros(3)
+            
+            # Final position
+            position = direction * distance + lateral_offset
+            
+            # Create pose name
+            if var_suffix == 'base':
+                pose_name = f"{anchor_name}"
+            else:
+                pose_name = f"{anchor_name}_{var_suffix}"
+            
+            # Create look-at pose
+            pose = create_look_at_matrix(position, origin)
+            
+            # Apply rotation offset
+            if yaw != 0.0 or pitch != 0.0:
+                pose = apply_rotation_offset(pose, yaw, pitch)
+            
+            poses[pose_name] = pose
     
     return poses
 
@@ -242,18 +307,20 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     # Convert to numpy for plotting
     orig_np = original_points.numpy()
     
-    # Select interesting poses for visualization - prioritize diversity and meaningful results
-    priority_poses = [
-        # Anchor poses from main axes
-        'anchor_pos_x', 'anchor_neg_x', 'anchor_pos_y', 
-        'anchor_neg_y', 'anchor_pos_z', 'anchor_neg_z',
-        # Close variations with good coverage
-        'close_pos_x', 'close_neg_y', 'close_pos_z',
-        # Diagonal positions for varied perspectives  
-        'diagonal_1', 'diagonal_2', 'diagonal_3',
-        # Asymmetric positions
-        'asym_1', 'asym_2', 'asym_3'
-    ]
+    # Organize poses by anchor groups for visual verification
+    priority_poses = []
+    
+    # Group all variations for each anchor together for easy visual comparison
+    anchors = ['pos_x', 'neg_x', 'pos_y', 'neg_y', 'pos_z', 'neg_z']
+    key_variations = ['', '_rot_left', '_rot_right', '_rot_up', '_close_edge', '_extreme_yaw']
+    
+    # Add poses in anchor groups (6 variations per anchor)
+    for anchor in anchors:
+        for var in key_variations:
+            pose_name = f"{anchor}{var}"
+            priority_poses.append(pose_name)
+    
+    # This gives us 36 poses total (6 per anchor) organized in groups
     
     # Filter to only available poses and select subset based on point retention
     available_poses = set(cropped_results.keys())
@@ -285,38 +352,47 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     selected_poses = selected_poses[:max_poses]
     num_poses = len(selected_poses)
     
-    # Determine grid size
-    if num_poses <= 6:
-        rows, cols = 2, 3
-        figsize = (20, 12)
-    elif num_poses <= 9:
-        rows, cols = 3, 3
-        figsize = (20, 16)
+    # Determine grid size optimized for anchor groups (6 variations per anchor)
+    if num_poses <= 18:
+        rows, cols = 3, 6  # 3 anchors × 6 variations each
+        figsize = (30, 15)
+    elif num_poses <= 36:
+        rows, cols = 6, 6  # 6 anchors × 6 variations each  
+        figsize = (30, 30)
     else:
-        rows, cols = 3, 4
-        figsize = (24, 16)
+        rows, cols = 8, 8  # Fallback for more poses
+        figsize = (40, 40)
     
     fig, axes = plt.subplots(rows, cols, figsize=figsize, subplot_kw={'projection': '3d'})
     axes = axes.flatten() if num_poses > 1 else [axes]
     
-    # Create pose titles for display
+    # Create pose titles for display showing anchor grouping
     pose_titles = {}
     for pose_name in selected_poses:
-        if pose_name.startswith('anchor_'):
-            axis = pose_name.replace('anchor_', '').replace('_', ' ').title()
-            pose_titles[pose_name] = f'Anchor {axis}'
-        elif pose_name.startswith('close_'):
-            axis = pose_name.replace('close_', '').replace('_', ' ').title()
-            pose_titles[pose_name] = f'Close {axis}'
-        elif pose_name.startswith('far_'):
-            axis = pose_name.replace('far_', '').replace('_', ' ').title()
-            pose_titles[pose_name] = f'Far {axis}'
-        elif pose_name.startswith('diagonal_'):
-            num = pose_name.replace('diagonal_', '')
-            pose_titles[pose_name] = f'Diagonal {num}'
-        elif pose_name.startswith('asym_'):
-            num = pose_name.replace('asym_', '')
-            pose_titles[pose_name] = f'Asymmetric {num}'
+        # Parse anchor and variation
+        parts = pose_name.split('_')
+        if len(parts) >= 2:
+            anchor = f"{parts[0]}_{parts[1]}"  # e.g., "pos_x"
+            variation = '_'.join(parts[2:]) if len(parts) > 2 else 'base'
+            
+            # Format anchor name
+            anchor_clean = anchor.replace('_', ' ').title()
+            
+            # Format variation name
+            if variation == 'base' or variation == '':
+                var_clean = 'Base'
+            elif variation.startswith('rot_'):
+                direction = variation.replace('rot_', '').title()
+                var_clean = f'Rot {direction}'
+            elif variation.startswith('close_'):
+                type_name = variation.replace('close_', '').replace('_', ' ').title()
+                var_clean = f'Close {type_name}'
+            elif variation == 'extreme_yaw':
+                var_clean = 'Extreme Yaw'
+            else:
+                var_clean = variation.replace('_', ' ').title()
+            
+            pose_titles[pose_name] = f'{anchor_clean}\n{var_clean}'
         else:
             pose_titles[pose_name] = pose_name.replace('_', ' ').title()
     
@@ -542,8 +618,8 @@ def main():
         ),
         'fov_only': LiDARSimulationCrop(
             max_range=100.0,  # Very large range so no range filtering
-            horizontal_fov=120.0,
-            vertical_fov=(-30.0, 30.0),
+            horizontal_fov=80.0,    # Narrower horizontal FOV for more selective filtering
+            vertical_fov=(-20.0, 20.0),  # Narrower vertical FOV for more selective filtering
             apply_range_filter=False,
             apply_fov_filter=True,
             apply_occlusion_filter=False
