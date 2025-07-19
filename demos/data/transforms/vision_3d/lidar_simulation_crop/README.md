@@ -17,7 +17,7 @@ Run the interactive web app:
 
 ```bash
 cd demos/data/transforms/vision_3d/lidar_simulation_crop
-python app.py --port 8050
+python main.py --port 8050
 ```
 
 Then open http://127.0.0.1:8050 in your web browser.
@@ -25,7 +25,7 @@ Then open http://127.0.0.1:8050 in your web browser.
 ## Command Line Options
 
 ```bash
-python app.py --help
+python main.py --help
 ```
 
 - `--port PORT`: Web server port (default: 8050)
@@ -39,7 +39,7 @@ See [webapp/INSTRUCTIONS.md](webapp/INSTRUCTIONS.md) for detailed usage instruct
 
 ## Files
 
-- `app.py`: Main entry point for the web application
+- `main.py`: Main entry point for the web application
 - `lidar_crop_demo.py`: Utility functions for point cloud generation
 - `webapp/`: Web application modules
   - `backend.py`: Data processing and plot generation
