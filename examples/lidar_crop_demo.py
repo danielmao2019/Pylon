@@ -115,128 +115,110 @@ def create_toy_point_cloud(cloud_type='cube', num_points=2000, noise=0.02, seed=
     return points
 
 
+def create_look_at_matrix(eye, target, up=None):
+    """Create a look-at transformation matrix.
+    
+    Args:
+        eye: Camera position [3]
+        target: Target position to look at [3] 
+        up: Up vector [3], defaults to [0, 0, 1]
+        
+    Returns:
+        4x4 extrinsics matrix (sensor-to-world transformation)
+    """
+    if up is None:
+        up = torch.tensor([0.0, 0.0, 1.0])
+    
+    # Convert to float tensors
+    eye = eye.float()
+    target = target.float()  
+    up = up.float()
+    
+    # Compute view direction (forward vector)
+    forward = target - eye
+    forward = forward / torch.norm(forward)
+    
+    # Compute right vector
+    right = torch.cross(forward, up)
+    right = right / torch.norm(right)
+    
+    # Recompute up vector to ensure orthogonality
+    up = torch.cross(right, forward)
+    up = up / torch.norm(up)
+    
+    # Create rotation matrix (world-to-sensor)
+    # In sensor frame: +X forward, +Y left, +Z up
+    rotation = torch.stack([forward, -right, up], dim=0)  # 3x3
+    
+    # Create 4x4 extrinsics matrix (sensor-to-world)
+    extrinsics = torch.eye(4)
+    extrinsics[:3, :3] = rotation.T  # Transpose for sensor-to-world
+    extrinsics[:3, 3] = eye
+    
+    return extrinsics
+
+
 def create_sensor_poses():
-    """Create various sensor poses for demonstration.
+    """Create systematic sensor poses based on 6 anchor axes with variations.
+    
+    Starts from 6 anchor poses along +/-X, +/-Y, +/-Z axes, all facing toward origin,
+    then creates variations by adjusting rotation and position slightly.
     
     Returns:
         Dict of pose name to 4x4 extrinsics matrix
     """
     poses = {}
+    origin = torch.tensor([0.0, 0.0, 0.0])
+    base_distance = 6.0
     
-    # Pose 1: Sensor at origin looking down +X axis
-    pose1 = torch.eye(4)
-    pose1[:3, 3] = torch.tensor([0.0, 0.0, 0.0])
-    poses['origin_forward'] = pose1
+    # 6 anchor poses along main axes, all looking toward origin
+    anchor_positions = {
+        'pos_x': torch.tensor([base_distance, 0.0, 0.0]),
+        'neg_x': torch.tensor([-base_distance, 0.0, 0.0]), 
+        'pos_y': torch.tensor([0.0, base_distance, 0.0]),
+        'neg_y': torch.tensor([0.0, -base_distance, 0.0]),
+        'pos_z': torch.tensor([0.0, 0.0, base_distance]),
+        'neg_z': torch.tensor([0.0, 0.0, -base_distance])
+    }
     
-    # Pose 2: Sensor elevated looking down
-    pose2 = torch.eye(4)
-    pose2[:3, 3] = torch.tensor([0.0, 0.0, 8.0])
-    # Rotate to look down (-Z direction)
-    # We want +X sensor direction to point to -Z world (down)
-    pose2[0, 0] = 0.0; pose2[0, 1] = 0.0; pose2[0, 2] = -1.0  # +X sensor -> -Z world
-    pose2[1, 0] = 0.0; pose2[1, 1] = 1.0; pose2[1, 2] = 0.0   # +Y sensor -> +Y world
-    pose2[2, 0] = 1.0; pose2[2, 1] = 0.0; pose2[2, 2] = 0.0   # +Z sensor -> +X world
-    poses['elevated_down'] = pose2
+    # Create anchor poses
+    for name, position in anchor_positions.items():
+        pose = create_look_at_matrix(position, origin)
+        poses[f'anchor_{name}'] = pose
     
-    # Pose 3: Sensor to the side looking toward center
-    pose3 = torch.eye(4)
-    pose3[:3, 3] = torch.tensor([8.0, 0.0, 2.0])
-    # Rotate to look toward -X direction
-    pose3[0, 0] = -1.0
-    pose3[1, 1] = -1.0
-    poses['side_view'] = pose3
+    # Create variations by adjusting position and rotation
+    variations = [
+        # Closer positions with slight offsets
+        ('close_pos_x', torch.tensor([3.5, 0.5, 0.8])),
+        ('close_neg_y', torch.tensor([0.3, -4.0, 1.2])),
+        ('close_pos_z', torch.tensor([-0.8, 0.4, 3.8])),
+        
+        # Farther positions with angular offsets  
+        ('far_angled_x', torch.tensor([8.5, 2.0, 1.5])),
+        ('far_angled_y', torch.tensor([1.8, -9.0, 2.5])),
+        ('far_elevated', torch.tensor([1.2, 1.5, 9.5])),
+        
+        # Mixed diagonal positions
+        ('diagonal_1', torch.tensor([4.5, 3.8, 2.2])),
+        ('diagonal_2', torch.tensor([-3.2, 4.1, -2.8])),
+        ('diagonal_3', torch.tensor([2.8, -2.5, 4.5])),
+        
+        # Asymmetric positions for varied coverage
+        ('asym_1', torch.tensor([7.2, -1.8, 0.5])),
+        ('asym_2', torch.tensor([-2.1, 5.5, 3.1])),
+        ('asym_3', torch.tensor([0.8, 2.2, -5.8]))
+    ]
     
-    # Pose 4: Sensor at an angle
-    pose4 = torch.eye(4)
-    pose4[:3, 3] = torch.tensor([5.0, 5.0, 3.0])
-    # Rotate to look toward origin (approximately)
-    # This is a simplified rotation - in practice you'd use proper rotation matrices
-    angle = np.pi / 4
-    cos_a, sin_a = np.cos(angle), np.sin(angle)
-    pose4[0, 0] = cos_a; pose4[0, 1] = sin_a
-    pose4[1, 0] = -sin_a; pose4[1, 1] = cos_a
-    poses['angled_view'] = pose4
-    
-    # Pose 5: Sensor straight down from above
-    pose5 = torch.eye(4)
-    pose5[:3, 3] = torch.tensor([0.0, 0.0, 10.0])
-    # Rotate to look straight down (-Z direction)
-    pose5[0, 0] = 0.0; pose5[0, 1] = 0.0; pose5[0, 2] = -1.0
-    pose5[1, 0] = 0.0; pose5[1, 1] = 1.0; pose5[1, 2] = 0.0
-    pose5[2, 0] = 1.0; pose5[2, 1] = 0.0; pose5[2, 2] = 0.0
-    poses['straight_down'] = pose5
-    
-    # Pose 6: Sensor below looking up
-    pose6 = torch.eye(4)
-    pose6[:3, 3] = torch.tensor([0.0, 0.0, -5.0])
-    # Rotate to look straight up (+Z direction)
-    pose6[0, 0] = 0.0; pose6[0, 1] = 0.0; pose6[0, 2] = 1.0
-    pose6[1, 0] = 0.0; pose6[1, 1] = 1.0; pose6[1, 2] = 0.0
-    pose6[2, 0] = -1.0; pose6[2, 1] = 0.0; pose6[2, 2] = 0.0
-    poses['straight_up'] = pose6
-    
-    # Pose 7: Corner view
-    pose7 = torch.eye(4)
-    pose7[:3, 3] = torch.tensor([-6.0, -6.0, 4.0])
-    # Rotate to look toward positive X,Y (approximately)
-    angle = -3 * np.pi / 4  # -135 degrees
-    cos_a, sin_a = np.cos(angle), np.sin(angle)
-    pose7[0, 0] = cos_a; pose7[0, 1] = sin_a
-    pose7[1, 0] = -sin_a; pose7[1, 1] = cos_a
-    poses['corner_view'] = pose7
-    
-    # Pose 8: Close angled view
-    pose8 = torch.eye(4)
-    pose8[:3, 3] = torch.tensor([3.0, 2.0, 1.5])
-    # Slight rotation toward origin
-    angle = np.pi / 6  # 30 degrees
-    cos_a, sin_a = np.cos(angle), np.sin(angle)
-    pose8[0, 0] = cos_a; pose8[0, 1] = sin_a
-    pose8[1, 0] = -sin_a; pose8[1, 1] = cos_a
-    poses['close_angled'] = pose8
-    
-    # Pose 9: Far side view
-    pose9 = torch.eye(4)
-    pose9[:3, 3] = torch.tensor([15.0, 0.0, 1.0])
-    # Rotate to look toward -X direction
-    pose9[0, 0] = -1.0
-    pose9[1, 1] = -1.0
-    poses['far_side'] = pose9
-    
-    # Pose 10: Diagonal upward view
-    pose10 = torch.eye(4)
-    pose10[:3, 3] = torch.tensor([4.0, 4.0, -2.0])
-    # Rotate to look up and toward center
-    # This creates an upward-looking diagonal view
-    angle = np.pi / 4
-    cos_a, sin_a = np.cos(angle), np.sin(angle)
-    pose10[0, 0] = cos_a; pose10[0, 1] = sin_a; pose10[0, 2] = 0.3  # Slight upward tilt
-    pose10[1, 0] = -sin_a; pose10[1, 1] = cos_a; pose10[1, 2] = 0.0
-    pose10[2, 0] = -0.3; pose10[2, 1] = 0.0; pose10[2, 2] = 0.95  # Upward component
-    poses['diagonal_up'] = pose10
-    
-    # Pose 11: Behind view
-    pose11 = torch.eye(4)
-    pose11[:3, 3] = torch.tensor([-10.0, 0.0, 2.0])
-    # Rotate to look toward +X direction (forward)
-    poses['behind_view'] = pose11
-    
-    # Pose 12: Steep angle down
-    pose12 = torch.eye(4)
-    pose12[:3, 3] = torch.tensor([7.0, 7.0, 12.0])
-    # Rotate to look down and toward center
-    angle = np.pi / 3  # 60 degrees
-    cos_a, sin_a = np.cos(angle), np.sin(angle)
-    pose12[0, 0] = cos_a; pose12[0, 1] = sin_a; pose12[0, 2] = -0.7  # Strong downward tilt
-    pose12[1, 0] = -sin_a; pose12[1, 1] = cos_a; pose12[1, 2] = 0.0
-    pose12[2, 0] = 0.7; pose12[2, 1] = 0.0; pose12[2, 2] = 0.71  # Downward component
-    poses['steep_down'] = pose12
+    # Create variation poses, all looking toward origin
+    for name, position in variations:
+        pose = create_look_at_matrix(position, origin)
+        poses[name] = pose
     
     return poses
 
 
 def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, save_dir='lidar_demo_plots', config_name=None, lidar_config=None):
-    """Create 2x2 grid of overlaid plots showing original vs cropped point clouds for all sensor poses.
+    """Create grid of overlaid plots showing original vs cropped point clouds for selected sensor poses.
     
     Args:
         original_points: Original point cloud [N, 3]
@@ -251,52 +233,86 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     # Convert to numpy for plotting
     orig_np = original_points.numpy()
     
-    # Determine grid size based on number of poses
-    num_poses = len(cropped_results)
-    if num_poses <= 4:
-        rows, cols = 2, 2
-        figsize = (16, 12)
-    elif num_poses <= 6:
+    # Select interesting poses for visualization - prioritize diversity and meaningful results
+    priority_poses = [
+        # Anchor poses from main axes
+        'anchor_pos_x', 'anchor_neg_x', 'anchor_pos_y', 
+        'anchor_neg_y', 'anchor_pos_z', 'anchor_neg_z',
+        # Close variations with good coverage
+        'close_pos_x', 'close_neg_y', 'close_pos_z',
+        # Diagonal positions for varied perspectives  
+        'diagonal_1', 'diagonal_2', 'diagonal_3',
+        # Asymmetric positions
+        'asym_1', 'asym_2', 'asym_3'
+    ]
+    
+    # Filter to only available poses and select subset based on point retention
+    available_poses = set(cropped_results.keys())
+    candidate_poses = [p for p in priority_poses if p in available_poses]
+    
+    # Calculate point retention rates to select most interesting poses
+    pose_stats = []
+    for pose_name in candidate_poses:
+        if pose_name in cropped_results:
+            original_count = len(original_points)
+            kept_count = len(cropped_results[pose_name])
+            retention_rate = kept_count / original_count if original_count > 0 else 0
+            pose_stats.append((pose_name, retention_rate, kept_count))
+    
+    # Sort by diversity criteria: prefer poses with varied retention rates (avoid all 0% or all 100%)
+    pose_stats.sort(key=lambda x: abs(x[1] - 0.5))  # Prefer poses near 50% retention for interesting results
+    
+    # Select up to 12 most interesting poses
+    max_poses = 12
+    selected_poses = [stat[0] for stat in pose_stats[:max_poses]]
+    
+    # Ensure we have anchor poses for systematic coverage
+    anchor_poses = [p for p in selected_poses if p.startswith('anchor_')]
+    if len(anchor_poses) < 6:  # Add missing anchor poses
+        missing_anchors = [p for p in priority_poses[:6] if p in available_poses and p not in selected_poses]
+        selected_poses.extend(missing_anchors[:6-len(anchor_poses)])
+    
+    # Limit to reasonable number for visualization
+    selected_poses = selected_poses[:max_poses]
+    num_poses = len(selected_poses)
+    
+    # Determine grid size
+    if num_poses <= 6:
         rows, cols = 2, 3
         figsize = (20, 12)
     elif num_poses <= 9:
         rows, cols = 3, 3
         figsize = (20, 16)
-    elif num_poses <= 12:
+    else:
         rows, cols = 3, 4
         figsize = (24, 16)
-    else:
-        rows, cols = 4, 4
-        figsize = (28, 20)
     
     fig, axes = plt.subplots(rows, cols, figsize=figsize, subplot_kw={'projection': '3d'})
     axes = axes.flatten() if num_poses > 1 else [axes]
     
-    # Define pose order for consistent layout (original 4 first, then new ones)
-    pose_order = ['origin_forward', 'elevated_down', 'side_view', 'angled_view',
-                  'straight_down', 'straight_up', 'corner_view', 'close_angled',
-                  'far_side', 'diagonal_up', 'behind_view', 'steep_down']
-    
-    pose_titles = {
-        'origin_forward': 'Origin Forward',
-        'elevated_down': 'Elevated Down', 
-        'side_view': 'Side View',
-        'angled_view': 'Angled View',
-        'straight_down': 'Straight Down',
-        'straight_up': 'Straight Up',
-        'corner_view': 'Corner View',
-        'close_angled': 'Close Angled',
-        'far_side': 'Far Side',
-        'diagonal_up': 'Diagonal Up',
-        'behind_view': 'Behind View',
-        'steep_down': 'Steep Down'
-    }
-    
-    # Filter to only poses that have results
-    pose_order = [pose for pose in pose_order if pose in cropped_results]
+    # Create pose titles for display
+    pose_titles = {}
+    for pose_name in selected_poses:
+        if pose_name.startswith('anchor_'):
+            axis = pose_name.replace('anchor_', '').replace('_', ' ').title()
+            pose_titles[pose_name] = f'Anchor {axis}'
+        elif pose_name.startswith('close_'):
+            axis = pose_name.replace('close_', '').replace('_', ' ').title()
+            pose_titles[pose_name] = f'Close {axis}'
+        elif pose_name.startswith('far_'):
+            axis = pose_name.replace('far_', '').replace('_', ' ').title()
+            pose_titles[pose_name] = f'Far {axis}'
+        elif pose_name.startswith('diagonal_'):
+            num = pose_name.replace('diagonal_', '')
+            pose_titles[pose_name] = f'Diagonal {num}'
+        elif pose_name.startswith('asym_'):
+            num = pose_name.replace('asym_', '')
+            pose_titles[pose_name] = f'Asymmetric {num}'
+        else:
+            pose_titles[pose_name] = pose_name.replace('_', ' ').title()
     
     # Calculate common axis limits for all subplots
-    all_sensor_positions = np.array([sensor_poses[pose][:3, 3].numpy() for pose in pose_order if pose in cropped_results])
+    all_sensor_positions = np.array([sensor_poses[pose][:3, 3].numpy() for pose in selected_poses])
     all_points = np.vstack([orig_np, all_sensor_positions])
     margin = 2.0
     x_min, x_max = all_points[:, 0].min() - margin, all_points[:, 0].max() + margin
@@ -304,7 +320,7 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     z_min, z_max = all_points[:, 2].min() - margin, all_points[:, 2].max() + margin
     
     # Create subplot for each sensor pose
-    for i, pose_name in enumerate(pose_order):
+    for i, pose_name in enumerate(selected_poses):
         if i >= len(axes):
             break
             
