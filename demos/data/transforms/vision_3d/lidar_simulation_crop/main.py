@@ -9,11 +9,7 @@ import sys
 import os
 import dash
 
-# Add project root to path for imports
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
-sys.path.append(project_root)
-
-from webapp import LiDARVisualizationBackend, LiDARVisualizationLayout, LiDARVisualizationCallbacks
+from .webapp import LiDARVisualizationBackend, LiDARVisualizationLayout, LiDARVisualizationCallbacks
 
 
 def create_app() -> dash.Dash:
