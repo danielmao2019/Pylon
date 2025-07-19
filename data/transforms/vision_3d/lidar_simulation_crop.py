@@ -123,7 +123,6 @@ class LiDARSimulationCrop(BaseTransform):
         
         return cropped_pc
 
-
     def _apply_range_filter(self, positions: torch.Tensor, sensor_pos: torch.Tensor) -> torch.Tensor:
         """Apply range-based filtering.
         
