@@ -97,7 +97,7 @@ def test_nyu_v2(dataset: NYUv2Dataset, max_samples, get_samples_to_test) -> None
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 
-    num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
+    num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(lambda idx: validate_datapoint(dataset, idx), indices)

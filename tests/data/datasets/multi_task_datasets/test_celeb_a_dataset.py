@@ -70,7 +70,7 @@ def test_celeb_a(dataset: CelebADataset, max_samples, get_samples_to_test) -> No
         validate_labels(datapoint['labels'], dataset)
         validate_meta_info(datapoint['meta_info'], idx, dataset)
 
-    num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
+    num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)

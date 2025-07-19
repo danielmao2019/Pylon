@@ -89,7 +89,7 @@ def test_city_scapes(dataset: CityScapesDataset, max_samples, get_samples_to_tes
         validate_labels(datapoint['labels'], dataset, datapoint['meta_info']['image_resolution'])
         validate_meta_info(datapoint['meta_info'], idx, dataset)
 
-    num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
+    num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)

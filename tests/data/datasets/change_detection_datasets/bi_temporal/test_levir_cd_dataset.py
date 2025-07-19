@@ -65,7 +65,7 @@ def test_levir_cd_dataset(dataset, max_samples, get_samples_to_test):
         validate_meta_info(datapoint['meta_info'], idx)
         return change_map
 
-    num_samples = get_samples_to_test(len(dataset), max_samples, default=len(dataset))
+    num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = list(range(num_samples))
 
     # Process datapoints and accumulate class distribution

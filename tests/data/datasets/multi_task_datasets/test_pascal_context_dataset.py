@@ -48,7 +48,7 @@ def test_pascal_context_dataset(dataset: PASCALContextDataset, max_samples, get_
     assert isinstance(dataset, torch.utils.data.Dataset)
     assert len(dataset) > 0, "Dataset should not be empty"
 
-    num_samples = get_samples_to_test(len(dataset), max_samples, default=3)
+    num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(lambda idx: validate_datapoint(dataset, idx), indices)
