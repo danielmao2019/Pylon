@@ -144,76 +144,50 @@ class LiDARVisualizationCallbacks:
             
             # Create info content
             info_content = [
-                html.H3(f"Current Configuration", style={'marginBottom': 15}),
-                
-                # Configuration summary
+                # Statistics
+                html.H3("Statistics", style={'marginBottom': 15}),
                 html.Div([
                     html.Div([
                         html.Strong("Point Cloud: "),
-                        cloud_name.title()
-                    ], style={'marginBottom': 5}),
-                    html.Div([
+                        cloud_name.title(),
+                        html.Span(" | ", style={'margin': '0 10px', 'color': '#999'}),
                         html.Strong("Crop Type: "),
                         crop_type.replace('_', ' ').title()
-                    ], style={'marginBottom': 5}),
-                    html.Div([
-                        html.Strong("Camera Pose: "),
-                        pose_description
-                    ], style={'marginBottom': 15})
-                ]),
-                
-                # Statistics
-                html.H4("Statistics", style={'marginBottom': 10}),
-                html.Div([
+                    ], style={'marginBottom': 10}),
                     html.Div([
                         html.Strong("Original Points: "),
-                        f"{original_count:,}"
-                    ], style={'marginBottom': 5}),
-                    html.Div([
-                        html.Strong("Points After Cropping: "),
-                        f"{cropped_count:,}"
-                    ], style={'marginBottom': 5}),
-                    html.Div([
-                        html.Strong("Reduction: "),
+                        f"{original_count:,}",
+                        html.Span(" → ", style={'margin': '0 10px', 'color': '#999'}),
+                        html.Strong("After Cropping: "),
+                        f"{cropped_count:,}",
+                        html.Span(" (", style={'margin': '0 5px', 'color': '#999'}),
                         html.Span(
-                            f"{reduction:.1f}%",
+                            f"{reduction:.1f}% reduction",
                             style={
                                 'fontWeight': 'bold',
                                 'color': 'red' if reduction > 75 else 'orange' if reduction > 50 else 'green'
                             }
-                        )
+                        ),
+                        html.Span(")", style={'color': '#999'})
                     ], style={'marginBottom': 15})
                 ]),
                 
-                # Camera parameters details
-                html.H4("Camera Parameters", style={'marginBottom': 10}),
+                # Camera parameters details (compact)
+                html.H4("Camera Pose", style={'marginBottom': 10}),
                 html.Div([
                     html.Div([
                         html.Strong("Position: "),
                         f"Az={camera_params['azimuth']:.0f}°, El={camera_params['elevation']:.0f}°, Dist={camera_params['distance']:.1f}m"
-                    ], style={'marginBottom': 5}),
+                    ], style={'marginBottom': 5, 'fontSize': '14px'}),
                     html.Div([
                         html.Strong("Rotation: "),
                         f"Yaw={camera_params['yaw']:.0f}°, Pitch={camera_params['pitch']:.0f}°, Roll={camera_params['roll']:.0f}°"
-                    ], style={'marginBottom': 15})
+                    ], style={'marginBottom': 15, 'fontSize': '14px'})
                 ]),
                 
-                # Crop configuration details
-                html.H4("Crop Configuration", style={'marginBottom': 10}),
-                self._create_crop_config_details(crop_config, crop_type, crop_params),
-                
-                # Performance info
-                html.Hr(),
-                html.Div([
-                    html.Small([
-                        "💡 ",
-                        html.Strong("Tip: "),
-                        "Use your mouse to rotate, zoom, and pan the 3D visualization above. "
-                        "Adjust the camera pose sliders to explore how sensor position and orientation "
-                        "affect the cropping results. Try different crop parameter settings to see "
-                        "how range limits and FOV angles change the filtering behavior."
-                    ], style={'color': '#666'})
-                ])
+                # Crop configuration details (compact)
+                html.H4("Active Filters", style={'marginBottom': 10}),
+                self._create_crop_config_details(crop_config, crop_type, crop_params)
             ]
             
         except Exception as e:
@@ -237,74 +211,49 @@ class LiDARVisualizationCallbacks:
         Returns:
             Dash HTML component with configuration details
         """
-        details = []
+        # Create compact filter description
+        active_filters = []
         
         if crop_config.apply_range_filter:
             range_val = crop_params.get('range_max', crop_config.max_range)
-            details.append(html.Li([
-                html.Strong("Range Filter: "),
-                f"Enabled (max distance: {range_val:.1f}m)"
-            ]))
-        else:
-            details.append(html.Li([
-                html.Strong("Range Filter: "),
-                "Disabled"
-            ]))
+            active_filters.append(f"Range ≤ {range_val:.1f}m")
         
         if crop_config.apply_fov_filter:
             h_fov = crop_params.get('h_fov', crop_config.horizontal_fov)
             v_fov_span = crop_params.get('v_fov_span', 
                 abs(crop_config.vertical_fov[1] - crop_config.vertical_fov[0]))
-            v_fov_min = -v_fov_span / 2
-            v_fov_max = v_fov_span / 2
-            details.append(html.Li([
-                html.Strong("FOV Filter: "),
-                f"Enabled (H: {h_fov:.0f}°, V: {v_fov_min:.0f}° to {v_fov_max:.0f}°)"
-            ]))
-        else:
-            details.append(html.Li([
-                html.Strong("FOV Filter: "),
-                "Disabled"
-            ]))
+            active_filters.append(f"FOV {h_fov:.0f}°×{v_fov_span:.0f}°")
         
         if crop_config.apply_occlusion_filter:
-            details.append(html.Li([
-                html.Strong("Occlusion Filter: "),
-                "Enabled (line-of-sight visibility)"
-            ]))
-        else:
-            details.append(html.Li([
-                html.Strong("Occlusion Filter: "),
-                "Disabled"
-            ]))
+            active_filters.append("Occlusion filtering")
         
-        # Add current parameter values for active crop type
-        if crop_type == 'range_only' and crop_params:
-            details.append(html.Li([
-                html.Strong("Current Range: "),
-                f"{crop_params.get('range_max', 6.0):.1f}m"
-            ]))
-        elif crop_type == 'fov_only' and crop_params:
-            details.append(html.Li([
-                html.Strong("Current H-FOV: "),
-                f"{crop_params.get('h_fov', 80.0):.0f}°"
-            ]))
-            details.append(html.Li([
-                html.Strong("Current V-FOV Span: "),
-                f"{crop_params.get('v_fov_span', 40.0):.0f}°"
-            ]))
-        
-        # Add description based on crop type
-        descriptions = {
-            'range_only': "Only distance-based filtering is applied. Points beyond the maximum range are removed.",
-            'fov_only': "Only field-of-view filtering is applied. Points outside the sensor's viewing cone are removed.",
-            'occlusion_only': "Only occlusion filtering is applied. Points blocked by other points are removed."
-        }
+        if not active_filters:
+            active_filters = ["No filtering applied"]
         
         return html.Div([
-            html.Ul(details),
-            html.P([
-                html.Strong("Description: "),
-                descriptions.get(crop_type, "Combined filtering approach.")
-            ], style={'marginTop': 10, 'fontStyle': 'italic'})
+            html.Div([
+                html.Strong("Active: "),
+                " | ".join(active_filters)
+            ], style={'fontSize': '14px', 'marginBottom': 10}),
+            
+            # Add brief description for current crop type
+            html.Div([
+                html.Em(self._get_crop_description(crop_type))
+            ], style={'fontSize': '13px', 'color': '#666'})
         ])
+    
+    def _get_crop_description(self, crop_type: str) -> str:
+        """Get brief description for crop type.
+        
+        Args:
+            crop_type: Type of cropping
+            
+        Returns:
+            Brief description string
+        """
+        descriptions = {
+            'range_only': "Distance-based filtering removes points beyond maximum range",
+            'fov_only': "Field-of-view filtering removes points outside sensor cone",
+            'occlusion_only': "Occlusion filtering removes points blocked by other points"
+        }
+        return descriptions.get(crop_type, "Combined filtering approach")

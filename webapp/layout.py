@@ -49,42 +49,42 @@ class LiDARVisualizationLayout:
                 html.Div([
                     html.Label(
                         "Point Cloud:", 
-                        style={'fontWeight': 'bold', 'marginBottom': 5}
+                        style={'fontWeight': 'bold', 'marginBottom': 5, 'fontSize': '14px'}
                     ),
                     dcc.Dropdown(
                         id='point-cloud-dropdown',
                         options=self.options['point_clouds'],
                         value='cube',
-                        style={'width': '100%'},
+                        style={'width': '100%', 'fontSize': '14px'},
                         clearable=False
                     )
-                ], style={'width': '48%', 'display': 'inline-block', 'marginRight': '4%'}),
+                ], style={'marginBottom': 15}),
                 
                 # Crop type selection
                 html.Div([
                     html.Label(
                         "Crop Type:", 
-                        style={'fontWeight': 'bold', 'marginBottom': 5}
+                        style={'fontWeight': 'bold', 'marginBottom': 5, 'fontSize': '14px'}
                     ),
                     dcc.Dropdown(
                         id='crop-type-dropdown',
                         options=self.options['crop_types'],
                         value='fov_only',
-                        style={'width': '100%'},
+                        style={'width': '100%', 'fontSize': '14px'},
                         clearable=False
                     )
-                ], style={'width': '48%', 'display': 'inline-block'})
-            ], style={'marginBottom': 20}),
+                ], style={'marginBottom': 20})
+            ]),
             
             # Camera pose controls
-            html.H4("Camera Pose Controls", style={'marginBottom': 15}),
+            html.H4("Camera Pose", style={'marginBottom': 10, 'fontSize': '16px'}),
             self._create_camera_sliders(defaults),
             
             # Crop parameter controls
-            html.H4("Crop Parameters", style={'marginBottom': 15, 'marginTop': 25}),
+            html.H4("Crop Parameters", style={'marginBottom': 10, 'marginTop': 20, 'fontSize': '16px'}),
             self._create_crop_sliders(crop_defaults),
             
-        ], style={'marginBottom': 30})
+        ], style={'padding': '20px', 'backgroundColor': '#f8f9fa', 'borderRadius': '8px'})
     
     def _create_camera_sliders(self, defaults: Dict[str, float]) -> html.Div:
         """Create camera pose slider controls.
@@ -96,85 +96,81 @@ class LiDARVisualizationLayout:
             Dash HTML component with camera sliders
         """
         return html.Div([
-            # Camera position sliders
+            # Position controls
+            html.H5("Position", style={'marginBottom': 8, 'fontSize': '14px', 'color': '#666'}),
+            # Azimuth slider
             html.Div([
-                html.H5("Camera Position", style={'marginBottom': 10}),
-                # Azimuth slider
-                html.Div([
-                    html.Label("Azimuth (°): ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='azimuth-slider',
-                        min=0, max=360, step=5,
-                        value=defaults['azimuth'],
-                        marks={i: f"{i}°" for i in range(0, 361, 45)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    )
-                ], style={'marginBottom': 15}),
-                
-                # Elevation slider
-                html.Div([
-                    html.Label("Elevation (°): ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='elevation-slider',
-                        min=-90, max=90, step=5,
-                        value=defaults['elevation'],
-                        marks={i: f"{i}°" for i in range(-90, 91, 30)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    )
-                ], style={'marginBottom': 15}),
-                
-                # Distance slider
-                html.Div([
-                    html.Label("Distance: ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='distance-slider',
-                        min=1, max=20, step=0.5,
-                        value=defaults['distance'],
-                        marks={i: f"{i}m" for i in range(1, 21, 3)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    )
-                ], style={'marginBottom': 15})
-            ], style={'width': '48%', 'display': 'inline-block', 'marginRight': '4%'}),
+                html.Label("Azimuth (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='azimuth-slider',
+                    min=0, max=360, step=5,
+                    value=defaults['azimuth'],
+                    marks={i: f"{i}°" for i in range(0, 361, 90)},
+                    tooltip={"placement": "bottom", "always_visible": True}
+                )
+            ], style={'marginBottom': 12}),
             
-            # Camera rotation sliders
+            # Elevation slider
             html.Div([
-                html.H5("Camera Rotation", style={'marginBottom': 10}),
-                # Yaw slider
-                html.Div([
-                    html.Label("Yaw (°): ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='yaw-slider',
-                        min=-180, max=180, step=5,
-                        value=defaults['yaw'],
-                        marks={i: f"{i}°" for i in range(-180, 181, 60)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    )
-                ], style={'marginBottom': 15}),
-                
-                # Pitch slider
-                html.Div([
-                    html.Label("Pitch (°): ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='pitch-slider',
-                        min=-90, max=90, step=5,
-                        value=defaults['pitch'],
-                        marks={i: f"{i}°" for i in range(-90, 91, 30)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    )
-                ], style={'marginBottom': 15}),
-                
-                # Roll slider
-                html.Div([
-                    html.Label("Roll (°): ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='roll-slider',
-                        min=-180, max=180, step=5,
-                        value=defaults['roll'],
-                        marks={i: f"{i}°" for i in range(-180, 181, 60)},
-                        tooltip={"placement": "bottom", "always_visible": True}
-                    )
-                ], style={'marginBottom': 15})
-            ], style={'width': '48%', 'display': 'inline-block'})
+                html.Label("Elevation (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='elevation-slider',
+                    min=-90, max=90, step=5,
+                    value=defaults['elevation'],
+                    marks={i: f"{i}°" for i in range(-90, 91, 45)},
+                    tooltip={"placement": "bottom", "always_visible": True}
+                )
+            ], style={'marginBottom': 12}),
+            
+            # Distance slider
+            html.Div([
+                html.Label("Distance (m)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='distance-slider',
+                    min=1, max=20, step=0.5,
+                    value=defaults['distance'],
+                    marks={i: f"{i}" for i in range(1, 21, 4)},
+                    tooltip={"placement": "bottom", "always_visible": True}
+                )
+            ], style={'marginBottom': 20}),
+            
+            # Rotation controls
+            html.H5("Rotation", style={'marginBottom': 8, 'fontSize': '14px', 'color': '#666'}),
+            # Yaw slider
+            html.Div([
+                html.Label("Yaw (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='yaw-slider',
+                    min=-180, max=180, step=5,
+                    value=defaults['yaw'],
+                    marks={i: f"{i}°" for i in range(-180, 181, 90)},
+                    tooltip={"placement": "bottom", "always_visible": True}
+                )
+            ], style={'marginBottom': 12}),
+            
+            # Pitch slider
+            html.Div([
+                html.Label("Pitch (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='pitch-slider',
+                    min=-90, max=90, step=5,
+                    value=defaults['pitch'],
+                    marks={i: f"{i}°" for i in range(-90, 91, 45)},
+                    tooltip={"placement": "bottom", "always_visible": True}
+                )
+            ], style={'marginBottom': 12}),
+            
+            # Roll slider
+            html.Div([
+                html.Label("Roll (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='roll-slider',
+                    min=-180, max=180, step=5,
+                    value=defaults['roll'],
+                    marks={i: f"{i}°" for i in range(-180, 181, 90)},
+                    tooltip={"placement": "bottom", "always_visible": True}
+                )
+            ], style={'marginBottom': 12})
         ])
     
     def _create_crop_sliders(self, crop_defaults: Dict[str, Dict[str, float]]) -> html.Div:
@@ -189,45 +185,42 @@ class LiDARVisualizationLayout:
         return html.Div([
             # Range parameter (for range_only)
             html.Div([
-                html.Label("Range Max (m): ", style={'display': 'inline-block', 'width': '30%'}),
+                html.Label("Range Max (m)", style={'fontSize': '12px', 'marginBottom': 3}),
                 dcc.Slider(
                     id='range-max-slider',
                     min=1, max=15, step=0.5,
                     value=crop_defaults['range_only']['range_max'],
-                    marks={i: f"{i}m" for i in range(1, 16, 2)},
+                    marks={i: f"{i}" for i in range(1, 16, 3)},
                     tooltip={"placement": "bottom", "always_visible": True},
                     disabled=True  # Initially disabled, enabled by callback based on crop type
                 )
-            ], style={'marginBottom': 15}),
+            ], style={'marginBottom': 12}),
             
-            # FOV parameters (for fov_only)
+            # Horizontal FOV (for fov_only)
             html.Div([
-                # Horizontal FOV
-                html.Div([
-                    html.Label("Horizontal FOV (°): ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='h-fov-slider',
-                        min=10, max=180, step=5,
-                        value=crop_defaults['fov_only']['h_fov'],
-                        marks={i: f"{i}°" for i in range(10, 181, 30)},
-                        tooltip={"placement": "bottom", "always_visible": True},
-                        disabled=False  # Initially enabled for fov_only default
-                    )
-                ], style={'marginBottom': 15}),
-                
-                # Vertical FOV span
-                html.Div([
-                    html.Label("Vertical FOV Span (°): ", style={'display': 'inline-block', 'width': '30%'}),
-                    dcc.Slider(
-                        id='v-fov-span-slider',
-                        min=5, max=120, step=5,
-                        value=crop_defaults['fov_only']['v_fov_span'],
-                        marks={i: f"{i}°" for i in range(5, 121, 20)},
-                        tooltip={"placement": "bottom", "always_visible": True},
-                        disabled=False  # Initially enabled for fov_only default
-                    )
-                ], style={'marginBottom': 15})
-            ])
+                html.Label("Horizontal FOV (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='h-fov-slider',
+                    min=10, max=180, step=5,
+                    value=crop_defaults['fov_only']['h_fov'],
+                    marks={i: f"{i}" for i in range(10, 181, 40)},
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    disabled=False  # Initially enabled for fov_only default
+                )
+            ], style={'marginBottom': 12}),
+            
+            # Vertical FOV span (for fov_only)
+            html.Div([
+                html.Label("Vertical FOV Span (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='v-fov-span-slider',
+                    min=5, max=120, step=5,
+                    value=crop_defaults['fov_only']['v_fov_span'],
+                    marks={i: f"{i}" for i in range(5, 121, 25)},
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    disabled=False  # Initially enabled for fov_only default
+                )
+            ], style={'marginBottom': 12})
         ])
     
     def create_main_plot(self) -> dcc.Loading:
@@ -247,92 +240,6 @@ class LiDARVisualizationLayout:
             ]
         )
     
-    def create_instructions(self) -> html.Div:
-        """Create the instructions panel.
-        
-        Returns:
-            Dash HTML component for instructions
-        """
-        return html.Div([
-            html.H3("Instructions:"),
-            html.Ul([
-                html.Li("Use the dropdowns to select different point clouds and crop types"),
-                html.Li("Use the camera pose sliders to position and orient the sensor interactively"),
-                html.Li("Use the crop parameter sliders to adjust filtering settings (enabled based on crop type)"),
-                html.Li("Blue points (transparent) = original points that were removed"),
-                html.Li("Red points = points kept after cropping"),
-                html.Li("Black diamond = sensor position"),
-                html.Li("Green arrow = sensor viewing direction"),
-                html.Li("Purple surface = range limit (for range-only cropping)"),
-                html.Li("Orange lines = field of view boundaries (for FOV-only cropping)"),
-                html.Li("Use mouse to rotate, zoom, and pan the 3D view")
-            ]),
-            html.Hr(),
-            html.H4("Camera Pose Controls:"),
-            html.Ul([
-                html.Li([
-                    html.Strong("Azimuth"), 
-                    ": Horizontal rotation around origin (0° = +X axis, 90° = +Y axis)"
-                ]),
-                html.Li([
-                    html.Strong("Elevation"), 
-                    ": Vertical angle above/below horizon (positive = above, negative = below)"
-                ]),
-                html.Li([
-                    html.Strong("Distance"), 
-                    ": Distance from origin to sensor position"
-                ]),
-                html.Li([
-                    html.Strong("Yaw"), 
-                    ": Sensor rotation around its Z-axis (relative to look-at-origin)"
-                ]),
-                html.Li([
-                    html.Strong("Pitch"), 
-                    ": Sensor rotation around its Y-axis (tilt up/down)"
-                ]),
-                html.Li([
-                    html.Strong("Roll"), 
-                    ": Sensor rotation around its X-axis (bank left/right)"
-                ])
-            ]),
-            html.Hr(),
-            html.H4("Crop Type Details:"),
-            html.Ul([
-                html.Li([
-                    html.Strong("Range Only"), 
-                    ": Filters points based on distance from sensor (adjustable max range)"
-                ]),
-                html.Li([
-                    html.Strong("FOV Only"), 
-                    ": Filters points based on field-of-view cone (adjustable horizontal and vertical FOV)"
-                ]),
-                html.Li([
-                    html.Strong("Occlusion Only"), 
-                    ": Filters points based on line-of-sight visibility from sensor"
-                ])
-            ]),
-            html.Hr(),
-            html.H4("Point Cloud Types:"),
-            html.Ul([
-                html.Li([
-                    html.Strong("Cube"), 
-                    ": 3000 points on surface of 4×4×4 cube - demonstrates geometric edge effects"
-                ]),
-                html.Li([
-                    html.Strong("Sphere"), 
-                    ": 2000 points with uniform volume distribution - shows smooth surface filtering"
-                ]),
-                html.Li([
-                    html.Strong("Scene"), 
-                    ": 4000 points representing complex outdoor environment with multiple objects"
-                ])
-            ])
-        ], style={
-            'marginTop': 20,
-            'padding': 20,
-            'backgroundColor': '#f0f0f0',
-            'borderRadius': 5
-        })
     
     def create_info_panel(self) -> html.Div:
         """Create dynamic info panel (populated by callbacks).
@@ -359,10 +266,29 @@ class LiDARVisualizationLayout:
         """
         return html.Div([
             self.create_header(),
-            self.create_controls(),
-            self.create_main_plot(),
-            self.create_info_panel(),
-            self.create_instructions()
+            
+            # Main content area with controls on left, visualization on right
+            html.Div([
+                # Left side: Controls
+                html.Div([
+                    self.create_controls()
+                ], style={
+                    'width': '35%',
+                    'display': 'inline-block',
+                    'verticalAlign': 'top',
+                    'padding': '0 20px 0 0'
+                }),
+                
+                # Right side: Visualization and stats
+                html.Div([
+                    self.create_main_plot(),
+                    self.create_info_panel()
+                ], style={
+                    'width': '65%',
+                    'display': 'inline-block',
+                    'verticalAlign': 'top'
+                })
+            ], style={'marginTop': 20})
         ])
     
     def get_control_ids(self) -> Dict[str, str]:
