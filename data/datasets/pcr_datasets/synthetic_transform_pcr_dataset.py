@@ -137,7 +137,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                         
                         # Validate cache structure - will raise AssertionError if invalid
                         self._validate_cache_structure(loaded_cache)
-                        self.transform_cache = loaded_cache
+                        
+                        # Convert string keys back to tuples for in-memory use
+                        self.transform_cache = {}
+                        for key_str, file_data in loaded_cache.items():
+                            param_tuple = eval(key_str)  # Convert string back to tuple
+                            self.transform_cache[param_tuple] = file_data
                     else:
                         self.transform_cache = {}
             except (json.JSONDecodeError, IOError) as e:
@@ -150,9 +155,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     def _validate_cache_structure(self, cache_data: Any) -> None:
         """Validate that cache has the expected structure using assertions.
         
-        Expected structure:
+        Expected structure (JSON uses string representations of tuples):
         {
-            "matching_radius_1": {
+            "(rotation_mag, translation_mag, matching_radius)": {
                 "file_hash_1": [
                     {
                         "overlap": float,
@@ -177,17 +182,26 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Check if cache_data is a dictionary
         assert isinstance(cache_data, dict), f"Cache data must be a dictionary, got {type(cache_data)}"
         
-        # Check each matching_radius level
-        for radius_key, radius_data in cache_data.items():
-            # Radius key should be a string representation of a float
-            assert isinstance(radius_key, str), f"Radius key must be string, got {type(radius_key)}"
-            float(radius_key)  # This will raise ValueError if not convertible
+        # Check each parameter tuple level
+        for param_key, param_data in cache_data.items():
+            # Parameter key should be a string representation of a tuple
+            assert isinstance(param_key, str), f"Parameter key must be string, got {type(param_key)}"
             
-            # Radius data should be a dictionary
-            assert isinstance(radius_data, dict), f"Radius data must be dictionary, got {type(radius_data)}"
+            # Validate parameter key format: "(rotation_mag, translation_mag, matching_radius)"
+            assert param_key.startswith("(") and param_key.endswith(")"), f"Parameter key must be tuple format, got {param_key}"
+            # Try to evaluate the string as a tuple
+            param_tuple = eval(param_key)
+            assert isinstance(param_tuple, tuple), f"Parameter key must evaluate to tuple, got {type(param_tuple)}"
+            assert len(param_tuple) == 3, f"Parameter tuple must have 3 values, got {len(param_tuple)}: {param_tuple}"
+            # Validate that all elements are numbers
+            for i, val in enumerate(param_tuple):
+                assert isinstance(val, (int, float)), f"Parameter tuple element {i} must be numeric, got {type(val)}: {val}"
+            
+            # Parameter data should be a dictionary
+            assert isinstance(param_data, dict), f"Parameter data must be dictionary, got {type(param_data)}"
             
             # Check each file_hash level
-            for file_key, transforms in radius_data.items():
+            for file_key, transforms in param_data.items():
                 # File key should be a string (hash)
                 assert isinstance(file_key, str), f"File key must be string, got {type(file_key)}"
                 
@@ -226,8 +240,14 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         """Save transform-to-overlap mappings to cache (thread-safe)."""
         if self.cache_filepath is not None:
             os.makedirs(os.path.dirname(self.cache_filepath), exist_ok=True)
+            # Convert tuple keys to strings for JSON serialization
+            serializable_cache = {}
+            for param_tuple, file_data in self.transform_cache.items():
+                key_str = str(param_tuple)  # Convert tuple to string
+                serializable_cache[key_str] = file_data
+            
             with open(self.cache_filepath, 'w') as f:
-                json.dump(self.transform_cache, f, indent=2)
+                json.dump(serializable_cache, f, indent=2)
     
     def _get_file_cache_key(self, file_pair_annotation: Dict[str, Any]) -> str:
         """Generate cache key for file pair.
@@ -260,10 +280,10 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Helper function to get valid transforms from cache
         def get_valid_transforms():
-            # Access cache with matching_radius as outer key
-            matching_radius_key = str(self.matching_radius)
-            radius_cache = self.transform_cache.get(matching_radius_key, {})
-            cached_transforms = radius_cache.get(file_cache_key, [])
+            # Access cache with parameter tuple as outer key
+            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_cache = self.transform_cache.get(param_key, {})
+            cached_transforms = param_cache.get(file_cache_key, [])
             
             valid_transforms = []
             for transform_config in cached_transforms:
@@ -408,9 +428,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
-            matching_radius_key = str(self.matching_radius)
-            radius_cache = self.transform_cache.get(matching_radius_key, {})
-            cached_transforms = radius_cache.get(file_cache_key, []).copy()
+            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_cache = self.transform_cache.get(param_key, {})
+            cached_transforms = param_cache.get(file_cache_key, []).copy()
         
         generated_results = []
         trial = len(cached_transforms)  # Start from where cache left off
@@ -450,10 +470,10 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             with self._cache_lock:
                 cached_transforms.extend(new_cache_entries)
                 # Always update in-memory cache with new structure
-                matching_radius_key = str(self.matching_radius)
-                if matching_radius_key not in self.transform_cache:
-                    self.transform_cache[matching_radius_key] = {}
-                self.transform_cache[matching_radius_key][file_cache_key] = cached_transforms
+                param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+                if param_key not in self.transform_cache:
+                    self.transform_cache[param_key] = {}
+                self.transform_cache[param_key][file_cache_key] = cached_transforms
                 # Save to file only if cache_filepath is provided
                 if self.cache_filepath is not None:
                     self._save_transform_cache()
@@ -475,9 +495,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Verify we generated enough valid transforms
         with self._cache_lock:
-            matching_radius_key = str(self.matching_radius)
-            radius_cache = self.transform_cache.get(matching_radius_key, {})
-            updated_cached_transforms = radius_cache.get(file_cache_key, [])
+            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_cache = self.transform_cache.get(param_key, {})
+            updated_cached_transforms = param_cache.get(file_cache_key, [])
         
         # Count valid transforms to verify we have enough
         valid_count = 0

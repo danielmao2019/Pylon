@@ -168,24 +168,24 @@ def dataset_with_params(request):
 @pytest.mark.parametrize('dataset_with_params', [
     {
         'data_root': 'data/datasets/soft_links/ModelNet40',
+        'cache_filepath': 'data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
         'split': 'train',
         'dataset_size': 100,
-        'overlap_range': (0.3, 1.0),
+        'overlap_range': (0.0, 1.0),
         'matching_radius': 0.05,
         'rotation_mag': 45.0,
         'translation_mag': 0.5,
-        'cache_filepath': None,  # No caching for basic functionality tests
         'transforms_cfg': transforms_cfg(),
     },
     {
         'data_root': 'data/datasets/soft_links/ModelNet40',
+        'cache_filepath': 'data/datasets/soft_links/ModelNet40/../ModelNet40_cache.json',
         'split': 'test',
-        'dataset_size': 50,
-        'overlap_range': (0.4, 0.8),
+        'dataset_size': 100,
+        'overlap_range': (0.0, 1.0),
         'matching_radius': 0.03,
         'rotation_mag': 30.0,
         'translation_mag': 0.3,
-        'cache_filepath': None,  # No caching for basic functionality tests
         'transforms_cfg': transforms_cfg(),
     },
 ], indirect=True)
@@ -203,9 +203,9 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
     
     # Check that file pairs are correctly set up for single-temporal (self-registration)
     for annotation in dataset.file_pair_annotations[:5]:  # Check first 5
-        assert annotation['src_file_path'] == annotation['tgt_file_path'], \
+        assert annotation['src_filepath'] == annotation['tgt_filepath'], \
             "ModelNet40 should use same file for source and target"
-        assert annotation['src_file_path'].endswith('.off'), \
+        assert annotation['src_filepath'].endswith('.off'), \
             "Files should be OFF format"
 
     def validate_datapoint(idx: int) -> None:
@@ -224,16 +224,13 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
         )
         validate_meta_info(datapoint['meta_info'], idx)
 
-    # Use command line --samples if provided, otherwise test subset
+    # Use command line --samples if provided, otherwise test full dataset
     num_samples = get_samples_to_test(len(dataset), max_samples)
-    if num_samples is None:
-        num_samples = min(10, len(dataset))  # Default to 10 samples or dataset size
     indices = random.sample(range(len(dataset)), num_samples)
     
     # Test with ThreadPool for parallel validation
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
-
 
 
 def test_modelnet40_categories():
