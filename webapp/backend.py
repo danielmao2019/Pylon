@@ -24,6 +24,7 @@ class LiDARVisualizationBackend:
     def __init__(self):
         """Initialize the backend."""
         self.crop_configs = self._create_crop_configs()
+        self.axis_ranges = self._calculate_fixed_axis_ranges()
     
     def _create_crop_configs(self) -> Dict[str, LiDARSimulationCrop]:
         """Create crop configuration objects."""
@@ -69,6 +70,58 @@ class LiDARVisualizationBackend:
             return create_toy_point_cloud('scene', 4000, seed=44)
         else:
             raise ValueError(f"Unknown cloud type: {cloud_name}")
+    
+    def _calculate_fixed_axis_ranges(self) -> Dict[str, List[float]]:
+        """Calculate fixed axis ranges for consistent scaling across all point clouds.
+        
+        Returns:
+            Dictionary with 'x', 'y', 'z' keys and [min, max] ranges
+        """
+        # Get all point clouds to determine overall spatial extent
+        all_clouds = []
+        for cloud_name in ['cube', 'sphere', 'scene']:
+            cloud = self.get_point_cloud(cloud_name)
+            all_clouds.append(cloud.numpy())
+        
+        # Combine all point clouds
+        combined_points = np.vstack(all_clouds)
+        
+        # Calculate overall min/max for each axis
+        x_min, x_max = combined_points[:, 0].min(), combined_points[:, 0].max()
+        y_min, y_max = combined_points[:, 1].min(), combined_points[:, 1].max()
+        z_min, z_max = combined_points[:, 2].min(), combined_points[:, 2].max()
+        
+        # Add padding (10% on each side)
+        x_range = x_max - x_min
+        y_range = y_max - y_min
+        z_range = z_max - z_min
+        
+        x_padding = x_range * 0.1
+        y_padding = y_range * 0.1
+        z_padding = z_range * 0.1
+        
+        x_min_padded = x_min - x_padding
+        x_max_padded = x_max + x_padding
+        y_min_padded = y_min - y_padding
+        y_max_padded = y_max + y_padding
+        z_min_padded = z_min - z_padding
+        z_max_padded = z_max + z_padding
+        
+        # Make ranges symmetric around origin and equal scale
+        max_range = max(
+            x_max_padded - x_min_padded,
+            y_max_padded - y_min_padded,
+            z_max_padded - z_min_padded
+        )
+        
+        # Center ranges around origin with equal scale
+        half_range = max_range / 2
+        
+        return {
+            'x': [-half_range, half_range],
+            'y': [-half_range, half_range],
+            'z': [-half_range, half_range]
+        }
     
     def create_camera_pose(self, azimuth: float, elevation: float, distance: float, 
                           yaw: float, pitch: float, roll: float) -> torch.Tensor:
@@ -358,15 +411,24 @@ class LiDARVisualizationBackend:
             elif crop_type == 'fov_only' and crop_config.apply_fov_filter:
                 self._add_fov_visualization(fig, sensor_pos, sensor_rot, crop_config)
             
-            # Set layout
+            # Set layout with fixed axis ranges for consistent scaling
             fig.update_layout(
                 title=f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()}<br>"
                       f"<sub>{pose_description} | Points: {len(original_np):,} → {len(cropped_np):,} ({reduction:.1f}% reduction)</sub>",
                 scene=dict(
-                    xaxis_title="X",
-                    yaxis_title="Y", 
-                    zaxis_title="Z",
-                    aspectmode='cube'
+                    xaxis=dict(
+                        title="X",
+                        range=self.axis_ranges['x']
+                    ),
+                    yaxis=dict(
+                        title="Y", 
+                        range=self.axis_ranges['y']
+                    ),
+                    zaxis=dict(
+                        title="Z",
+                        range=self.axis_ranges['z']
+                    ),
+                    aspectmode='cube'  # Forces equal scaling on all axes
                 ),
                 showlegend=True,
                 margin=dict(l=0, r=0, t=60, b=0),
