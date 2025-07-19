@@ -12,6 +12,7 @@ from data.transforms.vision_3d.pcr_translation import PCRTranslation
 from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransform
 from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
 from data.transforms.vision_3d.random_point_crop import RandomPointCrop
+from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
 
 
 __all__ = (
@@ -26,4 +27,5 @@ __all__ = (
     'RandomRigidTransform',
     'RandomPlaneCrop',
     'RandomPointCrop',
+    'LiDARSimulationCrop',
 )
