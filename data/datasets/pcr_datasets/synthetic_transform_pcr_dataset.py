@@ -409,7 +409,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         tgt_filepath = file_pair_annotation['tgt_filepath']
         
         # Load source point cloud (load_point_cloud now always returns dict format)
-        src_pc_data = load_point_cloud(src_filepath)
+        src_pc_data = load_point_cloud(src_filepath, device=self.device)
         src_pc_raw = src_pc_data['pos']
         
         # Check if single-temporal or bi-temporal
@@ -418,7 +418,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             tgt_pc_raw = src_pc_raw.clone()
         else:
             # Bi-temporal: load target separately
-            tgt_pc_data = load_point_cloud(tgt_filepath)
+            tgt_pc_data = load_point_cloud(tgt_filepath, device=self.device)
             tgt_pc_raw = tgt_pc_data['pos']
         
         return src_pc_raw, tgt_pc_raw
@@ -564,7 +564,10 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 valid_count += 1
     
     def _process_transform_batch(self, batch_args: List[Tuple]) -> List[Dict[str, Any]]:
-        """Process a batch of transforms in parallel.
+        """Process a batch of transforms sequentially.
+        
+        Sequential processing prevents memory explosion when used with large point clouds
+        like ModelNet40 (~90K points) that can cause system memory issues with nested parallelism.
         
         Args:
             batch_args: List of (src_pc_raw, tgt_pc_raw, file_idx, trial_idx) tuples
@@ -572,12 +575,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         Returns:
             List of result dictionaries
         """
-        num_workers = min(len(batch_args), 4)  # Limit concurrent threads
-        
-        with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            futures = [executor.submit(self._process_single_transform, args) for args in batch_args]
-            results = [future.result() for future in futures]
-        
+        # Process sequentially to avoid memory explosion with large point clouds
+        results = [self._process_single_transform(args) for args in batch_args]
         return results
     
     def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
