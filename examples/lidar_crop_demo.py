@@ -202,12 +202,11 @@ def apply_rotation_offset(extrinsics, yaw_offset=0.0, pitch_offset=0.0):
     return extrinsics_new
 
 
-def create_sensor_poses():
+def create_sensor_poses(cloud_type='cube'):
     """Create systematic sensor poses based on 6 anchor axes with variations.
     
-    Starts from 6 anchor poses along +/-X, +/-Y, +/-Z axes, all facing toward origin,
-    then systematically creates variations of each anchor by adjusting both rotation 
-    and position to create diverse coverage patterns.
+    Args:
+        cloud_type: 'cube' for rotation+position variations, 'sphere' for position+random rotation
     
     Returns:
         Dict of pose name to 4x4 extrinsics matrix
@@ -226,78 +225,126 @@ def create_sensor_poses():
         ('neg_z', torch.tensor([0.0, 0.0, -base_distance]))
     ]
     
-    # Systematic variations for each anchor
-    # Each variation has (suffix, distance_factor, lateral_offset, yaw, pitch)
-    # Redesigned for better FOV diversity with cube (4x4x4 centered at origin)
-    variations_per_anchor = [
-        # Base anchor - straight look at origin
-        ('base', 1.0, 0.0, 0.0, 0.0),
+    if cloud_type == 'cube':
+        # Cube: systematic rotation and position variations
+        variations_per_anchor = [
+            # Base anchor - straight look at origin
+            ('base', 1.0, 0.0, 0.0, 0.0),
+            
+            # Strong rotation variations for partial FOV coverage
+            ('rot_left', 1.0, 0.0, 0.6, 0.0),       # ~34 degrees left
+            ('rot_right', 1.0, 0.0, -0.6, 0.0),     # ~34 degrees right
+            ('rot_up', 1.0, 0.0, 0.0, 0.5),         # ~29 degrees up
+            ('rot_down', 1.0, 0.0, 0.0, -0.5),      # ~29 degrees down
+            
+            # Position variations with strong angles
+            ('close_edge', 0.4, 0.3, 0.45, 0.0),    # Very close, edge view
+            ('close_corner', 0.35, 0.35, 0.7, -0.3), # Close corner, angled
+            ('side_glance', 0.7, 0.6, -0.8, 0.0),   # Side position, extreme angle
+            ('extreme_yaw', 1.0, 0.2, -0.9, 0.0),   # ~52 degrees - near FOV limit
+        ]
         
-        # Strong rotation variations for partial FOV coverage
-        ('rot_left', 1.0, 0.0, 0.6, 0.0),       # ~34 degrees left - edge of FOV
-        ('rot_right', 1.0, 0.0, -0.6, 0.0),     # ~34 degrees right - edge of FOV
-        ('rot_up', 1.0, 0.0, 0.0, 0.5),         # ~29 degrees up - partial vertical
-        ('rot_down', 1.0, 0.0, 0.0, -0.5),      # ~29 degrees down - partial vertical
-        
-        # Close positions with strong angles for partial coverage
-        ('close_edge', 0.4, 0.3, 0.45, 0.0),    # Very close, looking at edge
-        ('close_corner', 0.35, 0.35, 0.7, -0.3), # Close to corner, angled away
-        
-        # Lateral positions for grazing views
-        ('side_glance', 0.7, 0.6, -0.8, 0.0),   # Side position, extreme angle
-        ('offset_partial', 0.9, 0.4, -0.4, 0.2), # Offset with partial coverage
-        
-        # Extreme angles for minimal coverage
-        ('extreme_yaw', 1.0, 0.2, -0.9, 0.0),   # ~52 degrees - near FOV limit
-    ]
+        # Generate poses for each anchor with all variations
+        for anchor_name, anchor_pos in anchor_configs:
+            for var_suffix, dist_factor, lateral_factor, yaw, pitch in variations_per_anchor:
+                # Calculate varied position
+                direction = anchor_pos / torch.norm(anchor_pos)
+                distance = torch.norm(anchor_pos) * dist_factor
+                
+                # Add lateral offset perpendicular to direction
+                if lateral_factor != 0.0:
+                    # Find perpendicular vector
+                    if abs(direction[2]) < 0.9:  # Not too vertical
+                        perp = torch.cross(direction, torch.tensor([0.0, 0.0, 1.0]))
+                    else:  # Use X axis for vertical directions
+                        perp = torch.cross(direction, torch.tensor([1.0, 0.0, 0.0]))
+                    perp = perp / torch.norm(perp)
+                    lateral_offset = perp * base_distance * lateral_factor
+                else:
+                    lateral_offset = torch.zeros(3)
+                
+                # Final position
+                position = direction * distance + lateral_offset
+                
+                # Create pose name
+                if var_suffix == 'base':
+                    pose_name = f"{anchor_name}"
+                else:
+                    pose_name = f"{anchor_name}_{var_suffix}"
+                
+                # Create look-at pose
+                pose = create_look_at_matrix(position, origin)
+                
+                # Apply rotation offset
+                if yaw != 0.0 or pitch != 0.0:
+                    pose = apply_rotation_offset(pose, yaw, pitch)
+                
+                poses[pose_name] = pose
     
-    # Generate poses for each anchor with all variations
-    for anchor_name, anchor_pos in anchor_configs:
-        for var_suffix, dist_factor, lateral_factor, yaw, pitch in variations_per_anchor:
-            # Calculate varied position
-            direction = anchor_pos / torch.norm(anchor_pos)
-            distance = torch.norm(anchor_pos) * dist_factor
-            
-            # Add lateral offset perpendicular to direction
-            if lateral_factor != 0.0:
-                # Find perpendicular vector
-                if abs(direction[2]) < 0.9:  # Not too vertical
-                    perp = torch.cross(direction, torch.tensor([0.0, 0.0, 1.0]))
-                else:  # Use X axis for vertical directions
-                    perp = torch.cross(direction, torch.tensor([1.0, 0.0, 0.0]))
-                perp = perp / torch.norm(perp)
-                lateral_offset = perp * base_distance * lateral_factor
-            else:
-                lateral_offset = torch.zeros(3)
-            
-            # Final position
-            position = direction * distance + lateral_offset
-            
-            # Create pose name
-            if var_suffix == 'base':
-                pose_name = f"{anchor_name}"
-            else:
-                pose_name = f"{anchor_name}_{var_suffix}"
-            
-            # Create look-at pose
-            pose = create_look_at_matrix(position, origin)
-            
-            # Apply rotation offset
-            if yaw != 0.0 or pitch != 0.0:
-                pose = apply_rotation_offset(pose, yaw, pitch)
-            
-            poses[pose_name] = pose
+    elif cloud_type == 'sphere':
+        # Sphere: position variations with random rotations to show rotation invariance
+        import random
+        random.seed(42)  # For reproducible random rotations
+        
+        position_variations = [
+            ('base', 1.0, 0.0),           # Base distance
+            ('close_1', 0.5, 0.1),        # Close with slight offset
+            ('close_2', 0.6, 0.2),        # Close with more offset
+            ('far_1', 1.5, 0.0),          # Far, centered
+            ('far_2', 1.8, 0.15),         # Far with offset
+            ('medium_1', 0.8, 0.25),      # Medium distance, offset
+            ('medium_2', 1.2, 0.3),       # Medium-far, more offset
+            ('extreme_close', 0.3, 0.4),  # Very close, large offset
+            ('extreme_far', 2.5, 0.1),    # Very far, slight offset
+        ]
+        
+        # Generate poses for each anchor with position variations + random rotations
+        for anchor_name, anchor_pos in anchor_configs:
+            for var_suffix, dist_factor, lateral_factor in position_variations:
+                # Calculate varied position
+                direction = anchor_pos / torch.norm(anchor_pos)
+                distance = torch.norm(anchor_pos) * dist_factor
+                
+                # Add lateral offset
+                if lateral_factor != 0.0:
+                    if abs(direction[2]) < 0.9:
+                        perp = torch.cross(direction, torch.tensor([0.0, 0.0, 1.0]))
+                    else:
+                        perp = torch.cross(direction, torch.tensor([1.0, 0.0, 0.0]))
+                    perp = perp / torch.norm(perp)
+                    lateral_offset = perp * base_distance * lateral_factor
+                else:
+                    lateral_offset = torch.zeros(3)
+                
+                position = direction * distance + lateral_offset
+                
+                # Create pose name
+                if var_suffix == 'base':
+                    pose_name = f"{anchor_name}"
+                else:
+                    pose_name = f"{anchor_name}_{var_suffix}"
+                
+                # Create look-at pose
+                pose = create_look_at_matrix(position, origin)
+                
+                # Apply random rotation to demonstrate rotation invariance
+                random_yaw = (random.random() - 0.5) * 2.0  # Random yaw ±1 radian
+                random_pitch = (random.random() - 0.5) * 1.0  # Random pitch ±0.5 radian
+                pose = apply_rotation_offset(pose, random_yaw, random_pitch)
+                
+                poses[pose_name] = pose
     
     return poses
 
 
-def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, save_dir='lidar_demo_plots', config_name=None, lidar_config=None):
-    """Create grid of overlaid plots showing original vs cropped point clouds for selected sensor poses.
+def plot_anchor_specific(original_points, cropped_results, sensor_poses, anchor_name, save_dir='lidar_demo_plots', config_name=None, lidar_config=None):
+    """Create a single plot for one anchor with all its variations.
     
     Args:
         original_points: Original point cloud [N, 3]
         cropped_results: Dict of pose_name -> cropped_points
         sensor_poses: Dict of pose_name -> 4x4 matrix
+        anchor_name: Name of anchor (e.g., 'pos_x')
         save_dir: Directory to save plots
         config_name: Configuration name for visualization enhancements
         lidar_config: LiDAR configuration object for parameter visualization
@@ -307,112 +354,80 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     # Convert to numpy for plotting
     orig_np = original_points.numpy()
     
-    # Organize poses by anchor groups for visual verification
-    priority_poses = []
+    # Find all variations for this anchor
+    anchor_poses = []
+    for pose_name in cropped_results.keys():
+        if pose_name.startswith(anchor_name):
+            anchor_poses.append(pose_name)
     
-    # Group all variations for each anchor together for easy visual comparison
-    anchors = ['pos_x', 'neg_x', 'pos_y', 'neg_y', 'pos_z', 'neg_z']
-    key_variations = ['', '_rot_left', '_rot_right', '_rot_up', '_close_edge', '_extreme_yaw']
+    if not anchor_poses:
+        print(f"No poses found for anchor {anchor_name}")
+        return
     
-    # Add poses in anchor groups (6 variations per anchor)
-    for anchor in anchors:
-        for var in key_variations:
-            pose_name = f"{anchor}{var}"
-            priority_poses.append(pose_name)
+    # Sort poses to have consistent order (base first, then variations)
+    def sort_key(pose_name):
+        if pose_name == anchor_name:  # Base pose
+            return (0, pose_name)
+        else:
+            return (1, pose_name)
     
-    # This gives us 36 poses total (6 per anchor) organized in groups
+    anchor_poses.sort(key=sort_key)
     
-    # Filter to only available poses and select subset based on point retention
-    available_poses = set(cropped_results.keys())
-    candidate_poses = [p for p in priority_poses if p in available_poses]
-    
-    # Calculate point retention rates to select most interesting poses
-    pose_stats = []
-    for pose_name in candidate_poses:
-        if pose_name in cropped_results:
-            original_count = len(original_points)
-            kept_count = len(cropped_results[pose_name])
-            retention_rate = kept_count / original_count if original_count > 0 else 0
-            pose_stats.append((pose_name, retention_rate, kept_count))
-    
-    # Sort by diversity criteria: prefer poses with varied retention rates (avoid all 0% or all 100%)
-    pose_stats.sort(key=lambda x: abs(x[1] - 0.5))  # Prefer poses near 50% retention for interesting results
-    
-    # Select up to 12 most interesting poses
-    max_poses = 12
-    selected_poses = [stat[0] for stat in pose_stats[:max_poses]]
-    
-    # Ensure we have anchor poses for systematic coverage
-    anchor_poses = [p for p in selected_poses if p.startswith('anchor_')]
-    if len(anchor_poses) < 6:  # Add missing anchor poses
-        missing_anchors = [p for p in priority_poses[:6] if p in available_poses and p not in selected_poses]
-        selected_poses.extend(missing_anchors[:6-len(anchor_poses)])
-    
-    # Limit to reasonable number for visualization
-    selected_poses = selected_poses[:max_poses]
-    num_poses = len(selected_poses)
-    
-    # Determine grid size optimized for anchor groups (6 variations per anchor)
-    if num_poses <= 18:
-        rows, cols = 3, 6  # 3 anchors × 6 variations each
-        figsize = (30, 15)
-    elif num_poses <= 36:
-        rows, cols = 6, 6  # 6 anchors × 6 variations each  
-        figsize = (30, 30)
+    # Determine grid layout
+    num_poses = len(anchor_poses)
+    if num_poses <= 3:
+        rows, cols = 1, num_poses
+    elif num_poses <= 6:
+        rows, cols = 2, 3
+    elif num_poses <= 9:
+        rows, cols = 3, 3
     else:
-        rows, cols = 8, 8  # Fallback for more poses
-        figsize = (40, 40)
+        rows, cols = 3, 4
+    
+    figsize = (cols * 4, rows * 4)
     
     fig, axes = plt.subplots(rows, cols, figsize=figsize, subplot_kw={'projection': '3d'})
-    axes = axes.flatten() if num_poses > 1 else [axes]
+    if num_poses == 1:
+        axes = [axes]
+    else:
+        axes = axes.flatten() if hasattr(axes, 'flatten') else axes
     
-    # Create pose titles for display showing anchor grouping
+    # Create pose titles for display
     pose_titles = {}
-    for pose_name in selected_poses:
-        # Parse anchor and variation
-        parts = pose_name.split('_')
-        if len(parts) >= 2:
-            anchor = f"{parts[0]}_{parts[1]}"  # e.g., "pos_x"
-            variation = '_'.join(parts[2:]) if len(parts) > 2 else 'base'
-            
-            # Format anchor name
-            anchor_clean = anchor.replace('_', ' ').title()
-            
-            # Format variation name
-            if variation == 'base' or variation == '':
-                var_clean = 'Base'
-            elif variation.startswith('rot_'):
-                direction = variation.replace('rot_', '').title()
-                var_clean = f'Rot {direction}'
-            elif variation.startswith('close_'):
-                type_name = variation.replace('close_', '').replace('_', ' ').title()
-                var_clean = f'Close {type_name}'
-            elif variation == 'extreme_yaw':
-                var_clean = 'Extreme Yaw'
-            else:
-                var_clean = variation.replace('_', ' ').title()
-            
-            pose_titles[pose_name] = f'{anchor_clean}\n{var_clean}'
+    for pose_name in anchor_poses:
+        if pose_name == anchor_name:
+            title = 'Base'
         else:
-            pose_titles[pose_name] = pose_name.replace('_', ' ').title()
+            var = pose_name.replace(f'{anchor_name}_', '')
+            if var.startswith('rot_'):
+                direction = var.replace('rot_', '').title()
+                title = f'Rot {direction}'
+            elif var.startswith('close_'):
+                type_name = var.replace('close_', '').replace('_', ' ').title()
+                title = f'Close {type_name}'
+            elif var == 'extreme_yaw':
+                title = 'Extreme Yaw'
+            else:
+                title = var.replace('_', ' ').title()
+        pose_titles[pose_name] = title
     
     # Calculate common axis limits for all subplots
-    all_sensor_positions = np.array([sensor_poses[pose][:3, 3].numpy() for pose in selected_poses])
+    all_sensor_positions = np.array([sensor_poses[pose][:3, 3].numpy() for pose in anchor_poses])
     all_points = np.vstack([orig_np, all_sensor_positions])
     margin = 2.0
     x_min, x_max = all_points[:, 0].min() - margin, all_points[:, 0].max() + margin
     y_min, y_max = all_points[:, 1].min() - margin, all_points[:, 1].max() + margin
     z_min, z_max = all_points[:, 2].min() - margin, all_points[:, 2].max() + margin
     
-    # Create subplot for each sensor pose
-    for i, pose_name in enumerate(selected_poses):
+    # Plot each pose variation
+    for i, pose_name in enumerate(anchor_poses):
         if i >= len(axes):
             break
             
         ax = axes[i]
         
         if pose_name not in cropped_results:
-            ax.set_title(f'{pose_titles.get(pose_name, pose_name)}\nNo data')
+            ax.set_title(f'{pose_titles[pose_name]}\nNo data')
             ax.set_xlim(x_min, x_max)
             ax.set_ylim(y_min, y_max)
             ax.set_zlim(z_min, z_max)
@@ -424,9 +439,6 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         sensor_rotation = sensor_poses[pose_name][:3, :3].numpy()
         forward_dir = sensor_rotation[:, 0]
         arrow_length = 2.0
-        
-        # Create mask for removed vs kept points
-        # For visualization, we'll show all original points and highlight kept ones
         
         # Show all original points in blue (removed points) with very low opacity
         ax.scatter(orig_np[:, 0], orig_np[:, 1], orig_np[:, 2], 
@@ -479,18 +491,209 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
             ax.legend()
     
     # Hide unused subplots
-    for j in range(len(selected_poses), len(axes)):
+    for j in range(num_poses, len(axes)):
         if j < len(axes):
             axes[j].set_visible(False)
     
-    plt.suptitle(f'{config_name.replace("_", " ").title()} Configuration', fontsize=16)
+    # Add title
+    anchor_title = anchor_name.replace('_', ' ').title()
+    config_title = config_name.replace('_', ' ').title() if config_name else 'LiDAR'
+    plt.suptitle(f'{config_title} - {anchor_title} Anchor Variations', fontsize=16, y=0.95)
     plt.tight_layout()
+    plt.subplots_adjust(top=0.9)
+    
+    # Save plot
+    filename = f'{save_dir}/{anchor_name}.png'
+    plt.savefig(filename, dpi=150, bbox_inches='tight')
+    plt.close()
+    
+    print(f"Saved: {filename}")
+
+
+def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, save_dir='lidar_demo_plots', config_name=None, lidar_config=None):
+    """Create separate plots for each anchor with all its variations.
+    
+    Args:
+        original_points: Original point cloud [N, 3]
+        cropped_results: Dict of pose_name -> cropped_points
+        sensor_poses: Dict of pose_name -> 4x4 matrix
+        save_dir: Directory to save plots
+        config_name: Configuration name for visualization enhancements
+        lidar_config: LiDAR configuration object for parameter visualization
+    """
+    # Clean up existing files in save_dir
+    if os.path.exists(save_dir):
+        for file in os.listdir(save_dir):
+            if file.endswith('.png'):
+                os.remove(os.path.join(save_dir, file))
+    
+    # Create separate plot for each anchor
+    anchors = ['pos_x', 'neg_x', 'pos_y', 'neg_y', 'pos_z', 'neg_z']
+    
+    for anchor in anchors:
+        # Check if this anchor has any poses
+        anchor_poses = [p for p in cropped_results.keys() if p.startswith(anchor)]
+        if anchor_poses:
+            plot_anchor_specific(original_points, cropped_results, sensor_poses, 
+                               anchor, save_dir, config_name, lidar_config)
+    
+    print(f"Created {len(anchors)} anchor-specific plots in {save_dir}/")
+    
+    # Legacy code removed - no longer creating the large combined grid
+    return
+    
+    fig, axes = plt.subplots(rows, cols, figsize=figsize, subplot_kw={'projection': '3d'})
+    axes = axes.flatten() if num_poses > 1 else [axes]
+    
+    # Create pose titles for display showing anchor grouping
+    pose_titles = {}
+    for pose_name in selected_poses:
+        # Parse anchor and variation
+        parts = pose_name.split('_')
+        if len(parts) >= 2:
+            anchor = f"{parts[0]}_{parts[1]}"  # e.g., "pos_x"
+            variation = '_'.join(parts[2:]) if len(parts) > 2 else 'base'
+            
+            # Format anchor name
+            anchor_clean = anchor.replace('_', ' ').title()
+            
+            # Format variation name
+            if variation == 'base' or variation == '':
+                var_clean = 'Base'
+            elif variation.startswith('rot_'):
+                direction = variation.replace('rot_', '').title()
+                var_clean = f'Rot {direction}'
+            elif variation.startswith('close_'):
+                type_name = variation.replace('close_', '').replace('_', ' ').title()
+                var_clean = f'Close {type_name}'
+            elif variation == 'extreme_yaw':
+                var_clean = 'Extreme Yaw'
+            else:
+                var_clean = variation.replace('_', ' ').title()
+            
+            pose_titles[pose_name] = f'{anchor_clean}\n{var_clean}'
+        else:
+            pose_titles[pose_name] = pose_name.replace('_', ' ').title()
+    
+    # Calculate common axis limits for all subplots
+    all_sensor_positions = np.array([sensor_poses[pose][:3, 3].numpy() for pose in selected_poses])
+    all_points = np.vstack([orig_np, all_sensor_positions])
+    margin = 2.0
+    x_min, x_max = all_points[:, 0].min() - margin, all_points[:, 0].max() + margin
+    y_min, y_max = all_points[:, 1].min() - margin, all_points[:, 1].max() + margin
+    z_min, z_max = all_points[:, 2].min() - margin, all_points[:, 2].max() + margin
+    
+    # Create subplot for each sensor pose using correct grid positioning
+    for row_idx, pose_row in enumerate(pose_grid):
+        for col_idx, pose_name in enumerate(pose_row):
+            if row_idx < rows and col_idx < cols:
+                # Calculate correct subplot index
+                subplot_idx = row_idx * cols + col_idx
+                if subplot_idx < len(axes):
+                    ax = axes[subplot_idx]
+                else:
+                    continue
+            else:
+                continue
+            
+            if pose_name not in cropped_results:
+                ax.set_title(f'{pose_titles.get(pose_name, pose_name)}\nNo data')
+                ax.set_xlim(x_min, x_max)
+                ax.set_ylim(y_min, y_max)
+                ax.set_zlim(z_min, z_max)
+                continue
+                
+            cropped_points = cropped_results[pose_name]
+            cropped_np = cropped_points.numpy()
+            sensor_pos = sensor_poses[pose_name][:3, 3].numpy()
+            sensor_rotation = sensor_poses[pose_name][:3, :3].numpy()
+            forward_dir = sensor_rotation[:, 0]
+            arrow_length = 2.0
+            
+            # Create mask for removed vs kept points
+            # For visualization, we'll show all original points and highlight kept ones
+            
+            # Show all original points in blue (removed points) with very low opacity
+            ax.scatter(orig_np[:, 0], orig_np[:, 1], orig_np[:, 2], 
+                      c='blue', alpha=0.1, s=1, label='Removed')
+            
+            # Show kept points in red (overlaid on top) with high opacity and larger size
+            ax.scatter(cropped_np[:, 0], cropped_np[:, 1], cropped_np[:, 2], 
+                      c='red', alpha=0.9, s=8, label='Kept')
+            
+            # Show sensor position and orientation
+            ax.scatter([sensor_pos[0]], [sensor_pos[1]], [sensor_pos[2]], 
+                      c='black', s=150, marker='o', label='Sensor', edgecolors='white', linewidths=2)
+            
+            ax.quiver(sensor_pos[0], sensor_pos[1], sensor_pos[2],
+                     forward_dir[0], forward_dir[1], forward_dir[2],
+                     length=arrow_length, color='green', arrow_length_ratio=0.3, 
+                     linewidth=3, alpha=0.8)
+            
+            # Add visualization enhancements based on config type
+            if config_name and lidar_config:
+                # Add range visualization if range filter is enabled
+                if lidar_config.apply_range_filter:
+                    _add_range_visualization(ax, sensor_pos, lidar_config.max_range)
+                # Add FOV visualization if FOV filter is enabled
+                if lidar_config.apply_fov_filter:
+                    _add_fov_visualization(ax, sensor_pos, sensor_rotation, lidar_config)
+            
+            # Calculate equal axis range to force square aspect ratio
+            max_range = max(x_max - x_min, y_max - y_min, z_max - z_min)
+            center_x = (x_max + x_min) / 2
+            center_y = (y_max + y_min) / 2
+            center_z = (z_max + z_min) / 2
+            
+            # Set equal limits around center
+            half_range = max_range / 2
+            ax.set_xlim(center_x - half_range, center_x + half_range)
+            ax.set_ylim(center_y - half_range, center_y + half_range)
+            ax.set_zlim(center_z - half_range, center_z + half_range)
+            
+            # Force equal aspect ratio to prevent stretching
+            ax.set_box_aspect([1,1,1])
+            
+            ax.set_title(f'{pose_titles[pose_name]}\n{len(cropped_np)}/{len(orig_np)} pts ({100*(1-len(cropped_np)/len(orig_np)):.1f}% reduced)')
+            ax.set_xlabel('X')
+            ax.set_ylabel('Y')
+            ax.set_zlabel('Z')
+            
+            # Only show legend on first subplot
+            if row_idx == 0 and col_idx == 0:
+                ax.legend()
+    
+    # Hide unused subplots
+    total_used = sum(len(row) for row in pose_grid)
+    for j in range(total_used, len(axes)):
+        if j < len(axes):
+            axes[j].set_visible(False)
+    
+    # Add row and column labels for better organization
+    variation_labels = ['Base', 'Rot Left', 'Rot Right', 'Rot Up', 'Close Edge', 'Extreme Yaw']
+    anchor_labels = ['Pos X', 'Neg X', 'Pos Y', 'Neg Y', 'Pos Z', 'Neg Z']
+    
+    # Add column headers
+    for col, var_label in enumerate(variation_labels):
+        if col < cols:
+            fig.text(0.15 + col * 0.14, 0.95, var_label, ha='center', fontsize=12, fontweight='bold')
+    
+    # Add row labels  
+    for row, anchor_label in enumerate(anchor_labels):
+        if row < rows:
+            fig.text(0.02, 0.85 - row * 0.14, anchor_label, va='center', fontsize=12, fontweight='bold', rotation=90)
+    
+    title = f'{config_name.replace("_", " ").title()} Configuration' if config_name else 'LiDAR Configuration'
+    plt.suptitle(title, fontsize=18, y=0.98)
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.06, top=0.92)  # Make room for labels
     plt.savefig(f'{save_dir}/lidar_crop_all_views.png', dpi=150, bbox_inches='tight')
     plt.close()
     
     # Print summary
     total_reductions = []
-    for pose_name in selected_poses:
+    all_poses = [pose for row in pose_grid for pose in row]  # Flatten grid
+    for pose_name in all_poses:
         if pose_name in cropped_results:
             cropped_np = cropped_results[pose_name].numpy()
             reduction = 100*(1-len(cropped_np)/len(orig_np))
