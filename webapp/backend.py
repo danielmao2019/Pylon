@@ -14,10 +14,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from examples.lidar_crop_demo import (
-    create_toy_point_cloud, 
-    generate_camera_poses
-)
+from examples.lidar_crop_demo import create_toy_point_cloud
 from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
 
 
@@ -73,26 +70,145 @@ class LiDARVisualizationBackend:
         else:
             raise ValueError(f"Unknown cloud type: {cloud_name}")
     
-    def get_crop_config(self, crop_type: str) -> LiDARSimulationCrop:
-        """Get crop configuration by type.
+    def create_camera_pose(self, azimuth: float, elevation: float, distance: float, 
+                          yaw: float, pitch: float, roll: float) -> torch.Tensor:
+        """Create camera pose from spherical coordinates and rotations.
+        
+        Args:
+            azimuth: Horizontal angle from +X axis in degrees [0, 360]
+            elevation: Vertical angle from horizon in degrees [-90, 90]
+            distance: Distance from origin [1, 20]
+            yaw: Camera yaw rotation in degrees [-180, 180] (relative to look-at-origin)
+            pitch: Camera pitch rotation in degrees [-90, 90]
+            roll: Camera roll rotation in degrees [-180, 180]
+            
+        Returns:
+            4x4 extrinsics matrix (sensor-to-world transformation)
+        """
+        # Convert to radians
+        azimuth_rad = np.radians(azimuth)
+        elevation_rad = np.radians(elevation)
+        yaw_rad = np.radians(yaw)
+        pitch_rad = np.radians(pitch)
+        roll_rad = np.radians(roll)
+        
+        # Convert spherical to cartesian coordinates
+        x = distance * np.cos(elevation_rad) * np.cos(azimuth_rad)
+        y = distance * np.cos(elevation_rad) * np.sin(azimuth_rad)
+        z = distance * np.sin(elevation_rad)
+        
+        eye = torch.tensor([x, y, z], dtype=torch.float32)
+        target = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
+        up = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32)
+        
+        # Create look-at matrix (camera looking toward origin)
+        forward = target - eye
+        forward = forward / torch.norm(forward)
+        
+        # Handle special case when forward is parallel to up vector
+        cos_angle = torch.dot(forward, up)
+        if torch.abs(cos_angle) > 0.99:  # Nearly parallel
+            if torch.abs(forward[0]) < 0.9:
+                up = torch.tensor([1.0, 0.0, 0.0])
+            else:
+                up = torch.tensor([0.0, 1.0, 0.0])
+        
+        # Compute right vector
+        right = torch.cross(forward, up)
+        right = right / torch.norm(right)
+        
+        # Recompute up vector to ensure orthogonality
+        up = torch.cross(right, forward)
+        up = up / torch.norm(up)
+        
+        # Create base rotation matrix (world-to-sensor)
+        # In sensor frame: +X forward, +Y left, +Z up
+        rotation = torch.stack([forward, -right, up], dim=0)  # 3x3
+        
+        # Apply additional rotations (yaw, pitch, roll) in sensor frame
+        # Yaw (around Z)
+        cy, sy = torch.cos(torch.tensor(yaw_rad)), torch.sin(torch.tensor(yaw_rad))
+        R_yaw = torch.tensor([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]], dtype=torch.float32)
+        
+        # Pitch (around Y)
+        cp, sp = torch.cos(torch.tensor(pitch_rad)), torch.sin(torch.tensor(pitch_rad))
+        R_pitch = torch.tensor([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]], dtype=torch.float32)
+        
+        # Roll (around X)
+        cr, sr = torch.cos(torch.tensor(roll_rad)), torch.sin(torch.tensor(roll_rad))
+        R_roll = torch.tensor([[1, 0, 0], [0, cr, -sr], [0, sr, cr]], dtype=torch.float32)
+        
+        # Apply rotations in order: yaw, then pitch, then roll
+        final_rotation = rotation @ R_yaw @ R_pitch @ R_roll
+        
+        # Create 4x4 extrinsics matrix (sensor-to-world)
+        extrinsics = torch.eye(4)
+        extrinsics[:3, :3] = final_rotation.T  # Transpose for sensor-to-world
+        extrinsics[:3, 3] = eye
+        
+        return extrinsics
+
+    def get_crop_config(self, crop_type: str, **params) -> LiDARSimulationCrop:
+        """Get crop configuration by type with dynamic parameters.
         
         Args:
             crop_type: Type of cropping ('range_only', 'fov_only', 'occlusion_only')
+            **params: Dynamic parameters for crop configuration
+                - range_max: Maximum range for range_only cropping
+                - h_fov: Horizontal FOV for fov_only cropping
+                - v_fov_span: Vertical FOV span for fov_only cropping
             
         Returns:
             LiDARSimulationCrop configuration object
         """
-        if crop_type not in self.crop_configs:
+        if crop_type == 'range_only':
+            range_max = params.get('range_max', 6.0)
+            return LiDARSimulationCrop(
+                max_range=range_max,
+                apply_range_filter=True,
+                apply_fov_filter=False,
+                apply_occlusion_filter=False
+            )
+        elif crop_type == 'fov_only':
+            h_fov = params.get('h_fov', 80.0)
+            v_fov_span = params.get('v_fov_span', 40.0)  # Total span around center (0)
+            v_fov_min = -v_fov_span / 2
+            v_fov_max = v_fov_span / 2
+            return LiDARSimulationCrop(
+                max_range=100.0,  # Very large range so no range filtering
+                horizontal_fov=h_fov,
+                vertical_fov=(v_fov_min, v_fov_max),
+                apply_range_filter=False,
+                apply_fov_filter=True,
+                apply_occlusion_filter=False
+            )
+        elif crop_type == 'occlusion_only':
+            return LiDARSimulationCrop(
+                max_range=100.0,  # Very large range so no range filtering
+                horizontal_fov=360.0,  # Full circle so no FOV filtering
+                vertical_fov=(-90.0, 90.0),  # Full sphere so no FOV filtering
+                apply_range_filter=False,
+                apply_fov_filter=False,
+                apply_occlusion_filter=True
+            )
+        else:
             raise ValueError(f"Unknown crop type: {crop_type}")
-        return self.crop_configs[crop_type]
     
-    def process_cropping(self, cloud_name: str, crop_type: str, anchor: str) -> Dict[str, Any]:
+    def process_cropping(self, cloud_name: str, crop_type: str, 
+                        azimuth: float, elevation: float, distance: float,
+                        yaw: float, pitch: float, roll: float, **crop_params) -> Dict[str, Any]:
         """Process point cloud cropping for given configuration.
         
         Args:
-            cloud_name: Name of point cloud
-            crop_type: Type of cropping
-            anchor: Anchor name for camera pose
+            cloud_name: Name of point cloud ('cube', 'sphere', 'scene')
+            crop_type: Type of cropping ('range_only', 'fov_only', 'occlusion_only')
+            azimuth: Horizontal angle from +X axis in degrees [0, 360]
+            elevation: Vertical angle from horizon in degrees [-90, 90]
+            distance: Distance from origin [1, 20]
+            yaw: Camera yaw rotation in degrees [-180, 180]
+            pitch: Camera pitch rotation in degrees [-90, 90]
+            roll: Camera roll rotation in degrees [-180, 180]
+            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov_span)
             
         Returns:
             Dictionary with processed data including original points, cropped points,
@@ -100,21 +216,10 @@ class LiDARVisualizationBackend:
         """
         # Get data
         original_points = self.get_point_cloud(cloud_name)
-        crop_config = self.get_crop_config(crop_type)
+        crop_config = self.get_crop_config(crop_type, **crop_params)
         
-        # Generate camera poses for this cloud type
-        sensor_poses = generate_camera_poses(cloud_name)
-        
-        # Find poses for this anchor
-        anchor_poses = [pose_name for pose_name in sensor_poses.keys() 
-                       if pose_name.startswith(anchor)]
-        
-        if not anchor_poses:
-            raise ValueError(f"No poses found for anchor {anchor}")
-        
-        # Use base pose if available, otherwise first pose
-        main_pose = anchor if anchor in anchor_poses else anchor_poses[0]
-        sensor_extrinsics = sensor_poses[main_pose]
+        # Create camera pose from interactive controls
+        sensor_extrinsics = self.create_camera_pose(azimuth, elevation, distance, yaw, pitch, roll)
         
         # Apply cropping
         pc = {'pos': original_points, 'feat': torch.ones(len(original_points), 1)}
@@ -128,38 +233,58 @@ class LiDARVisualizationBackend:
         # Calculate reduction percentage
         reduction = (1 - len(cropped_points) / len(original_points)) * 100
         
+        # Create pose description for display
+        pose_description = f"Az:{azimuth:.0f}° El:{elevation:.0f}° Dist:{distance:.1f}m Y:{yaw:.0f}° P:{pitch:.0f}° R:{roll:.0f}°"
+        
         return {
             'original_points': original_points.numpy(),
             'cropped_points': cropped_points.numpy(),
             'sensor_pos': sensor_pos,
             'sensor_rot': sensor_rot,
             'crop_config': crop_config,
-            'main_pose': main_pose,
+            'pose_description': pose_description,
             'reduction': reduction,
-            'anchor_poses': anchor_poses
+            'camera_params': {
+                'azimuth': azimuth,
+                'elevation': elevation,
+                'distance': distance,
+                'yaw': yaw,
+                'pitch': pitch,
+                'roll': roll
+            },
+            'crop_params': crop_params
         }
     
-    def create_3d_scatter_plot(self, cloud_name: str, crop_type: str, anchor: str) -> go.Figure:
+    def create_3d_scatter_plot(self, cloud_name: str, crop_type: str, 
+                              azimuth: float, elevation: float, distance: float,
+                              yaw: float, pitch: float, roll: float, **crop_params) -> go.Figure:
         """Create a 3D scatter plot for the specified configuration.
         
         Args:
             cloud_name: Name of point cloud
             crop_type: Type of cropping
-            anchor: Anchor name for camera pose
+            azimuth: Horizontal angle from +X axis in degrees
+            elevation: Vertical angle from horizon in degrees
+            distance: Distance from origin
+            yaw: Camera yaw rotation in degrees
+            pitch: Camera pitch rotation in degrees
+            roll: Camera roll rotation in degrees
+            **crop_params: Dynamic crop parameters
             
         Returns:
             Plotly Figure object
         """
         try:
             # Process the data
-            data = self.process_cropping(cloud_name, crop_type, anchor)
+            data = self.process_cropping(cloud_name, crop_type, azimuth, elevation, distance, 
+                                       yaw, pitch, roll, **crop_params)
             
             original_np = data['original_points']
             cropped_np = data['cropped_points']
             sensor_pos = data['sensor_pos']
             sensor_rot = data['sensor_rot']
             crop_config = data['crop_config']
-            main_pose = data['main_pose']
+            pose_description = data['pose_description']
             reduction = data['reduction']
             
             # Create figure
@@ -235,8 +360,8 @@ class LiDARVisualizationBackend:
             
             # Set layout
             fig.update_layout(
-                title=f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()} - {anchor.replace('_', ' ').title()}<br>"
-                      f"<sub>Pose: {main_pose} | Points: {len(original_np):,} → {len(cropped_np):,} ({reduction:.1f}% reduction)</sub>",
+                title=f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()}<br>"
+                      f"<sub>{pose_description} | Points: {len(original_np):,} → {len(cropped_np):,} ({reduction:.1f}% reduction)</sub>",
                 scene=dict(
                     xaxis_title="X",
                     yaxis_title="Y", 
@@ -343,7 +468,7 @@ class LiDARVisualizationBackend:
         """Get available options for dropdowns.
         
         Returns:
-            Dictionary with options for point clouds, crop types, and anchors
+            Dictionary with options for point clouds and crop types
         """
         return {
             'point_clouds': [
@@ -355,13 +480,37 @@ class LiDARVisualizationBackend:
                 {'label': 'Range Only', 'value': 'range_only'},
                 {'label': 'FOV Only', 'value': 'fov_only'},
                 {'label': 'Occlusion Only', 'value': 'occlusion_only'}
-            ],
-            'anchors': [
-                {'label': 'Positive X', 'value': 'pos_x'},
-                {'label': 'Negative X', 'value': 'neg_x'},
-                {'label': 'Positive Y', 'value': 'pos_y'},
-                {'label': 'Negative Y', 'value': 'neg_y'},
-                {'label': 'Positive Z', 'value': 'pos_z'},
-                {'label': 'Negative Z', 'value': 'neg_z'}
             ]
+        }
+    
+    def get_default_camera_pose(self) -> Dict[str, float]:
+        """Get default camera pose parameters.
+        
+        Returns:
+            Dictionary with default camera pose values
+        """
+        return {
+            'azimuth': 0.0,      # Starting from +X axis
+            'elevation': 0.0,    # At horizon level
+            'distance': 10.0,    # 10 units from origin
+            'yaw': 0.0,         # No additional yaw
+            'pitch': 0.0,       # No additional pitch 
+            'roll': 0.0         # No additional roll
+        }
+    
+    def get_default_crop_params(self) -> Dict[str, Dict[str, float]]:
+        """Get default crop parameters for each crop type.
+        
+        Returns:
+            Dictionary with default crop parameters by type
+        """
+        return {
+            'range_only': {
+                'range_max': 6.0
+            },
+            'fov_only': {
+                'h_fov': 80.0,
+                'v_fov_span': 40.0
+            },
+            'occlusion_only': {}
         }
