@@ -10,7 +10,8 @@ import os
 import dash
 
 # Add project root to path for imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
+sys.path.append(project_root)
 
 from webapp import LiDARVisualizationBackend, LiDARVisualizationLayout, LiDARVisualizationCallbacks
 
@@ -95,15 +96,16 @@ def main():
     print()
     print("Features:")
     print("  • Interactive 3D visualization of point cloud cropping")
-    print("  • Real-time parameter adjustment via dropdown controls")
+    print("  • Real-time parameter adjustment via slider controls")
     print("  • Support for 3 point cloud types and 3 crop methods")
-    print("  • 6 different camera anchor positions for comprehensive testing")
+    print("  • Interactive camera pose control with 6DOF sliders")
     print()
     print("Instructions:")
     print("  1. Open the URL above in your web browser")
     print("  2. Use the dropdown controls to select different configurations")
-    print("  3. Interact with the 3D plot using mouse (rotate, zoom, pan)")
-    print("  4. Check the info panel for detailed statistics and configuration")
+    print("  3. Adjust camera pose sliders for real-time interaction")
+    print("  4. Interact with the 3D plot using mouse (rotate, zoom, pan)")
+    print("  5. Check the info panel for detailed statistics and configuration")
     print()
     
     if not args.no_browser:

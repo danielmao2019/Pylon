@@ -12,7 +12,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 # Add project root to path for imports
 import sys
-sys.path.append('.')
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../..'))
+sys.path.append(project_root)
 
 from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
 
