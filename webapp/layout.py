@@ -106,7 +106,8 @@ class LiDARVisualizationLayout:
                     min=0, max=360, step=5,
                     value=defaults['azimuth'],
                     marks={i: f"{i}°" for i in range(0, 361, 90)},
-                    tooltip={"placement": "bottom", "always_visible": True}
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
             
@@ -118,7 +119,8 @@ class LiDARVisualizationLayout:
                     min=-90, max=90, step=5,
                     value=defaults['elevation'],
                     marks={i: f"{i}°" for i in range(-90, 91, 45)},
-                    tooltip={"placement": "bottom", "always_visible": True}
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
             
@@ -130,7 +132,8 @@ class LiDARVisualizationLayout:
                     min=1, max=20, step=0.5,
                     value=defaults['distance'],
                     marks={i: f"{i}" for i in range(1, 21, 4)},
-                    tooltip={"placement": "bottom", "always_visible": True}
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 20}),
             
@@ -144,7 +147,8 @@ class LiDARVisualizationLayout:
                     min=-180, max=180, step=5,
                     value=defaults['yaw'],
                     marks={i: f"{i}°" for i in range(-180, 181, 90)},
-                    tooltip={"placement": "bottom", "always_visible": True}
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
             
@@ -156,7 +160,8 @@ class LiDARVisualizationLayout:
                     min=-90, max=90, step=5,
                     value=defaults['pitch'],
                     marks={i: f"{i}°" for i in range(-90, 91, 45)},
-                    tooltip={"placement": "bottom", "always_visible": True}
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
             
@@ -168,7 +173,8 @@ class LiDARVisualizationLayout:
                     min=-180, max=180, step=5,
                     value=defaults['roll'],
                     marks={i: f"{i}°" for i in range(-180, 181, 90)},
-                    tooltip={"placement": "bottom", "always_visible": True}
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12})
         ])
@@ -192,7 +198,8 @@ class LiDARVisualizationLayout:
                     value=crop_defaults['range_only']['range_max'],
                     marks={i: f"{i}" for i in range(1, 16, 3)},
                     tooltip={"placement": "bottom", "always_visible": True},
-                    disabled=True  # Initially disabled, enabled by callback based on crop type
+                    disabled=True,  # Initially disabled, enabled by callback based on crop type
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
             
@@ -205,7 +212,8 @@ class LiDARVisualizationLayout:
                     value=crop_defaults['fov_only']['h_fov'],
                     marks={i: f"{i}" for i in range(10, 181, 40)},
                     tooltip={"placement": "bottom", "always_visible": True},
-                    disabled=False  # Initially enabled for fov_only default
+                    disabled=False,  # Initially enabled for fov_only default
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
             
@@ -218,7 +226,8 @@ class LiDARVisualizationLayout:
                     value=crop_defaults['fov_only']['v_fov_span'],
                     marks={i: f"{i}" for i in range(5, 121, 25)},
                     tooltip={"placement": "bottom", "always_visible": True},
-                    disabled=False  # Initially enabled for fov_only default
+                    disabled=False,  # Initially enabled for fov_only default
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12})
         ])
@@ -239,7 +248,6 @@ class LiDARVisualizationLayout:
                 ),
             ]
         )
-    
     
     def create_info_panel(self) -> html.Div:
         """Create dynamic info panel (populated by callbacks).
