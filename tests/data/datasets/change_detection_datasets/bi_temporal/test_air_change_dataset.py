@@ -73,7 +73,7 @@ def test_air_change(dataset, max_samples, get_samples_to_test) -> None:
         validate_labels(datapoint['labels'], class_dist, dataset)
         validate_meta_info(datapoint['meta_info'], idx)
 
-    num_samples = get_samples_to_test(len(dataset), max_samples, default=len(dataset))
+    num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = list(range(num_samples))
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)

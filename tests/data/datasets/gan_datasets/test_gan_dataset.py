@@ -63,7 +63,7 @@ def test_gan_dataset_properties(dataset, max_samples, get_samples_to_test):
         validate_labels(datapoint['labels'], dataset)
         validate_meta_info(datapoint['meta_info'], idx)
 
-    num_samples = get_samples_to_test(len(dataset.source), max_samples, default=len(dataset.source))
+    num_samples = get_samples_to_test(len(dataset.source), max_samples)
     indices = list(range(num_samples))
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
@@ -93,7 +93,7 @@ def test_reproducibility(dataset, max_samples, get_samples_to_test):
 
         assert torch.allclose(inputs1['z'], inputs2['z']), f"Latent vector not reproducible at idx {idx}"
 
-    num_samples = get_samples_to_test(len(dataset.source), max_samples, default=len(dataset.source))
+    num_samples = get_samples_to_test(len(dataset.source), max_samples)
     indices = list(range(num_samples))
     with ThreadPoolExecutor() as executor:
         executor.map(test_reproducibility_for_idx, indices)

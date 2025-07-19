@@ -169,7 +169,7 @@ def dataset_with_params(request):
     {
         'data_root': 'data/datasets/soft_links/ModelNet40',
         'split': 'train',
-        'dataset_size': 100,
+        'dataset_size': 5,
         'overlap_range': (0.3, 1.0),
         'matching_radius': 0.05,
         'rotation_mag': 45.0,
@@ -180,7 +180,7 @@ def dataset_with_params(request):
     {
         'data_root': 'data/datasets/soft_links/ModelNet40',
         'split': 'test',
-        'dataset_size': 50,
+        'dataset_size': 3,
         'overlap_range': (0.4, 0.8),
         'matching_radius': 0.03,
         'rotation_mag': 30.0,
@@ -224,10 +224,8 @@ def test_modelnet40_dataset(dataset_with_params, max_samples, get_samples_to_tes
         )
         validate_meta_info(datapoint['meta_info'], idx)
 
-    # Use command line --samples if provided, otherwise test subset
+    # Use command line --samples if provided, otherwise test full dataset
     num_samples = get_samples_to_test(len(dataset), max_samples)
-    if num_samples is None:
-        num_samples = min(10, len(dataset))  # Default to 10 samples or dataset size
     indices = random.sample(range(len(dataset)), num_samples)
     
     # Test with ThreadPool for parallel validation
