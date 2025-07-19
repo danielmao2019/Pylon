@@ -138,6 +138,15 @@ def create_look_at_matrix(eye, target, up=None):
     forward = target - eye
     forward = forward / torch.norm(forward)
     
+    # Handle special case when forward is parallel to up vector
+    cos_angle = torch.dot(forward, up)
+    if torch.abs(cos_angle) > 0.99:  # Nearly parallel
+        # Choose different up vector
+        if torch.abs(forward[0]) < 0.9:
+            up = torch.tensor([1.0, 0.0, 0.0])
+        else:
+            up = torch.tensor([0.0, 1.0, 0.0])
+    
     # Compute right vector
     right = torch.cross(forward, up)
     right = right / torch.norm(right)
