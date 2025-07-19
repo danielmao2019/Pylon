@@ -428,13 +428,13 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
         # Create mask for removed vs kept points
         # For visualization, we'll show all original points and highlight kept ones
         
-        # Show all original points in blue (removed points) with low opacity
+        # Show all original points in blue (removed points) with very low opacity
         ax.scatter(orig_np[:, 0], orig_np[:, 1], orig_np[:, 2], 
-                  c='blue', alpha=0.3, s=2, label='Removed')
+                  c='blue', alpha=0.1, s=1, label='Removed')
         
-        # Show kept points in red (overlaid on top) with high opacity
+        # Show kept points in red (overlaid on top) with high opacity and larger size
         ax.scatter(cropped_np[:, 0], cropped_np[:, 1], cropped_np[:, 2], 
-                  c='red', alpha=1.0, s=6, label='Kept')
+                  c='red', alpha=0.9, s=8, label='Kept')
         
         # Show sensor position and orientation
         ax.scatter([sensor_pos[0]], [sensor_pos[1]], [sensor_pos[2]], 
