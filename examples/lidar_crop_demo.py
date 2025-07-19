@@ -394,7 +394,7 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
             ax.legend()
     
     # Hide unused subplots
-    for j in range(len(pose_order), len(axes)):
+    for j in range(len(selected_poses), len(axes)):
         if j < len(axes):
             axes[j].set_visible(False)
     
@@ -405,7 +405,7 @@ def plot_point_cloud_comparison(original_points, cropped_results, sensor_poses, 
     
     # Print summary
     total_reductions = []
-    for pose_name in pose_order:
+    for pose_name in selected_poses:
         if pose_name in cropped_results:
             cropped_np = cropped_results[pose_name].numpy()
             reduction = 100*(1-len(cropped_np)/len(orig_np))
