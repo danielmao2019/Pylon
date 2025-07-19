@@ -368,9 +368,8 @@ class LiDARVisualizationBackend:
                     zaxis_title="Z",
                     aspectmode='cube'
                 ),
-                width=1000,
-                height=700,
-                showlegend=True
+                showlegend=True,
+                margin=dict(l=0, r=0, t=60, b=0)
             )
             
             return fig

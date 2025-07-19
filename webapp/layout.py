@@ -235,7 +235,7 @@ class LiDARVisualizationLayout:
             children=[
                 dcc.Graph(
                     id='main-3d-plot',
-                    style={'height': '700px'}
+                    style={'height': '600px', 'width': '100%'}
                 ),
             ]
         )
@@ -273,10 +273,11 @@ class LiDARVisualizationLayout:
                 html.Div([
                     self.create_controls()
                 ], style={
-                    'width': '35%',
+                    'width': '30%',
                     'display': 'inline-block',
                     'verticalAlign': 'top',
-                    'padding': '0 20px 0 0'
+                    'paddingRight': '20px',
+                    'boxSizing': 'border-box'
                 }),
                 
                 # Right side: Visualization and stats
@@ -284,11 +285,12 @@ class LiDARVisualizationLayout:
                     self.create_main_plot(),
                     self.create_info_panel()
                 ], style={
-                    'width': '65%',
+                    'width': '70%',
                     'display': 'inline-block',
-                    'verticalAlign': 'top'
+                    'verticalAlign': 'top',
+                    'boxSizing': 'border-box'
                 })
-            ], style={'marginTop': 20})
+            ], style={'marginTop': 20, 'width': '100%'})
         ])
     
     def get_control_ids(self) -> Dict[str, str]:
