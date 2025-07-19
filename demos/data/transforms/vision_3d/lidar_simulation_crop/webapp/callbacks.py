@@ -8,7 +8,7 @@ from dash import Input, Output, callback, html
 import plotly.graph_objects as go
 from typing import Tuple, List, Any, Dict
 
-from .backend import LiDARVisualizationBackend
+from demos.data.transforms.vision_3d.lidar_simulation_crop.webapp.backend import LiDARVisualizationBackend
 
 
 class LiDARVisualizationCallbacks:

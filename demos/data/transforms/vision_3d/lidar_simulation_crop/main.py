@@ -9,7 +9,7 @@ import sys
 import os
 import dash
 
-from .webapp import LiDARVisualizationBackend, LiDARVisualizationLayout, LiDARVisualizationCallbacks
+from demos.data.transforms.vision_3d.lidar_simulation_crop.webapp import LiDARVisualizationBackend, LiDARVisualizationLayout, LiDARVisualizationCallbacks
 
 
 def create_app() -> dash.Dash:

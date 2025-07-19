@@ -7,7 +7,7 @@ Defines the user interface components and layout structure.
 from dash import dcc, html
 from typing import Dict, List, Any
 
-from .backend import LiDARVisualizationBackend
+from demos.data.transforms.vision_3d.lidar_simulation_crop.webapp.backend import LiDARVisualizationBackend
 
 
 class LiDARVisualizationLayout:

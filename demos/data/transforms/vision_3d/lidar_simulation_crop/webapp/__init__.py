@@ -2,10 +2,10 @@
 """
 Webapp package for LiDAR simulation cropping visualization.
 """
+from demos.data.transforms.vision_3d.lidar_simulation_crop.webapp.backend import LiDARVisualizationBackend
+from demos.data.transforms.vision_3d.lidar_simulation_crop.webapp.layout import LiDARVisualizationLayout
+from demos.data.transforms.vision_3d.lidar_simulation_crop.webapp.callbacks import LiDARVisualizationCallbacks
 
-from .backend import LiDARVisualizationBackend
-from .layout import LiDARVisualizationLayout
-from .callbacks import LiDARVisualizationCallbacks
 
 __all__ = [
     'LiDARVisualizationBackend',

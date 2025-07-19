@@ -9,7 +9,7 @@ import numpy as np
 import torch
 from typing import Dict, List, Tuple, Any
 
-from ..lidar_crop_demo import create_toy_point_cloud
+from demos.data.transforms.vision_3d.lidar_simulation_crop.lidar_crop_demo import create_toy_point_cloud
 from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
 
 
