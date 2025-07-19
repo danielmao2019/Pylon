@@ -74,7 +74,7 @@ def test_kitti_dataset(dataset, max_samples, get_samples_to_test):
         validate_meta_info(datapoint['meta_info'], idx)
 
     # Use command line --samples if provided, otherwise test first 5 samples
-    num_samples = get_samples_to_test(len(dataset), max_samples, default=5)
+    num_samples = get_samples_to_test(len(dataset), max_samples)
     indices = random.sample(range(len(dataset)), num_samples)
     with ThreadPoolExecutor() as executor:
         executor.map(validate_datapoint, indices)
