@@ -369,7 +369,8 @@ class LiDARVisualizationBackend:
                     aspectmode='cube'
                 ),
                 showlegend=True,
-                margin=dict(l=0, r=0, t=60, b=0)
+                margin=dict(l=0, r=0, t=60, b=0),
+                uirevision='preserve_view'  # Preserve user's camera view/zoom between updates
             )
             
             return fig
