@@ -9,8 +9,6 @@ import torch
 from concurrent.futures import ThreadPoolExecutor
 from data.datasets.base_dataset import BaseDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
-from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
 from utils.io.point_cloud import load_point_cloud
 
@@ -49,8 +47,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         min_points: int = 512,
         max_trials: int = 1000,
         cache_filepath: Optional[str] = None,
-        crop_method: str = 'mixed',
-        keep_ratio: float = 0.7,
+        crop_method: str = 'lidar',
         lidar_max_range: float = 6.0,
         lidar_horizontal_fov: float = 120.0,
         lidar_vertical_fov: Tuple[float, float] = (-30.0, 30.0),
@@ -71,8 +68,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             min_points: Minimum number of points filter for cache generation
             max_trials: Maximum number of trials to generate valid transforms
             cache_filepath: Path to cache file (if None, no caching is used)
-            crop_method: Cropping method - 'plane', 'point', 'lidar', or 'mixed' (random choice)
-            keep_ratio: Keep ratio for plane/point cropping (0.0-1.0)
+            crop_method: Cropping method - only 'lidar' is supported
             lidar_max_range: Maximum LiDAR sensor range in meters
             lidar_horizontal_fov: LiDAR horizontal field of view in degrees
             lidar_vertical_fov: LiDAR vertical FOV as (min_elevation, max_elevation) in degrees
@@ -90,14 +86,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         self.max_trials = max_trials
         self.cache_filepath = cache_filepath
         
-        # Validate crop method
-        assert crop_method in ['plane', 'point', 'lidar', 'mixed'], f"crop_method must be 'plane', 'point', 'lidar', or 'mixed', got '{crop_method}'"
+        # Validate crop method - only LiDAR is supported
+        assert crop_method == 'lidar', f"crop_method must be 'lidar', got '{crop_method}'"
         self.crop_method = crop_method
-        
-        # Validate and store keep_ratio
-        assert isinstance(keep_ratio, (int, float)), f"keep_ratio must be numeric, got {type(keep_ratio)}"
-        assert 0.0 < keep_ratio <= 1.0, f"keep_ratio must be in (0.0, 1.0], got {keep_ratio}"
-        self.keep_ratio = float(keep_ratio)
         
         # Store LiDAR parameters
         self.lidar_max_range = float(lidar_max_range)
@@ -253,16 +244,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     for field in basic_required_fields:
                         assert field in transform, f"Transform {i} missing required field '{field}'"
                     
-                    # Check method-specific required fields
+                    # Check method-specific required fields - only LiDAR is supported
                     crop_method = transform['crop_method']
-                    if crop_method in ['plane', 'point']:
-                        assert 'keep_ratio' in transform, f"Transform {i} with crop_method '{crop_method}' missing 'keep_ratio'"
-                    elif crop_method == 'lidar':
-                        lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
-                                      'lidar_horizontal_fov', 'lidar_vertical_fov', 'lidar_apply_range_filter',
-                                      'lidar_apply_fov_filter', 'lidar_apply_occlusion_filter']
-                        for field in lidar_fields:
-                            assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
+                    assert crop_method == 'lidar', f"Transform {i} crop_method must be 'lidar', got '{crop_method}'"
+                    
+                    lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
+                                  'lidar_horizontal_fov', 'lidar_vertical_fov', 'lidar_apply_range_filter',
+                                  'lidar_apply_fov_filter', 'lidar_apply_occlusion_filter']
+                    for field in lidar_fields:
+                        assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
                     
                     # Validate field types and values
                     assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
@@ -273,11 +263,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     assert isinstance(transform['translation'], list), f"translation must be list, got {type(transform['translation'])}"
                     assert len(transform['translation']) == 3, f"translation must have 3 elements, got {len(transform['translation'])}"
                     
-                    assert transform['crop_method'] in ['plane', 'point', 'lidar'], f"crop_method must be 'plane', 'point', or 'lidar', got '{transform['crop_method']}'"
-                    
-                    # Validate keep_ratio for plane/point methods
-                    if transform['crop_method'] in ['plane', 'point']:
-                        assert isinstance(transform['keep_ratio'], (int, float)), f"keep_ratio must be number, got {type(transform['keep_ratio'])}"
+                    assert transform['crop_method'] == 'lidar', f"crop_method must be 'lidar', got '{transform['crop_method']}'"
                     
                     assert isinstance(transform['src_num_points'], int), f"src_num_points must be int, got {type(transform['src_num_points'])}"
                     assert isinstance(transform['tgt_num_points'], int), f"tgt_num_points must be int, got {type(transform['tgt_num_points'])}"
@@ -382,13 +368,10 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'crop_method': transform_config['crop_method'],
         }
         
-        # Add method-specific metadata
-        if transform_config['crop_method'] in ['plane', 'point']:
-            meta_info['keep_ratio'] = transform_config['keep_ratio']
-        elif transform_config['crop_method'] == 'lidar':
-            meta_info['lidar_max_range'] = transform_config['lidar_max_range']
-            meta_info['lidar_horizontal_fov'] = transform_config['lidar_horizontal_fov']
-            meta_info['lidar_vertical_fov'] = transform_config['lidar_vertical_fov']
+        # Add LiDAR-specific metadata
+        meta_info['lidar_max_range'] = transform_config['lidar_max_range']
+        meta_info['lidar_horizontal_fov'] = transform_config['lidar_horizontal_fov']
+        meta_info['lidar_vertical_fov'] = transform_config['lidar_vertical_fov']
         
         return inputs, labels, meta_info
 
@@ -643,76 +626,29 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag  # [-rotation_mag, rotation_mag] degrees
         translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag  # [-translation_mag, translation_mag]
         
-        # Determine crop method based on configuration
-        if self.crop_method == 'mixed':
-            # Random choice between all three methods
-            crop_choice = torch.rand(1, generator=generator).item()
-            if crop_choice < 0.33:
-                chosen_crop_method = 'plane'
-            elif crop_choice < 0.66:
-                chosen_crop_method = 'point'
-            else:
-                chosen_crop_method = 'lidar'
-        else:
-            chosen_crop_method = self.crop_method
+        # Only LiDAR cropping is supported
+        # Sample sensor pose for LiDAR simulation
+        # Position: sample within a reasonable range around the point cloud
+        sensor_position = torch.rand(3, generator=generator) * 10.0 - 5.0  # [-5, 5] range
         
-        # Sample crop-specific parameters to ensure deterministic caching
-        if chosen_crop_method == 'plane':
-            # Sample plane normal (from random_sample_plane in GeoTransformer)
-            phi = torch.rand(1, generator=generator).item() * 2 * np.pi  # longitude
-            theta = torch.rand(1, generator=generator).item() * np.pi     # latitude
-            
-            x = np.sin(theta) * np.cos(phi)
-            y = np.sin(theta) * np.sin(phi)
-            z = np.cos(theta)
-            plane_normal = [float(x), float(y), float(z)]
-            
-            config = {
-                'rotation_angles': rotation_angles.tolist(),
-                'translation': translation.tolist(),
-                'crop_method': 'plane',
-                'keep_ratio': float(self.keep_ratio),
-                'plane_normal': plane_normal,
-                'seed': seed,
-            }
-        elif chosen_crop_method == 'point':
-            # Sample viewpoint (from random_sample_viewpoint in GeoTransformer)
-            limit = 500
-            viewpoint_base = torch.rand(3, generator=generator)  # [0, 1]
-            viewpoint_sign = torch.randint(0, 2, (3,), generator=generator) * 2 - 1  # {-1, 1}
-            viewpoint = viewpoint_base + limit * viewpoint_sign
-            
-            config = {
-                'rotation_angles': rotation_angles.tolist(),
-                'translation': translation.tolist(),
-                'crop_method': 'point',
-                'keep_ratio': float(self.keep_ratio),
-                'viewpoint': viewpoint.tolist(),
-                'seed': seed,
-            }
-        else:  # lidar
-            # Sample sensor pose for LiDAR simulation
-            # Position: sample within a reasonable range around the point cloud
-            sensor_position = torch.rand(3, generator=generator) * 10.0 - 5.0  # [-5, 5] range
-            
-            # Rotation: sample random orientation using Euler angles
-            euler_angles = torch.rand(3, generator=generator) * 2 * np.pi  # [0, 2π] range
-            
-            # Convert to 4x4 extrinsics matrix parameters for deterministic reconstruction
-            config = {
-                'rotation_angles': rotation_angles.tolist(),
-                'translation': translation.tolist(),
-                'crop_method': 'lidar',
-                'sensor_position': sensor_position.tolist(),
-                'sensor_euler_angles': euler_angles.tolist(),
-                'lidar_max_range': self.lidar_max_range,
-                'lidar_horizontal_fov': self.lidar_horizontal_fov,
-                'lidar_vertical_fov': list(self.lidar_vertical_fov),
-                'lidar_apply_range_filter': self.lidar_apply_range_filter,
-                'lidar_apply_fov_filter': self.lidar_apply_fov_filter,
-                'lidar_apply_occlusion_filter': self.lidar_apply_occlusion_filter,
-                'seed': seed,
-            }
+        # Rotation: sample random orientation using Euler angles
+        euler_angles = torch.rand(3, generator=generator) * 2 * np.pi  # [0, 2π] range
+        
+        # Convert to 4x4 extrinsics matrix parameters for deterministic reconstruction
+        config = {
+            'rotation_angles': rotation_angles.tolist(),
+            'translation': translation.tolist(),
+            'crop_method': 'lidar',
+            'sensor_position': sensor_position.tolist(),
+            'sensor_euler_angles': euler_angles.tolist(),
+            'lidar_max_range': self.lidar_max_range,
+            'lidar_horizontal_fov': self.lidar_horizontal_fov,
+            'lidar_vertical_fov': list(self.lidar_vertical_fov),
+            'lidar_apply_range_filter': self.lidar_apply_range_filter,
+            'lidar_apply_fov_filter': self.lidar_apply_fov_filter,
+            'lidar_apply_occlusion_filter': self.lidar_apply_occlusion_filter,
+            'seed': seed,
+        }
         
         return config
     
@@ -759,66 +695,55 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_matrix[:3, :3] = rotation_matrix
         transform_matrix[:3, 3] = translation
         
-        # Build crop transform using pre-sampled parameters for deterministic caching
-        if transform_params['crop_method'] == 'plane':
-            plane_normal = torch.tensor(transform_params['plane_normal'], dtype=torch.float32, device=self.device)
-            crop_transform = RandomPlaneCrop(
-                keep_ratio=transform_params['keep_ratio'],
-                plane_normal=plane_normal
-            )
-        elif transform_params['crop_method'] == 'point':
-            viewpoint = torch.tensor(transform_params['viewpoint'], dtype=torch.float32, device=self.device)
-            crop_transform = RandomPointCrop(
-                keep_ratio=transform_params['keep_ratio'],
-                viewpoint=viewpoint
-            )
-        else:  # lidar
-            # Build 4x4 extrinsics matrix from sampled pose parameters
-            sensor_position = torch.tensor(transform_params['sensor_position'], dtype=torch.float32, device=self.device)
-            euler_angles = torch.tensor(transform_params['sensor_euler_angles'], dtype=torch.float32, device=self.device)
-            
-            # Convert Euler angles to rotation matrix
-            cos_vals = torch.cos(euler_angles)
-            sin_vals = torch.sin(euler_angles)
-            
-            # ZYX Euler angle convention (yaw, pitch, roll)
-            R_z = torch.tensor([
-                [cos_vals[2], -sin_vals[2], 0],
-                [sin_vals[2], cos_vals[2], 0],
-                [0, 0, 1]
-            ], dtype=torch.float32, device=self.device)
-            
-            R_y = torch.tensor([
-                [cos_vals[1], 0, sin_vals[1]],
-                [0, 1, 0],
-                [-sin_vals[1], 0, cos_vals[1]]
-            ], dtype=torch.float32, device=self.device)
-            
-            R_x = torch.tensor([
-                [1, 0, 0],
-                [0, cos_vals[0], -sin_vals[0]],
-                [0, sin_vals[0], cos_vals[0]]
-            ], dtype=torch.float32, device=self.device)
-            
-            rotation_matrix = R_z @ R_y @ R_x
-            
-            # Build 4x4 extrinsics matrix
-            sensor_extrinsics = torch.eye(4, dtype=torch.float32, device=self.device)
-            sensor_extrinsics[:3, :3] = rotation_matrix
-            sensor_extrinsics[:3, 3] = sensor_position
-            
-            # Create LiDAR crop transform with sampled parameters
-            crop_transform = LiDARSimulationCrop(
-                max_range=transform_params['lidar_max_range'],
-                horizontal_fov=transform_params['lidar_horizontal_fov'],
-                vertical_fov=tuple(transform_params['lidar_vertical_fov']),
-                apply_range_filter=transform_params['lidar_apply_range_filter'],
-                apply_fov_filter=transform_params['lidar_apply_fov_filter'],
-                apply_occlusion_filter=transform_params['lidar_apply_occlusion_filter']
-            )
-            
-            # Store sensor extrinsics for LiDAR cropping
-            crop_transform._sensor_extrinsics = sensor_extrinsics
+        # Build LiDAR crop transform using pre-sampled parameters for deterministic caching
+        assert transform_params['crop_method'] == 'lidar', f"Only LiDAR crop method is supported, got '{transform_params['crop_method']}'"
+        
+        # Build 4x4 extrinsics matrix from sampled pose parameters
+        sensor_position = torch.tensor(transform_params['sensor_position'], dtype=torch.float32, device=self.device)
+        euler_angles = torch.tensor(transform_params['sensor_euler_angles'], dtype=torch.float32, device=self.device)
+        
+        # Convert Euler angles to rotation matrix
+        cos_vals = torch.cos(euler_angles)
+        sin_vals = torch.sin(euler_angles)
+        
+        # ZYX Euler angle convention (yaw, pitch, roll)
+        R_z = torch.tensor([
+            [cos_vals[2], -sin_vals[2], 0],
+            [sin_vals[2], cos_vals[2], 0],
+            [0, 0, 1]
+        ], dtype=torch.float32, device=self.device)
+        
+        R_y = torch.tensor([
+            [cos_vals[1], 0, sin_vals[1]],
+            [0, 1, 0],
+            [-sin_vals[1], 0, cos_vals[1]]
+        ], dtype=torch.float32, device=self.device)
+        
+        R_x = torch.tensor([
+            [1, 0, 0],
+            [0, cos_vals[0], -sin_vals[0]],
+            [0, sin_vals[0], cos_vals[0]]
+        ], dtype=torch.float32, device=self.device)
+        
+        rotation_matrix = R_z @ R_y @ R_x
+        
+        # Build 4x4 extrinsics matrix
+        sensor_extrinsics = torch.eye(4, dtype=torch.float32, device=self.device)
+        sensor_extrinsics[:3, :3] = rotation_matrix
+        sensor_extrinsics[:3, 3] = sensor_position
+        
+        # Create LiDAR crop transform with sampled parameters
+        crop_transform = LiDARSimulationCrop(
+            max_range=transform_params['lidar_max_range'],
+            horizontal_fov=transform_params['lidar_horizontal_fov'],
+            vertical_fov=tuple(transform_params['lidar_vertical_fov']),
+            apply_range_filter=transform_params['lidar_apply_range_filter'],
+            apply_fov_filter=transform_params['lidar_apply_fov_filter'],
+            apply_occlusion_filter=transform_params['lidar_apply_occlusion_filter']
+        )
+        
+        # Store sensor extrinsics for LiDAR cropping
+        crop_transform._sensor_extrinsics = sensor_extrinsics
         
         return transform_matrix, crop_transform
     
@@ -853,22 +778,16 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_inv = torch.linalg.inv(transform_matrix.detach().cpu()).to(transform_matrix.device)
         src_points = apply_transform(ref_points, transform_inv)
         
-        # Apply cropping to both source and target 
-        if transform_params['crop_method'] == 'lidar':
-            # LiDAR cropping requires sensor extrinsics matrix
-            sensor_extrinsics = crop_transform._sensor_extrinsics
-            src_pc_dict = crop_transform._call_single({'pos': src_points}, sensor_extrinsics, generator=torch.Generator())
-            src_pc_pos = src_pc_dict['pos']
-            
-            tgt_pc_dict = crop_transform._call_single({'pos': ref_points}, sensor_extrinsics, generator=torch.Generator())
-            tgt_pc_pos = tgt_pc_dict['pos']
-        else:
-            # Plane and point cropping use seed-based approach
-            src_pc_dict = crop_transform({'pos': src_points}, seed=transform_params['seed'])
-            src_pc_pos = src_pc_dict['pos']
-            
-            tgt_pc_dict = crop_transform({'pos': ref_points}, seed=transform_params['seed']) 
-            tgt_pc_pos = tgt_pc_dict['pos']
+        # Apply LiDAR cropping to both source and target 
+        assert transform_params['crop_method'] == 'lidar', f"Only LiDAR crop method is supported, got '{transform_params['crop_method']}'"
+        
+        # LiDAR cropping requires sensor extrinsics matrix
+        sensor_extrinsics = crop_transform._sensor_extrinsics
+        src_pc_dict = crop_transform._call_single({'pos': src_points}, sensor_extrinsics, generator=torch.Generator())
+        src_pc_pos = src_pc_dict['pos']
+        
+        tgt_pc_dict = crop_transform._call_single({'pos': ref_points}, sensor_extrinsics, generator=torch.Generator())
+        tgt_pc_pos = tgt_pc_dict['pos']
         
         # Create point cloud dictionaries with features on same device as positions
         src_pc = {
