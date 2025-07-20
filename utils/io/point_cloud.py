@@ -203,6 +203,8 @@ def load_point_cloud(
     # Convert any numpy arrays to torch tensors and transfer to device
     def numpy_to_torch_on_device(x):
         if isinstance(x, np.ndarray):
+            if x.dtype == np.uint16:
+                x = x.astype(np.int64)
             return torch.from_numpy(x).to(device)
         elif isinstance(x, torch.Tensor):
             return x.to(device)
