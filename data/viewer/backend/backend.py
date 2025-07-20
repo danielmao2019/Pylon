@@ -20,7 +20,13 @@ DATASET_GROUPS = {
     'semseg': ['coco_stuff_164k'],
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3dcd': ['urb3dcd', 'slpccd'],
-    'pcr': ['synth_pcr', 'real_pcr', 'kitti', 'threedmatch', 'threedlomatch', 'modelnet40'],
+    'pcr': [
+        'kitti', 'threedmatch', 'threedlomatch', 'modelnet40', 
+        'single_temporal_pcr', 'bi_temporal_pcr',
+        'geotransformer_single_temporal_pcr', 'geotransformer_bi_temporal_pcr',
+        'overlappredator_single_temporal_pcr', 'overlappredator_bi_temporal_pcr',
+        'buffer',
+    ],
 }
 
 # Dataset format specifications by type
