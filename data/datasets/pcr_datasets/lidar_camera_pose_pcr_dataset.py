@@ -213,22 +213,23 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     # Transform sampling methods (override parent behavior)
     # =========================================================================
     
-    def _sample_scene_camera_pose(self, seed: int, file_idx: int) -> Dict[str, Any]:
-        """Sample a camera pose from scene-specific poses for sensor position.
+    def _sample_transform(self, seed: int) -> Dict[str, Any]:
+        """Sample transform parameters using scene-specific camera poses.
         
-        Args:
-            seed: Random seed for deterministic sampling
-            file_idx: Index of current file pair (scene identifier)
-            
-        Returns:
-            Dictionary containing camera pose information
+        Uses the current scene context (set by _process_single_transform) to sample
+        camera poses from the correct scene.
         """
         
         generator = torch.Generator()
         generator.manual_seed(seed)
         
-        # Get scene-specific camera poses
-        file_pair_annotation = self.file_pair_annotations[file_idx]
+        # Sample SE(3) transformation parameters for synthetic misalignment
+        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
+        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
+        
+        # Get scene-specific camera poses (using current scene context)
+        assert hasattr(self, '_current_file_idx'), "_current_file_idx must be set before calling _sample_transform"
+        file_pair_annotation = self.file_pair_annotations[self._current_file_idx]
         pc_filepath = file_pair_annotation['src_filepath']
         scene_camera_poses = self.scene_camera_poses[pc_filepath]
         
@@ -257,26 +258,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         
         euler_angles = np.array([x, y, z])
         
-        return {
-            'sensor_position': sensor_position.tolist(),
-            'sensor_euler_angles': euler_angles.tolist(),
-            'camera_pose_idx': camera_pose_idx,
-            'scene_filepath': pc_filepath,
-        }
-    
-    def _sample_transform(self, seed: int) -> Dict[str, Any]:
-        """Sample transform parameters - this will be enhanced by _process_single_transform.
-        
-        This maintains compatibility with parent class signature while the actual
-        scene-specific camera pose sampling happens in _process_single_transform.
-        """
-        generator = torch.Generator()
-        generator.manual_seed(seed)
-        
-        # Sample SE(3) transformation parameters for synthetic misalignment
-        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
-        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
-        
         # Generate crop seed for deterministic cropping
         crop_seed = (seed * 31 + 42) % (2**32)
         
@@ -284,11 +265,15 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             'rotation_angles': rotation_angles.tolist(),
             'translation': translation.tolist(),
             'crop_method': 'lidar',
+            'sensor_position': sensor_position.tolist(),
+            'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
             'lidar_horizontal_fov': self.lidar_horizontal_fov,
             'lidar_vertical_fov': self.lidar_vertical_fov,
             'seed': seed,
             'crop_seed': crop_seed,
+            'camera_pose_idx': camera_pose_idx,
+            'scene_filepath': pc_filepath,
         }
     
     def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
@@ -309,12 +294,11 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         # file_idx already provides uniqueness for multi-pairing scenarios
         seed = hash((file_idx, trial_idx)) % (2**32)
         
-        # Sample base transform parameters
-        transform_params = self._sample_transform(seed)
+        # Set current scene context for _sample_transform
+        self._current_file_idx = file_idx
         
-        # Add scene-specific camera pose information
-        camera_pose_info = self._sample_scene_camera_pose(seed, file_idx)
-        transform_params.update(camera_pose_info)
+        # Sample transform parameters (includes scene-specific camera pose)
+        transform_params = self._sample_transform(seed)
         
         # Build transform components
         transform_matrix, crop_transform = self._build_transform(transform_params)
