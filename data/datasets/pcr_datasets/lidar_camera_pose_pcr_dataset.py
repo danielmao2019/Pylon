@@ -120,30 +120,51 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             self.scene_camera_poses[pc_filepath] = camera_poses
             self.scene_poses_transformed[pc_filepath] = False  # Not yet transformed
         
-        # Apply per-scene subsampling if camera_count is specified
+        # Build union of all poses for subsampling (if needed)
+        all_poses_list = []
+        scene_pose_mapping = []  # Track which scene each pose comes from
+        
+        for pc_filepath, poses in self.scene_camera_poses.items():
+            for pose in poses:
+                all_poses_list.append(pose)
+                scene_pose_mapping.append(pc_filepath)
+        
+        # Validate we have camera poses in total
+        assert len(all_poses_list) > 0, (
+            f"No camera poses found in any transforms.json files."
+        )
+        
+        # Apply subsampling if camera_count is specified
         if self.camera_count is not None:
-            total_before = sum(len(poses) for poses in self.scene_camera_poses.values())
+            total_poses = len(all_poses_list)
             
-            # Subsample camera_count poses from each scene independently using scene-specific seeds
-            for pc_filepath in list(self.scene_camera_poses.keys()):
-                scene_poses = self.scene_camera_poses[pc_filepath]
-                num_poses = len(scene_poses)
+            # Ensure we don't request more poses than available
+            if self.camera_count > total_poses:
+                print(f"Warning: Requested {self.camera_count} camera poses but only {total_poses} available. Using all poses.")
+                selected_poses = all_poses_list
+                selected_scene_mapping = scene_pose_mapping
+            else:
+                # Randomly sample camera_count poses from the union
+                # Use a fixed seed for reproducibility
+                rng = np.random.RandomState(seed=42)
+                selected_indices = rng.choice(total_poses, size=self.camera_count, replace=False)
+                selected_indices = sorted(selected_indices)  # Sort for deterministic ordering
                 
-                if self.camera_count < num_poses:
-                    # Create scene-specific random generator using pc_filepath as seed
-                    scene_seed = hash(pc_filepath) % (2**32)  # Ensure positive 32-bit integer
-                    scene_rng = np.random.RandomState(seed=scene_seed)
-                    
-                    # Randomly sample camera_count poses from this scene
-                    selected_indices = scene_rng.choice(num_poses, size=self.camera_count, replace=False)
-                    selected_indices = sorted(selected_indices)
-                    self.scene_camera_poses[pc_filepath] = [scene_poses[i] for i in selected_indices]
-                    print(f"Scene {os.path.basename(pc_filepath)}: {num_poses} → {self.camera_count} poses (seed: {scene_seed})")
-                else:
-                    print(f"Scene {os.path.basename(pc_filepath)}: keeping all {num_poses} poses (< {self.camera_count})")
-            
-            total_after = sum(len(poses) for poses in self.scene_camera_poses.values())
-            print(f"Total camera poses: {total_before} → {total_after} after per-scene subsampling")
+                # Keep only the selected poses and their scene mappings
+                selected_poses = [all_poses_list[i] for i in selected_indices]
+                selected_scene_mapping = [scene_pose_mapping[i] for i in selected_indices]
+                
+                print(f"Subsampled {self.camera_count} camera poses from {total_poses} total poses")
+                
+                # Rebuild scene_camera_poses with only selected poses
+                self.scene_camera_poses = {}
+                for pose, scene in zip(selected_poses, selected_scene_mapping):
+                    if scene not in self.scene_camera_poses:
+                        self.scene_camera_poses[scene] = []
+                    self.scene_camera_poses[scene].append(pose)
+        
+        # Build flattened list for sampling (will be populated after coordinate transformations)
+        self._rebuild_flattened_poses_list()
     
     def _load_camera_poses_from_json(self, json_path: str) -> List[np.ndarray]:
         """Load camera poses from a transforms.json file (nerfstudio format only).
@@ -187,28 +208,30 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         print(f"Loaded {len(camera_poses)} camera poses from {json_path}")
         return camera_poses
     
+    def _rebuild_flattened_poses_list(self) -> None:
+        """Rebuild the flattened all_camera_poses list from scene-organized poses.
+        
+        This is used for backward compatibility with existing sampling logic.
+        """
+        self.all_camera_poses = []
+        for poses in self.scene_camera_poses.values():
+            self.all_camera_poses.extend(poses)
+    
     # =========================================================================
     # Transform sampling methods (override parent behavior)
     # =========================================================================
     
-    def _get_cache_param_key(self) -> Tuple:
-        """Generate cache parameter key including camera_count.
+    def _sample_transform(self, seed: int, file_idx: int = None) -> Dict[str, Any]:
+        """Sample transform parameters using camera poses for sensor positions.
         
-        Extends parent class to include camera_count in cache key,
-        ensuring cache invalidation when camera_count changes.
-        
-        Returns:
-            Cache parameter key tuple
-        """
-        return (self.rotation_mag, self.translation_mag, self.matching_radius, self.camera_count)
-
-    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
-        """Sample transform parameters using scene-specific camera poses.
+        This method overrides the parent's _sample_transform to use camera poses
+        from transforms.json files instead of randomly sampling sensor positions.
+        Samples from camera poses specific to the current scene (file_idx).
         
         Args:
             seed: Random seed for deterministic sampling
-            file_idx: Index of file pair for scene-specific camera pose sampling
-        
+            file_idx: Index of current file pair (scene identifier)
+            
         Returns:
             Dictionary containing transform parameters including scene-specific camera pose
         """
@@ -220,16 +243,30 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
         translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
         
-        # Get scene-specific camera poses using file_idx from kwargs
-        file_pair_annotation = self.file_pair_annotations[file_idx]
-        pc_filepath = file_pair_annotation['src_filepath']
-        scene_camera_poses = self.scene_camera_poses[pc_filepath]
+        # Get scene-specific camera poses
+        pc_filepath = None  # Initialize variable
+        if file_idx is not None:
+            # Get the scene filepath from file_idx
+            file_pair_annotation = self.file_pair_annotations[file_idx]
+            pc_filepath = file_pair_annotation['src_filepath']  # Scene identifier
+            scene_camera_poses = self.scene_camera_poses.get(pc_filepath, [])
+            
+            if len(scene_camera_poses) == 0:
+                # Fallback to union if no poses found for this scene (shouldn't happen)
+                print(f"Warning: No camera poses found for scene {os.path.basename(pc_filepath)}, using union")
+                available_poses = self.all_camera_poses
+            else:
+                available_poses = scene_camera_poses
+        else:
+            # Fallback to union (backward compatibility)
+            available_poses = self.all_camera_poses
         
-        assert len(scene_camera_poses) > 0, f"No camera poses found for scene {pc_filepath}"
-        
-        # Sample a camera pose from scene-specific poses
-        camera_pose_idx = int(torch.randint(0, len(scene_camera_poses), (1,), generator=generator).item())
-        camera_extrinsics = scene_camera_poses[camera_pose_idx]
+        # Sample a camera pose from the available poses (scene-specific or union)
+        if len(available_poses) == 0:
+            raise ValueError("No camera poses available for sampling")
+            
+        camera_pose_idx = int(torch.randint(0, len(available_poses), (1,), generator=generator).item())
+        camera_extrinsics = available_poses[camera_pose_idx]
         
         # Extract position and rotation from the 4x4 extrinsics matrix
         sensor_position = camera_extrinsics[:3, 3]
@@ -263,8 +300,63 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             'lidar_vertical_fov': self.lidar_vertical_fov,
             'seed': seed,
             'crop_seed': crop_seed,
-            'camera_pose_idx': camera_pose_idx,
-            'scene_filepath': pc_filepath,
+            'camera_pose_idx': camera_pose_idx,  # Store which camera pose was used (scene-specific index)
+            'scene_filepath': pc_filepath if file_idx is not None else None,  # Track which scene this came from
+        }
+        
+        return config
+    
+    def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
+        """Process a single transform with scene-specific camera pose sampling.
+        
+        Overrides parent method to pass file_idx to _sample_transform for
+        scene-specific camera pose sampling.
+        
+        Args:
+            args: Tuple of (src_pc_data, tgt_pc_data, file_idx, trial_idx)
+            
+        Returns:
+            Result dictionary with transform data
+        """
+        src_pc_data, tgt_pc_data, file_idx, trial_idx = args
+        
+        # Create deterministic seed from (file_idx, trial_idx)
+        # file_idx already provides uniqueness for multi-pairing scenarios
+        seed = hash((file_idx, trial_idx)) % (2**32)
+        
+        # Sample transform parameters with scene information (deterministic from seed)
+        transform_params = self._sample_transform(seed, file_idx=file_idx)
+        
+        # Build transform components
+        transform_matrix, crop_transform = self._build_transform(transform_params)
+        
+        # Apply transform
+        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_params)
+        
+        # Compute overlap (this is the expensive operation we're parallelizing)
+        # Following standard PCR convention: compute overlap between source + transform vs target
+        # This measures how well the source aligns to target with the ground truth transform
+        from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
+        overlap = compute_registration_overlap(
+            ref_points=tgt_pc['pos'],
+            src_points=src_pc['pos'], 
+            transform=transform_matrix,
+            positive_radius=self.matching_radius * 2
+        )
+        
+        # Add metadata including point counts for min_points filtering
+        transform_params['overlap'] = float(overlap)
+        transform_params['src_num_points'] = src_pc['pos'].shape[0]
+        transform_params['tgt_num_points'] = tgt_pc['pos'].shape[0]
+        transform_params['trial'] = trial_idx
+        
+        return {
+            'transform_params': transform_params,
+            'src_pc': src_pc,
+            'tgt_pc': tgt_pc,
+            'transform_matrix': transform_matrix,
+            'overlap': overlap,
+            'seed': seed
         }
 
     # =========================================================================
@@ -346,6 +438,10 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         # Store the transformed poses for this scene
         self.scene_camera_poses[pc_filepath] = transformed_poses
         self.scene_poses_transformed[pc_filepath] = True
+        self.scene_centering_translations[pc_filepath] = centering_translation.clone()
+        
+        # Rebuild flattened list for sampling
+        self._rebuild_flattened_poses_list()
         
         print(f"Transformed {len(transformed_poses)} camera poses for scene {os.path.basename(pc_filepath)}")
         print(f"Applied centering translation: {centering_translation_np}")
