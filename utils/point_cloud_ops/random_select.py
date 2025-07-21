@@ -27,13 +27,13 @@ class RandomSelect:
             self.percentage = None
             self.count = count
 
-    def __call__(self, pc: Dict[str, Any], generator: torch.Generator) -> Dict[str, Any]:
+    def __call__(self, pc: Dict[str, Any], seed: Optional[Any] = None) -> Dict[str, Any]:
         check_point_cloud(pc)
         
-        # Validate generator device type matches point cloud device type
-        assert generator.device.type == pc['pos'].device.type, (
-            f"Generator device type '{generator.device.type}' must match point cloud device type '{pc['pos'].device.type}'"
-        )
+        # Create generator on the same device as point cloud
+        generator = torch.Generator(device=pc['pos'].device)
+        if seed is not None:
+            generator.manual_seed(seed)
         
         num_points = pc['pos'].shape[0]
         
