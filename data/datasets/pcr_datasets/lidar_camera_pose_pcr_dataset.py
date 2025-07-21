@@ -222,7 +222,7 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     # Transform sampling methods (override parent behavior)
     # =========================================================================
     
-    def _sample_transform(self, seed: int, file_idx: int = None) -> Dict[str, Any]:
+    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
         """Sample transform parameters using camera poses for sensor positions.
         
         This method overrides the parent's _sample_transform to use camera poses
@@ -327,8 +327,8 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         # file_idx already provides uniqueness for multi-pairing scenarios
         seed = hash((file_idx, trial_idx)) % (2**32)
         
-        # Sample transform parameters with scene information (deterministic from seed)
-        transform_params = self._sample_transform(seed, file_idx=file_idx)
+        # Sample transform parameters with scene information
+        transform_params = self._sample_transform(seed, file_idx)
         
         # Build transform components
         transform_matrix, crop_transform = self._build_transform(transform_params)
@@ -441,10 +441,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         # Store the transformed poses for this scene
         self.scene_camera_poses[pc_filepath] = transformed_poses
         self.scene_poses_transformed[pc_filepath] = True
-        self.scene_centering_translations[pc_filepath] = centering_translation.clone()
-        
-        # Rebuild flattened list for sampling
-        self._rebuild_flattened_poses_list()
         
         print(f"Transformed {len(transformed_poses)} camera poses for scene {os.path.basename(pc_filepath)}")
         print(f"Applied centering translation: {centering_translation_np}")
