@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Dict, Any, List, Optional, Union
 from abc import ABC
 import os
 import json
@@ -48,8 +48,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         cache_filepath: Optional[str] = None,
         crop_method: str = 'lidar',
         lidar_max_range: float = 6.0,
-        lidar_horizontal_fov: float = 120.0,
-        lidar_vertical_fov: float = 60.0,
+        lidar_horizontal_fov: Union[int, float] = 120.0,
+        lidar_vertical_fov: Union[int, float] = 60.0,
         lidar_apply_range_filter: bool = False,
         lidar_apply_fov_filter: bool = True,
         lidar_apply_occlusion_filter: bool = False,
