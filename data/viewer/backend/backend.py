@@ -108,19 +108,6 @@ class ViewerBackend:
                         'name': dataset
                     }
 
-    def get_available_datasets(self) -> Dict[str, str]:
-        """Get available datasets grouped by type.
-
-        Returns:
-            Dictionary mapping dataset names to display names
-        """
-        available = {}
-        for config_name in sorted(self._configs.keys()):
-            dataset_type, dataset_name = config_name.split('/')
-            display_name = f"[{dataset_type.upper()}] {dataset_name}"
-            available[config_name] = display_name
-        return available
-    
     def get_available_datasets_hierarchical(self) -> Dict[str, Dict[str, str]]:
         """Get available datasets grouped hierarchically by type.
 

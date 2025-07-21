@@ -33,8 +33,6 @@ class DatasetViewer:
 
         # Get available datasets from the backend (hierarchical structure)
         self.available_datasets = self.backend.get_available_datasets_hierarchical()
-        # Keep flat version for backward compatibility if needed
-        self.available_datasets_flat = self.backend.get_available_datasets()
         
         total_datasets = sum(len(datasets) for datasets in self.available_datasets.values())
         self.logger.info(f"Found {total_datasets} available datasets across {len(self.available_datasets)} categories")

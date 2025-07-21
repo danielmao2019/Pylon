@@ -3,38 +3,17 @@ from typing import Dict, Any, Union
 from dash import dcc, html
 
 
-def create_dataset_selector(available_datasets: Union[Dict[str, Any], Dict[str, Dict[str, str]]], hierarchical: bool = True) -> html.Div:
+def create_dataset_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) -> html.Div:
     """
-    Create a dataset selector dropdown, with optional hierarchical grouping.
+    Create a hierarchical dataset selector with group and dataset dropdowns.
 
     Args:
-        available_datasets: Dictionary of available datasets (flat or hierarchical)
-        hierarchical: Whether to use hierarchical grouping (default True)
+        hierarchical_datasets: Dictionary mapping dataset types to their datasets
 
     Returns:
-        html.Div containing the dataset selector(s)
+        html.Div containing the hierarchical dataset selector
     """
-    if hierarchical and isinstance(available_datasets, dict) and available_datasets:
-        # Check if this is hierarchical data (nested dicts)
-        first_value = next(iter(available_datasets.values()))
-        if isinstance(first_value, dict):
-            return create_hierarchical_selector(available_datasets)
-    
-    # Fallback to flat dropdown
-    return create_flat_selector(available_datasets)
-
-
-def create_flat_selector(available_datasets: Dict[str, Any]) -> html.Div:
-    """Create a traditional flat dataset selector."""
-    return html.Div([
-        html.Label("Select Dataset:"),
-        dcc.Dropdown(
-            id='dataset-dropdown',
-            options=[{'label': name, 'value': name} for name in sorted(available_datasets.keys())],
-            value=None,
-            style={'width': '100%'}
-        )
-    ], style={'width': '70%', 'display': 'inline-block', 'vertical-align': 'top'})
+    return create_hierarchical_selector(hierarchical_datasets)
 
 
 def create_hierarchical_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) -> html.Div:

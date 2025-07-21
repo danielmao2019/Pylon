@@ -130,17 +130,30 @@ def update_dataset_options(selected_group: Optional[str]) -> List[Union[List[Dic
 
 
 @callback(
-    outputs=Output('dataset-dropdown', 'options', allow_duplicate=True),
+    outputs=Output('dataset-group-dropdown', 'options'),
     inputs=[Input('reload-button', 'n_clicks')],
-    group="dataset"
+    group="dataset"  
 )
-def reload_datasets(n_clicks: Optional[int]) -> List[Dict[str, str]]:
-    """Reload available datasets (legacy flat structure for compatibility)."""
+def reload_dataset_groups(n_clicks: Optional[int]) -> List[Dict[str, str]]:
+    """Reload available dataset groups for hierarchical dropdown."""
     if n_clicks is None:
         raise PreventUpdate
 
-    # Get list of available datasets (flat structure)
-    available_datasets = registry.viewer.backend.get_available_datasets()
-
-    # Create options for the dropdown
-    return [{'label': label, 'value': name} for name, label in available_datasets.items()]
+    # Get hierarchical datasets
+    hierarchical_datasets = registry.viewer.backend.get_available_datasets_hierarchical()
+    
+    # Create type labels mapping
+    type_labels = {
+        'semseg': 'Semantic Segmentation',
+        '2dcd': '2D Change Detection', 
+        '3dcd': '3D Change Detection',
+        'pcr': 'Point Cloud Registration'
+    }
+    
+    # Create group dropdown options
+    options = []
+    for dataset_type in sorted(hierarchical_datasets.keys()):
+        label = type_labels.get(dataset_type, dataset_type.upper())
+        options.append({'label': f"{label} ({len(hierarchical_datasets[dataset_type])} datasets)", 'value': dataset_type})
+    
+    return options
