@@ -363,6 +363,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             radius=self.matching_radius,
         )
         
+        # Add default features if not present (should be done in _load_datapoint)
+        if 'feat' not in src_pc:
+            src_pc['feat'] = torch.ones((src_pc['pos'].shape[0], 1), dtype=torch.float32, device=src_pc['pos'].device)
+        
+        if 'feat' not in tgt_pc:
+            tgt_pc['feat'] = torch.ones((tgt_pc['pos'].shape[0], 1), dtype=torch.float32, device=tgt_pc['pos'].device)
+
         inputs = {
             'src_pc': src_pc,
             'tgt_pc': tgt_pc,
@@ -496,7 +503,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             batch_args = []
             for i in range(current_batch_size):
                 trial_idx = trial + i
-                batch_args.append((src_pc_raw, tgt_pc_raw, file_idx, trial_idx))
+                batch_args.append((src_pc_data, tgt_pc_data, file_idx, trial_idx))
             
             # Process batch in parallel
             batch_results = self._process_transform_batch(batch_args)
@@ -582,12 +589,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         """Process a single transform - thread-safe worker function.
         
         Args:
-            args: Tuple of (src_pc_raw, tgt_pc_raw, file_idx, trial_idx)
+            args: Tuple of (src_pc_data, tgt_pc_data, file_idx, trial_idx)
             
         Returns:
             Result dictionary with transform data
         """
-        src_pc_raw, tgt_pc_raw, file_idx, trial_idx = args
+        src_pc_data, tgt_pc_data, file_idx, trial_idx = args
         
         # Create deterministic seed from (file_idx, trial_idx)
         # file_idx already provides uniqueness for multi-pairing scenarios
@@ -802,26 +809,16 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # LiDAR cropping requires sensor extrinsics matrix
         sensor_extrinsics = crop_transform._sensor_extrinsics
         
-        # Create source point cloud dictionary with RGB (if available) and transformed positions
-        src_pc_for_crop = {'pos': src_points}
-        if 'rgb' in src_pc_data:
-            src_pc_for_crop['rgb'] = src_pc_data['rgb']
+        # Update point cloud dictionaries with transformed/original positions
+        src_pc_data_transformed = src_pc_data.copy()
+        src_pc_data_transformed['pos'] = src_points
         
-        # Create target point cloud dictionary with RGB (if available) and original positions  
-        tgt_pc_for_crop = {'pos': ref_points}
-        if 'rgb' in tgt_pc_data:
-            tgt_pc_for_crop['rgb'] = tgt_pc_data['rgb']
+        tgt_pc_data_original = tgt_pc_data.copy()
+        tgt_pc_data_original['pos'] = ref_points
         
         # Apply LiDAR cropping (preserves all keys including RGB)
-        src_pc_dict = crop_transform._call_single(src_pc_for_crop, sensor_extrinsics, generator=torch.Generator())
-        tgt_pc_dict = crop_transform._call_single(tgt_pc_for_crop, sensor_extrinsics, generator=torch.Generator())
+        src_pc_dict = crop_transform(src_pc_data_transformed, sensor_extrinsics, seed=42)
+        tgt_pc_dict = crop_transform(tgt_pc_data_original, sensor_extrinsics, seed=42)
         
         # Return the cropped point cloud dictionaries (already contains pos, rgb if available, etc.)
-        # Add default feature if not present
-        if 'feat' not in src_pc_dict:
-            src_pc_dict['feat'] = torch.ones((src_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=src_pc_dict['pos'].device)
-        
-        if 'feat' not in tgt_pc_dict:
-            tgt_pc_dict['feat'] = torch.ones((tgt_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=tgt_pc_dict['pos'].device)
-        
         return src_pc_dict, tgt_pc_dict
