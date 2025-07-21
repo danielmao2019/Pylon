@@ -138,10 +138,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
                 
                 print(f"Subsampled {self.camera_count} camera poses from {total_poses} total poses")
     
-    # =========================================================================
-    # Camera pose loading utilities
-    # =========================================================================
-    
     def _load_camera_poses_from_json(self, json_path: str) -> List[np.ndarray]:
         """Load camera poses from a transforms.json file (nerfstudio format only).
         
