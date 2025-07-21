@@ -52,12 +52,12 @@ data_cfg = {
             'pc_filepaths': PC_FILEPATHS,
             'transforms_json_filepaths': TRANSFORMS_JSON_FILEPATHS,
             'split': 'train',
-            'dataset_size': 1000,
-            'camera_count': 50,
-            'rotation_mag': 45.0,
-            'translation_mag': 0.5,
-            'matching_radius': 0.05,
-            'overlap_range': (0.0, 1.0),
+            'dataset_size': 1000,  # Total number of synthetic registration pairs to generate (100 per file pair)
+            'camera_count': 50,  # Number of camera poses to randomly sample from the union
+            'rotation_mag': 45.0,  # Synthetic transform parameters
+            'translation_mag': 0.5,  # Synthetic transform parameters
+            'matching_radius': 0.05,  # Radius for correspondence finding
+            'overlap_range': (0.3, 1.0),
             'min_points': 512,
             'max_trials': 1000,
             # LiDAR simulation parameters
