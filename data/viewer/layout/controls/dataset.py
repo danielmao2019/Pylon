@@ -19,7 +19,7 @@ def create_dataset_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) ->
     # Create group dropdown options
     group_options = []
     for dataset_type in sorted(hierarchical_datasets.keys()):
-        label = type_labels.get(dataset_type, dataset_type.upper())
+        label = TYPE_LABELS.get(dataset_type, dataset_type.upper())
         group_options.append({'label': f"{label} ({len(hierarchical_datasets[dataset_type])} datasets)", 'value': dataset_type})
     
     return html.Div([
