@@ -208,65 +208,35 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         print(f"Loaded {len(camera_poses)} camera poses from {json_path}")
         return camera_poses
     
-    def _rebuild_flattened_poses_list(self) -> None:
-        """Rebuild the flattened all_camera_poses list from scene-organized poses.
-        
-        This is used for backward compatibility with existing sampling logic.
-        """
-        self.all_camera_poses = []
-        for poses in self.scene_camera_poses.values():
-            self.all_camera_poses.extend(poses)
     
     # =========================================================================
     # Transform sampling methods (override parent behavior)
     # =========================================================================
     
-    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
-        """Sample transform parameters using camera poses for sensor positions.
-        
-        This method overrides the parent's _sample_transform to use camera poses
-        from transforms.json files instead of randomly sampling sensor positions.
-        Samples from camera poses specific to the current scene (file_idx).
+    def _sample_scene_camera_pose(self, seed: int, file_idx: int) -> Dict[str, Any]:
+        """Sample a camera pose from scene-specific poses for sensor position.
         
         Args:
             seed: Random seed for deterministic sampling
             file_idx: Index of current file pair (scene identifier)
             
         Returns:
-            Dictionary containing transform parameters including scene-specific camera pose
+            Dictionary containing camera pose information
         """
         
         generator = torch.Generator()
         generator.manual_seed(seed)
         
-        # Sample SE(3) transformation parameters for synthetic misalignment
-        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
-        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
-        
         # Get scene-specific camera poses
-        pc_filepath = None  # Initialize variable
-        if file_idx is not None:
-            # Get the scene filepath from file_idx
-            file_pair_annotation = self.file_pair_annotations[file_idx]
-            pc_filepath = file_pair_annotation['src_filepath']  # Scene identifier
-            scene_camera_poses = self.scene_camera_poses.get(pc_filepath, [])
-            
-            if len(scene_camera_poses) == 0:
-                # Fallback to union if no poses found for this scene (shouldn't happen)
-                print(f"Warning: No camera poses found for scene {os.path.basename(pc_filepath)}, using union")
-                available_poses = self.all_camera_poses
-            else:
-                available_poses = scene_camera_poses
-        else:
-            # Fallback to union (backward compatibility)
-            available_poses = self.all_camera_poses
+        file_pair_annotation = self.file_pair_annotations[file_idx]
+        pc_filepath = file_pair_annotation['src_filepath']
+        scene_camera_poses = self.scene_camera_poses[pc_filepath]
         
-        # Sample a camera pose from the available poses (scene-specific or union)
-        if len(available_poses) == 0:
-            raise ValueError("No camera poses available for sampling")
-            
-        camera_pose_idx = int(torch.randint(0, len(available_poses), (1,), generator=generator).item())
-        camera_extrinsics = available_poses[camera_pose_idx]
+        assert len(scene_camera_poses) > 0, f"No camera poses found for scene {pc_filepath}"
+        
+        # Sample a camera pose from scene-specific poses
+        camera_pose_idx = int(torch.randint(0, len(scene_camera_poses), (1,), generator=generator).item())
+        camera_extrinsics = scene_camera_poses[camera_pose_idx]
         
         # Extract position and rotation from the 4x4 extrinsics matrix
         sensor_position = camera_extrinsics[:3, 3]
@@ -287,24 +257,39 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         
         euler_angles = np.array([x, y, z])
         
+        return {
+            'sensor_position': sensor_position.tolist(),
+            'sensor_euler_angles': euler_angles.tolist(),
+            'camera_pose_idx': camera_pose_idx,
+            'scene_filepath': pc_filepath,
+        }
+    
+    def _sample_transform(self, seed: int) -> Dict[str, Any]:
+        """Sample transform parameters - this will be enhanced by _process_single_transform.
+        
+        This maintains compatibility with parent class signature while the actual
+        scene-specific camera pose sampling happens in _process_single_transform.
+        """
+        generator = torch.Generator()
+        generator.manual_seed(seed)
+        
+        # Sample SE(3) transformation parameters for synthetic misalignment
+        rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
+        translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
+        
         # Generate crop seed for deterministic cropping
         crop_seed = (seed * 31 + 42) % (2**32)
         
         return {
             'rotation_angles': rotation_angles.tolist(),
             'translation': translation.tolist(),
-            'sensor_position': sensor_position.tolist(),
-            'sensor_euler_angles': euler_angles.tolist(),
+            'crop_method': 'lidar',
             'lidar_max_range': self.lidar_max_range,
             'lidar_horizontal_fov': self.lidar_horizontal_fov,
             'lidar_vertical_fov': self.lidar_vertical_fov,
             'seed': seed,
             'crop_seed': crop_seed,
-            'camera_pose_idx': camera_pose_idx,  # Store which camera pose was used (scene-specific index)
-            'scene_filepath': pc_filepath if file_idx is not None else None,  # Track which scene this came from
         }
-        
-        return config
     
     def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
         """Process a single transform with scene-specific camera pose sampling.
@@ -324,8 +309,12 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         # file_idx already provides uniqueness for multi-pairing scenarios
         seed = hash((file_idx, trial_idx)) % (2**32)
         
-        # Sample transform parameters with scene information
-        transform_params = self._sample_transform(seed, file_idx)
+        # Sample base transform parameters
+        transform_params = self._sample_transform(seed)
+        
+        # Add scene-specific camera pose information
+        camera_pose_info = self._sample_scene_camera_pose(seed, file_idx)
+        transform_params.update(camera_pose_info)
         
         # Build transform components
         transform_matrix, crop_transform = self._build_transform(transform_params)
