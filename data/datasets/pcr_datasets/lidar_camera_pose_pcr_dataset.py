@@ -204,6 +204,9 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         
         euler_angles = np.array([x, y, z])
         
+        # Generate crop seed for deterministic cropping (derived from main seed)
+        crop_seed = (seed * 31 + 42) % (2**32)  # Deterministic derivation from main seed
+        
         # Build transform configuration with camera-based sensor pose
         config = {
             'rotation_angles': rotation_angles.tolist(),
@@ -214,10 +217,8 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             'lidar_max_range': self.lidar_max_range,
             'lidar_horizontal_fov': self.lidar_horizontal_fov,
             'lidar_vertical_fov': list(self.lidar_vertical_fov),
-            'lidar_apply_range_filter': self.lidar_apply_range_filter,
-            'lidar_apply_fov_filter': self.lidar_apply_fov_filter,
-            'lidar_apply_occlusion_filter': self.lidar_apply_occlusion_filter,
             'seed': seed,
+            'crop_seed': crop_seed,
             'camera_pose_idx': camera_pose_idx,  # Store which camera pose was used (from union)
         }
         
