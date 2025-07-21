@@ -49,7 +49,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         crop_method: str = 'lidar',
         lidar_max_range: float = 6.0,
         lidar_horizontal_fov: float = 120.0,
-        lidar_vertical_fov: Tuple[float, float] = (-30.0, 30.0),
+        lidar_vertical_fov: float = 60.0,
         lidar_apply_range_filter: bool = False,
         lidar_apply_fov_filter: bool = True,
         lidar_apply_occlusion_filter: bool = False,
@@ -70,7 +70,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             crop_method: Cropping method - only 'lidar' is supported
             lidar_max_range: Maximum LiDAR sensor range in meters
             lidar_horizontal_fov: LiDAR horizontal field of view in degrees
-            lidar_vertical_fov: LiDAR vertical FOV as (min_elevation, max_elevation) in degrees
+            lidar_vertical_fov: LiDAR vertical FOV total angle in degrees (e.g., 60.0 means [-30.0, +30.0])
             lidar_apply_range_filter: Whether to apply range-based filtering for LiDAR (default: False)
             lidar_apply_fov_filter: Whether to apply field-of-view filtering for LiDAR (default: True)  
             lidar_apply_occlusion_filter: Whether to apply occlusion simulation for LiDAR (default: False)
@@ -92,7 +92,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Store LiDAR parameters (temporarily force FOV-only cropping)
         self.lidar_max_range = float(lidar_max_range)
         self.lidar_horizontal_fov = float(lidar_horizontal_fov)
-        self.lidar_vertical_fov = tuple(lidar_vertical_fov)
+        self.lidar_vertical_fov = float(lidar_vertical_fov)
         # TEMPORARY: Force FOV-only cropping, disable range and occlusion filters
         self.lidar_apply_range_filter = False
         self.lidar_apply_fov_filter = True
@@ -626,7 +626,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
             'lidar_horizontal_fov': self.lidar_horizontal_fov,
-            'lidar_vertical_fov': list(self.lidar_vertical_fov),
+            'lidar_vertical_fov': self.lidar_vertical_fov,
             'seed': seed,
             'crop_seed': crop_seed,
         }
@@ -717,7 +717,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         crop_transform = LiDARSimulationCrop(
             max_range=transform_params['lidar_max_range'],
             horizontal_fov=transform_params['lidar_horizontal_fov'],
-            vertical_fov=tuple(transform_params['lidar_vertical_fov']),
+            vertical_fov=transform_params['lidar_vertical_fov'],
             # TEMPORARY: Force FOV-only cropping, disable range and occlusion filters
             apply_range_filter=False,
             apply_fov_filter=True,

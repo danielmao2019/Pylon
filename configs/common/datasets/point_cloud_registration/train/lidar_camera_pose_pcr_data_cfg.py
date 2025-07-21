@@ -62,8 +62,8 @@ data_cfg = {
             'max_trials': 1000,
             # LiDAR simulation parameters
             'lidar_max_range': 100.0,  # Maximum LiDAR range in meters
-            'lidar_horizontal_fov': 360.0,  # Full 360-degree horizontal FOV
-            'lidar_vertical_fov': (-45.0, 45.0),  # Vertical FOV range in degrees
+            'lidar_horizontal_fov': 70.0,
+            'lidar_vertical_fov': 75.0,
             'lidar_apply_range_filter': True,  # Apply range-based filtering
             'lidar_apply_fov_filter': True,  # Apply FOV-based filtering
             'lidar_apply_occlusion_filter': True,  # Apply occlusion filtering
