@@ -1,5 +1,5 @@
 """Utility functions for the dataset viewer."""
-from typing import Dict, Any, Union
+from typing import Dict
 from dash import dcc, html
 
 
@@ -13,12 +13,6 @@ def create_dataset_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) ->
     Returns:
         html.Div containing the hierarchical dataset selector
     """
-    return create_hierarchical_selector(hierarchical_datasets)
-
-
-def create_hierarchical_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) -> html.Div:
-    """Create a hierarchical dataset selector with group and dataset dropdowns."""
-    
     # Create type labels mapping
     type_labels = {
         'semseg': 'Semantic Segmentation',
