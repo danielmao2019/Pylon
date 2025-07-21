@@ -388,7 +388,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return inputs, labels, meta_info
 
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Load point cloud data for both source and target files.
         
         Handles both single-temporal and bi-temporal datasets:
@@ -399,25 +399,28 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
-            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors (not normalized)
+            Tuple of (src_pc_data, tgt_pc_data) point cloud dictionaries with all attributes (pos, rgb, etc.)
         """
         src_filepath = file_pair_annotation['src_filepath']
         tgt_filepath = file_pair_annotation['tgt_filepath']
         
         # Load source point cloud (load_point_cloud now always returns dict format)
         src_pc_data = load_point_cloud(src_filepath, device=self.device)
-        src_pc_raw = src_pc_data['pos']
         
         # Check if single-temporal or bi-temporal
         if src_filepath == tgt_filepath:
-            # Single-temporal: copy source as target
-            tgt_pc_raw = src_pc_raw.clone()
+            # Single-temporal: deep copy source as target to avoid reference issues
+            tgt_pc_data = {}
+            for key, value in src_pc_data.items():
+                if isinstance(value, torch.Tensor):
+                    tgt_pc_data[key] = value.clone()
+                else:
+                    tgt_pc_data[key] = value
         else:
             # Bi-temporal: load target separately
             tgt_pc_data = load_point_cloud(tgt_filepath, device=self.device)
-            tgt_pc_raw = tgt_pc_data['pos']
         
-        return src_pc_raw, tgt_pc_raw
+        return src_pc_data, tgt_pc_data
     
     def _get_indices(self, idx: int) -> Tuple[int, int]:
         """Get file index and transform index from dataset index.
@@ -447,7 +450,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_pair_annotation = self.file_pair_annotations[file_idx]
         
         # Load point cloud data - handles both single-temporal and bi-temporal
-        src_pc_raw, tgt_pc_raw = self._load_file_pair_data(file_pair_annotation)
+        src_pc_data, tgt_pc_data = self._load_file_pair_data(file_pair_annotation)
         
         # Get the specific transform config from cache
         transform_config = valid_transforms[transform_idx]
@@ -456,7 +459,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_matrix, crop_transform = self._build_transform(transform_config)
         
         # Apply transform to get point cloud pair
-        src_pc, tgt_pc = self._apply_transform(src_pc_raw, tgt_pc_raw, transform_matrix, crop_transform, transform_config)
+        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_config)
         
         return src_pc, tgt_pc, transform_matrix, transform_config
     
@@ -470,7 +473,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_pair_annotation = self.file_pair_annotations[file_idx]
         
         # Load point cloud data - handles both single-temporal and bi-temporal
-        src_pc_raw, tgt_pc_raw = self._load_file_pair_data(file_pair_annotation)
+        src_pc_data, tgt_pc_data = self._load_file_pair_data(file_pair_annotation)
         
         # Get cache key for this file pair
         file_cache_key = self._get_file_cache_key(file_pair_annotation)
@@ -597,7 +600,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_matrix, crop_transform = self._build_transform(transform_params)
         
         # Apply transform
-        src_pc, tgt_pc = self._apply_transform(src_pc_raw, tgt_pc_raw, transform_matrix, crop_transform, transform_params)
+        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_params)
         
         # Compute overlap (this is the expensive operation we're parallelizing)
         # Following standard PCR convention: compute overlap between source + transform vs target
@@ -762,7 +765,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         return transform_matrix, crop_transform
     
-    def _apply_transform(self, src_pc_raw: torch.Tensor, tgt_pc_raw: torch.Tensor, 
+    def _apply_transform(self, src_pc_data: Dict[str, torch.Tensor], tgt_pc_data: Dict[str, torch.Tensor], 
                         transform_matrix: torch.Tensor, crop_transform: Any, 
                         transform_params: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Apply transform to create source and target point clouds.
@@ -774,8 +777,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         3. transform = forward transform that aligns src back to ref
         
         Args:
-            src_pc_raw: Raw source point cloud positions
-            tgt_pc_raw: Raw target point cloud positions (same as src_pc_raw for single-temporal)
+            src_pc_data: Raw source point cloud dictionary (pos, rgb, etc.)
+            tgt_pc_data: Raw target point cloud dictionary (same as src_pc_data for single-temporal)
             transform_matrix: 4x4 transformation matrix to align source to target
             crop_transform: Crop transform object
             transform_params: Transform configuration
@@ -785,7 +788,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         """
         # Following GeoTransformer's approach:
         # ref_points = original (target)
-        ref_points = src_pc_raw.clone()
+        ref_points = src_pc_data['pos'].clone()
         
         # src_points = apply inverse transform to create misaligned source
         from utils.point_cloud_ops import apply_transform
@@ -798,21 +801,27 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # LiDAR cropping requires sensor extrinsics matrix
         sensor_extrinsics = crop_transform._sensor_extrinsics
-        src_pc_dict = crop_transform._call_single({'pos': src_points}, sensor_extrinsics, generator=torch.Generator())
-        src_pc_pos = src_pc_dict['pos']
         
-        tgt_pc_dict = crop_transform._call_single({'pos': ref_points}, sensor_extrinsics, generator=torch.Generator())
-        tgt_pc_pos = tgt_pc_dict['pos']
+        # Create source point cloud dictionary with RGB (if available) and transformed positions
+        src_pc_for_crop = {'pos': src_points}
+        if 'rgb' in src_pc_data:
+            src_pc_for_crop['rgb'] = src_pc_data['rgb']
         
-        # Create point cloud dictionaries with features on same device as positions
-        src_pc = {
-            'pos': src_pc_pos,
-            'feat': torch.ones((src_pc_pos.shape[0], 1), dtype=torch.float32, device=src_pc_pos.device),
-        }
+        # Create target point cloud dictionary with RGB (if available) and original positions  
+        tgt_pc_for_crop = {'pos': ref_points}
+        if 'rgb' in tgt_pc_data:
+            tgt_pc_for_crop['rgb'] = tgt_pc_data['rgb']
         
-        tgt_pc = {
-            'pos': tgt_pc_pos,
-            'feat': torch.ones((tgt_pc_pos.shape[0], 1), dtype=torch.float32, device=tgt_pc_pos.device),
-        }
+        # Apply LiDAR cropping (preserves all keys including RGB)
+        src_pc_dict = crop_transform._call_single(src_pc_for_crop, sensor_extrinsics, generator=torch.Generator())
+        tgt_pc_dict = crop_transform._call_single(tgt_pc_for_crop, sensor_extrinsics, generator=torch.Generator())
         
-        return src_pc, tgt_pc
+        # Return the cropped point cloud dictionaries (already contains pos, rgb if available, etc.)
+        # Add default feature if not present
+        if 'feat' not in src_pc_dict:
+            src_pc_dict['feat'] = torch.ones((src_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=src_pc_dict['pos'].device)
+        
+        if 'feat' not in tgt_pc_dict:
+            tgt_pc_dict['feat'] = torch.ones((tgt_pc_dict['pos'].shape[0], 1), dtype=torch.float32, device=tgt_pc_dict['pos'].device)
+        
+        return src_pc_dict, tgt_pc_dict
