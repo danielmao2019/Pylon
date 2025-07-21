@@ -52,13 +52,13 @@ data_cfg = {
             'pc_filepaths': PC_FILEPATHS,
             'transforms_json_filepaths': TRANSFORMS_JSON_FILEPATHS,
             'split': 'train',
-            'dataset_size': 5000,  # Total number of synthetic registration pairs to generate
+            'dataset_size': 1000,  # Total number of synthetic registration pairs to generate (100 per file pair)
             'rotation_mag': 45.0,  # Synthetic transform parameters
             'translation_mag': 0.5,  # Synthetic transform parameters
             'matching_radius': 0.05,  # Radius for correspondence finding
-            'overlap_range': (0.3, 0.9),  # Overlap range for valid pairs
-            'min_points': 512,  # Minimum points filter for cache generation
-            'max_trials': 100,  # Maximum trials to find valid overlap
+            'overlap_range': (0.3, 1.0),
+            'min_points': 512,
+            'max_trials': 1000,
             # LiDAR simulation parameters
             'lidar_max_range': 100.0,  # Maximum LiDAR range in meters
             'lidar_horizontal_fov': 360.0,  # Full 360-degree horizontal FOV

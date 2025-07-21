@@ -338,6 +338,18 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             self._generate_more(file_idx, needed_count)
             # Refresh valid transforms after generation
             valid_transforms = get_valid_transforms()
+            
+            # Check if generation was successful
+            if transform_idx >= len(valid_transforms):
+                raise RuntimeError(
+                    f"Failed to generate enough valid transforms for datapoint index {idx}. "
+                    f"Requested transform_idx={transform_idx}, but only {len(valid_transforms)} valid transforms available. "
+                    f"file_idx={file_idx}, needed_count={needed_count}. "
+                    f"Consider: 1) Increasing max_trials (current: {self.max_trials}), "
+                    f"2) Relaxing overlap_range (current: {self.overlap_range}), "
+                    f"3) Reducing min_points (current: {self.min_points}), "
+                    f"4) Reducing dataset_size to match available valid transforms."
+                )
         
         # Get the specific transform (called only once)
         src_pc, tgt_pc, transform_matrix, transform_config = self._get_pair(file_idx, transform_idx, valid_transforms)
