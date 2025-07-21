@@ -12,5 +12,11 @@ class UniformPosNoise(BaseTransform):
 
     def _call_single(self, pc: Dict[str, Any], generator: torch.Generator) -> Dict[str, Any]:
         check_point_cloud(pc)
+        
+        # Validate generator device type matches point cloud device type
+        assert generator.device.type == pc['pos'].device.type, (
+            f"Generator device type '{generator.device.type}' must match point cloud device type '{pc['pos'].device.type}'"
+        )
+        
         pc['pos'] += torch.rand(pc['pos'].shape, device=pc['pos'].device, generator=generator) * (self.max - self.min) + self.min
         return pc

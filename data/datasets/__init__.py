@@ -46,6 +46,7 @@ from data.datasets.pcr_datasets.bi_temporal_pcr_dataset import BiTemporalPCRData
 from data.datasets.pcr_datasets.kitti_dataset import KITTIDataset
 from data.datasets.pcr_datasets.threedmatch_dataset import ThreeDMatchDataset, ThreeDLoMatchDataset
 from data.datasets.pcr_datasets.modelnet40_dataset import ModelNet40Dataset
+from data.datasets.pcr_datasets.lidar_camera_pose_pcr_dataset import LiDARCameraPosePCRDataset
 
 
 __all__ = (
@@ -89,4 +90,5 @@ __all__ = (
     'ThreeDMatchDataset',
     'ThreeDLoMatchDataset',
     'ModelNet40Dataset',
+    'LiDARCameraPosePCRDataset',
 )

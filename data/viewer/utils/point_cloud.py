@@ -220,6 +220,7 @@ def create_point_cloud_figure(
     lod_config: Optional[Dict[str, Any]] = None,
     density_percentage: Optional[int] = None,
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
+    axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
 ) -> go.Figure:
     """Create a 3D point cloud visualization figure with optional LOD.
 
@@ -319,10 +320,15 @@ def create_point_cloud_figure(
     fig = go.Figure()
     fig.add_trace(go.Scatter3d(**scatter3d_kwargs))
     
-    # Calculate bounding box
-    x_range = [points_np[:, 0].min(), points_np[:, 0].max()]
-    y_range = [points_np[:, 1].min(), points_np[:, 1].max()]
-    z_range = [points_np[:, 2].min(), points_np[:, 2].max()]
+    # Calculate bounding box - use provided ranges if available, otherwise compute from data
+    if axis_ranges:
+        x_range = list(axis_ranges.get('x', [points_np[:, 0].min(), points_np[:, 0].max()]))
+        y_range = list(axis_ranges.get('y', [points_np[:, 1].min(), points_np[:, 1].max()]))
+        z_range = list(axis_ranges.get('z', [points_np[:, 2].min(), points_np[:, 2].max()]))
+    else:
+        x_range = [points_np[:, 0].min(), points_np[:, 0].max()]
+        y_range = [points_np[:, 1].min(), points_np[:, 1].max()]
+        z_range = [points_np[:, 2].min(), points_np[:, 2].max()]
     
     # Set layout
     camera = camera_state if camera_state else {
