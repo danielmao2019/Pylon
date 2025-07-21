@@ -70,27 +70,10 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         
         print(f"Loaded {len(self.all_camera_poses)} camera poses from {len(self.pc_filepaths)} point cloud files")
 
-    def _load_all_camera_poses(self) -> None:
-        """Load camera poses from all transforms.json files into union."""
-        self.all_camera_poses = []
-        
-        # Load camera poses from each transforms.json file and add to union
-        for file_idx, json_path in enumerate(self.transforms_json_filepaths):
-            camera_poses = self._load_camera_poses_from_json(json_path)
-            
-            # Validate we have camera poses for this file (maintain 1-1 correspondence validation)
-            assert len(camera_poses) > 0, (
-                f"No camera poses found in transforms.json file {json_path}"
-            )
-            
-            # Add all poses from this file to the union
-            self.all_camera_poses.extend(camera_poses)
-        
-        # Validate we have camera poses in total
-        assert len(self.all_camera_poses) > 0, (
-            f"No camera poses found in any transforms.json files."
-        )
-
+    # =========================================================================
+    # Dataset-specific initialization methods (called during __init__)
+    # =========================================================================
+    
     def _init_annotations(self) -> None:
         """Initialize file pair annotations using provided filepaths."""
         # Create file pair annotations using provided filepaths
@@ -105,7 +88,32 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             self.file_pair_annotations.append(annotation)
         
         print(f"Initialized {len(self.file_pair_annotations)} file pair annotations")
-
+    
+    def _load_all_camera_poses(self) -> None:
+        """Load camera poses from all transforms.json files into union."""
+        self.all_camera_poses = []
+        
+        # Load camera poses from each transforms.json file and add to union
+        for json_path in self.transforms_json_filepaths:
+            camera_poses = self._load_camera_poses_from_json(json_path)
+            
+            # Validate we have camera poses for this file (maintain 1-1 correspondence validation)
+            assert len(camera_poses) > 0, (
+                f"No camera poses found in transforms.json file {json_path}"
+            )
+            
+            # Add all poses from this file to the union
+            self.all_camera_poses.extend(camera_poses)
+        
+        # Validate we have camera poses in total
+        assert len(self.all_camera_poses) > 0, (
+            f"No camera poses found in any transforms.json files."
+        )
+    
+    # =========================================================================
+    # Camera pose loading utilities
+    # =========================================================================
+    
     def _load_camera_poses_from_json(self, json_path: str) -> List[np.ndarray]:
         """Load camera poses from a transforms.json file (nerfstudio format only).
         
@@ -148,6 +156,10 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         print(f"Loaded {len(camera_poses)} camera poses from {json_path}")
         return camera_poses
 
+    # =========================================================================
+    # Transform sampling methods (override parent behavior)
+    # =========================================================================
+    
     def _sample_transform(self, seed: int) -> Dict[str, Any]:
         """Sample transform parameters using camera poses for sensor positions.
         
@@ -211,17 +223,10 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         
         return config
 
-
-    def _compute_overlap(self, src_pc: Dict[str, torch.Tensor], tgt_pc: Dict[str, torch.Tensor], transform_matrix: torch.Tensor) -> float:
-        """Compute overlap between source and target point clouds."""
-        from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-        return compute_registration_overlap(
-            ref_points=tgt_pc['pos'],
-            src_points=src_pc['pos'], 
-            transform=transform_matrix,
-            positive_radius=self.matching_radius * 2
-        )
-
+    # =========================================================================
+    # Data loading methods (override parent behavior)
+    # =========================================================================
+    
     def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
         """Load point cloud data with PCRTranslation centering applied.
         
