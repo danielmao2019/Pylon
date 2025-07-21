@@ -22,6 +22,7 @@ def create_union_visualization(
     lod_type: str = "continuous",
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
     density_percentage: int = 100,
+    axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
 ) -> go.Figure:
     """Create a visualization of the union of transformed source and target point clouds.
 
@@ -62,6 +63,7 @@ def create_union_visualization(
         lod_type=lod_type,
         density_percentage=density_percentage,
         point_cloud_id=point_cloud_id,
+        axis_ranges=axis_ranges,
     )
 
 
@@ -75,6 +77,7 @@ def create_symmetric_difference_visualization(
     lod_type: str = "continuous",
     point_cloud_id: Optional[Union[str, Tuple[str, int, str]]] = None,
     density_percentage: int = 100,
+    axis_ranges: Optional[Dict[str, Tuple[float, float]]] = None,
 ) -> go.Figure:
     """Create a visualization of the symmetric difference between transformed source and target point clouds.
 
@@ -124,6 +127,7 @@ def create_symmetric_difference_visualization(
             lod_type=lod_type,
             density_percentage=density_percentage,
             point_cloud_id=point_cloud_id,
+            axis_ranges=axis_ranges,
         )
     else:
         # If no symmetric difference, show empty point cloud
@@ -136,6 +140,7 @@ def create_symmetric_difference_visualization(
             lod_type=lod_type,
             density_percentage=density_percentage,
             point_cloud_id=point_cloud_id,
+            axis_ranges=axis_ranges,
         )
 
 
@@ -368,6 +373,29 @@ def display_pcr_datapoint_single(
     # Apply transform to source point cloud
     src_pc_transformed = apply_transform(src_pc, transform)
 
+    # Compute unified axis ranges across all point clouds for consistent scaling
+    all_points = [src_pc, tgt_pc, src_pc_transformed]
+    x_coords = torch.cat([pc[:, 0] for pc in all_points])
+    y_coords = torch.cat([pc[:, 1] for pc in all_points])
+    z_coords = torch.cat([pc[:, 2] for pc in all_points])
+    
+    # Add small padding for better visualization
+    padding = 0.05  # 5% padding
+    x_range_unified = [x_coords.min().item(), x_coords.max().item()]
+    y_range_unified = [y_coords.min().item(), y_coords.max().item()]
+    z_range_unified = [z_coords.min().item(), z_coords.max().item()]
+    
+    # Apply padding
+    x_pad = (x_range_unified[1] - x_range_unified[0]) * padding
+    y_pad = (y_range_unified[1] - y_range_unified[0]) * padding
+    z_pad = (z_range_unified[1] - z_range_unified[0]) * padding
+    
+    unified_axis_ranges = {
+        'x': (x_range_unified[0] - x_pad, x_range_unified[1] + x_pad),
+        'y': (y_range_unified[0] - y_pad, y_range_unified[1] + y_pad),
+        'z': (z_range_unified[0] - z_pad, z_range_unified[1] + z_pad)
+    }
+
     # Define figure creation tasks
     figure_tasks = [
         lambda: create_point_cloud_figure(
@@ -380,6 +408,7 @@ def display_pcr_datapoint_single(
             lod_type=lod_type,
             density_percentage=density_percentage,
             point_cloud_id=build_point_cloud_id(datapoint, "source"),
+            axis_ranges=unified_axis_ranges,
         ),
         lambda: create_point_cloud_figure(
             points=tgt_pc,
@@ -391,6 +420,7 @@ def display_pcr_datapoint_single(
             lod_type=lod_type,
             density_percentage=density_percentage,
             point_cloud_id=build_point_cloud_id(datapoint, "target"),
+            axis_ranges=unified_axis_ranges,
         ),
         lambda: create_union_visualization(
             src_pc_transformed,
@@ -401,6 +431,7 @@ def display_pcr_datapoint_single(
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "union"),
             density_percentage=density_percentage,
+            axis_ranges=unified_axis_ranges,
         ),
         lambda: create_symmetric_difference_visualization(
             src_pc_transformed,
@@ -412,6 +443,7 @@ def display_pcr_datapoint_single(
             lod_type=lod_type,
             point_cloud_id=build_point_cloud_id(datapoint, "sym_diff"),
             density_percentage=density_percentage,
+            axis_ranges=unified_axis_ranges,
         ),
     ]
 
