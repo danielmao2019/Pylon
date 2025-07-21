@@ -1,7 +1,7 @@
 import json
 import torch
 import numpy as np
-from typing import Tuple, Dict, Any, List
+from typing import Tuple, Dict, Any, List, Optional
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 from data.transforms.vision_3d.pcr_translation import PCRTranslation
 
@@ -29,6 +29,7 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         pc_filepaths: List[str],
         transforms_json_filepaths: List[str],
         dataset_size: int,
+        camera_count: Optional[int] = None,
         **kwargs,
     ) -> None:
         """Initialize LiDAR camera pose PCR dataset.
@@ -37,6 +38,8 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             pc_filepaths: List of point cloud file paths
             transforms_json_filepaths: List of transforms.json file paths (must correspond to pc_filepaths)
             dataset_size: Total number of synthetic pairs to generate
+            camera_count: Optional number of camera poses to randomly sample from the union. 
+                         If None, use all available camera poses.
             **kwargs: Additional arguments passed to parent class
         """
         # Validate inputs
@@ -47,9 +50,15 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         )
         assert len(pc_filepaths) > 0, "Must provide at least one point cloud file"
         
-        # Store file paths
+        # Validate camera_count if provided
+        if camera_count is not None:
+            assert isinstance(camera_count, int), f"camera_count must be int, got {type(camera_count)}"
+            assert camera_count > 0, f"camera_count must be positive, got {camera_count}"
+        
+        # Store file paths and camera_count
         self.pc_filepaths = pc_filepaths
         self.transforms_json_filepaths = transforms_json_filepaths
+        self.camera_count = camera_count
         
         # Initialize list to store all camera poses from all transforms.json files
         self.all_camera_poses: List[np.ndarray] = []
@@ -109,6 +118,25 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         assert len(self.all_camera_poses) > 0, (
             f"No camera poses found in any transforms.json files."
         )
+        
+        # Apply subsampling if camera_count is specified
+        if self.camera_count is not None:
+            total_poses = len(self.all_camera_poses)
+            
+            # Ensure we don't request more poses than available
+            if self.camera_count > total_poses:
+                print(f"Warning: Requested {self.camera_count} camera poses but only {total_poses} available. Using all poses.")
+            else:
+                # Randomly sample camera_count poses from the union
+                # Use a fixed seed for reproducibility
+                rng = np.random.RandomState(seed=42)
+                selected_indices = rng.choice(total_poses, size=self.camera_count, replace=False)
+                selected_indices = sorted(selected_indices)  # Sort for deterministic ordering
+                
+                # Keep only the selected poses
+                self.all_camera_poses = [self.all_camera_poses[i] for i in selected_indices]
+                
+                print(f"Subsampled {self.camera_count} camera poses from {total_poses} total poses")
     
     # =========================================================================
     # Camera pose loading utilities
