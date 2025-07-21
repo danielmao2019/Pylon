@@ -101,16 +101,45 @@ def update_transforms_section(dataset_info: Dict[str, Any]) -> List[html.Div]:
 
 
 @callback(
-    outputs=Output('dataset-dropdown', 'options'),
+    outputs=[
+        Output('dataset-dropdown', 'options'),
+        Output('dataset-dropdown', 'disabled'),
+        Output('dataset-dropdown', 'placeholder'),
+        Output('dataset-dropdown', 'value')
+    ],
+    inputs=[Input('dataset-group-dropdown', 'value')],
+    group="dataset"
+)
+def update_dataset_options(selected_group: Optional[str]) -> List[Union[List[Dict[str, str]], bool, str, None]]:
+    """Update dataset dropdown options based on selected group."""
+    if selected_group is None:
+        return [[], True, "First select a category above...", None]
+
+    # Get hierarchical datasets
+    hierarchical_datasets = registry.viewer.backend.get_available_datasets_hierarchical()
+    
+    if selected_group not in hierarchical_datasets:
+        return [[], True, "No datasets found for this category", None]
+
+    # Create options for the selected group
+    options = []
+    for dataset_key, dataset_name in sorted(hierarchical_datasets[selected_group].items()):
+        options.append({'label': dataset_name, 'value': dataset_key})
+
+    return [options, False, f"Choose from {len(options)} available datasets...", None]
+
+
+@callback(
+    outputs=Output('dataset-dropdown', 'options', allow_duplicate=True),
     inputs=[Input('reload-button', 'n_clicks')],
     group="dataset"
 )
 def reload_datasets(n_clicks: Optional[int]) -> List[Dict[str, str]]:
-    """Reload available datasets."""
+    """Reload available datasets (legacy flat structure for compatibility)."""
     if n_clicks is None:
         raise PreventUpdate
 
-    # Get list of available datasets
+    # Get list of available datasets (flat structure)
     available_datasets = registry.viewer.backend.get_available_datasets()
 
     # Create options for the dropdown
