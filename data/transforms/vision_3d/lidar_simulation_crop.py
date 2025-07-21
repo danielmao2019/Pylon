@@ -1,5 +1,6 @@
 from typing import Dict, Union
 import torch
+import numpy as np
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 
@@ -164,9 +165,87 @@ class LiDARSimulationCrop(BaseTransform):
         
         return h_mask & v_mask
 
+    def _analyze_point_density(self, positions: torch.Tensor, k_neighbors: int = 10) -> float:
+        """Analyze point cloud density to determine optimal voxel size.
+        
+        Args:
+            positions: Point cloud positions [N, 3]
+            k_neighbors: Number of neighbors to consider for density estimation
+            
+        Returns:
+            90th percentile of average neighbor distances (robust density measure)
+        """
+        positions_np = positions.cpu().numpy()
+        
+        # Build KD-tree for efficient neighbor search
+        try:
+            from scipy.spatial import cKDTree
+        except ImportError:
+            # Fallback: use simple distance calculation (slower but works)
+            return self._fallback_density_analysis(positions)
+        
+        tree = cKDTree(positions_np)
+        
+        # Find k-nearest neighbors for each point
+        distances, indices = tree.query(positions_np, k=k_neighbors+1)  # +1 because includes self
+        
+        # Remove self-distance (first column is always 0)
+        neighbor_distances = distances[:, 1:]
+        
+        # Calculate average distance to k-nearest neighbors for each point
+        avg_distances = np.mean(neighbor_distances, axis=1)
+        
+        # Use 90th percentile as robust density measure (less sensitive to outliers)
+        return float(np.percentile(avg_distances, 90))
+    
+    def _fallback_density_analysis(self, positions: torch.Tensor) -> float:
+        """Fallback density analysis when scipy is not available."""
+        # Sample subset of points for efficiency
+        n_sample = min(1000, positions.shape[0])
+        sample_indices = torch.randperm(positions.shape[0])[:n_sample]
+        sample_positions = positions[sample_indices]
+        
+        # Calculate pairwise distances for sample
+        distances = torch.cdist(sample_positions, sample_positions)
+        
+        # For each point, find distance to 10th closest point (excluding self)
+        k = min(10, n_sample - 1)
+        sorted_distances, _ = torch.sort(distances, dim=1)
+        kth_distances = sorted_distances[:, k]  # k+1 because of self at index 0
+        
+        # Return 90th percentile
+        return float(torch.quantile(kth_distances, 0.9))
+    
+    def _determine_voxel_size(self, positions: torch.Tensor) -> float:
+        """Automatically determine optimal voxel size based on point density.
+        
+        Args:
+            positions: Point cloud positions [N, 3]
+            
+        Returns:
+            Optimal voxel size for ray-based occlusion filtering
+        """
+        if positions.shape[0] < 10:
+            return 0.2  # Default for very small point clouds
+        
+        # Analyze point density
+        density_spacing = self._analyze_point_density(positions)
+        
+        # Base voxel size: 3x the 90th percentile spacing
+        # This groups nearby points into surfaces while preserving detail
+        base_voxel_size = density_spacing * 3.0
+        
+        # Clamp to reasonable bounds
+        min_voxel_size = 0.05  # 5cm minimum for precision
+        max_voxel_size = 2.0   # 2m maximum for efficiency
+        
+        voxel_size = max(min_voxel_size, min(base_voxel_size, max_voxel_size))
+        
+        return voxel_size
+    
     def _apply_occlusion_filter(self, positions: torch.Tensor, sensor_pos: torch.Tensor, 
                                current_mask: torch.Tensor) -> torch.Tensor:
-        """Apply occlusion filtering using simplified ray-casting.
+        """Apply occlusion filtering using ray-based voxel approach.
         
         Args:
             positions: Point cloud positions [N, 3]
@@ -182,44 +261,64 @@ class LiDARSimulationCrop(BaseTransform):
         if valid_positions.shape[0] == 0:
             return current_mask
         
-        # Compute distances from sensor to all valid points
-        distances = torch.norm(valid_positions - sensor_pos.unsqueeze(0), dim=1)
+        # Automatically determine optimal voxel size based on point density
+        voxel_size = self._determine_voxel_size(valid_positions)
         
-        # Sort points by distance (closer points can occlude farther ones)
-        distance_order = torch.argsort(distances)
-        sorted_positions = valid_positions[distance_order]
+        # Convert to numpy for processing
+        valid_positions_np = valid_positions.cpu().numpy()
+        sensor_pos_np = sensor_pos.cpu().numpy()
+        
+        # Compute distances and sort by distance (closer points first)
+        distances = np.linalg.norm(valid_positions_np - sensor_pos_np, axis=1)
+        distance_order = np.argsort(distances)
+        sorted_positions = valid_positions_np[distance_order]
         sorted_distances = distances[distance_order]
         
-        # Simplified occlusion: for each point, check if any closer point is "nearby" in angular space
-        occlusion_mask = torch.ones(valid_positions.shape[0], dtype=torch.bool, device=positions.device)
+        # Create voxel grid bounds
+        all_positions = np.vstack([valid_positions_np, sensor_pos_np[np.newaxis, :]])
+        min_coords = all_positions.min(axis=0) - voxel_size
+        max_coords = all_positions.max(axis=0) + voxel_size
         
-        angular_threshold = 0.05  # radians (~3 degrees) - points closer than this can occlude
+        def pos_to_voxel_key(pos):
+            """Convert position to voxel key for hashing."""
+            voxel_coords = np.floor((pos - min_coords) / voxel_size).astype(int)
+            return tuple(voxel_coords)
         
-        for i in range(1, len(sorted_positions)):  # Skip first point (closest, can't be occluded)
-            current_point = sorted_positions[i]
-            current_distance = sorted_distances[i]
+        # Use dictionary for fast voxel occupancy lookup
+        occupied_voxels = {}
+        occlusion_mask = np.ones(len(valid_positions_np), dtype=bool)
+        
+        # Ray density factor: check 80% of ray length for occlusion
+        ray_density_factor = 0.8
+        
+        # Process points in distance order (closer points first)
+        for i, (point, distance) in enumerate(zip(sorted_positions, sorted_distances)):
+            ray_direction = (point - sensor_pos_np) / distance
             
-            # Check against all closer points
-            closer_points = sorted_positions[:i]
-            closer_distances = sorted_distances[:i]
+            # Check ray for occlusion - sample based on voxel size and distance
+            max_check_distance = distance * ray_density_factor
+            num_samples = max(10, int(max_check_distance / voxel_size))
             
-            # Compute angular distances between current point and closer points
-            # Both normalized to unit vectors from sensor
-            current_dir = (current_point - sensor_pos) / current_distance
-            closer_dirs = (closer_points - sensor_pos.unsqueeze(0)) / closer_distances.unsqueeze(1)
+            is_occluded = False
+            for sample_idx in range(1, num_samples + 1):  # Skip sensor position
+                sample_distance = max_check_distance * (sample_idx / num_samples)
+                sample_point = sensor_pos_np + ray_direction * sample_distance
+                voxel_key = pos_to_voxel_key(sample_point)
+                
+                if voxel_key in occupied_voxels:
+                    is_occluded = True
+                    break
             
-            # Angular distance using dot product: angle = arccos(dot(a, b))
-            dot_products = torch.sum(current_dir.unsqueeze(0) * closer_dirs, dim=1)
-            dot_products = torch.clamp(dot_products, -1.0, 1.0)  # Avoid numerical issues
-            angular_distances = torch.acos(dot_products)
-            
-            # If any closer point is within angular threshold, mark as occluded
-            if torch.any(angular_distances < angular_threshold):
-                original_idx = distance_order[i]
+            original_idx = distance_order[i]
+            if is_occluded:
                 occlusion_mask[original_idx] = False
+            else:
+                # Mark point's voxel as occupied for future occlusion checks
+                point_voxel_key = pos_to_voxel_key(point)
+                occupied_voxels[point_voxel_key] = i
         
         # Map back to original indexing
         full_occlusion_mask = torch.ones(positions.shape[0], dtype=torch.bool, device=positions.device)
-        full_occlusion_mask[current_mask] = occlusion_mask
+        full_occlusion_mask[current_mask] = torch.from_numpy(occlusion_mask).to(positions.device)
         
         return full_occlusion_mask
