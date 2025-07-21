@@ -171,9 +171,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                             self.transform_cache[param_tuple] = file_data
                     else:
                         self.transform_cache = {}
-            except (json.JSONDecodeError, IOError) as e:
-                # If file is corrupted or unreadable, start with empty cache
-                print(f"Warning: Error loading cache from {self.cache_filepath}: {e}. Starting with empty cache.")
+            except (json.JSONDecodeError, IOError, AssertionError) as e:
+                # If file is corrupted, unreadable, or incompatible, delete it and start fresh
+                print(f"Warning: Incompatible cache file {self.cache_filepath}: {e}. Deleting and starting with empty cache.")
+                try:
+                    os.remove(self.cache_filepath)
+                except OSError:
+                    pass  # Ignore errors if file cannot be deleted
                 self.transform_cache = {}
         else:
             self.transform_cache = {}
@@ -250,12 +254,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     assert crop_method == 'lidar', f"Transform {i} crop_method must be 'lidar', got '{crop_method}'"
                     
                     lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
-                                  'lidar_horizontal_fov', 'lidar_vertical_fov']
+                                  'lidar_horizontal_fov', 'lidar_vertical_fov', 'crop_seed']
                     for field in lidar_fields:
                         assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
-                    
-                    # Check for crop_seed (optional for backward compatibility with old cache files)
-                    # If missing, it will be generated from the main seed during cache loading
                     
                     # Validate field types and values
                     assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
@@ -463,11 +464,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Get the specific transform config from cache
         transform_config = valid_transforms[transform_idx]
-        
-        # Backward compatibility: generate crop_seed if missing from old cache files
-        if 'crop_seed' not in transform_config:
-            main_seed = transform_config.get('seed', 0)
-            transform_config['crop_seed'] = (main_seed * 31 + 42) % (2**32)
         
         # Build transform components from cached params
         transform_matrix, crop_transform = self._build_transform(transform_config)
