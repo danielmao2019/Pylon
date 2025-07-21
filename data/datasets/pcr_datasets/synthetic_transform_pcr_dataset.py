@@ -6,7 +6,6 @@ import hashlib
 import threading
 import numpy as np
 import torch
-from concurrent.futures import ThreadPoolExecutor
 from data.datasets.base_dataset import BaseDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
 from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
@@ -465,7 +464,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         return src_pc, tgt_pc, transform_matrix, transform_config
     
     def _generate_more(self, file_idx: int, needed_count: int) -> None:
-        """Generate more valid transforms and cache them (parallel version).
+        """Generate more valid transforms and cache them.
         
         Args:
             file_idx: Index of file pair
@@ -487,100 +486,63 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         generated_results = []
         trial = len(cached_transforms)  # Start from where cache left off
-        
-        # Process transforms in parallel batches
-        batch_size = min(needed_count * 3, 20)  # Generate more than needed for better hit rate
+        target_attempts = needed_count * 3  # Generate more than needed for better hit rate
         
         while len(generated_results) < needed_count and trial < self.max_trials:
-            # Prepare batch of work (deterministic seeds using file_idx, trial_idx)
-            current_batch_size = min(batch_size, self.max_trials - trial)
-            batch_args = []
-            for i in range(current_batch_size):
-                trial_idx = trial + i
-                batch_args.append((src_pc_data, tgt_pc_data, file_idx, trial_idx))
+            # Process single transform (deterministic seed using file_idx, trial)
+            result = self._process_single_transform((src_pc_data, tgt_pc_data, file_idx, trial))
             
-            # Process batch in parallel
-            batch_results = self._process_transform_batch(batch_args)
+            # Update cache with new transform
+            cached_transforms.append(result['transform_params'])
             
-            # Collect results and update cache
-            new_cache_entries = []
-            for result in batch_results:
-                new_cache_entries.append(result['transform_params'])
-                
-                # Check if overlap is in range and meets minimum points requirement
-                src_num_points = result['transform_params']['src_num_points']
-                tgt_num_points = result['transform_params']['tgt_num_points']
-                if (self.overlap_range[0] < result['overlap'] <= self.overlap_range[1] and
-                    src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                    generated_results.append((
-                        result['src_pc'], 
-                        result['tgt_pc'], 
-                        result['transform_matrix'], 
-                        result['transform_params']
-                    ))
+            # Check if overlap is in range and meets minimum points requirement
+            src_num_points = result['transform_params']['src_num_points']
+            tgt_num_points = result['transform_params']['tgt_num_points']
+            if (self.overlap_range[0] < result['overlap'] <= self.overlap_range[1] and
+                src_num_points >= self.min_points and tgt_num_points >= self.min_points):
+                generated_results.append((
+                    result['src_pc'], 
+                    result['tgt_pc'], 
+                    result['transform_matrix'], 
+                    result['transform_params']
+                ))
             
-            # Thread-safe cache update
-            with self._cache_lock:
-                cached_transforms.extend(new_cache_entries)
-                # Always update in-memory cache with new structure
-                param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
-                if param_key not in self.transform_cache:
-                    self.transform_cache[param_key] = {}
-                self.transform_cache[param_key][file_cache_key] = cached_transforms
-                # Save to file only if cache_filepath is provided
-                if self.cache_filepath is not None:
-                    self._save_transform_cache()
+            trial += 1
             
-            trial += current_batch_size
+            # Periodically save cache to avoid losing progress
+            if trial % 10 == 0:
+                with self._cache_lock:
+                    param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+                    if param_key not in self.transform_cache:
+                        self.transform_cache[param_key] = {}
+                    self.transform_cache[param_key][file_cache_key] = cached_transforms.copy()
+                    if self.cache_filepath is not None:
+                        self._save_transform_cache()
             
-            # Early exit if we have enough valid results
-            if len(generated_results) >= needed_count:
+            # Early exit if we have enough valid results and attempted enough
+            if len(generated_results) >= needed_count or (trial - len(cached_transforms)) >= target_attempts:
                 break
+        
+        # Final cache update
+        with self._cache_lock:
+            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            if param_key not in self.transform_cache:
+                self.transform_cache[param_key] = {}
+            self.transform_cache[param_key][file_cache_key] = cached_transforms
+            if self.cache_filepath is not None:
+                self._save_transform_cache()
         
         # Fail fast if no valid results found - don't hide the problem
         assert len(generated_results) > 0, (
-            f"Failed to generate any valid transforms after {self.max_trials} trials. "
+            f"Failed to generate any valid transforms after {trial} trials. "
             f"Parameters: overlap_range={self.overlap_range}, file_idx={file_idx}, "
             f"needed_count={needed_count}. "
             f"Consider: 1) Relaxing overlap_range, 2) Reducing cropping aggressiveness, "
             f"3) Adjusting rotation/translation ranges for ModelNet40 object scale."
         )
-        
-        # Verify we generated enough valid transforms
-        with self._cache_lock:
-            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
-            param_cache = self.transform_cache.get(param_key, {})
-            updated_cached_transforms = param_cache.get(file_cache_key, [])
-        
-        # Count valid transforms to verify we have enough
-        valid_count = 0
-        for transform_config in updated_cached_transforms:
-            overlap = transform_config.get('overlap', 0.0)
-            src_num_points = transform_config.get('src_num_points', 0)
-            tgt_num_points = transform_config.get('tgt_num_points', 0)
-            
-            if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
-                src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                valid_count += 1
-    
-    def _process_transform_batch(self, batch_args: List[Tuple]) -> List[Dict[str, Any]]:
-        """Process a batch of transforms sequentially.
-        
-        Sequential processing prevents memory explosion when used with large point clouds
-        like ModelNet40 (~90K points) that can cause system memory issues with nested parallelism.
-        
-        Args:
-            batch_args: List of (src_pc_raw, tgt_pc_raw, file_idx, trial_idx) tuples
-            
-        Returns:
-            List of result dictionaries
-        """
-        # Process sequentially to avoid memory explosion with large point clouds
-        results = [self._process_single_transform(args) for args in batch_args]
-        return results
     
     def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
-        """Process a single transform - thread-safe worker function.
+        """Process a single transform.
         
         Args:
             args: Tuple of (src_pc_data, tgt_pc_data, file_idx, trial_idx)
