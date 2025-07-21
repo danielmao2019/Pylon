@@ -145,10 +145,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             total_after = sum(len(poses) for poses in self.scene_camera_poses.values())
             print(f"Total camera poses: {total_before} → {total_after} after per-scene subsampling")
     
-    # =========================================================================
-    # Camera pose loading utilities
-    # =========================================================================
-    
     def _load_camera_poses_from_json(self, json_path: str) -> List[np.ndarray]:
         """Load camera poses from a transforms.json file (nerfstudio format only).
         
