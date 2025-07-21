@@ -49,7 +49,8 @@ def create_3d_controls(visible=False, **kwargs):
             max=10,
             value=settings['point_size'],
             marks={i: str(i) for i in [1, 3, 5, 7, 10]},
-            step=0.5
+            step=0.5,
+            updatemode='drag'
         ),
 
         html.Label("Point Opacity", style={'margin-top': '20px'}),
@@ -59,7 +60,8 @@ def create_3d_controls(visible=False, **kwargs):
             max=1.0,
             value=settings['point_opacity'],
             marks={i/10: str(i/10) for i in range(1, 11, 2)},
-            step=0.1
+            step=0.1,
+            updatemode='drag'
         ),
 
         # PCR-specific controls
@@ -72,7 +74,8 @@ def create_3d_controls(visible=False, **kwargs):
                 max=1.0,
                 value=settings['sym_diff_radius'],
                 marks={i/10: str(i/10) for i in range(0, 11, 2)},
-                step=0.01
+                step=0.01,
+                updatemode='drag'
             ),
 
             # Correspondence radius slider
@@ -83,7 +86,8 @@ def create_3d_controls(visible=False, **kwargs):
                 max=1.0,
                 value=settings['corr_radius'],
                 marks={i/10: str(i/10) for i in range(0, 11, 2)},
-                step=0.01
+                step=0.01,
+                updatemode='drag'
             ),
         ], id='pcr-controls', style={'display': 'none'}),  # Hidden by default, shown only for PCR datasets
 
@@ -97,7 +101,8 @@ def create_3d_controls(visible=False, **kwargs):
                 value=settings['density_percentage'],
                 marks={i: f"{i}%" for i in range(10, 101, 10)},
                 step=10,
-                tooltip={"placement": "bottom", "always_visible": True}
+                tooltip={"placement": "bottom", "always_visible": True},
+                updatemode='drag'
             ),
         ], id='density-controls', style={'display': 'none'}),  # Hidden by default, shown only when LOD type is 'none'
     ], id='view-controls', style=style)
