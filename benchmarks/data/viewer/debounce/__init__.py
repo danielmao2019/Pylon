@@ -1,0 +1,1 @@
+"""Debouncing performance benchmark for data viewer callbacks."""
