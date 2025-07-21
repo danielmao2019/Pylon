@@ -162,9 +162,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
                     if scene not in self.scene_camera_poses:
                         self.scene_camera_poses[scene] = []
                     self.scene_camera_poses[scene].append(pose)
-        
-        # Build flattened list for sampling (will be populated after coordinate transformations)
-        self._rebuild_flattened_poses_list()
     
     def _load_camera_poses_from_json(self, json_path: str) -> List[np.ndarray]:
         """Load camera poses from a transforms.json file (nerfstudio format only).
