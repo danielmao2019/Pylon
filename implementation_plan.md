@@ -38,10 +38,11 @@ This document outlines the plan to generalize Pylon's progress tracking function
 1. **Fail Fast**: Enforce runner type detection - no fallbacks or guessing
 2. **ProgressInfo Dataclass**: Always return ProgressInfo dataclass, not percentages
 3. **Unified Status Options**: Same status options for both trainers and evaluators
-4. **Backward Compatibility**: Existing API signatures preserved
+4. **Better API Design**: Improve APIs where needed (not strictly backward compatible)
 5. **Separate Module**: New progress tracking at `@utils/automation/progress_tracking/`
 6. **Multi-stage Ready**: Design supports but doesn't implement multi-stage training
-7. **WebSocket Ready**: Architecture supports real-time updates
+7. **Code Reuse**: Share runner detection utility with eval_viewer
+8. **Focus on Progress**: Track progress only, not detailed scores (eval_viewer handles that)
 
 ## Architecture Design
 
@@ -54,20 +55,20 @@ utils/automation/progress_tracking/
 ├── trainer_progress_tracker.py   # Trainer-specific implementation  
 ├── evaluator_progress_tracker.py # Evaluator-specific implementation
 ├── progress_tracker_factory.py   # Factory and runner detection
-└── websocket_progress.py         # Future: Real-time WebSocket updates
+├── session_progress.py           # Moved from run_status (trainer logic)
+└── runner_detection.py           # Shared utility for both progress_tracking and eval_viewer
 ```
 
-### 2. Enhanced ProgressInfo Dataclass
+### 2. Simplified ProgressInfo Dataclass (Focus on Progress)
 
 ```python
 # utils/automation/progress_tracking/base_progress_tracker.py
-from typing import Dict, Any, Optional, Literal, List
-from dataclasses import dataclass
-import time
+from typing import Optional, Literal, List
+from dataclasses import dataclass, asdict
 
 @dataclass  
 class ProgressInfo:
-    """Enhanced progress information structure for both trainers and evaluators."""
+    """Simplified progress information focusing on progress tracking only."""
     # REQUIRED: Existing fields (backward compatibility)
     completed_epochs: int
     progress_percentage: float
@@ -77,18 +78,8 @@ class ProgressInfo:
     # NEW: Runner type identification
     runner_type: Literal['trainer', 'evaluator', 'multi_stage'] = 'trainer'
     
-    # NEW: Enhanced metadata
+    # NEW: Enhanced metadata (but focused)
     total_epochs: Optional[int] = None  # None for evaluators
-    start_time: Optional[float] = None
-    last_update_time: Optional[float] = None
-    
-    # NEW: Score tracking (like eval_viewer)
-    best_score: Optional[Dict[str, float]] = None
-    latest_score: Optional[Dict[str, float]] = None
-    
-    # NEW: Error handling
-    error_message: Optional[str] = None
-    warnings: Optional[List[str]] = None
     
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization (backward compatibility)."""
@@ -166,18 +157,15 @@ class TrainerProgressTracker(BaseProgressTracker):
         return "train_val*.log"
     
     def calculate_progress(self) -> ProgressInfo:
-        """Calculate trainer-specific progress using existing session_progress logic."""
-        # Use existing logic from session_progress.py
-        from utils.automation.run_status.session_progress import get_session_progress
+        """Calculate trainer-specific progress using moved session_progress logic."""
+        # Use moved session_progress logic (now in same module)
+        from utils.automation.progress_tracking.session_progress import get_session_progress
         
         # Get basic progress info (preserves existing logic)  
         basic_progress = get_session_progress(self.work_dir, self.get_expected_files())
         
         # Enhance with new fields
         total_epochs = self.config.get('epochs') if self.config else None
-        
-        # Load scores if available (like eval_viewer does)
-        best_score, latest_score = self._load_validation_scores()
         
         return ProgressInfo(
             # Existing fields (backward compatibility)
@@ -189,8 +177,6 @@ class TrainerProgressTracker(BaseProgressTracker):
             # New fields
             runner_type='trainer',
             total_epochs=total_epochs,
-            best_score=best_score,
-            latest_score=latest_score,
         )
     
     def is_complete(self) -> bool:
@@ -227,9 +213,6 @@ class EvaluatorProgressTracker(BaseProgressTracker):
         # For evaluators: completed_epochs = 1 if finished, 0 if not
         completed_epochs = 1 if eval_complete else 0
         
-        # Load evaluation scores if available
-        scores = self._load_evaluation_scores() if eval_complete else None
-        
         return ProgressInfo(
             # Existing fields (adapted for evaluator)
             completed_epochs=completed_epochs,
@@ -240,8 +223,6 @@ class EvaluatorProgressTracker(BaseProgressTracker):
             # New fields
             runner_type='evaluator',
             total_epochs=1,  # Evaluators have conceptually 1 "epoch"
-            best_score=scores,  # Same as latest for single evaluation
-            latest_score=scores,
         )
     
     def is_complete(self) -> bool:
@@ -253,21 +234,38 @@ class EvaluatorProgressTracker(BaseProgressTracker):
         )
 ```
 
-### 6. Progress Tracker Factory with Fail Fast
+### 6. Shared Runner Detection Utility
 
 ```python
-# utils/automation/progress_tracking/progress_tracker_factory.py
+# utils/automation/progress_tracking/runner_detection.py
 def detect_runner_type(work_dir: str, config: Optional[Dict[str, Any]] = None) -> Literal['trainer', 'evaluator']:
-    """Detect runner type from work_dir structure or config. FAIL FAST if cannot determine."""
+    """Detect runner type from work_dir structure or config. 
     
-    # Strategy 1: Check existing files (like eval_viewer does)
+    This utility is shared between progress_tracking and eval_viewer.
+    
+    Args:
+        work_dir: Path to log/work directory
+        config: Optional config dictionary for additional context
+        
+    Returns:
+        'trainer' if directory contains BaseTrainer results
+        'evaluator' if directory contains BaseEvaluator results
+        
+    Raises:
+        ValueError: If runner type cannot be determined (FAIL FAST)
+    """
+    # Strategy 1: Check existing files (based on eval_viewer's proven approach)
+    # Check for BaseEvaluator pattern: evaluation_scores.json directly in work_dir
     if os.path.exists(os.path.join(work_dir, "evaluation_scores.json")):
         return 'evaluator'
     
-    if os.path.exists(os.path.join(work_dir, "epoch_0")):
+    # Check for BaseTrainer pattern: epoch folders with validation_scores.json
+    epoch_0_dir = os.path.join(work_dir, "epoch_0")
+    validation_scores_path = os.path.join(epoch_0_dir, "validation_scores.json")
+    if os.path.exists(epoch_0_dir) and os.path.exists(validation_scores_path):
         return 'trainer'
     
-    # Strategy 2: Check config if available
+    # Strategy 2: Check config if available (additional context)
     if config:
         runner_class = config.get('runner', {}).get('class', None)
         if runner_class:
@@ -286,13 +284,16 @@ def detect_runner_type(work_dir: str, config: Optional[Dict[str, Any]] = None) -
     config_info = f"Config keys: {list(config.keys())}" if config else "No config provided"
     
     raise ValueError(
-        f"Cannot detect runner type for work_dir: {work_dir}\n"
+        f"Unable to detect runner type for work_dir: {work_dir}\n"
         f"Available files: {available_files}\n"
         f"{config_info}\n"
         f"Expected patterns:\n"
-        f"  - Trainer: epoch_0/ directory OR 'epochs' in config\n"
+        f"  - Trainer: epoch_0/ directory with validation_scores.json OR 'epochs' in config\n"
         f"  - Evaluator: evaluation_scores.json file OR 'Evaluator' in runner class name"
     )
+
+# utils/automation/progress_tracking/progress_tracker_factory.py
+from .runner_detection import detect_runner_type
 
 def create_progress_tracker(work_dir: str, config: Optional[Dict[str, Any]] = None) -> BaseProgressTracker:
     """Factory function to create appropriate progress tracker."""
@@ -370,28 +371,25 @@ def get_log_last_update(work_dir: str, log_pattern: str) -> Optional[float]:
 
 1. **Phase 1: Core Infrastructure**
    - Create new `utils/automation/progress_tracking/` module
-   - Implement enhanced ProgressInfo dataclass with new fields
+   - Move session_progress.py from run_status to progress_tracking module
+   - Create shared runner_detection.py utility
+   - Implement simplified ProgressInfo dataclass (focus on progress only)
    - Implement BaseProgressTracker abstract class
-   - Implement TrainerProgressTracker (wraps existing session_progress logic)
+   - Implement TrainerProgressTracker (uses moved session_progress logic)
    - Implement EvaluatorProgressTracker (new functionality)
    - Create progress tracker factory with fail-fast runner type detection
 
 2. **Phase 2: Integration**
-   - Update run_status.py to use progress trackers
-   - Keep session_progress.py as-is but import from new module
-   - Update agents to work with RunStatus.progress (ProgressInfo object)
-   - Remove any remaining string-based status handling
+   - Update run_status.py to use new progress trackers
+   - Update eval_viewer to import shared runner_detection utility
+   - Update agents to access new runner_type field from ProgressInfo
+   - Improve API signatures where beneficial (not strictly backward compatible)
 
-3. **Phase 3: Enhanced Features**  
-   - Add score tracking integration (like eval_viewer)
-   - Implement progress.json caching with new fields
-   - Add WebSocket-based real-time progress updates
-   - Create unified progress viewer UI
-
-4. **Phase 4: Testing & Documentation**
+3. **Phase 3: Testing & Documentation**
    - Write unit tests for each progress tracker
-   - Test fail-fast runner detection
+   - Test fail-fast runner detection with both valid and invalid cases
    - Test backward compatibility with existing trainer runs
+   - Test evaluator progress tracking with evaluation configs
    - Add examples for both trainer and evaluator usage
 
 ## Progress.json Fields
@@ -411,15 +409,11 @@ def get_log_last_update(work_dir: str, log_pattern: str) -> Optional[float]:
 {
   // Existing fields preserved above...
   "runner_type": "trainer",
-  "total_epochs": 10,
-  "start_time": 1642680000.0,
-  "last_update_time": 1642680300.0,
-  "best_score": {"accuracy": 0.95, "loss": 0.05},
-  "latest_score": {"accuracy": 0.93, "loss": 0.07},
-  "error_message": null,
-  "warnings": []
+  "total_epochs": 10
 }
 ```
+
+**Focus**: Only essential progress fields, no score tracking (eval_viewer handles detailed score visualization).
 
 **Backward Compatibility**: Old progress.json files still work, new fields added only when using new progress trackers.
 
@@ -438,44 +432,18 @@ for run_name, run_status in all_run_status.items():
     runner_type = progress_info.runner_type  # NEW field
 ```
 
-## WebSocket Real-time Updates
+## Eval Viewer Integration
 
-**Benefits of WebSocket Implementation**:
+**Update eval_viewer to use shared runner detection**:
 
-1. **Live Progress Monitoring**: Real-time updates without polling
-2. **Multi-client Support**: Multiple users can monitor same experiments
-3. **Efficient Bandwidth**: Only send changes, not full state
-4. **Event-driven Architecture**: React to file system changes immediately
-5. **Better User Experience**: No page refresh needed for updates
-
-**WebSocket Architecture**:
 ```python
-# utils/automation/progress_tracking/websocket_progress.py
-class ProgressWebSocketServer:
-    """Real-time progress updates via WebSocket."""
-    
-    def __init__(self, work_dirs: List[str]):
-        self.progress_trackers = {
-            work_dir: create_progress_tracker(work_dir, load_config(work_dir))
-            for work_dir in work_dirs
-        }
-        self.clients = set()
-        
-    async def monitor_progress(self):
-        """Background task to monitor file changes and broadcast updates."""
-        while True:
-            for work_dir, tracker in self.progress_trackers.items():
-                new_progress = tracker.get_progress(force_refresh=True)
-                if self._has_changes(work_dir, new_progress):
-                    await self._broadcast_update(work_dir, new_progress)
-            await asyncio.sleep(1)  # Check every second
-```
+# runners/eval_viewer/backend/initialization.py
+# REPLACE the existing detect_runner_type function with:
+from utils.automation.progress_tracking.runner_detection import detect_runner_type
 
-**Use Cases**:
-- **Experiment Dashboard**: Live overview of all running experiments
-- **Debug Monitoring**: Watch training metrics in real-time
-- **Resource Management**: Immediate notification when GPUs become available
-- **Collaboration**: Share experiment progress with team members
+# The rest of eval_viewer can use detect_runner_type unchanged
+# This provides code reuse and consistent behavior
+```
 
 ## Fail Fast Runner Detection
 
@@ -497,20 +465,21 @@ Expected patterns:
   - Evaluator: evaluation_scores.json file OR 'Evaluator' in runner class name
 ```
 
-## Backward Compatibility Guarantees
+## Backward Compatibility Considerations
 
-1. **API Signatures**: `get_run_status()` and `get_all_run_status()` maintain exact same signatures
+1. **API Improvements**: May improve API signatures where beneficial (not strictly preserved)
 2. **Return Types**: Still return `RunStatus` and `Dict[str, RunStatus]` respectively  
 3. **ProgressInfo Fields**: All existing fields (`completed_epochs`, `progress_percentage`, etc.) preserved
 4. **Existing progress.json**: Old files still load correctly, new fields added transparently
-5. **Agent Integration**: Existing agent code continues to work without modification
+5. **Agent Integration**: Agents continue to work via `RunStatus.progress` (ProgressInfo object)
+6. **Focus**: Prioritize better design over strict backward compatibility
 
 ## Benefits Summary
 
 1. **Unified System**: Same API for trainers, evaluators, and future runner types
 2. **First-class Evaluator Support**: Proper progress tracking for evaluation jobs
-3. **Enhanced Metadata**: Score tracking, timing info, error reporting
-4. **Real-time Updates**: WebSocket support for live monitoring
+3. **Focused Design**: Progress tracking focused on progress only (not scores)
+4. **Code Reuse**: Shared runner detection utility with eval_viewer
 5. **Fail Fast Detection**: Clear errors instead of silent wrong assumptions
 6. **Performance**: Smart caching with file-based invalidation  
 7. **Extensibility**: Easy to add multi-stage training, distributed training, etc.
