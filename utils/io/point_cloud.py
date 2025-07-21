@@ -35,6 +35,16 @@ def _load_from_ply(filepath, nameInPly: Optional[str] = None, name_feat: Optiona
         
         result = {'pos': positions}
 
+        # Add RGB colors if available
+        rgb_fields = ['red', 'green', 'blue']
+        if all(field in plydata[nameInPly].data.dtype.names for field in rgb_fields):
+            # Extract RGB values and normalize to [0, 1] range
+            red = plydata[nameInPly].data["red"].astype(np.float32) / 255.0
+            green = plydata[nameInPly].data["green"].astype(np.float32) / 255.0
+            blue = plydata[nameInPly].data["blue"].astype(np.float32) / 255.0
+            rgb = np.column_stack((red, green, blue))
+            result['rgb'] = rgb
+
         # Add feature if specified and exists
         if name_feat is not None and name_feat in plydata[nameInPly].data.dtype.names:
             features = plydata[nameInPly].data[name_feat].reshape(-1, 1)
