@@ -43,6 +43,10 @@ def display_3dcd_datapoint(
     points_1 = inputs['pc_1']['pos']  # First point cloud
     points_2 = inputs['pc_2']['pos']  # Second point cloud
     change_map = datapoint['labels']['change_map']
+    
+    # Extract RGB colors if available
+    rgb_1 = inputs['pc_1'].get('rgb')
+    rgb_2 = inputs['pc_2'].get('rgb')
 
     # Get statistics for point clouds
     stats_data = [
@@ -55,6 +59,7 @@ def display_3dcd_datapoint(
     figure_tasks = [
         lambda: create_point_cloud_figure(
             points=points_1,
+            colors=rgb_1,
             labels=None,
             title="Point Cloud 1",
             point_size=point_size,
@@ -66,6 +71,7 @@ def display_3dcd_datapoint(
         ),
         lambda: create_point_cloud_figure(
             points=points_2,
+            colors=rgb_2,
             labels=None,
             title="Point Cloud 2",
             point_size=point_size,
