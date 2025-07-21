@@ -13,14 +13,21 @@ class Clamp(BaseTransform):
         self.max_points = max_points
         super(Clamp, self).__init__()
 
-    def _call_single(self, pc: Dict[str, Any]) -> Dict[str, Any]:
+    def _call_single(self, pc: Dict[str, Any], generator: torch.Generator) -> Dict[str, Any]:
         """
         Args:
             pc (Dict[str, Any]): The point cloud to clamp.
+            generator: Random number generator for reproducible results.
         """
         check_point_cloud(pc)
+        
+        # Validate generator device type matches point cloud device type
+        assert generator.device.type == pc['pos'].device.type, (
+            f"Generator device type '{generator.device.type}' must match point cloud device type '{pc['pos'].device.type}'"
+        )
+        
         num_points = pc['pos'].shape[0]
         if num_points > self.max_points:
-            return RandomSelect(count=self.max_points)(pc)
+            return RandomSelect(count=self.max_points)(pc, generator=generator)
         else:
             return pc

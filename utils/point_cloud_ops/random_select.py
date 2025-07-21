@@ -27,16 +27,23 @@ class RandomSelect:
             self.percentage = None
             self.count = count
 
-    def __call__(self, pc: Dict[str, Any]) -> Dict[str, Any]:
+    def __call__(self, pc: Dict[str, Any], generator: torch.Generator) -> Dict[str, Any]:
         check_point_cloud(pc)
+        
+        # Validate generator device type matches point cloud device type
+        assert generator.device.type == pc['pos'].device.type, (
+            f"Generator device type '{generator.device.type}' must match point cloud device type '{pc['pos'].device.type}'"
+        )
+        
         num_points = pc['pos'].shape[0]
         
         if self.percentage is not None:
             num_points_to_select = int(num_points * self.percentage)
         else:
             num_points_to_select = min(self.count, num_points)  # Don't exceed available points
-            
-        indices = torch.randperm(num_points, device=pc['pos'].device)[:num_points_to_select]
+        
+        # Use generator for deterministic random selection
+        indices = torch.randperm(num_points, generator=generator, device=pc['pos'].device)[:num_points_to_select]
         return Select(indices)(pc)
 
     def __str__(self) -> str:
