@@ -53,6 +53,7 @@ data_cfg = {
             'transforms_json_filepaths': TRANSFORMS_JSON_FILEPATHS,
             'split': 'train',
             'dataset_size': 1000,  # Total number of synthetic registration pairs to generate (100 per file pair)
+            'camera_count': 50,  # Number of camera poses to randomly sample from the union
             'rotation_mag': 45.0,  # Synthetic transform parameters
             'translation_mag': 0.5,  # Synthetic transform parameters
             'matching_radius': 0.05,  # Radius for correspondence finding
