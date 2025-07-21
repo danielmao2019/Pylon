@@ -155,30 +155,21 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
     def _load_transform_cache(self) -> None:
         """Load cached transform-to-overlap mappings."""
         if os.path.exists(self.cache_filepath):
-            try:
-                with open(self.cache_filepath, 'r') as f:
-                    content = f.read().strip()
-                    if content:  # Only try to parse if file is not empty
-                        loaded_cache = json.loads(content)
-                        
-                        # Validate cache structure - will raise AssertionError if invalid
-                        self._validate_cache_structure(loaded_cache)
-                        
-                        # Convert string keys back to tuples for in-memory use
-                        self.transform_cache = {}
-                        for key_str, file_data in loaded_cache.items():
-                            param_tuple = eval(key_str)  # Convert string back to tuple
-                            self.transform_cache[param_tuple] = file_data
-                    else:
-                        self.transform_cache = {}
-            except (json.JSONDecodeError, IOError, AssertionError) as e:
-                # If file is corrupted, unreadable, or incompatible, delete it and start fresh
-                print(f"Warning: Incompatible cache file {self.cache_filepath}: {e}. Deleting and starting with empty cache.")
-                try:
-                    os.remove(self.cache_filepath)
-                except OSError:
-                    pass  # Ignore errors if file cannot be deleted
-                self.transform_cache = {}
+            with open(self.cache_filepath, 'r') as f:
+                content = f.read().strip()
+                if content:  # Only try to parse if file is not empty
+                    loaded_cache = json.loads(content)
+                    
+                    # Validate cache structure - will raise AssertionError if invalid
+                    self._validate_cache_structure(loaded_cache)
+                    
+                    # Convert string keys back to tuples for in-memory use
+                    self.transform_cache = {}
+                    for key_str, file_data in loaded_cache.items():
+                        param_tuple = eval(key_str)  # Convert string back to tuple
+                        self.transform_cache[param_tuple] = file_data
+                else:
+                    self.transform_cache = {}
         else:
             self.transform_cache = {}
     
