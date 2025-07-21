@@ -2,7 +2,7 @@ from typing import Dict, Any
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks import check_point_cloud
-from utils.point_cloud_ops.select import Select
+from utils.point_cloud_ops.random_select import RandomSelect
 
 
 class Clamp(BaseTransform):
@@ -21,7 +21,6 @@ class Clamp(BaseTransform):
         check_point_cloud(pc)
         num_points = pc['pos'].shape[0]
         if num_points > self.max_points:
-            indices = torch.arange(self.max_points, device=pc['pos'].device)
-            return Select(indices)(pc)
+            return RandomSelect(count=self.max_points)(pc)
         else:
             return pc

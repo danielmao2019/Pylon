@@ -1,9 +1,7 @@
-import os
 import json
-import glob
 import torch
 import numpy as np
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Dict, Any, List
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
 from data.transforms.vision_3d.pcr_translation import PCRTranslation
 
@@ -12,12 +10,11 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     """LiDAR camera pose PCR dataset that samples sensor poses from transforms.json files.
     
     This dataset extends SyntheticTransformPCRDataset to use camera poses from
-    transforms.json files when performing LiDAR simulation crops. Each point cloud
-    file is expected to have a corresponding transforms.json file containing camera
-    poses, and the dataset samples from the union of all camera poses across all files.
+    transforms.json files when performing LiDAR simulation crops. Point cloud
+    filepaths and corresponding transforms.json filepaths are provided directly.
     
     Key Features:
-    - Loads camera poses from transforms.json files alongside point cloud files
+    - Accepts lists of point cloud and transforms.json filepaths directly
     - Samples sensor positions from the union of all camera poses
     - Uses camera extrinsics matrices for LiDAR simulation sensor poses
     - Maintains deterministic sampling with caching support
@@ -29,125 +26,86 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     
     def __init__(
         self,
-        data_root: str,
+        pc_filepaths: List[str],
+        transforms_json_filepaths: List[str],
         dataset_size: int,
-        rotation_mag: float = 45.0,
-        translation_mag: float = 0.5,
-        matching_radius: float = 0.05,
-        overlap_range: Tuple[float, float] = (0.3, 1.0),
-        min_points: int = 512,
-        max_trials: int = 1000,
-        cache_filepath: Optional[str] = None,
-        transforms_json_pattern: str = "transforms.json",
         **kwargs,
     ) -> None:
         """Initialize LiDAR camera pose PCR dataset.
         
         Args:
-            data_root: Path to dataset root directory
+            pc_filepaths: List of point cloud file paths
+            transforms_json_filepaths: List of transforms.json file paths (must correspond to pc_filepaths)
             dataset_size: Total number of synthetic pairs to generate
-            rotation_mag: Maximum rotation magnitude in degrees for synthetic transforms
-            translation_mag: Maximum translation magnitude for synthetic transforms
-            matching_radius: Radius for correspondence finding
-            overlap_range: Overlap range (overlap_min, overlap_max] for filtering
-            min_points: Minimum number of points filter for cache generation
-            max_trials: Maximum number of trials to generate valid transforms
-            cache_filepath: Path to cache file (if None, no caching is used)
-            transforms_json_pattern: Pattern for finding transforms.json files relative to point clouds
             **kwargs: Additional arguments passed to parent class
         """
-        # Store transforms.json pattern before calling parent init
-        self.transforms_json_pattern = transforms_json_pattern
+        # Validate inputs
+        assert isinstance(pc_filepaths, list), f"pc_filepaths must be list, got {type(pc_filepaths)}"
+        assert isinstance(transforms_json_filepaths, list), f"transforms_json_filepaths must be list, got {type(transforms_json_filepaths)}"
+        assert len(pc_filepaths) == len(transforms_json_filepaths), (
+            f"Number of point clouds ({len(pc_filepaths)}) must match number of transforms.json files ({len(transforms_json_filepaths)})"
+        )
+        assert len(pc_filepaths) > 0, "Must provide at least one point cloud file"
+        
+        # Store file paths
+        self.pc_filepaths = pc_filepaths
+        self.transforms_json_filepaths = transforms_json_filepaths
         
         # Initialize list to store all camera poses from all transforms.json files
         self.all_camera_poses: List[np.ndarray] = []
         self.camera_pose_to_file_idx: Dict[int, int] = {}  # Maps camera pose index to file index
         
-        # Call parent constructor which will call _init_annotations
+        # Load all camera poses before calling parent constructor
+        self._load_all_camera_poses()
+        
+        # Call parent constructor with dummy data_root (not used)
+        # Use temp directory as data_root to satisfy parent class validation
+        import tempfile
+        temp_data_root = tempfile.mkdtemp()
         super().__init__(
-            data_root=data_root,
+            data_root=temp_data_root,  # Temporary directory to satisfy parent validation
             dataset_size=dataset_size,
-            rotation_mag=rotation_mag,
-            translation_mag=translation_mag,
-            matching_radius=matching_radius,
-            overlap_range=overlap_range,
-            min_points=min_points,
-            max_trials=max_trials,
-            cache_filepath=cache_filepath,
             crop_method='lidar',  # Force LiDAR cropping
             **kwargs,
         )
         
-        print(f"Loaded {len(self.all_camera_poses)} camera poses from {len(self.file_pair_annotations)} point cloud files")
+        print(f"Loaded {len(self.all_camera_poses)} camera poses from {len(self.pc_filepaths)} point cloud files")
 
-    def _init_annotations(self) -> None:
-        """Initialize file pair annotations and load camera poses from transforms.json files."""
-        # Find all point cloud files
-        all_files = []
-        for pattern in ['*.ply', '*.las', '*.laz', '*.txt', '*.pth', '*.off']:
-            all_files.extend(glob.glob(os.path.join(self.data_root, pattern)))
-        pc_files = sorted(all_files)
-        
-        # Create file pair annotations and load camera poses
-        self.file_pair_annotations = []
+    def _load_all_camera_poses(self) -> None:
+        """Load camera poses from all transforms.json files."""
         self.all_camera_poses = []
         self.camera_pose_to_file_idx = {}
         
-        for file_idx, pc_filepath in enumerate(pc_files):
-            # For single-temporal dataset, src and tgt are the same
-            annotation = {
-                'src_filepath': pc_filepath,
-                'tgt_filepath': pc_filepath,
-            }
+        for file_idx, json_path in enumerate(self.transforms_json_filepaths):
+            camera_poses = self._load_camera_poses_from_json(json_path)
             
-            # Look for corresponding transforms.json file
-            # Try different locations relative to the point cloud file
-            base_dir = os.path.dirname(pc_filepath)
-            base_name = os.path.splitext(os.path.basename(pc_filepath))[0]
-            
-            # Possible locations for transforms.json
-            possible_json_paths = [
-                os.path.join(base_dir, self.transforms_json_pattern),  # Same directory
-                os.path.join(base_dir, base_name, self.transforms_json_pattern),  # Subdirectory with same name
-                os.path.join(base_dir, '..', self.transforms_json_pattern),  # Parent directory
-                pc_filepath.replace(os.path.splitext(pc_filepath)[1], '_transforms.json'),  # Replace extension
-            ]
-            
-            # Find the first existing transforms.json file
-            transforms_json_path = None
-            for json_path in possible_json_paths:
-                if os.path.exists(json_path):
-                    transforms_json_path = json_path
-                    break
-            
-            if transforms_json_path is not None:
-                # Load camera poses from transforms.json
-                camera_poses = self._load_camera_poses_from_json(transforms_json_path)
-                annotation['transforms_json_path'] = transforms_json_path
-                annotation['num_camera_poses'] = len(camera_poses)
-                
-                # Add to global list of camera poses
-                for pose in camera_poses:
-                    self.all_camera_poses.append(pose)
-                    self.camera_pose_to_file_idx[len(self.all_camera_poses) - 1] = file_idx
-            else:
-                print(f"Warning: No transforms.json found for {pc_filepath}")
-                annotation['transforms_json_path'] = None
-                annotation['num_camera_poses'] = 0
-            
-            self.file_pair_annotations.append(annotation)
+            # Add to global list of camera poses
+            for pose in camera_poses:
+                self.all_camera_poses.append(pose)
+                self.camera_pose_to_file_idx[len(self.all_camera_poses) - 1] = file_idx
         
         # Validate we have camera poses
         assert len(self.all_camera_poses) > 0, (
-            f"No camera poses found in any transforms.json files. "
-            f"Searched for '{self.transforms_json_pattern}' files relative to point clouds."
+            f"No camera poses found in any transforms.json files."
         )
+
+    def _init_annotations(self) -> None:
+        """Initialize file pair annotations using provided filepaths."""
+        # Create file pair annotations using provided filepaths
+        self.file_pair_annotations = []
         
-        print(f"Found {len(self.file_pair_annotations)} point cloud files")
-        print(f"Total camera poses collected: {len(self.all_camera_poses)}")
+        for pc_filepath in self.pc_filepaths:
+            # For single-temporal dataset, src and tgt are the same
+            annotation = {
+                'src_filepath': pc_filepath,
+                'tgt_filepath': pc_filepath,  # Same file for self-registration
+            }
+            self.file_pair_annotations.append(annotation)
+        
+        print(f"Initialized {len(self.file_pair_annotations)} file pair annotations")
 
     def _load_camera_poses_from_json(self, json_path: str) -> List[np.ndarray]:
-        """Load camera poses from a transforms.json file.
+        """Load camera poses from a transforms.json file (nerfstudio format only).
         
         Args:
             json_path: Path to transforms.json file
@@ -158,33 +116,34 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         with open(json_path, 'r') as f:
             data = json.load(f)
         
+        # Assert nerfstudio format
+        assert isinstance(data, dict), f"transforms.json must be a dictionary, got {type(data)}"
+        assert 'frames' in data, f"transforms.json must have 'frames' key, got keys: {list(data.keys())}"
+        assert isinstance(data['frames'], list), f"'frames' must be a list, got {type(data['frames'])}"
+        assert len(data['frames']) > 0, f"'frames' must not be empty"
+        
         camera_poses = []
         
-        # Handle different formats of transforms.json
-        if 'frames' in data:
-            # Standard NeRF/Nerfstudio format
-            for frame in data['frames']:
-                if 'transform_matrix' in frame:
-                    # Convert list of lists to numpy array
-                    pose_matrix = np.array(frame['transform_matrix'], dtype=np.float32)
-                    assert pose_matrix.shape == (4, 4), f"Invalid pose matrix shape: {pose_matrix.shape}"
-                    camera_poses.append(pose_matrix)
-        elif 'transforms' in data:
-            # Alternative format
-            for transform in data['transforms']:
-                if 'matrix' in transform:
-                    pose_matrix = np.array(transform['matrix'], dtype=np.float32)
-                    assert pose_matrix.shape == (4, 4), f"Invalid pose matrix shape: {pose_matrix.shape}"
-                    camera_poses.append(pose_matrix)
-        else:
-            # Try to directly parse if it's a list of transforms
-            if isinstance(data, list):
-                for item in data:
-                    if isinstance(item, (list, np.ndarray)) and len(item) == 4:
-                        pose_matrix = np.array(item, dtype=np.float32)
-                        if pose_matrix.shape == (4, 4):
-                            camera_poses.append(pose_matrix)
+        for i, frame in enumerate(data['frames']):
+            assert isinstance(frame, dict), f"Frame {i} must be a dictionary, got {type(frame)}"
+            assert 'transform_matrix' in frame, f"Frame {i} must have 'transform_matrix' key, got keys: {list(frame.keys())}"
+            
+            transform_matrix = frame['transform_matrix']
+            assert isinstance(transform_matrix, list), f"Frame {i} transform_matrix must be a list, got {type(transform_matrix)}"
+            assert len(transform_matrix) == 4, f"Frame {i} transform_matrix must have 4 rows, got {len(transform_matrix)}"
+            
+            # Convert to numpy array and validate
+            pose_matrix = np.array(transform_matrix, dtype=np.float32)
+            assert pose_matrix.shape == (4, 4), f"Frame {i} invalid pose matrix shape: {pose_matrix.shape}"
+            
+            # Basic sanity check: last row should be [0, 0, 0, 1]
+            expected_last_row = np.array([0, 0, 0, 1], dtype=np.float32)
+            last_row_close = np.allclose(pose_matrix[3, :], expected_last_row, atol=1e-5)
+            assert last_row_close, f"Frame {i} invalid last row: {pose_matrix[3, :]} (expected [0, 0, 0, 1])"
+            
+            camera_poses.append(pose_matrix)
         
+        print(f"Loaded {len(camera_poses)} camera poses from {json_path}")
         return camera_poses
 
     def _sample_transform(self, seed: int) -> Dict[str, Any]:
@@ -216,7 +175,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         
         # Convert rotation matrix to Euler angles for storage
         # Using ZYX Euler angle convention
-        # Extract Euler angles from rotation matrix
         sy = np.sqrt(rotation_matrix[0, 0]**2 + rotation_matrix[1, 0]**2)
         singular = sy < 1e-6
         
