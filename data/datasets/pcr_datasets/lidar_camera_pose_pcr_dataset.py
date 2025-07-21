@@ -240,18 +240,14 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         # Load raw point clouds using parent method (now returns dictionaries)
         src_pc_data, tgt_pc_data = super()._load_file_pair_data(file_pair_annotation)
         
-        # Point cloud dictionaries are already in correct format for PCRTranslation
-        src_pc_dict = src_pc_data
-        tgt_pc_dict = tgt_pc_data
-        
         # Create identity transform (PCRTranslation will adjust this appropriately)
         identity_transform = torch.eye(4, dtype=torch.float32, device=self.device)
         
         # Apply PCRTranslation to center both point clouds
         pcr_translation = PCRTranslation()
         centered_src_pc, centered_tgt_pc, _ = pcr_translation(
-            src_pc=src_pc_dict,
-            tgt_pc=tgt_pc_dict,
+            src_pc=src_pc_data,
+            tgt_pc=tgt_pc_data,
             transform=identity_transform
         )
         
