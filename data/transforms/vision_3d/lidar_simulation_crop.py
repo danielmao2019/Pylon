@@ -158,7 +158,8 @@ class LiDARSimulationCrop(BaseTransform):
         half_h_fov = self.horizontal_fov / 2
         h_mask = torch.abs(azimuth_deg) <= half_h_fov
         
-        # Apply vertical FOV constraint (symmetric around 0°)
+        # Apply vertical FOV constraint
+        # Convert single FOV angle to symmetric range around 0°
         half_v_fov = self.vertical_fov / 2
         v_mask = torch.abs(elevation_deg) <= half_v_fov
         

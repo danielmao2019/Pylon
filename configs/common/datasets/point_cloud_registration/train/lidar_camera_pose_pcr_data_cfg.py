@@ -61,12 +61,12 @@ data_cfg = {
             'min_points': 512,
             'max_trials': 1000,
             # LiDAR simulation parameters
-            'lidar_max_range': 100.0,
+            'lidar_max_range': 100.0,  # Maximum LiDAR range in meters
             'lidar_horizontal_fov': 70.0,
             'lidar_vertical_fov': 75.0,
-            'lidar_apply_range_filter': False,
-            'lidar_apply_fov_filter': True,
-            'lidar_apply_occlusion_filter': False,
+            'lidar_apply_range_filter': True,  # Apply range-based filtering
+            'lidar_apply_fov_filter': True,  # Apply FOV-based filtering
+            'lidar_apply_occlusion_filter': True,  # Apply occlusion filtering
             'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../lidar_camera_pose_pcr_cache.json',
             'transforms_cfg': {
                 'class': data.transforms.Compose,
