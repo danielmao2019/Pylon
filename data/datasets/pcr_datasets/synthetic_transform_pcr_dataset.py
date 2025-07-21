@@ -250,10 +250,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     assert crop_method == 'lidar', f"Transform {i} crop_method must be 'lidar', got '{crop_method}'"
                     
                     lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
-                                  'lidar_horizontal_fov', 'lidar_vertical_fov', 'lidar_apply_range_filter',
-                                  'lidar_apply_fov_filter', 'lidar_apply_occlusion_filter']
+                                  'lidar_horizontal_fov', 'lidar_vertical_fov']
                     for field in lidar_fields:
                         assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
+                    
+                    # Check for crop_seed (optional for backward compatibility with old cache files)
+                    # If missing, it will be generated from the main seed during cache loading
                     
                     # Validate field types and values
                     assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
@@ -462,6 +464,11 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Get the specific transform config from cache
         transform_config = valid_transforms[transform_idx]
         
+        # Backward compatibility: generate crop_seed if missing from old cache files
+        if 'crop_seed' not in transform_config:
+            main_seed = transform_config.get('seed', 0)
+            transform_config['crop_seed'] = (main_seed * 31 + 42) % (2**32)
+        
         # Build transform components from cached params
         transform_matrix, crop_transform = self._build_transform(transform_config)
         
@@ -630,7 +637,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'src_pc': src_pc,
             'tgt_pc': tgt_pc,
             'transform_matrix': transform_matrix,
-            'overlap': overlap
+            'overlap': overlap,
+            'seed': seed
         }
     
     def _sample_transform(self, seed: int) -> Dict[str, Any]:
@@ -657,6 +665,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Rotation: sample random orientation using Euler angles
         euler_angles = torch.rand(3, generator=generator) * 2 * np.pi  # [0, 2π] range
         
+        # Generate crop seed for deterministic cropping (derived from main seed)
+        crop_seed = (seed * 31 + 42) % (2**32)  # Deterministic derivation from main seed
+        
         # Convert to 4x4 extrinsics matrix parameters for deterministic reconstruction
         config = {
             'rotation_angles': rotation_angles.tolist(),
@@ -667,11 +678,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'lidar_max_range': self.lidar_max_range,
             'lidar_horizontal_fov': self.lidar_horizontal_fov,
             'lidar_vertical_fov': list(self.lidar_vertical_fov),
-            # TEMPORARY: Force FOV-only cropping, disable range and occlusion filters
-            'lidar_apply_range_filter': False,
-            'lidar_apply_fov_filter': True,
-            'lidar_apply_occlusion_filter': False,
             'seed': seed,
+            'crop_seed': crop_seed,
         }
         
         return config
@@ -817,8 +825,14 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         tgt_pc_data_original['pos'] = ref_points
         
         # Apply LiDAR cropping (preserves all keys including RGB)
-        src_pc_dict = crop_transform(src_pc_data_transformed, sensor_extrinsics, seed=42)
-        tgt_pc_dict = crop_transform(tgt_pc_data_original, sensor_extrinsics, seed=42)
+        # NOTE: LiDARSimulationCrop has custom signature requiring sensor_extrinsics parameter
+        # that doesn't fit standard BaseTransform API, so we must use _call_single
+        # Use crop_seed from transform_params for deterministic cropping
+        crop_seed = transform_params['crop_seed']
+        generator = torch.Generator(device=self.device)
+        generator.manual_seed(crop_seed)
+        src_pc_dict = crop_transform._call_single(src_pc_data_transformed, sensor_extrinsics, generator=generator)
+        tgt_pc_dict = crop_transform._call_single(tgt_pc_data_original, sensor_extrinsics, generator=generator)
         
         # Return the cropped point cloud dictionaries (already contains pos, rgb if available, etc.)
         return src_pc_dict, tgt_pc_dict

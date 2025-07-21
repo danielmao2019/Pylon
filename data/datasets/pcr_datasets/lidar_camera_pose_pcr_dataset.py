@@ -227,21 +227,21 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     # Data loading methods (override parent behavior)
     # =========================================================================
     
-    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
+    def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor]]:
         """Load point cloud data with PCRTranslation centering applied.
         
         Args:
             file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
-            Tuple of (src_pc_raw, tgt_pc_raw) centered point cloud position tensors
+            Tuple of (src_pc_data, tgt_pc_data) centered point cloud dictionaries with all attributes (pos, rgb, etc.)
         """
-        # Load raw point clouds using parent method
-        src_pc_raw, tgt_pc_raw = super()._load_file_pair_data(file_pair_annotation)
+        # Load raw point clouds using parent method (now returns dictionaries)
+        src_pc_data, tgt_pc_data = super()._load_file_pair_data(file_pair_annotation)
         
-        # Create point cloud dictionaries for PCRTranslation
-        src_pc_dict = {'pos': src_pc_raw}
-        tgt_pc_dict = {'pos': tgt_pc_raw}
+        # Point cloud dictionaries are already in correct format for PCRTranslation
+        src_pc_dict = src_pc_data
+        tgt_pc_dict = tgt_pc_data
         
         # Create identity transform (PCRTranslation will adjust this appropriately)
         identity_transform = torch.eye(4, dtype=torch.float32, device=self.device)
@@ -254,5 +254,5 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             transform=identity_transform
         )
         
-        # Return centered position tensors
-        return centered_src_pc['pos'], centered_tgt_pc['pos']
+        # Return centered point cloud dictionaries with all attributes preserved
+        return centered_src_pc, centered_tgt_pc
