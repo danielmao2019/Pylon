@@ -109,8 +109,5 @@ class DensityLOD:
         # Convert percentage to decimal and use RandomSelect
         percentage_decimal = density_percentage / 100.0
         
-        # Set manual seed for reproducible subsampling
-        torch.manual_seed(self.seed)
-        
-        # Use RandomSelect with the percentage
-        return RandomSelect(percentage_decimal)(point_cloud)
+        # Use RandomSelect utility with the percentage and seed (following BaseTransform API pattern)
+        return RandomSelect(percentage=percentage_decimal)(point_cloud, seed=self.seed)

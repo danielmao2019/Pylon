@@ -4,6 +4,7 @@ import glob
 import json
 import torch
 from data.datasets.pcr_datasets.synthetic_transform_pcr_dataset import SyntheticTransformPCRDataset
+from data.transforms.vision_3d.pcr_translation import PCRTranslation
 
 
 class BiTemporalPCRDataset(SyntheticTransformPCRDataset):
@@ -71,13 +72,13 @@ class BiTemporalPCRDataset(SyntheticTransformPCRDataset):
         print(f"Found {len(self.file_pair_annotations)} file pairs for bi-temporal PCR dataset")
     
     def _load_file_pair_data(self, file_pair_annotation: Dict[str, Any]) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Load point cloud data with optional GT transform pre-registration.
+        """Load point cloud data with optional GT transform pre-registration and PCRTranslation centering.
         
         Args:
             file_pair_annotation: Annotation with 'src_filepath' and 'tgt_filepath' keys
             
         Returns:
-            Tuple of (src_pc_raw, tgt_pc_raw) point cloud position tensors
+            Tuple of (src_pc_raw, tgt_pc_raw) centered point cloud position tensors
         """
         # Load point clouds using parent method
         src_pc_raw, tgt_pc_raw = super()._load_file_pair_data(file_pair_annotation)
@@ -97,4 +98,20 @@ class BiTemporalPCRDataset(SyntheticTransformPCRDataset):
                 from utils.point_cloud_ops import apply_transform
                 src_pc_raw = apply_transform(src_pc_raw, gt_transform)
         
-        return src_pc_raw, tgt_pc_raw
+        # Create point cloud dictionaries for PCRTranslation
+        src_pc_dict = {'pos': src_pc_raw}
+        tgt_pc_dict = {'pos': tgt_pc_raw}
+        
+        # Create identity transform (PCRTranslation will adjust this appropriately)
+        identity_transform = torch.eye(4, dtype=torch.float32, device=self.device)
+        
+        # Apply PCRTranslation to center both point clouds
+        pcr_translation = PCRTranslation()
+        centered_src_pc, centered_tgt_pc, _ = pcr_translation(
+            src_pc=src_pc_dict,
+            tgt_pc=tgt_pc_dict,
+            transform=identity_transform
+        )
+        
+        # Return centered position tensors
+        return centered_src_pc['pos'], centered_tgt_pc['pos']

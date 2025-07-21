@@ -20,7 +20,13 @@ DATASET_GROUPS = {
     'semseg': ['coco_stuff_164k'],
     '2dcd': ['air_change', 'cdd', 'levir_cd', 'oscd', 'sysu_cd'],
     '3dcd': ['urb3dcd', 'slpccd'],
-    'pcr': ['synth_pcr', 'real_pcr', 'kitti', 'threedmatch', 'threedlomatch', 'modelnet40'],
+    'pcr': [
+        'kitti', 'threedmatch', 'threedlomatch', 'modelnet40', 'lidar_camera_pose_pcr',
+        'single_temporal_pcr', 'bi_temporal_pcr',
+        'geotransformer_single_temporal_pcr', 'geotransformer_bi_temporal_pcr',
+        'overlappredator_single_temporal_pcr', 'overlappredator_bi_temporal_pcr',
+        'buffer',
+    ],
 }
 
 # Dataset format specifications by type
@@ -102,18 +108,19 @@ class ViewerBackend:
                         'name': dataset
                     }
 
-    def get_available_datasets(self) -> Dict[str, str]:
-        """Get available datasets grouped by type.
+    def get_available_datasets_hierarchical(self) -> Dict[str, Dict[str, str]]:
+        """Get available datasets grouped hierarchically by type.
 
         Returns:
-            Dictionary mapping dataset names to display names
+            Dictionary mapping dataset types to their datasets
         """
-        available = {}
+        hierarchical = {}
         for config_name in sorted(self._configs.keys()):
             dataset_type, dataset_name = config_name.split('/')
-            display_name = f"[{dataset_type.upper()}] {dataset_name}"
-            available[config_name] = display_name
-        return available
+            if dataset_type not in hierarchical:
+                hierarchical[dataset_type] = {}
+            hierarchical[dataset_type][config_name] = dataset_name
+        return hierarchical
 
     def load_dataset(self, dataset_name: str) -> Dict[str, Any]:
         """Load a dataset and return its information.
