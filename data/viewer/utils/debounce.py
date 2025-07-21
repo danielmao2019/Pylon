@@ -3,15 +3,8 @@
 import functools
 import threading
 import time
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 from dash.exceptions import PreventUpdate
-
-import logging
-logger = logging.getLogger(__name__)
-
-# Global state for tracking last execution results (reserved for future use)
-# _debounce_cache: Dict[str, Any] = {}
-# _debounce_lock = threading.Lock()
 
 
 def debounce(func: Callable[..., Any]) -> Callable[..., Any]:
