@@ -13,13 +13,8 @@ def create_dataset_selector(hierarchical_datasets: Dict[str, Dict[str, str]]) ->
     Returns:
         html.Div containing the hierarchical dataset selector
     """
-    # Create type labels mapping
-    type_labels = {
-        'semseg': 'Semantic Segmentation',
-        '2dcd': '2D Change Detection', 
-        '3dcd': '3D Change Detection',
-        'pcr': 'Point Cloud Registration'
-    }
+    # Import type labels from callback constants to avoid duplication
+    from data.viewer.callbacks.dataset import TYPE_LABELS
     
     # Create group dropdown options
     group_options = []
