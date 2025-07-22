@@ -37,8 +37,8 @@ Examples:
   # Smaller dataset for quick testing
   python -m benchmarks.data.viewer.debounce.main --datapoints 20 --points 1000
 
-  # Custom output directory
-  python -m benchmarks.data.viewer.debounce.main --output-dir ./my_benchmark_results
+  # Skip visualizations
+  python -m benchmarks.data.viewer.debounce.main --no-viz
         """
     )
     
@@ -63,11 +63,6 @@ Examples:
         help='Number of points per point cloud (default: 5000)'
     )
     
-    parser.add_argument(
-        '--output-dir',
-        type=str,
-        help='Directory to save results (default: benchmark_results)'
-    )
     
     parser.add_argument(
         '--quick',
@@ -104,10 +99,6 @@ def validate_args(args):
     if args.points < 100:
         print("ERROR: points must be at least 100")
         sys.exit(1)
-    
-    if args.output_dir and not Path(args.output_dir).parent.exists():
-        print(f"ERROR: output directory parent does not exist: {args.output_dir}")
-        sys.exit(1)
 
 
 def print_banner():
@@ -132,7 +123,7 @@ def main():
     
     try:
         # Create benchmark runner
-        runner = BenchmarkRunner(output_dir=args.output_dir)
+        runner = BenchmarkRunner()
         
         # Run benchmark suite
         results = runner.run_full_benchmark(

@@ -14,13 +14,13 @@ from .metrics_collector import MetricsCollector, ExecutionMetrics, format_metric
 class BenchmarkRunner:
     """Runs debouncing benchmarks and collects performance data."""
     
-    def __init__(self, output_dir: Optional[str] = None):
+    def __init__(self):
         """Initialize benchmark runner.
         
-        Args:
-            output_dir: Directory to save benchmark results
+        Results are always saved to the 'results' subdirectory.
         """
-        self.output_dir = Path(output_dir or "benchmark_results")
+        # Always use results subdirectory in the benchmark module
+        self.output_dir = Path(__file__).parent / "results"
         self.output_dir.mkdir(exist_ok=True)
     
     def run_scenario(self, scenario_name: str, use_debounce: bool, 
@@ -211,18 +211,19 @@ class BenchmarkRunner:
         
         return full_results
     
-    def generate_visualizations(self, results: Dict[str, Any], output_dir: Optional[str] = None):
+    def generate_visualizations(self, results: Dict[str, Any]):
         """Generate visualizations for benchmark results.
         
         Args:
             results: Benchmark results dictionary
-            output_dir: Directory to save visualizations (uses same as results if None)
+            
+        Returns:
+            Path to visualizations directory or None if failed
         """
         try:
             from .visualizer import BenchmarkVisualizer
             
-            if output_dir is None:
-                output_dir = self.output_dir / "visualizations"
+            output_dir = self.output_dir / "visualizations"
             
             visualizer = BenchmarkVisualizer(results)
             visualizer.generate_all_visualizations(str(output_dir))
