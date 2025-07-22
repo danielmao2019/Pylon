@@ -200,15 +200,22 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Parameter key should be a string representation of a tuple
             assert isinstance(param_key, str), f"Parameter key must be string, got {type(param_key)}"
             
-            # Validate parameter key format: "(rotation_mag, translation_mag, matching_radius)"
+            # Validate parameter key format: cache keys should be string representation of tuples
             assert param_key.startswith("(") and param_key.endswith(")"), f"Parameter key must be tuple format, got {param_key}"
             # Try to evaluate the string as a tuple
             param_tuple = eval(param_key)
             assert isinstance(param_tuple, tuple), f"Parameter key must evaluate to tuple, got {type(param_tuple)}"
-            assert len(param_tuple) == 3, f"Parameter tuple must have 3 values, got {len(param_tuple)}: {param_tuple}"
-            # Validate that all elements are numbers
+            
+            # Get expected cache key length for this class
+            expected_key_length = len(self._get_cache_param_key())
+            assert len(param_tuple) == expected_key_length, (
+                f"Parameter tuple must have {expected_key_length} values for {self.__class__.__name__}, "
+                f"got {len(param_tuple)}: {param_tuple}"
+            )
+            
+            # Validate that all elements are appropriate types
             for i, val in enumerate(param_tuple):
-                assert isinstance(val, (int, float)), f"Parameter tuple element {i} must be numeric, got {type(val)}: {val}"
+                assert isinstance(val, (int, float, type(None))), f"Parameter tuple element {i} must be numeric or None, got {type(val)}: {val}"
             
             # Parameter data should be a dictionary
             assert isinstance(param_data, dict), f"Parameter data must be dictionary, got {type(param_data)}"
