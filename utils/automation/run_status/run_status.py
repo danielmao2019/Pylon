@@ -8,7 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.monitor.system_monitor import SystemMonitor
 from utils.monitor.process_info import ProcessInfo
-from utils.automation.run_status.session_progress import get_session_progress, ProgressInfo
+from utils.automation.progress_tracking import ProgressInfo, create_progress_tracker
+from utils.io.config import load_config
 
 
 # ============================================================================
@@ -38,7 +39,6 @@ class RunStatus:
 
 def get_all_run_status(
     config_files: List[str],
-    expected_files: List[str],
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
@@ -47,14 +47,12 @@ def get_all_run_status(
     """
     Args:
         config_files: List of config file paths
-        expected_files: List of expected file patterns
         epochs: Total number of epochs
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
         system_monitor: System monitor (CPU + GPU)
     """
     assert isinstance(config_files, list)
-    assert isinstance(expected_files, list)
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
     assert isinstance(outdated_days, int)
@@ -67,7 +65,6 @@ def get_all_run_status(
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
             partial(get_run_status,
-                expected_files=expected_files,
                 epochs=epochs,
                 config_to_process_info=config_to_process_info,
                 sleep_time=sleep_time,
@@ -81,7 +78,6 @@ def get_all_run_status(
 
 def get_run_status(
     config: str,
-    expected_files: List[str],
     epochs: int,
     config_to_process_info: Dict[str, ProcessInfo],
     sleep_time: int = 86400,
@@ -91,7 +87,6 @@ def get_run_status(
 
     Args:
         config: Path to the config file used for this run
-        expected_files: List of files expected to be present in each epoch directory
         epochs: Total number of epochs for the training
         config_to_process_info: Mapping from config to ProcessInfo for running experiments
         sleep_time: Time in seconds to consider a run as "stuck" if no updates
@@ -101,21 +96,24 @@ def get_run_status(
         RunStatus object containing the current status of the run
     """
     work_dir = get_work_dir(config)
-    # Get enhanced progress info (ProgressInfo dict)
-    progress = get_session_progress(work_dir, expected_files)
+    config_dict = load_config(config)  # Load actual config
     
-    # Get core metrics for status determination
-    log_last_update = get_log_last_update(work_dir)
-    epoch_last_update = get_epoch_last_update(work_dir, expected_files)
-
-    # Determine if running based on log updates
+    # Create progress tracker (handles both trainer and evaluator)
+    tracker = create_progress_tracker(work_dir, config_dict)
+    progress = tracker.get_progress()
+    
+    # Determine status using existing logic but with tracker data
+    log_last_update = get_log_last_update(work_dir, tracker.get_log_pattern())
+    epoch_last_update = get_epoch_last_update(work_dir, tracker.get_expected_files())
+    
     is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
-
-    # Determine status based on metrics
+    
+    # Determine completion based on epochs parameter (not tracker)
+    is_complete = progress.completed_epochs >= epochs
+    
     if is_running_status:
         status: _RunStatus = 'running'
-    elif progress.completed_epochs >= epochs:  # Use attribute access for dataclass
-        # Check if finished run is outdated
+    elif is_complete:
         if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
             status = 'outdated'
         else:
@@ -124,14 +122,13 @@ def get_run_status(
         status = 'stuck'
     else:
         status = 'failed'
-
-    # Get ProcessInfo if this config is running on GPU
+    
     process_info = config_to_process_info.get(config, None)
-
+    
     return RunStatus(
         config=config,
         work_dir=work_dir,
-        progress=progress,
+        progress=progress,  # Now includes runner_type and enhanced info
         status=status,
         process_info=process_info
     )
@@ -167,15 +164,19 @@ def parse_config(cmd: str) -> str:
     assert 0
 
 
-def get_log_last_update(work_dir: str) -> Optional[float]:
+def get_log_last_update(work_dir: str, log_pattern: str = "train_val*.log") -> Optional[float]:
     """Get the timestamp of the last log update.
+
+    Args:
+        work_dir: Directory to check for log files
+        log_pattern: Glob pattern for log files (e.g., "train_val*.log" or "eval_*.log")
 
     Returns:
         Timestamp of last update if logs exist, None otherwise
     """
     if not os.path.isdir(work_dir):
         return None
-    logs = glob.glob(os.path.join(work_dir, "train_val*.log"))
+    logs = glob.glob(os.path.join(work_dir, log_pattern))
     if len(logs) == 0:
         return None
     return max([os.path.getmtime(fp) for fp in logs])
