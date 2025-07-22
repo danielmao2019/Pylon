@@ -219,11 +219,11 @@ class LiDARVisualizationBackend:
             )
         elif crop_type == 'fov_only':
             h_fov = params.get('h_fov', 80.0)
-            v_fov = params.get('v_fov_span', 40.0)  # Total angle around center (0)
+            v_fov_span = params.get('v_fov_span', 40.0)  # Total span around center (0)
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 horizontal_fov=h_fov,
-                vertical_fov=v_fov,  # Use total angle directly
+                vertical_fov=v_fov_span,  # Use total angle directly
                 apply_range_filter=False,
                 apply_fov_filter=True,
                 apply_occlusion_filter=False
