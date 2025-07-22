@@ -65,7 +65,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         self.scene_camera_poses: Dict[str, List[np.ndarray]] = {}  # camera poses organized by scene filepath
         self.scene_centering_translations: Dict[str, torch.Tensor] = {}  # centering translation per scene
         self.scene_poses_transformed: Dict[str, bool] = {}  # track transformation status per scene
-        self.all_camera_poses: List[np.ndarray] = []  # flattened list for sampling (populated after transforms)
         
         # Load all camera poses before calling parent constructor
         self._load_all_camera_poses()
@@ -80,7 +79,8 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             **kwargs,
         )
         
-        print(f"Loaded {len(self.all_camera_poses)} camera poses from {len(self.pc_filepaths)} point cloud files")
+        total_poses = sum(len(poses) for poses in self.scene_camera_poses.values())
+        print(f"Loaded {total_poses} camera poses from {len(self.pc_filepaths)} point cloud files")
 
     # =========================================================================
     # Dataset-specific initialization methods (called during __init__)
