@@ -1,4 +1,4 @@
-from typing import Tuple, Dict, Any, List, Optional
+from typing import Tuple, Dict, Any, List, Optional, Union
 from abc import ABC
 import os
 import json
@@ -46,10 +46,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         min_points: int = 512,
         max_trials: int = 1000,
         cache_filepath: Optional[str] = None,
-        crop_method: str = 'lidar',
         lidar_max_range: float = 6.0,
-        lidar_horizontal_fov: float = 120.0,
-        lidar_vertical_fov: Tuple[float, float] = (-30.0, 30.0),
+        lidar_horizontal_fov: Union[int, float] = 120.0,
+        lidar_vertical_fov: Union[int, float] = 60.0,
         lidar_apply_range_filter: bool = False,
         lidar_apply_fov_filter: bool = True,
         lidar_apply_occlusion_filter: bool = False,
@@ -67,10 +66,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             min_points: Minimum number of points filter for cache generation
             max_trials: Maximum number of trials to generate valid transforms
             cache_filepath: Path to cache file (if None, no caching is used)
-            crop_method: Cropping method - only 'lidar' is supported
             lidar_max_range: Maximum LiDAR sensor range in meters
             lidar_horizontal_fov: LiDAR horizontal field of view in degrees
-            lidar_vertical_fov: LiDAR vertical FOV as (min_elevation, max_elevation) in degrees
+            lidar_vertical_fov: LiDAR vertical FOV total angle in degrees (e.g., 60.0 means [-30.0, +30.0])
             lidar_apply_range_filter: Whether to apply range-based filtering for LiDAR (default: False)
             lidar_apply_fov_filter: Whether to apply field-of-view filtering for LiDAR (default: True)  
             lidar_apply_occlusion_filter: Whether to apply occlusion simulation for LiDAR (default: False)
@@ -85,18 +83,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         self.max_trials = max_trials
         self.cache_filepath = cache_filepath
         
-        # Validate crop method - only LiDAR is supported
-        assert crop_method == 'lidar', f"crop_method must be 'lidar', got '{crop_method}'"
-        self.crop_method = crop_method
+        # LiDAR is the only supported crop method - no validation needed
         
-        # Store LiDAR parameters (temporarily force FOV-only cropping)
+        # Store LiDAR parameters
         self.lidar_max_range = float(lidar_max_range)
         self.lidar_horizontal_fov = float(lidar_horizontal_fov)
-        self.lidar_vertical_fov = tuple(lidar_vertical_fov)
-        # TEMPORARY: Force FOV-only cropping, disable range and occlusion filters
-        self.lidar_apply_range_filter = False
-        self.lidar_apply_fov_filter = True
-        self.lidar_apply_occlusion_filter = False
+        self.lidar_vertical_fov = float(lidar_vertical_fov)
+        self.lidar_apply_range_filter = lidar_apply_range_filter
+        self.lidar_apply_fov_filter = lidar_apply_fov_filter
+        self.lidar_apply_occlusion_filter = lidar_apply_occlusion_filter
         
         # Initialize transform-to-overlap cache
         if cache_filepath is not None:
@@ -183,8 +178,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                         "overlap": float,
                         "rotation_angles": [float, float, float],
                         "translation": [float, float, float],
-                        "crop_method": str,
-                        "keep_ratio": float,
                         "src_num_points": int,
                         "tgt_num_points": int,
                         ...
@@ -207,13 +200,20 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Parameter key should be a string representation of a tuple
             assert isinstance(param_key, str), f"Parameter key must be string, got {type(param_key)}"
             
-            # Validate parameter key format: "(rotation_mag, translation_mag, matching_radius)"
+            # Validate parameter key format: cache keys should be string representation of tuples
             assert param_key.startswith("(") and param_key.endswith(")"), f"Parameter key must be tuple format, got {param_key}"
             # Try to evaluate the string as a tuple
             param_tuple = eval(param_key)
             assert isinstance(param_tuple, tuple), f"Parameter key must evaluate to tuple, got {type(param_tuple)}"
-            assert len(param_tuple) == 3, f"Parameter tuple must have 3 values, got {len(param_tuple)}: {param_tuple}"
-            # Validate that all elements are numbers
+            
+            # Get expected cache key length for this class
+            expected_key_length = len(self._get_cache_param_key())
+            assert len(param_tuple) == expected_key_length, (
+                f"Parameter tuple must have {expected_key_length} values for {self.__class__.__name__}, "
+                f"got {len(param_tuple)}: {param_tuple}"
+            )
+            
+            # Validate that all elements are numeric
             for i, val in enumerate(param_tuple):
                 assert isinstance(val, (int, float)), f"Parameter tuple element {i} must be numeric, got {type(val)}: {val}"
             
@@ -234,19 +234,16 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     
                     # Check required fields (basic fields that all methods have)
                     basic_required_fields = ['overlap', 'rotation_angles', 'translation', 
-                                           'crop_method', 'src_num_points', 'tgt_num_points']
+                                           'src_num_points', 'tgt_num_points']
                     
                     for field in basic_required_fields:
                         assert field in transform, f"Transform {i} missing required field '{field}'"
                     
-                    # Check method-specific required fields - only LiDAR is supported
-                    crop_method = transform['crop_method']
-                    assert crop_method == 'lidar', f"Transform {i} crop_method must be 'lidar', got '{crop_method}'"
-                    
+                    # Check LiDAR-specific required fields (LiDAR is the only supported method)
                     lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
                                   'lidar_horizontal_fov', 'lidar_vertical_fov', 'crop_seed']
                     for field in lidar_fields:
-                        assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
+                        assert field in transform, f"Transform {i} missing required LiDAR field '{field}'"
                     
                     # Validate field types and values
                     assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
@@ -257,7 +254,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     assert isinstance(transform['translation'], list), f"translation must be list, got {type(transform['translation'])}"
                     assert len(transform['translation']) == 3, f"translation must have 3 elements, got {len(transform['translation'])}"
                     
-                    assert transform['crop_method'] == 'lidar', f"crop_method must be 'lidar', got '{transform['crop_method']}'"
                     
                     assert isinstance(transform['src_num_points'], int), f"src_num_points must be int, got {type(transform['src_num_points'])}"
                     assert isinstance(transform['tgt_num_points'], int), f"tgt_num_points must be int, got {type(transform['tgt_num_points'])}"
@@ -293,6 +289,16 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
         return file_hash
     
+    def _get_cache_param_key(self) -> Tuple:
+        """Generate cache parameter key for transform caching.
+        
+        Can be overridden by subclasses to include additional parameters.
+        
+        Returns:
+            Cache parameter key tuple
+        """
+        return (self.rotation_mag, self.translation_mag, self.matching_radius)
+    
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
         
@@ -307,20 +313,20 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Helper function to get valid transforms from cache
         def get_valid_transforms():
             # Access cache with parameter tuple as outer key
-            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_key = self._get_cache_param_key()
             param_cache = self.transform_cache.get(param_key, {})
             cached_transforms = param_cache.get(file_cache_key, [])
             
             valid_transforms = []
-            for transform_config in cached_transforms:
-                overlap = transform_config.get('overlap', 0.0)
-                src_num_points = transform_config.get('src_num_points', 0)
-                tgt_num_points = transform_config.get('tgt_num_points', 0)
+            for transform_params in cached_transforms:
+                overlap = transform_params.get('overlap', 0.0)
+                src_num_points = transform_params.get('src_num_points', 0)
+                tgt_num_points = transform_params.get('tgt_num_points', 0)
                 
                 # Filter by overlap range and minimum points
                 if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
                     src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                    valid_transforms.append(transform_config)
+                    valid_transforms.append(transform_params)
             return valid_transforms
         
         # Check if we have enough valid transforms
@@ -345,7 +351,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 )
         
         # Get the specific transform (called only once)
-        src_pc, tgt_pc, transform_matrix, transform_config = self._get_pair(file_idx, transform_idx, valid_transforms)
+        src_pc, tgt_pc, transform_matrix, transform_params = self._get_pair(file_idx, transform_idx, valid_transforms)
         
         # Find correspondences
         from utils.point_cloud_ops.correspondences import get_correspondences
@@ -373,18 +379,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'transform': transform_matrix,
         }
         
+        # Create clean transform_params without overlap (to avoid duplication with meta_info.overlap)
+        clean_transform_params = {k: v for k, v in transform_params.items() if k != 'overlap'}
+        
         meta_info = {
             'file_idx': file_idx,
             'transform_idx': transform_idx,
-            'transform_config': transform_config,
-            'overlap': transform_config['overlap'],
-            'crop_method': transform_config['crop_method'],
+            'transform_params': clean_transform_params,
+            'overlap': transform_params['overlap'],  # Keep in meta_info for easy access
         }
-        
-        # Add LiDAR-specific metadata
-        meta_info['lidar_max_range'] = transform_config['lidar_max_range']
-        meta_info['lidar_horizontal_fov'] = transform_config['lidar_horizontal_fov']
-        meta_info['lidar_vertical_fov'] = transform_config['lidar_vertical_fov']
         
         return inputs, labels, meta_info
 
@@ -445,7 +448,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             valid_transforms: List of valid cached transforms for this file pair
             
         Returns:
-            Tuple of (src_pc, tgt_pc, transform_matrix, transform_config)
+            Tuple of (src_pc, tgt_pc, transform_matrix, transform_params)
         """
         file_pair_annotation = self.file_pair_annotations[file_idx]
         
@@ -453,15 +456,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc_data, tgt_pc_data = self._load_file_pair_data(file_pair_annotation)
         
         # Get the specific transform config from cache
-        transform_config = valid_transforms[transform_idx]
+        transform_params = valid_transforms[transform_idx]
         
         # Build transform components from cached params
-        transform_matrix, crop_transform = self._build_transform(transform_config)
+        transform_matrix, crop_transform = self._build_transform(transform_params)
         
         # Apply transform to get point cloud pair
-        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_config)
+        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_params)
         
-        return src_pc, tgt_pc, transform_matrix, transform_config
+        return src_pc, tgt_pc, transform_matrix, transform_params
     
     def _generate_more(self, file_idx: int, needed_count: int) -> None:
         """Generate more valid transforms and cache them.
@@ -480,7 +483,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
-            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_key = self._get_cache_param_key()
             param_cache = self.transform_cache.get(param_key, {})
             cached_transforms = param_cache.get(file_cache_key, []).copy()
         
@@ -512,7 +515,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Periodically save cache to avoid losing progress
             if trial % 10 == 0:
                 with self._cache_lock:
-                    param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+                    param_key = self._get_cache_param_key()
                     if param_key not in self.transform_cache:
                         self.transform_cache[param_key] = {}
                     self.transform_cache[param_key][file_cache_key] = cached_transforms.copy()
@@ -525,7 +528,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Final cache update
         with self._cache_lock:
-            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_key = self._get_cache_param_key()
             if param_key not in self.transform_cache:
                 self.transform_cache[param_key] = {}
             self.transform_cache[param_key][file_cache_key] = cached_transforms
@@ -536,9 +539,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         assert len(generated_results) > 0, (
             f"Failed to generate any valid transforms after {trial} trials. "
             f"Parameters: overlap_range={self.overlap_range}, file_idx={file_idx}, "
-            f"needed_count={needed_count}. "
-            f"Consider: 1) Relaxing overlap_range, 2) Reducing cropping aggressiveness, "
-            f"3) Adjusting rotation/translation ranges for ModelNet40 object scale."
+            f"needed_count={needed_count}."
         )
     
     def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
@@ -557,7 +558,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         seed = hash((file_idx, trial_idx)) % (2**32)
         
         # Sample transform parameters (deterministic from seed)
-        transform_params = self._sample_transform(seed)
+        transform_params = self._sample_transform(seed, file_idx)
         
         # Build transform components
         transform_matrix, crop_transform = self._build_transform(transform_params)
@@ -590,15 +591,20 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'seed': seed
         }
     
-    def _sample_transform(self, seed: int) -> Dict[str, Any]:
+    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
         """Sample transform parameters with configurable cropping method.
         
         Args:
             seed: Random seed for deterministic sampling
+            file_idx: Index of file pair (not used by parent class, but passed for child class overrides)
             
         Returns:
             Dictionary containing all transform parameters including crop parameters
         """
+        # Note: file_idx parameter is intentionally unused in parent class
+        # It's passed through for child classes that need scene-specific sampling
+        _ = file_idx  # Suppress unused variable warning
+        
         generator = torch.Generator()
         generator.manual_seed(seed)
         
@@ -621,12 +627,11 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         config = {
             'rotation_angles': rotation_angles.tolist(),
             'translation': translation.tolist(),
-            'crop_method': 'lidar',
             'sensor_position': sensor_position.tolist(),
             'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
             'lidar_horizontal_fov': self.lidar_horizontal_fov,
-            'lidar_vertical_fov': list(self.lidar_vertical_fov),
+            'lidar_vertical_fov': self.lidar_vertical_fov,
             'seed': seed,
             'crop_seed': crop_seed,
         }
@@ -677,7 +682,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_matrix[:3, 3] = translation
         
         # Build LiDAR crop transform using pre-sampled parameters for deterministic caching
-        assert transform_params['crop_method'] == 'lidar', f"Only LiDAR crop method is supported, got '{transform_params['crop_method']}'"
         
         # Build 4x4 extrinsics matrix from sampled pose parameters
         sensor_position = torch.tensor(transform_params['sensor_position'], dtype=torch.float32, device=self.device)
@@ -713,15 +717,14 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         sensor_extrinsics[:3, :3] = rotation_matrix
         sensor_extrinsics[:3, 3] = sensor_position
         
-        # Create LiDAR crop transform with FOV-only settings (temporarily forced)
+        # Create LiDAR crop transform with configurable filter settings
         crop_transform = LiDARSimulationCrop(
             max_range=transform_params['lidar_max_range'],
             horizontal_fov=transform_params['lidar_horizontal_fov'],
-            vertical_fov=tuple(transform_params['lidar_vertical_fov']),
-            # TEMPORARY: Force FOV-only cropping, disable range and occlusion filters
-            apply_range_filter=False,
-            apply_fov_filter=True,
-            apply_occlusion_filter=False
+            vertical_fov=transform_params['lidar_vertical_fov'],
+            apply_range_filter=self.lidar_apply_range_filter,
+            apply_fov_filter=self.lidar_apply_fov_filter,
+            apply_occlusion_filter=self.lidar_apply_occlusion_filter
         )
         
         # Store sensor extrinsics for LiDAR cropping
@@ -761,7 +764,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_points = apply_transform(ref_points, transform_inv)
         
         # Apply LiDAR cropping to both source and target 
-        assert transform_params['crop_method'] == 'lidar', f"Only LiDAR crop method is supported, got '{transform_params['crop_method']}'"
         
         # LiDAR cropping requires sensor extrinsics matrix
         sensor_extrinsics = crop_transform._sensor_extrinsics

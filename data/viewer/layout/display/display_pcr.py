@@ -281,49 +281,61 @@ def _create_statistics_section(src_stats_children: Any, tgt_stats_children: Any)
     ], style={'margin-top': '20px'})
 
 
+def _format_value(key: str, value: Any) -> str:
+    """Format a value for display based on key name and value type."""
+    if isinstance(value, list) and len(value) == 3 and all(isinstance(x, (int, float)) for x in value):
+        # Handle 3D vectors with context-specific formatting
+        if 'angle' in key.lower():
+            return f"[{value[0]:.2f}°, {value[1]:.2f}°, {value[2]:.2f}°]"
+        else:
+            return f"[{value[0]:.4f}, {value[1]:.4f}, {value[2]:.4f}]"
+    elif isinstance(value, float):
+        return f"{value:.4f}"
+    else:
+        return str(value)
+
+
+def _dict_to_html_list(data: Dict[str, Any], key_name: str = None) -> html.Div:
+    """Convert a dictionary to HTML list structure."""
+    items = []
+    
+    if key_name:
+        items.append(html.H5(f"{key_name}:", style={'margin-top': '15px', 'margin-bottom': '5px'}))
+    
+    list_items = []
+    for key, value in data.items():
+        if isinstance(value, dict):
+            # Nested dictionary - create sub-list
+            items.append(_dict_to_html_list(value, key))
+        else:
+            # Simple key-value pair
+            formatted_value = _format_value(key, value)
+            
+            # Special styling for overlap (important PCR metric)
+            if key == 'overlap':
+                list_items.append(html.Li(f"{key}: {formatted_value}", 
+                                        style={'font-weight': 'bold', 'color': '#2E86AB'}))
+            else:
+                list_items.append(html.Li(f"{key}: {formatted_value}"))
+    
+    if list_items:
+        items.append(html.Ul(list_items, style={'margin-left': '20px', 'margin-top': '5px'}))
+    
+    return html.Div(items)
+
+
 def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
     """Create meta information section displaying dataset metadata."""
-    meta_items = []
+    if not meta_info:
+        return html.Div([
+            html.H4("Datapoint Meta Information:"),
+            html.P("No meta information available")
+        ], style={'margin-top': '20px'})
     
-    # Always show basic meta info if available
-    if 'file_idx' in meta_info:
-        meta_items.append(html.P(f"File Index: {meta_info['file_idx']}"))
-    if 'transform_idx' in meta_info:
-        meta_items.append(html.P(f"Transform Index: {meta_info['transform_idx']}"))
-    
-    # Show overlap information (key for PCR datasets)
-    if 'overlap' in meta_info:
-        overlap_value = meta_info['overlap']
-        meta_items.append(html.P(f"Overlap: {overlap_value:.4f}", style={'font-weight': 'bold', 'color': '#2E86AB'}))
-    
-    # Show crop information
-    if 'crop_method' in meta_info:
-        meta_items.append(html.P(f"Crop Method: {meta_info['crop_method']}"))
-    if 'keep_ratio' in meta_info:
-        meta_items.append(html.P(f"Keep Ratio: {meta_info['keep_ratio']:.2f}"))
-    
-    # Show additional transform config details if available
-    if 'transform_config' in meta_info:
-        config = meta_info['transform_config']
-        if 'rotation_angles' in config:
-            angles = config['rotation_angles']
-            if isinstance(angles, list) and len(angles) == 3:
-                meta_items.append(html.P(f"Rotation Angles: [{angles[0]:.2f}°, {angles[1]:.2f}°, {angles[2]:.2f}°]"))
-        if 'translation' in config:
-            trans = config['translation']
-            if isinstance(trans, list) and len(trans) == 3:
-                meta_items.append(html.P(f"Translation: [{trans[0]:.4f}, {trans[1]:.4f}, {trans[2]:.4f}]"))
-        if 'src_num_points' in config:
-            meta_items.append(html.P(f"Source Points: {config['src_num_points']}"))
-        if 'tgt_num_points' in config:
-            meta_items.append(html.P(f"Target Points: {config['tgt_num_points']}"))
-    
-    if not meta_items:
-        meta_items.append(html.P("No meta information available"))
-    
+    # Convert the entire meta_info dict to HTML lists
     return html.Div([
         html.H4("Datapoint Meta Information:"),
-        html.Div(meta_items)
+        _dict_to_html_list(meta_info)
     ], style={'margin-top': '20px'})
 
 
