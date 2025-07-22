@@ -145,7 +145,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info['file_idx'], int), f"file_idx should be int: {type(meta_info['file_idx'])}"
     assert isinstance(meta_info['transform_idx'], int), f"transform_idx should be int: {type(meta_info['transform_idx'])}"
     assert isinstance(meta_info['overlap'], float), f"overlap should be float: {type(meta_info['overlap'])}"
-    assert meta_info['crop_method'] in ['plane', 'point'], f"Invalid crop_method: {meta_info['crop_method']}"
+    assert meta_info['transform_params']['crop_method'] in ['plane', 'point'], f"Invalid crop_method: {meta_info['transform_params']['crop_method']}"
     assert isinstance(meta_info['keep_ratio'], float), f"keep_ratio should be float: {type(meta_info['keep_ratio'])}"
     assert 0.0 <= meta_info['keep_ratio'] <= 1.0, f"keep_ratio should be in [0,1]: {meta_info['keep_ratio']}"
     

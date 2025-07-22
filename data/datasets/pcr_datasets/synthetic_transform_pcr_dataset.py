@@ -239,14 +239,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     for field in basic_required_fields:
                         assert field in transform, f"Transform {i} missing required field '{field}'"
                     
-                    # Check method-specific required fields - only LiDAR is supported
+                    # Check method-specific required fields based on crop_method
                     crop_method = transform['crop_method']
-                    assert crop_method == 'lidar', f"Transform {i} crop_method must be 'lidar', got '{crop_method}'"
+                    assert crop_method in ['lidar', 'plane', 'point'], f"Transform {i} unsupported crop_method '{crop_method}'"
                     
-                    lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
-                                  'lidar_horizontal_fov', 'lidar_vertical_fov', 'crop_seed']
-                    for field in lidar_fields:
-                        assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
+                    if crop_method == 'lidar':
+                        lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
+                                      'lidar_horizontal_fov', 'lidar_vertical_fov', 'crop_seed']
+                        for field in lidar_fields:
+                            assert field in transform, f"Transform {i} with crop_method 'lidar' missing '{field}'"
                     
                     # Validate field types and values
                     assert isinstance(transform['overlap'], (int, float)), f"overlap must be number, got {type(transform['overlap'])}"
@@ -257,7 +258,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     assert isinstance(transform['translation'], list), f"translation must be list, got {type(transform['translation'])}"
                     assert len(transform['translation']) == 3, f"translation must have 3 elements, got {len(transform['translation'])}"
                     
-                    assert transform['crop_method'] == 'lidar', f"crop_method must be 'lidar', got '{transform['crop_method']}'"
+                    assert transform['crop_method'] in ['lidar', 'plane', 'point'], f"crop_method must be one of ['lidar', 'plane', 'point'], got '{transform['crop_method']}'"
                     
                     assert isinstance(transform['src_num_points'], int), f"src_num_points must be int, got {type(transform['src_num_points'])}"
                     assert isinstance(transform['tgt_num_points'], int), f"tgt_num_points must be int, got {type(transform['tgt_num_points'])}"
@@ -392,11 +393,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'transform_params': clean_transform_params,
             'overlap': transform_params['overlap'],  # Keep in meta_info for easy access
         }
-        
-        # Add LiDAR-specific metadata
-        meta_info['lidar_max_range'] = transform_params['lidar_max_range']
-        meta_info['lidar_horizontal_fov'] = transform_params['lidar_horizontal_fov']
-        meta_info['lidar_vertical_fov'] = transform_params['lidar_vertical_fov']
         
         return inputs, labels, meta_info
 
