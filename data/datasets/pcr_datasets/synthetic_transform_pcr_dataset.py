@@ -241,7 +241,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     
                     # Check LiDAR-specific required fields (LiDAR is the only supported method)
                     lidar_fields = ['sensor_position', 'sensor_euler_angles', 'lidar_max_range',
-                                  'lidar_horizontal_fov', 'lidar_vertical_fov', 'crop_seed']
+                                  'lidar_fov', 'crop_seed']
                     for field in lidar_fields:
                         assert field in transform, f"Transform {i} missing required LiDAR field '{field}'"
                     
@@ -630,8 +630,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'sensor_position': sensor_position.tolist(),
             'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
-            'lidar_horizontal_fov': self.lidar_horizontal_fov,
-            'lidar_vertical_fov': self.lidar_vertical_fov,
+            'lidar_fov': (self.lidar_horizontal_fov, self.lidar_vertical_fov),
             'seed': seed,
             'crop_seed': crop_seed,
         }
@@ -720,7 +719,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Create LiDAR crop transform with configurable filter settings
         crop_transform = LiDARSimulationCrop(
             max_range=transform_params['lidar_max_range'],
-            fov=(transform_params['lidar_horizontal_fov'], transform_params['lidar_vertical_fov']),
+            fov=transform_params['lidar_fov'],
             ray_density_factor=0.8,  # Default value
             apply_range_filter=self.lidar_apply_range_filter,
             apply_fov_filter=self.lidar_apply_fov_filter,
