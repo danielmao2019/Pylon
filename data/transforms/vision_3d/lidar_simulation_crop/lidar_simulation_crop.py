@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Union
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
@@ -22,8 +22,8 @@ class LiDARSimulationCrop(BaseTransform):
     def __init__(
         self,
         max_range: float = 100.0,
-        horizontal_fov: float = 360.0,
-        vertical_fov: Tuple[float, float] = (-30.0, 10.0),
+        horizontal_fov: Union[int, float] = 360.0,
+        vertical_fov: Union[int, float] = 40.0,
         apply_range_filter: bool = True,
         apply_fov_filter: bool = True, 
         apply_occlusion_filter: bool = False,
@@ -33,8 +33,8 @@ class LiDARSimulationCrop(BaseTransform):
         
         Args:
             max_range: Maximum sensor range in meters (typical automotive: 100-200m)
-            horizontal_fov: Horizontal field of view in degrees (360° for spinning, ~120° for solid-state)
-            vertical_fov: Vertical FOV as (min_elevation, max_elevation) in degrees
+            horizontal_fov: Horizontal field of view total angle in degrees (360° for spinning, ~120° for solid-state)
+            vertical_fov: Vertical field of view total angle in degrees (e.g., 40° means [-20°, +20°])
             apply_range_filter: Whether to apply range-based filtering
             apply_fov_filter: Whether to apply field-of-view filtering
             apply_occlusion_filter: Whether to apply occlusion simulation (ray-casting)
@@ -47,10 +47,8 @@ class LiDARSimulationCrop(BaseTransform):
         assert isinstance(horizontal_fov, (int, float)), f"horizontal_fov must be numeric, got {type(horizontal_fov)}"
         assert 0 < horizontal_fov <= 360, f"horizontal_fov must be in (0, 360], got {horizontal_fov}"
         
-        assert isinstance(vertical_fov, (tuple, list)), f"vertical_fov must be tuple/list, got {type(vertical_fov)}"
-        assert len(vertical_fov) == 2, f"vertical_fov must have 2 elements, got {len(vertical_fov)}"
-        assert vertical_fov[0] < vertical_fov[1], f"vertical_fov min must be < max, got {vertical_fov}"
-        assert -90 <= vertical_fov[0] < vertical_fov[1] <= 90, f"vertical_fov must be in [-90, 90], got {vertical_fov}"
+        assert isinstance(vertical_fov, (int, float)), f"vertical_fov must be numeric, got {type(vertical_fov)}"
+        assert 0 < vertical_fov <= 180, f"vertical_fov must be in (0, 180], got {vertical_fov}"
         
         assert isinstance(apply_range_filter, bool), f"apply_range_filter must be bool, got {type(apply_range_filter)}"
         assert isinstance(apply_fov_filter, bool), f"apply_fov_filter must be bool, got {type(apply_fov_filter)}"
@@ -62,7 +60,7 @@ class LiDARSimulationCrop(BaseTransform):
         # Store parameters
         self.max_range = float(max_range)
         self.horizontal_fov = float(horizontal_fov)
-        self.vertical_fov = tuple(vertical_fov)
+        self.vertical_fov = float(vertical_fov)
         self.apply_range_filter = apply_range_filter
         self.apply_fov_filter = apply_fov_filter
         self.apply_occlusion_filter = apply_occlusion_filter

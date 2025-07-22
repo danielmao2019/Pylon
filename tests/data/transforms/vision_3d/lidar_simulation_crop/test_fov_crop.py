@@ -14,12 +14,12 @@ def test_fov_crop_initialization():
     # Test default initialization
     fov_crop = FOVCrop()
     assert fov_crop.horizontal_fov == 360.0
-    assert fov_crop.vertical_fov == (-30.0, 10.0)
+    assert fov_crop.vertical_fov == 40.0
     
     # Test custom initialization
-    fov_crop = FOVCrop(horizontal_fov=120.0, vertical_fov=(-45.0, 45.0))
+    fov_crop = FOVCrop(horizontal_fov=120.0, vertical_fov=90.0)
     assert fov_crop.horizontal_fov == 120.0
-    assert fov_crop.vertical_fov == (-45.0, 45.0)
+    assert fov_crop.vertical_fov == 90.0
 
 
 def test_fov_crop_invalid_parameters():
@@ -37,23 +37,20 @@ def test_fov_crop_invalid_parameters():
         FOVCrop(horizontal_fov=400.0)
     
     # Test invalid vertical FOV type
-    with pytest.raises(AssertionError, match="vertical_fov must be tuple/list"):
+    with pytest.raises(AssertionError, match="vertical_fov must be numeric"):
         FOVCrop(vertical_fov="invalid")
     
-    # Test invalid vertical FOV length
-    with pytest.raises(AssertionError, match="vertical_fov must have 2 elements"):
-        FOVCrop(vertical_fov=(-45.0, 0.0, 45.0))
+    # Test zero vertical FOV
+    with pytest.raises(AssertionError, match="vertical_fov must be in \\(0, 180\\]"):
+        FOVCrop(vertical_fov=0.0)
     
-    # Test invalid vertical FOV range
-    with pytest.raises(AssertionError, match="vertical_fov min must be < max"):
-        FOVCrop(vertical_fov=(45.0, -45.0))
+    # Test negative vertical FOV
+    with pytest.raises(AssertionError, match="vertical_fov must be in \\(0, 180\\]"):
+        FOVCrop(vertical_fov=-45.0)
     
-    # Test vertical FOV out of bounds
-    with pytest.raises(AssertionError, match="vertical_fov must be in \\[-90, 90\\]"):
-        FOVCrop(vertical_fov=(-100.0, 45.0))
-    
-    with pytest.raises(AssertionError, match="vertical_fov must be in \\[-90, 90\\]"):
-        FOVCrop(vertical_fov=(-45.0, 100.0))
+    # Test vertical FOV > 180°
+    with pytest.raises(AssertionError, match="vertical_fov must be in \\(0, 180\\]"):
+        FOVCrop(vertical_fov=200.0)
 
 
 def test_fov_crop_basic_functionality():
@@ -64,9 +61,9 @@ def test_fov_crop_basic_functionality():
         [0.0, 5.0, 0.0],    # Right side (should be kept with 360° HFOV)
         [0.0, -5.0, 0.0],   # Left side (should be kept with 360° HFOV)
         [-5.0, 0.0, 0.0],   # Behind (should be kept with 360° HFOV)
-        [5.0, 0.0, 3.0],    # Forward and up (should be kept with default VFOV)
-        [5.0, 0.0, -3.0],   # Forward and down (should be kept with default VFOV)
-        [5.0, 0.0, 8.0],    # Forward and high up (should be removed with default VFOV)
+        [5.0, 0.0, 2.0],    # Forward and up (should be kept with default VFOV ±20°)
+        [5.0, 0.0, -2.0],   # Forward and down (should be kept with default VFOV ±20°)
+        [5.0, 0.0, 8.0],    # Forward and high up (should be removed with default VFOV ±20°)
     ], dtype=torch.float32)
     
     pc = {'pos': points, 'feat': torch.ones(len(points), 1)}
@@ -74,7 +71,7 @@ def test_fov_crop_basic_functionality():
     # Sensor at origin, looking along +X axis
     sensor_extrinsics = torch.eye(4, dtype=torch.float32)
     
-    # Test with default FOV (360° horizontal, -30° to +10° vertical)
+    # Test with default FOV (360° horizontal, 40° vertical = ±20°)
     fov_crop = FOVCrop()
     result = fov_crop._call_single(pc, sensor_extrinsics)
     
@@ -122,14 +119,14 @@ def test_fov_crop_vertical_fov():
         [5.0, 0.0, -1.0],    # Small negative elevation
         [5.0, 0.0, 3.0],     # Higher elevation
         [5.0, 0.0, -3.0],    # Lower elevation
-        [5.0, 0.0, 8.0],     # Very high elevation (beyond default FOV)
-        [5.0, 0.0, -8.0],    # Very low elevation (beyond default FOV)
+        [5.0, 0.0, 8.0],     # Very high elevation (beyond default FOV ±20°)
+        [5.0, 0.0, -8.0],    # Very low elevation (beyond default FOV ±20°)
     ], dtype=torch.float32)
     
     pc = {'pos': points, 'feat': torch.ones(len(points), 1)}
     sensor_extrinsics = torch.eye(4, dtype=torch.float32)
     
-    # Test default vertical FOV (-30° to +10°)
+    # Test default vertical FOV (40° = ±20°)
     fov_crop = FOVCrop()
     result = fov_crop._call_single(pc, sensor_extrinsics)
     
@@ -137,8 +134,8 @@ def test_fov_crop_vertical_fov():
     assert len(result['pos']) > 0
     assert len(result['pos']) <= len(points)
     
-    # Test wider vertical FOV (-45° to +45°)
-    fov_crop = FOVCrop(vertical_fov=(-45.0, 45.0))
+    # Test wider vertical FOV (90° = ±45°)
+    fov_crop = FOVCrop(vertical_fov=90.0)
     result = fov_crop._call_single(pc, sensor_extrinsics)
     
     # Should keep more points with wider FOV
@@ -195,7 +192,7 @@ def test_fov_crop_edge_cases():
     high_pc = {'pos': torch.tensor([[5.0, 0.0, 20.0]], dtype=torch.float32),
                 'feat': torch.ones(1, 1)}
     result = fov_crop._call_single(high_pc, sensor_extrinsics)
-    assert len(result['pos']) == 0  # Should be outside default vertical FOV
+    assert len(result['pos']) == 0  # Should be outside default vertical FOV ±20°
 
 
 def test_fov_crop_device_handling():
@@ -337,7 +334,7 @@ def test_fov_crop_parametrized_horizontal_fov(horizontal_fov):
     assert len(result['pos']) <= len(points)
 
 
-@pytest.mark.parametrize("vertical_fov", [(-15.0, 15.0), (-30.0, 30.0), (-45.0, 45.0), (-60.0, 60.0)])
+@pytest.mark.parametrize("vertical_fov", [30.0, 60.0, 90.0, 120.0])
 def test_fov_crop_parametrized_vertical_fov(vertical_fov):
     """Test FOV cropping with different vertical FOV values."""
     # Create points at known elevations (forward direction for consistency)
