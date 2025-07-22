@@ -9,6 +9,11 @@ This directory contains comprehensive testing guidelines for the Pylon framework
 - Ensures pytest discovery works properly
 - Avoids complex import issues when sharing code between test files
 
+**CRITICAL:** Test subdirectories should **NOT** start with `test_` prefix - use descriptive names instead.
+- Use component/module names: `session_progress/`, `base_progress_tracker/`
+- NOT test prefixes: `test_session_progress/`, `test_base_progress_tracker/`
+- This follows standard directory naming conventions and improves readability
+
 **CRITICAL:** Always run pytest from the project root directory. Never run from within test subdirectories.
 - Ensures proper module resolution and import paths
 - Example: `pytest tests/module/test_file.py` (from root) ✅
@@ -27,7 +32,8 @@ This directory contains comprehensive testing guidelines for the Pylon framework
 4. **Split large test files**: When files grow >300 lines, split by functional aspects
 5. **Prefer real tests over mocks**: Only mock when absolutely necessary
 6. **Never use __init__.py in tests**: Test directories are not Python modules
-7. **Use conftest.py wisely**: Put common code as fixtures, shared across multiple test files
+7. **No test_ prefix for directories**: Test subdirectories should use descriptive names, not `test_` prefix
+8. **Use conftest.py wisely**: Put common code as fixtures, shared across multiple test files
 
 ## Documentation Structure
 

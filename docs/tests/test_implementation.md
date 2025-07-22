@@ -4,6 +4,12 @@
 
 **CRITICAL:** Test directories should **NOT** contain `__init__.py` files - they are not Python packages.
 
+**CRITICAL:** Test subdirectories should **NOT** start with `test_` prefix - use descriptive names instead:
+- ✅ `tests/utils/automation/progress_tracking/session_progress/`
+- ✅ `tests/utils/automation/progress_tracking/base_progress_tracker/`
+- ❌ `tests/utils/automation/progress_tracking/test_session_progress/`
+- ❌ `tests/utils/automation/progress_tracking/test_base_progress_tracker/`
+
 **CRITICAL:** Use pytest functions only - NO test classes:
 - **Framework**: Use `pytest` with plain functions ONLY
 - **NO test classes**: Never use `class Test*` - always write `def test_*()` functions
@@ -27,7 +33,8 @@
 4. **Split large test files**: When test files grow large (>300 lines), split by functional aspects
 5. **Prefer real tests over mocks**: Only use mocking when absolutely necessary - prefer real object testing
 6. **Never use __init__.py in tests**: Test directories are not Python modules
-7. **Use conftest.py wisely**: Put common code in conftest.py as fixtures, shared across multiple test files
+7. **No test_ prefix for directories**: Test subdirectories should use descriptive names, not `test_` prefix
+8. **Use conftest.py wisely**: Put common code in conftest.py as fixtures, shared across multiple test files
 
 ## Examples of Correct vs Incorrect Test Patterns
 
