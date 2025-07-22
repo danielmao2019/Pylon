@@ -89,8 +89,10 @@ def create_real_config(
     config_content = f'''import torch
 from metrics.wrappers import PyTorchMetricWrapper
 from runners.early_stopping import EarlyStopping
+from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 
 config = {{
+    'runner': SupervisedSingleTaskTrainer,
     'epochs': {epochs},
     'work_dir': '{work_dir}',
     'metric': {{
