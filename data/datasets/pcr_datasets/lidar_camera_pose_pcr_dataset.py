@@ -202,19 +202,16 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         """
         return (self.rotation_mag, self.translation_mag, self.matching_radius, self.camera_count)
 
-    def _sample_transform(self, seed: int, **kwargs) -> Dict[str, Any]:
+    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
         """Sample transform parameters using scene-specific camera poses.
         
         Args:
             seed: Random seed for deterministic sampling
-            **kwargs: Must contain 'file_idx' for scene-specific camera pose sampling
+            file_idx: Index of file pair for scene-specific camera pose sampling
         
         Returns:
             Dictionary containing transform parameters including scene-specific camera pose
         """
-        # Validate that file_idx is provided
-        assert 'file_idx' in kwargs, "file_idx must be provided in kwargs for scene-specific camera pose sampling"
-        file_idx = kwargs['file_idx']
         
         generator = torch.Generator()
         generator.manual_seed(seed)

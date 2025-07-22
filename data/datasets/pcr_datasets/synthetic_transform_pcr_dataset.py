@@ -551,7 +551,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         seed = hash((file_idx, trial_idx)) % (2**32)
         
         # Sample transform parameters (deterministic from seed)
-        transform_params = self._sample_transform(seed)
+        transform_params = self._sample_transform(seed, file_idx)
         
         # Build transform components
         transform_matrix, crop_transform = self._build_transform(transform_params)
@@ -584,11 +584,12 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'seed': seed
         }
     
-    def _sample_transform(self, seed: int) -> Dict[str, Any]:
+    def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
         """Sample transform parameters with configurable cropping method.
         
         Args:
             seed: Random seed for deterministic sampling
+            file_idx: Index of file pair (not used by parent class, but passed for child class overrides)
             
         Returns:
             Dictionary containing all transform parameters including crop parameters
