@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional, List
 import os
 import json
 from runners.model_comparison import compare_scores, get_metric_directions
-from utils.automation.run_status import check_epoch_finished
+from utils.automation.progress_tracking.session_progress import check_epoch_finished
 
 
 class EarlyStopping:
