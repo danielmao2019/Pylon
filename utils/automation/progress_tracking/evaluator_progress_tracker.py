@@ -18,7 +18,7 @@ class EvaluatorProgressTracker(BaseProgressTracker):
     def calculate_progress(self) -> ProgressInfo:
         """Calculate evaluator-specific progress."""
         # Check if evaluation is complete
-        eval_complete = self.is_complete()
+        eval_complete = self._check_files_exist()
         
         # Binary progress: 0% or 100%
         progress_percentage = 100.0 if eval_complete else 0.0
@@ -38,8 +38,8 @@ class EvaluatorProgressTracker(BaseProgressTracker):
             total_epochs=1,  # Evaluators have conceptually 1 "epoch"
         )
     
-    def is_complete(self) -> bool:
-        """Check if evaluator is complete."""
+    def _check_files_exist(self) -> bool:
+        """Check if required evaluator files exist."""
         return all(
             os.path.exists(os.path.join(self.work_dir, f)) and
             os.path.getsize(os.path.join(self.work_dir, f)) > 0

@@ -216,7 +216,6 @@ class Launcher(BaseAgent):
             self.logger.info("Collecting all running jobs...")
             all_running_status_dict = get_all_run_status(
                 config_files=self.config_files,
-                expected_files=self.expected_files,
                 epochs=self.epochs,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,

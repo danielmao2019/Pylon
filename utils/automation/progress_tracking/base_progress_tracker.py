@@ -59,10 +59,6 @@ class BaseProgressTracker(ABC):
         """Calculate and return current progress information.""" 
         pass
     
-    @abstractmethod
-    def is_complete(self) -> bool:
-        """Check if the run is complete."""
-        pass
     
     def get_progress(self, force_refresh: bool = False) -> ProgressInfo:
         """Get progress info with caching support."""

@@ -39,7 +39,6 @@ class RunStatus:
 
 def get_all_run_status(
     config_files: List[str],
-    expected_files: List[str],
     epochs: int,
     sleep_time: int = 86400,
     outdated_days: int = 30,
@@ -48,14 +47,12 @@ def get_all_run_status(
     """
     Args:
         config_files: List of config file paths
-        expected_files: List of expected file patterns
         epochs: Total number of epochs
         sleep_time: Time to wait for the status to update
         outdated_days: Number of days to consider a run outdated
         system_monitor: System monitor (CPU + GPU)
     """
     assert isinstance(config_files, list)
-    assert isinstance(expected_files, list)
     assert isinstance(epochs, int)
     assert isinstance(sleep_time, int)
     assert isinstance(outdated_days, int)
@@ -68,7 +65,6 @@ def get_all_run_status(
     with ThreadPoolExecutor() as executor:
         all_run_status = list(executor.map(
             partial(get_run_status,
-                expected_files=expected_files,
                 epochs=epochs,
                 config_to_process_info=config_to_process_info,
                 sleep_time=sleep_time,
@@ -82,7 +78,6 @@ def get_all_run_status(
 
 def get_run_status(
     config: str,
-    expected_files: List[str],
     epochs: int,
     config_to_process_info: Dict[str, ProcessInfo],
     sleep_time: int = 86400,
@@ -92,8 +87,7 @@ def get_run_status(
 
     Args:
         config: Path to the config file used for this run
-        expected_files: List of files expected to be present in each epoch directory (DEPRECATED - auto-detected)
-        epochs: Total number of epochs for the training (DEPRECATED - from config)
+        epochs: Total number of epochs for the training
         config_to_process_info: Mapping from config to ProcessInfo for running experiments
         sleep_time: Time in seconds to consider a run as "stuck" if no updates
         outdated_days: Number of days after which a finished run is considered outdated
@@ -114,9 +108,12 @@ def get_run_status(
     
     is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
     
+    # Determine completion based on epochs parameter (not tracker)
+    is_complete = progress.completed_epochs >= epochs
+    
     if is_running_status:
         status: _RunStatus = 'running'
-    elif tracker.is_complete():
+    elif is_complete:
         if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
             status = 'outdated'
         else:

@@ -36,9 +36,3 @@ class TrainerProgressTracker(BaseProgressTracker):
             runner_type='trainer',
             total_epochs=total_epochs,
         )
-    
-    def is_complete(self) -> bool:
-        """Check if trainer is complete."""
-        if not self.config or 'epochs' not in self.config:
-            return False
-        return self.get_progress().completed_epochs >= self.config['epochs']
