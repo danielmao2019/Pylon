@@ -36,9 +36,9 @@ torch.randint(0, 10, (2, 224, 224), dtype=torch.int64)
 
 ## Tensor Type Requirements
 
-**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow the standardized tensor type assumptions defined in the main project documentation.
+**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow the standardized tensor type conventions.
 
-**For complete tensor type requirements, see `@CLAUDE.md` Section 4.1 "Tensor Type Assumptions".**
+**For complete tensor type requirements, see `@docs/tensor_conventions.md`.**
 
 The framework enforces strict tensor type conventions for:
 - Images (float32, specific channel ordering)  

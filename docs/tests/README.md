@@ -36,4 +36,4 @@ This directory contains comprehensive testing guidelines for the Pylon framework
 - `conftest_guidelines.md` - Guidelines for using conftest.py files properly (fixtures only!)
 - `dummy_data.md` - Optional dummy data generation for tests
 
-**For tensor type requirements, see `@CLAUDE.md` Section 4.1 "Tensor Type Assumptions".**
+**For tensor type requirements, see `@docs/tensor_conventions.md`.**
