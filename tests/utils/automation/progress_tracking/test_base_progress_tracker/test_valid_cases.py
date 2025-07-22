@@ -1,11 +1,11 @@
 """
-Test BaseProgressTracker functionality and abstract interface contracts.
+Test BaseProgressTracker functionality and abstract interface contracts - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
-- Edge case testing
-- Invalid input testing with exception verification
 - Initialization testing pattern
+- Determinism testing
+- Integration testing
 """
 import os
 import tempfile
@@ -80,20 +80,6 @@ def test_base_progress_tracker_initialization_without_config():
         assert tracker.config is None
         assert tracker._cache is None
         assert tracker._cache_time is None
-
-
-def test_base_progress_tracker_input_validation():
-    """Test input validation during initialization."""
-    # Test invalid work_dir type
-    with pytest.raises(AssertionError) as exc_info:
-        ConcreteProgressTracker(123)  # Integer instead of string
-    assert "work_dir must be str" in str(exc_info.value)
-    
-    # Test nonexistent work_dir
-    nonexistent_dir = "/this/path/does/not/exist"
-    with pytest.raises(AssertionError) as exc_info:
-        ConcreteProgressTracker(nonexistent_dir)
-    assert "work_dir does not exist" in str(exc_info.value)
 
 
 # ============================================================================
@@ -222,23 +208,6 @@ def test_base_progress_tracker_handles_json_save_errors():
 # ============================================================================
 # TESTS FOR BaseProgressTracker - ABSTRACT METHOD CONTRACTS
 # ============================================================================
-
-def test_base_progress_tracker_abstract_methods_must_be_implemented():
-    """Test that abstract methods must be implemented by subclasses."""
-    
-    # Test that we can't instantiate BaseProgressTracker directly
-    with pytest.raises(TypeError):
-        BaseProgressTracker("/tmp")  # Should fail - abstract class
-    
-    # Test that incomplete implementation fails
-    class IncompleteTracker(BaseProgressTracker):
-        def get_runner_type(self):
-            return 'trainer'
-        # Missing other abstract methods
-    
-    with pytest.raises(TypeError):
-        IncompleteTracker("/tmp")  # Should fail - missing abstract methods
-
 
 def test_base_progress_tracker_concrete_implementation_contracts():
     """Test that concrete implementation follows expected contracts."""
