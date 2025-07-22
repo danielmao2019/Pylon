@@ -11,6 +11,7 @@ from data.viewer.utils.camera_utils import (
     get_default_camera_state
 )
 from data.viewer.utils.settings_config import ViewerSettings
+from data.viewer.utils.debounce import debounce
 
 
 @callback(
@@ -26,6 +27,7 @@ from data.viewer.utils.settings_config import ViewerSettings
     ],
     group="camera"
 )
+@debounce
 def sync_camera_state(all_relayout_data: List[Dict[str, Any]], all_figures: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Synchronize camera state across all point cloud views when user drags/interacts with 3D graphs."""
     ctx = callback_context

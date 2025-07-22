@@ -4,6 +4,7 @@ from dash import Input, Output
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback
 from data.viewer.utils.settings_config import ViewerSettings
+from data.viewer.utils.debounce import debounce
 
 
 @callback(
@@ -20,6 +21,7 @@ from data.viewer.utils.settings_config import ViewerSettings
     ],
     group="3d_settings"
 )
+@debounce
 def update_3d_settings(
     point_size: float,
     point_opacity: float,

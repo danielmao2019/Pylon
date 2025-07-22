@@ -1,0 +1,4630 @@
+{
+  "config": {
+    "scenarios": [
+      "navigation"
+    ],
+    "num_datapoints": 20,
+    "num_points": 1000,
+    "run_date": "2025-07-21 21:46:58"
+  },
+  "scenario_results": {
+    "navigation": {
+      "scenario_name": "navigation",
+      "without_debounce": {
+        "scenario_name": "navigation",
+        "use_debounce": false,
+        "config": {
+          "num_datapoints": 20,
+          "num_points": 1000
+        },
+        "events": [
+          {
+            "timestamp": 0.0,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              0,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.02,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              1,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.04,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              2,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.06,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              3,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.08,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              4,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.1,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              5,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.12,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              6,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.14,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              7,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.16,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              8,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.18,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              9,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.2,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              10,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.22,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              11,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.24,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              12,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.26,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              13,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.28,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              14,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.3,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              15,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.32,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              16,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.34,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              17,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.36,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              18,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.38,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              19,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.4,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              20,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.42,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              21,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.44,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              22,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.46,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              23,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.48,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              24,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.5,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              25,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.52,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              26,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.54,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              27,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.56,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              28,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.58,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              29,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.6,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              30,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.62,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              31,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.64,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              32,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.66,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              33,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.68,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              34,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.7000000000000001,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              35,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.72,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              36,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.74,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              37,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.76,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              38,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.78,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              39,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.8,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              40,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.8200000000000001,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              41,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.84,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              42,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.86,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              43,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.88,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              44,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.9,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              45,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.92,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              46,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.9400000000000001,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              47,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.96,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              48,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.98,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              49,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 1.0,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              50,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          }
+        ],
+        "execution_results": {
+          "events": [
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13057541847229004,
+              "timestamp": 3.0994415283203125e-06,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13029050827026367,
+              "timestamp": 0.13059711456298828,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032317161560059,
+              "timestamp": 0.2609078884124756,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13036322593688965,
+              "timestamp": 0.3912506103515625,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032746315002441,
+              "timestamp": 0.521651029586792,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.1303403377532959,
+              "timestamp": 0.652005672454834,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031649589538574,
+              "timestamp": 0.7823834419250488,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032913208007812,
+              "timestamp": 0.9127194881439209,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033056259155273,
+              "timestamp": 1.0430750846862793,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032221794128418,
+              "timestamp": 1.1734333038330078,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033270835876465,
+              "timestamp": 1.3037753105163574,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.1303410530090332,
+              "timestamp": 1.4341294765472412,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032960891723633,
+              "timestamp": 1.5644917488098145,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031721115112305,
+              "timestamp": 1.6948411464691162,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033175468444824,
+              "timestamp": 1.8251793384552002,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032054901123047,
+              "timestamp": 1.9555320739746094,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031959533691406,
+              "timestamp": 2.0858755111694336,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031625747680664,
+              "timestamp": 2.216216564178467,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.1303408145904541,
+              "timestamp": 2.346552848815918,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033366203308105,
+              "timestamp": 2.476914405822754,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6072988510131836
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073055267333984
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073086261749268
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073110103607178
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607314109802246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073172092437744
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073195934295654
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073219776153564
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073241233825684
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073265075683594
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607328176498413
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607330560684204
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607332468032837
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607334613800049
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607337236404419
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607339859008789
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607342004776001
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607344627380371
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607347249984741
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073498725891113
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607351779937744
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607354164123535
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607355833053589
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073577404022217
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073594093322754
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607361078262329
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.60736346244812
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.607365369796753
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073672771453857
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073689460754395
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 2.6073710918426514
+            }
+          ],
+          "total_events": 51,
+          "executed_events": 20,
+          "prevented_events": 31,
+          "total_scenario_time": 4.10854959487915,
+          "events_per_second": 51.0
+        },
+        "execution_metrics": {
+          "total_events": 51,
+          "executed_events": 20,
+          "prevented_events": 31,
+          "total_time": 4.10854959487915,
+          "avg_execution_time": 0.13034008741378783,
+          "max_execution_time": 0.13057541847229004,
+          "min_execution_time": 0.13029050827026367,
+          "cpu_usage_samples": [
+            0.0,
+            98.8,
+            0.0,
+            0.0,
+            19.9,
+            0.0,
+            19.9,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            19.9,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            19.9,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            19.9,
+            0.0,
+            0.0
+          ],
+          "memory_usage_samples": [
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875,
+            854.421875
+          ],
+          "prevention_rate": 0.6078431372549019,
+          "throughput_events_per_sec": 12.41313967916216,
+          "callback_timings": {
+            "update_datapoint_from_navigation": [
+              0.13057541847229004,
+              0.13029050827026367,
+              0.13032317161560059,
+              0.13036322593688965,
+              0.13032746315002441,
+              0.1303403377532959,
+              0.13031649589538574,
+              0.13032913208007812,
+              0.13033056259155273,
+              0.13032221794128418,
+              0.13033270835876465,
+              0.1303410530090332,
+              0.13032960891723633,
+              0.13031721115112305,
+              0.13033175468444824,
+              0.13032054901123047,
+              0.13031959533691406,
+              0.13031625747680664,
+              0.1303408145904541,
+              0.13033366203308105
+            ]
+          }
+        }
+      },
+      "with_debounce": {
+        "scenario_name": "navigation",
+        "use_debounce": true,
+        "config": {
+          "num_datapoints": 20,
+          "num_points": 1000
+        },
+        "events": [
+          {
+            "timestamp": 0.0,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              0,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.02,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              1,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.04,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              2,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.06,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              3,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.08,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              4,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.1,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              5,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.12,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              6,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.14,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              7,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.16,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              8,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.18,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              9,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.2,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              10,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.22,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              11,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.24,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              12,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.26,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              13,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.28,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              14,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.3,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              15,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.32,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              16,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.34,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              17,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.36,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              18,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.38,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              19,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.4,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              20,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.42,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              21,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.44,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              22,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.46,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              23,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.48,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              24,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.5,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              25,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.52,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              26,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.54,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              27,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.56,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              28,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.58,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              29,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.6,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              30,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.62,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              31,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.64,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              32,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.66,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              33,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.68,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              34,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.7000000000000001,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              35,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.72,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              36,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.74,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              37,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.76,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              38,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.78,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              39,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.8,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              40,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.8200000000000001,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              41,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.84,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              42,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.86,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              43,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.88,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              44,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.9,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              45,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.92,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              46,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.9400000000000001,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              47,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.96,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              48,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 0.98,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              49,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          },
+          {
+            "timestamp": 1.0,
+            "callback_name": "update_datapoint_from_navigation",
+            "args": [
+              50,
+              {
+                "point_size": 3.0,
+                "point_opacity": 0.8,
+                "sym_diff_radius": 0.1,
+                "corr_radius": 0.05,
+                "lod_type": "continuous",
+                "density_percentage": 80
+              },
+              {
+                "eye": {
+                  "x": 1.5,
+                  "y": 1.5,
+                  "z": 1.5
+                },
+                "center": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 0
+                },
+                "up": {
+                  "x": 0,
+                  "y": 0,
+                  "z": 1
+                }
+              }
+            ],
+            "kwargs": {},
+            "event_type": "slider_drag"
+          }
+        ],
+        "execution_results": {
+          "events": [
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13063383102416992,
+              "timestamp": 2.384185791015625e-06,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.1309812068939209
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.1311964988708496
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.13134384155273438
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.13144898414611816
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.13153719902038574
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.13161993026733398
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.14019083976745605
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.16020488739013672
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.1802217960357666
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.2002243995666504
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.22023558616638184
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.2402207851409912
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.2602047920227051
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.280231237411499
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.30020785331726074
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.3202075958251953
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.3402864933013916
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.36028027534484863
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.38024282455444336
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.40024757385253906
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.420257568359375
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.4402632713317871
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.46027541160583496
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.4802377223968506
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.5002508163452148
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.5202550888061523
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.5402355194091797
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.5602462291717529
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.5802586078643799
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.6002635955810547
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.6202981472015381
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.6402804851531982
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.6602752208709717
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.6803953647613525
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.7003326416015625
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.720318078994751
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.7403380870819092
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.7603318691253662
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.7803449630737305
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.8003380298614502
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.8203060626983643
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.8403811454772949
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.8603427410125732
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.8803844451904297
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.9004027843475342
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.9203205108642578
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.9403300285339355
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.9603402614593506
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 0.9803643226623535
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": false,
+              "exception": "PreventUpdate",
+              "timestamp": 1.000115156173706
+            }
+          ],
+          "total_events": 51,
+          "executed_events": 1,
+          "prevented_events": 50,
+          "total_scenario_time": 2.501641035079956,
+          "events_per_second": 51.0
+        },
+        "execution_metrics": {
+          "total_events": 51,
+          "executed_events": 1,
+          "prevented_events": 50,
+          "total_time": 2.501641035079956,
+          "avg_execution_time": 0.13063383102416992,
+          "max_execution_time": 0.13063383102416992,
+          "min_execution_time": 0.13063383102416992,
+          "cpu_usage_samples": [
+            0.0,
+            119.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            19.9,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            19.9,
+            19.8,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "memory_usage_samples": [
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875
+          ],
+          "prevention_rate": 0.9803921568627451,
+          "throughput_events_per_sec": 20.386617937920885,
+          "callback_timings": {
+            "update_datapoint_from_navigation": [
+              0.13063383102416992
+            ]
+          }
+        }
+      },
+      "comparison": {
+        "execution_reduction": {
+          "executed_events_with": 1,
+          "executed_events_without": 20,
+          "reduction_count": 19,
+          "reduction_percentage": 95.0
+        },
+        "time_savings": {
+          "total_time_with": 2.501641035079956,
+          "total_time_without": 4.10854959487915,
+          "time_saved": 1.6069085597991943,
+          "time_saved_percentage": 39.11133412633078
+        },
+        "cpu_usage": {
+          "avg_cpu_with_debounce": 3.5720000000000005,
+          "avg_cpu_without_debounce": 2.4182926829268294,
+          "cpu_reduction": -1.153707317073171,
+          "cpu_reduction_percentage": -47.70751386787697
+        },
+        "memory_usage": {
+          "avg_memory_with_debounce": 854.921875,
+          "avg_memory_without_debounce": 854.421875,
+          "memory_reduction": -0.5,
+          "memory_reduction_percentage": -0.05851910100031088
+        },
+        "callback_analysis": {
+          "update_datapoint_from_navigation": {
+            "executions_with": 1,
+            "executions_without": 20,
+            "avg_time_with": 0.13063383102416992,
+            "avg_time_without": 0.13034008741378783,
+            "execution_reduction": 19,
+            "execution_reduction_pct": 95.0
+          }
+        },
+        "performance_score": 28.801273419484602
+      }
+    }
+  },
+  "summary": {
+    "scenarios_completed": 1,
+    "average_execution_reduction_pct": 95.0,
+    "average_time_saved_pct": 39.11133412633078,
+    "average_performance_score": 28.801273419484602,
+    "scenario_summaries": [
+      {
+        "scenario": "navigation",
+        "execution_reduction_pct": 95.0,
+        "time_saved_pct": 39.11133412633078,
+        "performance_score": 28.801273419484602
+      }
+    ]
+  }
+}

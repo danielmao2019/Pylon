@@ -5,6 +5,7 @@ from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.callbacks.display import create_display
 from data.viewer.utils.settings_config import ViewerSettings
+from data.viewer.utils.debounce import debounce
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
     ],
     group="transforms"
 )
+@debounce
 def update_datapoint_from_transforms(
     transform_values: List[List[int]],
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],
