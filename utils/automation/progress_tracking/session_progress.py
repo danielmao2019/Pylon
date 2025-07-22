@@ -8,22 +8,8 @@ from utils.io.config import load_config
 from utils.io.json import save_json
 from utils.builders.builder import build_from_config
 
-
-# ============================================================================
-# TYPE DEFINITIONS
-# ============================================================================
-
-@dataclass
-class ProgressInfo:
-    """Progress information for a training session."""
-    completed_epochs: int
-    progress_percentage: float
-    early_stopped: bool = False
-    early_stopped_at_epoch: Optional[int] = None
-    
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        return asdict(self)
+# Import the unified ProgressInfo from base module
+from .base_progress_tracker import ProgressInfo
 
 
 # ============================================================================
@@ -45,9 +31,18 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
     # Try fast path: read progress.json
     progress_file = os.path.join(work_dir, "progress.json")
     if os.path.exists(progress_file):
-        with open(progress_file, 'r') as f:
-            data = json.load(f)
-            return ProgressInfo(**data)  # Return ProgressInfo dataclass instance
+        try:
+            with open(progress_file, 'r') as f:
+                data = json.load(f)
+                # Handle backwards compatibility - add default values for new fields
+                if 'runner_type' not in data:
+                    data['runner_type'] = 'trainer'
+                if 'total_epochs' not in data:
+                    data['total_epochs'] = None
+                return ProgressInfo(**data)  # Return ProgressInfo dataclass instance
+        except (json.JSONDecodeError, TypeError, ValueError):
+            # Fall back to slow path if JSON is malformed or incompatible
+            pass
     
     # Slow path: re-compute and create progress.json
     return _compute_and_cache_progress(work_dir, expected_files)
@@ -91,7 +86,9 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> Pro
         completed_epochs=completed_epochs,
         progress_percentage=100.0 if early_stopped else (completed_epochs / tot_epochs * 100.0),
         early_stopped=early_stopped,
-        early_stopped_at_epoch=early_stopped_at_epoch
+        early_stopped_at_epoch=early_stopped_at_epoch,
+        runner_type='trainer',  # session_progress is trainer-specific
+        total_epochs=tot_epochs
     )
     
     progress_file = os.path.join(work_dir, "progress.json")

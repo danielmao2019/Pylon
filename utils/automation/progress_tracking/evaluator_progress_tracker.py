@@ -39,9 +39,22 @@ class EvaluatorProgressTracker(BaseProgressTracker):
         )
     
     def _check_files_exist(self) -> bool:
-        """Check if required evaluator files exist."""
-        return all(
-            os.path.exists(os.path.join(self.work_dir, f)) and
-            os.path.getsize(os.path.join(self.work_dir, f)) > 0
-            for f in self.get_expected_files()
-        )
+        """Check if required evaluator files exist and are valid."""
+        import json
+        
+        for filename in self.get_expected_files():
+            filepath = os.path.join(self.work_dir, filename)
+            
+            # Check file exists and has content
+            if not os.path.exists(filepath) or os.path.getsize(filepath) == 0:
+                return False
+            
+            # For JSON files, validate they're actually valid JSON
+            if filename.endswith('.json'):
+                try:
+                    with open(filepath, 'r') as f:
+                        json.load(f)
+                except (json.JSONDecodeError, IOError):
+                    return False
+        
+        return True
