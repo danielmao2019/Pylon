@@ -24,8 +24,7 @@ def test_lidar_simulation_crop_initialization():
     # Test custom initialization
     lidar_crop = LiDARSimulationCrop(
         max_range=50.0,
-        horizontal_fov=120.0,
-        vertical_fov=90.0,
+        fov=(120.0, 90.0),
         ray_density_factor=0.5,
         apply_range_filter=False,
         apply_fov_filter=True,
@@ -44,6 +43,9 @@ def test_lidar_simulation_crop_component_creation():
     """Test that component crops are created correctly based on flags."""
     # Test with all filters enabled
     lidar_crop = LiDARSimulationCrop(
+        max_range=100.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=True,
         apply_fov_filter=True,
         apply_occlusion_filter=True
@@ -54,6 +56,9 @@ def test_lidar_simulation_crop_component_creation():
     
     # Test with only range filter
     lidar_crop = LiDARSimulationCrop(
+        max_range=100.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=True,
         apply_fov_filter=False,
         apply_occlusion_filter=False
@@ -64,6 +69,9 @@ def test_lidar_simulation_crop_component_creation():
     
     # Test with only FOV filter
     lidar_crop = LiDARSimulationCrop(
+        max_range=100.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=False,
         apply_fov_filter=True,
         apply_occlusion_filter=False
@@ -74,6 +82,9 @@ def test_lidar_simulation_crop_component_creation():
     
     # Test with only occlusion filter
     lidar_crop = LiDARSimulationCrop(
+        max_range=100.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=False,
         apply_fov_filter=False,
         apply_occlusion_filter=True
@@ -84,6 +95,9 @@ def test_lidar_simulation_crop_component_creation():
     
     # Test with no filters (should still work)
     lidar_crop = LiDARSimulationCrop(
+        max_range=100.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=False,
         apply_fov_filter=False,
         apply_occlusion_filter=False
