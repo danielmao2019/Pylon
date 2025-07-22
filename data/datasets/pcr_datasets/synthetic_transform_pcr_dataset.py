@@ -293,6 +293,16 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         file_hash = hashlib.md5(combined_path.encode()).hexdigest()[:8]
         return file_hash
     
+    def _get_cache_param_key(self) -> Tuple:
+        """Generate cache parameter key for transform caching.
+        
+        Can be overridden by subclasses to include additional parameters.
+        
+        Returns:
+            Cache parameter key tuple
+        """
+        return (self.rotation_mag, self.translation_mag, self.matching_radius)
+    
     def _load_datapoint(self, idx: int) -> Tuple[Dict[str, torch.Tensor], Dict[str, torch.Tensor], Dict[str, Any]]:
         """Load a synthetic datapoint using the modular pipeline.
         
@@ -307,20 +317,20 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Helper function to get valid transforms from cache
         def get_valid_transforms():
             # Access cache with parameter tuple as outer key
-            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_key = self._get_cache_param_key()
             param_cache = self.transform_cache.get(param_key, {})
             cached_transforms = param_cache.get(file_cache_key, [])
             
             valid_transforms = []
-            for transform_config in cached_transforms:
-                overlap = transform_config.get('overlap', 0.0)
-                src_num_points = transform_config.get('src_num_points', 0)
-                tgt_num_points = transform_config.get('tgt_num_points', 0)
+            for transform_params in cached_transforms:
+                overlap = transform_params.get('overlap', 0.0)
+                src_num_points = transform_params.get('src_num_points', 0)
+                tgt_num_points = transform_params.get('tgt_num_points', 0)
                 
                 # Filter by overlap range and minimum points
                 if (self.overlap_range[0] < overlap <= self.overlap_range[1] and
                     src_num_points >= self.min_points and tgt_num_points >= self.min_points):
-                    valid_transforms.append(transform_config)
+                    valid_transforms.append(transform_params)
             return valid_transforms
         
         # Check if we have enough valid transforms
@@ -345,7 +355,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 )
         
         # Get the specific transform (called only once)
-        src_pc, tgt_pc, transform_matrix, transform_config = self._get_pair(file_idx, transform_idx, valid_transforms)
+        src_pc, tgt_pc, transform_matrix, transform_params = self._get_pair(file_idx, transform_idx, valid_transforms)
         
         # Find correspondences
         from utils.point_cloud_ops.correspondences import get_correspondences
@@ -376,15 +386,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         meta_info = {
             'file_idx': file_idx,
             'transform_idx': transform_idx,
-            'transform_config': transform_config,
-            'overlap': transform_config['overlap'],
-            'crop_method': transform_config['crop_method'],
+            'transform_params': transform_params,
+            'overlap': transform_params['overlap'],
+            'crop_method': transform_params['crop_method'],
         }
         
         # Add LiDAR-specific metadata
-        meta_info['lidar_max_range'] = transform_config['lidar_max_range']
-        meta_info['lidar_horizontal_fov'] = transform_config['lidar_horizontal_fov']
-        meta_info['lidar_vertical_fov'] = transform_config['lidar_vertical_fov']
+        meta_info['lidar_max_range'] = transform_params['lidar_max_range']
+        meta_info['lidar_horizontal_fov'] = transform_params['lidar_horizontal_fov']
+        meta_info['lidar_vertical_fov'] = transform_params['lidar_vertical_fov']
         
         return inputs, labels, meta_info
 
@@ -445,7 +455,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             valid_transforms: List of valid cached transforms for this file pair
             
         Returns:
-            Tuple of (src_pc, tgt_pc, transform_matrix, transform_config)
+            Tuple of (src_pc, tgt_pc, transform_matrix, transform_params)
         """
         file_pair_annotation = self.file_pair_annotations[file_idx]
         
@@ -453,15 +463,15 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_pc_data, tgt_pc_data = self._load_file_pair_data(file_pair_annotation)
         
         # Get the specific transform config from cache
-        transform_config = valid_transforms[transform_idx]
+        transform_params = valid_transforms[transform_idx]
         
         # Build transform components from cached params
-        transform_matrix, crop_transform = self._build_transform(transform_config)
+        transform_matrix, crop_transform = self._build_transform(transform_params)
         
         # Apply transform to get point cloud pair
-        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_config)
+        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_params)
         
-        return src_pc, tgt_pc, transform_matrix, transform_config
+        return src_pc, tgt_pc, transform_matrix, transform_params
     
     def _generate_more(self, file_idx: int, needed_count: int) -> None:
         """Generate more valid transforms and cache them.
@@ -480,7 +490,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Get existing cached transforms (thread-safe read)
         with self._cache_lock:
-            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_key = self._get_cache_param_key()
             param_cache = self.transform_cache.get(param_key, {})
             cached_transforms = param_cache.get(file_cache_key, []).copy()
         
@@ -512,7 +522,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             # Periodically save cache to avoid losing progress
             if trial % 10 == 0:
                 with self._cache_lock:
-                    param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+                    param_key = self._get_cache_param_key()
                     if param_key not in self.transform_cache:
                         self.transform_cache[param_key] = {}
                     self.transform_cache[param_key][file_cache_key] = cached_transforms.copy()
@@ -525,7 +535,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Final cache update
         with self._cache_lock:
-            param_key = (self.rotation_mag, self.translation_mag, self.matching_radius)
+            param_key = self._get_cache_param_key()
             if param_key not in self.transform_cache:
                 self.transform_cache[param_key] = {}
             self.transform_cache[param_key][file_cache_key] = cached_transforms
