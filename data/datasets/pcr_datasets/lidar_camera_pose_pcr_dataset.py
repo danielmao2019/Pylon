@@ -187,7 +187,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         print(f"Loaded {len(camera_poses)} camera poses from {json_path}")
         return camera_poses
     
-    
     # =========================================================================
     # Transform sampling methods (override parent behavior)
     # =========================================================================
