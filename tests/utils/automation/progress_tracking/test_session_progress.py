@@ -13,12 +13,12 @@ import tempfile
 import json
 import pytest
 import torch
-from utils.automation.run_status import (
+from utils.automation.progress_tracking.session_progress import (
     get_session_progress,
     check_epoch_finished,
-    check_file_loadable
+    check_file_loadable,
+    ProgressInfo
 )
-from utils.automation.run_status.session_progress import ProgressInfo
 from conftest import (
     create_epoch_files,
     create_progress_json,

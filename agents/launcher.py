@@ -70,13 +70,13 @@ class Launcher(BaseAgent):
             if not gpu['connected']:
                 return {}
             for proc in gpu['processes']:
-                if proc['user'] != gpu['server'].split('@')[0]:
+                if proc.user != gpu['server'].split('@')[0]:
                     continue
-                if 'python main.py --config-filepath' not in proc['cmd']:
+                if 'python main.py --config-filepath' not in proc.cmd:
                     continue
-                cfg = parse_config(proc['cmd'])
+                cfg = parse_config(proc.cmd)
                 if cfg in stuck_cfgs:
-                    gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
+                    gpu_stuck_info[cfg] = (gpu['server'], proc.pid)
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
@@ -131,7 +131,7 @@ class Launcher(BaseAgent):
             # Check GPU constraints
             gpu_util_ok = gpu['util_stats']['avg'] < 50
             gpu_mem_ok = (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
-            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p['cmd']]) < num_jobs
+            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p.cmd]) < num_jobs
 
             # Check CPU constraints for the same server
             server = gpu['server']
@@ -216,7 +216,6 @@ class Launcher(BaseAgent):
             self.logger.info("Collecting all running jobs...")
             all_running_status_dict = get_all_run_status(
                 config_files=self.config_files,
-                expected_files=self.expected_files,
                 epochs=self.epochs,
                 sleep_time=self.sleep_time,
                 outdated_days=self.outdated_days,
