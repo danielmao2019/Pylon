@@ -358,7 +358,7 @@ def test_trainer_progress_tracker_empty_work_dir():
 
 
 def test_trainer_progress_tracker_malformed_progress_json():
-    """Test handling of malformed progress.json file."""
+    """Test that malformed progress.json fails fast and loud."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'test_model'}
         
@@ -369,13 +369,9 @@ def test_trainer_progress_tracker_malformed_progress_json():
         
         tracker = TrainerProgressTracker(work_dir, config)
         
-        # Should fall back to slow path and not crash
-        progress = tracker.get_progress()
-        
-        assert isinstance(progress, ProgressInfo)
-        assert progress.runner_type == 'trainer'
-        # Should recalculate from epoch files (0 in this case since none exist)
-        assert progress.completed_epochs >= 0
+        # Should fail fast and loud with JSONDecodeError when trying to read malformed JSON
+        with pytest.raises(json.JSONDecodeError):
+            tracker.get_progress()
 
 
 # ============================================================================
