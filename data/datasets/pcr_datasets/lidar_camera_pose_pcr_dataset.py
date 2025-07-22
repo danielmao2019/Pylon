@@ -253,7 +253,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         return {
             'rotation_angles': rotation_angles.tolist(),
             'translation': translation.tolist(),
-            'crop_method': 'lidar',
             'sensor_position': sensor_position.tolist(),
             'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
