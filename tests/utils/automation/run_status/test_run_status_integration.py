@@ -15,10 +15,9 @@ from utils.automation.run_status import (
     get_all_run_status,
     RunStatus
 )
-from utils.automation.run_status.session_progress import ProgressInfo
+from utils.automation.progress_tracking import ProgressInfo
 from conftest import (
-    setup_realistic_experiment_structure,
-    EXPECTED_FILES
+    setup_realistic_experiment_structure
 )
 
 
@@ -41,8 +40,6 @@ def test_integration_full_pipeline():
             temp_root, experiments
         )
         
-        expected_files = EXPECTED_FILES
-        
         original_cwd = os.getcwd()
         os.chdir(temp_root)
         
@@ -50,7 +47,6 @@ def test_integration_full_pipeline():
             # Test the complete pipeline with minimal SystemMonitor mock
             all_statuses = get_all_run_status(
                 config_files=config_files,
-                expected_files=expected_files,
                 epochs=100,
                 system_monitor=system_monitor
             )
@@ -99,8 +95,6 @@ def test_integration_mixed_experiment_states():
             temp_root, experiments
         )
         
-        expected_files = EXPECTED_FILES
-        
         original_cwd = os.getcwd()
         os.chdir(temp_root)
         
@@ -108,7 +102,6 @@ def test_integration_mixed_experiment_states():
             # Test comprehensive status detection
             all_statuses = get_all_run_status(
                 config_files=config_files,
-                expected_files=expected_files,
                 epochs=100,
                 system_monitor=system_monitor
             )
@@ -151,15 +144,12 @@ def test_integration_no_running_experiments():
             temp_root, experiments
         )
         
-        expected_files = EXPECTED_FILES
-        
         original_cwd = os.getcwd()
         os.chdir(temp_root)
         
         try:
             all_statuses = get_all_run_status(
                 config_files=config_files,
-                expected_files=expected_files,
                 epochs=100,
                 system_monitor=system_monitor
             )
@@ -189,15 +179,12 @@ def test_integration_all_running_experiments():
             temp_root, experiments
         )
         
-        expected_files = EXPECTED_FILES
-        
         original_cwd = os.getcwd()
         os.chdir(temp_root)
         
         try:
             all_statuses = get_all_run_status(
                 config_files=config_files,
-                expected_files=expected_files,
                 epochs=100,
                 system_monitor=system_monitor
             )
@@ -228,15 +215,12 @@ def test_integration_large_scale_experiments():
             temp_root, experiments
         )
         
-        expected_files = EXPECTED_FILES
-        
         original_cwd = os.getcwd()
         os.chdir(temp_root)
         
         try:
             all_statuses = get_all_run_status(
                 config_files=config_files,
-                expected_files=expected_files,
                 epochs=100,
                 system_monitor=system_monitor
             )

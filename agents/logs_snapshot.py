@@ -16,7 +16,6 @@ class LogsSnapshot:
     
     def __init__(self, 
                  config_files: List[str],
-                 expected_files: List[str],
                  epochs: int,
                  sleep_time: int = 86400,
                  outdated_days: int = 30):
@@ -24,19 +23,16 @@ class LogsSnapshot:
         
         Args:
             config_files: List of config file paths to monitor
-            expected_files: List of expected file patterns per epoch
             epochs: Total number of epochs expected for experiments
             sleep_time: Time to wait for status updates (seconds)
             outdated_days: Number of days to consider a run outdated
         """
         assert isinstance(config_files, list), f"config_files must be list, got {type(config_files)}"
-        assert isinstance(expected_files, list), f"expected_files must be list, got {type(expected_files)}"
         assert isinstance(epochs, int), f"epochs must be int, got {type(epochs)}"
         assert isinstance(sleep_time, int), f"sleep_time must be int, got {type(sleep_time)}"
         assert isinstance(outdated_days, int), f"outdated_days must be int, got {type(outdated_days)}"
         
         self.config_files = config_files
-        self.expected_files = expected_files
         self.epochs = epochs
         self.sleep_time = sleep_time
         self.outdated_days = outdated_days
@@ -58,7 +54,6 @@ class LogsSnapshot:
         # Use enhanced get_all_run_status that returns Dict[str, RunStatus] with ProcessInfo
         run_statuses = get_all_run_status(
             config_files=self.config_files,
-            expected_files=self.expected_files,
             epochs=self.epochs,
             sleep_time=self.sleep_time,
             outdated_days=self.outdated_days,
@@ -70,7 +65,6 @@ class LogsSnapshot:
             'run_statuses': run_statuses,  # Dict[str, RunStatus] with enhanced progress and ProcessInfo
             'snapshot_metadata': {
                 'total_configs': len(self.config_files),
-                'expected_files': self.expected_files,
                 'epochs': self.epochs,
                 'sleep_time': self.sleep_time,
                 'outdated_days': self.outdated_days
@@ -121,7 +115,6 @@ class LogsSnapshot:
             # Log error but don't crash - return None for missing/corrupted snapshots
             print(f"Warning: Failed to load snapshot {filename}: {str(e)}")
             return None
-    
     
     def list_snapshots(self) -> List[str]:
         """List all available snapshot files.

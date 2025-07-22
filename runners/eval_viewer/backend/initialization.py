@@ -23,32 +23,8 @@ def get_dataset_type(dataset_name: str) -> DatasetType:
     raise ValueError(f"Unknown dataset type for dataset: {dataset_name}")
 
 
-def detect_runner_type(log_dir: str) -> Literal['trainer', 'evaluator']:
-    """Detect whether log directory contains BaseTrainer or BaseEvaluator results.
-
-    Args:
-        log_dir: Path to log directory
-
-    Returns:
-        'trainer' if directory contains epoch folders with validation_scores.json
-        'evaluator' if directory contains evaluation_scores.json directly
-
-    Raises:
-        ValueError: If neither pattern is detected
-    """
-    # Check for BaseEvaluator pattern: evaluation_scores.json directly in log_dir
-    evaluation_scores_path = os.path.join(log_dir, "evaluation_scores.json")
-    if os.path.exists(evaluation_scores_path):
-        return 'evaluator'
-
-    # Check for BaseTrainer pattern: epoch folders with validation_scores.json
-    epoch_0_dir = os.path.join(log_dir, "epoch_0")
-    validation_scores_path = os.path.join(epoch_0_dir, "validation_scores.json")
-    if os.path.exists(epoch_0_dir) and os.path.exists(validation_scores_path):
-        return 'trainer'
-
-    raise ValueError(f"Unable to detect log directory runner type for {log_dir}. "
-                   f"Expected either 'evaluation_scores.json' in root or 'epoch_*/validation_scores.json' structure.")
+# Use shared runner detection utility for code reuse and consistency
+from utils.automation.progress_tracking.runner_detection import detect_runner_type
 
 
 @dataclass

@@ -27,18 +27,18 @@ def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str
                 "CMD": None,
             })
         else:
-            for proc in sorted(gpu['processes'], key=lambda x: x['user']):
-                if "python -c from multiprocessing.spawn import spawn_main; spawn_main" in proc['cmd']:
+            for proc in sorted(gpu['processes'], key=lambda x: x.user):
+                if "python -c from multiprocessing.spawn import spawn_main; spawn_main" in proc.cmd:
                      continue
                 table_data.append({
                     "Server": gpu['server'],
                     "Resource": f"GPU-{gpu['index']}",
                     "Utilization": f"{gpu['util_stats']['avg']:.2f}%" if gpu['util_stats']['avg'] is not None else "N/A",
                     "Free Memory": f"{int(gpu['max_memory'] - gpu['memory_stats']['avg'])} MiB" if gpu['memory_stats']['avg'] is not None else f"{int(gpu['max_memory'])} MiB",
-                    "User": user_names.get(proc['user'], proc['user']),
-                    "PID": proc['pid'],
-                    "Start": proc['start_time'],
-                    "CMD": proc['cmd'],
+                    "User": user_names.get(proc.user, proc.user),
+                    "PID": proc.pid,
+                    "Start": proc.start_time,
+                    "CMD": proc.cmd,
                 })
     
     # Add CPU data
@@ -48,7 +48,7 @@ def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str
             continue
 
         # Filter for relevant processes (python main.py commands)
-        relevant_processes = [p for p in cpu['processes'] if 'python main.py --config-filepath' in p['cmd']]
+        relevant_processes = [p for p in cpu['processes'] if 'python main.py --config-filepath' in p.cmd]
         
         if not relevant_processes:
             table_data.append({
@@ -62,16 +62,16 @@ def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str
                 "CMD": None,
             })
         else:
-            for proc in sorted(relevant_processes, key=lambda x: x['user']):
+            for proc in sorted(relevant_processes, key=lambda x: x.user):
                 table_data.append({
                     "Server": cpu['server'],
                     "Resource": "CPU",
                     "Utilization": f"{cpu['cpu_stats']['avg']:.2f}%" if cpu['cpu_stats']['avg'] is not None else "N/A",
                     "Free Memory": f"{int(cpu['max_memory'] - cpu['memory_stats']['avg'])} MiB" if cpu['memory_stats']['avg'] is not None else f"{int(cpu['max_memory'])} MiB",
-                    "User": user_names.get(proc['user'], proc['user']),
-                    "PID": proc['pid'],
-                    "Start": proc['start_time'],
-                    "CMD": proc['cmd'],
+                    "User": user_names.get(proc.user, proc.user),
+                    "PID": proc.pid,
+                    "Start": proc.start_time,
+                    "CMD": proc.cmd,
                 })
     return table_data
 
