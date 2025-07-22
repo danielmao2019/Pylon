@@ -179,7 +179,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                         "overlap": float,
                         "rotation_angles": [float, float, float],
                         "translation": [float, float, float],
-                        "keep_ratio": float,
                         "src_num_points": int,
                         "tgt_num_points": int,
                         ...
