@@ -325,16 +325,3 @@ def format_comparison_summary(comparison: Dict[str, Any]) -> str:
     lines.append(f"\nOverall Performance Score: {comparison['performance_score']:.1f}")
     
     return "\n".join(lines)
-
-
-if __name__ == "__main__":
-    # Test metrics collection
-    collector = MetricsCollector()
-    
-    # Simulate some work
-    collector.start_collection()
-    time.sleep(2.0)
-    metrics_data = collector.stop_collection()
-    
-    print(f"Collected {len(metrics_data['cpu_usage'])} CPU samples")
-    print(f"Collected {len(metrics_data['memory_usage'])} memory samples")

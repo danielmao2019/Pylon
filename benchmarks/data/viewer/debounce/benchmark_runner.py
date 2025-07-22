@@ -211,6 +211,166 @@ class BenchmarkRunner:
         
         return full_results
     
+    def generate_report(self, results: Dict[str, Any]) -> Path:
+        """Generate a markdown report with benchmark results.
+        
+        Args:
+            results: Benchmark results dictionary
+            
+        Returns:
+            Path to generated report file
+        """
+        report_path = self.output_dir / "report.md"
+        
+        with open(report_path, 'w') as f:
+            f.write("# Debouncing Benchmark Report\n\n")
+            
+            # Configuration info
+            config = results.get('config', {})
+            f.write("## Configuration\n\n")
+            f.write(f"- **Dataset**: {config.get('num_datapoints', 'N/A')} datapoints, {config.get('num_points', 'N/A')} points each\n")
+            f.write(f"- **Scenarios**: {', '.join(config.get('scenarios', []))}\n")
+            if config.get('run_date'):
+                f.write(f"- **Run Date**: {config['run_date']}\n")
+            f.write("\n")
+            
+            # Overall summary
+            summary = results.get('summary', {})
+            if summary:
+                f.write("## Overall Performance\n\n")
+                f.write(f"- **Average Execution Reduction**: {summary.get('average_execution_reduction_pct', 0):.1f}%\n")
+                f.write(f"- **Average Time Saved**: {summary.get('average_time_saved_pct', 0):.1f}%\n")
+                f.write(f"- **Overall Performance Score**: {summary.get('average_performance_score', 0):.1f}\n\n")
+                
+                # Interpretation
+                avg_score = summary.get('average_performance_score', 0)
+                if avg_score > 50:
+                    interpretation = "🎉 **EXCELLENT** - Debouncing provides significant benefits!"
+                    recommendation = "Strongly recommend keeping debouncing enabled"
+                elif avg_score > 20:
+                    interpretation = "✅ **GOOD** - Debouncing provides moderate benefits"
+                    recommendation = "Recommend keeping debouncing enabled"
+                elif avg_score > 0:
+                    interpretation = "⚠️ **MARGINAL** - Debouncing provides minimal benefits"
+                    recommendation = "Consider keeping debouncing for user experience"
+                else:
+                    interpretation = "❌ **NEGATIVE** - Debouncing may be causing overhead"
+                    recommendation = "Consider optimizing or disabling debouncing"
+                
+                f.write("### Interpretation\n\n")
+                f.write(f"**{interpretation}**\n\n")
+                f.write(f"**Recommendation**: {recommendation}\n\n")
+            
+            # Per-scenario breakdown
+            scenario_results = results.get('scenario_results', {})
+            if scenario_results:
+                f.write("## Scenario Results\n\n")
+                f.write("| Scenario | Exec Reduction | Time Saved | Score | Impact |\n")
+                f.write("|----------|----------------|------------|-------|--------|\n")
+                
+                for scenario_name, scenario_data in scenario_results.items():
+                    comparison = scenario_data.get('comparison', {})
+                    
+                    exec_reduction = comparison.get('execution_reduction', {}).get('reduction_percentage', 0)
+                    time_saved = comparison.get('time_savings', {}).get('time_saved_percentage', 0)
+                    score = comparison.get('performance_score', 0)
+                    
+                    # Determine impact level
+                    if score > 40:
+                        impact = "🔥 High"
+                    elif score > 20:
+                        impact = "⚡ Medium"
+                    elif score > 0:
+                        impact = "📈 Low"
+                    else:
+                        impact = "⚠️ Negative"
+                    
+                    f.write(f"| {scenario_name} | {exec_reduction:.1f}% | {time_saved:.1f}% | {score:.1f} | {impact} |\n")
+                
+                f.write("\n")
+            
+            # Key insights
+            f.write("## Key Insights\n\n")
+            
+            # Find best and worst performing scenarios
+            if scenario_results:
+                scenarios_by_score = [
+                    (name, data['comparison']['performance_score'])
+                    for name, data in scenario_results.items()
+                ]
+                scenarios_by_score.sort(key=lambda x: x[1], reverse=True)
+                
+                best_scenario, best_score = scenarios_by_score[0]
+                worst_scenario, worst_score = scenarios_by_score[-1]
+                
+                f.write(f"- **Best performing scenario**: `{best_scenario}` (score: {best_score:.1f})\n")
+                f.write(f"- **Worst performing scenario**: `{worst_scenario}` (score: {worst_score:.1f})\n")
+                
+                # Find scenario with highest execution reduction
+                scenarios_by_reduction = [
+                    (name, data['comparison']['execution_reduction']['reduction_percentage'])
+                    for name, data in scenario_results.items()
+                ]
+                scenarios_by_reduction.sort(key=lambda x: x[1], reverse=True)
+                
+                highest_reduction_scenario, highest_reduction = scenarios_by_reduction[0]
+                f.write(f"- **Highest execution reduction**: `{highest_reduction_scenario}` ({highest_reduction:.1f}%)\n")
+                
+                # Find scenario with highest time savings
+                scenarios_by_time = [
+                    (name, data['comparison']['time_savings']['time_saved_percentage'])
+                    for name, data in scenario_results.items()
+                ]
+                scenarios_by_time.sort(key=lambda x: x[1], reverse=True)
+                
+                highest_time_scenario, highest_time = scenarios_by_time[0]
+                f.write(f"- **Highest time savings**: `{highest_time_scenario}` ({highest_time:.1f}%)\n\n")
+            
+            # Visualizations section
+            viz_dir = self.output_dir / "visualizations"
+            if viz_dir.exists():
+                viz_files = list(viz_dir.glob("*.png"))
+                if viz_files:
+                    f.write("## Visualizations\n\n")
+                    
+                    # Map of visualization files to descriptions
+                    viz_descriptions = {
+                        'execution_reduction.png': 'Execution Reduction by Scenario',
+                        'time_savings.png': 'Time Savings Analysis',
+                        'performance_scores.png': 'Performance Scores by Scenario',
+                        'callback_breakdown.png': 'Per-Callback Performance Analysis',
+                        'summary_dashboard.png': 'Comprehensive Performance Dashboard'
+                    }
+                    
+                    for viz_file in sorted(viz_files):
+                        filename = viz_file.name
+                        description = viz_descriptions.get(filename, filename.replace('_', ' ').title())
+                        f.write(f"### {description}\n\n")
+                        f.write(f"![{description}](visualizations/{filename})\n\n")
+            
+            # Performance Score explanation
+            f.write("## Performance Score Explanation\n\n")
+            f.write("The Performance Score is a composite metric calculated as:\n\n")
+            f.write("```\n")
+            f.write("performance_score = (execution_reduction_% + time_saved_% + cpu_reduction_%) / 3\n")
+            f.write("```\n\n")
+            f.write("### Score Interpretation\n\n")
+            f.write("| Score Range | Interpretation | Meaning |\n")
+            f.write("|-------------|----------------|----------|\n")
+            f.write("| 50+ | 🎉 Excellent | Debouncing provides significant benefits |\n")
+            f.write("| 20-50 | ✅ Good | Debouncing provides moderate benefits |\n")
+            f.write("| 0-20 | ⚠️ Marginal | Debouncing provides minimal benefits |\n")
+            f.write("| Below 0 | ❌ Negative | Debouncing may be causing overhead |\n\n")
+            
+            # Raw data section
+            f.write("## Raw Data\n\n")
+            f.write(f"Complete benchmark results are available in [`debounce_benchmark_full.json`](debounce_benchmark_full.json)\n\n")
+            
+            f.write("---\n")
+            f.write("*Report generated automatically by the Pylon debouncing benchmark system*\n")
+        
+        return report_path
+    
     def generate_visualizations(self, results: Dict[str, Any]):
         """Generate visualizations for benchmark results.
         
@@ -218,25 +378,16 @@ class BenchmarkRunner:
             results: Benchmark results dictionary
             
         Returns:
-            Path to visualizations directory or None if failed
+            Path to visualizations directory
         """
-        try:
-            from .visualizer import BenchmarkVisualizer
-            
-            output_dir = self.output_dir / "visualizations"
-            
-            visualizer = BenchmarkVisualizer(results)
-            visualizer.generate_all_visualizations(str(output_dir))
-            
-            return output_dir
-            
-        except ImportError:
-            print("Warning: matplotlib not available, skipping visualizations")
-            print("Install with: pip install matplotlib")
-            return None
-        except Exception as e:
-            print(f"Error generating visualizations: {e}")
-            return None
+        from .visualizer import BenchmarkVisualizer
+        
+        output_dir = self.output_dir / "visualizations"
+        
+        visualizer = BenchmarkVisualizer(results)
+        visualizer.generate_all_visualizations(str(output_dir))
+        
+        return output_dir
     
     def save_results(self, results: Dict[str, Any], filename: Optional[str] = None) -> Path:
         """Save benchmark results to JSON file.
@@ -295,8 +446,3 @@ def run_quick_benchmark(scenario: str = 'mixed') -> None:
     runner = BenchmarkRunner()
     results = runner.run_comparison(scenario, num_datapoints=20, num_points=1000)
     runner.save_results(results)
-
-
-if __name__ == "__main__":
-    # Run a quick test benchmark
-    run_quick_benchmark('navigation')

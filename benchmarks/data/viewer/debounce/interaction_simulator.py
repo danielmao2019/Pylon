@@ -333,16 +333,3 @@ def get_scenario_events(scenario_name: str, app) -> List[InteractionEvent]:
         return simulator.simulate_camera_manipulation()
     else:
         raise ValueError(f"Unknown scenario: {scenario_name}")
-
-
-if __name__ == "__main__":
-    from .mock_app import create_mock_app
-    
-    # Test scenario generation
-    app = create_mock_app(use_debounce=True)
-    simulator = InteractionSimulator(app)
-    
-    events = simulator.simulate_navigation_slider_dragging()
-    print(f"Generated {len(events)} navigation events")
-    print(f"Event duration: {events[-1].timestamp:.2f} seconds")
-    print(f"Event rate: {len(events) / events[-1].timestamp:.1f} events/second")

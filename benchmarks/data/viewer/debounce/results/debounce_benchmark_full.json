@@ -5,7 +5,7 @@
     ],
     "num_datapoints": 20,
     "num_points": 1000,
-    "run_date": "2025-07-21 21:42:52"
+    "run_date": "2025-07-21 21:46:58"
   },
   "scenario_results": {
     "navigation": {
@@ -1759,48 +1759,16 @@
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": true,
-              "execution_time": 0.13062000274658203,
-              "timestamp": 1.1920928955078125e-06,
+              "execution_time": 0.13057541847229004,
+              "timestamp": 3.0994415283203125e-06,
               "result_size": 245
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": true,
-              "execution_time": 0.13027143478393555,
-              "timestamp": 0.13063645362854004,
-              "result_size": 245
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13030505180358887,
-              "timestamp": 0.2609226703643799,
-              "result_size": 245
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.1303236484527588,
-              "timestamp": 0.39124464988708496,
-              "result_size": 245
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13032197952270508,
-              "timestamp": 0.5215840339660645,
-              "result_size": 245
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13033056259155273,
-              "timestamp": 0.651925802230835,
+              "execution_time": 0.13029050827026367,
+              "timestamp": 0.13059711456298828,
               "result_size": 245
             },
             {
@@ -1808,111 +1776,143 @@
               "callback_name": "update_datapoint_from_navigation",
               "executed": true,
               "execution_time": 0.13032317161560059,
-              "timestamp": 0.7822721004486084,
+              "timestamp": 0.2609078884124756,
               "result_size": 245
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": true,
-              "execution_time": 0.13031578063964844,
-              "timestamp": 0.9126107692718506,
+              "execution_time": 0.13036322593688965,
+              "timestamp": 0.3912506103515625,
               "result_size": 245
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": true,
-              "execution_time": 0.13030600547790527,
-              "timestamp": 1.042945384979248,
+              "execution_time": 0.13032746315002441,
+              "timestamp": 0.521651029586792,
               "result_size": 245
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13031339645385742,
-              "timestamp": 1.1732673645019531,
-              "result_size": 245
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13030099868774414,
-              "timestamp": 1.3035991191864014,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13029813766479492,
-              "timestamp": 1.4339189529418945,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13031911849975586,
-              "timestamp": 1.5642311573028564,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13032913208007812,
-              "timestamp": 1.6945748329162598,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13031864166259766,
-              "timestamp": 1.824927806854248,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13032817840576172,
-              "timestamp": 1.9552717208862305,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.1302638053894043,
-              "timestamp": 2.0856165885925293,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.13028812408447266,
-              "timestamp": 2.2158985137939453,
-              "result_size": 246
-            },
-            {
-              "event_type": "slider_drag",
-              "callback_name": "update_datapoint_from_navigation",
-              "executed": true,
-              "execution_time": 0.1302950382232666,
-              "timestamp": 2.346205711364746,
-              "result_size": 246
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": true,
               "execution_time": 0.1303403377532959,
-              "timestamp": 2.476517677307129,
+              "timestamp": 0.652005672454834,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031649589538574,
+              "timestamp": 0.7823834419250488,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032913208007812,
+              "timestamp": 0.9127194881439209,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033056259155273,
+              "timestamp": 1.0430750846862793,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032221794128418,
+              "timestamp": 1.1734333038330078,
+              "result_size": 245
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033270835876465,
+              "timestamp": 1.3037753105163574,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.1303410530090332,
+              "timestamp": 1.4341294765472412,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032960891723633,
+              "timestamp": 1.5644917488098145,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031721115112305,
+              "timestamp": 1.6948411464691162,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033175468444824,
+              "timestamp": 1.8251793384552002,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13032054901123047,
+              "timestamp": 1.9555320739746094,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031959533691406,
+              "timestamp": 2.0858755111694336,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13031625747680664,
+              "timestamp": 2.216216564178467,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.1303408145904541,
+              "timestamp": 2.346552848815918,
+              "result_size": 246
+            },
+            {
+              "event_type": "slider_drag",
+              "callback_name": "update_datapoint_from_navigation",
+              "executed": true,
+              "execution_time": 0.13033366203308105,
+              "timestamp": 2.476914405822754,
               "result_size": 246
             },
             {
@@ -1920,236 +1920,247 @@
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069045066833496
+              "timestamp": 2.6072988510131836
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.606910467147827
+              "timestamp": 2.6073055267333984
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069142818450928
+              "timestamp": 2.6073086261749268
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.606917381286621
+              "timestamp": 2.6073110103607178
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069207191467285
+              "timestamp": 2.607314109802246
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.606924295425415
+              "timestamp": 2.6073172092437744
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069273948669434
+              "timestamp": 2.6073195934295654
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069302558898926
+              "timestamp": 2.6073219776153564
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.60693359375
+              "timestamp": 2.6073241233825684
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.60693621635437
+              "timestamp": 2.6073265075683594
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069388389587402
+              "timestamp": 2.607328176498413
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069419384002686
+              "timestamp": 2.607330560684204
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.606945037841797
+              "timestamp": 2.607332468032837
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069483757019043
+              "timestamp": 2.607334613800049
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069512367248535
+              "timestamp": 2.607337236404419
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069536209106445
+              "timestamp": 2.607339859008789
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069564819335938
+              "timestamp": 2.607342004776001
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.606959342956543
+              "timestamp": 2.607344627380371
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069624423980713
+              "timestamp": 2.607347249984741
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069657802581787
+              "timestamp": 2.6073498725891113
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069693565368652
+              "timestamp": 2.607351779937744
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.60697340965271
+              "timestamp": 2.607354164123535
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.60697603225708
+              "timestamp": 2.607355833053589
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.60697865486145
+              "timestamp": 2.6073577404022217
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.606981039047241
+              "timestamp": 2.6073594093322754
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069839000701904
+              "timestamp": 2.607361078262329
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069915294647217
+              "timestamp": 2.60736346244812
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.60699462890625
+              "timestamp": 2.607365369796753
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6069977283477783
+              "timestamp": 2.6073672771453857
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6070005893707275
+              "timestamp": 2.6073689460754395
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 2.6070034503936768
+              "timestamp": 2.6073710918426514
             }
           ],
           "total_events": 51,
           "executed_events": 20,
           "prevented_events": 31,
-          "total_scenario_time": 4.1078455448150635,
+          "total_scenario_time": 4.10854959487915,
           "events_per_second": 51.0
         },
         "execution_metrics": {
           "total_events": 51,
           "executed_events": 20,
           "prevented_events": 31,
-          "total_time": 4.1078455448150635,
-          "avg_execution_time": 0.13032562732696534,
-          "max_execution_time": 0.13062000274658203,
-          "min_execution_time": 0.1302638053894043,
+          "total_time": 4.10854959487915,
+          "avg_execution_time": 0.13034008741378783,
+          "max_execution_time": 0.13057541847229004,
+          "min_execution_time": 0.13029050827026367,
           "cpu_usage_samples": [
             0.0,
-            138.9,
+            98.8,
+            0.0,
+            0.0,
+            19.9,
+            0.0,
+            19.9,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             0.0,
             0.0,
             0.0,
@@ -2200,6 +2211,10 @@
             0.0,
             0.0,
             0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
             19.9,
             0.0,
             0.0,
@@ -2212,22 +2227,7 @@
             0.0,
             0.0,
             0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
+            19.9,
             0.0,
             0.0
           ],
@@ -2316,29 +2316,29 @@
             854.421875
           ],
           "prevention_rate": 0.6078431372549019,
-          "throughput_events_per_sec": 12.415267186560209,
+          "throughput_events_per_sec": 12.41313967916216,
           "callback_timings": {
             "update_datapoint_from_navigation": [
-              0.13062000274658203,
-              0.13027143478393555,
-              0.13030505180358887,
-              0.1303236484527588,
-              0.13032197952270508,
-              0.13033056259155273,
+              0.13057541847229004,
+              0.13029050827026367,
               0.13032317161560059,
-              0.13031578063964844,
-              0.13030600547790527,
-              0.13031339645385742,
-              0.13030099868774414,
-              0.13029813766479492,
-              0.13031911849975586,
+              0.13036322593688965,
+              0.13032746315002441,
+              0.1303403377532959,
+              0.13031649589538574,
               0.13032913208007812,
-              0.13031864166259766,
-              0.13032817840576172,
-              0.1302638053894043,
-              0.13028812408447266,
-              0.1302950382232666,
-              0.1303403377532959
+              0.13033056259155273,
+              0.13032221794128418,
+              0.13033270835876465,
+              0.1303410530090332,
+              0.13032960891723633,
+              0.13031721115112305,
+              0.13033175468444824,
+              0.13032054901123047,
+              0.13031959533691406,
+              0.13031625747680664,
+              0.1303408145904541,
+              0.13033366203308105
             ]
           }
         }
@@ -4092,8 +4092,8 @@
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": true,
-              "execution_time": 0.13068699836730957,
-              "timestamp": 1.9073486328125e-06,
+              "execution_time": 0.13063383102416992,
+              "timestamp": 2.384185791015625e-06,
               "result_size": 245
             },
             {
@@ -4101,370 +4101,375 @@
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.13095450401306152
+              "timestamp": 0.1309812068939209
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.13111090660095215
+              "timestamp": 0.1311964988708496
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.1312565803527832
+              "timestamp": 0.13134384155273438
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.13138628005981445
+              "timestamp": 0.13144898414611816
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.1315159797668457
+              "timestamp": 0.13153719902038574
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.13161945343017578
+              "timestamp": 0.13161993026733398
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.14018797874450684
+              "timestamp": 0.14019083976745605
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.16026592254638672
+              "timestamp": 0.16020488739013672
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.18023943901062012
+              "timestamp": 0.1802217960357666
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.2002241611480713
+              "timestamp": 0.2002243995666504
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.2202434539794922
+              "timestamp": 0.22023558616638184
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.24021100997924805
+              "timestamp": 0.2402207851409912
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.26024818420410156
+              "timestamp": 0.2602047920227051
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.280210018157959
+              "timestamp": 0.280231237411499
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.30023956298828125
+              "timestamp": 0.30020785331726074
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.3202080726623535
+              "timestamp": 0.3202075958251953
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.3402135372161865
+              "timestamp": 0.3402864933013916
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.3603250980377197
+              "timestamp": 0.36028027534484863
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.38029909133911133
+              "timestamp": 0.38024282455444336
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.40025854110717773
+              "timestamp": 0.40024757385253906
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.4202234745025635
+              "timestamp": 0.420257568359375
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.44023871421813965
+              "timestamp": 0.4402632713317871
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.46024441719055176
+              "timestamp": 0.46027541160583496
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.4802422523498535
+              "timestamp": 0.4802377223968506
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.5003108978271484
+              "timestamp": 0.5002508163452148
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.5202999114990234
+              "timestamp": 0.5202550888061523
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.540247917175293
+              "timestamp": 0.5402355194091797
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.5602531433105469
+              "timestamp": 0.5602462291717529
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.5802295207977295
+              "timestamp": 0.5802586078643799
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.6002655029296875
+              "timestamp": 0.6002635955810547
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.620255708694458
+              "timestamp": 0.6202981472015381
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.6402578353881836
+              "timestamp": 0.6402804851531982
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.6602413654327393
+              "timestamp": 0.6602752208709717
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.680248498916626
+              "timestamp": 0.6803953647613525
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.700237512588501
+              "timestamp": 0.7003326416015625
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.7202355861663818
+              "timestamp": 0.720318078994751
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.7402496337890625
+              "timestamp": 0.7403380870819092
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.7602570056915283
+              "timestamp": 0.7603318691253662
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.7802333831787109
+              "timestamp": 0.7803449630737305
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.8002400398254395
+              "timestamp": 0.8003380298614502
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.8203117847442627
+              "timestamp": 0.8203060626983643
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.8403797149658203
+              "timestamp": 0.8403811454772949
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.8603649139404297
+              "timestamp": 0.8603427410125732
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.8803567886352539
+              "timestamp": 0.8803844451904297
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.9003362655639648
+              "timestamp": 0.9004027843475342
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.920346736907959
+              "timestamp": 0.9203205108642578
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.9402961730957031
+              "timestamp": 0.9403300285339355
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.9603893756866455
+              "timestamp": 0.9603402614593506
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 0.9803578853607178
+              "timestamp": 0.9803643226623535
             },
             {
               "event_type": "slider_drag",
               "callback_name": "update_datapoint_from_navigation",
               "executed": false,
               "exception": "PreventUpdate",
-              "timestamp": 1.0001168251037598
+              "timestamp": 1.000115156173706
             }
           ],
           "total_events": 51,
           "executed_events": 1,
           "prevented_events": 50,
-          "total_scenario_time": 2.5016427040100098,
+          "total_scenario_time": 2.501641035079956,
           "events_per_second": 51.0
         },
         "execution_metrics": {
           "total_events": 51,
           "executed_events": 1,
           "prevented_events": 50,
-          "total_time": 2.5016427040100098,
-          "avg_execution_time": 0.13068699836730957,
-          "max_execution_time": 0.13068699836730957,
-          "min_execution_time": 0.13068699836730957,
+          "total_time": 2.501641035079956,
+          "avg_execution_time": 0.13063383102416992,
+          "max_execution_time": 0.13063383102416992,
+          "min_execution_time": 0.13063383102416992,
           "cpu_usage_samples": [
             0.0,
-            118.9,
+            119.0,
             0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            19.9,
             0.0,
             0.0,
             0.0,
@@ -4477,11 +4482,7 @@
             0.0,
             0.0,
             19.9,
-            0.0,
-            0.0,
-            0.0,
-            19.9,
-            0.0,
+            19.8,
             0.0,
             0.0,
             0.0,
@@ -4506,7 +4507,6 @@
             0.0,
             0.0,
             0.0,
-            19.9,
             0.0,
             0.0,
             0.0,
@@ -4517,59 +4517,59 @@
             854.921875,
             854.921875,
             854.921875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875,
-            855.171875
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875,
+            854.921875
           ],
           "prevention_rate": 0.9803921568627451,
-          "throughput_events_per_sec": 20.386604337321838,
+          "throughput_events_per_sec": 20.386617937920885,
           "callback_timings": {
             "update_datapoint_from_navigation": [
-              0.13068699836730957
+              0.13063383102416992
             ]
           }
         }
@@ -4582,48 +4582,48 @@
           "reduction_percentage": 95.0
         },
         "time_savings": {
-          "total_time_with": 2.5016427040100098,
-          "total_time_without": 4.1078455448150635,
-          "time_saved": 1.6062028408050537,
-          "time_saved_percentage": 39.10085769491524
+          "total_time_with": 2.501641035079956,
+          "total_time_without": 4.10854959487915,
+          "time_saved": 1.6069085597991943,
+          "time_saved_percentage": 39.11133412633078
         },
         "cpu_usage": {
           "avg_cpu_with_debounce": 3.5720000000000005,
-          "avg_cpu_without_debounce": 2.179268292682927,
-          "cpu_reduction": -1.3927317073170733,
-          "cpu_reduction_percentage": -63.9082260772244
+          "avg_cpu_without_debounce": 2.4182926829268294,
+          "cpu_reduction": -1.153707317073171,
+          "cpu_reduction_percentage": -47.70751386787697
         },
         "memory_usage": {
-          "avg_memory_with_debounce": 855.156875,
+          "avg_memory_with_debounce": 854.921875,
           "avg_memory_without_debounce": 854.421875,
-          "memory_reduction": -0.7350000000000136,
-          "memory_reduction_percentage": -0.08602307847045859
+          "memory_reduction": -0.5,
+          "memory_reduction_percentage": -0.05851910100031088
         },
         "callback_analysis": {
           "update_datapoint_from_navigation": {
             "executions_with": 1,
             "executions_without": 20,
-            "avg_time_with": 0.13068699836730957,
-            "avg_time_without": 0.13032562732696534,
+            "avg_time_with": 0.13063383102416992,
+            "avg_time_without": 0.13034008741378783,
             "execution_reduction": 19,
             "execution_reduction_pct": 95.0
           }
         },
-        "performance_score": 23.397543872563617
+        "performance_score": 28.801273419484602
       }
     }
   },
   "summary": {
     "scenarios_completed": 1,
     "average_execution_reduction_pct": 95.0,
-    "average_time_saved_pct": 39.10085769491524,
-    "average_performance_score": 23.397543872563617,
+    "average_time_saved_pct": 39.11133412633078,
+    "average_performance_score": 28.801273419484602,
     "scenario_summaries": [
       {
         "scenario": "navigation",
         "execution_reduction_pct": 95.0,
-        "time_saved_pct": 39.10085769491524,
-        "performance_score": 23.397543872563617
+        "time_saved_pct": 39.11133412633078,
+        "performance_score": 28.801273419484602
       }
     ]
   }

@@ -214,15 +214,3 @@ def get_mock_datapoint(
             'target_num_points': len(target_pc)
         }
     }
-
-
-if __name__ == "__main__":
-    # Test data generation
-    dataset = generate_synthetic_pcr_dataset(num_datapoints=10, num_points=1000)
-    print(f"Generated dataset with {len(dataset['datapoints'])} datapoints")
-    
-    # Test datapoint retrieval
-    datapoint = get_mock_datapoint(dataset, 0, [0, 1])  # Apply identity + noise
-    print(f"Datapoint 0 source shape: {datapoint['inputs']['source_pc']['pos'].shape}")
-    print(f"Datapoint 0 target shape: {datapoint['inputs']['target_pc']['pos'].shape}")
-    print(f"Applied transforms: {datapoint['meta_info']['applied_transforms']}")

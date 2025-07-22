@@ -472,14 +472,3 @@ def load_and_visualize(results_file: str, output_dir: str = "visualizations"):
         print(f"Error: Invalid JSON in results file: {results_file}")
     except Exception as e:
         print(f"Error generating visualizations: {e}")
-
-
-if __name__ == "__main__":
-    import sys
-    
-    if len(sys.argv) > 1:
-        results_file = sys.argv[1]
-        output_dir = sys.argv[2] if len(sys.argv) > 2 else "visualizations"
-        load_and_visualize(results_file, output_dir)
-    else:
-        print("Usage: python visualizer.py <results_file.json> [output_dir]")

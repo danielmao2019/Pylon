@@ -37,8 +37,8 @@ Examples:
   # Smaller dataset for quick testing
   python -m benchmarks.data.viewer.debounce.main --datapoints 20 --points 1000
 
-  # Skip visualizations
-  python -m benchmarks.data.viewer.debounce.main --no-viz
+  # Verbose output  
+  python -m benchmarks.data.viewer.debounce.main --verbose
         """
     )
     
@@ -76,11 +76,6 @@ Examples:
         help='Enable verbose output'
     )
     
-    parser.add_argument(
-        '--no-viz',
-        action='store_true',
-        help='Skip visualization generation'
-    )
     
     return parser.parse_args()
 
@@ -135,36 +130,13 @@ def main():
         # Save results
         output_file = runner.save_results(results)
         
-        # Generate visualizations (unless disabled)
-        if not args.no_viz:
-            viz_dir = runner.generate_visualizations(results)
-            if viz_dir:
-                print(f"📈 Visualizations saved to: {viz_dir}")
-        else:
-            print("📈 Visualization generation skipped (--no-viz flag)")
+        # Generate visualizations
+        viz_dir = runner.generate_visualizations(results)
+        print(f"📈 Visualizations saved to: {viz_dir}")
         
-        # Final summary
-        summary = results.get('summary', {})
-        if summary:
-            print(f"\n{'='*80}")
-            print("FINAL RESULTS SUMMARY")
-            print(f"{'='*80}")
-            print(f"✅ Benchmark completed successfully!")
-            print(f"📊 Results saved to: {output_file}")
-            print(f"🏆 Overall performance improvement: {summary.get('average_performance_score', 0):.1f} points")
-            print(f"⚡ Average execution reduction: {summary.get('average_execution_reduction_pct', 0):.1f}%")
-            print(f"⏱️  Average time saved: {summary.get('average_time_saved_pct', 0):.1f}%")
-            
-            # Recommendations
-            avg_score = summary.get('average_performance_score', 0)
-            if avg_score > 50:
-                print(f"🎯 RECOMMENDATION: Debouncing shows significant performance benefits!")
-            elif avg_score > 20:
-                print(f"✔️  RECOMMENDATION: Debouncing provides moderate performance benefits.")
-            else:
-                print(f"⚠️  RECOMMENDATION: Debouncing benefits are minimal for these scenarios.")
-        
-        print(f"\n{'='*80}")
+        # Generate markdown report
+        report_path = runner.generate_report(results)
+        print(f"📄 Report generated: {report_path}")
         
     except KeyboardInterrupt:
         print("\n\nBenchmark interrupted by user.")
