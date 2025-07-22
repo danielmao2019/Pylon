@@ -383,12 +383,14 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             'transform': transform_matrix,
         }
         
+        # Create clean transform_params without overlap (to avoid duplication with meta_info.overlap)
+        clean_transform_params = {k: v for k, v in transform_params.items() if k != 'overlap'}
+        
         meta_info = {
             'file_idx': file_idx,
             'transform_idx': transform_idx,
-            'transform_params': transform_params,
-            'overlap': transform_params['overlap'],
-            'crop_method': transform_params['crop_method'],
+            'transform_params': clean_transform_params,
+            'overlap': transform_params['overlap'],  # Keep in meta_info for easy access
         }
         
         # Add LiDAR-specific metadata
