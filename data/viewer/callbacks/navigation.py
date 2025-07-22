@@ -5,6 +5,7 @@ from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.callbacks.display import create_display
 from data.viewer.utils.settings_config import ViewerSettings
+from data.viewer.utils.debounce import debounce
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ logger = logging.getLogger(__name__)
     ],
     group="navigation"
 )
+@debounce
 def update_index_from_buttons(
     prev_clicks: Optional[int],
     next_clicks: Optional[int],
@@ -74,6 +76,7 @@ def update_current_index(current_idx: int) -> List[str]:
     ],
     group="navigation"
 )
+@debounce
 def update_datapoint_from_navigation(
     datapoint_idx: int,
     settings_3d: Optional[Dict[str, Union[str, int, float, bool]]],

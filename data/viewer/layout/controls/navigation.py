@@ -36,7 +36,8 @@ def create_navigation_controls(datapoint_index=0, min_index=0, max_index=10):
                     max=max_index,
                     value=datapoint_index,
                     marks=marks,
-                    step=1
+                    step=1,
+                    updatemode='drag'
                 ),
             ], style={'flex': 1, 'margin-right': '20px'}),
         ], style={'display': 'flex', 'align-items': 'center', 'margin-bottom': '10px'}),
