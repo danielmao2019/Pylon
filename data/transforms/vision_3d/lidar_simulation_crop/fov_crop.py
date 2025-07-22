@@ -4,8 +4,8 @@ from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 
 
-class FOVFilter(BaseTransform):
-    """Field-of-view filtering for LiDAR sensor simulation.
+class FOVCrop(BaseTransform):
+    """Field-of-view cropping for LiDAR sensor simulation.
     
     Filters points based on horizontal and vertical field-of-view constraints,
     simulating the angular coverage limitations of real LiDAR sensors.
@@ -16,7 +16,7 @@ class FOVFilter(BaseTransform):
         horizontal_fov: float = 360.0,
         vertical_fov: Tuple[float, float] = (-30.0, 10.0)
     ):
-        """Initialize FOV filter.
+        """Initialize FOV crop.
         
         Args:
             horizontal_fov: Horizontal field of view in degrees (360° for spinning, ~120° for solid-state)
@@ -35,14 +35,14 @@ class FOVFilter(BaseTransform):
 
     def _call_single(self, pc: Dict[str, torch.Tensor], sensor_extrinsics: torch.Tensor,
                     *args, **kwargs) -> Dict[str, torch.Tensor]:
-        """Apply FOV filtering to point cloud.
+        """Apply FOV cropping to point cloud.
         
         Args:
             pc: Point cloud dictionary with 'pos' key and optional feature keys
             sensor_extrinsics: 4x4 sensor pose matrix (sensor-to-world transform)
             
         Returns:
-            Filtered point cloud dictionary
+            Cropped point cloud dictionary
         """
         check_point_cloud(pc)
         
@@ -68,15 +68,15 @@ class FOVFilter(BaseTransform):
         fov_mask = self._apply_fov_constraints(sensor_frame_positions)
         
         # Apply mask to all keys in point cloud
-        filtered_pc = {}
+        cropped_pc = {}
         for key, tensor in pc.items():
             if key == 'pos':
-                filtered_pc[key] = positions[fov_mask]
+                cropped_pc[key] = positions[fov_mask]
             else:
                 # Assume features have same first dimension as positions
-                filtered_pc[key] = tensor[fov_mask]
+                cropped_pc[key] = tensor[fov_mask]
         
-        return filtered_pc
+        return cropped_pc
 
     def _apply_fov_constraints(self, sensor_frame_positions: torch.Tensor) -> torch.Tensor:
         """Apply field-of-view constraints to points in sensor coordinate frame.

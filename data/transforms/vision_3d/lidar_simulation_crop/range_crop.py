@@ -4,15 +4,15 @@ from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 
 
-class RangeFilter(BaseTransform):
-    """Range-based filtering for LiDAR sensor simulation.
+class RangeCrop(BaseTransform):
+    """Range-based cropping for LiDAR sensor simulation.
     
     Filters points based on maximum sensor range, simulating the physical
     limitation that LiDAR sensors cannot detect objects beyond their range.
     """
 
     def __init__(self, max_range: float = 100.0):
-        """Initialize range filter.
+        """Initialize range crop.
         
         Args:
             max_range: Maximum sensor range in meters (typical automotive: 100-200m)
@@ -24,14 +24,14 @@ class RangeFilter(BaseTransform):
 
     def _call_single(self, pc: Dict[str, torch.Tensor], sensor_pos: torch.Tensor, 
                     *args, **kwargs) -> Dict[str, torch.Tensor]:
-        """Apply range filtering to point cloud.
+        """Apply range cropping to point cloud.
         
         Args:
             pc: Point cloud dictionary with 'pos' key and optional feature keys
             sensor_pos: Sensor position as [3] tensor
             
         Returns:
-            Filtered point cloud dictionary
+            Cropped point cloud dictionary
         """
         check_point_cloud(pc)
         
@@ -51,12 +51,12 @@ class RangeFilter(BaseTransform):
         range_mask = distances <= self.max_range
         
         # Apply mask to all keys in point cloud
-        filtered_pc = {}
+        cropped_pc = {}
         for key, tensor in pc.items():
             if key == 'pos':
-                filtered_pc[key] = positions[range_mask]
+                cropped_pc[key] = positions[range_mask]
             else:
                 # Assume features have same first dimension as positions
-                filtered_pc[key] = tensor[range_mask]
+                cropped_pc[key] = tensor[range_mask]
         
-        return filtered_pc
+        return cropped_pc

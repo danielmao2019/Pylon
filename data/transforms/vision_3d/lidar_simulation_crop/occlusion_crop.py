@@ -6,15 +6,15 @@ from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 
 
-class OcclusionFilter(BaseTransform):
-    """Occlusion filtering for LiDAR sensor simulation.
+class OcclusionCrop(BaseTransform):
+    """Occlusion cropping for LiDAR sensor simulation.
     
     Simulates realistic occlusion effects using ray-based voxel approach.
     Automatically determines optimal voxel size based on point cloud density.
     """
 
     def __init__(self, ray_density_factor: float = 0.8):
-        """Initialize occlusion filter.
+        """Initialize occlusion crop.
         
         Args:
             ray_density_factor: Fraction of ray length to check for occlusion (0.8 = check 80%)
@@ -26,14 +26,14 @@ class OcclusionFilter(BaseTransform):
 
     def _call_single(self, pc: Dict[str, torch.Tensor], sensor_pos: torch.Tensor,
                     *args, **kwargs) -> Dict[str, torch.Tensor]:
-        """Apply occlusion filtering to point cloud.
+        """Apply occlusion cropping to point cloud.
         
         Args:
             pc: Point cloud dictionary with 'pos' key and optional feature keys
             sensor_pos: Sensor position as [3] tensor
             
         Returns:
-            Filtered point cloud dictionary
+            Cropped point cloud dictionary
         """
         check_point_cloud(pc)
         
@@ -49,19 +49,19 @@ class OcclusionFilter(BaseTransform):
         if sensor_pos.device != positions.device:
             sensor_pos = sensor_pos.to(positions.device)
         
-        # Apply ray-based occlusion filtering
+        # Apply ray-based occlusion cropping
         occlusion_mask = self._apply_ray_based_occlusion(positions, sensor_pos)
         
         # Apply mask to all keys in point cloud
-        filtered_pc = {}
+        cropped_pc = {}
         for key, tensor in pc.items():
             if key == 'pos':
-                filtered_pc[key] = positions[occlusion_mask]
+                cropped_pc[key] = positions[occlusion_mask]
             else:
                 # Assume features have same first dimension as positions
-                filtered_pc[key] = tensor[occlusion_mask]
+                cropped_pc[key] = tensor[occlusion_mask]
         
-        return filtered_pc
+        return cropped_pc
 
     def _analyze_point_density(self, positions: torch.Tensor, k_neighbors: int = 10) -> float:
         """Analyze point cloud density to determine optimal voxel size.
@@ -118,7 +118,7 @@ class OcclusionFilter(BaseTransform):
         return voxel_size
 
     def _apply_ray_based_occlusion(self, positions: torch.Tensor, sensor_pos: torch.Tensor) -> torch.Tensor:
-        """Apply occlusion filtering using ray-based voxel approach.
+        """Apply occlusion cropping using ray-based voxel approach.
         
         Args:
             positions: Point cloud positions [N, 3]
