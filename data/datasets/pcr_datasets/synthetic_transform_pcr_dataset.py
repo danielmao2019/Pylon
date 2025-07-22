@@ -720,8 +720,8 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Create LiDAR crop transform with configurable filter settings
         crop_transform = LiDARSimulationCrop(
             max_range=transform_params['lidar_max_range'],
-            horizontal_fov=transform_params['lidar_horizontal_fov'],
-            vertical_fov=transform_params['lidar_vertical_fov'],
+            fov=(transform_params['lidar_horizontal_fov'], transform_params['lidar_vertical_fov']),
+            ray_density_factor=0.8,  # Default value
             apply_range_filter=self.lidar_apply_range_filter,
             apply_fov_filter=self.lidar_apply_fov_filter,
             apply_occlusion_filter=self.lidar_apply_occlusion_filter
