@@ -107,6 +107,28 @@ def safe_load_json(filepath: str) -> Any:
         raise type(e)(f"Error loading JSON from {filepath}: {e}") from e
 
 
+def save_json(obj: Any, filepath: str) -> None:
+    """Save object to JSON file with automatic serialization.
+    
+    Automatically handles dataclasses, torch.Tensor, numpy.ndarray, 
+    datetime, and all nested data structures without requiring manual conversion.
+    
+    Args:
+        obj: Object to save (dataclasses are automatically converted)
+        filepath: Path to save JSON file
+    """
+    assert (
+        os.path.dirname(filepath) == "" or
+        os.path.isdir(os.path.dirname(filepath))
+    ), f"{filepath=}, {os.path.dirname(filepath)=}"
+    
+    # Automatically serialize the object (handles dataclasses, tensors, etc.)
+    serialized_obj = serialize_object(obj)
+        
+    with open(filepath, mode='w') as f:
+        f.write(jsbeautifier.beautify(json.dumps(serialized_obj), jsbeautifier.default_options()))
+
+
 def safe_save_json(obj: Any, filepath: str) -> None:
     """Thread-safe JSON saving with file locking and automatic serialization.
     
@@ -134,25 +156,3 @@ def safe_save_json(obj: Any, filepath: str) -> None:
     except Exception as e:
         # Re-raise with filepath context for all errors
         raise type(e)(f"Error saving JSON to {filepath}: {e}") from e
-
-
-def save_json(obj: Any, filepath: str) -> None:
-    """Save object to JSON file with automatic serialization.
-    
-    Automatically handles dataclasses, torch.Tensor, numpy.ndarray, 
-    datetime, and all nested data structures without requiring manual conversion.
-    
-    Args:
-        obj: Object to save (dataclasses are automatically converted)
-        filepath: Path to save JSON file
-    """
-    assert (
-        os.path.dirname(filepath) == "" or
-        os.path.isdir(os.path.dirname(filepath))
-    ), f"{filepath=}, {os.path.dirname(filepath)=}"
-    
-    # Automatically serialize the object (handles dataclasses, tensors, etc.)
-    serialized_obj = serialize_object(obj)
-        
-    with open(filepath, mode='w') as f:
-        f.write(jsbeautifier.beautify(json.dumps(serialized_obj), jsbeautifier.default_options()))
