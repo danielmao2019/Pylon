@@ -10,7 +10,7 @@ import torch
 from typing import Dict, List, Tuple, Any
 
 from demos.data.transforms.vision_3d.lidar_simulation_crop.webapp.backend.point_cloud_utils import create_toy_point_cloud
-from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
+from data.transforms.vision_3d import LiDARSimulationCrop
 
 
 class LiDARVisualizationBackend:
@@ -26,22 +26,24 @@ class LiDARVisualizationBackend:
         return {
             'range_only': LiDARSimulationCrop(
                 max_range=6.0,
+                fov=(360.0, 180.0),  # Default wide FOV since not used
+                ray_density_factor=0.8,
                 apply_range_filter=True,
                 apply_fov_filter=False,
                 apply_occlusion_filter=False
             ),
             'fov_only': LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
-                horizontal_fov=80.0,
-                vertical_fov=40.0,  # Total angle: (-20.0, 20.0) → 40.0
+                fov=(80.0, 40.0),  # (horizontal_fov, vertical_fov)
+                ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=True,
                 apply_occlusion_filter=False
             ),
             'occlusion_only': LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
-                horizontal_fov=360.0,  # Full circle so no FOV filtering
-                vertical_fov=180.0,  # Full sphere so no FOV filtering: (-90.0, 90.0) → 180.0
+                fov=(360.0, 180.0),  # Full circle and sphere so no FOV filtering
+                ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=False,
                 apply_occlusion_filter=True
@@ -213,17 +215,19 @@ class LiDARVisualizationBackend:
             range_max = params.get('range_max', 6.0)
             return LiDARSimulationCrop(
                 max_range=range_max,
+                fov=(360.0, 180.0),  # Default wide FOV since not used
+                ray_density_factor=0.8,
                 apply_range_filter=True,
                 apply_fov_filter=False,
                 apply_occlusion_filter=False
             )
         elif crop_type == 'fov_only':
             h_fov = params.get('h_fov', 80.0)
-            v_fov = params.get('v_fov_span', 40.0)  # Total angle around center (0)
+            v_fov_span = params.get('v_fov_span', 40.0)  # Total span around center (0)
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
-                horizontal_fov=h_fov,
-                vertical_fov=v_fov,  # Use total angle directly
+                fov=(h_fov, v_fov_span),  # (horizontal_fov, vertical_fov)
+                ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=True,
                 apply_occlusion_filter=False
@@ -231,8 +235,8 @@ class LiDARVisualizationBackend:
         elif crop_type == 'occlusion_only':
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
-                horizontal_fov=360.0,  # Full circle so no FOV filtering
-                vertical_fov=180.0,  # Full sphere so no FOV filtering: (-90.0, 90.0) → 180.0
+                fov=(360.0, 180.0),  # Full circle and sphere so no FOV filtering
+                ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=False,
                 apply_occlusion_filter=True

@@ -16,13 +16,20 @@ def test_dataset_initialization_basic(test_data, basic_dataset_kwargs):
     # Basic checks
     assert len(dataset) == basic_dataset_kwargs['dataset_size']
     assert len(dataset.file_pair_annotations) == 2  # Two test files
-    assert len(dataset.all_camera_poses) == 7  # 3 poses from first file + 4 from second file
     
-    # Test that camera poses were loaded correctly
-    for pose in dataset.all_camera_poses:
-        assert pose.shape == (4, 4)
-        # Check last row is [0, 0, 0, 1]
-        assert np.allclose(pose[3, :], [0, 0, 0, 1])
+    # Test that scene camera poses were loaded correctly
+    assert len(dataset.scene_camera_poses) == 2  # Two scenes
+    total_poses = sum(len(poses) for poses in dataset.scene_camera_poses.values())
+    assert total_poses == 7  # 3 poses from first file + 4 from second file
+    
+    # Test that camera poses have correct structure
+    for scene_filepath, poses in dataset.scene_camera_poses.items():
+        assert isinstance(poses, list)
+        assert len(poses) > 0
+        for pose in poses:
+            assert pose.shape == (4, 4)
+            # Check last row is [0, 0, 0, 1]
+            assert np.allclose(pose[3, :], [0, 0, 0, 1])
 
 
 def test_dataset_initialization_custom_parameters(test_data):
@@ -58,8 +65,8 @@ def test_dataset_initialization_custom_parameters(test_data):
     assert dataset.lidar_vertical_fov == 90.0
 
 
-def test_camera_pose_loading_union(test_data, basic_dataset_kwargs):
-    """Test that camera poses are loaded into a union correctly."""
+def test_camera_pose_loading_by_scene(test_data, basic_dataset_kwargs):
+    """Test that camera poses are organized by scene correctly."""
     temp_dir, pc_filepaths, transforms_json_filepaths = test_data
     
     dataset = LiDARCameraPosePCRDataset(
@@ -68,23 +75,37 @@ def test_camera_pose_loading_union(test_data, basic_dataset_kwargs):
         **basic_dataset_kwargs
     )
     
-    # Verify camera pose union
+    # Verify scene organization
+    assert len(dataset.scene_camera_poses) == 2  # Two scenes
     expected_total = 7  # 3 from first file + 4 from second file
-    assert len(dataset.all_camera_poses) == expected_total
+    total_poses = sum(len(poses) for poses in dataset.scene_camera_poses.values())
+    assert total_poses == expected_total
+    
+    # Verify each scene has the correct number of poses
+    pose_counts = [len(poses) for poses in dataset.scene_camera_poses.values()]
+    pose_counts.sort()  # Sort to make assertion order-independent
+    assert pose_counts == [3, 4]  # Expected counts from conftest.py
     
     # Verify each pose is a valid 4x4 matrix
-    for i, pose in enumerate(dataset.all_camera_poses):
-        assert pose.shape == (4, 4), f"Pose {i} has invalid shape: {pose.shape}"
-        assert pose.dtype == np.float32, f"Pose {i} has invalid dtype: {pose.dtype}"
+    pose_idx = 0
+    for scene_filepath, poses in dataset.scene_camera_poses.items():
+        assert isinstance(scene_filepath, str)
+        assert scene_filepath in pc_filepaths
         
-        # Check that it's a valid transformation matrix
-        assert np.allclose(pose[3, :], [0, 0, 0, 1], atol=1e-5), f"Pose {i} has invalid bottom row: {pose[3, :]}"
-        
-        # Check that rotation part is orthogonal
-        rotation = pose[:3, :3]
-        should_be_identity = np.dot(rotation, rotation.T)
-        identity = np.eye(3)
-        assert np.allclose(should_be_identity, identity, atol=1e-4), f"Pose {i} rotation is not orthogonal"
+        for pose in poses:
+            assert pose.shape == (4, 4), f"Pose {pose_idx} has invalid shape: {pose.shape}"
+            assert pose.dtype == np.float32, f"Pose {pose_idx} has invalid dtype: {pose.dtype}"
+            
+            # Check that it's a valid transformation matrix
+            assert np.allclose(pose[3, :], [0, 0, 0, 1], atol=1e-5), f"Pose {pose_idx} has invalid bottom row: {pose[3, :]}"
+            
+            # Check that rotation part is orthogonal
+            rotation = pose[:3, :3]
+            should_be_identity = np.dot(rotation, rotation.T)
+            identity = np.eye(3)
+            assert np.allclose(should_be_identity, identity, atol=1e-4), f"Pose {pose_idx} rotation is not orthogonal"
+            
+            pose_idx += 1
 
 
 def test_file_pair_annotations(test_data, basic_dataset_kwargs):
