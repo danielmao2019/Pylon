@@ -63,17 +63,17 @@ def get_all_run_status(
     config_to_process_info = _build_config_to_process_mapping(all_connected_gpus)
 
     with ThreadPoolExecutor() as executor:
-        all_run_status = list(executor.map(
-            partial(get_run_status,
-                epochs=epochs,
-                config_to_process_info=config_to_process_info,
-                sleep_time=sleep_time,
-                outdated_days=outdated_days,
-            ), config_files
-        ))
-
-    # Convert list to mapping
-    return {status.config: status for status in all_run_status}
+        return {
+            status.config: status 
+            for status in executor.map(
+                partial(get_run_status,
+                    epochs=epochs,
+                    config_to_process_info=config_to_process_info,
+                    sleep_time=sleep_time,
+                    outdated_days=outdated_days,
+                ), config_files
+            )
+        }
 
 
 def get_run_status(
