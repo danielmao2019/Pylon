@@ -87,13 +87,11 @@ def test_create_progress_tracker_config_evaluator_class():
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
         
-        # Mock config with Evaluator class
+        # Mock config with Evaluator class (direct class reference)
+        mock_evaluator_class = type('BaseEvaluator', (), {})
         config = {
-            'runner': {
-                'class': type('BaseEvaluator', (), {})  # Mock class with 'Evaluator' in name
-            }
+            'runner': mock_evaluator_class
         }
-        config['runner']['class'].__name__ = 'BaseEvaluator'
         
         tracker = create_progress_tracker(work_dir, config)
         
@@ -107,12 +105,11 @@ def test_create_progress_tracker_config_trainer_class():
         # Empty directory, no file patterns
         
         # Mock config with Trainer class
+        # Mock config with Trainer class (direct class reference)
+        mock_trainer_class = type('BaseTrainer', (), {})
         config = {
-            'runner': {
-                'class': type('BaseTrainer', (), {})  # Mock class with 'Trainer' in name
-            }
+            'runner': mock_trainer_class
         }
-        config['runner']['class'].__name__ = 'BaseTrainer'
         
         tracker = create_progress_tracker(work_dir, config)
         
@@ -121,19 +118,18 @@ def test_create_progress_tracker_config_trainer_class():
 
 
 def test_create_progress_tracker_config_epochs_field():
-    """Test factory detects trainer from 'epochs' field."""
+    """Test factory fails fast when config lacks 'runner' key."""
     with tempfile.TemporaryDirectory() as work_dir:
-        # Empty directory, no file patterns, no runner class
+        # Empty directory, no file patterns, no runner class - invalid config
         
         config = {
             'epochs': 100,
             'model': 'test_model'
         }
         
-        tracker = create_progress_tracker(work_dir, config)
-        
-        assert isinstance(tracker, TrainerProgressTracker)
-        assert tracker.config == config
+        # Should fail fast with clear assertion error
+        with pytest.raises(AssertionError, match="Config must have 'runner' key"):
+            create_progress_tracker(work_dir, config)
 
 
 # ============================================================================
@@ -161,13 +157,11 @@ def test_create_progress_tracker_file_pattern_over_config():
         # Create trainer file pattern
         create_epoch_files(work_dir, 0)
         
-        # Config says evaluator
+        # Config says evaluator (direct class reference)
+        mock_evaluator_class = type('BaseEvaluator', (), {})
         config = {
-            'runner': {
-                'class': type('BaseEvaluator', (), {})
-            }
+            'runner': mock_evaluator_class
         }
-        config['runner']['class'].__name__ = 'BaseEvaluator'
         
         tracker = create_progress_tracker(work_dir, config)
         
@@ -211,13 +205,11 @@ def test_create_progress_tracker_fail_fast_nonexistent_directory():
 def test_create_progress_tracker_invalid_config():
     """Test factory with invalid config that doesn't help detection."""
     with tempfile.TemporaryDirectory() as work_dir:
-        # Config with runner class that doesn't contain Trainer or Evaluator
+        # Config with runner class that doesn't contain Trainer or Evaluator (direct class reference)
+        mock_other_class = type('SomeOtherClass', (), {})
         config = {
-            'runner': {
-                'class': type('SomeOtherClass', (), {})
-            }
+            'runner': mock_other_class
         }
-        config['runner']['class'].__name__ = 'SomeOtherClass'
         
         with pytest.raises(ValueError) as exc_info:
             create_progress_tracker(work_dir, config)
@@ -258,15 +250,11 @@ def test_create_progress_tracker_config_string_class_name():
         # Empty directory, rely on config
         
         config = {
-            'runner': {
-                'class': 'BaseEvaluator'  # String instead of class
-            }
+            'runner': 'BaseEvaluator'  # String instead of class (direct reference)
         }
         
-        tracker = create_progress_tracker(work_dir, config)
-        
-        assert isinstance(tracker, EvaluatorProgressTracker)
-        assert tracker.config == config
+        with pytest.raises(AssertionError, match="Expected runner to be a class"):
+            create_progress_tracker(work_dir, config)
 
 
 # ============================================================================
