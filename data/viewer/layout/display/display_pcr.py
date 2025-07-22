@@ -297,8 +297,8 @@ def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
         meta_items.append(html.P(f"Overlap: {overlap_value:.4f}", style={'font-weight': 'bold', 'color': '#2E86AB'}))
     
     # Show crop information
-    if 'crop_method' in meta_info:
-        meta_items.append(html.P(f"Crop Method: {meta_info['crop_method']}"))
+    # Crop method is always LiDAR - no need to display
+    meta_items.append(html.P("Crop Method: lidar"))
     if 'keep_ratio' in meta_info:
         meta_items.append(html.P(f"Keep Ratio: {meta_info['keep_ratio']:.2f}"))
     

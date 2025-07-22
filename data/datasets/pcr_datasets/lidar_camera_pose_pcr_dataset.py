@@ -77,7 +77,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         super().__init__(
             data_root=temp_data_root,  # Temporary directory to satisfy parent validation
             dataset_size=dataset_size,
-            crop_method='lidar',  # Force LiDAR cropping
             **kwargs,
         )
         
