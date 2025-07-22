@@ -131,7 +131,7 @@ class Launcher(BaseAgent):
             # Check GPU constraints
             gpu_util_ok = gpu['util_stats']['avg'] < 50
             gpu_mem_ok = (gpu['max_memory'] - gpu['memory_stats']['avg']) > 12 * 1024
-            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p['cmd']]) < num_jobs
+            gpu_jobs_ok = len([p for p in gpu['processes'] if 'python main.py --config-filepath' in p.cmd]) < num_jobs
 
             # Check CPU constraints for the same server
             server = gpu['server']

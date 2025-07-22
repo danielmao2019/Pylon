@@ -48,7 +48,7 @@ def generate_table_data(system_monitor: SystemMonitor, user_names: Dict[str, str
             continue
 
         # Filter for relevant processes (python main.py commands)
-        relevant_processes = [p for p in cpu['processes'] if 'python main.py --config-filepath' in p['cmd']]
+        relevant_processes = [p for p in cpu['processes'] if 'python main.py --config-filepath' in p.cmd]
         
         if not relevant_processes:
             table_data.append({
