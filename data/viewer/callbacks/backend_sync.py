@@ -13,6 +13,7 @@ from dash import Input, Output, State
 from dash.exceptions import PreventUpdate
 from data.viewer.callbacks.registry import callback, registry
 from data.viewer.utils.settings_config import ViewerSettings
+from data.viewer.utils.debounce import debounce
 
 import logging
 logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ logger = logging.getLogger(__name__)
     ],
     group="backend_sync"
 )
+@debounce
 def sync_3d_settings_to_backend(settings_3d: Optional[Dict[str, Union[str, int, float, bool]]]) -> List[Dict[str, Any]]:
     """Sync 3D settings from UI store to backend state.
     
@@ -106,6 +108,7 @@ def sync_dataset_to_backend(dataset_info: Optional[Dict[str, Union[str, int, boo
     ],
     group="backend_sync"
 )
+@debounce
 def sync_navigation_to_backend(
     datapoint_idx: int,
     dataset_info: Optional[Dict[str, Union[str, int, bool, Dict]]]
