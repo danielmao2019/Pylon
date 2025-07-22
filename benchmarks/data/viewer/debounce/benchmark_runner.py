@@ -211,6 +211,32 @@ class BenchmarkRunner:
         
         return full_results
     
+    def generate_visualizations(self, results: Dict[str, Any], output_dir: Optional[str] = None):
+        """Generate visualizations for benchmark results.
+        
+        Args:
+            results: Benchmark results dictionary
+            output_dir: Directory to save visualizations (uses same as results if None)
+        """
+        try:
+            from .visualizer import BenchmarkVisualizer
+            
+            if output_dir is None:
+                output_dir = self.output_dir / "visualizations"
+            
+            visualizer = BenchmarkVisualizer(results)
+            visualizer.generate_all_visualizations(str(output_dir))
+            
+            return output_dir
+            
+        except ImportError:
+            print("Warning: matplotlib not available, skipping visualizations")
+            print("Install with: pip install matplotlib")
+            return None
+        except Exception as e:
+            print(f"Error generating visualizations: {e}")
+            return None
+    
     def save_results(self, results: Dict[str, Any], filename: Optional[str] = None) -> Path:
         """Save benchmark results to JSON file.
         

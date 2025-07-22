@@ -20,6 +20,8 @@ The benchmark simulates realistic user interaction patterns and measures:
 - **`interaction_simulator.py`** - Realistic user interaction simulation
 - **`mock_app.py`** - Mock Dash app with viewer callbacks
 - **`mock_data.py`** - Synthetic point cloud registration dataset generation
+- **`visualizer.py`** - Matplotlib-based visualization generation for results
+- **`show_results.py`** - Quick results summary and insights display
 
 ### Available Scenarios
 
@@ -54,6 +56,9 @@ python -m benchmarks.data.viewer.debounce.main --datapoints 50 --points 2000
 # Custom output directory
 python -m benchmarks.data.viewer.debounce.main --output-dir ./my_results
 
+# Skip visualization generation
+python -m benchmarks.data.viewer.debounce.main --no-viz
+
 # Verbose output
 python -m benchmarks.data.viewer.debounce.main --verbose
 ```
@@ -72,8 +77,9 @@ results = runner.run_comparison('navigation', num_datapoints=100, num_points=500
 # Run full benchmark suite
 full_results = runner.run_full_benchmark()
 
-# Save results
+# Save results and generate visualizations
 runner.save_results(full_results)
+runner.generate_visualizations(full_results)
 ```
 
 ## Output
@@ -106,6 +112,24 @@ Time Savings:
   Time saved: 0.00s (0.0%)
 
 Overall Performance Score: 26.7
+```
+
+### Visualization Output
+
+The benchmark automatically generates comprehensive visualizations:
+
+- **`execution_reduction.png`** - Bar charts showing execution reduction by scenario
+- **`time_savings.png`** - Time savings comparison charts  
+- **`performance_scores.png`** - Overall performance scores by scenario
+- **`callback_breakdown.png`** - Per-callback performance analysis
+- **`summary_dashboard.png`** - Comprehensive dashboard with all key metrics
+
+### Quick Results Summary
+
+Use the results summary tool for a formatted overview:
+
+```bash
+python benchmarks/data/viewer/debounce/show_results.py benchmark_results/debounce_benchmark_full.json
 ```
 
 ### JSON Results

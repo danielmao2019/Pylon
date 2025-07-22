@@ -81,6 +81,12 @@ Examples:
         help='Enable verbose output'
     )
     
+    parser.add_argument(
+        '--no-viz',
+        action='store_true',
+        help='Skip visualization generation'
+    )
+    
     return parser.parse_args()
 
 
@@ -137,6 +143,14 @@ def main():
         
         # Save results
         output_file = runner.save_results(results)
+        
+        # Generate visualizations (unless disabled)
+        if not args.no_viz:
+            viz_dir = runner.generate_visualizations(results)
+            if viz_dir:
+                print(f"📈 Visualizations saved to: {viz_dir}")
+        else:
+            print("📈 Visualization generation skipped (--no-viz flag)")
         
         # Final summary
         summary = results.get('summary', {})
