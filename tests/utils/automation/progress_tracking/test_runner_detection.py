@@ -219,12 +219,9 @@ def test_detect_runner_type_deterministic():
 @pytest.mark.parametrize("config_variant", [
     {},  # Empty config
     None,  # No config
-    {'some_field': 'value'},  # Config without runner or epochs
-    {'runner': {}},  # Config with empty runner
-    {'runner': {'class': None}},  # Config with None runner class
 ])
 def test_detect_runner_type_various_invalid_configs(config_variant):
-    """Test detection behavior with various invalid config variants."""
+    """Test detection behavior with various config variants that result in ValueError."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty work directory
         
@@ -232,6 +229,31 @@ def test_detect_runner_type_various_invalid_configs(config_variant):
             detect_runner_type(work_dir, config_variant)
         
         assert "Unable to detect runner type" in str(exc_info.value)
+
+
+@pytest.mark.parametrize("config_variant", [
+    {'some_field': 'value'},  # Config without runner key
+])
+def test_detect_runner_type_configs_missing_runner_key(config_variant):
+    """Test detection behavior with configs missing runner key (AssertionError)."""
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Empty work directory
+        
+        with pytest.raises(AssertionError, match="Config must have 'runner' key"):
+            detect_runner_type(work_dir, config_variant)
+
+
+@pytest.mark.parametrize("config_variant", [
+    {'runner': {}},  # Config with empty runner
+    {'runner': {'class': None}},  # Config with None runner class
+])
+def test_detect_runner_type_configs_invalid_runner_type(config_variant):
+    """Test detection behavior with configs where runner is not a class (AssertionError)."""
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Empty work directory
+        
+        with pytest.raises(AssertionError, match="Expected runner to be a class"):
+            detect_runner_type(work_dir, config_variant)
 
 
 def test_detect_runner_type_config_string_class_name():
