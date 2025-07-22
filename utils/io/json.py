@@ -104,7 +104,7 @@ def safe_load_json(filepath: str) -> Any:
             return load_json(filepath)
     except Exception as e:
         # Re-raise with filepath context for all errors
-        raise type(e)(f"Error loading JSON from {filepath}: {e}") from e
+        raise RuntimeError(f"Error loading JSON from {filepath}: {e}") from e
 
 
 def save_json(obj: Any, filepath: str) -> None:
@@ -155,4 +155,4 @@ def safe_save_json(obj: Any, filepath: str) -> None:
             save_json(obj, filepath)
     except Exception as e:
         # Re-raise with filepath context for all errors
-        raise type(e)(f"Error saving JSON to {filepath}: {e}") from e
+        raise RuntimeError(f"Error saving JSON to {filepath}: {e}") from e

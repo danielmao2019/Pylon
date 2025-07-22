@@ -32,8 +32,7 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
     try:
         data = safe_load_json(progress_file)
         return ProgressInfo(**data)
-    except (AssertionError, KeyError, TypeError, OSError, IOError):
-        # File doesn't exist, is empty, corrupted, or data structure doesn't match ProgressInfo
+    except:
         pass
     
     # Slow path: re-compute and create progress.json
@@ -53,8 +52,7 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> Pro
     try:
         data = safe_load_json(progress_file)
         return ProgressInfo(**data)
-    except (AssertionError, KeyError, TypeError, OSError, IOError):
-        # File doesn't exist, is empty, corrupted, or data structure doesn't match ProgressInfo
+    except:
         pass
     
     # Count completed epochs (original logic)
