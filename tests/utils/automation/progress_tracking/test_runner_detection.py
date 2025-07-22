@@ -16,7 +16,7 @@ from conftest import create_epoch_files
 
 
 # ============================================================================
-# TESTS FOR detect_runner_type - FILE PATTERN DETECTION
+# VALID TESTS - SUCCESSFUL DETECTION
 # ============================================================================
 
 def test_detect_runner_type_evaluator_pattern():
@@ -58,10 +58,6 @@ def test_detect_runner_type_evaluator_takes_precedence():
         assert runner_type == 'evaluator'  # Evaluator wins
 
 
-# ============================================================================
-# TESTS FOR detect_runner_type - CONFIG-BASED DETECTION
-# ============================================================================
-
 def test_detect_runner_type_config_evaluator_class():
     """Test detection based on config runner class containing 'Evaluator'."""
     with tempfile.TemporaryDirectory() as work_dir:
@@ -92,6 +88,26 @@ def test_detect_runner_type_config_trainer_class():
         assert runner_type == 'trainer'
 
 
+def test_detect_runner_type_deterministic():
+    """Test that detection is deterministic across multiple calls."""
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Create evaluator pattern
+        eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
+        with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
+            json.dump(eval_scores, f)
+        
+        # Run multiple times
+        results = [detect_runner_type(work_dir) for _ in range(5)]
+        
+        # All results should be the same
+        assert all(r == 'evaluator' for r in results)
+        assert len(set(results)) == 1  # Only one unique result
+
+
+# ============================================================================
+# INVALID TESTS - EXPECTED FAILURES (pytest.raises)
+# ============================================================================
+
 def test_detect_runner_type_config_epochs_field():
     """Test detection fails fast when config lacks 'runner' key."""
     with tempfile.TemporaryDirectory() as work_dir:
@@ -106,10 +122,6 @@ def test_detect_runner_type_config_epochs_field():
         with pytest.raises(AssertionError, match="Config must have 'runner' key"):
             detect_runner_type(work_dir, config)
 
-
-# ============================================================================
-# TESTS FOR detect_runner_type - FAIL FAST BEHAVIOR
-# ============================================================================
 
 def test_detect_runner_type_fail_fast_no_patterns():
     """Test that detection fails fast with clear error when no patterns match."""
@@ -157,10 +169,6 @@ def test_detect_runner_type_fail_fast_with_config_info():
             detect_runner_type(work_dir, config)
 
 
-# ============================================================================
-# TESTS FOR detect_runner_type - EDGE CASES
-# ============================================================================
-
 def test_detect_runner_type_epoch_0_exists_but_no_validation_scores():
     """Test that epoch_0 directory without validation_scores.json is not detected as trainer."""
     with tempfile.TemporaryDirectory() as work_dir:
@@ -191,30 +199,6 @@ def test_detect_runner_type_invalid_config_runner_class():
         
         assert "Unable to detect runner type" in str(exc_info.value)
 
-
-# ============================================================================
-# TESTS FOR detect_runner_type - DETERMINISM
-# ============================================================================
-
-def test_detect_runner_type_deterministic():
-    """Test that detection is deterministic across multiple calls."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Create evaluator pattern
-        eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
-        with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
-            json.dump(eval_scores, f)
-        
-        # Run multiple times
-        results = [detect_runner_type(work_dir) for _ in range(5)]
-        
-        # All results should be the same
-        assert all(r == 'evaluator' for r in results)
-        assert len(set(results)) == 1  # Only one unique result
-
-
-# ============================================================================
-# TESTS FOR detect_runner_type - CONFIG VARIATIONS
-# ============================================================================
 
 @pytest.mark.parametrize("config_variant", [
     {},  # Empty config
