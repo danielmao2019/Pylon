@@ -67,7 +67,7 @@ def test_base_progress_tracker_initialization_with_config():
         
         assert tracker.work_dir == work_dir
         assert tracker.config == config
-        assert tracker._cached_progress is None
+        assert tracker._cache is None
         assert tracker._cache_time is None
 
 
@@ -78,7 +78,7 @@ def test_base_progress_tracker_initialization_without_config():
         
         assert tracker.work_dir == work_dir
         assert tracker.config is None
-        assert tracker._cached_progress is None
+        assert tracker._cache is None
         assert tracker._cache_time is None
 
 
@@ -108,7 +108,7 @@ def test_base_progress_tracker_caching_basic():
         # First call should calculate and cache
         progress1 = tracker.get_progress()
         assert progress1.completed_epochs == 10
-        assert tracker._cached_progress is not None
+        assert tracker._cache is not None
         assert tracker._cache_time is not None
         
         # Second call should return cached result
@@ -150,7 +150,7 @@ def test_base_progress_tracker_cache_timeout():
     with tempfile.TemporaryDirectory() as work_dir:
         # Use very short cache timeout for testing
         tracker = ConcreteProgressTracker(work_dir)
-        tracker.CACHE_TIMEOUT_SECONDS = 0.1  # 100ms
+        tracker._cache_timeout = 0.1  # 100ms
         
         # First call
         progress1 = tracker.get_progress()
