@@ -57,8 +57,8 @@ data_cfg = {
             'rotation_mag': 45.0,  # Synthetic transform parameters
             'translation_mag': 0.5,  # Synthetic transform parameters
             'matching_radius': 0.05,  # Radius for correspondence finding
-            'overlap_range': (0.3, 1.0),
-            'min_points': 512,
+            'overlap_range': (0.01, 1.0),  # TEMPORARILY RELAXED FOR TESTING
+            'min_points': 50,  # TEMPORARILY REDUCED FOR TESTING
             'max_trials': 1000,
             # LiDAR simulation parameters
             'lidar_max_range': 100.0,  # Maximum LiDAR range in meters
