@@ -121,48 +121,27 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             self.scene_camera_poses[pc_filepath] = camera_poses
             self.scene_poses_transformed[pc_filepath] = False  # Not yet transformed
         
-        # Build union of all poses for subsampling (if needed)
-        all_poses_list = []
-        scene_pose_mapping = []  # Track which scene each pose comes from
-        
-        for pc_filepath, poses in self.scene_camera_poses.items():
-            for pose in poses:
-                all_poses_list.append(pose)
-                scene_pose_mapping.append(pc_filepath)
-        
-        # Validate we have camera poses in total
-        assert len(all_poses_list) > 0, (
-            f"No camera poses found in any transforms.json files."
-        )
-        
-        # Apply subsampling if camera_count is specified
+        # Apply per-scene subsampling if camera_count is specified
         if self.camera_count is not None:
-            total_poses = len(all_poses_list)
+            rng = np.random.RandomState(seed=42)
+            total_before = sum(len(poses) for poses in self.scene_camera_poses.values())
             
-            # Ensure we don't request more poses than available
-            if self.camera_count > total_poses:
-                print(f"Warning: Requested {self.camera_count} camera poses but only {total_poses} available. Using all poses.")
-                selected_poses = all_poses_list
-                selected_scene_mapping = scene_pose_mapping
-            else:
-                # Randomly sample camera_count poses from the union
-                # Use a fixed seed for reproducibility
-                rng = np.random.RandomState(seed=42)
-                selected_indices = rng.choice(total_poses, size=self.camera_count, replace=False)
-                selected_indices = sorted(selected_indices)  # Sort for deterministic ordering
+            # Subsample camera_count poses from each scene independently
+            for pc_filepath in list(self.scene_camera_poses.keys()):
+                scene_poses = self.scene_camera_poses[pc_filepath]
+                num_poses = len(scene_poses)
                 
-                # Keep only the selected poses and their scene mappings
-                selected_poses = [all_poses_list[i] for i in selected_indices]
-                selected_scene_mapping = [scene_pose_mapping[i] for i in selected_indices]
-                
-                print(f"Subsampled {self.camera_count} camera poses from {total_poses} total poses")
-                
-                # Rebuild scene_camera_poses with only selected poses
-                self.scene_camera_poses = {}
-                for pose, scene in zip(selected_poses, selected_scene_mapping):
-                    if scene not in self.scene_camera_poses:
-                        self.scene_camera_poses[scene] = []
-                    self.scene_camera_poses[scene].append(pose)
+                if self.camera_count < num_poses:
+                    # Randomly sample camera_count poses from this scene
+                    selected_indices = rng.choice(num_poses, size=self.camera_count, replace=False)
+                    selected_indices = sorted(selected_indices)
+                    self.scene_camera_poses[pc_filepath] = [scene_poses[i] for i in selected_indices]
+                    print(f"Scene {os.path.basename(pc_filepath)}: {num_poses} → {self.camera_count} poses")
+                else:
+                    print(f"Scene {os.path.basename(pc_filepath)}: keeping all {num_poses} poses (< {self.camera_count})")
+            
+            total_after = sum(len(poses) for poses in self.scene_camera_poses.values())
+            print(f"Total camera poses: {total_before} → {total_after} after per-scene subsampling")
     
     def _load_camera_poses_from_json(self, json_path: str) -> List[np.ndarray]:
         """Load camera poses from a transforms.json file (nerfstudio format only).
