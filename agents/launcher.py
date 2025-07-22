@@ -70,13 +70,13 @@ class Launcher(BaseAgent):
             if not gpu['connected']:
                 return {}
             for proc in gpu['processes']:
-                if proc['user'] != gpu['server'].split('@')[0]:
+                if proc.user != gpu['server'].split('@')[0]:
                     continue
-                if 'python main.py --config-filepath' not in proc['cmd']:
+                if 'python main.py --config-filepath' not in proc.cmd:
                     continue
-                cfg = parse_config(proc['cmd'])
+                cfg = parse_config(proc.cmd)
                 if cfg in stuck_cfgs:
-                    gpu_stuck_info[cfg] = (gpu['server'], proc['pid'])
+                    gpu_stuck_info[cfg] = (gpu['server'], proc.pid)
             return gpu_stuck_info
 
         with ThreadPoolExecutor() as executor:
