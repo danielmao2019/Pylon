@@ -22,7 +22,7 @@ from utils.automation.run_status import (
     RunStatus
 )
 from utils.monitor.process_info import ProcessInfo
-from utils.automation.run_status.session_progress import ProgressInfo
+from utils.automation.progress_tracking import ProgressInfo
 from conftest import (
     create_epoch_files,
     create_real_config,
@@ -44,8 +44,6 @@ def test_get_run_status_basic_functionality():
         config_path = os.path.join(configs_dir, "test_run.py")
         
         os.makedirs(work_dir, exist_ok=True)
-        expected_files = EXPECTED_FILES
-        
         # Create some completed epochs
         for epoch_idx in range(5):
             create_epoch_files(work_dir, epoch_idx)
@@ -63,7 +61,6 @@ def test_get_run_status_basic_functionality():
             # NO MOCKS - use real function with real data structures
             run_status = get_run_status(
                 config=config_path,
-                expected_files=expected_files,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
@@ -92,7 +89,6 @@ def test_get_run_status_with_process_info():
         config_path = os.path.join(configs_dir, "test_run.py")
         
         os.makedirs(work_dir, exist_ok=True)
-        expected_files = EXPECTED_FILES
         
         # Create some completed epochs
         for epoch_idx in range(3):
@@ -117,7 +113,6 @@ def test_get_run_status_with_process_info():
             # NO MOCKS - use real function with real data structures
             run_status = get_run_status(
                 config=config_path,
-                expected_files=expected_files,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
@@ -146,7 +141,6 @@ def test_run_status_determination(status_scenario, expected_status):
         config_path = os.path.join(configs_dir, "test_status.py")
         
         os.makedirs(work_dir, exist_ok=True)
-        expected_files = EXPECTED_FILES
         
         # Set up scenarios
         if status_scenario == "finished":
@@ -184,7 +178,6 @@ def test_run_status_determination(status_scenario, expected_status):
             # NO MOCKS - use real function with real data
             run_status = get_run_status(
                 config=config_path,
-                expected_files=expected_files,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
@@ -220,8 +213,6 @@ def test_get_all_run_status_returns_mapping():
             for epoch_idx in range(2):
                 create_epoch_files(work_dir, epoch_idx)
         
-        expected_files = EXPECTED_FILES
-        
         # Create minimal SystemMonitor mock (only necessary mock)
         connected_gpus_data = [{'server': 'test_server', 'index': 0, 'processes': []}]
         system_monitor = create_minimal_system_monitor_with_processes(connected_gpus_data)
@@ -232,7 +223,6 @@ def test_get_all_run_status_returns_mapping():
         try:
             result = get_all_run_status(
                 config_files=config_files,
-                expected_files=expected_files,
                 epochs=100,
                 system_monitor=system_monitor
             )
@@ -358,7 +348,6 @@ def test_get_run_status_invalid_config_path():
         invalid_config_path = os.path.join(temp_root, "nonexistent", "config.py")
         
         os.makedirs(work_dir, exist_ok=True)
-        expected_files = EXPECTED_FILES
         config_to_process_info: Dict[str, ProcessInfo] = {}
         
         original_cwd = os.getcwd()
@@ -369,7 +358,6 @@ def test_get_run_status_invalid_config_path():
             # but since the work_dir exists but is empty, it will return 0 completed epochs
             run_status = get_run_status(
                 config=invalid_config_path,
-                expected_files=expected_files,
                 epochs=100,
                 config_to_process_info=config_to_process_info
             )
