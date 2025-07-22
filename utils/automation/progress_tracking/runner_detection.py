@@ -41,10 +41,6 @@ def detect_runner_type(work_dir: str, config: Optional[Dict[str, Any]] = None) -
             return 'evaluator' 
         elif 'Trainer' in class_name:
             return 'trainer'
-                
-        # Strategy 3: Check for 'epochs' field (trainers have this)
-        if 'epochs' in config:
-            return 'trainer'
     
     # FAIL FAST: Cannot determine runner type
     available_files = os.listdir(work_dir) if os.path.exists(work_dir) else []
