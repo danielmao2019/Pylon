@@ -87,7 +87,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # Validate crop method - only LiDAR is supported
         assert crop_method == 'lidar', f"crop_method must be 'lidar', got '{crop_method}'"
-        self.crop_method = crop_method
         
         # Store LiDAR parameters (temporarily force FOV-only cropping)
         self.lidar_max_range = float(lidar_max_range)
@@ -183,7 +182,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                         "overlap": float,
                         "rotation_angles": [float, float, float],
                         "translation": [float, float, float],
-                        "crop_method": str,
                         "keep_ratio": float,
                         "src_num_points": int,
                         "tgt_num_points": int,
@@ -234,7 +232,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                     
                     # Check required fields (basic fields that all methods have)
                     basic_required_fields = ['overlap', 'rotation_angles', 'translation', 
-                                           'crop_method', 'src_num_points', 'tgt_num_points']
+                                           'src_num_points', 'tgt_num_points']
                     
                     for field in basic_required_fields:
                         assert field in transform, f"Transform {i} missing required field '{field}'"
@@ -624,7 +622,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         config = {
             'rotation_angles': rotation_angles.tolist(),
             'translation': translation.tolist(),
-            'crop_method': 'lidar',
             'sensor_position': sensor_position.tolist(),
             'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
@@ -680,7 +677,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         transform_matrix[:3, 3] = translation
         
         # Build LiDAR crop transform using pre-sampled parameters for deterministic caching
-        assert transform_params['crop_method'] == 'lidar', f"Only LiDAR crop method is supported, got '{transform_params['crop_method']}'"
         
         # Build 4x4 extrinsics matrix from sampled pose parameters
         sensor_position = torch.tensor(transform_params['sensor_position'], dtype=torch.float32, device=self.device)
@@ -764,7 +760,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         src_points = apply_transform(ref_points, transform_inv)
         
         # Apply LiDAR cropping to both source and target 
-        assert transform_params['crop_method'] == 'lidar', f"Only LiDAR crop method is supported, got '{transform_params['crop_method']}'"
         
         # LiDAR cropping requires sensor extrinsics matrix
         sensor_extrinsics = crop_transform._sensor_extrinsics
