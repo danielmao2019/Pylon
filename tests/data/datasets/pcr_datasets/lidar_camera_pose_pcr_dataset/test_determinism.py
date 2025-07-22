@@ -39,27 +39,27 @@ def test_camera_pose_sampling_determinism(test_data):
         dp2 = dataset2[i]
         
         # Camera pose indices should be the same
-        camera_idx_1 = dp1['meta_info']['transform_config']['camera_pose_idx']
-        camera_idx_2 = dp2['meta_info']['transform_config']['camera_pose_idx']
+        camera_idx_1 = dp1['meta_info']['transform_params']['camera_pose_idx']
+        camera_idx_2 = dp2['meta_info']['transform_params']['camera_pose_idx']
         assert camera_idx_1 == camera_idx_2, f"Camera pose indices differ at index {i}: {camera_idx_1} vs {camera_idx_2}"
         
         # Sensor positions should be the same (from same camera pose)
-        pos_1 = dp1['meta_info']['transform_config']['sensor_position']
-        pos_2 = dp2['meta_info']['transform_config']['sensor_position']
+        pos_1 = dp1['meta_info']['transform_params']['sensor_position']
+        pos_2 = dp2['meta_info']['transform_params']['sensor_position']
         assert np.allclose(pos_1, pos_2, atol=1e-6), f"Sensor positions differ at index {i}: {pos_1} vs {pos_2}"
         
         # Sensor orientations should be the same
-        euler_1 = dp1['meta_info']['transform_config']['sensor_euler_angles']
-        euler_2 = dp2['meta_info']['transform_config']['sensor_euler_angles']
+        euler_1 = dp1['meta_info']['transform_params']['sensor_euler_angles']
+        euler_2 = dp2['meta_info']['transform_params']['sensor_euler_angles']
         assert np.allclose(euler_1, euler_2, atol=1e-6), f"Sensor orientations differ at index {i}: {euler_1} vs {euler_2}"
         
         # Transform parameters should be the same
-        rot_1 = dp1['meta_info']['transform_config']['rotation_angles']
-        rot_2 = dp2['meta_info']['transform_config']['rotation_angles']
+        rot_1 = dp1['meta_info']['transform_params']['rotation_angles']
+        rot_2 = dp2['meta_info']['transform_params']['rotation_angles']
         assert np.allclose(rot_1, rot_2, atol=1e-6), f"Rotation angles differ at index {i}: {rot_1} vs {rot_2}"
         
-        trans_1 = dp1['meta_info']['transform_config']['translation']
-        trans_2 = dp2['meta_info']['transform_config']['translation']
+        trans_1 = dp1['meta_info']['transform_params']['translation']
+        trans_2 = dp2['meta_info']['transform_params']['translation']
         assert np.allclose(trans_1, trans_2, atol=1e-6), f"Translations differ at index {i}: {trans_1} vs {trans_2}"
 
 

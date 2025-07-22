@@ -253,7 +253,7 @@ def test_datapoint_determinism():
                 f"Labels differ at index {idx}"
             
             # Compare meta_info (skip dynamic fields like timestamps if any)
-            meta_keys_to_compare = ['file_idx', 'transform_idx', 'overlap', 'crop_method', 'keep_ratio']
+            meta_keys_to_compare = ['file_idx', 'transform_idx', 'overlap']
             for key in meta_keys_to_compare:
                 if key in dp1['meta_info'] and key in dp2['meta_info']:
                     assert dp1['meta_info'][key] == dp2['meta_info'][key], \

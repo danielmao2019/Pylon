@@ -52,20 +52,21 @@ data_cfg = {
             'pc_filepaths': PC_FILEPATHS,
             'transforms_json_filepaths': TRANSFORMS_JSON_FILEPATHS,
             'split': 'train',
-            'dataset_size': 1000,  # Total number of synthetic registration pairs to generate (100 per file pair)
-            'rotation_mag': 45.0,  # Synthetic transform parameters
-            'translation_mag': 0.5,  # Synthetic transform parameters
-            'matching_radius': 0.05,  # Radius for correspondence finding
-            'overlap_range': (0.3, 1.0),
+            'dataset_size': 1000,
+            'camera_count': 50,
+            'rotation_mag': 45.0,
+            'translation_mag': 0.5,
+            'matching_radius': 0.05,
+            'overlap_range': (0.0, 1.0),
             'min_points': 512,
             'max_trials': 1000,
             # LiDAR simulation parameters
-            'lidar_max_range': 100.0,  # Maximum LiDAR range in meters
-            'lidar_horizontal_fov': 360.0,  # Full 360-degree horizontal FOV
-            'lidar_vertical_fov': (-45.0, 45.0),  # Vertical FOV range in degrees
-            'lidar_apply_range_filter': True,  # Apply range-based filtering
-            'lidar_apply_fov_filter': True,  # Apply FOV-based filtering
-            'lidar_apply_occlusion_filter': True,  # Apply occlusion filtering
+            'lidar_max_range': 100.0,
+            'lidar_horizontal_fov': 70.0,
+            'lidar_vertical_fov': 75.0,
+            'lidar_apply_range_filter': False,
+            'lidar_apply_fov_filter': True,
+            'lidar_apply_occlusion_filter': False,
             'cache_filepath': './data/datasets/soft_links/ivision-pcr-data/../lidar_camera_pose_pcr_cache.json',
             'transforms_cfg': {
                 'class': data.transforms.Compose,
