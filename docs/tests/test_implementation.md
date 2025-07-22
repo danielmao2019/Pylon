@@ -93,6 +93,8 @@ tests/module/
   - Test gradient flow and device handling
   - No need to verify mathematical correctness against papers
 
+**Models Module Testing**: We don't do deep testing for the models module, because those are all directly copied over from official implementations of their papers, with API fixes to adjust to Pylon. We just make sure that the API works - i.e., we are able to use those code in Pylon. We don't test for correctness of those code.
+
 **Note**: We do not write separate tests for "official_implementation" - all integrated code is tested as "your implementation".
 
 ## Critical Testing Patterns for Pylon Components
