@@ -299,8 +299,7 @@ def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
     # Show crop information
     # Crop method is always LiDAR - no need to display
     meta_items.append(html.P("Crop Method: lidar"))
-    if 'keep_ratio' in meta_info:
-        meta_items.append(html.P(f"Keep Ratio: {meta_info['keep_ratio']:.2f}"))
+    # keep_ratio removed - only relevant for plane/point crop methods, not LiDAR
     
     # Show additional transform config details if available
     if 'transform_params' in meta_info:
