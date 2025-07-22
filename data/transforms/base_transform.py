@@ -32,7 +32,7 @@ class BaseTransform:
         return generator
 
     @abstractmethod
-    def _call_single(self, *args, generator: torch.Generator) -> Any:
+    def _call_single(self, *args, generator: Optional[torch.Generator] = None) -> Any:
         """Apply the transform to a single input."""
         raise NotImplementedError
 
