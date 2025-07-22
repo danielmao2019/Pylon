@@ -1,6 +1,18 @@
 # Testing Philosophy and Patterns
 
-**Comprehensive testing approach with standardized patterns:**
+**Comprehensive testing approach with standardized patterns and core principles:**
+
+## Core Testing Principles
+
+**These fundamental principles guide all testing in Pylon:**
+
+1. **Function-based testing**: Always use `def test_*()` functions, never `class Test*`
+2. **Parametrization over duplication**: Use `@pytest.mark.parametrize` instead of multiple similar functions
+3. **pytest.raises for failures**: Test expected exceptions with `pytest.raises()`, not try-catch blocks
+4. **Real over mock**: Prefer testing with real objects unless mocking is absolutely necessary
+5. **No test modules**: Never use `__init__.py` files in test directories - they are not Python modules
+6. **Fixtures for sharing**: Use conftest.py fixtures for common code, avoid direct imports from conftest
+7. **Split large files**: When test files exceed ~300 lines, split by functional aspects or valid/invalid patterns
 
 ## Common Test Pattern Taxonomy
 

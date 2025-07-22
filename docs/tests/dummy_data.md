@@ -36,43 +36,15 @@ torch.randint(0, 10, (2, 224, 224), dtype=torch.int64)
 
 ## Tensor Type Requirements
 
-**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow these type assumptions. The input validation will fail otherwise.
+**CRITICAL for testing**: When generating dummy inputs in `tests/` modules, always follow the standardized tensor type assumptions defined in the main project documentation.
 
-### Standardized tensor formats across the framework:
+**For complete tensor type requirements, see `@CLAUDE.md` Section 4.1 "Tensor Type Assumptions".**
 
-- **Images**: `(C, H, W)` float32 tensors where C=3, batched: `(N, C, H, W)`
-  ```python
-  # Individual image
-  image = torch.randn(3, 224, 224, dtype=torch.float32)
-  # Batched images  
-  images = torch.randn(8, 3, 224, 224, dtype=torch.float32)
-  ```
+The framework enforces strict tensor type conventions for:
+- Images (float32, specific channel ordering)  
+- Segmentation masks (int64, specific shapes)
+- Classification labels (int64 scalars/tensors)
+- Point clouds (dictionary format with 'pos' key)
+- Model predictions (task-specific formats)
 
-- **Segmentation masks**: `(H, W)` int64 tensors, batched: `(N, H, W)`
-  ```python
-  # Individual mask (semantic, binary, amodal, instance)
-  mask = torch.randint(0, num_classes, (224, 224), dtype=torch.int64)
-  # Batched masks
-  masks = torch.randint(0, num_classes, (8, 224, 224), dtype=torch.int64)
-  ```
-
-- **Classification labels**: int64 scalars, batched: `(N,)` int64 tensors
-  ```python
-  # Individual label
-  label = torch.tensor(5, dtype=torch.int64)
-  # Batched labels
-  labels = torch.randint(0, num_classes, (8,), dtype=torch.int64)
-  ```
-
-- **Point clouds**: Dictionary format with mandatory 'pos' key
-  ```python
-  # Individual point cloud
-  pc = {'pos': torch.randn(1024, 3), 'feat': torch.randn(1024, 32)}
-  # Batched point clouds (concatenated along point dimension)
-  pc = {'pos': torch.randn(2048, 3), 'feat': torch.randn(2048, 32)}
-  ```
-
-- **Model predictions**: Follow task-specific formats
-  - Classification: `(N, C)` float32 for batched, `(C,)` for individual
-  - Segmentation: `(N, C, H, W)` float32 for batched, `(C, H, W)` for individual
-  - Depth: `(N, 1, H, W)` float32 for batched, `(1, H, W)` for individual
+**Key principle**: Always specify `dtype` when creating test tensors to match the framework requirements.
