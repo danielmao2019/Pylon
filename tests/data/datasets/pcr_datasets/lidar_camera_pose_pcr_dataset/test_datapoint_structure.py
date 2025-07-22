@@ -93,7 +93,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     required_config_keys = {
         'rotation_angles', 'translation',
         'camera_pose_idx', 'sensor_position', 'sensor_euler_angles',
-        'lidar_max_range', 'lidar_horizontal_fov', 'lidar_vertical_fov',
+        'lidar_max_range', 'lidar_fov',
         'seed',
     }
     assert required_config_keys.issubset(transform_params.keys()), f"transform_params missing keys: {required_config_keys - set(transform_params.keys())}"

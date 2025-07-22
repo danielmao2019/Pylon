@@ -96,5 +96,5 @@ def test_dataset_length_consistency(test_data):
     assert all(length == lengths[0] for length in lengths), f"Dataset lengths should be consistent: {lengths}"
     
     # All datasets should have the same number of camera poses
-    camera_pose_counts = [len(dataset.all_camera_poses) for dataset in datasets]
+    camera_pose_counts = [sum(len(poses) for poses in dataset.scene_camera_poses.values()) for dataset in datasets]
     assert all(count == camera_pose_counts[0] for count in camera_pose_counts), f"Camera pose counts should be consistent: {camera_pose_counts}"
