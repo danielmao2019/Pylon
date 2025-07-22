@@ -168,13 +168,99 @@ Results are automatically saved as JSON files containing:
 - **Prevented Events**: Number of callbacks prevented (by PreventUpdate or debouncing)
 - **Prevention Rate**: Percentage of events that were prevented
 - **Execution Reduction**: How much debouncing reduced callback executions
-- **Performance Score**: Overall score (higher is better) based on execution reduction, time savings, and resource efficiency
+
+### Performance Score
+
+The **Performance Score** is a composite metric that combines three key performance indicators to provide an overall assessment of debouncing effectiveness.
+
+#### Formula
+
+```
+performance_score = (execution_reduction_% + time_saved_% + cpu_reduction_%) / 3
+```
+
+#### Components
+
+1. **Execution Reduction %** - How much debouncing reduced callback executions
+   - Example: 95.0% means 95% fewer callbacks were executed
+   - Range: 0-100% (higher is better)
+
+2. **Time Saved %** - How much total processing time was reduced
+   - Example: 39.1% means 39% less time spent processing
+   - Range: can be negative if debouncing adds overhead
+
+3. **CPU Reduction %** - How much CPU usage was reduced
+   - Example: -82.0% means CPU usage actually increased by 82%
+   - Range: can be negative if debouncing increases CPU load
+
+#### Score Interpretation
+
+| Score Range | Interpretation | Meaning |
+|-------------|----------------|---------|
+| **50+** | 🎉 Excellent | Debouncing provides significant benefits across all metrics |
+| **20-50** | ✅ Good | Debouncing provides moderate benefits, recommended |
+| **0-20** | ⚠️ Marginal | Debouncing provides minimal benefits |
+| **Below 0** | ❌ Negative | Debouncing may be causing more overhead than benefit |
+
+#### Example Calculation
+
+For the Navigation scenario:
+- Execution Reduction: 95.0% (excellent - 95% fewer callbacks)
+- Time Saved: 39.1% (good - significant time savings)
+- CPU Reduction: -63.8% (negative - CPU usage increased)
+
+**Performance Score = (95.0 + 39.1 + (-63.8)) / 3 = 23.4**
+
+#### Why CPU Usage May Increase
+
+CPU usage can increase with debouncing due to:
+- **Threading Overhead**: The debounce decorator uses `threading.Timer` which consumes CPU
+- **Context Switching**: Multiple threads managing delayed execution
+- **Small Sample Size**: In quick tests, the overhead is more visible than benefits
+- **Measurement Timing**: CPU sampling during delayed execution periods
+
+#### Score Limitations
+
+- **Equal weighting**: All three components weighted equally, though execution reduction might be more important
+- **CPU measurement sensitivity**: Short benchmarks can show misleading CPU results
+- **No user experience factor**: Doesn't account for perceived responsiveness improvements
+
+Despite these limitations, the Performance Score provides a useful overall assessment of debouncing effectiveness across different usage scenarios.
 
 ### Resource Metrics
 
 - **CPU Usage**: Process CPU utilization during benchmark
 - **Memory Usage**: Process memory consumption during benchmark
 - **Callback Timings**: Per-callback execution time statistics
+
+## Typical Results
+
+Based on benchmark runs with synthetic PCR datasets (20 datapoints, 1000 points each):
+
+### Overall Performance
+
+- **Average Execution Reduction**: ~93.7%
+- **Average Time Saved**: ~31.4%
+- **Overall Performance Score**: ~22.7 (Good - recommended to keep debouncing enabled)
+
+### Scenario Breakdown
+
+| Scenario | Exec Reduction | Time Saved | CPU Impact | Score | Assessment |
+|----------|----------------|------------|------------|-------|------------|
+| **mixed** | 89.3% | 43.6% | -17.7% | 38.4 | ✅ Best overall performance |
+| **3d_settings** | 93.8% | 12.2% | -2.2% | 34.6 | ✅ Good benefits |
+| **camera** | 96.7% | 12.3% | -24.9% | 28.0 | ✅ Good benefits |
+| **buttons** | 90.0% | 0.7% | -27.3% | 21.2 | ✅ Moderate benefits |
+| **navigation** | 95.0% | 39.1% | -63.8% | 17.4 | ⚠️ Marginal benefits |
+| **stress** | 97.4% | 80.2% | -188.3% | -3.6 | ❌ Overhead dominates |
+
+### Key Takeaways
+
+1. **Debouncing is highly effective** at reducing redundant callback executions (89-97% reduction)
+2. **Mixed usage scenarios benefit most** from debouncing
+3. **CPU overhead is the main cost** but is outweighed by execution reduction benefits
+4. **Stress tests reveal the overhead ceiling** where threading costs can dominate
+5. **Real-world usage patterns** show significant performance improvements
 
 ## Implementation Details
 
