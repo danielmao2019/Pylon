@@ -202,12 +202,20 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         """
         return (self.rotation_mag, self.translation_mag, self.matching_radius, self.camera_count)
 
-    def _sample_transform(self, seed: int) -> Dict[str, Any]:
+    def _sample_transform(self, seed: int, **kwargs) -> Dict[str, Any]:
         """Sample transform parameters using scene-specific camera poses.
         
-        Uses the current scene context (set by _process_single_transform) to sample
-        camera poses from the correct scene.
+        Args:
+            seed: Random seed for deterministic sampling
+            **kwargs: Must contain 'file_idx' for scene-specific camera pose sampling
+        
+        Returns:
+            Dictionary containing transform parameters including scene-specific camera pose
         """
+        # Validate that file_idx is provided
+        assert 'file_idx' in kwargs, "file_idx must be provided in kwargs for scene-specific camera pose sampling"
+        file_idx = kwargs['file_idx']
+        
         generator = torch.Generator()
         generator.manual_seed(seed)
         
@@ -215,9 +223,8 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         rotation_angles = torch.rand(3, generator=generator) * (2 * self.rotation_mag) - self.rotation_mag
         translation = torch.rand(3, generator=generator) * (2 * self.translation_mag) - self.translation_mag
         
-        # Get scene-specific camera poses (using current scene context)
-        assert hasattr(self, '_current_file_idx'), "_current_file_idx must be set before calling _sample_transform"
-        file_pair_annotation = self.file_pair_annotations[self._current_file_idx]
+        # Get scene-specific camera poses using file_idx from kwargs
+        file_pair_annotation = self.file_pair_annotations[file_idx]
         pc_filepath = file_pair_annotation['src_filepath']
         scene_camera_poses = self.scene_camera_poses[pc_filepath]
         
@@ -261,62 +268,6 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             'crop_seed': crop_seed,
             'camera_pose_idx': camera_pose_idx,
             'scene_filepath': pc_filepath,
-        }
-    
-    def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
-        """Process a single transform with scene-specific camera pose sampling.
-        
-        Overrides parent method to pass file_idx to _sample_transform for
-        scene-specific camera pose sampling.
-        
-        Args:
-            args: Tuple of (src_pc_data, tgt_pc_data, file_idx, trial_idx)
-            
-        Returns:
-            Result dictionary with transform data
-        """
-        src_pc_data, tgt_pc_data, file_idx, trial_idx = args
-        
-        # Create deterministic seed from (file_idx, trial_idx)
-        # file_idx already provides uniqueness for multi-pairing scenarios
-        seed = hash((file_idx, trial_idx)) % (2**32)
-        
-        # Set current scene context for _sample_transform
-        self._current_file_idx = file_idx
-        
-        # Sample transform parameters (includes scene-specific camera pose)
-        transform_params = self._sample_transform(seed)
-        
-        # Build transform components
-        transform_matrix, crop_transform = self._build_transform(transform_params)
-        
-        # Apply transform
-        src_pc, tgt_pc = self._apply_transform(src_pc_data, tgt_pc_data, transform_matrix, crop_transform, transform_params)
-        
-        # Compute overlap (this is the expensive operation we're parallelizing)
-        # Following standard PCR convention: compute overlap between source + transform vs target
-        # This measures how well the source aligns to target with the ground truth transform
-        from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-        overlap = compute_registration_overlap(
-            ref_points=tgt_pc['pos'],
-            src_points=src_pc['pos'], 
-            transform=transform_matrix,
-            positive_radius=self.matching_radius * 2
-        )
-        
-        # Add metadata including point counts for min_points filtering
-        transform_params['overlap'] = float(overlap)
-        transform_params['src_num_points'] = src_pc['pos'].shape[0]
-        transform_params['tgt_num_points'] = tgt_pc['pos'].shape[0]
-        transform_params['trial'] = trial_idx
-        
-        return {
-            'transform_params': transform_params,
-            'src_pc': src_pc,
-            'tgt_pc': tgt_pc,
-            'transform_matrix': transform_matrix,
-            'overlap': overlap,
-            'seed': seed
         }
 
     # =========================================================================
