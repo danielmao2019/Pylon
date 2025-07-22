@@ -9,7 +9,7 @@ import torch
 
 from runners.supervised_single_task_trainer import SupervisedSingleTaskTrainer
 import utils
-from utils.automation.run_status import check_epoch_finished
+from utils.automation.progress_tracking.session_progress import check_epoch_finished
 from utils.ops import buffer_allclose
 from configs.examples.linear.config import config
 import copy

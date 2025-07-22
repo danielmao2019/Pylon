@@ -31,16 +31,15 @@ def detect_runner_type(work_dir: str, config: Optional[Dict[str, Any]] = None) -
     
     # Strategy 2: Check config if available (additional context)
     if config:
-        runner_class = config.get('runner', {}).get('class', None)
-        if runner_class:
-            class_name = runner_class.__name__ if hasattr(runner_class, '__name__') else str(runner_class)
-            if 'Evaluator' in class_name:
-                return 'evaluator' 
-            elif 'Trainer' in class_name:
-                return 'trainer'
-                
-        # Strategy 3: Check for 'epochs' field (trainers have this)
-        if 'epochs' in config:
+        assert 'runner' in config, f"Config must have 'runner' key, got keys: {list(config.keys())}"
+        runner_config = config['runner']
+        # Enforce contract: runner config must be a direct class reference
+        assert isinstance(runner_config, type), f"Expected runner to be a class, got {type(runner_config)}: {runner_config}"
+        
+        class_name = runner_config.__name__ if hasattr(runner_config, '__name__') else str(runner_config)
+        if 'Evaluator' in class_name:
+            return 'evaluator' 
+        elif 'Trainer' in class_name:
             return 'trainer'
     
     # FAIL FAST: Cannot determine runner type

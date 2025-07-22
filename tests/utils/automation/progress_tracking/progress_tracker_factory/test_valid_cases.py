@@ -1,21 +1,19 @@
 """
-Test progress_tracker_factory functionality for creating appropriate trackers.
+Test progress_tracker_factory functionality for creating appropriate trackers - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
-- Edge case testing
-- Invalid input testing with exception verification
 - Determinism testing
+- Integration testing
 """
 import os
 import tempfile
 import json
-import pytest
 from utils.automation.progress_tracking.progress_tracker_factory import create_progress_tracker
 from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
 from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
-from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker, ProgressInfo
-from conftest import create_epoch_files
+from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker
+from ..conftest import create_epoch_files
 
 
 # ============================================================================
@@ -87,13 +85,11 @@ def test_create_progress_tracker_config_evaluator_class():
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
         
-        # Mock config with Evaluator class
+        # Mock config with Evaluator class (direct class reference)
+        mock_evaluator_class = type('BaseEvaluator', (), {})
         config = {
-            'runner': {
-                'class': type('BaseEvaluator', (), {})  # Mock class with 'Evaluator' in name
-            }
+            'runner': mock_evaluator_class
         }
-        config['runner']['class'].__name__ = 'BaseEvaluator'
         
         tracker = create_progress_tracker(work_dir, config)
         
@@ -106,28 +102,10 @@ def test_create_progress_tracker_config_trainer_class():
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
         
-        # Mock config with Trainer class
+        # Mock config with Trainer class (direct class reference)
+        mock_trainer_class = type('BaseTrainer', (), {})
         config = {
-            'runner': {
-                'class': type('BaseTrainer', (), {})  # Mock class with 'Trainer' in name
-            }
-        }
-        config['runner']['class'].__name__ = 'BaseTrainer'
-        
-        tracker = create_progress_tracker(work_dir, config)
-        
-        assert isinstance(tracker, TrainerProgressTracker)
-        assert tracker.config == config
-
-
-def test_create_progress_tracker_config_epochs_field():
-    """Test factory detects trainer from 'epochs' field."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Empty directory, no file patterns, no runner class
-        
-        config = {
-            'epochs': 100,
-            'model': 'test_model'
+            'runner': mock_trainer_class
         }
         
         tracker = create_progress_tracker(work_dir, config)
@@ -161,68 +139,16 @@ def test_create_progress_tracker_file_pattern_over_config():
         # Create trainer file pattern
         create_epoch_files(work_dir, 0)
         
-        # Config says evaluator
+        # Config says evaluator (direct class reference)
+        mock_evaluator_class = type('BaseEvaluator', (), {})
         config = {
-            'runner': {
-                'class': type('BaseEvaluator', (), {})
-            }
+            'runner': mock_evaluator_class
         }
-        config['runner']['class'].__name__ = 'BaseEvaluator'
         
         tracker = create_progress_tracker(work_dir, config)
         
         # File pattern should win over config
         assert isinstance(tracker, TrainerProgressTracker)
-
-
-# ============================================================================
-# TESTS FOR create_progress_tracker - ERROR HANDLING
-# ============================================================================
-
-def test_create_progress_tracker_fail_fast_no_patterns():
-    """Test that factory fails fast when no patterns match."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Empty directory with some irrelevant files
-        with open(os.path.join(work_dir, "some_file.txt"), 'w') as f:
-            f.write("irrelevant content")
-        
-        with pytest.raises(ValueError) as exc_info:
-            create_progress_tracker(work_dir)
-        
-        error_msg = str(exc_info.value)
-        assert "Unable to detect runner type" in error_msg
-        assert work_dir in error_msg
-        assert "Available files:" in error_msg
-        assert "some_file.txt" in error_msg
-
-
-def test_create_progress_tracker_fail_fast_nonexistent_directory():
-    """Test fail fast behavior with nonexistent directory."""
-    nonexistent_dir = "/this/path/does/not/exist"
-    
-    with pytest.raises(ValueError) as exc_info:
-        create_progress_tracker(nonexistent_dir)
-    
-    error_msg = str(exc_info.value)
-    assert "Unable to detect runner type" in error_msg
-    assert nonexistent_dir in error_msg
-
-
-def test_create_progress_tracker_invalid_config():
-    """Test factory with invalid config that doesn't help detection."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Config with runner class that doesn't contain Trainer or Evaluator
-        config = {
-            'runner': {
-                'class': type('SomeOtherClass', (), {})
-            }
-        }
-        config['runner']['class'].__name__ = 'SomeOtherClass'
-        
-        with pytest.raises(ValueError) as exc_info:
-            create_progress_tracker(work_dir, config)
-        
-        assert "Unable to detect runner type" in str(exc_info.value)
 
 
 # ============================================================================
@@ -250,23 +176,6 @@ def test_create_progress_tracker_various_config_formats():
             tracker = create_progress_tracker(work_dir, config)
             assert isinstance(tracker, EvaluatorProgressTracker)
             assert tracker.config == config
-
-
-def test_create_progress_tracker_config_string_class_name():
-    """Test factory when runner class is a string instead of actual class."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Empty directory, rely on config
-        
-        config = {
-            'runner': {
-                'class': 'BaseEvaluator'  # String instead of class
-            }
-        }
-        
-        tracker = create_progress_tracker(work_dir, config)
-        
-        assert isinstance(tracker, EvaluatorProgressTracker)
-        assert tracker.config == config
 
 
 # ============================================================================

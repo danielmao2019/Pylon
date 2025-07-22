@@ -1,12 +1,6 @@
 """
 UTILS.AUTOMATION.RUN_STATUS API
 """
-from utils.automation.run_status.session_progress import (
-    get_session_progress,
-    ProgressInfo,
-    check_epoch_finished,
-    check_file_loadable
-)
 from utils.automation.run_status.run_status import (
     get_all_run_status,
     get_run_status,
@@ -19,12 +13,6 @@ from utils.automation.run_status.run_status import (
 
 
 __all__ = [
-    # Session progress
-    'get_session_progress',
-    'ProgressInfo',
-    'check_epoch_finished', 
-    'check_file_loadable',
-    # Run status
     'get_all_run_status',
     'get_run_status',
     'RunStatus',
