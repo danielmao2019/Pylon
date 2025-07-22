@@ -5,10 +5,6 @@ Following CLAUDE.md testing patterns:
 - Invalid input testing with exception verification
 - Abstract method contract testing
 """
-import os
-import tempfile
-import json
-import time
 import pytest
 from typing import List, Literal
 from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker, ProgressInfo
