@@ -89,16 +89,16 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     transform_params = meta_info['transform_params']
     assert isinstance(transform_params, dict), f"transform_params must be dict, got {type(transform_params)}"
     
-    # Check required transform config keys
+    # Check required transform config keys (crop_method removed since it's always LiDAR)
     required_config_keys = {
-        'rotation_angles', 'translation', 'crop_method', 'sensor_position', 
-        'sensor_euler_angles', 'lidar_max_range', 'lidar_horizontal_fov', 
-        'lidar_vertical_fov', 'seed', 'camera_pose_idx'
+        'rotation_angles', 'translation',
+        'camera_pose_idx', 'sensor_position', 'sensor_euler_angles',
+        'lidar_max_range', 'lidar_horizontal_fov', 'lidar_vertical_fov',
+        'seed',
     }
     assert required_config_keys.issubset(transform_params.keys()), f"transform_params missing keys: {required_config_keys - set(transform_params.keys())}"
     
     # Validate specific fields
-    assert transform_params['crop_method'] == 'lidar', f"crop_method must be 'lidar', got {transform_params['crop_method']}"
     assert isinstance(transform_params['camera_pose_idx'], int), f"camera_pose_idx must be int, got {type(transform_params['camera_pose_idx'])}"
     assert transform_params['camera_pose_idx'] >= 0, f"camera_pose_idx must be >= 0, got {transform_params['camera_pose_idx']}"
     
