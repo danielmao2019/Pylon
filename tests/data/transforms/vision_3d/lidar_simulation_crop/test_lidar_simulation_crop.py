@@ -216,6 +216,9 @@ def test_lidar_simulation_crop_occlusion_only():
     sensor_extrinsics = torch.eye(4, dtype=torch.float32)
     
     lidar_crop = LiDARSimulationCrop(
+        max_range=100.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=False,
         apply_fov_filter=False,
         apply_occlusion_filter=True
@@ -235,6 +238,9 @@ def test_lidar_simulation_crop_no_filters():
     sensor_extrinsics = torch.eye(4, dtype=torch.float32)
     
     lidar_crop = LiDARSimulationCrop(
+        max_range=100.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=False,
         apply_fov_filter=False,
         apply_occlusion_filter=False
@@ -268,8 +274,8 @@ def test_lidar_simulation_crop_combined_filters():
     
     lidar_crop = LiDARSimulationCrop(
         max_range=10.0,
-        horizontal_fov=120.0,
-        vertical_fov=60.0,
+        fov=(120.0, 60.0),
+        ray_density_factor=0.8,
         apply_range_filter=True,
         apply_fov_filter=True,
         apply_occlusion_filter=False  # Disable for predictable results
@@ -309,7 +315,8 @@ def test_lidar_simulation_crop_different_sensor_poses():
     
     lidar_crop = LiDARSimulationCrop(
         max_range=10.0,
-        horizontal_fov=90.0,
+        fov=(90.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=True,
         apply_fov_filter=True,
         apply_occlusion_filter=False
@@ -436,7 +443,8 @@ def test_lidar_simulation_crop_filter_order():
     
     lidar_crop = LiDARSimulationCrop(
         max_range=10.0,
-        horizontal_fov=120.0,
+        fov=(120.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=True,
         apply_fov_filter=True,
         apply_occlusion_filter=False  # Disable for predictable results
@@ -477,7 +485,8 @@ def test_lidar_simulation_crop_parametrized_filters(apply_range, apply_fov, appl
     
     lidar_crop = LiDARSimulationCrop(
         max_range=10.0,
-        horizontal_fov=90.0,
+        fov=(90.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=apply_range,
         apply_fov_filter=apply_fov,
         apply_occlusion_filter=apply_occlusion
