@@ -85,14 +85,13 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         
         # LiDAR is the only supported crop method - no validation needed
         
-        # Store LiDAR parameters (temporarily force FOV-only cropping)
+        # Store LiDAR parameters
         self.lidar_max_range = float(lidar_max_range)
         self.lidar_horizontal_fov = float(lidar_horizontal_fov)
         self.lidar_vertical_fov = float(lidar_vertical_fov)
-        # TEMPORARY: Force FOV-only cropping, disable range and occlusion filters
-        self.lidar_apply_range_filter = False
-        self.lidar_apply_fov_filter = True
-        self.lidar_apply_occlusion_filter = False
+        self.lidar_apply_range_filter = lidar_apply_range_filter
+        self.lidar_apply_fov_filter = lidar_apply_fov_filter
+        self.lidar_apply_occlusion_filter = lidar_apply_occlusion_filter
         
         # Initialize transform-to-overlap cache
         if cache_filepath is not None:
@@ -706,15 +705,14 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         sensor_extrinsics[:3, :3] = rotation_matrix
         sensor_extrinsics[:3, 3] = sensor_position
         
-        # Create LiDAR crop transform with FOV-only settings (temporarily forced)
+        # Create LiDAR crop transform with configurable filter settings
         crop_transform = LiDARSimulationCrop(
             max_range=transform_params['lidar_max_range'],
             horizontal_fov=transform_params['lidar_horizontal_fov'],
             vertical_fov=transform_params['lidar_vertical_fov'],
-            # TEMPORARY: Force FOV-only cropping, disable range and occlusion filters
-            apply_range_filter=False,
-            apply_fov_filter=True,
-            apply_occlusion_filter=False
+            apply_range_filter=self.lidar_apply_range_filter,
+            apply_fov_filter=self.lidar_apply_fov_filter,
+            apply_occlusion_filter=self.lidar_apply_occlusion_filter
         )
         
         # Store sensor extrinsics for LiDAR cropping
