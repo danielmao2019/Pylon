@@ -93,17 +93,18 @@ def test_detect_runner_type_config_trainer_class():
 
 
 def test_detect_runner_type_config_epochs_field():
-    """Test detection based on 'epochs' field indicating trainer."""
+    """Test detection fails fast when config lacks 'runner' key."""
     with tempfile.TemporaryDirectory() as work_dir:
-        # Empty directory, no file patterns, no runner class
+        # Empty directory, no file patterns, no runner class - should fail
         
         config = {
             'epochs': 100,
             'some_other_field': 'value'
         }
         
-        runner_type = detect_runner_type(work_dir, config)
-        assert runner_type == 'trainer'
+        # Should fail fast with clear assertion error
+        with pytest.raises(AssertionError, match="Config must have 'runner' key"):
+            detect_runner_type(work_dir, config)
 
 
 # ============================================================================
@@ -144,18 +145,16 @@ def test_detect_runner_type_fail_fast_nonexistent_directory():
 
 
 def test_detect_runner_type_fail_fast_with_config_info():
-    """Test that error message includes config information when provided."""
+    """Test detection fails fast when config lacks 'runner' key."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {
             'model': 'some_model',
             'dataset': 'some_dataset'
         }
         
-        with pytest.raises(ValueError) as exc_info:
+        # Should fail fast with assertion error since no 'runner' key
+        with pytest.raises(AssertionError, match="Config must have 'runner' key"):
             detect_runner_type(work_dir, config)
-        
-        error_msg = str(exc_info.value)
-        assert "Config keys: ['model', 'dataset']" in error_msg
 
 
 # ============================================================================
