@@ -123,20 +123,23 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         
         # Apply per-scene subsampling if camera_count is specified
         if self.camera_count is not None:
-            rng = np.random.RandomState(seed=42)
             total_before = sum(len(poses) for poses in self.scene_camera_poses.values())
             
-            # Subsample camera_count poses from each scene independently
+            # Subsample camera_count poses from each scene independently using scene-specific seeds
             for pc_filepath in list(self.scene_camera_poses.keys()):
                 scene_poses = self.scene_camera_poses[pc_filepath]
                 num_poses = len(scene_poses)
                 
                 if self.camera_count < num_poses:
+                    # Create scene-specific random generator using pc_filepath as seed
+                    scene_seed = hash(pc_filepath) % (2**32)  # Ensure positive 32-bit integer
+                    scene_rng = np.random.RandomState(seed=scene_seed)
+                    
                     # Randomly sample camera_count poses from this scene
-                    selected_indices = rng.choice(num_poses, size=self.camera_count, replace=False)
+                    selected_indices = scene_rng.choice(num_poses, size=self.camera_count, replace=False)
                     selected_indices = sorted(selected_indices)
                     self.scene_camera_poses[pc_filepath] = [scene_poses[i] for i in selected_indices]
-                    print(f"Scene {os.path.basename(pc_filepath)}: {num_poses} → {self.camera_count} poses")
+                    print(f"Scene {os.path.basename(pc_filepath)}: {num_poses} → {self.camera_count} poses (seed: {scene_seed})")
                 else:
                     print(f"Scene {os.path.basename(pc_filepath)}: keeping all {num_poses} poses (< {self.camera_count})")
             
