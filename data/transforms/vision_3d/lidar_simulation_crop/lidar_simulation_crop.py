@@ -2,9 +2,9 @@ from typing import Dict, Tuple
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
-from .range_filter import RangeFilter
-from .fov_filter import FOVFilter
-from .occlusion_filter import OcclusionFilter
+from .range_crop import RangeCrop
+from .fov_crop import FOVCrop
+from .occlusion_crop import OcclusionCrop
 
 
 class LiDARSimulationCrop(BaseTransform):
@@ -68,10 +68,10 @@ class LiDARSimulationCrop(BaseTransform):
         self.apply_occlusion_filter = apply_occlusion_filter
         self.ray_density_factor = float(ray_density_factor)
         
-        # Initialize filter components
-        self.range_filter = RangeFilter(max_range=max_range) if apply_range_filter else None
-        self.fov_filter = FOVFilter(horizontal_fov=horizontal_fov, vertical_fov=vertical_fov) if apply_fov_filter else None
-        self.occlusion_filter = OcclusionFilter(ray_density_factor=ray_density_factor) if apply_occlusion_filter else None
+        # Initialize crop components
+        self.range_crop = RangeCrop(max_range=max_range) if apply_range_filter else None
+        self.fov_crop = FOVCrop(horizontal_fov=horizontal_fov, vertical_fov=vertical_fov) if apply_fov_filter else None
+        self.occlusion_crop = OcclusionCrop(ray_density_factor=ray_density_factor) if apply_occlusion_filter else None
 
     def _call_single(self, pc: Dict[str, torch.Tensor], sensor_extrinsics: torch.Tensor, 
                     *args, **kwargs) -> Dict[str, torch.Tensor]:
@@ -96,17 +96,17 @@ class LiDARSimulationCrop(BaseTransform):
         # Start with the original point cloud
         current_pc = pc
         
-        # Apply filters in order: range -> FOV -> occlusion
-        # This order is optimized for performance (cheapest filters first)
+        # Apply crops in order: range -> FOV -> occlusion
+        # This order is optimized for performance (cheapest crops first)
         
         if self.apply_range_filter:
-            current_pc = self.range_filter._call_single(current_pc, sensor_pos)
+            current_pc = self.range_crop._call_single(current_pc, sensor_pos)
         
         if self.apply_fov_filter:
-            current_pc = self.fov_filter._call_single(current_pc, sensor_extrinsics)
+            current_pc = self.fov_crop._call_single(current_pc, sensor_extrinsics)
         
-        # Apply occlusion filter last (most expensive computation)
+        # Apply occlusion crop last (most expensive computation)
         if self.apply_occlusion_filter:
-            current_pc = self.occlusion_filter._call_single(current_pc, sensor_pos)
+            current_pc = self.occlusion_crop._call_single(current_pc, sensor_pos)
         
         return current_pc
