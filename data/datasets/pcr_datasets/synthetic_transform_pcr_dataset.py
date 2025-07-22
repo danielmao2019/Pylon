@@ -213,9 +213,9 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
                 f"got {len(param_tuple)}: {param_tuple}"
             )
             
-            # Validate that all elements are appropriate types
+            # Validate that all elements are numeric
             for i, val in enumerate(param_tuple):
-                assert isinstance(val, (int, float, type(None))), f"Parameter tuple element {i} must be numeric or None, got {type(val)}: {val}"
+                assert isinstance(val, (int, float)), f"Parameter tuple element {i} must be numeric, got {type(val)}: {val}"
             
             # Parameter data should be a dictionary
             assert isinstance(param_data, dict), f"Parameter data must be dictionary, got {type(param_data)}"
