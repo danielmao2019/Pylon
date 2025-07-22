@@ -26,4 +26,9 @@ def get_progress(
 
     all_run_status = get_all_run_status(config_files, epochs, sleep_time, outdated_days, system_monitor)
     all_run_progress = [run.progress.progress_percentage for run in all_run_status.values()]
+    
+    # Handle empty config_files case
+    if len(all_run_progress) == 0:
+        return 0.0
+    
     return round(sum(all_run_progress) / len(all_run_progress), 2)
