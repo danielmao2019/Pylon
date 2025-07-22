@@ -37,8 +37,6 @@ Examples:
   # Smaller dataset for quick testing
   python -m benchmarks.data.viewer.debounce.main --datapoints 20 --points 1000
 
-  # Verbose output  
-  python -m benchmarks.data.viewer.debounce.main --verbose
         """
     )
     
@@ -70,11 +68,6 @@ Examples:
         help='Quick test mode (20 datapoints, 1000 points)'
     )
     
-    parser.add_argument(
-        '--verbose',
-        action='store_true',
-        help='Enable verbose output'
-    )
     
     
     return parser.parse_args()
@@ -113,41 +106,28 @@ def main():
     args = parse_args()
     validate_args(args)
     
-    if not args.verbose:
-        print_banner()
+    print_banner()
     
-    try:
-        # Create benchmark runner
-        runner = BenchmarkRunner()
-        
-        # Run benchmark suite
-        results = runner.run_full_benchmark(
-            scenarios=args.scenarios,
-            num_datapoints=args.datapoints,
-            num_points=args.points
-        )
-        
-        # Save results
-        output_file = runner.save_results(results)
-        
-        # Generate visualizations
-        viz_dir = runner.generate_visualizations(results)
-        print(f"📈 Visualizations saved to: {viz_dir}")
-        
-        # Generate markdown report
-        report_path = runner.generate_report(results)
-        print(f"📄 Report generated: {report_path}")
-        
-    except KeyboardInterrupt:
-        print("\n\nBenchmark interrupted by user.")
-        sys.exit(1)
-        
-    except Exception as e:
-        print(f"\nERROR: Benchmark failed with exception: {e}")
-        if args.verbose:
-            import traceback
-            traceback.print_exc()
-        sys.exit(1)
+    # Create benchmark runner
+    runner = BenchmarkRunner()
+    
+    # Run benchmark suite
+    results = runner.run_full_benchmark(
+        scenarios=args.scenarios,
+        num_datapoints=args.datapoints,
+        num_points=args.points
+    )
+    
+    # Save results
+    output_file = runner.save_results(results)
+    
+    # Generate visualizations
+    viz_dir = runner.generate_visualizations(results)
+    print(f"📈 Visualizations saved to: {viz_dir}")
+    
+    # Generate markdown report
+    report_path = runner.generate_report(results)
+    print(f"📄 Report generated: {report_path}")
 
 
 if __name__ == "__main__":

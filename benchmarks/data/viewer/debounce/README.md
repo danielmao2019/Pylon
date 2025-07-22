@@ -21,7 +21,6 @@ The benchmark simulates realistic user interaction patterns and measures:
 - **`mock_app.py`** - Mock Dash app with viewer callbacks
 - **`mock_data.py`** - Synthetic point cloud registration dataset generation
 - **`visualizer.py`** - Matplotlib-based visualization generation for results
-- **`show_results.py`** - Quick results summary and insights display
 
 ### Available Scenarios
 
@@ -52,15 +51,6 @@ python -m benchmarks.data.viewer.debounce.main --quick
 ```bash
 # Custom dataset size
 python -m benchmarks.data.viewer.debounce.main --datapoints 50 --points 2000
-
-# Custom output directory
-python -m benchmarks.data.viewer.debounce.main --output-dir ./my_results
-
-# Skip visualization generation
-python -m benchmarks.data.viewer.debounce.main --no-viz
-
-# Verbose output
-python -m benchmarks.data.viewer.debounce.main --verbose
 ```
 
 ### Programmatic Usage
@@ -69,7 +59,7 @@ python -m benchmarks.data.viewer.debounce.main --verbose
 from benchmarks.data.viewer.debounce.benchmark_runner import BenchmarkRunner
 
 # Create runner
-runner = BenchmarkRunner(output_dir="./benchmark_results")
+runner = BenchmarkRunner()  # Always saves to: benchmarks/data/viewer/debounce/results/
 
 # Run single scenario comparison
 results = runner.run_comparison('navigation', num_datapoints=100, num_points=5000)
@@ -77,9 +67,10 @@ results = runner.run_comparison('navigation', num_datapoints=100, num_points=500
 # Run full benchmark suite
 full_results = runner.run_full_benchmark()
 
-# Save results and generate visualizations
+# Save results, generate visualizations, and create report
 runner.save_results(full_results)
 runner.generate_visualizations(full_results)
+runner.generate_report(full_results)
 ```
 
 ## Output
@@ -116,7 +107,7 @@ Overall Performance Score: 26.7
 
 ### Visualization Output
 
-The benchmark automatically generates comprehensive visualizations:
+The benchmark automatically generates comprehensive visualizations and displays results:
 
 - **`execution_reduction.png`** - Bar charts showing execution reduction by scenario
 - **`time_savings.png`** - Time savings comparison charts  
@@ -124,17 +115,19 @@ The benchmark automatically generates comprehensive visualizations:
 - **`callback_breakdown.png`** - Per-callback performance analysis
 - **`summary_dashboard.png`** - Comprehensive dashboard with all key metrics
 
-### Quick Results Summary
+After running the benchmark, a comprehensive markdown report (`report.md`) is automatically generated with detailed analysis, visualizations, and recommendations.
 
-Use the results summary tool for a formatted overview:
+### Output Files
 
-```bash
-python benchmarks/data/viewer/debounce/show_results.py benchmark_results/debounce_benchmark_full.json
-```
+The benchmark generates several output files:
 
-### JSON Results
+- **`report.md`** - Comprehensive markdown report with analysis and embedded visualizations
+- **`debounce_benchmark_full.json`** - Complete raw benchmark data
+- **`visualizations/`** - Directory containing all generated charts
 
-Results are automatically saved as JSON files containing:
+#### JSON Results
+
+Raw benchmark data is saved as JSON containing:
 
 ```json
 {
@@ -293,7 +286,7 @@ The benchmark tests the actual debouncing implementation:
 ### Common Issues
 
 1. **Import errors**: Make sure you're running from the Pylon project root directory
-2. **Permission errors**: Check write permissions for output directory
+2. **Permission errors**: Check write permissions for results directory
 3. **Memory issues**: Reduce `--datapoints` and `--points` for large benchmarks
 4. **Timeout errors**: Some scenarios may take longer on slower systems
 
