@@ -192,6 +192,17 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
     # Transform sampling methods (override parent behavior)
     # =========================================================================
     
+    def _get_cache_param_key(self) -> Tuple:
+        """Generate cache parameter key including camera_count.
+        
+        Extends parent class to include camera_count in cache key,
+        ensuring cache invalidation when camera_count changes.
+        
+        Returns:
+            Cache parameter key tuple
+        """
+        return (self.rotation_mag, self.translation_mag, self.matching_radius, self.camera_count)
+
     def _sample_transform(self, seed: int) -> Dict[str, Any]:
         """Sample transform parameters using scene-specific camera poses.
         
