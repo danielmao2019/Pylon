@@ -1,65 +1,25 @@
 """
-Test BaseProgressTracker functionality and abstract interface contracts.
+Test BaseProgressTracker functionality and abstract interface contracts - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
-- Edge case testing
-- Invalid input testing with exception verification
 - Initialization testing pattern
+- Determinism testing
+- Integration testing
 """
 import os
 import tempfile
 import json
 import time
 import pytest
-from typing import List, Literal
 from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker, ProgressInfo
-
-
-# ============================================================================
-# CONCRETE TEST IMPLEMENTATION FOR TESTING ABSTRACT CLASS
-# ============================================================================
-
-class ConcreteProgressTracker(BaseProgressTracker):
-    """Concrete implementation for testing BaseProgressTracker functionality."""
-    
-    def __init__(self, work_dir: str, config=None, runner_type: Literal['trainer', 'evaluator'] = 'trainer'):
-        super().__init__(work_dir, config)
-        self._runner_type = runner_type
-        self._test_progress_result = None
-    
-    def get_runner_type(self) -> Literal['trainer', 'evaluator']:
-        return self._runner_type
-    
-    def get_expected_files(self) -> List[str]:
-        return ["test_file.json", "another_file.pt"]
-    
-    def get_log_pattern(self) -> str:
-        return "test_*.log"
-    
-    def calculate_progress(self) -> ProgressInfo:
-        """Mock implementation for testing."""
-        if self._test_progress_result is None:
-            return ProgressInfo(
-                completed_epochs=10,
-                progress_percentage=50.0,
-                early_stopped=False,
-                early_stopped_at_epoch=None,
-                runner_type=self._runner_type,
-                total_epochs=20
-            )
-        return self._test_progress_result
-    
-    def set_test_progress_result(self, result: ProgressInfo):
-        """Test helper to control calculate_progress output."""
-        self._test_progress_result = result
 
 
 # ============================================================================
 # TESTS FOR BaseProgressTracker - INITIALIZATION
 # ============================================================================
 
-def test_base_progress_tracker_initialization_with_config():
+def test_base_progress_tracker_initialization_with_config(ConcreteProgressTracker):
     """Test BaseProgressTracker initialization with config."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {'epochs': 100, 'model': 'test_model'}
@@ -71,7 +31,7 @@ def test_base_progress_tracker_initialization_with_config():
         assert tracker._cache_time is None
 
 
-def test_base_progress_tracker_initialization_without_config():
+def test_base_progress_tracker_initialization_without_config(ConcreteProgressTracker):
     """Test BaseProgressTracker initialization without config."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)
@@ -82,25 +42,11 @@ def test_base_progress_tracker_initialization_without_config():
         assert tracker._cache_time is None
 
 
-def test_base_progress_tracker_input_validation():
-    """Test input validation during initialization."""
-    # Test invalid work_dir type
-    with pytest.raises(AssertionError) as exc_info:
-        ConcreteProgressTracker(123)  # Integer instead of string
-    assert "work_dir must be str" in str(exc_info.value)
-    
-    # Test nonexistent work_dir
-    nonexistent_dir = "/this/path/does/not/exist"
-    with pytest.raises(AssertionError) as exc_info:
-        ConcreteProgressTracker(nonexistent_dir)
-    assert "work_dir does not exist" in str(exc_info.value)
-
-
 # ============================================================================
 # TESTS FOR BaseProgressTracker - CACHING MECHANISM
 # ============================================================================
 
-def test_base_progress_tracker_caching_basic():
+def test_base_progress_tracker_caching_basic(ConcreteProgressTracker):
     """Test basic caching functionality."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)
@@ -116,7 +62,7 @@ def test_base_progress_tracker_caching_basic():
         assert progress2 == progress1
 
 
-def test_base_progress_tracker_force_refresh():
+def test_base_progress_tracker_force_refresh(ConcreteProgressTracker):
     """Test force refresh bypasses cache."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)
@@ -145,7 +91,7 @@ def test_base_progress_tracker_force_refresh():
         assert progress3.completed_epochs == 20  # New result
 
 
-def test_base_progress_tracker_cache_timeout():
+def test_base_progress_tracker_cache_timeout(ConcreteProgressTracker):
     """Test that cache expires after timeout."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Use very short cache timeout for testing
@@ -179,7 +125,7 @@ def test_base_progress_tracker_cache_timeout():
 # TESTS FOR BaseProgressTracker - PROGRESS.JSON HANDLING
 # ============================================================================
 
-def test_base_progress_tracker_saves_progress_json():
+def test_base_progress_tracker_saves_progress_json(ConcreteProgressTracker):
     """Test that get_progress saves progress.json file."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)
@@ -203,7 +149,7 @@ def test_base_progress_tracker_saves_progress_json():
         assert saved_progress['total_epochs'] == progress.total_epochs
 
 
-def test_base_progress_tracker_handles_json_save_errors():
+def test_base_progress_tracker_handles_json_save_errors(ConcreteProgressTracker):
     """Test graceful handling of JSON save errors."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Make work_dir readonly to cause save error
@@ -223,24 +169,7 @@ def test_base_progress_tracker_handles_json_save_errors():
 # TESTS FOR BaseProgressTracker - ABSTRACT METHOD CONTRACTS
 # ============================================================================
 
-def test_base_progress_tracker_abstract_methods_must_be_implemented():
-    """Test that abstract methods must be implemented by subclasses."""
-    
-    # Test that we can't instantiate BaseProgressTracker directly
-    with pytest.raises(TypeError):
-        BaseProgressTracker("/tmp")  # Should fail - abstract class
-    
-    # Test that incomplete implementation fails
-    class IncompleteTracker(BaseProgressTracker):
-        def get_runner_type(self):
-            return 'trainer'
-        # Missing other abstract methods
-    
-    with pytest.raises(TypeError):
-        IncompleteTracker("/tmp")  # Should fail - missing abstract methods
-
-
-def test_base_progress_tracker_concrete_implementation_contracts():
+def test_base_progress_tracker_concrete_implementation_contracts(ConcreteProgressTracker):
     """Test that concrete implementation follows expected contracts."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)
@@ -307,7 +236,7 @@ def test_base_progress_tracker_progress_info_dataclass():
     assert progress != progress3
 
 
-def test_base_progress_tracker_runner_type_variations():
+def test_base_progress_tracker_runner_type_variations(ConcreteProgressTracker):
     """Test tracker with different runner types."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Test trainer type
@@ -321,7 +250,7 @@ def test_base_progress_tracker_runner_type_variations():
         assert evaluator_progress.runner_type == 'evaluator'
 
 
-def test_base_progress_tracker_deterministic_behavior():
+def test_base_progress_tracker_deterministic_behavior(ConcreteProgressTracker):
     """Test that tracker behavior is deterministic."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)
@@ -342,7 +271,7 @@ def test_base_progress_tracker_deterministic_behavior():
 # TESTS FOR BaseProgressTracker - INTEGRATION
 # ============================================================================
 
-def test_base_progress_tracker_with_various_progress_states():
+def test_base_progress_tracker_with_various_progress_states(ConcreteProgressTracker):
     """Test tracker with various progress states."""
     with tempfile.TemporaryDirectory() as work_dir:
         tracker = ConcreteProgressTracker(work_dir)

@@ -1,11 +1,10 @@
 """
-Test EvaluatorProgressTracker functionality for evaluator progress tracking.
+Test EvaluatorProgressTracker functionality for evaluator progress tracking - VALID CASES.
 
 Following CLAUDE.md testing patterns:
 - Correctness verification with known inputs/outputs  
-- Edge case testing
-- Invalid input testing with exception verification
 - Determinism testing
+- Integration testing
 """
 import os
 import tempfile
@@ -237,24 +236,6 @@ def test_evaluator_progress_tracker_deterministic():
 # ============================================================================
 # TESTS FOR EvaluatorProgressTracker - EDGE CASES
 # ============================================================================
-
-def test_evaluator_progress_tracker_nonexistent_work_dir():
-    """Test initialization with nonexistent work directory."""
-    nonexistent_dir = "/this/path/does/not/exist"
-    
-    with pytest.raises(AssertionError) as exc_info:
-        EvaluatorProgressTracker(nonexistent_dir)
-    
-    assert "work_dir does not exist" in str(exc_info.value)
-
-
-def test_evaluator_progress_tracker_invalid_work_dir_type():
-    """Test initialization with invalid work_dir type."""
-    with pytest.raises(AssertionError) as exc_info:
-        EvaluatorProgressTracker(123)  # Integer instead of string
-    
-    assert "work_dir must be str" in str(exc_info.value)
-
 
 def test_evaluator_progress_tracker_evaluation_with_subdirectories():
     """Test that tracker works when work_dir has subdirectories."""

@@ -14,7 +14,7 @@ from utils.builders import build_from_config
 from utils.determinism import set_determinism, set_seed
 from utils.io import serialize_tensor
 from utils.io.json import save_json
-from utils.automation.run_status import check_epoch_finished
+from utils.automation.progress_tracking.session_progress import check_epoch_finished
 from utils.monitor.system_monitor import SystemMonitor
 from utils.dynamic_executor import create_dynamic_executor
 from utils.logging.text_logger import TextLogger

@@ -1,16 +1,17 @@
-from typing import List, Dict, Any
 import os
 import json
 import tempfile
 import shutil
+import time
 from datetime import datetime
 from unittest.mock import Mock
 import pytest
 from agents.logs_snapshot import LogsSnapshot
 from utils.monitor.system_monitor import SystemMonitor
 from utils.automation.run_status import RunStatus
-from utils.automation.run_status.session_progress import ProgressInfo
+from utils.automation.progress_tracking.session_progress import ProgressInfo
 from utils.monitor.process_info import ProcessInfo
+from utils.io.json import serialize_object
 
 
 # ============================================================================
@@ -65,7 +66,6 @@ def mock_system_monitor():
 @pytest.fixture
 def sample_progress_info():
     """Sample ProgressInfo for testing."""
-    from utils.automation.run_status.session_progress import ProgressInfo
     return ProgressInfo(
         completed_epochs=15,
         progress_percentage=75.0,
@@ -166,7 +166,6 @@ def test_create_snapshot(sample_config_files, sample_expected_files, mock_system
     """Test snapshot creation."""
     # Mock get_all_run_status to return test data
     def mock_get_all_run_status(**kwargs):
-        from utils.automation.run_status.session_progress import ProgressInfo
         return {
             "configs/exp/baseline.py": RunStatus(
                 config="configs/exp/baseline.py",
@@ -324,7 +323,6 @@ def test_load_corrupted_snapshot(temp_snapshot_dir, sample_config_files, sample_
 
 def test_generic_serialization(sample_config_files, sample_expected_files, sample_run_status):
     """Test generic JSON serialization of snapshot data."""
-    from utils.io.json import serialize_object
     
     snapshot_data = {
         'timestamp': '2025-07-17_123000',
@@ -349,7 +347,6 @@ def test_generic_serialization(sample_config_files, sample_expected_files, sampl
 
 def test_generic_serialization_with_datetime(sample_config_files, sample_expected_files):
     """Test generic JSON serialization with datetime objects."""
-    from utils.io.json import serialize_object
     
     snapshot_data = {
         'timestamp': datetime.now(),
@@ -415,7 +412,6 @@ def test_cleanup_old_snapshots(temp_snapshot_dir, sample_config_files, sample_ex
     snapshot.snapshot_dir = temp_snapshot_dir
     
     # Create test files with different ages
-    import time
     current_time = time.time()
     old_time = current_time - (35 * 24 * 60 * 60)  # 35 days old
     recent_time = current_time - (10 * 24 * 60 * 60)  # 10 days old
