@@ -220,8 +220,7 @@ class LiDARVisualizationCallbacks:
         
         if crop_config.apply_fov_filter:
             h_fov = crop_params.get('h_fov', crop_config.horizontal_fov)
-            v_fov_span = crop_params.get('v_fov_span', 
-                abs(crop_config.vertical_fov[1] - crop_config.vertical_fov[0]))
+            v_fov_span = crop_params.get('v_fov_span', crop_config.vertical_fov)
             active_filters.append(f"FOV {h_fov:.0f}°×{v_fov_span:.0f}°")
         
         if crop_config.apply_occlusion_filter:

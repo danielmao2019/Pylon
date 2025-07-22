@@ -33,7 +33,7 @@ class LiDARVisualizationBackend:
             'fov_only': LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 horizontal_fov=80.0,
-                vertical_fov=(-20.0, 20.0),
+                vertical_fov=40.0,  # Total angle: (-20.0, 20.0) → 40.0
                 apply_range_filter=False,
                 apply_fov_filter=True,
                 apply_occlusion_filter=False
@@ -41,7 +41,7 @@ class LiDARVisualizationBackend:
             'occlusion_only': LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 horizontal_fov=360.0,  # Full circle so no FOV filtering
-                vertical_fov=(-90.0, 90.0),  # Full sphere so no FOV filtering
+                vertical_fov=180.0,  # Full sphere so no FOV filtering: (-90.0, 90.0) → 180.0
                 apply_range_filter=False,
                 apply_fov_filter=False,
                 apply_occlusion_filter=True
@@ -219,13 +219,11 @@ class LiDARVisualizationBackend:
             )
         elif crop_type == 'fov_only':
             h_fov = params.get('h_fov', 80.0)
-            v_fov_span = params.get('v_fov_span', 40.0)  # Total span around center (0)
-            v_fov_min = -v_fov_span / 2
-            v_fov_max = v_fov_span / 2
+            v_fov = params.get('v_fov_span', 40.0)  # Total angle around center (0)
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 horizontal_fov=h_fov,
-                vertical_fov=(v_fov_min, v_fov_max),
+                vertical_fov=v_fov,  # Use total angle directly
                 apply_range_filter=False,
                 apply_fov_filter=True,
                 apply_occlusion_filter=False
@@ -234,7 +232,7 @@ class LiDARVisualizationBackend:
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 horizontal_fov=360.0,  # Full circle so no FOV filtering
-                vertical_fov=(-90.0, 90.0),  # Full sphere so no FOV filtering
+                vertical_fov=180.0,  # Full sphere so no FOV filtering: (-90.0, 90.0) → 180.0
                 apply_range_filter=False,
                 apply_fov_filter=False,
                 apply_occlusion_filter=True
@@ -478,16 +476,21 @@ class LiDARVisualizationBackend:
             sensor_rot: Sensor rotation matrix [3x3]
             crop_config: LiDAR configuration object
         """
-        h_fov = np.radians(crop_config.horizontal_fov)
-        v_fov_min = np.radians(crop_config.vertical_fov[0])
-        v_fov_max = np.radians(crop_config.vertical_fov[1])
+        # Convert total FOV angles to half-angles for symmetric ranges
+        h_fov_half = crop_config.horizontal_fov / 2
+        h_fov_min = np.radians(-h_fov_half)
+        h_fov_max = np.radians(h_fov_half)
+        
+        v_fov_half = crop_config.vertical_fov / 2
+        v_fov_min = np.radians(-v_fov_half)
+        v_fov_max = np.radians(v_fov_half)
         
         frustum_length = 8.0
         
         # Calculate the four corners of the frustum at the far end
         corners = []
         for v_angle in [v_fov_min, v_fov_max]:
-            for h_angle in [-h_fov/2, h_fov/2]:
+            for h_angle in [h_fov_min, h_fov_max]:
                 # Point in sensor coordinates (forward = +X)
                 x = frustum_length * np.cos(v_angle) * np.cos(h_angle)
                 y = frustum_length * np.cos(v_angle) * np.sin(h_angle)
