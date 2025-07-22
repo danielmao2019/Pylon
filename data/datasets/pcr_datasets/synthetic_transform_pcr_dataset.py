@@ -533,9 +533,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         assert len(generated_results) > 0, (
             f"Failed to generate any valid transforms after {trial} trials. "
             f"Parameters: overlap_range={self.overlap_range}, file_idx={file_idx}, "
-            f"needed_count={needed_count}. "
-            f"Consider: 1) Relaxing overlap_range, 2) Reducing cropping aggressiveness, "
-            f"3) Adjusting rotation/translation ranges for ModelNet40 object scale."
+            f"needed_count={needed_count}."
         )
     
     def _process_single_transform(self, args: Tuple) -> Dict[str, Any]:
