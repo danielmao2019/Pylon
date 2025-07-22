@@ -128,8 +128,8 @@ def test_lidar_simulation_crop_basic_functionality():
     # Test with range and FOV filters enabled, occlusion disabled for predictable results
     lidar_crop = LiDARSimulationCrop(
         max_range=100.0,
-        horizontal_fov=90.0,
-        vertical_fov=90.0,
+        fov=(90.0, 90.0),
+        ray_density_factor=0.8,
         apply_range_filter=True,
         apply_fov_filter=True,
         apply_occlusion_filter=False
