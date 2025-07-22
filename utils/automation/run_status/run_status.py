@@ -8,7 +8,8 @@ from concurrent.futures import ThreadPoolExecutor
 from utils.automation.cfg_log_conversion import get_work_dir
 from utils.monitor.system_monitor import SystemMonitor
 from utils.monitor.process_info import ProcessInfo
-from utils.automation.run_status.session_progress import get_session_progress, ProgressInfo
+from utils.automation.progress_tracking import ProgressInfo, create_progress_tracker
+from utils.io.config import load_config
 
 
 # ============================================================================
@@ -91,8 +92,8 @@ def get_run_status(
 
     Args:
         config: Path to the config file used for this run
-        expected_files: List of files expected to be present in each epoch directory
-        epochs: Total number of epochs for the training
+        expected_files: List of files expected to be present in each epoch directory (DEPRECATED - auto-detected)
+        epochs: Total number of epochs for the training (DEPRECATED - from config)
         config_to_process_info: Mapping from config to ProcessInfo for running experiments
         sleep_time: Time in seconds to consider a run as "stuck" if no updates
         outdated_days: Number of days after which a finished run is considered outdated
@@ -101,21 +102,21 @@ def get_run_status(
         RunStatus object containing the current status of the run
     """
     work_dir = get_work_dir(config)
-    # Get enhanced progress info (ProgressInfo dict)
-    progress = get_session_progress(work_dir, expected_files)
+    config_dict = load_config(config)  # Load actual config
     
-    # Get core metrics for status determination
-    log_last_update = get_log_last_update(work_dir)
-    epoch_last_update = get_epoch_last_update(work_dir, expected_files)
-
-    # Determine if running based on log updates
+    # Create progress tracker (handles both trainer and evaluator)
+    tracker = create_progress_tracker(work_dir, config_dict)
+    progress = tracker.get_progress()
+    
+    # Determine status using existing logic but with tracker data
+    log_last_update = get_log_last_update(work_dir, tracker.get_log_pattern())
+    epoch_last_update = get_epoch_last_update(work_dir, tracker.get_expected_files())
+    
     is_running_status = log_last_update is not None and (time.time() - log_last_update <= sleep_time)
-
-    # Determine status based on metrics
+    
     if is_running_status:
         status: _RunStatus = 'running'
-    elif progress.completed_epochs >= epochs:  # Use attribute access for dataclass
-        # Check if finished run is outdated
+    elif tracker.is_complete():
         if epoch_last_update is not None and (time.time() - epoch_last_update > outdated_days * 24 * 60 * 60):
             status = 'outdated'
         else:
@@ -124,14 +125,13 @@ def get_run_status(
         status = 'stuck'
     else:
         status = 'failed'
-
-    # Get ProcessInfo if this config is running on GPU
+    
     process_info = config_to_process_info.get(config, None)
-
+    
     return RunStatus(
         config=config,
         work_dir=work_dir,
-        progress=progress,
+        progress=progress,  # Now includes runner_type and enhanced info
         status=status,
         process_info=process_info
     )
@@ -167,15 +167,19 @@ def parse_config(cmd: str) -> str:
     assert 0
 
 
-def get_log_last_update(work_dir: str) -> Optional[float]:
+def get_log_last_update(work_dir: str, log_pattern: str = "train_val*.log") -> Optional[float]:
     """Get the timestamp of the last log update.
+
+    Args:
+        work_dir: Directory to check for log files
+        log_pattern: Glob pattern for log files (e.g., "train_val*.log" or "eval_*.log")
 
     Returns:
         Timestamp of last update if logs exist, None otherwise
     """
     if not os.path.isdir(work_dir):
         return None
-    logs = glob.glob(os.path.join(work_dir, "train_val*.log"))
+    logs = glob.glob(os.path.join(work_dir, log_pattern))
     if len(logs) == 0:
         return None
     return max([os.path.getmtime(fp) for fp in logs])
