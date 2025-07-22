@@ -67,13 +67,11 @@ def test_detect_runner_type_config_evaluator_class():
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
         
-        # Mock config with Evaluator class
+        # Mock config with Evaluator class (direct class reference)
+        mock_evaluator_class = type('BaseEvaluator', (), {})
         config = {
-            'runner': {
-                'class': type('BaseEvaluator', (), {})  # Mock class with 'Evaluator' in name
-            }
+            'runner': mock_evaluator_class
         }
-        config['runner']['class'].__name__ = 'BaseEvaluator'
         
         runner_type = detect_runner_type(work_dir, config)
         assert runner_type == 'evaluator'
@@ -84,13 +82,11 @@ def test_detect_runner_type_config_trainer_class():
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
         
-        # Mock config with Trainer class
+        # Mock config with Trainer class (direct class reference)
+        mock_trainer_class = type('BaseTrainer', (), {})
         config = {
-            'runner': {
-                'class': type('BaseTrainer', (), {})  # Mock class with 'Trainer' in name
-            }
+            'runner': mock_trainer_class
         }
-        config['runner']['class'].__name__ = 'BaseTrainer'
         
         runner_type = detect_runner_type(work_dir, config)
         assert runner_type == 'trainer'
@@ -185,13 +181,11 @@ def test_detect_runner_type_epoch_0_exists_but_no_validation_scores():
 def test_detect_runner_type_invalid_config_runner_class():
     """Test detection with invalid runner class in config."""
     with tempfile.TemporaryDirectory() as work_dir:
-        # Config with runner class that doesn't contain Trainer or Evaluator
+        # Config with runner class that doesn't contain Trainer or Evaluator (direct class reference)
+        mock_other_class = type('SomeOtherClass', (), {})
         config = {
-            'runner': {
-                'class': type('SomeOtherClass', (), {})
-            }
+            'runner': mock_other_class
         }
-        config['runner']['class'].__name__ = 'SomeOtherClass'
         
         with pytest.raises(ValueError) as exc_info:
             detect_runner_type(work_dir, config)
@@ -245,10 +239,8 @@ def test_detect_runner_type_config_string_class_name():
     """Test detection when runner class is a string instead of actual class."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {
-            'runner': {
-                'class': 'BaseEvaluator'  # String instead of class
-            }
+            'runner': 'BaseEvaluator'  # String instead of class (direct reference)
         }
         
-        runner_type = detect_runner_type(work_dir, config)
-        assert runner_type == 'evaluator'
+        with pytest.raises(AssertionError, match="Expected runner to be a class"):
+            detect_runner_type(work_dir, config)
