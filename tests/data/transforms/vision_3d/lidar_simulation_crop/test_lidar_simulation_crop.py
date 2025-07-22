@@ -157,6 +157,8 @@ def test_lidar_simulation_crop_range_only():
     
     lidar_crop = LiDARSimulationCrop(
         max_range=10.0,
+        fov=(360.0, 40.0),
+        ray_density_factor=0.8,
         apply_range_filter=True,
         apply_fov_filter=False,
         apply_occlusion_filter=False
@@ -185,8 +187,9 @@ def test_lidar_simulation_crop_fov_only():
     sensor_extrinsics = torch.eye(4, dtype=torch.float32)
     
     lidar_crop = LiDARSimulationCrop(
-        horizontal_fov=90.0,
-        vertical_fov=90.0,
+        max_range=100.0,
+        fov=(90.0, 90.0),
+        ray_density_factor=0.8,
         apply_range_filter=False,
         apply_fov_filter=True,
         apply_occlusion_filter=False
