@@ -478,16 +478,21 @@ class LiDARVisualizationBackend:
             sensor_rot: Sensor rotation matrix [3x3]
             crop_config: LiDAR configuration object
         """
-        h_fov = np.radians(crop_config.horizontal_fov)
-        v_fov_min = np.radians(crop_config.vertical_fov[0])
-        v_fov_max = np.radians(crop_config.vertical_fov[1])
+        # Convert total FOV angles to half-angles for symmetric ranges
+        h_fov_half = crop_config.horizontal_fov / 2
+        h_fov_min = np.radians(-h_fov_half)
+        h_fov_max = np.radians(h_fov_half)
+        
+        v_fov_half = crop_config.vertical_fov / 2
+        v_fov_min = np.radians(-v_fov_half)
+        v_fov_max = np.radians(v_fov_half)
         
         frustum_length = 8.0
         
         # Calculate the four corners of the frustum at the far end
         corners = []
         for v_angle in [v_fov_min, v_fov_max]:
-            for h_angle in [-h_fov/2, h_fov/2]:
+            for h_angle in [h_fov_min, h_fov_max]:
                 # Point in sensor coordinates (forward = +X)
                 x = frustum_length * np.cos(v_angle) * np.cos(h_angle)
                 y = frustum_length * np.cos(v_angle) * np.sin(h_angle)
