@@ -31,14 +31,12 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
     # Try fast path: read progress.json
     progress_file = os.path.join(work_dir, "progress.json")
     if os.path.exists(progress_file):
-        with open(progress_file, 'r') as f:
-            data = json.load(f)
-            # Handle backwards compatibility - add default values for new fields
-            if 'runner_type' not in data:
-                data['runner_type'] = 'trainer'
-            if 'total_epochs' not in data:
-                data['total_epochs'] = None
-            return ProgressInfo(**data)  # Return ProgressInfo dataclass instance
+        try:
+            with open(progress_file, 'r') as f:
+                data = json.load(f)
+                return ProgressInfo(**data)  # Return ProgressInfo dataclass instance
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            raise RuntimeError(f"Failed to load progress file {progress_file}: {e}") from e
     
     # Slow path: re-compute and create progress.json
     return _compute_and_cache_progress(work_dir, expected_files)
