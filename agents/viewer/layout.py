@@ -128,7 +128,7 @@ def create_layout(
 
 
     initial_last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    initial_progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, system_monitor)}%"
+    initial_progress = f"Progress: {get_progress(config_files, epochs, sleep_time, outdated_days, system_monitor)}%"
     initial_data = generate_table_data(system_monitor, user_names)
     initial_style = generate_table_style(initial_data)
 

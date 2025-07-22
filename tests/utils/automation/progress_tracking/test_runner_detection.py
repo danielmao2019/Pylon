@@ -16,7 +16,7 @@ from conftest import create_epoch_files
 
 
 # ============================================================================
-# TESTS FOR detect_runner_type - FILE PATTERN DETECTION
+# VALID TESTS - SUCCESSFUL DETECTION
 # ============================================================================
 
 def test_detect_runner_type_evaluator_pattern():
@@ -58,22 +58,16 @@ def test_detect_runner_type_evaluator_takes_precedence():
         assert runner_type == 'evaluator'  # Evaluator wins
 
 
-# ============================================================================
-# TESTS FOR detect_runner_type - CONFIG-BASED DETECTION
-# ============================================================================
-
 def test_detect_runner_type_config_evaluator_class():
     """Test detection based on config runner class containing 'Evaluator'."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
         
-        # Mock config with Evaluator class
+        # Mock config with Evaluator class (direct class reference)
+        mock_evaluator_class = type('BaseEvaluator', (), {})
         config = {
-            'runner': {
-                'class': type('BaseEvaluator', (), {})  # Mock class with 'Evaluator' in name
-            }
+            'runner': mock_evaluator_class
         }
-        config['runner']['class'].__name__ = 'BaseEvaluator'
         
         runner_type = detect_runner_type(work_dir, config)
         assert runner_type == 'evaluator'
@@ -84,35 +78,50 @@ def test_detect_runner_type_config_trainer_class():
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty directory, no file patterns
         
-        # Mock config with Trainer class
+        # Mock config with Trainer class (direct class reference)
+        mock_trainer_class = type('BaseTrainer', (), {})
         config = {
-            'runner': {
-                'class': type('BaseTrainer', (), {})  # Mock class with 'Trainer' in name
-            }
+            'runner': mock_trainer_class
         }
-        config['runner']['class'].__name__ = 'BaseTrainer'
         
         runner_type = detect_runner_type(work_dir, config)
         assert runner_type == 'trainer'
 
 
-def test_detect_runner_type_config_epochs_field():
-    """Test detection based on 'epochs' field indicating trainer."""
+def test_detect_runner_type_deterministic():
+    """Test that detection is deterministic across multiple calls."""
     with tempfile.TemporaryDirectory() as work_dir:
-        # Empty directory, no file patterns, no runner class
+        # Create evaluator pattern
+        eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
+        with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
+            json.dump(eval_scores, f)
+        
+        # Run multiple times
+        results = [detect_runner_type(work_dir) for _ in range(5)]
+        
+        # All results should be the same
+        assert all(r == 'evaluator' for r in results)
+        assert len(set(results)) == 1  # Only one unique result
+
+
+# ============================================================================
+# INVALID TESTS - EXPECTED FAILURES (pytest.raises)
+# ============================================================================
+
+def test_detect_runner_type_config_epochs_field():
+    """Test detection fails fast when config lacks 'runner' key."""
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Empty directory, no file patterns, no runner class - should fail
         
         config = {
             'epochs': 100,
             'some_other_field': 'value'
         }
         
-        runner_type = detect_runner_type(work_dir, config)
-        assert runner_type == 'trainer'
+        # Should fail fast with clear assertion error
+        with pytest.raises(AssertionError, match="Config must have 'runner' key"):
+            detect_runner_type(work_dir, config)
 
-
-# ============================================================================
-# TESTS FOR detect_runner_type - FAIL FAST BEHAVIOR
-# ============================================================================
 
 def test_detect_runner_type_fail_fast_no_patterns():
     """Test that detection fails fast with clear error when no patterns match."""
@@ -148,23 +157,17 @@ def test_detect_runner_type_fail_fast_nonexistent_directory():
 
 
 def test_detect_runner_type_fail_fast_with_config_info():
-    """Test that error message includes config information when provided."""
+    """Test detection fails fast when config lacks 'runner' key."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {
             'model': 'some_model',
             'dataset': 'some_dataset'
         }
         
-        with pytest.raises(ValueError) as exc_info:
+        # Should fail fast with assertion error since no 'runner' key
+        with pytest.raises(AssertionError, match="Config must have 'runner' key"):
             detect_runner_type(work_dir, config)
-        
-        error_msg = str(exc_info.value)
-        assert "Config keys: ['model', 'dataset']" in error_msg
 
-
-# ============================================================================
-# TESTS FOR detect_runner_type - EDGE CASES
-# ============================================================================
 
 def test_detect_runner_type_epoch_0_exists_but_no_validation_scores():
     """Test that epoch_0 directory without validation_scores.json is not detected as trainer."""
@@ -185,13 +188,11 @@ def test_detect_runner_type_epoch_0_exists_but_no_validation_scores():
 def test_detect_runner_type_invalid_config_runner_class():
     """Test detection with invalid runner class in config."""
     with tempfile.TemporaryDirectory() as work_dir:
-        # Config with runner class that doesn't contain Trainer or Evaluator
+        # Config with runner class that doesn't contain Trainer or Evaluator (direct class reference)
+        mock_other_class = type('SomeOtherClass', (), {})
         config = {
-            'runner': {
-                'class': type('SomeOtherClass', (), {})
-            }
+            'runner': mock_other_class
         }
-        config['runner']['class'].__name__ = 'SomeOtherClass'
         
         with pytest.raises(ValueError) as exc_info:
             detect_runner_type(work_dir, config)
@@ -199,39 +200,12 @@ def test_detect_runner_type_invalid_config_runner_class():
         assert "Unable to detect runner type" in str(exc_info.value)
 
 
-# ============================================================================
-# TESTS FOR detect_runner_type - DETERMINISM
-# ============================================================================
-
-def test_detect_runner_type_deterministic():
-    """Test that detection is deterministic across multiple calls."""
-    with tempfile.TemporaryDirectory() as work_dir:
-        # Create evaluator pattern
-        eval_scores = {"aggregated": {"acc": 0.9}, "per_datapoint": {"acc": [0.9]}}
-        with open(os.path.join(work_dir, "evaluation_scores.json"), 'w') as f:
-            json.dump(eval_scores, f)
-        
-        # Run multiple times
-        results = [detect_runner_type(work_dir) for _ in range(5)]
-        
-        # All results should be the same
-        assert all(r == 'evaluator' for r in results)
-        assert len(set(results)) == 1  # Only one unique result
-
-
-# ============================================================================
-# TESTS FOR detect_runner_type - CONFIG VARIATIONS
-# ============================================================================
-
 @pytest.mark.parametrize("config_variant", [
     {},  # Empty config
     None,  # No config
-    {'some_field': 'value'},  # Config without runner or epochs
-    {'runner': {}},  # Config with empty runner
-    {'runner': {'class': None}},  # Config with None runner class
 ])
 def test_detect_runner_type_various_invalid_configs(config_variant):
-    """Test detection behavior with various invalid config variants."""
+    """Test detection behavior with various config variants that result in ValueError."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Empty work directory
         
@@ -241,14 +215,37 @@ def test_detect_runner_type_various_invalid_configs(config_variant):
         assert "Unable to detect runner type" in str(exc_info.value)
 
 
+@pytest.mark.parametrize("config_variant", [
+    {'some_field': 'value'},  # Config without runner key
+])
+def test_detect_runner_type_configs_missing_runner_key(config_variant):
+    """Test detection behavior with configs missing runner key (AssertionError)."""
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Empty work directory
+        
+        with pytest.raises(AssertionError, match="Config must have 'runner' key"):
+            detect_runner_type(work_dir, config_variant)
+
+
+@pytest.mark.parametrize("config_variant", [
+    {'runner': {}},  # Config with empty runner
+    {'runner': {'class': None}},  # Config with None runner class
+])
+def test_detect_runner_type_configs_invalid_runner_type(config_variant):
+    """Test detection behavior with configs where runner is not a class (AssertionError)."""
+    with tempfile.TemporaryDirectory() as work_dir:
+        # Empty work directory
+        
+        with pytest.raises(AssertionError, match="Expected runner to be a class"):
+            detect_runner_type(work_dir, config_variant)
+
+
 def test_detect_runner_type_config_string_class_name():
     """Test detection when runner class is a string instead of actual class."""
     with tempfile.TemporaryDirectory() as work_dir:
         config = {
-            'runner': {
-                'class': 'BaseEvaluator'  # String instead of class
-            }
+            'runner': 'BaseEvaluator'  # String instead of class (direct reference)
         }
         
-        runner_type = detect_runner_type(work_dir, config)
-        assert runner_type == 'evaluator'
+        with pytest.raises(AssertionError, match="Expected runner to be a class"):
+            detect_runner_type(work_dir, config)

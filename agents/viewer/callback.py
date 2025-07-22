@@ -39,7 +39,7 @@ def register_callbacks(
     )
     def update_table(n_intervals):
         last_update = f"Last Update: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-        progress = f"Progress: {get_progress(config_files, expected_files, epochs, sleep_time, outdated_days, system_monitor)}%"
+        progress = f"Progress: {get_progress(config_files, epochs, sleep_time, outdated_days, system_monitor)}%"
         table_data = generate_table_data(system_monitor, user_names)
         table_style = generate_table_style(table_data)
         return last_update, progress, table_data, table_style

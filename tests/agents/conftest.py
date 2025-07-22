@@ -23,7 +23,7 @@ from agents.agent_log_parser import AgentLogParser
 from agents.daily_summary_generator import DailySummaryGenerator
 from utils.monitor.system_monitor import SystemMonitor
 from utils.automation.run_status import RunStatus
-from utils.automation.run_status.session_progress import ProgressInfo
+from utils.automation.progress_tracking.session_progress import ProgressInfo
 from utils.monitor.process_info import ProcessInfo
 
 # ============================================================================
