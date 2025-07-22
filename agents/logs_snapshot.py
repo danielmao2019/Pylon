@@ -122,7 +122,6 @@ class LogsSnapshot:
             print(f"Warning: Failed to load snapshot {filename}: {str(e)}")
             return None
     
-    
     def list_snapshots(self) -> List[str]:
         """List all available snapshot files.
         
