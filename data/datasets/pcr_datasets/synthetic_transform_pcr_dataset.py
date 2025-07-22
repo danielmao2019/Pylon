@@ -601,6 +601,10 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         Returns:
             Dictionary containing all transform parameters including crop parameters
         """
+        # Note: file_idx parameter is intentionally unused in parent class
+        # It's passed through for child classes that need scene-specific sampling
+        _ = file_idx  # Suppress unused variable warning
+        
         generator = torch.Generator()
         generator.manual_seed(seed)
         
