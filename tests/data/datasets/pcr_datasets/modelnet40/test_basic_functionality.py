@@ -137,7 +137,7 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info, dict), f"{type(meta_info)=}"
     
     # Check for expected meta_info keys from SyntheticTransformPCRDataset
-    expected_keys = {'file_idx', 'transform_idx', 'transform_config', 'overlap', 'crop_method', 'keep_ratio'}
+    expected_keys = {'file_idx', 'transform_idx', 'transform_params', 'overlap', 'crop_method', 'keep_ratio'}
     assert meta_info.keys() >= expected_keys, \
         f"meta_info missing required keys: expected {expected_keys}, got {meta_info.keys()}"
     
@@ -149,12 +149,12 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     assert isinstance(meta_info['keep_ratio'], float), f"keep_ratio should be float: {type(meta_info['keep_ratio'])}"
     assert 0.0 <= meta_info['keep_ratio'] <= 1.0, f"keep_ratio should be in [0,1]: {meta_info['keep_ratio']}"
     
-    # Validate transform_config structure
-    transform_config = meta_info['transform_config']
-    assert isinstance(transform_config, dict), f"transform_config should be dict: {type(transform_config)}"
+    # Validate transform_params structure
+    transform_params = meta_info['transform_params']
+    assert isinstance(transform_params, dict), f"transform_params should be dict: {type(transform_params)}"
     required_config_keys = {'rotation_angles', 'translation', 'crop_method', 'keep_ratio', 'seed'}
-    assert transform_config.keys() >= required_config_keys, \
-        f"transform_config missing keys: expected {required_config_keys}, got {transform_config.keys()}"
+    assert transform_params.keys() >= required_config_keys, \
+        f"transform_params missing keys: expected {required_config_keys}, got {transform_params.keys()}"
 
 
 @pytest.fixture

@@ -303,8 +303,8 @@ def _create_meta_info_section(meta_info: Dict[str, Any]) -> html.Div:
         meta_items.append(html.P(f"Keep Ratio: {meta_info['keep_ratio']:.2f}"))
     
     # Show additional transform config details if available
-    if 'transform_config' in meta_info:
-        config = meta_info['transform_config']
+    if 'transform_params' in meta_info:
+        config = meta_info['transform_params']
         if 'rotation_angles' in config:
             angles = config['rotation_angles']
             if isinstance(angles, list) and len(angles) == 3:

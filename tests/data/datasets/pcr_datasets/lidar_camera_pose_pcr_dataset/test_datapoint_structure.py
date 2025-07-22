@@ -78,16 +78,16 @@ def validate_labels(labels: Dict[str, Any]) -> None:
 def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
     """Validate meta_info dictionary structure and content."""
     # Check required keys (BaseDataset adds 'idx')
-    required_keys = {'idx', 'transform_config'}
+    required_keys = {'idx', 'transform_params'}
     assert isinstance(meta_info, dict), f"meta_info must be dict, got {type(meta_info)}"
     assert required_keys.issubset(meta_info.keys()), f"meta_info missing required keys. Expected {required_keys}, got {meta_info.keys()}"
     
     # Validate idx matches datapoint index
     assert meta_info['idx'] == datapoint_idx, f"meta_info['idx'] must match datapoint index {datapoint_idx}, got {meta_info['idx']}"
     
-    # Validate transform_config
-    transform_config = meta_info['transform_config']
-    assert isinstance(transform_config, dict), f"transform_config must be dict, got {type(transform_config)}"
+    # Validate transform_params
+    transform_params = meta_info['transform_params']
+    assert isinstance(transform_params, dict), f"transform_params must be dict, got {type(transform_params)}"
     
     # Check required transform config keys
     required_config_keys = {
@@ -95,18 +95,18 @@ def validate_meta_info(meta_info: Dict[str, Any], datapoint_idx: int) -> None:
         'sensor_euler_angles', 'lidar_max_range', 'lidar_horizontal_fov', 
         'lidar_vertical_fov', 'seed', 'camera_pose_idx'
     }
-    assert required_config_keys.issubset(transform_config.keys()), f"transform_config missing keys: {required_config_keys - set(transform_config.keys())}"
+    assert required_config_keys.issubset(transform_params.keys()), f"transform_params missing keys: {required_config_keys - set(transform_params.keys())}"
     
     # Validate specific fields
-    assert transform_config['crop_method'] == 'lidar', f"crop_method must be 'lidar', got {transform_config['crop_method']}"
-    assert isinstance(transform_config['camera_pose_idx'], int), f"camera_pose_idx must be int, got {type(transform_config['camera_pose_idx'])}"
-    assert transform_config['camera_pose_idx'] >= 0, f"camera_pose_idx must be >= 0, got {transform_config['camera_pose_idx']}"
+    assert transform_params['crop_method'] == 'lidar', f"crop_method must be 'lidar', got {transform_params['crop_method']}"
+    assert isinstance(transform_params['camera_pose_idx'], int), f"camera_pose_idx must be int, got {type(transform_params['camera_pose_idx'])}"
+    assert transform_params['camera_pose_idx'] >= 0, f"camera_pose_idx must be >= 0, got {transform_params['camera_pose_idx']}"
     
     # Validate numeric values
-    assert isinstance(transform_config['rotation_angles'], list) and len(transform_config['rotation_angles']) == 3
-    assert isinstance(transform_config['translation'], list) and len(transform_config['translation']) == 3
-    assert isinstance(transform_config['sensor_position'], list) and len(transform_config['sensor_position']) == 3
-    assert isinstance(transform_config['sensor_euler_angles'], list) and len(transform_config['sensor_euler_angles']) == 3
+    assert isinstance(transform_params['rotation_angles'], list) and len(transform_params['rotation_angles']) == 3
+    assert isinstance(transform_params['translation'], list) and len(transform_params['translation']) == 3
+    assert isinstance(transform_params['sensor_position'], list) and len(transform_params['sensor_position']) == 3
+    assert isinstance(transform_params['sensor_euler_angles'], list) and len(transform_params['sensor_euler_angles']) == 3
 
 
 def test_lidar_camera_pose_pcr_dataset_structure(dataset, max_samples, get_samples_to_test):
