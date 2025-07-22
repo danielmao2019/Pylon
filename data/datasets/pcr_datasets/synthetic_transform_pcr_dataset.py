@@ -46,7 +46,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         min_points: int = 512,
         max_trials: int = 1000,
         cache_filepath: Optional[str] = None,
-        crop_method: str = 'lidar',
         lidar_max_range: float = 6.0,
         lidar_horizontal_fov: Union[int, float] = 120.0,
         lidar_vertical_fov: Union[int, float] = 60.0,
@@ -67,7 +66,6 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             min_points: Minimum number of points filter for cache generation
             max_trials: Maximum number of trials to generate valid transforms
             cache_filepath: Path to cache file (if None, no caching is used)
-            crop_method: Cropping method - only 'lidar' is supported
             lidar_max_range: Maximum LiDAR sensor range in meters
             lidar_horizontal_fov: LiDAR horizontal field of view in degrees
             lidar_vertical_fov: LiDAR vertical FOV total angle in degrees (e.g., 60.0 means [-30.0, +30.0])
@@ -85,8 +83,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         self.max_trials = max_trials
         self.cache_filepath = cache_filepath
         
-        # Validate crop method - only LiDAR is supported
-        assert crop_method == 'lidar', f"crop_method must be 'lidar', got '{crop_method}'"
+        # LiDAR is the only supported crop method - no validation needed
         
         # Store LiDAR parameters (temporarily force FOV-only cropping)
         self.lidar_max_range = float(lidar_max_range)
