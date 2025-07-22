@@ -11,7 +11,7 @@ import json
 import pytest
 import torch
 from unittest.mock import Mock
-from utils.automation.run_status import ProgressInfo
+from utils.automation.progress_tracking import ProgressInfo
 from utils.monitor.system_monitor import SystemMonitor
 from utils.io.json import save_json
 
