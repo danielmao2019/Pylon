@@ -14,7 +14,7 @@ import pytest
 from utils.automation.progress_tracking.progress_tracker_factory import create_progress_tracker
 from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
 from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
-from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker
+from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker, ProgressInfo
 from conftest import create_epoch_files
 
 
@@ -386,5 +386,5 @@ def test_create_progress_tracker_validates_created_instances():
         
         # Verify it can actually work
         progress = tracker.get_progress()
-        assert isinstance(progress, tracker.ProgressInfo)
+        assert isinstance(progress, ProgressInfo)
         assert progress.runner_type == 'trainer'
