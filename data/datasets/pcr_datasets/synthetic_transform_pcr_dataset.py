@@ -8,7 +8,7 @@ import numpy as np
 import torch
 from data.datasets.base_dataset import BaseDataset
 from utils.point_cloud_ops.set_ops.intersection import compute_registration_overlap
-from data.transforms.vision_3d import LiDARSimulationCrop
+from data.transforms.vision_3d.lidar_simulation_crop import LiDARSimulationCrop
 from utils.io.point_cloud import load_point_cloud
 
 
