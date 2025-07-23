@@ -13,7 +13,8 @@ from data.transforms.vision_3d.random_rigid_transform import RandomRigidTransfor
 from data.transforms.vision_3d.random_plane_crop import RandomPlaneCrop
 from data.transforms.vision_3d.random_point_crop import RandomPointCrop
 from data.transforms.vision_3d.lidar_simulation_crop.range_crop import RangeCrop
-from data.transforms.vision_3d.lidar_simulation_crop.fov_crop import FOVCrop
+from data.transforms.vision_3d.lidar_simulation_crop.ellipsoid_fov_crop import EllipsoidFOVCrop
+from data.transforms.vision_3d.lidar_simulation_crop.frustum_fov_crop import FrustumFOVCrop
 from data.transforms.vision_3d.lidar_simulation_crop.occlusion_crop import OcclusionCrop
 from data.transforms.vision_3d.lidar_simulation_crop.lidar_simulation_crop import LiDARSimulationCrop
 
@@ -31,7 +32,8 @@ __all__ = (
     'RandomPlaneCrop',
     'RandomPointCrop',
     'RangeCrop',
-    'FOVCrop',
+    'EllipsoidFOVCrop',
+    'FrustumFOVCrop',
     'OcclusionCrop',
     'LiDARSimulationCrop',
 )
