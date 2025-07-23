@@ -48,7 +48,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         cache_filepath: Optional[str] = None,
         lidar_max_range: float = 6.0,
         lidar_fov: Tuple[Union[int, float], Union[int, float]] = (120.0, 60.0),
-        fov_crop_mode: str = "camera",
+        lidar_fov_crop_mode: str = "camera",
         lidar_apply_range_filter: bool = False,
         lidar_apply_fov_filter: bool = True,
         lidar_apply_occlusion_filter: bool = False,
@@ -70,7 +70,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             lidar_fov: Tuple of (horizontal_fov, vertical_fov) in degrees
                 - horizontal_fov: LiDAR horizontal field of view in degrees
                 - vertical_fov: LiDAR vertical FOV total angle in degrees (e.g., 60.0 means [-30.0, +30.0])
-            fov_crop_mode: Cropping mode - "lidar" for cone-shaped LiDAR FOV, "camera" for rectangular camera frustum (default: "camera")
+            lidar_fov_crop_mode: Cropping mode - "lidar" for cone-shaped spherical FOV, "camera" for rectangular perspective frustum (default: "camera")
             lidar_apply_range_filter: Whether to apply range-based filtering for LiDAR (default: False)
             lidar_apply_fov_filter: Whether to apply field-of-view filtering for LiDAR (default: True)  
             lidar_apply_occlusion_filter: Whether to apply occlusion simulation for LiDAR (default: False)
@@ -90,7 +90,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
         # Store LiDAR parameters
         self.lidar_max_range = float(lidar_max_range)
         self.lidar_fov = tuple(lidar_fov)
-        self.fov_crop_mode = fov_crop_mode
+        self.lidar_fov_crop_mode = lidar_fov_crop_mode
         self.lidar_apply_range_filter = lidar_apply_range_filter
         self.lidar_apply_fov_filter = lidar_apply_fov_filter
         self.lidar_apply_occlusion_filter = lidar_apply_occlusion_filter
@@ -726,7 +726,7 @@ class SyntheticTransformPCRDataset(BaseDataset, ABC):
             apply_range_filter=self.lidar_apply_range_filter,
             apply_fov_filter=self.lidar_apply_fov_filter,
             apply_occlusion_filter=self.lidar_apply_occlusion_filter,
-            fov_crop_mode=self.fov_crop_mode
+            fov_crop_mode=self.lidar_fov_crop_mode
         )
         
         # Store sensor extrinsics for LiDAR cropping
