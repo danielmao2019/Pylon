@@ -124,13 +124,21 @@ class LiDARVisualizationBackend:
                           yaw: float, pitch: float, roll: float) -> torch.Tensor:
         """Create camera pose from spherical coordinates and rotations.
         
+        Camera Control Convention:
+        - Azimuth: Horizontal rotation around world Z-axis (0° = +X, 90° = +Y)
+        - Elevation: Vertical angle from horizon (0° = horizontal, +90° = up, -90° = down) 
+        - Distance: Distance from origin
+        - Yaw: Camera left/right rotation around its local Z-axis (looking direction)
+        - Pitch: Camera up/down rotation around its local Y-axis (negative = look down, positive = look up)
+        - Roll: Camera twist rotation around its local X-axis (forward direction)
+        
         Args:
             azimuth: Horizontal angle from +X axis in degrees [0, 360]
             elevation: Vertical angle from horizon in degrees [-90, 90]
             distance: Distance from origin [1, 20]
-            yaw: Camera yaw rotation in degrees [-180, 180] (relative to look-at-origin)
-            pitch: Camera pitch rotation in degrees [-90, 90]
-            roll: Camera roll rotation in degrees [-180, 180]
+            yaw: Camera yaw rotation in degrees [-180, 180] (left/right turn)
+            pitch: Camera pitch rotation in degrees [-90, 90] (negative = look down, positive = look up)
+            roll: Camera roll rotation in degrees [-180, 180] (twist)
             
         Returns:
             4x4 extrinsics matrix (sensor-to-world transformation)
@@ -142,59 +150,68 @@ class LiDARVisualizationBackend:
         pitch_rad = np.radians(pitch)
         roll_rad = np.radians(roll)
         
-        # Convert spherical to cartesian coordinates
-        x = distance * np.cos(elevation_rad) * np.cos(azimuth_rad)
-        y = distance * np.cos(elevation_rad) * np.sin(azimuth_rad)
-        z = distance * np.sin(elevation_rad)
+        # Step 1: Convert spherical coordinates to camera position
+        camera_x = distance * np.cos(elevation_rad) * np.cos(azimuth_rad)
+        camera_y = distance * np.cos(elevation_rad) * np.sin(azimuth_rad)
+        camera_z = distance * np.sin(elevation_rad)
+        camera_pos = np.array([camera_x, camera_y, camera_z])
         
-        eye = torch.tensor([x, y, z], dtype=torch.float32)
-        target = torch.tensor([0.0, 0.0, 0.0], dtype=torch.float32)
-        up = torch.tensor([0.0, 0.0, 1.0], dtype=torch.float32)
+        # Step 2: Create initial look-at orientation (camera looking toward origin)
+        # World coordinate system: +X right, +Y forward, +Z up  
+        # Sensor coordinate system: +X forward, +Y left, +Z up (matches LiDAR crop expectation)
+        forward = -camera_pos / np.linalg.norm(camera_pos)  # Point toward origin
+        world_up = np.array([0.0, 0.0, 1.0])  # World up is +Z
         
-        # Create look-at matrix (camera looking toward origin)
-        forward = target - eye
-        forward = forward / torch.norm(forward)
+        # Handle gimbal lock case when looking straight up/down
+        if np.abs(np.dot(forward, world_up)) > 0.99:
+            world_up = np.array([1.0, 0.0, 0.0])  # Use +X as up when looking vertically
         
-        # Handle special case when forward is parallel to up vector
-        cos_angle = torch.dot(forward, up)
-        if torch.abs(cos_angle) > 0.99:  # Nearly parallel
-            if torch.abs(forward[0]) < 0.9:
-                up = torch.tensor([1.0, 0.0, 0.0])
-            else:
-                up = torch.tensor([0.0, 1.0, 0.0])
+        # Compute camera coordinate system vectors in world frame
+        right = np.cross(forward, world_up)
+        right = right / np.linalg.norm(right)
+        up = np.cross(right, forward)
+        up = up / np.linalg.norm(up)
         
-        # Compute right vector
-        right = torch.cross(forward, up)
-        right = right / torch.norm(right)
+        # Step 3: Apply additional rotations in camera's local coordinate system
+        # Sensor frame: +X forward, +Y left, +Z up (matches LiDAR crop convention)
         
-        # Recompute up vector to ensure orthogonality
-        up = torch.cross(right, forward)
-        up = up / torch.norm(up)
+        # Create rotation matrices for each axis (in sensor's local frame)
+        # Roll: rotation around forward axis (+X)
+        R_roll = np.array([
+            [1, 0, 0],
+            [0, np.cos(roll_rad), -np.sin(roll_rad)],
+            [0, np.sin(roll_rad), np.cos(roll_rad)]
+        ])
         
-        # Create base rotation matrix (world-to-sensor)
-        # In sensor frame: +X forward, +Y left, +Z up
-        rotation = torch.stack([forward, -right, up], dim=0)  # 3x3
+        # Pitch: rotation around left axis (+Y) - negative pitch looks down
+        R_pitch = np.array([
+            [np.cos(-pitch_rad), 0, np.sin(-pitch_rad)],
+            [0, 1, 0],
+            [-np.sin(-pitch_rad), 0, np.cos(-pitch_rad)]
+        ])
         
-        # Apply additional rotations (yaw, pitch, roll) in sensor frame
-        # Yaw (around Z)
-        cy, sy = torch.cos(torch.tensor(yaw_rad)), torch.sin(torch.tensor(yaw_rad))
-        R_yaw = torch.tensor([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]], dtype=torch.float32)
+        # Yaw: rotation around up axis (+Z)
+        R_yaw = np.array([
+            [np.cos(yaw_rad), -np.sin(yaw_rad), 0],
+            [np.sin(yaw_rad), np.cos(yaw_rad), 0],
+            [0, 0, 1]
+        ])
         
-        # Pitch (around Y)
-        cp, sp = torch.cos(torch.tensor(pitch_rad)), torch.sin(torch.tensor(pitch_rad))
-        R_pitch = torch.tensor([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]], dtype=torch.float32)
+        # Combine rotations: Roll, then Pitch, then Yaw (intrinsic rotations)
+        local_rotation = R_yaw @ R_pitch @ R_roll
         
-        # Roll (around X)
-        cr, sr = torch.cos(torch.tensor(roll_rad)), torch.sin(torch.tensor(roll_rad))
-        R_roll = torch.tensor([[1, 0, 0], [0, cr, -sr], [0, sr, cr]], dtype=torch.float32)
+        # Step 4: Transform local rotation to world coordinates
+        # Base sensor orientation matrix (sensor-to-world)
+        # Sensor frame: [+X forward, +Y left, +Z up] → World frame
+        sensor_to_world_rotation = np.column_stack([forward, -right, up])  # [forward, left, up] as columns
         
-        # Apply rotations in order: yaw, then pitch, then roll
-        final_rotation = rotation @ R_yaw @ R_pitch @ R_roll
+        # Apply additional rotations in sensor's local frame
+        final_sensor_to_world_rotation = sensor_to_world_rotation @ local_rotation
         
-        # Create 4x4 extrinsics matrix (sensor-to-world)
-        extrinsics = torch.eye(4)
-        extrinsics[:3, :3] = final_rotation.T  # Transpose for sensor-to-world
-        extrinsics[:3, 3] = eye
+        # Step 5: Create 4x4 extrinsics matrix (sensor-to-world)
+        extrinsics = torch.eye(4, dtype=torch.float32)
+        extrinsics[:3, :3] = torch.tensor(final_sensor_to_world_rotation, dtype=torch.float32)  # sensor-to-world rotation
+        extrinsics[:3, 3] = torch.tensor(camera_pos, dtype=torch.float32)  # sensor position
         
         return extrinsics
 
@@ -206,7 +223,8 @@ class LiDARVisualizationBackend:
             **params: Dynamic parameters for crop configuration
                 - range_max: Maximum range for range_only cropping
                 - h_fov: Horizontal FOV for fov_only cropping
-                - v_fov_span: Vertical FOV span for fov_only cropping
+                - v_fov: Vertical FOV for fov_only cropping
+                - fov_mode: FOV mode for fov_only cropping ('ellipsoid' or 'frustum')
             
         Returns:
             LiDARSimulationCrop configuration object
@@ -223,10 +241,12 @@ class LiDARVisualizationBackend:
             )
         elif crop_type == 'fov_only':
             h_fov = params.get('h_fov', 80.0)
-            v_fov_span = params.get('v_fov_span', 40.0)  # Total span around center (0)
+            v_fov = params.get('v_fov', 40.0)  # Total span around center (0)
+            fov_mode = params.get('fov_mode', 'ellipsoid')  # Default to ellipsoid mode
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
-                fov=(h_fov, v_fov_span),  # (horizontal_fov, vertical_fov)
+                fov=(h_fov, v_fov),  # (horizontal_fov, vertical_fov)
+                fov_crop_mode=fov_mode,  # ellipsoid or frustum
                 ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=True,
@@ -246,7 +266,7 @@ class LiDARVisualizationBackend:
     
     def process_cropping(self, cloud_name: str, crop_type: str, 
                         azimuth: float, elevation: float, distance: float,
-                        yaw: float, pitch: float, roll: float, **crop_params) -> Dict[str, Any]:
+                        yaw: float, pitch: float, roll: float, **crop_params: Any) -> Dict[str, Any]:
         """Process point cloud cropping for given configuration.
         
         Args:
@@ -258,7 +278,7 @@ class LiDARVisualizationBackend:
             yaw: Camera yaw rotation in degrees [-180, 180]
             pitch: Camera pitch rotation in degrees [-90, 90]
             roll: Camera roll rotation in degrees [-180, 180]
-            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov_span)
+            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov, fov_mode)
             
         Returns:
             Dictionary with processed data including original points, cropped points,
@@ -272,9 +292,9 @@ class LiDARVisualizationBackend:
         sensor_extrinsics = self.create_camera_pose(azimuth, elevation, distance, yaw, pitch, roll)
         
         # Apply cropping
-        pc = {'pos': original_points, 'feat': torch.ones(len(original_points), 1)}
-        cropped_pc = crop_config._call_single(pc, sensor_extrinsics, generator=torch.Generator())
-        cropped_points = cropped_pc['pos']
+        pc: Dict[str, torch.Tensor] = {'pos': original_points, 'feat': torch.ones(len(original_points), 1)}
+        cropped_pc: Dict[str, torch.Tensor] = crop_config._call_single(pc, sensor_extrinsics, generator=torch.Generator())
+        cropped_points: torch.Tensor = cropped_pc['pos']
         
         # Extract sensor info
         sensor_pos = sensor_extrinsics[:3, 3].numpy()
@@ -307,7 +327,7 @@ class LiDARVisualizationBackend:
     
     def create_3d_scatter_plot(self, cloud_name: str, crop_type: str, 
                               azimuth: float, elevation: float, distance: float,
-                              yaw: float, pitch: float, roll: float, **crop_params) -> go.Figure:
+                              yaw: float, pitch: float, roll: float, **crop_params: Any) -> go.Figure:
         """Create a 3D scatter plot for the specified configuration.
         
         Args:
@@ -319,7 +339,7 @@ class LiDARVisualizationBackend:
             yaw: Camera yaw rotation in degrees
             pitch: Camera pitch rotation in degrees
             roll: Camera roll rotation in degrees
-            **crop_params: Dynamic crop parameters
+            **crop_params: Dynamic crop parameters (including fov_mode for fov_only)
             
         Returns:
             Plotly Figure object
@@ -406,11 +426,18 @@ class LiDARVisualizationBackend:
                 self._add_range_visualization(fig, sensor_pos, crop_config.max_range)
                 
             elif crop_type == 'fov_only' and crop_config.apply_fov_filter:
-                self._add_fov_visualization(fig, sensor_pos, sensor_rot, crop_config)
+                fov_mode = crop_params.get('fov_mode', 'ellipsoid')
+                self._add_fov_visualization(fig, sensor_pos, sensor_rot, crop_config, fov_mode)
+            
+            # Create title with FOV mode information
+            title_parts = [f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()}"]
+            if crop_type == 'fov_only' and 'fov_mode' in crop_params:
+                fov_mode = crop_params['fov_mode']
+                title_parts[0] += f" ({fov_mode.title()})"
             
             # Set layout with fixed axis ranges for consistent scaling
             fig.update_layout(
-                title=f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()}<br>"
+                title=f"{title_parts[0]}<br>"
                       f"<sub>{pose_description} | Points: {len(original_np):,} → {len(cropped_np):,} ({reduction:.1f}% reduction)</sub>",
                 scene=dict(
                     xaxis=dict(
@@ -471,8 +498,139 @@ class LiDARVisualizationBackend:
         ))
     
     def _add_fov_visualization(self, fig: go.Figure, sensor_pos: np.ndarray, 
-                             sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop) -> None:
-        """Add FOV frustum visualization to the figure.
+                             sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop, fov_mode: str = 'ellipsoid') -> None:
+        """Add FOV visualization to the figure.
+        
+        Args:
+            fig: Plotly figure to add to
+            sensor_pos: Sensor position [3]
+            sensor_rot: Sensor rotation matrix [3x3]
+            crop_config: LiDAR configuration object
+            fov_mode: FOV mode ('ellipsoid' or 'frustum')
+        """
+        if fov_mode == 'ellipsoid':
+            self._add_ellipsoid_fov_visualization(fig, sensor_pos, sensor_rot, crop_config)
+        elif fov_mode == 'frustum':
+            self._add_frustum_fov_visualization(fig, sensor_pos, sensor_rot, crop_config)
+    
+    def _add_ellipsoid_fov_visualization(self, fig: go.Figure, sensor_pos: np.ndarray, 
+                                       sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop) -> None:
+        """Add ellipsoidal FOV visualization to the figure.
+        
+        Creates a proper ellipsoidal surface visualization by drawing multiple curved
+        cross-sections that show the convex ellipsoidal shape.
+        
+        Args:
+            fig: Plotly figure to add to
+            sensor_pos: Sensor position [3]
+            sensor_rot: Sensor rotation matrix [3x3]
+            crop_config: LiDAR configuration object
+        """
+        horizontal_fov, vertical_fov = crop_config.fov
+        h_fov_half = horizontal_fov / 2
+        v_fov_half = vertical_fov / 2
+        
+        frustum_length = 8.0
+        
+        # Generate ellipsoidal surface using parametric equations
+        # θ (theta): azimuth angle [-h_fov_half, +h_fov_half]
+        # φ (phi): elevation angle [-v_fov_half, +v_fov_half]
+        
+        # Create boundary curves showing ellipsoidal shape
+        num_curve_points = 20
+        num_cross_sections = 5
+        
+        # 1. Draw horizontal cross-sections at different elevation angles
+        elevation_angles = np.linspace(-v_fov_half, v_fov_half, num_cross_sections)
+        for i, elev_deg in enumerate(elevation_angles):
+            elev_rad = np.radians(elev_deg)
+            
+            # Create horizontal curve at this elevation
+            azimuth_angles = np.linspace(-h_fov_half, h_fov_half, num_curve_points)
+            curve_points = []
+            
+            for azim_deg in azimuth_angles:
+                azim_rad = np.radians(azim_deg)
+                
+                # Spherical to Cartesian conversion for ellipsoidal surface
+                # Radius varies with angle to create ellipsoidal shape
+                radius = frustum_length * np.cos(elev_rad)  # Ellipsoidal scaling
+                
+                # Point in sensor coordinates (forward = +X)
+                x = frustum_length * np.cos(elev_rad) * np.cos(azim_rad)
+                y = frustum_length * np.cos(elev_rad) * np.sin(azim_rad)
+                z = frustum_length * np.sin(elev_rad)
+                
+                # Transform to world coordinates
+                local_point = np.array([x, y, z])
+                world_point = sensor_rot @ local_point + sensor_pos
+                curve_points.append(world_point)
+            
+            curve_points = np.array(curve_points)
+            
+            # Use different line styles for different cross-sections
+            is_edge = (i == 0 or i == num_cross_sections - 1)
+            line_width = 3 if is_edge else 2
+            line_color = 'orange' if is_edge else 'gold'
+            opacity = 1.0 if is_edge else 0.6
+            
+            fig.add_trace(go.Scatter3d(
+                x=curve_points[:, 0],
+                y=curve_points[:, 1],
+                z=curve_points[:, 2],
+                mode='lines',
+                line=dict(color=line_color, width=line_width),
+                opacity=opacity,
+                name='Ellipsoid Boundary' if i == 0 else None,
+                showlegend=(i == 0),
+                hoverinfo='skip'
+            ))
+        
+        # 2. Draw vertical cross-sections at different azimuth angles  
+        azimuth_angles = np.linspace(-h_fov_half, h_fov_half, num_cross_sections)
+        for i, azim_deg in enumerate(azimuth_angles):
+            azim_rad = np.radians(azim_deg)
+            
+            # Create vertical curve at this azimuth
+            elevation_angles = np.linspace(-v_fov_half, v_fov_half, num_curve_points)
+            curve_points = []
+            
+            for elev_deg in elevation_angles:
+                elev_rad = np.radians(elev_deg)
+                
+                # Point in sensor coordinates (forward = +X)
+                x = frustum_length * np.cos(elev_rad) * np.cos(azim_rad)
+                y = frustum_length * np.cos(elev_rad) * np.sin(azim_rad)
+                z = frustum_length * np.sin(elev_rad)
+                
+                # Transform to world coordinates
+                local_point = np.array([x, y, z])
+                world_point = sensor_rot @ local_point + sensor_pos
+                curve_points.append(world_point)
+            
+            curve_points = np.array(curve_points)
+            
+            # Use different line styles for edge curves
+            is_edge = (i == 0 or i == num_cross_sections - 1)
+            line_width = 3 if is_edge else 1
+            line_color = 'darkorange' if is_edge else 'gold'
+            opacity = 1.0 if is_edge else 0.4
+            
+            fig.add_trace(go.Scatter3d(
+                x=curve_points[:, 0],
+                y=curve_points[:, 1],
+                z=curve_points[:, 2],
+                mode='lines',
+                line=dict(color=line_color, width=line_width),
+                opacity=opacity,
+                name=None,
+                showlegend=False,
+                hoverinfo='skip'
+            ))
+    
+    def _add_frustum_fov_visualization(self, fig: go.Figure, sensor_pos: np.ndarray, 
+                                     sensor_rot: np.ndarray, crop_config: LiDARSimulationCrop) -> None:
+        """Add frustum FOV visualization to the figure.
         
         Args:
             fig: Plotly figure to add to
@@ -481,11 +639,12 @@ class LiDARVisualizationBackend:
             crop_config: LiDAR configuration object
         """
         # Convert total FOV angles to half-angles for symmetric ranges
-        h_fov_half = crop_config.horizontal_fov / 2
+        horizontal_fov, vertical_fov = crop_config.fov
+        h_fov_half = horizontal_fov / 2
         h_fov_min = np.radians(-h_fov_half)
         h_fov_max = np.radians(h_fov_half)
         
-        v_fov_half = crop_config.vertical_fov / 2
+        v_fov_half = vertical_fov / 2
         v_fov_min = np.radians(-v_fov_half)
         v_fov_max = np.radians(v_fov_half)
         
@@ -608,7 +767,7 @@ class LiDARVisualizationBackend:
             'roll': 0.0         # No additional roll
         }
     
-    def get_default_crop_params(self) -> Dict[str, Dict[str, float]]:
+    def get_default_crop_params(self) -> Dict[str, Dict[str, Any]]:
         """Get default crop parameters for each crop type.
         
         Returns:
@@ -620,7 +779,8 @@ class LiDARVisualizationBackend:
             },
             'fov_only': {
                 'h_fov': 80.0,
-                'v_fov_span': 40.0
+                'v_fov': 40.0,
+                'fov_mode': 'ellipsoid'
             },
             'occlusion_only': {}
         }

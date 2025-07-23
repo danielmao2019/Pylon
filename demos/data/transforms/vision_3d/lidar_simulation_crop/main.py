@@ -84,34 +84,11 @@ def main():
     # Parse command-line arguments
     args = parse_arguments()
     
-    # Print startup information
-    print("=" * 60)
-    print("LiDAR Simulation Cropping - Interactive Visualization")
-    print("=" * 60)
-    print(f"Starting web server on http://{args.host}:{args.port}/")
-    print()
-    print("Features:")
-    print("  • Interactive 3D visualization of point cloud cropping")
-    print("  • Real-time parameter adjustment via slider controls")
-    print("  • Support for 3 point cloud types and 3 crop methods")
-    print("  • Interactive camera pose control with 6DOF sliders")
-    print()
-    print("Instructions:")
-    print("  1. Open the URL above in your web browser")
-    print("  2. Use the dropdown controls to select different configurations")
-    print("  3. Adjust camera pose sliders for real-time interaction")
-    print("  4. Interact with the 3D plot using mouse (rotate, zoom, pan)")
-    print("  5. Check the info panel for detailed statistics and configuration")
-    print()
-    
+    # Print minimal startup information
+    print(f"Starting LiDAR Simulation Cropping Demo on http://{args.host}:{args.port}/")
     if not args.no_browser:
-        print("Browser will open automatically...")
-    else:
-        print("Automatic browser opening disabled.")
-    
-    print(f"Debug mode: {'Enabled' if args.debug else 'Disabled'}")
+        print("Opening browser automatically...")
     print("Press Ctrl+C to stop the server")
-    print("=" * 60)
     print()
     
     try:
