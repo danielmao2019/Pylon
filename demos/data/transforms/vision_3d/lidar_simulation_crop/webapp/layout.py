@@ -69,7 +69,7 @@ class LiDARVisualizationLayout:
                     dcc.Dropdown(
                         id='crop-type-dropdown',
                         options=self.options['crop_types'],
-                        value='fov_only',
+                        value='ellipsoid_fov',
                         style={'width': '100%', 'fontSize': '14px'},
                         clearable=False
                     )
@@ -212,7 +212,7 @@ class LiDARVisualizationLayout:
                     value=crop_defaults['fov_only']['h_fov'],
                     marks={i: f"{i}" for i in range(10, 181, 40)},
                     tooltip={"placement": "bottom", "always_visible": True},
-                    disabled=False,  # Initially enabled for fov_only default
+                    disabled=False,  # Initially enabled for ellipsoid_fov default
                     updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
@@ -226,24 +226,22 @@ class LiDARVisualizationLayout:
                     value=crop_defaults['fov_only']['v_fov'],
                     marks={i: f"{i}" for i in range(5, 121, 25)},
                     tooltip={"placement": "bottom", "always_visible": True},
-                    disabled=False,  # Initially enabled for fov_only default
+                    disabled=False,  # Initially enabled for ellipsoid_fov default
                     updatemode='drag'
                 )
             ], style={'marginBottom': 12}),
             
-            # FOV Mode selection (for fov_only)
+            # Ray density factor (for occlusion crop)
             html.Div([
-                html.Label("FOV Mode", style={'fontSize': '12px', 'marginBottom': 3}),
-                dcc.Dropdown(
-                    id='fov-mode-dropdown',
-                    options=[
-                        {'label': 'Ellipsoid (LiDAR-style)', 'value': 'ellipsoid'},
-                        {'label': 'Frustum (Camera-style)', 'value': 'frustum'}
-                    ],
-                    value=crop_defaults['fov_only']['fov_mode'],
-                    style={'width': '100%', 'fontSize': '12px'},
-                    clearable=False,
-                    disabled=False  # Initially enabled for fov_only default
+                html.Label("Ray Density Factor", style={'fontSize': '12px', 'marginBottom': 3}),
+                dcc.Slider(
+                    id='ray-density-slider',
+                    min=0.1, max=1.0, step=0.05,
+                    value=0.8,  # Default ray density factor
+                    marks={0.1: '0.1', 0.3: '0.3', 0.5: '0.5', 0.7: '0.7', 0.9: '0.9', 1.0: '1.0'},
+                    tooltip={"placement": "bottom", "always_visible": True},
+                    disabled=True,  # Initially disabled, enabled only for occlusion crop
+                    updatemode='drag'
                 )
             ], style={'marginBottom': 12})
         ])
@@ -339,5 +337,5 @@ class LiDARVisualizationLayout:
             'range_max': 'range-max-slider',
             'h_fov': 'h-fov-slider',
             'v_fov': 'v-fov-slider',
-            'fov_mode': 'fov-mode-dropdown'
+            'ray_density': 'ray-density-slider'
         }
