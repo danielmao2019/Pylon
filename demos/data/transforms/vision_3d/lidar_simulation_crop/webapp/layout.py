@@ -219,11 +219,11 @@ class LiDARVisualizationLayout:
             
             # Vertical FOV span (for fov_only)
             html.Div([
-                html.Label("Vertical FOV Span (°)", style={'fontSize': '12px', 'marginBottom': 3}),
+                html.Label("Vertical FOV (°)", style={'fontSize': '12px', 'marginBottom': 3}),
                 dcc.Slider(
-                    id='v-fov-span-slider',
+                    id='v-fov-slider',
                     min=5, max=120, step=5,
-                    value=crop_defaults['fov_only']['v_fov_span'],
+                    value=crop_defaults['fov_only']['v_fov'],
                     marks={i: f"{i}" for i in range(5, 121, 25)},
                     tooltip={"placement": "bottom", "always_visible": True},
                     disabled=False,  # Initially enabled for fov_only default
@@ -338,6 +338,6 @@ class LiDARVisualizationLayout:
             # Crop parameter sliders
             'range_max': 'range-max-slider',
             'h_fov': 'h-fov-slider',
-            'v_fov_span': 'v-fov-span-slider',
+            'v_fov': 'v-fov-slider',
             'fov_mode': 'fov-mode-dropdown'
         }

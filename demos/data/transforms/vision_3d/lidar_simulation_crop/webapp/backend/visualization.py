@@ -206,7 +206,7 @@ class LiDARVisualizationBackend:
             **params: Dynamic parameters for crop configuration
                 - range_max: Maximum range for range_only cropping
                 - h_fov: Horizontal FOV for fov_only cropping
-                - v_fov_span: Vertical FOV span for fov_only cropping
+                - v_fov: Vertical FOV for fov_only cropping
                 - fov_mode: FOV mode for fov_only cropping ('ellipsoid' or 'frustum')
             
         Returns:
@@ -224,11 +224,11 @@ class LiDARVisualizationBackend:
             )
         elif crop_type == 'fov_only':
             h_fov = params.get('h_fov', 80.0)
-            v_fov_span = params.get('v_fov_span', 40.0)  # Total span around center (0)
+            v_fov = params.get('v_fov', 40.0)  # Total span around center (0)
             fov_mode = params.get('fov_mode', 'ellipsoid')  # Default to ellipsoid mode
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
-                fov=(h_fov, v_fov_span),  # (horizontal_fov, vertical_fov)
+                fov=(h_fov, v_fov),  # (horizontal_fov, vertical_fov)
                 fov_crop_mode=fov_mode,  # ellipsoid or frustum
                 ray_density_factor=0.8,
                 apply_range_filter=False,
@@ -249,7 +249,7 @@ class LiDARVisualizationBackend:
     
     def process_cropping(self, cloud_name: str, crop_type: str, 
                         azimuth: float, elevation: float, distance: float,
-                        yaw: float, pitch: float, roll: float, **crop_params) -> Dict[str, Any]:
+                        yaw: float, pitch: float, roll: float, **crop_params: Any) -> Dict[str, Any]:
         """Process point cloud cropping for given configuration.
         
         Args:
@@ -261,7 +261,7 @@ class LiDARVisualizationBackend:
             yaw: Camera yaw rotation in degrees [-180, 180]
             pitch: Camera pitch rotation in degrees [-90, 90]
             roll: Camera roll rotation in degrees [-180, 180]
-            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov_span, fov_mode)
+            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov, fov_mode)
             
         Returns:
             Dictionary with processed data including original points, cropped points,
@@ -275,9 +275,9 @@ class LiDARVisualizationBackend:
         sensor_extrinsics = self.create_camera_pose(azimuth, elevation, distance, yaw, pitch, roll)
         
         # Apply cropping
-        pc = {'pos': original_points, 'feat': torch.ones(len(original_points), 1)}
-        cropped_pc = crop_config._call_single(pc, sensor_extrinsics, generator=torch.Generator())
-        cropped_points = cropped_pc['pos']
+        pc: Dict[str, torch.Tensor] = {'pos': original_points, 'feat': torch.ones(len(original_points), 1)}
+        cropped_pc: Dict[str, torch.Tensor] = crop_config._call_single(pc, sensor_extrinsics, generator=torch.Generator())
+        cropped_points: torch.Tensor = cropped_pc['pos']
         
         # Extract sensor info
         sensor_pos = sensor_extrinsics[:3, 3].numpy()
@@ -310,7 +310,7 @@ class LiDARVisualizationBackend:
     
     def create_3d_scatter_plot(self, cloud_name: str, crop_type: str, 
                               azimuth: float, elevation: float, distance: float,
-                              yaw: float, pitch: float, roll: float, **crop_params) -> go.Figure:
+                              yaw: float, pitch: float, roll: float, **crop_params: Any) -> go.Figure:
         """Create a 3D scatter plot for the specified configuration.
         
         Args:
@@ -717,7 +717,7 @@ class LiDARVisualizationBackend:
             'roll': 0.0         # No additional roll
         }
     
-    def get_default_crop_params(self) -> Dict[str, Dict[str, float]]:
+    def get_default_crop_params(self) -> Dict[str, Dict[str, Any]]:
         """Get default crop parameters for each crop type.
         
         Returns:
@@ -729,7 +729,7 @@ class LiDARVisualizationBackend:
             },
             'fov_only': {
                 'h_fov': 80.0,
-                'v_fov_span': 40.0,
+                'v_fov': 40.0,
                 'fov_mode': 'ellipsoid'
             },
             'occlusion_only': {}
