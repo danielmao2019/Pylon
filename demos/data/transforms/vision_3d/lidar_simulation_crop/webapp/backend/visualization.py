@@ -32,9 +32,19 @@ class LiDARVisualizationBackend:
                 apply_fov_filter=False,
                 apply_occlusion_filter=False
             ),
-            'fov_only': LiDARSimulationCrop(
+            'ellipsoid_fov': LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 fov=(80.0, 40.0),  # (horizontal_fov, vertical_fov)
+                fov_crop_mode='ellipsoid',
+                ray_density_factor=0.8,
+                apply_range_filter=False,
+                apply_fov_filter=True,
+                apply_occlusion_filter=False
+            ),
+            'frustum_fov': LiDARSimulationCrop(
+                max_range=100.0,  # Very large range so no range filtering
+                fov=(80.0, 40.0),  # (horizontal_fov, vertical_fov)
+                fov_crop_mode='frustum',
                 ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=True,
@@ -219,12 +229,12 @@ class LiDARVisualizationBackend:
         """Get crop configuration by type with dynamic parameters.
         
         Args:
-            crop_type: Type of cropping ('range_only', 'fov_only', 'occlusion_only')
+            crop_type: Type of cropping ('range_only', 'ellipsoid_fov', 'frustum_fov', 'occlusion_only')
             **params: Dynamic parameters for crop configuration
                 - range_max: Maximum range for range_only cropping
-                - h_fov: Horizontal FOV for fov_only cropping
-                - v_fov: Vertical FOV for fov_only cropping
-                - fov_mode: FOV mode for fov_only cropping ('ellipsoid' or 'frustum')
+                - h_fov: Horizontal FOV for ellipsoid_fov/frustum_fov cropping
+                - v_fov: Vertical FOV for ellipsoid_fov/frustum_fov cropping
+                - ray_density_factor: Ray density factor for occlusion_only cropping
             
         Returns:
             LiDARSimulationCrop configuration object
@@ -239,24 +249,36 @@ class LiDARVisualizationBackend:
                 apply_fov_filter=False,
                 apply_occlusion_filter=False
             )
-        elif crop_type == 'fov_only':
+        elif crop_type == 'ellipsoid_fov':
             h_fov = params.get('h_fov', 80.0)
             v_fov = params.get('v_fov', 40.0)  # Total span around center (0)
-            fov_mode = params.get('fov_mode', 'ellipsoid')  # Default to ellipsoid mode
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 fov=(h_fov, v_fov),  # (horizontal_fov, vertical_fov)
-                fov_crop_mode=fov_mode,  # ellipsoid or frustum
+                fov_crop_mode='ellipsoid',  # Ellipsoid mode
+                ray_density_factor=0.8,
+                apply_range_filter=False,
+                apply_fov_filter=True,
+                apply_occlusion_filter=False
+            )
+        elif crop_type == 'frustum_fov':
+            h_fov = params.get('h_fov', 80.0)
+            v_fov = params.get('v_fov', 40.0)  # Total span around center (0)
+            return LiDARSimulationCrop(
+                max_range=100.0,  # Very large range so no range filtering
+                fov=(h_fov, v_fov),  # (horizontal_fov, vertical_fov)
+                fov_crop_mode='frustum',  # Frustum mode
                 ray_density_factor=0.8,
                 apply_range_filter=False,
                 apply_fov_filter=True,
                 apply_occlusion_filter=False
             )
         elif crop_type == 'occlusion_only':
+            ray_density_factor = params.get('ray_density_factor', 0.8)
             return LiDARSimulationCrop(
                 max_range=100.0,  # Very large range so no range filtering
                 fov=(360.0, 180.0),  # Full circle and sphere so no FOV filtering
-                ray_density_factor=0.8,
+                ray_density_factor=ray_density_factor,
                 apply_range_filter=False,
                 apply_fov_filter=False,
                 apply_occlusion_filter=True
@@ -271,14 +293,14 @@ class LiDARVisualizationBackend:
         
         Args:
             cloud_name: Name of point cloud ('cube', 'sphere', 'scene')
-            crop_type: Type of cropping ('range_only', 'fov_only', 'occlusion_only')
+            crop_type: Type of cropping ('range_only', 'ellipsoid_fov', 'frustum_fov', 'occlusion_only')
             azimuth: Horizontal angle from +X axis in degrees [0, 360]
             elevation: Vertical angle from horizon in degrees [-90, 90]
             distance: Distance from origin [1, 20]
             yaw: Camera yaw rotation in degrees [-180, 180]
             pitch: Camera pitch rotation in degrees [-90, 90]
             roll: Camera roll rotation in degrees [-180, 180]
-            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov, fov_mode)
+            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov, ray_density_factor)
             
         Returns:
             Dictionary with processed data including original points, cropped points,
@@ -339,7 +361,7 @@ class LiDARVisualizationBackend:
             yaw: Camera yaw rotation in degrees
             pitch: Camera pitch rotation in degrees
             roll: Camera roll rotation in degrees
-            **crop_params: Dynamic crop parameters (including fov_mode for fov_only)
+            **crop_params: Dynamic crop parameters (range_max, h_fov, v_fov, ray_density_factor)
             
         Returns:
             Plotly Figure object
@@ -425,15 +447,12 @@ class LiDARVisualizationBackend:
             if crop_type == 'range_only' and crop_config.apply_range_filter:
                 self._add_range_visualization(fig, sensor_pos, crop_config.max_range)
                 
-            elif crop_type == 'fov_only' and crop_config.apply_fov_filter:
-                fov_mode = crop_params.get('fov_mode', 'ellipsoid')
+            elif crop_type in ['ellipsoid_fov', 'frustum_fov'] and crop_config.apply_fov_filter:
+                fov_mode = 'ellipsoid' if crop_type == 'ellipsoid_fov' else 'frustum'
                 self._add_fov_visualization(fig, sensor_pos, sensor_rot, crop_config, fov_mode)
             
-            # Create title with FOV mode information
+            # Create title
             title_parts = [f"{cloud_name.title()} - {crop_type.replace('_', ' ').title()}"]
-            if crop_type == 'fov_only' and 'fov_mode' in crop_params:
-                fov_mode = crop_params['fov_mode']
-                title_parts[0] += f" ({fov_mode.title()})"
             
             # Set layout with fixed axis ranges for consistent scaling
             fig.update_layout(
@@ -746,9 +765,10 @@ class LiDARVisualizationBackend:
                 {'label': 'Scene', 'value': 'scene'}
             ],
             'crop_types': [
-                {'label': 'Range Only', 'value': 'range_only'},
-                {'label': 'FOV Only', 'value': 'fov_only'},
-                {'label': 'Occlusion Only', 'value': 'occlusion_only'}
+                {'label': 'Range', 'value': 'range_only'},
+                {'label': 'Ellipsoid FOV', 'value': 'ellipsoid_fov'},
+                {'label': 'Frustum FOV', 'value': 'frustum_fov'},
+                {'label': 'Occlusion', 'value': 'occlusion_only'}
             ]
         }
     
@@ -777,10 +797,15 @@ class LiDARVisualizationBackend:
             'range_only': {
                 'range_max': 6.0
             },
-            'fov_only': {
+            'ellipsoid_fov': {
                 'h_fov': 80.0,
-                'v_fov': 40.0,
-                'fov_mode': 'ellipsoid'
+                'v_fov': 40.0
             },
-            'occlusion_only': {}
+            'frustum_fov': {
+                'h_fov': 80.0,
+                'v_fov': 40.0
+            },
+            'occlusion_only': {
+                'ray_density_factor': 0.8
+            }
         }
