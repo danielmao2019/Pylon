@@ -1,4 +1,3 @@
-from typing import Dict, Union, Tuple
 import torch
 from abc import ABC, abstractmethod
 from data.transforms.base_transform import BaseTransform
@@ -16,16 +15,11 @@ class BaseFOVCrop(BaseTransform, ABC):
     Both modes support the same FOV parameter format but apply different geometric constraints.
     """
 
-    def __init__(
-        self,
-        fov: Tuple[Union[int, float], Union[int, float]]
-    ):
+    def __init__(self, fov: tuple):
         """Initialize base FOV crop.
         
         Args:
             fov: Tuple of (horizontal_fov, vertical_fov) in degrees
-                - horizontal_fov: Horizontal field of view total angle 
-                - vertical_fov: Vertical field of view total angle
         """
         # Validate FOV parameter
         assert isinstance(fov, tuple), f"fov must be tuple, got {type(fov)}"
@@ -38,12 +32,8 @@ class BaseFOVCrop(BaseTransform, ABC):
         # Validate FOV ranges - subclasses can override these limits
         self._validate_fov_ranges(horizontal_fov, vertical_fov)
         
-        # Store FOV as tuple (consistent storage format)
+        # Store FOV as tuple (single source of truth)
         self.fov = (float(horizontal_fov), float(vertical_fov))
-        
-        # Also provide individual access for backward compatibility and convenience
-        self.horizontal_fov = float(horizontal_fov)
-        self.vertical_fov = float(vertical_fov)
 
     def _validate_fov_ranges(self, horizontal_fov: float, vertical_fov: float) -> None:
         """Validate FOV ranges - can be overridden by subclasses.
@@ -56,8 +46,8 @@ class BaseFOVCrop(BaseTransform, ABC):
         assert 0 < horizontal_fov <= 360, f"horizontal_fov must be in (0, 360], got {horizontal_fov}"
         assert 0 < vertical_fov <= 180, f"vertical_fov must be in (0, 180], got {vertical_fov}"
 
-    def _call_single(self, pc: Dict[str, torch.Tensor], sensor_extrinsics: torch.Tensor,
-                    *args, **kwargs) -> Dict[str, torch.Tensor]:
+    def _call_single(self, pc: dict, sensor_extrinsics: torch.Tensor,
+                    *args, **kwargs) -> dict:
         """Apply FOV cropping to point cloud.
         
         Args:
