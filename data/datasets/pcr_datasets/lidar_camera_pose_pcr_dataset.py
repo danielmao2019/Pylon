@@ -200,7 +200,8 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
         Returns:
             Cache parameter key tuple
         """
-        return (self.rotation_mag, self.translation_mag, self.matching_radius, self.camera_count)
+        parent_key = super()._get_cache_param_key()
+        return parent_key + (self.camera_count,)
 
     def _sample_transform(self, seed: int, file_idx: int) -> Dict[str, Any]:
         """Sample transform parameters using scene-specific camera poses.
