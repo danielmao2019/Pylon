@@ -16,16 +16,13 @@ from utils.automation.run_status import (
     RunStatus
 )
 from utils.automation.progress_tracking import ProgressInfo
-from conftest import (
-    setup_realistic_experiment_structure
-)
 
 
 # ============================================================================
 # INTEGRATION TESTS (REALISTIC WITH MINIMAL MOCK)
 # ============================================================================
 
-def test_integration_full_pipeline():
+def test_integration_full_pipeline(setup_realistic_experiment_structure):
     """Integration test for the complete enhanced run_status pipeline with minimal mocking."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiments with different states
@@ -79,7 +76,7 @@ def test_integration_full_pipeline():
             os.chdir(original_cwd)
 
 
-def test_integration_mixed_experiment_states():
+def test_integration_mixed_experiment_states(setup_realistic_experiment_structure):
     """Integration test with a variety of experiment states and configurations."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create experiments with more diverse scenarios
@@ -130,7 +127,7 @@ def test_integration_mixed_experiment_states():
             os.chdir(original_cwd)
 
 
-def test_integration_no_running_experiments():
+def test_integration_no_running_experiments(setup_realistic_experiment_structure):
     """Integration test when no experiments are running on GPU."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create only failed/finished experiments (no GPU processes)
@@ -164,7 +161,7 @@ def test_integration_no_running_experiments():
             os.chdir(original_cwd)
 
 
-def test_integration_all_running_experiments():
+def test_integration_all_running_experiments(setup_realistic_experiment_structure):
     """Integration test when all experiments are running on GPU."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create only running/stuck experiments (all have GPU processes)
@@ -202,7 +199,7 @@ def test_integration_all_running_experiments():
             os.chdir(original_cwd)
 
 
-def test_integration_large_scale_experiments():
+def test_integration_large_scale_experiments(setup_realistic_experiment_structure):
     """Integration test with many experiments to verify scalability."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create many experiments to test scalability
