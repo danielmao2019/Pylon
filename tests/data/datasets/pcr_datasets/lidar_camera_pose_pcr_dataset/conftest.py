@@ -98,8 +98,7 @@ def basic_dataset_kwargs():
         'min_points': 10,  # Lower minimum for testing
         'max_trials': 100,
         'lidar_max_range': 100.0,
-        'lidar_horizontal_fov': 360.0,
-        'lidar_vertical_fov': 180.0,  # Total angle: (-90.0, 90.0) → 180.0
+        'lidar_fov': (360.0, 180.0),  # (horizontal_fov, vertical_fov) - Total angle: (-90.0, 90.0) → 180.0
         'split': 'train',
     }
 
