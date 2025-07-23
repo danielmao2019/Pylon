@@ -23,19 +23,14 @@ from utils.automation.run_status import (
 )
 from utils.monitor.process_info import ProcessInfo
 from utils.automation.progress_tracking import ProgressInfo
-from conftest import (
-    create_epoch_files,
-    create_real_config,
-    create_minimal_system_monitor_with_processes,
-    EXPECTED_FILES
-)
+# Test fixtures are provided by conftest.py - no imports needed
 
 
 # ============================================================================
 # TESTS FOR get_run_status (REALISTIC - MINIMAL MOCKING)
 # ============================================================================
 
-def test_get_run_status_basic_functionality():
+def test_get_run_status_basic_functionality(create_epoch_files, create_real_config):
     """Test basic get_run_status functionality with enhanced return type."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
@@ -80,7 +75,7 @@ def test_get_run_status_basic_functionality():
             os.chdir(original_cwd)
 
 
-def test_get_run_status_with_process_info():
+def test_get_run_status_with_process_info(create_epoch_files, create_real_config):
     """Test get_run_status when experiment is running on GPU."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
@@ -132,7 +127,7 @@ def test_get_run_status_with_process_info():
     ("stuck", "stuck"),          # Running on GPU but no log updates  
     ("failed", "failed"),        # No log updates, not on GPU
 ])
-def test_run_status_determination(status_scenario, expected_status):
+def test_run_status_determination(status_scenario, expected_status, create_epoch_files, create_real_config):
     """Test different run status determination scenarios with realistic data."""
     with tempfile.TemporaryDirectory() as temp_root:
         logs_dir = os.path.join(temp_root, "logs")
@@ -192,7 +187,7 @@ def test_run_status_determination(status_scenario, expected_status):
 # TESTS FOR get_all_run_status (REALISTIC WITH MINIMAL MOCK)
 # ============================================================================
 
-def test_get_all_run_status_returns_mapping():
+def test_get_all_run_status_returns_mapping(create_real_config, create_epoch_files, create_minimal_system_monitor_with_processes):
     """Test that get_all_run_status returns Dict[str, RunStatus] with minimal SystemMonitor mock."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create multiple experiment directories
@@ -319,7 +314,7 @@ def test_get_log_last_update():
         assert isinstance(timestamp, float)
 
 
-def test_get_epoch_last_update():
+def test_get_epoch_last_update(EXPECTED_FILES, create_epoch_files):
     """Test epoch file timestamp detection."""
     with tempfile.TemporaryDirectory() as temp_dir:
         expected_files = EXPECTED_FILES
