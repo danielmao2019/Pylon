@@ -2,10 +2,10 @@ from typing import Dict, Union, Tuple
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
-from .range_crop import RangeCrop
-from .fov_crop import FOVCrop
-from .camera_frustum_crop import CameraFrustumCrop
-from .occlusion_crop import OcclusionCrop
+from data.transforms.vision_3d.lidar_simulation_crop.range_crop import RangeCrop
+from data.transforms.vision_3d.lidar_simulation_crop.fov_crop import FOVCrop
+from data.transforms.vision_3d.lidar_simulation_crop.camera_frustum_crop import CameraFrustumCrop
+from data.transforms.vision_3d.lidar_simulation_crop.occlusion_crop import OcclusionCrop
 
 
 class LiDARSimulationCrop(BaseTransform):
@@ -24,11 +24,11 @@ class LiDARSimulationCrop(BaseTransform):
         self,
         max_range: float = 100.0,
         fov: Tuple[Union[int, float], Union[int, float]] = (360.0, 40.0),
+        fov_crop_mode: str = "lidar",
         ray_density_factor: float = 0.8,
         apply_range_filter: bool = True,
         apply_fov_filter: bool = True, 
-        apply_occlusion_filter: bool = False,
-        crop_mode: str = "lidar"
+        apply_occlusion_filter: bool = False
     ):
         """Initialize LiDAR simulation crop transform.
         
@@ -37,11 +37,11 @@ class LiDARSimulationCrop(BaseTransform):
             fov: Tuple of (horizontal_fov, vertical_fov) in degrees
                 - horizontal_fov: Horizontal field of view total angle (360° for spinning, ~120° for solid-state)
                 - vertical_fov: Vertical field of view total angle (e.g., 40° means [-20°, +20°])
+            fov_crop_mode: Cropping mode - "lidar" for cone-shaped LiDAR FOV, "camera" for rectangular camera frustum
             ray_density_factor: Fraction of ray length to check for occlusion (0.8 = check 80%)
             apply_range_filter: Whether to apply range-based filtering
             apply_fov_filter: Whether to apply field-of-view filtering
             apply_occlusion_filter: Whether to apply occlusion simulation (ray-casting)
-            crop_mode: Cropping mode - "lidar" for cone-shaped LiDAR FOV, "camera" for rectangular camera frustum
         """
         # Validate inputs
         assert isinstance(max_range, (int, float)), f"max_range must be numeric, got {type(max_range)}"
@@ -64,8 +64,8 @@ class LiDARSimulationCrop(BaseTransform):
         assert isinstance(apply_fov_filter, bool), f"apply_fov_filter must be bool, got {type(apply_fov_filter)}"
         assert isinstance(apply_occlusion_filter, bool), f"apply_occlusion_filter must be bool, got {type(apply_occlusion_filter)}"
         
-        assert isinstance(crop_mode, str), f"crop_mode must be str, got {type(crop_mode)}"
-        assert crop_mode in ["lidar", "camera"], f"crop_mode must be 'lidar' or 'camera', got {crop_mode}"
+        assert isinstance(fov_crop_mode, str), f"fov_crop_mode must be str, got {type(fov_crop_mode)}"
+        assert fov_crop_mode in ["lidar", "camera"], f"fov_crop_mode must be 'lidar' or 'camera', got {fov_crop_mode}"
         
         # Store parameters
         self.max_range = float(max_range)
@@ -75,17 +75,17 @@ class LiDARSimulationCrop(BaseTransform):
         self.apply_fov_filter = apply_fov_filter
         self.apply_occlusion_filter = apply_occlusion_filter
         self.ray_density_factor = float(ray_density_factor)
-        self.crop_mode = crop_mode
+        self.fov_crop_mode = fov_crop_mode
         
         # Initialize crop components
         self.range_crop = RangeCrop(max_range=max_range) if apply_range_filter else None
         
         # Choose FOV crop implementation based on mode
         if apply_fov_filter:
-            if crop_mode == "lidar":
-                self.fov_crop = FOVCrop(horizontal_fov=horizontal_fov, vertical_fov=vertical_fov)
-            elif crop_mode == "camera":
-                self.fov_crop = CameraFrustumCrop(horizontal_fov=horizontal_fov, vertical_fov=vertical_fov)
+            if fov_crop_mode == "lidar":
+                self.fov_crop = FOVCrop(fov=(horizontal_fov, vertical_fov))
+            elif fov_crop_mode == "camera":
+                self.fov_crop = CameraFrustumCrop(fov=(horizontal_fov, vertical_fov))
         else:
             self.fov_crop = None
             

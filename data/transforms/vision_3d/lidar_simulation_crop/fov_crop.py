@@ -1,4 +1,4 @@
-from typing import Dict, Union
+from typing import Dict, Union, Tuple
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
@@ -13,15 +13,19 @@ class FOVCrop(BaseTransform):
 
     def __init__(
         self,
-        horizontal_fov: Union[int, float] = 360.0,
-        vertical_fov: Union[int, float] = 40.0
+        fov: Tuple[Union[int, float], Union[int, float]] = (360.0, 40.0)
     ):
         """Initialize FOV crop.
         
         Args:
-            horizontal_fov: Horizontal field of view total angle in degrees (360° for spinning, ~120° for solid-state)
-            vertical_fov: Vertical field of view total angle in degrees (e.g., 40° means [-20°, +20°])
+            fov: Tuple of (horizontal_fov, vertical_fov) in degrees
+                - horizontal_fov: Horizontal field of view total angle (360° for spinning, ~120° for solid-state)
+                - vertical_fov: Vertical field of view total angle (e.g., 40° means [-20°, +20°])
         """
+        assert isinstance(fov, tuple), f"fov must be tuple, got {type(fov)}"
+        assert len(fov) == 2, f"fov must be tuple of length 2, got length {len(fov)}"
+        horizontal_fov, vertical_fov = fov
+        
         assert isinstance(horizontal_fov, (int, float)), f"horizontal_fov must be numeric, got {type(horizontal_fov)}"
         assert 0 < horizontal_fov <= 360, f"horizontal_fov must be in (0, 360], got {horizontal_fov}"
         
