@@ -48,8 +48,7 @@ def test_dataset_initialization_custom_parameters(test_data):
         max_trials=100,
         # LiDAR parameters
         lidar_max_range=50.0,
-        lidar_horizontal_fov=360.0,
-        lidar_vertical_fov=90.0,  # Total angle: (-45.0, 45.0) → 90.0
+        lidar_fov=(360.0, 90.0),  # (horizontal_fov, vertical_fov) - Total angle: (-45.0, 45.0) → 90.0
         split='train',
     )
     
@@ -61,8 +60,7 @@ def test_dataset_initialization_custom_parameters(test_data):
     assert dataset.overlap_range == (0.3, 0.9)
     assert dataset.min_points == 100
     assert dataset.lidar_max_range == 50.0
-    assert dataset.lidar_horizontal_fov == 360.0
-    assert dataset.lidar_vertical_fov == 90.0
+    assert dataset.lidar_fov == (360.0, 90.0)
 
 
 def test_camera_pose_loading_by_scene(test_data, basic_dataset_kwargs):

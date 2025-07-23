@@ -260,7 +260,7 @@ class LiDARCameraPosePCRDataset(SyntheticTransformPCRDataset):
             'sensor_position': sensor_position.tolist(),
             'sensor_euler_angles': euler_angles.tolist(),
             'lidar_max_range': self.lidar_max_range,
-            'lidar_fov': (self.lidar_horizontal_fov, self.lidar_vertical_fov),
+            'lidar_fov': self.lidar_fov,
             'seed': seed,
             'crop_seed': crop_seed,
             'camera_pose_idx': camera_pose_idx,
