@@ -29,14 +29,15 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
     """
     # Try fast path: read progress.json with file locking
     progress_file = os.path.join(work_dir, "progress.json")
-    try:
-        data = safe_load_json(progress_file)
-        return ProgressInfo(**data)
-    except:
-        pass
     
-    # Slow path: re-compute and create progress.json
-    return _compute_and_cache_progress(work_dir, expected_files)
+    # Only go to slow path if file doesn't exist at all
+    if not os.path.exists(progress_file):
+        # Slow path: re-compute and create progress.json
+        return _compute_and_cache_progress(work_dir, expected_files)
+    
+    # File exists - any issues (empty, malformed, etc.) should raise
+    data = safe_load_json(progress_file)
+    return ProgressInfo(**data)
 
 
 # ============================================================================
