@@ -209,7 +209,7 @@ class LiDARVisualizationLayout:
                 dcc.Slider(
                     id='h-fov-slider',
                     min=10, max=180, step=5,
-                    value=crop_defaults['fov_only']['h_fov'],
+                    value=crop_defaults['ellipsoid_fov']['h_fov'],
                     marks={i: f"{i}" for i in range(10, 181, 40)},
                     tooltip={"placement": "bottom", "always_visible": True},
                     disabled=False,  # Initially enabled for ellipsoid_fov default
@@ -223,7 +223,7 @@ class LiDARVisualizationLayout:
                 dcc.Slider(
                     id='v-fov-slider',
                     min=5, max=120, step=5,
-                    value=crop_defaults['fov_only']['v_fov'],
+                    value=crop_defaults['ellipsoid_fov']['v_fov'],
                     marks={i: f"{i}" for i in range(5, 121, 25)},
                     tooltip={"placement": "bottom", "always_visible": True},
                     disabled=False,  # Initially enabled for ellipsoid_fov default
