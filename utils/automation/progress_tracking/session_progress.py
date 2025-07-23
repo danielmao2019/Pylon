@@ -1,11 +1,10 @@
 from typing import List, Optional, Tuple
 import os
-import json
 import torch
 from dataclasses import dataclass, asdict
 from utils.automation.cfg_log_conversion import get_config
 from utils.io.config import load_config
-from utils.io.json import save_json
+from utils.io.json import safe_load_json, safe_save_json
 from utils.builders.builder import build_from_config
 
 # Import the unified ProgressInfo from base module
@@ -28,23 +27,17 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
     Returns:
         ProgressInfo dict with completed_epochs, progress_percentage, early_stopped, early_stopped_at_epoch
     """
-    # Try fast path: read progress.json
+    # Try fast path: read progress.json with file locking
     progress_file = os.path.join(work_dir, "progress.json")
-    if os.path.exists(progress_file):
-        # Check if file is empty before attempting JSON load
-        if os.path.getsize(progress_file) == 0:
-            # Empty file - fall through to slow path to recompute
-            pass
-        else:
-            try:
-                with open(progress_file, 'r') as f:
-                    data = json.load(f)
-                    return ProgressInfo(**data)  # Return ProgressInfo dataclass instance
-            except (json.JSONDecodeError, KeyError, TypeError) as e:
-                raise RuntimeError(f"Failed to load progress file {progress_file}: {e}") from e
     
-    # Slow path: re-compute and create progress.json
-    return _compute_and_cache_progress(work_dir, expected_files)
+    # Only go to slow path if file doesn't exist at all
+    if not os.path.exists(progress_file):
+        # Slow path: re-compute and create progress.json
+        return _compute_and_cache_progress(work_dir, expected_files)
+    
+    # File exists - any issues (empty, malformed, etc.) should raise
+    data = safe_load_json(progress_file)
+    return ProgressInfo(**data)
 
 
 # ============================================================================
@@ -52,7 +45,17 @@ def get_session_progress(work_dir: str, expected_files: List[str]) -> ProgressIn
 # ============================================================================
 
 def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> ProgressInfo:
-    """Compute progress and create/update progress.json file."""
+    """Compute progress and create/update progress.json file using thread-safe utilities."""
+    progress_file = os.path.join(work_dir, "progress.json")
+    
+    # Double-check if progress file was created while we were waiting
+    # (safe_load_json handles its own locking)
+    try:
+        data = safe_load_json(progress_file)
+        return ProgressInfo(**data)
+    except:
+        pass
+    
     # Count completed epochs (original logic)
     completed_epochs = 0
     while True:
@@ -90,8 +93,8 @@ def _compute_and_cache_progress(work_dir: str, expected_files: List[str]) -> Pro
         total_epochs=tot_epochs
     )
     
-    progress_file = os.path.join(work_dir, "progress.json")
-    save_json(progress_data, progress_file)
+    # Use thread-safe save (handles its own locking)
+    safe_save_json(progress_data, progress_file)
     
     # Return the ProgressInfo dataclass instance
     return progress_data
@@ -149,18 +152,19 @@ def check_file_loadable(filepath: str) -> bool:
     """Check if a file can be loaded (json or pt)."""
     assert os.path.isfile(filepath)
     assert filepath.endswith(".json") or filepath.endswith(".pt")
-    result: bool = True
+    
     if filepath.endswith(".json"):
+        # Use thread-safe JSON loading
         try:
-            with open(filepath, mode='r') as f:
-                _ = json.load(f)
+            safe_load_json(filepath)
+            return True
         except:
-            result = False
+            return False
     elif filepath.endswith(".pt"):
         try:
             _ = torch.load(filepath)
+            return True
         except:
-            result = False
+            return False
     else:
         assert 0
-    return result
