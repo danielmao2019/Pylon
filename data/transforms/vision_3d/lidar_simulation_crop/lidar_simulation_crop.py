@@ -1,10 +1,9 @@
-from typing import Dict, Union, Tuple
 import torch
 from data.transforms.base_transform import BaseTransform
 from utils.input_checks.point_cloud import check_point_cloud
 from data.transforms.vision_3d.lidar_simulation_crop.range_crop import RangeCrop
-from data.transforms.vision_3d.lidar_simulation_crop.spherical_fov_crop import SphericalFOVCrop
-from data.transforms.vision_3d.lidar_simulation_crop.perspective_fov_crop import PerspectiveFOVCrop
+from data.transforms.vision_3d.lidar_simulation_crop.ellipsoid_fov_crop import EllipsoidFOVCrop
+from data.transforms.vision_3d.lidar_simulation_crop.frustum_fov_crop import FrustumFOVCrop
 from data.transforms.vision_3d.lidar_simulation_crop.occlusion_crop import OcclusionCrop
 
 
@@ -23,8 +22,8 @@ class LiDARSimulationCrop(BaseTransform):
     def __init__(
         self,
         max_range: float = 100.0,
-        fov: Tuple[Union[int, float], Union[int, float]] = (360.0, 40.0),
-        fov_crop_mode: str = "lidar",
+        fov: tuple = (360.0, 40.0),
+        fov_crop_mode: str = "ellipsoid",
         ray_density_factor: float = 0.8,
         apply_range_filter: bool = True,
         apply_fov_filter: bool = True, 
@@ -35,9 +34,7 @@ class LiDARSimulationCrop(BaseTransform):
         Args:
             max_range: Maximum sensor range in meters (typical automotive: 100-200m)
             fov: Tuple of (horizontal_fov, vertical_fov) in degrees
-                - horizontal_fov: Horizontal field of view total angle (360° for spinning, ~120° for solid-state)
-                - vertical_fov: Vertical field of view total angle (e.g., 40° means [-20°, +20°])
-            fov_crop_mode: Cropping mode - "lidar" for cone-shaped spherical FOV, "camera" for rectangular perspective frustum
+            fov_crop_mode: Cropping mode - "ellipsoid" for ellipsoidal FOV, "frustum" for camera frustum
             ray_density_factor: Fraction of ray length to check for occlusion (0.8 = check 80%)
             apply_range_filter: Whether to apply range-based filtering
             apply_fov_filter: Whether to apply field-of-view filtering
@@ -55,7 +52,7 @@ class LiDARSimulationCrop(BaseTransform):
         # Note: FOV range validation is delegated to the specific FOV crop classes
         
         assert isinstance(fov_crop_mode, str), f"fov_crop_mode must be str, got {type(fov_crop_mode)}"
-        assert fov_crop_mode in ["lidar", "camera"], f"fov_crop_mode must be 'lidar' or 'camera', got {fov_crop_mode}"
+        assert fov_crop_mode in ["ellipsoid", "frustum"], f"fov_crop_mode must be 'ellipsoid' or 'frustum', got {fov_crop_mode}"
         
         assert isinstance(ray_density_factor, (int, float)), f"ray_density_factor must be numeric, got {type(ray_density_factor)}"
         assert 0.1 <= ray_density_factor <= 1.0, f"ray_density_factor must be in [0.1, 1.0], got {ray_density_factor}"
@@ -66,33 +63,29 @@ class LiDARSimulationCrop(BaseTransform):
         
         # Store parameters in init argument order
         self.max_range = float(max_range)
-        self.fov = (float(horizontal_fov), float(vertical_fov))  # Store as tuple (consistent format)
+        self.fov = (float(horizontal_fov), float(vertical_fov))
         self.fov_crop_mode = fov_crop_mode
         self.ray_density_factor = float(ray_density_factor)
         self.apply_range_filter = apply_range_filter
         self.apply_fov_filter = apply_fov_filter
         self.apply_occlusion_filter = apply_occlusion_filter
         
-        # Also provide individual access for backward compatibility
-        self.horizontal_fov = float(horizontal_fov)
-        self.vertical_fov = float(vertical_fov)
-        
         # Initialize crop components
         self.range_crop = RangeCrop(max_range=max_range) if apply_range_filter else None
         
         # Choose FOV crop implementation based on mode
         if apply_fov_filter:
-            if fov_crop_mode == "lidar":
-                self.fov_crop = SphericalFOVCrop(fov=self.fov)
-            elif fov_crop_mode == "camera":
-                self.fov_crop = PerspectiveFOVCrop(fov=self.fov)
+            if fov_crop_mode == "ellipsoid":
+                self.fov_crop = EllipsoidFOVCrop(fov=self.fov)
+            elif fov_crop_mode == "frustum":
+                self.fov_crop = FrustumFOVCrop(fov=self.fov)
         else:
             self.fov_crop = None
             
         self.occlusion_crop = OcclusionCrop(ray_density_factor=ray_density_factor) if apply_occlusion_filter else None
 
-    def _call_single(self, pc: Dict[str, torch.Tensor], sensor_extrinsics: torch.Tensor, 
-                    *args, **kwargs) -> Dict[str, torch.Tensor]:
+    def _call_single(self, pc: dict, sensor_extrinsics: torch.Tensor, 
+                    *args, **kwargs) -> dict:
         """Apply sensor simulation crop to point cloud.
         
         Args:
