@@ -19,19 +19,13 @@ from utils.automation.progress_tracking.session_progress import (
     check_file_loadable,
     ProgressInfo
 )
-from conftest import (
-    create_epoch_files,
-    create_progress_json,
-    create_real_config,
-    EXPECTED_FILES
-)
 
 
 # ============================================================================
 # TESTS FOR get_session_progress (NO MOCKS - PURE FUNCTIONS)
 # ============================================================================
 
-def test_get_session_progress_fast_path_normal_run():
+def test_get_session_progress_fast_path_normal_run(create_progress_json, EXPECTED_FILES):
     """Test fast path with progress.json for normal (non-early stopped) run."""
     with tempfile.TemporaryDirectory() as work_dir:
         expected_files = EXPECTED_FILES
@@ -49,7 +43,7 @@ def test_get_session_progress_fast_path_normal_run():
         assert progress.early_stopped_at_epoch is None
 
 
-def test_get_session_progress_fast_path_early_stopped_run():
+def test_get_session_progress_fast_path_early_stopped_run(create_progress_json, EXPECTED_FILES):
     """Test fast path with progress.json for early stopped run."""
     with tempfile.TemporaryDirectory() as work_dir:
         expected_files = EXPECTED_FILES
@@ -75,7 +69,7 @@ def test_get_session_progress_fast_path_early_stopped_run():
     (99, 99),    # Almost complete
     (100, 100),  # Fully complete
 ])
-def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_completed):
+def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_completed, create_epoch_files, create_real_config, EXPECTED_FILES):
     """Test slow path (no progress.json) for various normal completion levels."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -115,7 +109,7 @@ def test_get_session_progress_slow_path_normal_runs(completed_epochs, expected_c
             os.chdir(original_cwd)
 
 
-def test_get_session_progress_deterministic():
+def test_get_session_progress_deterministic(create_progress_json, EXPECTED_FILES):
     """Test that progress calculation is deterministic across multiple calls."""
     with tempfile.TemporaryDirectory() as work_dir:
         expected_files = EXPECTED_FILES
@@ -133,7 +127,7 @@ def test_get_session_progress_deterministic():
         assert results[0].completed_epochs == 42
 
 
-def test_get_session_progress_edge_case_empty_work_dir():
+def test_get_session_progress_edge_case_empty_work_dir(create_real_config, EXPECTED_FILES):
     """Test progress calculation with empty work directory."""
     with tempfile.TemporaryDirectory() as temp_root:
         # Create directory structure that matches cfg_log_conversion pattern
@@ -169,7 +163,7 @@ def test_get_session_progress_edge_case_empty_work_dir():
 # TESTS FOR UTILITY FUNCTIONS
 # ============================================================================
 
-def test_check_epoch_finished():
+def test_check_epoch_finished(create_epoch_files, EXPECTED_FILES):
     """Test epoch completion checking with real files."""
     with tempfile.TemporaryDirectory() as temp_dir:
         epoch_dir = os.path.join(temp_dir, "epoch_0")

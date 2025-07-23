@@ -13,7 +13,6 @@ from utils.automation.progress_tracking.progress_tracker_factory import create_p
 from utils.automation.progress_tracking.trainer_progress_tracker import TrainerProgressTracker
 from utils.automation.progress_tracking.evaluator_progress_tracker import EvaluatorProgressTracker
 from utils.automation.progress_tracking.base_progress_tracker import BaseProgressTracker
-from ..conftest import create_epoch_files
 
 
 # ============================================================================
@@ -40,7 +39,7 @@ def test_create_progress_tracker_returns_evaluator_for_evaluation_pattern():
         assert tracker.config is None
 
 
-def test_create_progress_tracker_returns_trainer_for_trainer_pattern():
+def test_create_progress_tracker_returns_trainer_for_trainer_pattern(create_epoch_files):
     """Test factory returns TrainerProgressTracker for trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern: epoch_0/validation_scores.json
@@ -118,7 +117,7 @@ def test_create_progress_tracker_config_trainer_class():
 # TESTS FOR create_progress_tracker - PRECEDENCE RULES
 # ============================================================================
 
-def test_create_progress_tracker_evaluator_pattern_takes_precedence():
+def test_create_progress_tracker_evaluator_pattern_takes_precedence(create_epoch_files):
     """Test that evaluator file pattern takes precedence over trainer pattern."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create both patterns
@@ -133,7 +132,7 @@ def test_create_progress_tracker_evaluator_pattern_takes_precedence():
         assert isinstance(tracker, EvaluatorProgressTracker)  # Evaluator wins
 
 
-def test_create_progress_tracker_file_pattern_over_config():
+def test_create_progress_tracker_file_pattern_over_config(create_epoch_files):
     """Test that file patterns take precedence over config."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer file pattern
@@ -203,7 +202,7 @@ def test_create_progress_tracker_deterministic():
 # TESTS FOR create_progress_tracker - INTEGRATION
 # ============================================================================
 
-def test_create_progress_tracker_integration_with_real_scenarios():
+def test_create_progress_tracker_integration_with_real_scenarios(create_epoch_files):
     """Test factory with realistic trainer and evaluator scenarios."""
     
     # Test realistic trainer scenario
@@ -266,7 +265,7 @@ def test_create_progress_tracker_integration_with_real_scenarios():
         assert progress.progress_percentage == 100.0
 
 
-def test_create_progress_tracker_validates_created_instances():
+def test_create_progress_tracker_validates_created_instances(create_epoch_files):
     """Test that factory creates properly initialized tracker instances."""
     with tempfile.TemporaryDirectory() as work_dir:
         # Create trainer pattern
